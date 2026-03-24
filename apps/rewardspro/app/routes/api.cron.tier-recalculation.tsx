@@ -13,7 +13,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { recalculateTiersSmart, refreshAnnualSpending } from "../services/tier-management.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "crypto";
@@ -129,7 +129,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   try {
     // 3. Find all shops with automatic recalculation enabled
-    const shops = await db.shopSettings.findMany({
+    const shops = await prisma.shopSettings.findMany({
       where: {
         tierRecalculationEnabled: true
       },
@@ -189,7 +189,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           const recalcResult = await recalculateTiersSmart(shopSettings.shop);
 
           // 6. Update last run timestamp
-          await db.shopSettings.update({
+          await prisma.shopSettings.update({
             where: { shop: shopSettings.shop },
             data: {
               tierRecalculationLastRun: new Date(),

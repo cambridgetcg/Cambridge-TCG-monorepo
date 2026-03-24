@@ -26,7 +26,7 @@ import {
   RefreshIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { analytics } from "../services/analytics/aggregator.service";
@@ -69,7 +69,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // Get shop settings and entitlements in parallel
   const [shopSettings, entitlements] = await Promise.all([
-    db.shopSettings.findUnique({
+    prisma.shopSettings.findUnique({
       where: { shop: session.shop },
     }).catch(() => null),
     getEntitlements(session.shop),

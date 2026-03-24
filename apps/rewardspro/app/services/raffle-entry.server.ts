@@ -9,7 +9,7 @@
  */
 
 import type { RafflePrizeType } from "@prisma/client";
-import db from "../db.server";
+import prisma from "../db.server";
 import { spendPoints, earnPoints, getPointsBalance, adjustPoints } from "./points-ledger.server";
 import { checkRaffleEligibility, type RaffleStatus } from "./raffle-management.server";
 import { trackRaffleEntered, trackPointsSpent } from "./klaviyo-events.server";
@@ -90,7 +90,7 @@ export async function purchaseRaffleEntries(
 
   try {
     // 1. Get the raffle
-    const raffle = await db.raffle.findFirst({
+    const raffle = await prisma.raffle.findFirst({
       where: { id: raffleId, shop },
     });
 
@@ -112,7 +112,7 @@ export async function purchaseRaffleEntries(
     }
 
     // 3. Check entry limits
-    const existingEntry = await db.raffleEntry.findFirst({
+    const existingEntry = await prisma.raffleEntry.findFirst({
       where: { raffleId, customerId },
     });
 
@@ -174,7 +174,7 @@ export async function purchaseRaffleEntries(
 
     // 7. Atomic entry creation + limit enforcement + raffle stats update
     // Transaction prevents race conditions where concurrent requests exceed entry limits
-    const { entry, isNewEntrant } = await db.$transaction(async (tx) => {
+    const { entry, isNewEntrant } = await prisma.$transaction(async (tx) => {
       // Re-check entry count inside transaction (prevents TOCTOU race)
       const txExistingEntry = await tx.raffleEntry.findFirst({
         where: { raffleId, customerId },
@@ -277,7 +277,7 @@ export async function purchaseRaffleEntries(
     (async () => {
       try {
         // Get customer with tier for event tracking
-        const customer = await db.customer.findUnique({
+        const customer = await prisma.customer.findUnique({
           where: { id: customerId },
           include: { currentTier: true },
         });
@@ -363,13 +363,13 @@ export async function getCustomerRaffleStatus(
 ): Promise<CustomerRaffleStatus | null> {
   console.log(`${LOG_PREFIX} getCustomerRaffleStatus: customer=${customerId}, raffle=${raffleId}`);
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
   if (!raffle) return null;
 
-  const entry = await db.raffleEntry.findFirst({
+  const entry = await prisma.raffleEntry.findFirst({
     where: { raffleId, customerId },
   });
 
@@ -401,7 +401,7 @@ export async function getCustomerAvailableRaffles(
   console.log(`${LOG_PREFIX} getCustomerAvailableRaffles: customer=${customerId}`);
 
   // Get all public, non-completed raffles
-  const raffles = await db.raffle.findMany({
+  const raffles = await prisma.raffle.findMany({
     where: {
       shop,
       isPublic: true,
@@ -412,7 +412,7 @@ export async function getCustomerAvailableRaffles(
 
   // Get customer's entries for these raffles
   const raffleIds = raffles.map((r: any) => r.id);
-  const entries = await db.raffleEntry.findMany({
+  const entries = await prisma.raffleEntry.findMany({
     where: {
       customerId,
       raffleId: { in: raffleIds },
@@ -499,7 +499,7 @@ export async function getCustomerRaffleHistory(
   };
 
   // Get entries with raffle info
-  const entries = await db.raffleEntry.findMany({
+  const entries = await prisma.raffleEntry.findMany({
     where: whereClause,
     orderBy: { createdAt: "desc" },
     take: options?.limit || 20,
@@ -507,7 +507,7 @@ export async function getCustomerRaffleHistory(
 
   // Get raffle details for each entry
   const raffleIds = [...new Set(entries.map((e: any) => e.raffleId))];
-  const raffles = await db.raffle.findMany({
+  const raffles = await prisma.raffle.findMany({
     where: { id: { in: raffleIds } },
   });
   const raffleMap = new Map(raffles.map((r: any) => [r.id, r]));
@@ -522,7 +522,7 @@ export async function getCustomerRaffleHistory(
 
   if (winningEntryIds.length > 0) {
     // Fetch winner records
-    const winners = await db.raffleWinner.findMany({
+    const winners = await prisma.raffleWinner.findMany({
       where: {
         raffleEntryId: { in: winningEntryIds },
         shop,
@@ -535,7 +535,7 @@ export async function getCustomerRaffleHistory(
     // Fetch prize details for winners
     const prizeIds = winners.map((w: any) => w.rafflePrizeId);
     if (prizeIds.length > 0) {
-      const prizes = await db.rafflePrize.findMany({
+      const prizes = await prisma.rafflePrize.findMany({
         where: { id: { in: prizeIds } },
       });
       prizeMap = new Map(prizes.map((p: any) => [p.id, p]));
@@ -607,7 +607,7 @@ export async function refundRaffleEntries(
 ): Promise<{ refundedCount: number; totalPointsRefunded: number }> {
   console.log(`${LOG_PREFIX} refundRaffleEntries: raffle=${raffleId}`);
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
@@ -616,7 +616,7 @@ export async function refundRaffleEntries(
   }
 
   // Get all entries
-  const entries = await db.raffleEntry.findMany({
+  const entries = await prisma.raffleEntry.findMany({
     where: { raffleId },
   });
 
@@ -665,7 +665,7 @@ export async function claimDailyFreeEntry(
 
   try {
     // 1. Get the raffle
-    const raffle = await db.raffle.findFirst({
+    const raffle = await prisma.raffle.findFirst({
       where: { id: raffleId, shop },
     });
 
@@ -692,7 +692,7 @@ export async function claimDailyFreeEntry(
     }
 
     // 4. Check entry limits
-    const existingEntry = await db.raffleEntry.findFirst({
+    const existingEntry = await prisma.raffleEntry.findFirst({
       where: { raffleId, customerId },
     });
 
@@ -715,7 +715,7 @@ export async function claimDailyFreeEntry(
     const isNewEntrant = !existingEntry;
 
     if (existingEntry) {
-      entry = await db.raffleEntry.update({
+      entry = await prisma.raffleEntry.update({
         where: { id: existingEntry.id },
         data: {
           entriesCount: existingEntry.entriesCount + 1,
@@ -723,7 +723,7 @@ export async function claimDailyFreeEntry(
         },
       });
     } else {
-      entry = await db.raffleEntry.create({
+      entry = await prisma.raffleEntry.create({
         data: {
           raffleId,
           customerId,
@@ -738,7 +738,7 @@ export async function claimDailyFreeEntry(
     }
 
     // 7. Update raffle statistics
-    await db.raffle.update({
+    await prisma.raffle.update({
       where: { id: raffleId },
       data: {
         totalEntries: raffle.totalEntries + 1,

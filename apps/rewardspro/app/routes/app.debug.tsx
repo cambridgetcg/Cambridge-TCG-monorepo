@@ -16,7 +16,7 @@ import {
 import { RefreshIcon } from "@shopify/polaris-icons";
 import { useState } from "react";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { getEnabledFeatures, getCurrencyBranding } from "~/services/points-config.server";
 import { getRaffleStreakInfo } from "~/services/raffle-streak.server";
 import { getCustomerActiveChallenges } from "~/services/challenge-progress.server";
@@ -97,7 +97,7 @@ async function diagnoseRaffles(shop: string): Promise<ModuleResult> {
 
   // Step 2: Query active raffles (no nested select — Data API adapter ignores them)
   const step2 = await runStep("raffle.findMany", "Query active public raffles", async () => {
-    const raffles = await db.raffle.findMany({
+    const raffles = await prisma.raffle.findMany({
       where: {
         shop,
         status: "ACTIVE",
@@ -116,7 +116,7 @@ async function diagnoseRaffles(shop: string): Promise<ModuleResult> {
 
   // Step 3: Find a test customer
   const step3 = await runStep("customer.findFirst", "Find a customer record", async () => {
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { shop },
       select: { id: true, shopifyCustomerId: true, pointsBalance: true },
     });
@@ -136,7 +136,7 @@ async function diagnoseRaffles(shop: string): Promise<ModuleResult> {
 
   if (raffleIds.length > 0 && customerId) {
     const step4 = await runStep("raffleEntry.groupBy", "GroupBy entry counts (common failure point)", async () => {
-      const entries = await db.raffleEntry.groupBy({
+      const entries = await prisma.raffleEntry.groupBy({
         by: ["raffleId"],
         where: {
           customerId,
@@ -219,7 +219,7 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
 
   // Step 2: Query active boxes (flat — no nested select/include)
   const step2 = await runStep("mysteryBox.findMany", "Query active mystery boxes (flat)", async () => {
-    const boxes = await db.mysteryBox.findMany({
+    const boxes = await prisma.mysteryBox.findMany({
       where: {
         shop,
         status: "ACTIVE",
@@ -258,7 +258,7 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
       "mysteryBoxReward.findMany",
       "Query rewards separately (Data API compat — was nested include)",
       async () => {
-        const rewards = await db.mysteryBoxReward.findMany({
+        const rewards = await prisma.mysteryBoxReward.findMany({
           where: { boxId: { in: boxIds } },
           orderBy: { probability: "desc" },
         });
@@ -302,7 +302,7 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
       "canary._count",
       "Canary: _count.opens on flat query (should be undefined)",
       async () => {
-        const box = await db.mysteryBox.findFirst({
+        const box = await prisma.mysteryBox.findFirst({
           where: { id: boxIds[0] },
         });
         const hasCount = (box as any)?._count !== undefined;
@@ -329,7 +329,7 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
 
   // Step 5: Find test customer
   const step5 = await runStep("customer.findFirst", "Find a customer record", async () => {
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { shop },
       select: { id: true, shopifyCustomerId: true, pointsBalance: true },
     });
@@ -351,7 +351,7 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
       "mysteryBoxOpen.findMany",
       "Query customer opens per box (separate query)",
       async () => {
-        const customerOpens = await db.mysteryBoxOpen.findMany({
+        const customerOpens = await prisma.mysteryBoxOpen.findMany({
           where: {
             customerId,
             boxId: { in: boxIds },
@@ -388,12 +388,12 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
       "Open prerequisites: box flat + rewards separate (Data API compat)",
       async () => {
         // Mirrors the flattened pattern in mystery-box-open.server.ts
-        const box = await db.mysteryBox.findFirst({
+        const box = await prisma.mysteryBox.findFirst({
           where: { id: boxIds[0], shop },
         });
         if (!box) throw new Error("Box not found in findFirst");
 
-        const rewards = await db.mysteryBoxReward.findMany({
+        const rewards = await prisma.mysteryBoxReward.findMany({
           where: { boxId: boxIds[0] },
           orderBy: { position: "asc" },
         });
@@ -426,7 +426,7 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
 
   // Step 8: Canary: include { box: true } on reward (the removeReward/updateReward root cause)
   const anyRewardId = boxIds.length > 0
-    ? (await db.mysteryBoxReward.findFirst({ where: { boxId: { in: boxIds } }, select: { id: true } }))?.id
+    ? (await prisma.mysteryBoxReward.findFirst({ where: { boxId: { in: boxIds } }, select: { id: true } }))?.id
     : null;
 
   if (anyRewardId) {
@@ -434,7 +434,7 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
       "canary.reward.include.box",
       "Canary: include { box: true } on reward (root cause of remove bug)",
       async () => {
-        const reward = await db.mysteryBoxReward.findFirst({
+        const reward = await prisma.mysteryBoxReward.findFirst({
           where: { id: anyRewardId },
           include: { box: true },
         } as any);
@@ -466,12 +466,12 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
       "reward.flat.then.box",
       "Flattened: reward.findFirst flat + box.findFirst by reward.boxId (fix pattern)",
       async () => {
-        const reward = await db.mysteryBoxReward.findFirst({
+        const reward = await prisma.mysteryBoxReward.findFirst({
           where: { id: anyRewardId },
         });
         if (!reward) throw new Error("Reward not found in flat query");
 
-        const box = await db.mysteryBox.findFirst({
+        const box = await prisma.mysteryBox.findFirst({
           where: { id: reward.boxId, shop },
         });
         if (!box) throw new Error(`Box ${reward.boxId} not found for shop ${shop}`);
@@ -519,7 +519,7 @@ async function diagnoseMissions(shop: string): Promise<ModuleResult> {
 
   // Step 1: Basic challenge fetch (flat — no includes)
   const step1 = await runStep("challenge.findMany", "Query active challenges (flat)", async () => {
-    const challenges = await db.challenge.findMany({
+    const challenges = await prisma.challenge.findMany({
       where: {
         shop,
         status: "ACTIVE",
@@ -542,7 +542,7 @@ async function diagnoseMissions(shop: string): Promise<ModuleResult> {
   // Step 2: Separate reward lookup
   if (challengeIds.length > 0) {
     const step2 = await runStep("challengeReward.findMany", "Query rewards separately (Data API compat)", async () => {
-      const rewards = await db.challengeReward.findMany({
+      const rewards = await prisma.challengeReward.findMany({
         where: { challengeId: { in: challengeIds } },
       });
       return {
@@ -560,7 +560,7 @@ async function diagnoseMissions(shop: string): Promise<ModuleResult> {
 
   if (challengeIds.length > 0 && customerId) {
     const step3 = await runStep("challengeParticipant.findMany", "Query participants separately (Data API compat)", async () => {
-      const participants = await db.challengeParticipant.findMany({
+      const participants = await prisma.challengeParticipant.findMany({
         where: { challengeId: { in: challengeIds }, customerId },
       });
       return {
@@ -576,7 +576,7 @@ async function diagnoseMissions(shop: string): Promise<ModuleResult> {
   // Step 4: Single-level include (adapter supported — reward only)
   if (challengeIds.length > 0) {
     const step4 = await runStep("challenge.include.reward", "Challenge with include: { reward: true } (adapter supported)", async () => {
-      const challenges = await db.challenge.findMany({
+      const challenges = await prisma.challenge.findMany({
         where: { id: { in: challengeIds.slice(0, 3) } },
         include: { reward: true },
       });
@@ -594,7 +594,7 @@ async function diagnoseMissions(shop: string): Promise<ModuleResult> {
   if (challengeIds.length > 0 && customerId) {
     const step5 = await runStep("challenge.include.participants.where", "Challenge with filtered include: participants (P0-1 pattern)", async () => {
       try {
-        const challenges = await db.challenge.findMany({
+        const challenges = await prisma.challenge.findMany({
           where: { id: { in: challengeIds.slice(0, 1) } },
           include: {
             reward: true,
@@ -622,7 +622,7 @@ async function diagnoseMissions(shop: string): Promise<ModuleResult> {
   if (customerId) {
     const step6 = await runStep("participant.include.challenge.include.reward", "Double-nested include: participant → challenge → reward (P0-2/P0-3 pattern)", async () => {
       try {
-        const participants = await db.challengeParticipant.findMany({
+        const participants = await prisma.challengeParticipant.findMany({
           where: { customerId, shop },
           include: {
             challenge: { include: { reward: true } },
@@ -692,7 +692,7 @@ async function diagnoseMissions(shop: string): Promise<ModuleResult> {
 
 /** Helper: find a test customer for diagnostic queries */
 async function getTestCustomerId(shop: string): Promise<string | null> {
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { shop },
     select: { id: true },
   });
@@ -727,7 +727,7 @@ export async function action({ request }: ActionFunctionArgs) {
   let dbResponseMs = 0;
   const dbStart = performance.now();
   try {
-    await db.$queryRaw`SELECT 1`;
+    await prisma.$queryRaw`SELECT 1`;
     dbConnected = true;
     dbResponseMs = Math.round(performance.now() - dbStart);
   } catch {

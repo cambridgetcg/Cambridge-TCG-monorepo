@@ -6,7 +6,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../../shopify.server";
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { setManualOverride } from "../../services/tier-state.server";
 import { updateCustomerToEffectiveTier } from "../../services/tier-resolution.server";
@@ -45,7 +45,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
   
   const [customers, total] = await Promise.all([
-    db.customer.findMany({
+    prisma.customer.findMany({
       where,
       include: {
         currentTier: {
@@ -60,7 +60,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       take: limit,
       orderBy: { createdAt: 'desc' }
     }),
-    db.customer.count({ where })
+    prisma.customer.count({ where })
   ]);
   
   return json({
@@ -106,7 +106,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   
   // Check for duplicate
-  const existing = await db.customer.findFirst({
+  const existing = await prisma.customer.findFirst({
     where: {
       shop: session.shop,
       shopifyCustomerId: data.shopifyCustomerId
@@ -119,7 +119,7 @@ export async function action({ request }: ActionFunctionArgs) {
   
   // Create customer without tier (tier will be set through proper channel)
   const customerId = uuidv4();
-  const customer = await db.customer.create({
+  const customer = await prisma.customer.create({
     data: {
       id: customerId,
       shop: session.shop,

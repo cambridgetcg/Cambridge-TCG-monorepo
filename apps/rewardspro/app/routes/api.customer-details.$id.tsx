@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import {
   getCustomerOrderSummary,
   getCustomerDetailedOrders,
@@ -25,7 +25,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   
   try {
     // Fetch customer details with shop scope for security
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
         shop: session.shop // CRITICAL: Always scope to shop
@@ -39,7 +39,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     // Fetch tier information if customer has one
     let tier = null;
     if (customer.currentTierId) {
-      tier = await db.tier.findFirst({
+      tier = await prisma.tier.findFirst({
         where: {
           id: customer.currentTierId,
           shop: session.shop // CRITICAL: Always scope to shop
@@ -48,7 +48,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     }
 
     // Fetch ALL tiers for this shop to determine next tier and progression
-    const allTiers = await db.tier.findMany({
+    const allTiers = await prisma.tier.findMany({
       where: { shop: session.shop },
       orderBy: { minSpend: 'asc' }
     });
@@ -73,7 +73,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     
     // Fetch credit ledger history
     // Uses composite index: (customerId, shop, createdAt DESC)
-    const creditHistory = await db.storeCreditLedger.findMany({
+    const creditHistory = await prisma.storeCreditLedger.findMany({
       where: {
         customerId: customer.id,
         shop: session.shop // CRITICAL: Always scope to shop
@@ -85,7 +85,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     });
     
     // Fetch tier change logs
-    const tierChangeLogs = await db.tierChangeLog.findMany({
+    const tierChangeLogs = await prisma.tierChangeLog.findMany({
       where: {
         customerId: customer.id,
         shop: session.shop // CRITICAL: Always scope to shop
@@ -97,7 +97,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     });
 
     // Fetch CustomerTierState for single source of truth on tier status
-    const tierState = await db.customerTierState.findUnique({
+    const tierState = await prisma.customerTierState.findUnique({
       where: {
         customerId: customer.id
       }
@@ -124,7 +124,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const orders = await Promise.all(
       localOrders.map(async (order) => {
         // Get line items for this order
-        const lineItems = await db.orderLineItem.findMany({
+        const lineItems = await prisma.orderLineItem.findMany({
           where: { orderId: order.id },
           take: 10,
           orderBy: { createdAt: "asc" },
@@ -160,7 +160,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     );
     
     // Get shop settings for currency formatting
-    const shopSettings = await db.shopSettings.findUnique({
+    const shopSettings = await prisma.shopSettings.findUnique({
       where: { shop: session.shop }
     });
     

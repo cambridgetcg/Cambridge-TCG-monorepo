@@ -11,7 +11,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 
 interface ProductVariant {
   id: number;
@@ -102,7 +102,7 @@ export async function action({ request }: ActionFunctionArgs) {
     console.log(`[ProductsUpdate] Variants count: ${product.variants?.length || 0}`);
 
     // Find all TierProducts that use this Shopify product
-    const tierProducts = await db.tierProduct.findMany({
+    const tierProducts = await prisma.tierProduct.findMany({
       where: {
         shop,
         shopifyProductId,
@@ -158,7 +158,7 @@ export async function action({ request }: ActionFunctionArgs) {
         console.log(`[ProductsUpdate]   New Shopify price: ${shopifyPrice}`);
 
         // Update the TierProduct price
-        await db.tierProduct.update({
+        await prisma.tierProduct.update({
           where: { id: tierProduct.id },
           data: {
             price: shopifyPrice,
@@ -168,7 +168,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
         // Create audit log entry for price change
         try {
-          await db.tierProductAuditLog.create({
+          await prisma.tierProductAuditLog.create({
             data: {
               tierProductId: tierProduct.id,
               shop,

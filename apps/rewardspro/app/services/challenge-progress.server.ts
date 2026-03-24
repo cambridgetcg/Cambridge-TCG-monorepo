@@ -9,7 +9,7 @@
  * streaks/combos, and trigger celebration animations on completion.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type {
   ChallengeObjectiveType,
   ChallengeParticipantStatus,
@@ -96,7 +96,7 @@ export async function updateChallengeProgress(
   );
 
   // Get the challenge
-  const challenge = await db.challenge.findFirst({
+  const challenge = await prisma.challenge.findFirst({
     where: { id: challengeId, shop, status: "ACTIVE" },
   });
 
@@ -106,7 +106,7 @@ export async function updateChallengeProgress(
   }
 
   // Get or create participant
-  let participant = await db.challengeParticipant.findUnique({
+  let participant = await prisma.challengeParticipant.findUnique({
     where: {
       challengeId_customerId: { challengeId, customerId },
     },
@@ -116,7 +116,7 @@ export async function updateChallengeProgress(
 
   if (!participant) {
     // Auto-enroll the customer
-    participant = await db.challengeParticipant.create({
+    participant = await prisma.challengeParticipant.create({
       data: {
         challengeId,
         customerId,
@@ -128,7 +128,7 @@ export async function updateChallengeProgress(
     });
 
     // Update challenge statistics
-    await db.challenge.update({
+    await prisma.challenge.update({
       where: { id: challengeId },
       data: { totalParticipants: { increment: 1 } },
     });
@@ -168,7 +168,7 @@ export async function updateChallengeProgress(
   const isNewlyCompleted = !wasCompleted && isNowCompleted;
 
   // Update participant
-  const updatedParticipant = await db.challengeParticipant.update({
+  const updatedParticipant = await prisma.challengeParticipant.update({
     where: { id: participant.id },
     data: {
       currentProgress: newProgress,
@@ -179,7 +179,7 @@ export async function updateChallengeProgress(
   });
 
   // Log the progress update
-  await db.challengeProgressLog.create({
+  await prisma.challengeProgressLog.create({
     data: {
       challengeId,
       participantId: participant.id,
@@ -196,7 +196,7 @@ export async function updateChallengeProgress(
 
   // Update challenge statistics if newly completed
   if (isNewlyCompleted) {
-    await db.challenge.update({
+    await prisma.challenge.update({
       where: { id: challengeId },
       data: { completedCount: { increment: 1 } },
     });
@@ -249,13 +249,13 @@ export async function processOrderForChallenges(
   const now = new Date();
 
   // Get customer's tier for eligibility checks
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { currentTierId: true },
   });
 
   // Get all active challenges for the shop
-  const challenges = await db.challenge.findMany({
+  const challenges = await prisma.challenge.findMany({
     where: {
       shop,
       status: "ACTIVE",
@@ -392,7 +392,7 @@ export async function processReferralForChallenges(
   const now = new Date();
 
   // Get all active referral challenges
-  const challenges = await db.challenge.findMany({
+  const challenges = await prisma.challenge.findMany({
     where: {
       shop,
       status: "ACTIVE",
@@ -457,7 +457,7 @@ export async function processReviewForChallenges(
   const now = new Date();
 
   // Get all active review challenges
-  const challenges = await db.challenge.findMany({
+  const challenges = await prisma.challenge.findMany({
     where: {
       shop,
       status: "ACTIVE",
@@ -515,13 +515,13 @@ export async function getCustomerActiveChallenges(
   const now = new Date();
 
   // Get customer's current tier
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { currentTierId: true },
   });
 
   // Get all active challenges for the shop (flat — no nested includes)
-  const challenges = await db.challenge.findMany({
+  const challenges = await prisma.challenge.findMany({
     where: {
       shop,
       status: "ACTIVE",
@@ -537,10 +537,10 @@ export async function getCustomerActiveChallenges(
   // Fetch rewards and participants separately (Data API adapter compat)
   const [rewards, participants] = await Promise.all([
     challengeIds.length > 0
-      ? db.challengeReward.findMany({ where: { challengeId: { in: challengeIds } } })
+      ? prisma.challengeReward.findMany({ where: { challengeId: { in: challengeIds } } })
       : [],
     challengeIds.length > 0
-      ? db.challengeParticipant.findMany({
+      ? prisma.challengeParticipant.findMany({
           where: { challengeId: { in: challengeIds }, customerId },
         })
       : [],
@@ -605,7 +605,7 @@ export async function getCustomerActiveChallenges(
 
   // Also get completed/claimed challenges that haven't expired yet
   // (separate queries — Data API adapter doesn't support relation filters or double-nested includes)
-  const completedParticipants = await db.challengeParticipant.findMany({
+  const completedParticipants = await prisma.challengeParticipant.findMany({
     where: {
       customerId,
       shop,
@@ -617,12 +617,12 @@ export async function getCustomerActiveChallenges(
   const completedChallengeIds = completedParticipants.map((p: { challengeId: string }) => p.challengeId);
   const [completedChallenges, completedRewards] = await Promise.all([
     completedChallengeIds.length > 0
-      ? db.challenge.findMany({
+      ? prisma.challenge.findMany({
           where: { id: { in: completedChallengeIds }, endsAt: { gt: now } },
         })
       : [],
     completedChallengeIds.length > 0
-      ? db.challengeReward.findMany({
+      ? prisma.challengeReward.findMany({
           where: { challengeId: { in: completedChallengeIds } },
         })
       : [],
@@ -691,7 +691,7 @@ export async function getCustomerChallengeHistory(
   limit: number = 20
 ): Promise<CustomerChallengeInfo[]> {
   // Flat query — no nested includes (Data API adapter compat)
-  const participants = await db.challengeParticipant.findMany({
+  const participants = await prisma.challengeParticipant.findMany({
     where: {
       customerId,
       shop,
@@ -705,10 +705,10 @@ export async function getCustomerChallengeHistory(
   const histChallengeIds = participants.map((p: { challengeId: string }) => p.challengeId);
   const [histChallenges, histRewards] = await Promise.all([
     histChallengeIds.length > 0
-      ? db.challenge.findMany({ where: { id: { in: histChallengeIds } } })
+      ? prisma.challenge.findMany({ where: { id: { in: histChallengeIds } } })
       : [],
     histChallengeIds.length > 0
-      ? db.challengeReward.findMany({ where: { challengeId: { in: histChallengeIds } } })
+      ? prisma.challengeReward.findMany({ where: { challengeId: { in: histChallengeIds } } })
       : [],
   ]);
 
@@ -768,7 +768,7 @@ export async function expireEndedChallenges(shop: string): Promise<number> {
   const now = new Date();
 
   // Get challenges that have ended but are still ACTIVE
-  const endedChallenges = await db.challenge.findMany({
+  const endedChallenges = await prisma.challenge.findMany({
     where: {
       shop,
       status: "ACTIVE",
@@ -784,13 +784,13 @@ export async function expireEndedChallenges(shop: string): Promise<number> {
   const challengeIds = endedChallenges.map((c) => c.id);
 
   // Update challenge status
-  await db.challenge.updateMany({
+  await prisma.challenge.updateMany({
     where: { id: { in: challengeIds } },
     data: { status: "CLOSED" },
   });
 
   // Expire incomplete participants
-  await db.challengeParticipant.updateMany({
+  await prisma.challengeParticipant.updateMany({
     where: {
       challengeId: { in: challengeIds },
       status: "IN_PROGRESS",
@@ -812,7 +812,7 @@ export async function expireEndedChallenges(shop: string): Promise<number> {
 export async function activateScheduledChallenges(shop: string): Promise<number> {
   const now = new Date();
 
-  const result = await db.challenge.updateMany({
+  const result = await prisma.challenge.updateMany({
     where: {
       shop,
       status: "SCHEDULED",

@@ -16,7 +16,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { timingSafeEqual } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { unauthenticated } from "~/shopify.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import * as crypto from "crypto";
@@ -84,7 +84,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const maxAge = new Date(now.getTime() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
 
     // Find PENDING cashback entries that need retry
-    const pendingEntries = await db.storeCreditLedger.findMany({
+    const pendingEntries = await prisma.storeCreditLedger.findMany({
       where: {
         type: 'CASHBACK_EARNED',
         createdAt: {
@@ -144,7 +144,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const storeCreditService = createStoreCreditService(admin, shop);
 
       // Get shop currency
-      const shopSettings = await db.shopSettings.findUnique({
+      const shopSettings = await prisma.shopSettings.findUnique({
         where: { shop },
         select: { storeCurrency: true }
       });
@@ -178,7 +178,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             const actualBalance = result.balance || (Number(entry.customer.storeCredit) + Number(entry.amount));
 
             // Update ledger entry to SYNCED
-            await db.storeCreditLedger.update({
+            await prisma.storeCreditLedger.update({
               where: { id: entry.id },
               data: {
                 balance: actualBalance,
@@ -194,7 +194,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             });
 
             // Update customer balance
-            await db.customer.update({
+            await prisma.customer.update({
               where: { id: entry.customer.id },
               data: {
                 storeCredit: actualBalance,

@@ -5,7 +5,7 @@
  * guidance for future sessions. Part of the AI Feedback System.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { AILearningPattern, AICodeQualitySignal, AISessionFeedback } from "@prisma/client";
 
 // Types
@@ -51,7 +51,7 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
   };
 
   // 1. Analyze recent session feedback
-  const recentFeedback = await db.aISessionFeedback.findMany({
+  const recentFeedback = await prisma.aISessionFeedback.findMany({
     where: {
       createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // Last 7 days
     },
@@ -85,7 +85,7 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
   }
 
   // 2. Update pattern confidence based on recent actions
-  const recentActions = await db.aISessionAction.findMany({
+  const recentActions = await prisma.aISessionAction.findMany({
     where: {
       createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       patternUsed: { not: null },
@@ -107,7 +107,7 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
 
   // Update patterns
   for (const [patternName, stats] of Object.entries(actionsByPattern)) {
-    const pattern = await db.aILearningPattern.findUnique({
+    const pattern = await prisma.aILearningPattern.findUnique({
       where: { patternName },
     });
 
@@ -116,7 +116,7 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
       const newTimesSuccessful = pattern.timesSuccessful + stats.successful;
       const newConfidence = newTimesUsed > 0 ? newTimesSuccessful / newTimesUsed : 0.5;
 
-      await db.aILearningPattern.update({
+      await prisma.aILearningPattern.update({
         where: { id: pattern.id },
         data: {
           timesUsed: newTimesUsed,
@@ -131,7 +131,7 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
   }
 
   // 3. Identify blindspots (low confidence patterns)
-  const lowConfidencePatterns = await db.aILearningPattern.findMany({
+  const lowConfidencePatterns = await prisma.aILearningPattern.findMany({
     where: {
       confidence: { lt: 0.4 },
       timesUsed: { gte: 3 },
@@ -147,7 +147,7 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
   }
 
   // 4. Analyze unresolved signals
-  const unresolvedSignals = await db.aICodeQualitySignal.findMany({
+  const unresolvedSignals = await prisma.aICodeQualitySignal.findMany({
     where: { resolved: false },
     orderBy: { createdAt: "asc" },
   });
@@ -178,7 +178,7 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
  * Identify specific blindspots with recommendations
  */
 export async function identifyBlindspots(): Promise<Blindspot[]> {
-  const patterns = await db.aILearningPattern.findMany({
+  const patterns = await prisma.aILearningPattern.findMany({
     where: {
       timesUsed: { gte: 2 },
     },
@@ -228,7 +228,7 @@ export async function suggestImprovements(): Promise<Improvement[]> {
   const improvements: Improvement[] = [];
 
   // Check session satisfaction trends
-  const recentSessions = await db.aISession.findMany({
+  const recentSessions = await prisma.aISession.findMany({
     where: {
       endedAt: { not: null },
       satisfactionScore: { not: null },
@@ -254,7 +254,7 @@ export async function suggestImprovements(): Promise<Improvement[]> {
   }
 
   // Check for unused patterns
-  const unusedPatterns = await db.aILearningPattern.findMany({
+  const unusedPatterns = await prisma.aILearningPattern.findMany({
     where: {
       OR: [
         { lastUsedAt: null },
@@ -273,7 +273,7 @@ export async function suggestImprovements(): Promise<Improvement[]> {
   }
 
   // Check unresolved signal count
-  const unresolvedCount = await db.aICodeQualitySignal.count({
+  const unresolvedCount = await prisma.aICodeQualitySignal.count({
     where: { resolved: false },
   });
 
@@ -300,7 +300,7 @@ export async function getGuidanceForTask(
   context?: string[]
 ): Promise<Guidance> {
   // Get patterns applicable to this task
-  const applicablePatterns = await db.aILearningPattern.findMany({
+  const applicablePatterns = await prisma.aILearningPattern.findMany({
     where: {
       confidence: { gte: 0.6 },
       ...(context && context.length > 0 && {
@@ -312,7 +312,7 @@ export async function getGuidanceForTask(
   });
 
   // Get blindspots to watch
-  const blindspots = await db.aILearningPattern.findMany({
+  const blindspots = await prisma.aILearningPattern.findMany({
     where: {
       confidence: { lt: 0.5 },
       ...(context && context.length > 0 && {
@@ -323,7 +323,7 @@ export async function getGuidanceForTask(
   });
 
   // Get relevant signals
-  const relevantSignals = await db.aICodeQualitySignal.findMany({
+  const relevantSignals = await prisma.aICodeQualitySignal.findMany({
     where: {
       resolved: false,
       ...(context && context.length > 0 && {
@@ -337,7 +337,7 @@ export async function getGuidanceForTask(
   });
 
   // Get recent learnings from sessions
-  const recentSessions = await db.aISession.findMany({
+  const recentSessions = await prisma.aISession.findMany({
     where: {
       learnings: { not: null },
     },
@@ -369,10 +369,10 @@ export async function getLearningHealthScore(): Promise<{
     unresolvedSignals,
     recentSessions,
   ] = await Promise.all([
-    db.aILearningPattern.count(),
-    db.aILearningPattern.count({ where: { confidence: { gte: 0.7 } } }),
-    db.aICodeQualitySignal.count({ where: { resolved: false } }),
-    db.aISession.findMany({
+    prisma.aILearningPattern.count(),
+    prisma.aILearningPattern.count({ where: { confidence: { gte: 0.7 } } }),
+    prisma.aICodeQualitySignal.count({ where: { resolved: false } }),
+    prisma.aISession.findMany({
       where: {
         endedAt: { not: null },
         createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },

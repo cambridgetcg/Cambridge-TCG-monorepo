@@ -6,7 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import db from '~/db.server';
+import prisma from '~/db.server';
 import { hasManualOverride } from './manual-tier-assignment.server';
 import { sendWelcomeEmailNotification } from './email-notifications.server';
 import { processAutomationTrigger } from './automation-trigger.server';
@@ -53,7 +53,7 @@ export async function handleCustomerCreate(
   const customerData = parseCustomerPayload(payload);
   
   // Check if customer already exists
-  const existingCustomer = await db.customer.findFirst({
+  const existingCustomer = await prisma.customer.findFirst({
     where: {
       shop: shopDomain,
       shopifyCustomerId: customerData.shopifyCustomerId,
@@ -70,7 +70,7 @@ export async function handleCustomerCreate(
   const customerId = uuidv4();
   const now = new Date();
   
-  const customer = await db.customer.create({
+  const customer = await prisma.customer.create({
     data: {
       id: customerId,
       shop: shopDomain,
@@ -148,7 +148,7 @@ export async function handleCustomerCreate(
       console.log(`[CustomerSync] Syncing customer to Klaviyo: ${customerId}`);
 
       // Get all tiers for profile properties
-      const tiers = await db.tier.findMany({
+      const tiers = await prisma.tier.findMany({
         where: { shop: shopDomain },
         orderBy: { minSpend: 'asc' },
       });
@@ -190,7 +190,7 @@ export async function handleCustomerUpdate(
   const customerData = parseCustomerPayload(payload);
   
   // Find existing customer
-  const existingCustomer = await db.customer.findFirst({
+  const existingCustomer = await prisma.customer.findFirst({
     where: {
       shop: shopDomain,
       shopifyCustomerId: customerData.shopifyCustomerId,
@@ -218,7 +218,7 @@ export async function handleCustomerDelete(
   const shopifyCustomerId = String(payload.id);
   
   // We don't actually delete, just mark as deleted
-  const customer = await db.customer.updateMany({
+  const customer = await prisma.customer.updateMany({
     where: {
       shop: shopDomain,
       shopifyCustomerId: shopifyCustomerId,
@@ -246,7 +246,7 @@ async function updateCustomer(
   shopDomain: string
 ): Promise<{ action: string; customerId: string }> {
   // NEUROSURGICAL FIX: Get existing customer to calculate netSpent properly
-  const existingCustomer = await db.customer.findUnique({
+  const existingCustomer = await prisma.customer.findUnique({
     where: { id: customerId },
     select: { totalRefunded: true }
   });
@@ -254,7 +254,7 @@ async function updateCustomer(
   const updatedTotalSpent = customerData.totalSpent;
   const currentTotalRefunded = Number(existingCustomer?.totalRefunded || 0);
 
-  const customer = await db.customer.update({
+  const customer = await prisma.customer.update({
     where: {
       id: customerId,
     },
@@ -288,20 +288,20 @@ async function updateCustomer(
       console.log(`[CustomerSync] Syncing updated customer to Klaviyo: ${customerId}`);
 
       // Get all tiers for profile properties
-      const tiers = await db.tier.findMany({
+      const tiers = await prisma.tier.findMany({
         where: { shop: shopDomain },
         orderBy: { minSpend: 'asc' },
       });
 
       // Get full customer record
-      const fullCustomer = await db.customer.findUnique({
+      const fullCustomer = await prisma.customer.findUnique({
         where: { id: customerId },
       });
 
       if (fullCustomer) {
         // Get current tier if customer has one
         const currentTier = fullCustomer.currentTierId
-          ? await db.tier.findUnique({ where: { id: fullCustomer.currentTierId } })
+          ? await prisma.tier.findUnique({ where: { id: fullCustomer.currentTierId } })
           : null;
 
         const customerWithTier = {
@@ -377,7 +377,7 @@ async function calculateAndAssignTier(
 
     // Return the new tier if one was assigned
     if (result.newTierId) {
-      const tier = await db.tier.findUnique({
+      const tier = await prisma.tier.findUnique({
         where: { id: result.newTierId }
       });
       return tier;
@@ -406,7 +406,7 @@ export async function syncBulkCustomers(
   
   for (const customer of customers) {
     try {
-      const existingCustomer = await db.customer.findFirst({
+      const existingCustomer = await prisma.customer.findFirst({
         where: {
           shop: shopDomain,
           shopifyCustomerId: String(customer.id),

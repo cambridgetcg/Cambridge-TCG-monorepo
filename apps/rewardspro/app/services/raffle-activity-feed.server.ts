@@ -17,7 +17,7 @@
  * - Urgency (activity is happening now)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type { RaffleActivityType } from "@prisma/client";
 
 const LOG_PREFIX = "[RaffleActivityFeed]";
@@ -192,7 +192,7 @@ export async function logActivity(
 
   // Fetch customer name if customerId provided but no displayName
   if (customerId && !displayName) {
-    const customer = await db.customer.findUnique({
+    const customer = await prisma.customer.findUnique({
       where: { id: customerId },
       select: { firstName: true, lastName: true },
     });
@@ -205,7 +205,7 @@ export async function logActivity(
   const expiresAt = new Date();
   expiresAt.setHours(expiresAt.getHours() + 24);
 
-  const activity = await db.raffleActivity.create({
+  const activity = await prisma.raffleActivity.create({
     data: {
       raffleId,
       shop,
@@ -234,7 +234,7 @@ export async function getActivityFeed(
 ): Promise<ActivityFeedItem[]> {
   const now = new Date();
 
-  const activities = await db.raffleActivity.findMany({
+  const activities = await prisma.raffleActivity.findMany({
     where: {
       raffleId,
       isPublic: true,
@@ -278,7 +278,7 @@ export async function getShopActivityFeed(
 ): Promise<ActivityFeedItem[]> {
   const now = new Date();
 
-  const activities = await db.raffleActivity.findMany({
+  const activities = await prisma.raffleActivity.findMany({
     where: {
       shop,
       isPublic: true,
@@ -442,7 +442,7 @@ export async function logLuckyNumber(
 export async function cleanupExpiredActivities(shop: string): Promise<number> {
   const now = new Date();
 
-  const result = await db.raffleActivity.deleteMany({
+  const result = await prisma.raffleActivity.deleteMany({
     where: {
       shop,
       expiresAt: { lt: now },
@@ -464,7 +464,7 @@ export async function getActivityStats(raffleId: string): Promise<{
   byType: Record<RaffleActivityType, number>;
   lastActivityAt: Date | null;
 }> {
-  const activities = await db.raffleActivity.groupBy({
+  const activities = await prisma.raffleActivity.groupBy({
     by: ["activityType"],
     where: { raffleId },
     _count: true,
@@ -478,7 +478,7 @@ export async function getActivityStats(raffleId: string): Promise<{
     totalActivities += activity._count;
   }
 
-  const lastActivity = await db.raffleActivity.findFirst({
+  const lastActivity = await prisma.raffleActivity.findFirst({
     where: { raffleId },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },

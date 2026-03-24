@@ -37,7 +37,7 @@ import {
   atomicTierCreate,
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { getTierStyle } from "../utils/tier-styles";
 import { getEntitlements } from "../services/entitlements.server";
@@ -96,27 +96,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const hasAnnualEval = entitlements.featureAnnualEval;
 
   // Check tier limit for rate-based gating
-  const tierCount = await db.tier.count({ where: { shop } });
+  const tierCount = await prisma.tier.count({ where: { shop } });
   const limitAccess = await checkLimitAccess(shop, 'maxTiers', tierCount);
 
   // Fetch tiers, settings, customers, and tier products
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
   // Instead, fetch only needed fields and count in memory
   const [tiers, shopSettings, customersWithTiers, tierProducts] = await Promise.all([
-    db.tier.findMany({
+    prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: "asc" },
     }),
-    db.shopSettings.findUnique({
+    prisma.shopSettings.findUnique({
       where: { shop },
     }),
     // Fetch only tierId field for counting - works with Data API
-    db.customer.findMany({
+    prisma.customer.findMany({
       where: { shop },
       select: { currentTierId: true },
     }),
     // Fetch tier products for coverage info
-    db.tierProduct.findMany({
+    prisma.tierProduct.findMany({
       where: { shop, deletedAt: null },
       select: { tierId: true, duration: true },
     }),
@@ -203,7 +203,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Check for duplicate (before transaction to fail fast)
-    const existing = await db.tier.findFirst({
+    const existing = await prisma.tier.findFirst({
       where: { shop, name: name.trim() },
     });
 
@@ -248,7 +248,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Verify tier belongs to shop
-    const existingTier = await db.tier.findFirst({
+    const existingTier = await prisma.tier.findFirst({
       where: { id, shop },
     });
 
@@ -256,7 +256,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: "Tier not found" }, { status: 404 });
     }
 
-    await db.tier.update({
+    await prisma.tier.update({
       where: { id },
       data: {
         name: name.trim(),
@@ -278,7 +278,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Verify tier belongs to shop
-    const existingTier = await db.tier.findFirst({
+    const existingTier = await prisma.tier.findFirst({
       where: { id, shop },
     });
 
@@ -287,7 +287,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Check if customers are assigned to this tier
-    const customerCount = await db.customer.count({
+    const customerCount = await prisma.customer.count({
       where: { shop, currentTierId: id },
     });
 
@@ -313,7 +313,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }, { status: 400 });
     }
 
-    await db.tier.delete({
+    await prisma.tier.delete({
       where: { id },
     });
 

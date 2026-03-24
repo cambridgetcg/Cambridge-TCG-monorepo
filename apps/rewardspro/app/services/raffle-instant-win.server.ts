@@ -17,7 +17,7 @@
  * - Near-miss effect (showing "almost won" increases engagement)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type { RafflePrizeType, Prisma } from "@prisma/client";
 
 const LOG_PREFIX = "[RaffleInstantWin]";
@@ -82,7 +82,7 @@ async function hasReachedWinLimit(
   customerId: string,
   maxWinsPerCustomer: number
 ): Promise<boolean> {
-  const winCount = await db.raffleInstantWinLog.count({
+  const winCount = await prisma.raffleInstantWinLog.count({
     where: {
       instantWinId,
       customerId,
@@ -101,7 +101,7 @@ async function hasReachedTotalLimit(
 ): Promise<boolean> {
   if (maxWinsTotal === null) return false;
 
-  const prize = await db.raffleInstantWin.findUnique({
+  const prize = await prisma.raffleInstantWin.findUnique({
     where: { id: instantWinId },
     select: { currentWinsTotal: true },
   });
@@ -122,7 +122,7 @@ export async function getActiveInstantWins(
 ): Promise<InstantWinPrize[]> {
   const now = new Date();
 
-  const prizes = await db.raffleInstantWin.findMany({
+  const prizes = await prisma.raffleInstantWin.findMany({
     where: {
       raffleId,
       shop,
@@ -250,7 +250,7 @@ async function recordInstantWin(
   shop: string
 ): Promise<string> {
   // Create win log
-  const log = await db.raffleInstantWinLog.create({
+  const log = await prisma.raffleInstantWinLog.create({
     data: {
       instantWinId,
       customerId,
@@ -261,7 +261,7 @@ async function recordInstantWin(
   });
 
   // Increment win counter
-  await db.raffleInstantWin.update({
+  await prisma.raffleInstantWin.update({
     where: { id: instantWinId },
     data: {
       currentWinsTotal: { increment: 1 },
@@ -269,7 +269,7 @@ async function recordInstantWin(
   });
 
   // Update entry's instant win count
-  await db.raffleEntry.update({
+  await prisma.raffleEntry.update({
     where: { id: raffleEntryId },
     data: {
       instantWinsTriggered: { increment: 1 },
@@ -283,7 +283,7 @@ async function recordInstantWin(
  * Get max wins per customer for a prize
  */
 async function getMaxWinsPerCustomer(instantWinId: string): Promise<number> {
-  const prize = await db.raffleInstantWin.findUnique({
+  const prize = await prisma.raffleInstantWin.findUnique({
     where: { id: instantWinId },
     select: { maxWinsPerCustomer: true },
   });
@@ -294,7 +294,7 @@ async function getMaxWinsPerCustomer(instantWinId: string): Promise<number> {
  * Get max total wins for a prize
  */
 async function getMaxWinsTotal(instantWinId: string): Promise<number | null> {
-  const prize = await db.raffleInstantWin.findUnique({
+  const prize = await prisma.raffleInstantWin.findUnique({
     where: { id: instantWinId },
     select: { maxWinsTotal: true },
   });
@@ -311,7 +311,7 @@ export async function deliverInstantWinPrize(
   deliveryData: Record<string, unknown> | null;
   message: string;
 }> {
-  const log = await db.raffleInstantWinLog.findUnique({
+  const log = await prisma.raffleInstantWinLog.findUnique({
     where: { id: instantWinLogId },
     include: {
       instantWin: true,
@@ -336,7 +336,7 @@ export async function deliverInstantWinPrize(
       case "POINTS": {
         // Award points to customer
         const points = (prizeValue.amount as number) || 0;
-        await db.pointsLedger.create({
+        await prisma.pointsLedger.create({
           data: {
             shop: log.shop,
             customerId: log.customerId,
@@ -349,7 +349,7 @@ export async function deliverInstantWinPrize(
         });
 
         // Update customer balance
-        await db.customer.update({
+        await prisma.customer.update({
           where: { id: log.customerId },
           data: {
             pointsBalance: { increment: points },
@@ -365,7 +365,7 @@ export async function deliverInstantWinPrize(
       case "STORE_CREDIT": {
         // Award store credit
         const amount = (prizeValue.amount as number) || 0;
-        await db.storeCreditLedger.create({
+        await prisma.storeCreditLedger.create({
           data: {
             shop: log.shop,
             customerId: log.customerId,
@@ -377,7 +377,7 @@ export async function deliverInstantWinPrize(
         });
 
         // Update customer balance
-        await db.customer.update({
+        await prisma.customer.update({
           where: { id: log.customerId },
           data: {
             storeCredit: { increment: amount },
@@ -408,7 +408,7 @@ export async function deliverInstantWinPrize(
     }
 
     // Mark as delivered
-    await db.raffleInstantWinLog.update({
+    await prisma.raffleInstantWinLog.update({
       where: { id: instantWinLogId },
       data: {
         delivered: true,
@@ -449,7 +449,7 @@ export async function getCustomerInstantWinHistory(
   customerId: string,
   limit: number = 10
 ): Promise<InstantWinLogEntry[]> {
-  const logs = await db.raffleInstantWinLog.findMany({
+  const logs = await prisma.raffleInstantWinLog.findMany({
     where: { shop, customerId },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -505,7 +505,7 @@ export async function createInstantWin(
     endsAt?: Date;
   }
 ): Promise<InstantWinPrize> {
-  const prize = await db.raffleInstantWin.create({
+  const prize = await prisma.raffleInstantWin.create({
     data: {
       raffleId,
       shop,
@@ -559,7 +559,7 @@ export async function updateInstantWin(
     isActive: boolean;
   }>
 ): Promise<void> {
-  await db.raffleInstantWin.update({
+  await prisma.raffleInstantWin.update({
     where: { id: instantWinId },
     data: {
       ...data,
@@ -572,7 +572,7 @@ export async function updateInstantWin(
  * Delete instant win prize
  */
 export async function deleteInstantWin(instantWinId: string): Promise<void> {
-  await db.raffleInstantWin.delete({
+  await prisma.raffleInstantWin.delete({
     where: { id: instantWinId },
   });
 }
@@ -585,7 +585,7 @@ export async function getInstantWinStats(raffleId: string): Promise<{
   totalWins: number;
   winsByRarity: Record<string, number>;
 }> {
-  const prizes = await db.raffleInstantWin.findMany({
+  const prizes = await prisma.raffleInstantWin.findMany({
     where: { raffleId },
     select: {
       rarity: true,

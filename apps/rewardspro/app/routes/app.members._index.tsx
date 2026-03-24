@@ -46,7 +46,7 @@ import {
   FilterIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import {
   calculateAllCustomerTiers
@@ -293,7 +293,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Manual override filter - query CustomerTierState first to get matching customer IDs
     // Note: Prisma relation filters are not supported by Data API adapter, so we use a two-step query
     if (hasOverride && hasOverride !== "all") {
-      const tierStatesWithOverride = await db.customerTierState.findMany({
+      const tierStatesWithOverride = await prisma.customerTierState.findMany({
         where: {
           shop,
           hasManualOverride: hasOverride === "yes"
@@ -362,7 +362,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       const [customers, totalCount] = await Promise.all([
         // Fetch only the customers for current page (using take/skip)
-        db.customer.findMany({
+        prisma.customer.findMany({
           where: whereClause,
           include: { currentTier: true },
           orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
@@ -370,7 +370,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           skip: offset,
         }),
         // Get total count for pagination (single COUNT query)
-        db.customer.count({
+        prisma.customer.count({
           where: whereClause,
         }),
       ]);
@@ -405,13 +405,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Batch fetch CustomerTierState, TierChangeLog, and Order Summaries in parallel
     const [allTierStates, allTierChanges, orderSummariesMap] = await Promise.all([
       // Batch fetch CustomerTierState for all customers in ONE query (O(1) per customer)
-      db.customerTierState.findMany({
+      prisma.customerTierState.findMany({
         where: {
           customerId: { in: customerIds }
         }
       }),
       // Batch fetch most recent tier change log for each customer (for lastTierChange display)
-      db.tierChangeLog.findMany({
+      prisma.tierChangeLog.findMany({
         where: {
           customerId: { in: customerIds }
         },
@@ -540,9 +540,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
     // Instead, fetch all customer tier IDs and count in memory
     const [totalCustomers, customersWithTiers] = await Promise.all([
-      db.customer.count({ where: { shop } }),
+      prisma.customer.count({ where: { shop } }),
       // Fetch only the tierId field for all customers to count distribution
-      db.customer.findMany({
+      prisma.customer.findMany({
         where: { shop },
         select: { currentTierId: true }
       })
@@ -741,7 +741,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Check for duplicate
-          const existing = await db.tier.findFirst({
+          const existing = await prisma.tier.findFirst({
             where: { shop, name: name.trim() },
           });
 
@@ -753,7 +753,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const storeName = shop.split('.')[0];
           const tierId = `${storeName}-${name.trim().toLowerCase().replace(/\s+/g, '-')}`;
           
-          await db.tier.create({
+          await prisma.tier.create({
             data: {
               id: tierId,
               shop,
@@ -784,7 +784,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Verify tier belongs to shop
-          const existingTier = await db.tier.findFirst({
+          const existingTier = await prisma.tier.findFirst({
             where: { id, shop },
           });
 
@@ -793,7 +793,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Update tier
-          await db.tier.update({
+          await prisma.tier.update({
             where: { id },
             data: {
               name: name.trim(),
@@ -814,7 +814,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Verify tier belongs to shop
-          const existingTier = await db.tier.findFirst({
+          const existingTier = await prisma.tier.findFirst({
             where: { id, shop },
           });
 
@@ -823,7 +823,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Check if customers are assigned to this tier
-          const customerCount = await db.customer.count({
+          const customerCount = await prisma.customer.count({
             where: { shop, currentTierId: id },
           });
 
@@ -834,7 +834,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Delete tier
-          await db.tier.delete({
+          await prisma.tier.delete({
             where: { id },
           });
 
@@ -860,7 +860,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[MANUAL TIER ASSIGNMENT] Shop:", shop);
 
       // Check current state before assignment
-      const customerBefore = await db.customer.findFirst({
+      const customerBefore = await prisma.customer.findFirst({
         where: { id: customerId, shop },
         include: { currentTier: true }
       });
@@ -888,14 +888,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       // Verify the assignment was saved
-      const customerAfter = await db.customer.findFirst({
+      const customerAfter = await prisma.customer.findFirst({
         where: { id: customerId, shop },
         include: { currentTier: true }
       });
       console.log("[MANUAL TIER ASSIGNMENT] Current tier after assignment:", customerAfter?.currentTier?.name || "None");
 
       // Check the tier change log entry
-      const latestLog = await db.tierChangeLog.findFirst({
+      const latestLog = await prisma.tierChangeLog.findFirst({
         where: { customerId },
         orderBy: { createdAt: 'desc' }
       });
@@ -932,12 +932,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         await syncCustomersInBackground(shop, admin);
 
         // Get updated customer count
-        const totalCustomers = await db.customer.count({
+        const totalCustomers = await prisma.customer.count({
           where: { shop }
         });
 
         // Check sync status from shop settings
-        const shopSettings = await db.shopSettings.findUnique({
+        const shopSettings = await prisma.shopSettings.findUnique({
           where: { shop }
         });
 
@@ -967,7 +967,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       try {
-        const transactions = await db.storeCreditLedger.findMany({
+        const transactions = await prisma.storeCreditLedger.findMany({
           where: {
             customerId,
             shop: session.shop
@@ -1004,7 +1004,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       try {
         // OPTIMIZED: Fetch customer with tier in single query to avoid separate tier fetch for Klaviyo
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: {
             id: customerId,
             shop: session.shop
@@ -1017,7 +1017,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Get shop settings for currency
-        const shopSettings = await db.shopSettings.findUnique({
+        const shopSettings = await prisma.shopSettings.findUnique({
           where: { shop: session.shop }
         });
 
@@ -1052,7 +1052,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // Create ledger entry with Shopify transaction ID
           // Create ledger entry - store sync info in metadata
           // to avoid column missing errors in Aurora Data API
-          await db.storeCreditLedger.create({
+          await prisma.storeCreditLedger.create({
             data: {
               id: uuidv4(),
               customerId,
@@ -1074,7 +1074,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Update customer balance
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: customerId },
             data: {
               storeCredit: result.balance || newBalance,
@@ -1097,7 +1097,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Fetch updated transactions to return with response
-          const updatedTransactions = await db.storeCreditLedger.findMany({
+          const updatedTransactions = await prisma.storeCreditLedger.findMany({
             where: {
               customerId,
               shop: session.shop
@@ -1143,7 +1143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Create debit ledger entry - store sync info in metadata
           // to avoid column missing errors in Aurora Data API
-          await db.storeCreditLedger.create({
+          await prisma.storeCreditLedger.create({
             data: {
               id: uuidv4(),
               customerId,
@@ -1165,7 +1165,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Update customer balance
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: customerId },
             data: {
               storeCredit: newBalance,
@@ -1188,7 +1188,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Fetch updated transactions to return with response
-          const updatedTransactions = await db.storeCreditLedger.findMany({
+          const updatedTransactions = await prisma.storeCreditLedger.findMany({
             where: {
               customerId,
               shop: session.shop
@@ -1230,7 +1230,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       try {
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: {
             id: customerId,
             shop: session.shop
@@ -1321,7 +1321,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       try {
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: { id: customerId, shop: session.shop }
         });
 
@@ -1373,7 +1373,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         if (previousBalance !== totalCredit) {
           // Create sync ledger entry
-          await db.storeCreditLedger.create({
+          await prisma.storeCreditLedger.create({
             data: {
               id: uuidv4(),
               customerId,
@@ -1391,7 +1391,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Update customer balance
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: customerId },
             data: {
               storeCredit: totalCredit,
@@ -1401,7 +1401,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Fetch updated transactions to return with response
-        const updatedTransactions = await db.storeCreditLedger.findMany({
+        const updatedTransactions = await prisma.storeCreditLedger.findMany({
           where: {
             customerId,
             shop: session.shop
@@ -1441,7 +1441,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       try {
         // Fetch customer from database
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: {
             id: customerId,
             shop: session.shop
@@ -1453,7 +1453,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Get shop settings for currency
-        const shopSettings = await db.shopSettings.findUnique({
+        const shopSettings = await prisma.shopSettings.findUnique({
           where: { shop: session.shop }
         });
 
@@ -1483,7 +1483,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const newBalance = currentBalance + amount;
 
         // Create ledger entry for the refund
-        await db.storeCreditLedger.create({
+        await prisma.storeCreditLedger.create({
           data: {
             id: uuidv4(),
             customerId,
@@ -1506,7 +1506,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         // Update customer balance
-        await db.customer.update({
+        await prisma.customer.update({
           where: { id: customerId },
           data: {
             storeCredit: newBalance,
@@ -1515,7 +1515,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         // Fetch updated transactions to return with response
-        const updatedTransactions = await db.storeCreditLedger.findMany({
+        const updatedTransactions = await prisma.storeCreditLedger.findMany({
           where: {
             customerId,
             shop: session.shop
@@ -1573,7 +1573,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[TIER RECALCULATION] Shop:", shop);
 
       // Check current state before recalculation
-      const customerBefore = await db.customer.findFirst({
+      const customerBefore = await prisma.customer.findFirst({
         where: { id: customerId, shop },
         include: { currentTier: true }
       });
@@ -1589,7 +1589,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[TIER RECALCULATION] Has manual override BEFORE recalc:", hasOverrideBefore);
 
       // Get recent tier change logs
-      const recentLogs = await db.tierChangeLog.findMany({
+      const recentLogs = await prisma.tierChangeLog.findMany({
         where: { customerId },
         orderBy: { createdAt: 'desc' },
         take: 3
@@ -1607,7 +1607,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // Check for active tier purchases
       console.log("[TIER RECALCULATION] Checking tier purchases...");
-      const tierPurchases = await db.tierPurchase.findMany({
+      const tierPurchases = await prisma.tierPurchase.findMany({
         where: {
           customerId,
           shop,
@@ -1634,7 +1634,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // Check for active tier subscriptions
       console.log("[TIER RECALCULATION] Checking tier subscriptions...");
-      const tierSubscriptions = await db.tierSubscription.findMany({
+      const tierSubscriptions = await prisma.tierSubscription.findMany({
         where: {
           customerId,
           shop,
@@ -1671,7 +1671,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       // Check state after recalculation
-      const customerAfter = await db.customer.findFirst({
+      const customerAfter = await prisma.customer.findFirst({
         where: { id: customerId, shop },
         include: { currentTier: true }
       });
@@ -1682,7 +1682,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[TIER RECALCULATION] Has manual override AFTER recalc:", hasOverrideAfter);
 
       // Check if a new log entry was created
-      const latestLog = await db.tierChangeLog.findFirst({
+      const latestLog = await prisma.tierChangeLog.findFirst({
         where: { customerId },
         orderBy: { createdAt: 'desc' }
       });
@@ -1701,7 +1701,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       const tierIds = [result.previousTierId, result.newTierId].filter((id): id is string => !!id);
       if (tierIds.length > 0) {
-        const tiers = await db.tier.findMany({
+        const tiers = await prisma.tier.findMany({
           where: { id: { in: tierIds } },
           select: { id: true, name: true }
         });
@@ -1727,7 +1727,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // OPTIMIZED: Get all customers with their current tier in single query
       // This eliminates N separate tier lookups during processing
-      const allCustomers = await db.customer.findMany({
+      const allCustomers = await prisma.customer.findMany({
         where: { shop },
         include: { currentTier: true },
         orderBy: { email: 'asc' }
@@ -1810,7 +1810,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const allNewTierIds = [...new Set(results.details.map(d => d.newTierId).filter((id): id is string => !!id))];
       const tierNameMap = new Map<string, string>();
       if (allNewTierIds.length > 0) {
-        const tiers = await db.tier.findMany({
+        const tiers = await prisma.tier.findMany({
           where: { id: { in: allNewTierIds } },
           select: { id: true, name: true }
         });
@@ -1957,7 +1957,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const failedIds: string[] = [];
 
       // Get shop settings for currency (single query, not per customer)
-      const shopSettings = await db.shopSettings.findUnique({
+      const shopSettings = await prisma.shopSettings.findUnique({
         where: { shop }
       });
       const currency = shopSettings?.storeCurrency || "USD";
@@ -1967,7 +1967,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const storeCreditService = createStoreCreditService(admin, shop);
 
       // Pre-fetch ALL customers in one batch query instead of N individual queries
-      const allCustomers = await db.customer.findMany({
+      const allCustomers = await prisma.customer.findMany({
         where: {
           id: { in: customerIds },
           shop
@@ -2029,7 +2029,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // ATOMIC: Update local database within transaction for data integrity
         // Both customer update and ledger entry succeed or fail together
-        await db.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx) => {
           await tx.customer.update({
             where: { id: customerId },
             data: {

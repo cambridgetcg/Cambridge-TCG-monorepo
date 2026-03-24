@@ -3,7 +3,7 @@
  * Optimized database queries for analytics overview metrics
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { getCachedOrCompute, getMetricsCacheKey } from "~/utils/analytics-cache.server";
 
 export interface OverviewMetrics {
@@ -71,7 +71,7 @@ async function fetchPeriodMetrics(
   const { start, end } = getMonthRange(year, month);
 
   // Single optimized query for Revenue, Cashback, Active Customers, Orders
-  const orderAggregation = await db.order.aggregate({
+  const orderAggregation = await prisma.order.aggregate({
     where: {
       shop,
       shopifyCreatedAt: {
@@ -93,7 +93,7 @@ async function fetchPeriodMetrics(
   });
 
   // Get distinct active customers count via COUNT DISTINCT (avoids loading all IDs into memory)
-  const activeCustomersResult = await db.$queryRaw`
+  const activeCustomersResult = await prisma.$queryRaw`
     SELECT COUNT(DISTINCT "customerId") as count
     FROM "Order"
     WHERE shop = ${shop}
@@ -105,7 +105,7 @@ async function fetchPeriodMetrics(
   // Try to get order count from MonthlyOrderUsage (cached)
   let orderCount = orderAggregation._count.id;
   try {
-    const cachedUsage = await db.monthlyOrderUsage.findFirst({
+    const cachedUsage = await prisma.monthlyOrderUsage.findFirst({
       where: { shop, year, month },
     });
     if (cachedUsage) {
@@ -117,7 +117,7 @@ async function fetchPeriodMetrics(
   }
 
   // Get total customers (all-time)
-  const totalCustomersCount = await db.customer.count({
+  const totalCustomersCount = await prisma.customer.count({
     where: { shop },
   });
 
@@ -154,7 +154,7 @@ async function fetchPeriodMetricsForRange(
   start: Date,
   end: Date
 ): Promise<OverviewMetrics> {
-  const orderAggregation = await db.order.aggregate({
+  const orderAggregation = await prisma.order.aggregate({
     where: {
       shop,
       shopifyCreatedAt: { gte: start, lte: end },
@@ -164,7 +164,7 @@ async function fetchPeriodMetricsForRange(
     _count: { id: true },
   });
 
-  const activeCustomersResult = await db.$queryRaw`
+  const activeCustomersResult = await prisma.$queryRaw`
     SELECT COUNT(DISTINCT "customerId") as count
     FROM "Order"
     WHERE shop = ${shop}
@@ -173,7 +173,7 @@ async function fetchPeriodMetricsForRange(
       AND "financialStatus" IN ('PAID', 'PARTIALLY_PAID')
   ` as { count: number | bigint }[];
 
-  const totalCustomersCount = await db.customer.count({ where: { shop } });
+  const totalCustomersCount = await prisma.customer.count({ where: { shop } });
 
   const totalRevenue = Number(orderAggregation._sum.netAmount || 0);
   const cashbackIssued = Number(orderAggregation._sum.cashbackAmount || 0);

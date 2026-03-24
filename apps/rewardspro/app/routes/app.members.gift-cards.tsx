@@ -30,7 +30,7 @@ import {
   ConfettiIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { getTierStyle } from "../utils/tier-styles";
 
@@ -102,18 +102,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     // Fetch all data in parallel
     const [config, tiers, tierSettingsArray, bundlesRaw, shopSettings] = await Promise.all([
-      db.giftCardConfig.findUnique({ where: { shop } }),
-      db.tier.findMany({
+      prisma.giftCardConfig.findUnique({ where: { shop } }),
+      prisma.tier.findMany({
         where: { shop },
         orderBy: { minSpend: "asc" },
       }),
-      db.tierGiftCardSettings.findMany({ where: { shop } }),
-      db.giftCardBundle.findMany({
+      prisma.tierGiftCardSettings.findMany({ where: { shop } }),
+      prisma.giftCardBundle.findMany({
         where: { shop },
         include: { tier: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
       }),
-      db.shopSettings.findUnique({ where: { shop } }),
+      prisma.shopSettings.findUnique({ where: { shop } }),
     ]);
 
     console.log("[GiftCards] Loader: Data fetched", {
@@ -222,7 +222,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const enableMembershipGifts = formData.get("enableMembershipGifts") === "true";
       const defaultTemplateSuffix = (formData.get("defaultTemplateSuffix") as string) || null;
 
-      await db.giftCardConfig.upsert({
+      await prisma.giftCardConfig.upsert({
         where: { shop },
         update: {
           enableTierBranding,
@@ -251,7 +251,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const canBundleWithCard = formData.get("canBundleWithCard") === "true";
 
       // Validate tier belongs to shop
-      const tier = await db.tier.findFirst({ where: { id: tierId, shop } });
+      const tier = await prisma.tier.findFirst({ where: { id: tierId, shop } });
       if (!tier) {
         console.warn("[GiftCards] saveTierSettings: Tier not found", { shop, tierId });
         return json({ error: "Tier not found" }, { status: 404 });
@@ -262,7 +262,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ error: "Bonus must be between 0 and 100" }, { status: 400 });
       }
 
-      await db.tierGiftCardSettings.upsert({
+      await prisma.tierGiftCardSettings.upsert({
         where: { tierId },
         update: {
           templateSuffix,
@@ -303,13 +303,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // Validate tier belongs to shop
-      const tier = await db.tier.findFirst({ where: { id: tierId, shop } });
+      const tier = await prisma.tier.findFirst({ where: { id: tierId, shop } });
       if (!tier) {
         console.warn("[GiftCards] createBundle: Tier not found", { shop, tierId });
         return json({ error: "Tier not found" }, { status: 404 });
       }
 
-      const bundle = await db.giftCardBundle.create({
+      const bundle = await prisma.giftCardBundle.create({
         data: {
           shop,
           name: name.trim(),
@@ -337,13 +337,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const isActive = formData.get("isActive") === "true";
 
       // Validate bundle belongs to shop
-      const bundle = await db.giftCardBundle.findFirst({ where: { id, shop } });
+      const bundle = await prisma.giftCardBundle.findFirst({ where: { id, shop } });
       if (!bundle) {
         console.warn("[GiftCards] updateBundle: Bundle not found", { shop, bundleId: id });
         return json({ error: "Bundle not found" }, { status: 404 });
       }
 
-      await db.giftCardBundle.update({
+      await prisma.giftCardBundle.update({
         where: { id },
         data: {
           name: name.trim(),
@@ -364,13 +364,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const id = formData.get("id") as string;
 
       // Validate bundle belongs to shop
-      const bundle = await db.giftCardBundle.findFirst({ where: { id, shop } });
+      const bundle = await prisma.giftCardBundle.findFirst({ where: { id, shop } });
       if (!bundle) {
         console.warn("[GiftCards] deleteBundle: Bundle not found", { shop, bundleId: id });
         return json({ error: "Bundle not found" }, { status: 404 });
       }
 
-      await db.giftCardBundle.delete({ where: { id } });
+      await prisma.giftCardBundle.delete({ where: { id } });
 
       console.log("[GiftCards] Bundle deleted", { shop, bundleId: id });
       return json({ success: true, message: "Bundle deleted" });

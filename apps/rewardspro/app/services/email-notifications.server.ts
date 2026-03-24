@@ -13,7 +13,7 @@
  * - Free: 50/month, Pro: 500/month, Max: 2000/month, Ultra: unlimited
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import * as sendgrid from "./sendgrid.server";
 import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
 
@@ -125,7 +125,7 @@ function getCustomerName(customer: CustomerInfo): string {
  */
 async function getShopName(shop: string): Promise<string> {
   try {
-    const shopSettings = await db.shopSettings.findUnique({
+    const shopSettings = await prisma.shopSettings.findUnique({
       where: { shop },
     });
     return shopSettings?.storeName || shop.replace(".myshopify.com", "");
@@ -196,7 +196,7 @@ export async function sendWelcomeEmailNotification(
 
       // Log email event (optional - for analytics)
       try {
-        await db.emailEvent.create({
+        await prisma.emailEvent.create({
           data: {
             id: crypto.randomUUID(),
             shop,
@@ -297,7 +297,7 @@ export async function sendTierUpgradeEmailNotification(
 
       // Log email event
       try {
-        await db.emailEvent.create({
+        await prisma.emailEvent.create({
           data: {
             id: crypto.randomUUID(),
             shop,
@@ -359,7 +359,7 @@ export async function sendCampaignEmails(
   }
 
   // Get campaign details
-  const campaign = await db.emailCampaign.findFirst({
+  const campaign = await prisma.emailCampaign.findFirst({
     where: { id: campaignId, shop },
   });
 
@@ -368,7 +368,7 @@ export async function sendCampaignEmails(
   }
 
   // Get email content from template
-  const template = await db.emailTemplate.findFirst({
+  const template = await prisma.emailTemplate.findFirst({
     where: { id: campaign.templateId, shop },
   });
 
@@ -405,7 +405,7 @@ export async function sendCampaignEmails(
 
   // Log campaign send event
   try {
-    await db.emailEvent.create({
+    await prisma.emailEvent.create({
       data: {
         id: crypto.randomUUID(),
         shop,
@@ -897,7 +897,7 @@ export async function sendTierExpirationWarningEmail(
 
       // Log email event
       try {
-        await db.emailEvent.create({
+        await prisma.emailEvent.create({
           data: {
             id: crypto.randomUUID(),
             shop,
@@ -1028,7 +1028,7 @@ export async function sendTierExpiredEmail(
 
       // Log email event
       try {
-        await db.emailEvent.create({
+        await prisma.emailEvent.create({
           data: {
             id: crypto.randomUUID(),
             shop,

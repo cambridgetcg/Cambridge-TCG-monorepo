@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 
 /**
@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from "uuid";
  * Falls back to USD if not configured
  */
 async function getShopCurrency(shop: string): Promise<string> {
-  const settings = await db.shopSettings.findUnique({
+  const settings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: { storeCurrency: true }
   });
@@ -79,7 +79,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const dailyTotal = await db.usageRecord.aggregate({
+    const dailyTotal = await prisma.usageRecord.aggregate({
       where: {
         shop,
         processedAt: { gte: todayStart },
@@ -109,7 +109,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
     
     // Check if this idempotency key has been used before (within last 24 hours)
-    const existingRecord = await db.usageRecord.findFirst({
+    const existingRecord = await prisma.usageRecord.findFirst({
       where: {
         shop,
         idempotencyKey,
@@ -146,7 +146,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[Usage Billing] Shopify usage record created:", usageResult);
 
       // Store the usage record in our database for tracking
-      const dbRecord = await db.usageRecord.create({
+      const dbRecord = await prisma.usageRecord.create({
         data: {
           id: uuidv4(),
           shop,
@@ -213,7 +213,7 @@ async function checkUsageCaps(shop: string, billing: any) {
     // Calculate current month's usage
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     
-    const monthlyUsage = await db.usageRecord.aggregate({
+    const monthlyUsage = await prisma.usageRecord.aggregate({
       where: {
         shop,
         processedAt: {
@@ -229,7 +229,7 @@ async function checkUsageCaps(shop: string, billing: any) {
     console.log(`[Usage Billing] Monthly usage for ${shop}: $${totalUsage}`);
     
     // Get billing subscription to check caps (new GraphQL billing)
-    const billingSubscription = await db.billingSubscription.findUnique({
+    const billingSubscription = await prisma.billingSubscription.findUnique({
       where: { shop },
     }).catch(() => null);
 
@@ -242,7 +242,7 @@ async function checkUsageCaps(shop: string, billing: any) {
         console.log(`[Usage Billing] ${shop} at ${usagePercentage.toFixed(1)}% of usage cap`);
 
         // Update balance tracking
-        await db.billingSubscription.update({
+        await prisma.billingSubscription.update({
           where: { shop },
           data: {
             balanceUsed: totalUsage,
@@ -256,7 +256,7 @@ async function checkUsageCaps(shop: string, billing: any) {
         console.log(`[Usage Billing] ${shop} at ${usagePercentage.toFixed(1)}% of usage cap`);
 
         // Update balance tracking
-        await db.billingSubscription.update({
+        await prisma.billingSubscription.update({
           where: { shop },
           data: {
             balanceUsed: totalUsage,
@@ -289,7 +289,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
     
     // Get usage records for the shop
-    const records = await db.usageRecord.findMany({
+    const records = await prisma.usageRecord.findMany({
       where: { shop },
       orderBy: { processedAt: "desc" },
       take: limit,
@@ -297,13 +297,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
     
     // Get total count for pagination
-    const totalCount = await db.usageRecord.count({
+    const totalCount = await prisma.usageRecord.count({
       where: { shop },
     });
     
     // Calculate current month total
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const monthlyTotal = await db.usageRecord.aggregate({
+    const monthlyTotal = await prisma.usageRecord.aggregate({
       where: {
         shop,
         processedAt: {

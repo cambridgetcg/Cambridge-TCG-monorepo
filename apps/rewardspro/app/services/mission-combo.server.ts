@@ -14,7 +14,7 @@
  * Combos reset daily at the shop's configured reset hour.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[MissionCombo]";
 
@@ -109,7 +109,7 @@ function getResetTimeForDate(date: Date, resetHour: number): Date {
  * Get combo configuration for a shop
  */
 export async function getComboConfig(shop: string): Promise<ComboConfig> {
-  const config = await db.pointsConfig.findUnique({
+  const config = await prisma.pointsConfig.findUnique({
     where: { shop },
     select: {
       comboEnabled: true,
@@ -136,7 +136,7 @@ export async function getComboInfo(
 ): Promise<ComboInfo> {
   const config = await getComboConfig(shop);
 
-  const stats = await db.customerMissionStats.findUnique({
+  const stats = await prisma.customerMissionStats.findUnique({
     where: { customerId },
     select: {
       todayComboCount: true,
@@ -193,7 +193,7 @@ export async function incrementCombo(
 }> {
   const config = await getComboConfig(shop);
 
-  const stats = await db.customerMissionStats.findUnique({
+  const stats = await prisma.customerMissionStats.findUnique({
     where: { customerId },
     select: {
       todayComboCount: true,
@@ -243,7 +243,7 @@ export async function incrementCombo(
   const newComboCount = currentComboCount + 1;
 
   // Update database
-  await db.customerMissionStats.update({
+  await prisma.customerMissionStats.update({
     where: { customerId },
     data: {
       todayComboCount: newComboCount,
@@ -283,7 +283,7 @@ export async function incrementCombo(
  * This is optional - combos reset automatically when missions are completed after reset hour
  */
 export async function resetAllCombos(shop: string): Promise<number> {
-  const result = await db.customerMissionStats.updateMany({
+  const result = await prisma.customerMissionStats.updateMany({
     where: {
       shop,
       todayComboCount: { gt: 0 },
@@ -316,7 +316,7 @@ export async function getComboLeaderboard(
 > {
   const config = await getComboConfig(shop);
 
-  const leaderboard = await db.customerMissionStats.findMany({
+  const leaderboard = await prisma.customerMissionStats.findMany({
     where: { shop, todayComboCount: { gt: 0 } },
     orderBy: { todayComboCount: "desc" },
     take: limit,

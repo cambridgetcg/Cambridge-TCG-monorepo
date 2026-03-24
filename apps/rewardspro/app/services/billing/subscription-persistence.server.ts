@@ -5,7 +5,7 @@
  * Provides CRUD operations and webhook-based updates for subscription status tracking.
  */
 
-import db from "../../db.server";
+import prisma from "../../db.server";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { randomUUID } from "crypto";
 
@@ -131,7 +131,7 @@ export async function saveSubscription(
   };
 
   // Upsert subscription (create if doesn't exist, update if exists)
-  const saved = await db.appSubscription.upsert({
+  const saved = await prisma.appSubscription.upsert({
     where: {
       shop,
     },
@@ -162,7 +162,7 @@ export async function saveSubscription(
   // - subscriptionUpdatedAt
   // Need to run migrations on production database to add these columns
   /*
-  await db.shopSettings.upsert({
+  await prisma.shopSettings.upsert({
     where: { shop },
     create: {
       id: randomUUID(),
@@ -202,7 +202,7 @@ export async function saveSubscription(
       item => item.plan.pricingDetails.__typename === 'AppRecurringPricing'
     );
 
-    await db.billingSubscription.upsert({
+    await prisma.billingSubscription.upsert({
       where: { shop },
       create: {
         id: randomUUID(),
@@ -256,7 +256,7 @@ export async function saveSubscription(
 export async function getActiveSubscription(shop: string) {
   console.log('[Subscription Persistence] Fetching active subscription for:', shop);
 
-  const subscription = await db.appSubscription.findFirst({
+  const subscription = await prisma.appSubscription.findFirst({
     where: {
       shop,
       status: 'ACTIVE',
@@ -285,7 +285,7 @@ export async function getActiveSubscription(shop: string) {
 export async function getSubscriptionByShop(shop: string) {
   console.log('[Subscription Persistence] Fetching subscription for:', shop);
 
-  return await db.appSubscription.findUnique({
+  return await prisma.appSubscription.findUnique({
     where: { shop },
   });
 }
@@ -299,7 +299,7 @@ export async function getSubscriptionByShop(shop: string) {
 export async function getSubscriptionById(shopifySubscriptionId: string) {
   console.log('[Subscription Persistence] Fetching subscription by ID:', shopifySubscriptionId);
 
-  return await db.appSubscription.findUnique({
+  return await prisma.appSubscription.findUnique({
     where: { shopifySubscriptionId },
   });
 }
@@ -317,7 +317,7 @@ export async function cancelSubscription(
 ) {
   console.log('[Subscription Persistence] Cancelling subscription for:', shop);
 
-  const updated = await db.appSubscription.update({
+  const updated = await prisma.appSubscription.update({
     where: { shop },
     data: {
       status: 'CANCELLED',
@@ -332,7 +332,7 @@ export async function cancelSubscription(
   // TODO: Update shop settings
   // Skipping - production database missing columns (subscriptionStatus, subscriptionUpdatedAt)
   /*
-  await db.shopSettings.update({
+  await prisma.shopSettings.update({
     where: { shop },
     data: {
       subscriptionStatus: 'CANCELLED',
@@ -343,7 +343,7 @@ export async function cancelSubscription(
 
   // SYNC: Update BillingSubscription table
   try {
-    await db.billingSubscription.update({
+    await prisma.billingSubscription.update({
       where: { shop },
       data: {
         subscriptionStatus: 'CANCELLED',
@@ -408,7 +408,7 @@ export async function updateSubscriptionFromWebhook(
     updateData.metadata = webhookData.metadata;
   }
 
-  const updated = await db.appSubscription.update({
+  const updated = await prisma.appSubscription.update({
     where: { shop },
     data: updateData,
   });
@@ -418,7 +418,7 @@ export async function updateSubscriptionFromWebhook(
   // TODO: Update shop settings
   // Skipping - production database missing columns (subscriptionStatus, subscriptionUpdatedAt)
   /*
-  await db.shopSettings.update({
+  await prisma.shopSettings.update({
     where: { shop },
     data: {
       subscriptionStatus: webhookData.status || updated.status,
@@ -441,7 +441,7 @@ export async function updateSubscriptionFromWebhook(
       billingUpdateData.currentPeriodEnd = new Date(webhookData.currentPeriodEnd);
     }
 
-    await db.billingSubscription.update({
+    await prisma.billingSubscription.update({
       where: { shop },
       data: billingUpdateData,
     });
@@ -461,7 +461,7 @@ export async function updateSubscriptionFromWebhook(
  * @returns True if shop has active subscription
  */
 export async function hasActiveSubscription(shop: string): Promise<boolean> {
-  const count = await db.appSubscription.count({
+  const count = await prisma.appSubscription.count({
     where: {
       shop,
       status: 'ACTIVE',
@@ -478,7 +478,7 @@ export async function hasActiveSubscription(shop: string): Promise<boolean> {
  * @returns True if shop is in trial period
  */
 export async function isInTrialPeriod(shop: string): Promise<boolean> {
-  const subscription = await db.appSubscription.findFirst({
+  const subscription = await prisma.appSubscription.findFirst({
     where: {
       shop,
       status: 'ACTIVE',
@@ -499,7 +499,7 @@ export async function isInTrialPeriod(shop: string): Promise<boolean> {
  * @returns Days remaining or 0 if not in trial
  */
 export async function getTrialDaysRemaining(shop: string): Promise<number> {
-  const subscription = await db.appSubscription.findFirst({
+  const subscription = await prisma.appSubscription.findFirst({
     where: {
       shop,
       status: 'ACTIVE',

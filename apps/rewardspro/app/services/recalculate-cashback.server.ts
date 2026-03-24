@@ -1,4 +1,4 @@
-import db from "../db.server";
+import prisma from "../db.server";
 
 /**
  * Recalculate cashback for all existing orders based on customer tiers
@@ -8,7 +8,7 @@ export async function recalculateCashbackForAllOrders(shop: string) {
 
   // DATA API COMPATIBLE: Nested include not supported, use two-step query
   // Get all orders that don't have cashback calculated
-  const ordersRaw = await db.order.findMany({
+  const ordersRaw = await prisma.order.findMany({
     where: {
       shop,
       cashbackAmount: null,
@@ -27,7 +27,7 @@ export async function recalculateCashbackForAllOrders(shop: string) {
       .filter((id): id is string => !!id)
   )];
   const tiers = tierIds.length > 0
-    ? await db.tier.findMany({
+    ? await prisma.tier.findMany({
         where: { id: { in: tierIds } },
       })
     : [];
@@ -61,7 +61,7 @@ export async function recalculateCashbackForAllOrders(shop: string) {
     }
     // Priority 2: Use tierIdAtOrder to look up historical tier
     else if (order.tierIdAtOrder) {
-      const historicalTier = await db.tier.findUnique({
+      const historicalTier = await prisma.tier.findUnique({
         where: { id: order.tierIdAtOrder }
       });
       if (historicalTier) {
@@ -85,7 +85,7 @@ export async function recalculateCashbackForAllOrders(shop: string) {
     const cashbackAmount = (Number(order.netAmount) * cashbackPercent) / 100;
 
     // Update the order with cashback details
-    await db.order.update({
+    await prisma.order.update({
       where: { id: order.id },
       data: {
         cashbackPercent,
@@ -121,7 +121,7 @@ export async function recalculateCashbackForCustomer(shop: string, customerId: s
   console.log(`[Cashback Recalculation] Starting for customer: ${customerId}`);
 
   // Get customer with tier
-  const customer = await db.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     include: { currentTier: true }
   });
@@ -136,7 +136,7 @@ export async function recalculateCashbackForCustomer(shop: string, customerId: s
   }
 
   // Get all paid orders for this customer
-  const orders = await db.order.findMany({
+  const orders = await prisma.order.findMany({
     where: {
       shop,
       customerId,
@@ -157,7 +157,7 @@ export async function recalculateCashbackForCustomer(shop: string, customerId: s
 
     // Only update if cashback changed
     if (order.cashbackPercent !== cashbackPercent || Number(order.cashbackAmount) !== cashbackAmount) {
-      await db.order.update({
+      await prisma.order.update({
         where: { id: order.id },
         data: {
           cashbackPercent,
@@ -190,7 +190,7 @@ export async function processPendingCashback(shop: string) {
   console.log(`[Cashback Processing] Starting for shop: ${shop}`);
 
   // Get orders with unprocessed cashback
-  const orders = await db.order.findMany({
+  const orders = await prisma.order.findMany({
     where: {
       shop,
       cashbackAmount: { not: null },
@@ -213,7 +213,7 @@ export async function processPendingCashback(shop: string) {
     }
 
     // Get current balance
-    const lastEntry = await db.storeCreditLedger.findFirst({
+    const lastEntry = await prisma.storeCreditLedger.findFirst({
       where: { customerId: order.customerId },
       orderBy: { createdAt: 'desc' }
     });
@@ -222,7 +222,7 @@ export async function processPendingCashback(shop: string) {
     const newBalance = currentBalance + Number(order.cashbackAmount);
 
     // Create ledger entry
-    await db.storeCreditLedger.create({
+    await prisma.storeCreditLedger.create({
       data: {
         id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
         customerId: order.customerId,
@@ -246,7 +246,7 @@ export async function processPendingCashback(shop: string) {
       ? parseFloat(order.customer.totalCashbackEarned.toString())
       : 0;
 
-    await db.customer.update({
+    await prisma.customer.update({
       where: { id: order.customerId },
       data: {
         storeCredit: newBalance,
@@ -256,7 +256,7 @@ export async function processPendingCashback(shop: string) {
     });
 
     // Mark order cashback as processed
-    await db.order.update({
+    await prisma.order.update({
       where: { id: order.id },
       data: {
         cashbackProcessed: true

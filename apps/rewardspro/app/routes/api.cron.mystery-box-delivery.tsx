@@ -12,7 +12,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { deliverAllPendingRewards } from "../services/mystery-box-delivery.server";
 import { unauthenticated } from "../shopify.server";
@@ -81,7 +81,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   try {
     // 5. Find all shops with PENDING mystery box winners
-    const pendingWinners = await db.mysteryBoxWinner.findMany({
+    const pendingWinners = await prisma.mysteryBoxWinner.findMany({
       where: {
         deliveryStatus: "PENDING",
       },
@@ -161,7 +161,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             });
           } else {
             // Dry run — count pending winners
-            const pendingCount = await db.mysteryBoxWinner.count({
+            const pendingCount = await prisma.mysteryBoxWinner.count({
               where: { boxId, shop, deliveryStatus: "PENDING" },
             });
 

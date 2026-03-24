@@ -14,7 +14,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { createHmac, timingSafeEqual } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { getIntegration } from "~/services/integrations/integration-manager.server";
 import {
@@ -77,7 +77,7 @@ function verifySlackSignature(
  * Find shop by Slack team ID
  */
 async function findShopByTeamId(teamId: string): Promise<string | null> {
-  const integration = await db.integration.findFirst({
+  const integration = await prisma.integration.findFirst({
     where: {
       provider: "SLACK",
       status: "CONNECTED",
@@ -96,7 +96,7 @@ async function findShopByTeamId(teamId: string): Promise<string | null> {
   }
 
   // Check all integrations if first doesn't match
-  const integrations = await db.integration.findMany({
+  const integrations = await prisma.integration.findMany({
     where: {
       provider: "SLACK",
       status: "CONNECTED",
@@ -276,7 +276,7 @@ async function handleLookupCommand(shop: string, args: string[]) {
   }
 
   // Find customer
-  const customer = await db.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { shop_email: { shop, email } },
     include: { currentTier: true },
   });
@@ -312,7 +312,7 @@ async function handlePointsCommand(
   }
 
   // Find customer
-  const customer = await db.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { shop_email: { shop, email: email.toLowerCase() } },
   });
 
@@ -333,7 +333,7 @@ async function handlePointsCommand(
   const newBalance = currentBalance + amount;
 
   // Update points
-  const updatedCustomer = await db.customer.update({
+  const updatedCustomer = await prisma.customer.update({
     where: { id: customer.id },
     data: {
       pointsBalance: newBalance,
@@ -342,7 +342,7 @@ async function handlePointsCommand(
   });
 
   // Create ledger entry
-  await db.pointsLedger.create({
+  await prisma.pointsLedger.create({
     data: {
       shop,
       customerId: customer.id,
@@ -384,7 +384,7 @@ async function handleTierCommand(shop: string, args: string[]) {
   }
 
   // Find customer with tier
-  const customer = await db.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { shop_email: { shop, email } },
     include: { currentTier: true },
   });
@@ -396,7 +396,7 @@ async function handleTierCommand(shop: string, args: string[]) {
   // Get next tier if exists
   let nextTier = null;
   if (customer.currentTier) {
-    nextTier = await db.tier.findFirst({
+    nextTier = await prisma.tier.findFirst({
       where: {
         shop,
         level: customer.currentTier.level + 1,
@@ -467,20 +467,20 @@ async function handleStatsCommand(shop: string, args: string[]) {
 
   // Fetch statistics
   const [pointsStats, newMembers, tierUpgrades] = await Promise.all([
-    db.pointsLedger.aggregate({
+    prisma.pointsLedger.aggregate({
       where: {
         shop,
         createdAt: { gte: startDate },
       },
       _sum: { amount: true },
     }),
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         createdAt: { gte: startDate },
       },
     }),
-    db.tierChangeLog.count({
+    prisma.tierChangeLog.count({
       where: {
         shop,
         createdAt: { gte: startDate },
@@ -490,7 +490,7 @@ async function handleStatsCommand(shop: string, args: string[]) {
   ]);
 
   // Separate earned vs redeemed (positive amounts = earned, negative = redeemed)
-  const earned = await db.pointsLedger.aggregate({
+  const earned = await prisma.pointsLedger.aggregate({
     where: {
       shop,
       createdAt: { gte: startDate },
@@ -499,7 +499,7 @@ async function handleStatsCommand(shop: string, args: string[]) {
     _sum: { amount: true },
   });
 
-  const redeemed = await db.pointsLedger.aggregate({
+  const redeemed = await prisma.pointsLedger.aggregate({
     where: {
       shop,
       createdAt: { gte: startDate },

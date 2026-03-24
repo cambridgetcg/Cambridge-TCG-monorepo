@@ -20,7 +20,7 @@ import {
 } from "../services/mission-events.server";
 import { claimChallengeReward } from "../services/challenge-claim.server";
 import { unauthenticated } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[api.customer-account.missions]";
 
@@ -88,7 +88,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Verify customer exists
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { id: customerId, shop },
       select: { id: true },
     });

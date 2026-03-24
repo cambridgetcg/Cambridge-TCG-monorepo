@@ -3,7 +3,7 @@
  * Optimized database queries for tier-level performance metrics
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { getCachedOrCompute } from "~/utils/analytics-cache.server";
 
 export interface TierPerformanceMetrics {
@@ -63,7 +63,7 @@ async function calculateRetentionRate(
   previousMonthRange: { start: Date; end: Date }
 ): Promise<number> {
   // Get distinct customers who ordered in previous month for this tier
-  const previousMonthCustomers = await db.order.findMany({
+  const previousMonthCustomers = await prisma.order.findMany({
     where: {
       shop,
       customerId: { in: tierCustomerIds },
@@ -88,7 +88,7 @@ async function calculateRetentionRate(
   const previousCustomerIds = new Set(previousMonthCustomers.map(o => o.customerId));
 
   // Get distinct customers who ordered in current month for this tier
-  const currentMonthCustomers = await db.order.findMany({
+  const currentMonthCustomers = await prisma.order.findMany({
     where: {
       shop,
       customerId: {
@@ -134,7 +134,7 @@ async function fetchTierPerformanceMetrics(
 
   // BATCH QUERY 1: Get all tiers and shop settings in parallel
   const [tiers, shopSettings] = await Promise.all([
-    db.tier.findMany({
+    prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'asc' },
       select: {
@@ -143,7 +143,7 @@ async function fetchTierPerformanceMetrics(
         cashbackPercent: true,
       },
     }),
-    db.shopSettings.findUnique({
+    prisma.shopSettings.findUnique({
       where: { shop },
       select: { averageProfitMargin: true },
     }),
@@ -166,7 +166,7 @@ async function fetchTierPerformanceMetrics(
   // BATCH QUERY 2a: Get customer counts per tier (parallel COUNT queries)
   const customerCountResults = await Promise.all(
     tiers.map(tier =>
-      db.customer.count({
+      prisma.customer.count({
         where: { shop, currentTierId: tier.id },
       }).then(count => ({ tierId: tier.id, count }))
     )
@@ -175,7 +175,7 @@ async function fetchTierPerformanceMetrics(
   // BATCH QUERY 2b: Get average LTV per tier (parallel AGGREGATE queries)
   const ltvResults = await Promise.all(
     tiers.map(tier =>
-      db.customer.aggregate({
+      prisma.customer.aggregate({
         where: { shop, currentTierId: tier.id },
         _avg: { totalSpent: true },
       }).then(result => ({ tierId: tier.id, avgLtv: Number(result._avg.totalSpent || 0) }))
@@ -195,7 +195,7 @@ async function fetchTierPerformanceMetrics(
   // So we need to fetch customer IDs first and use customerId: { in: [...] }
   const customerIdsPerTier = await Promise.all(
     tiers.map(async tier => {
-      const customers = await db.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where: { shop, currentTierId: tier.id },
         select: { id: true },
         take: 10000, // Safety limit
@@ -226,7 +226,7 @@ async function fetchTierPerformanceMetrics(
 
       const [orderAggregate, activeCustomerCount] = await Promise.all([
         // Aggregate order metrics for this tier
-        db.order.aggregate({
+        prisma.order.aggregate({
           where: {
             shop,
             customerId: { in: customerIds },
@@ -242,7 +242,7 @@ async function fetchTierPerformanceMetrics(
           _count: true,
         }),
         // Count distinct active customers (who ordered this month)
-        db.order.findMany({
+        prisma.order.findMany({
           where: {
             shop,
             customerId: { in: customerIds },
@@ -290,7 +290,7 @@ async function fetchTierPerformanceMetrics(
       }
 
       // Get distinct customers who ordered last month for this tier
-      const lastMonthCustomers = await db.order.findMany({
+      const lastMonthCustomers = await prisma.order.findMany({
         where: {
           shop,
           customerId: { in: customerIds },
@@ -312,7 +312,7 @@ async function fetchTierPerformanceMetrics(
       const lastMonthCustomerIds = lastMonthCustomers.map(o => o.customerId);
 
       // Check how many of those customers ordered this month
-      const retainedCustomers = await db.order.findMany({
+      const retainedCustomers = await prisma.order.findMany({
         where: {
           shop,
           customerId: { in: lastMonthCustomerIds },
@@ -419,7 +419,7 @@ async function fetchMonthlyTierRevenue(shop: string): Promise<MonthlyTierRevenue
   const now = new Date();
 
   // Get all tiers first
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: 'asc' },
     select: { id: true, name: true },
@@ -431,7 +431,7 @@ async function fetchMonthlyTierRevenue(shop: string): Promise<MonthlyTierRevenue
   }
 
   // Get profit margin for gross profit calculation
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: { averageProfitMargin: true },
   });
@@ -443,7 +443,7 @@ async function fetchMonthlyTierRevenue(shop: string): Promise<MonthlyTierRevenue
   const customerIdsByTier = new Map<string, string[]>();
   await Promise.all(
     tiers.map(async (tier) => {
-      const customers = await db.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where: { shop, currentTierId: tier.id },
         select: { id: true },
         take: 10000, // Safety limit
@@ -485,7 +485,7 @@ async function fetchMonthlyTierRevenue(shop: string): Promise<MonthlyTierRevenue
 
           // Aggregate order data for this tier in this month
           const [orderAggregate, activeCustomers] = await Promise.all([
-            db.order.aggregate({
+            prisma.order.aggregate({
               where: {
                 shop,
                 customerId: { in: customerIds },
@@ -500,7 +500,7 @@ async function fetchMonthlyTierRevenue(shop: string): Promise<MonthlyTierRevenue
               _sum: { netAmount: true },
               _count: true,
             }),
-            db.order.findMany({
+            prisma.order.findMany({
               where: {
                 shop,
                 customerId: { in: customerIds },

@@ -13,7 +13,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { calculateEconomyHealth } from "~/services/points-maintenance.server";
 import { getBonusEvents, getActiveEvents } from "~/services/points-bonus-events.server";
 import { getRedemptionTiers } from "~/services/points-redemption.server";
@@ -213,13 +213,13 @@ async function getOverviewData(shop: string) {
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
   // Instead, fetch type and amount fields and aggregate in memory
   const [customerStats, ledgerEntries] = await Promise.all([
-    db.customer.aggregate({
+    prisma.customer.aggregate({
       where: { shop },
       _sum: { pointsBalance: true, lifetimePoints: true },
       _count: true,
       _avg: { pointsBalance: true },
     }),
-    db.pointsLedger.findMany({
+    prisma.pointsLedger.findMany({
       where: { shop },
       select: { type: true, amount: true },
     }),
@@ -232,7 +232,7 @@ async function getOverviewData(shop: string) {
   }
 
   // Count customers with positive balance
-  const customersWithPoints = await db.customer.count({
+  const customersWithPoints = await prisma.customer.count({
     where: { shop, pointsBalance: { gt: 0 } },
   });
 
@@ -293,7 +293,7 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
   // Replace with findMany and count in memory
   const [earnedData, redeemedData, transactionEntries] = await Promise.all([
-    db.pointsLedger.aggregate({
+    prisma.pointsLedger.aggregate({
       where: {
         shop,
         createdAt: { gte: startDate, lte: endDate },
@@ -301,7 +301,7 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
       },
       _sum: { amount: true },
     }),
-    db.pointsLedger.aggregate({
+    prisma.pointsLedger.aggregate({
       where: {
         shop,
         createdAt: { gte: startDate, lte: endDate },
@@ -309,7 +309,7 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
       },
       _sum: { amount: true },
     }),
-    db.pointsLedger.findMany({
+    prisma.pointsLedger.findMany({
       where: {
         shop,
         createdAt: { gte: startDate, lte: endDate },
@@ -332,7 +332,7 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
 
 async function getStreakMetrics(shop: string) {
   // Get customers with active streaks from metadata
-  const customersWithStreaks = await db.customer.findMany({
+  const customersWithStreaks = await prisma.customer.findMany({
     where: {
       shop,
       metadata: { path: ["streak", "currentStreak"], gte: 1 },
@@ -365,7 +365,7 @@ async function getRedemptionAnalytics(shop: string) {
   const tiers = await getRedemptionTiers(shop);
 
   // Get redemption transactions grouped by tier
-  const redemptions = await db.pointsLedger.findMany({
+  const redemptions = await prisma.pointsLedger.findMany({
     where: { shop, type: "REDEMPTION" },
     select: { points: true, metadata: true },
   });
@@ -406,14 +406,14 @@ async function getRedemptionAnalytics(shop: string) {
   }, 0);
 
   // Get customers who have ever earned points
-  const customersWithHistory = await db.customer.count({
+  const customersWithHistory = await prisma.customer.count({
     where: { shop, lifetimePoints: { gt: 0 } },
   });
 
   // Get customers who have redeemed
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
   // Instead, fetch customerIds and count distinct in memory
-  const redemptionEntries = await db.pointsLedger.findMany({
+  const redemptionEntries = await prisma.pointsLedger.findMany({
     where: { shop, type: "REDEMPTION" },
     select: { customerId: true },
   });
@@ -433,7 +433,7 @@ async function getRedemptionAnalytics(shop: string) {
 }
 
 async function getTierBreakdown(shop: string) {
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     select: {
       id: true,
@@ -445,7 +445,7 @@ async function getTierBreakdown(shop: string) {
 
   const tierBreakdown = await Promise.all(
     tiers.map(async (tier) => {
-      const stats = await db.customer.aggregate({
+      const stats = await prisma.customer.aggregate({
         where: { shop, tierId: tier.id },
         _sum: { pointsBalance: true },
         _avg: { pointsBalance: true },
@@ -467,7 +467,7 @@ async function getTierBreakdown(shop: string) {
 
 async function getMonthlyTrends(shop: string, startDate: Date) {
   // Get all ledger entries since start date
-  const entries = await db.pointsLedger.findMany({
+  const entries = await prisma.pointsLedger.findMany({
     where: {
       shop,
       createdAt: { gte: startDate },

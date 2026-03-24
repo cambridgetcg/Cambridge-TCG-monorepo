@@ -1,4 +1,4 @@
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 
 // Industry benchmark conversion rates (used as fallback when no historical data)
@@ -51,7 +51,7 @@ export class AnalyticsRecommendationsService {
     campaignType: keyof typeof BENCHMARK_RATES
   ): Promise<{ rate: number; isHistorical: boolean; sampleSize: number }> {
     try {
-      const campaigns = await db.emailCampaign.findMany({
+      const campaigns = await prisma.emailCampaign.findMany({
         where: {
           shop: this.shop,
           status: 'sent',
@@ -94,7 +94,7 @@ export class AnalyticsRecommendationsService {
   private async getAverageOrderValue(): Promise<{ value: number; source: 'configured' | 'calculated' | 'default' }> {
     try {
       // First check for configured AOV in store metrics
-      const shopSettings = await db.shopSettings.findUnique({
+      const shopSettings = await prisma.shopSettings.findUnique({
         where: { shop: this.shop },
         select: { averageOrderValue: true },
       });
@@ -104,7 +104,7 @@ export class AnalyticsRecommendationsService {
       }
 
       // Fall back to calculating from order history
-      const customers = await db.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where: {
           shop: this.shop,
           orderCount: { gt: 0 },
@@ -169,7 +169,7 @@ export class AnalyticsRecommendationsService {
       where.type = options.type;
     }
 
-    return await db.analyticsRecommendation.findMany({
+    return await prisma.analyticsRecommendation.findMany({
       where,
       orderBy: { priority: 'desc' }, // Aurora Data API doesn't support array orderBy
       take: options?.limit || 10
@@ -180,7 +180,7 @@ export class AnalyticsRecommendationsService {
    * Get a specific recommendation by ID
    */
   async getRecommendationById(recommendationId: string) {
-    return await db.analyticsRecommendation.findFirst({
+    return await prisma.analyticsRecommendation.findFirst({
       where: {
         id: recommendationId,
         shop: this.shop
@@ -192,7 +192,7 @@ export class AnalyticsRecommendationsService {
    * Mark a recommendation as applied when converted to campaign
    */
   async applyRecommendation(recommendationId: string) {
-    return await db.analyticsRecommendation.update({
+    return await prisma.analyticsRecommendation.update({
       where: { id: recommendationId },
       data: {
         status: 'applied',
@@ -205,7 +205,7 @@ export class AnalyticsRecommendationsService {
    * Dismiss a recommendation
    */
   async dismissRecommendation(recommendationId: string) {
-    return await db.analyticsRecommendation.update({
+    return await prisma.analyticsRecommendation.update({
       where: { id: recommendationId },
       data: {
         status: 'dismissed',
@@ -240,7 +240,7 @@ export class AnalyticsRecommendationsService {
     ]);
 
     // 1. Inactive Customers (30+ days no activity)
-    const inactiveCustomers = await db.customer.findMany({
+    const inactiveCustomers = await prisma.customer.findMany({
       where: {
         shop: this.shop,
         lastOrderDate: {
@@ -291,13 +291,13 @@ export class AnalyticsRecommendationsService {
     }
 
     // 2. Tier Upgrade Opportunities - Get tiers and find customers near boundaries
-    const tiers = await db.tier.findMany({
+    const tiers = await prisma.tier.findMany({
       where: { shop: this.shop },
       orderBy: { minSpend: 'asc' }
     });
 
     // Get customers with significant spending
-    const customersWithSpending = await db.customer.findMany({
+    const customersWithSpending = await prisma.customer.findMany({
       where: {
         shop: this.shop,
         totalSpent: { gte: 0 }
@@ -367,7 +367,7 @@ export class AnalyticsRecommendationsService {
     // 3. Expiring Rewards - Find ledger entries with expiring credits
     // DATA API COMPATIBLE: Nested include not supported, use two-step query
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const expiringLedgerEntries = await db.storeCreditLedger.findMany({
+    const expiringLedgerEntries = await prisma.storeCreditLedger.findMany({
       where: {
         shop: this.shop,
         expiresAt: {
@@ -387,7 +387,7 @@ export class AnalyticsRecommendationsService {
     // Fetch customers separately and join in memory
     const expiringCustomerIds = [...new Set(expiringLedgerEntries.map(e => e.customerId))];
     const expiringCustomers = expiringCustomerIds.length > 0
-      ? await db.customer.findMany({
+      ? await prisma.customer.findMany({
           where: { id: { in: expiringCustomerIds } },
           select: { id: true, email: true, storeCredit: true }
         })
@@ -448,7 +448,7 @@ export class AnalyticsRecommendationsService {
     const topTiers = tiers.length > 0 ? tiers.slice(-2).map(t => t.id) : [];
 
     // Only query if we have tiers to search for
-    const vipAtRisk = topTiers.length > 0 ? await db.customer.findMany({
+    const vipAtRisk = topTiers.length > 0 ? await prisma.customer.findMany({
       where: {
         shop: this.shop,
         currentTierId: { in: topTiers },
@@ -516,7 +516,7 @@ export class AnalyticsRecommendationsService {
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    const customersWithBirthday = await db.customer.findMany({
+    const customersWithBirthday = await prisma.customer.findMany({
       where: {
         shop: this.shop,
         birthday: { not: null },
@@ -584,7 +584,7 @@ export class AnalyticsRecommendationsService {
     }
 
     // 6. Low Balance Reengagement - Customers with small unused balances
-    const lowBalanceCustomers = await db.customer.findMany({
+    const lowBalanceCustomers = await prisma.customer.findMany({
       where: {
         shop: this.shop,
         storeCredit: {
@@ -646,7 +646,7 @@ export class AnalyticsRecommendationsService {
 
     try {
       // Check if similar recommendation already exists
-      const existing = await db.analyticsRecommendation.findFirst({
+      const existing = await prisma.analyticsRecommendation.findFirst({
         where: {
           shop: this.shop,
           type: insight.type,
@@ -657,7 +657,7 @@ export class AnalyticsRecommendationsService {
 
       if (existing) {
         // Update existing recommendation with latest data
-        return await db.analyticsRecommendation.update({
+        return await prisma.analyticsRecommendation.update({
           where: { id: existing.id },
           data: {
             title: insight.title,
@@ -673,7 +673,7 @@ export class AnalyticsRecommendationsService {
       }
 
       // Create new recommendation
-      return await db.analyticsRecommendation.create({
+      return await prisma.analyticsRecommendation.create({
         data: {
           id: uuidv4(),
           shop: this.shop,

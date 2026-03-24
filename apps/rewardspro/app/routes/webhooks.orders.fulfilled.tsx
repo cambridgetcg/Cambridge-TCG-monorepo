@@ -11,7 +11,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { invalidateShopCache } from "~/utils/analytics-cache.server";
 
 interface FulfillmentWebhook {
@@ -59,7 +59,7 @@ export async function action({ request }: ActionFunctionArgs) {
     console.log(`[OrdersFulfilled] Items fulfilled: ${fulfillment.line_items?.length || 0}`);
 
     // Find the order in our database
-    const order = await db.order.findFirst({
+    const order = await prisma.order.findFirst({
       where: {
         shop,
         shopifyOrderId,
@@ -109,7 +109,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Update the order
-    await db.order.update({
+    await prisma.order.update({
       where: { id: order.id },
       data: {
         fulfillmentStatus: newFulfillmentStatus,

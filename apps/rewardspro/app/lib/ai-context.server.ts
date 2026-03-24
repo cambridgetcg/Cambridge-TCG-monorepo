@@ -8,7 +8,7 @@
 import * as sessionService from "~/services/ai-feedback/session-context.server";
 import * as feedbackService from "~/services/ai-feedback/feedback-service.server";
 import * as learningService from "~/services/ai-feedback/learning-loop.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { AICodeQualitySignal, AIArchitectureHealth } from "@prisma/client";
 
 // Types
@@ -86,7 +86,7 @@ export const aiContext = {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    const sessions = await db.aISession.findMany({
+    const sessions = await prisma.aISession.findMany({
       where: {
         endedAt: { not: null },
         startedAt: { gte: since },

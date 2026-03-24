@@ -17,7 +17,7 @@ import {
   Box,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { formatCurrency } from "../utils/currency";
 
 // ============= TYPES =============
@@ -44,7 +44,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
 
   // Fetch current store metrics from shopSettings
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: {
       averageProfitMargin: true,
@@ -59,7 +59,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // If no settings exist, create them
   if (!shopSettings) {
-    await db.shopSettings.upsert({
+    await prisma.shopSettings.upsert({
       where: { shop },
       create: {
         shop,
@@ -111,7 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return isNaN(parsed) ? null : parsed;
     };
 
-    await db.shopSettings.update({
+    await prisma.shopSettings.update({
       where: { shop },
       data: {
         averageProfitMargin: parseDecimal(averageProfitMargin),

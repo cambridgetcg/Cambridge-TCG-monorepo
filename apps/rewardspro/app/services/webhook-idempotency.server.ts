@@ -10,7 +10,7 @@
  * webhook deliveries could both pass the "already processed" check.
  */
 
-import db from '~/db.server';
+import prisma from '~/db.server';
 import { v4 as uuidv4 } from 'uuid';
 import { createLogger } from '~/services/logger.server';
 
@@ -57,7 +57,7 @@ export async function checkAndAcquireIdempotencyLock(
 
   try {
     // Use serializable isolation to prevent TOCTOU race conditions
-    const result = await db.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Try to find existing record
       const existing = await tx.webhookProcessed.findUnique({
         where: { webhookId }
@@ -146,7 +146,7 @@ export async function completeIdempotencyRecord(
   result?: unknown
 ): Promise<void> {
   try {
-    await db.webhookProcessed.update({
+    await prisma.webhookProcessed.update({
       where: { webhookId },
       data: {
         status: 'COMPLETED',
@@ -174,7 +174,7 @@ export async function failIdempotencyRecord(
   errorMessage: string
 ): Promise<void> {
   try {
-    await db.webhookProcessed.update({
+    await prisma.webhookProcessed.update({
       where: { webhookId },
       data: {
         status: 'FAILED',
@@ -198,7 +198,7 @@ export async function failIdempotencyRecord(
  */
 export async function releaseIdempotencyLock(webhookId: string): Promise<void> {
   try {
-    await db.webhookProcessed.delete({
+    await prisma.webhookProcessed.delete({
       where: { webhookId }
     });
     logger.debug('Released idempotency lock', { webhookId });
@@ -215,7 +215,7 @@ export async function releaseIdempotencyLock(webhookId: string): Promise<void> {
  * Should be called periodically (e.g., via cron job).
  */
 export async function cleanupExpiredRecords(): Promise<number> {
-  const result = await db.webhookProcessed.deleteMany({
+  const result = await prisma.webhookProcessed.deleteMany({
     where: {
       expiresAt: { lt: new Date() }
     }

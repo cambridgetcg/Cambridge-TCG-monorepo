@@ -41,7 +41,7 @@ import { TierBadge } from "../components/TierBadge";
 import { TierPerformanceChart } from "../components/analytics/TierPerformanceChart";
 import { sortTiersByPriority } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
@@ -370,8 +370,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     // Fetch minimal data for UI structure, recommendations, and entitlements
     const [shopSettings, , entitlements] = await Promise.all([
-      db.shopSettings.findUnique({ where: { shop } }),
-      db.tier.findMany({
+      prisma.shopSettings.findUnique({ where: { shop } }),
+      prisma.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
       }),
@@ -531,12 +531,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Wrapped with safeQuery for Data API resilience
     const [ltv, repeatCustomersCount, retention] = await Promise.all([
       safeQuery(
-        () => db.customer.aggregate({ where: { shop }, _avg: { totalSpent: true } }),
+        () => prisma.customer.aggregate({ where: { shop }, _avg: { totalSpent: true } }),
         { _avg: { totalSpent: null } } as any,
         'CustomerLTV'
       ),
       safeQuery(
-        () => db.customer.count({ where: { shop, orderCount: { gt: 1 } } }),
+        () => prisma.customer.count({ where: { shop, orderCount: { gt: 1 } } }),
         0,
         'RepeatCustomers'
       ),
@@ -546,7 +546,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-        const lastMonthCustomers = await db.order.findMany({
+        const lastMonthCustomers = await prisma.order.findMany({
           where: {
             shop,
             shopifyCreatedAt: { gte: lastMonthStart, lte: lastMonthEnd },
@@ -560,7 +560,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
         const lastMonthIds = new Set(lastMonthCustomers.map(o => o.customerId));
 
-        const thisMonthRetained = await db.order.findMany({
+        const thisMonthRetained = await prisma.order.findMany({
           where: {
             shop,
             customerId: { in: Array.from(lastMonthIds) },
@@ -753,7 +753,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return isNaN(parsed) ? null : parsed;
     };
 
-    await db.shopSettings.update({
+    await prisma.shopSettings.update({
       where: { shop },
       data: {
         averageProfitMargin: parseDecimal(formData.get("averageProfitMargin") as string),

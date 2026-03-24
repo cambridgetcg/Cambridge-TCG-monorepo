@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { gdprLogger } from "~/services/logger.server";
 import { maskEmail } from "~/utils/pii-masker";
 
@@ -113,7 +113,7 @@ async function handleCustomerDataRequest(
   try {
     // DATA API COMPATIBLE: Nested include not supported, use two-step query
     // Find the customer in our system
-    const customerRaw = await db.customer.findFirst({
+    const customerRaw = await prisma.customer.findFirst({
       where: {
         shop,
         shopifyCustomerId: String(payload.customer.id)
@@ -133,7 +133,7 @@ async function handleCustomerDataRequest(
     if (customerRaw) {
       const orderIds = customerRaw.orders.map((o: any) => o.id);
       const refunds = orderIds.length > 0
-        ? await db.orderRefund.findMany({
+        ? await prisma.orderRefund.findMany({
             where: { orderId: { in: orderIds } },
           })
         : [];
@@ -284,7 +284,7 @@ async function handleCustomerRedact(
 
   try {
     // Find the customer in our system
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         shop,
         shopifyCustomerId: String(payload.customer.id)
@@ -306,7 +306,7 @@ async function handleCustomerRedact(
     };
 
     // Use a transaction to ensure all-or-nothing deletion
-    await db.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // 1. Delete store credit ledger entries
       const deletedCredits = await tx.storeCreditLedger.deleteMany({
         where: { customerId: customer.id }
@@ -402,7 +402,7 @@ async function handleShopRedact(
 
   try {
     // Use a transaction for atomicity, but break into batches for large datasets
-    await db.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // ============================================
       // 1. Delete leaf tables first (no dependencies)
       // ============================================

@@ -10,7 +10,7 @@
  * This service is designed to be called by a cron job.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { expirePoints, getExpiringPoints } from "./points-ledger.server";
 import { getPointsConfig, getExpirationSettings } from "./points-config.server";
 import type { Prisma } from "@prisma/client";
@@ -100,7 +100,7 @@ export async function sendExpirationWarnings(shop: string): Promise<{
 
   // Find customers with points expiring within warning period
   // who haven't been warned yet (check metadata)
-  const expiringEntries = await db.pointsLedger.findMany({
+  const expiringEntries = await prisma.pointsLedger.findMany({
     where: {
       shop,
       expired: false,
@@ -146,7 +146,7 @@ export async function sendExpirationWarnings(shop: string): Promise<{
   let totalPointsExpiring = 0;
 
   for (const [customerId, expiring] of customerExpiringPoints) {
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { id: customerId, shop },
       select: {
         id: true,
@@ -174,7 +174,7 @@ export async function sendExpirationWarnings(shop: string): Promise<{
       await queueExpirationWarningEmail(shop, customer, expiring, config);
 
       // Update metadata with warning timestamp
-      await db.customer.update({
+      await prisma.customer.update({
         where: { id: customerId },
         data: {
           metadata: {
@@ -260,7 +260,7 @@ export async function processStreakUpdates(shop: string): Promise<{
   twoDaysAgo.setHours(0, 0, 0, 0);
 
   // Find customers with points activity yesterday (to increment streak)
-  const activeYesterday = await db.pointsLedger.findMany({
+  const activeYesterday = await prisma.pointsLedger.findMany({
     where: {
       shop,
       createdAt: {
@@ -280,7 +280,7 @@ export async function processStreakUpdates(shop: string): Promise<{
   const activeCustomerIds = new Set(activeYesterday.map((a) => a.customerId));
 
   // Get all customers with active streaks
-  const customersWithStreaks = await db.customer.findMany({
+  const customersWithStreaks = await prisma.customer.findMany({
     where: {
       shop,
       metadata: {
@@ -315,7 +315,7 @@ export async function processStreakUpdates(shop: string): Promise<{
       const newStreak = streakData.current + 1;
       const newLongest = Math.max(newStreak, streakData.longest);
 
-      await db.customer.update({
+      await prisma.customer.update({
         where: { id: customer.id },
         data: {
           metadata: {
@@ -332,7 +332,7 @@ export async function processStreakUpdates(shop: string): Promise<{
       streaksIncremented++;
     } else if (lastActivityDate < twoDaysAgo) {
       // Customer was not active for more than a day - reset streak
-      await db.customer.update({
+      await prisma.customer.update({
         where: { id: customer.id },
         data: {
           metadata: {
@@ -372,7 +372,7 @@ export async function recordStreakActivity(
     return { newStreak: 0, bonusMultiplier: 1 };
   }
 
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { metadata: true },
   });
@@ -419,7 +419,7 @@ export async function recordStreakActivity(
     }
   }
 
-  await db.customer.update({
+  await prisma.customer.update({
     where: { id: customerId },
     data: {
       metadata: {
@@ -450,7 +450,7 @@ export async function calculateEconomyHealth(shop: string): Promise<PointsEconom
   const warnings: string[] = [];
 
   // Get total points in circulation
-  const balanceResult = await db.customer.aggregate({
+  const balanceResult = await prisma.customer.aggregate({
     where: { shop },
     _sum: { pointsBalance: true, lifetimePoints: true },
     _count: true,
@@ -463,7 +463,7 @@ export async function calculateEconomyHealth(shop: string): Promise<PointsEconom
   const totalCustomers = balanceResult._count;
 
   // Get customers with non-zero balance
-  const customersWithPoints = await db.customer.count({
+  const customersWithPoints = await prisma.customer.count({
     where: { shop, pointsBalance: { gt: 0 } },
   });
 
@@ -477,7 +477,7 @@ export async function calculateEconomyHealth(shop: string): Promise<PointsEconom
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-  const expiringResult = await db.pointsLedger.aggregate({
+  const expiringResult = await prisma.pointsLedger.aggregate({
     where: {
       shop,
       expired: false,
@@ -597,7 +597,7 @@ export async function runAllShopsMaintenance(): Promise<AllShopsMaintenanceResul
   const results: PointsMaintenanceResult[] = [];
 
   // Find all shops with points enabled
-  const configs = await db.pointsConfig.findMany({
+  const configs = await prisma.pointsConfig.findMany({
     where: { isEnabled: true },
     select: { shop: true },
   });

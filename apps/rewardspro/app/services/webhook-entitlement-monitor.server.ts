@@ -9,7 +9,7 @@
  */
 
 import { getEntitlements, getEffectivePlan } from "./entitlements.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "./logger.server";
 
 const monitorLogger = createLogger("WebhookEntitlement");
@@ -189,16 +189,16 @@ async function getResourceUsage(shop: string): Promise<{
     activeRaffleCount,
     activeCampaignCount,
   ] = await Promise.all([
-    db.tier.count({ where: { shop } }),
-    db.monthlyOrderUsage.findUnique({
+    prisma.tier.count({ where: { shop } }),
+    prisma.monthlyOrderUsage.findUnique({
       where: { shop_year_month: { shop, year, month } },
       select: { orderCount: true },
     }),
-    db.customer.count({ where: { shop } }),
-    db.raffle.count({
+    prisma.customer.count({ where: { shop } }),
+    prisma.raffle.count({
       where: { shop, status: { in: ["ACTIVE", "SCHEDULED"] } },
     }),
-    db.emailCampaign.count({
+    prisma.emailCampaign.count({
       where: { shop, status: { in: ["DRAFT", "SCHEDULED", "SENDING"] } },
     }),
   ]);

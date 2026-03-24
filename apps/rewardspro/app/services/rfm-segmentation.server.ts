@@ -4,7 +4,7 @@
  * Combines 8+ queries into efficient batched operations
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { getCachedOrCompute } from "~/utils/analytics-cache.server";
 
 // Types
@@ -82,7 +82,7 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
 
   // BATCH 1: Get member/non-member aggregations in parallel
   const [memberStats, nonMemberStats, memberRepeatCount, nonMemberRepeatCount] = await Promise.all([
-    db.customer.aggregate({
+    prisma.customer.aggregate({
       where: { shop, currentTierId: { not: null } },
       _count: true,
       _avg: {
@@ -91,7 +91,7 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
         annualSpent: true,
       },
     }),
-    db.customer.aggregate({
+    prisma.customer.aggregate({
       where: { shop, currentTierId: null },
       _count: true,
       _avg: {
@@ -100,10 +100,10 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
         annualSpent: true,
       },
     }),
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, currentTierId: { not: null }, orderCount: { gt: 1 } },
     }),
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, currentTierId: null, orderCount: { gt: 1 } },
     }),
   ]);
@@ -150,15 +150,15 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
     redeemingCustomers,
   ] = await Promise.all([
     // Active in last 30 days
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, lastOrderDate: { gte: thirtyDaysAgo } },
     }),
     // Dormant (60-90 days)
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, lastOrderDate: { gte: ninetyDaysAgo, lt: sixtyDaysAgo } },
     }),
     // At risk (high value but slipping)
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         totalSpent: { gte: ltvThreshold * 0.5 },
@@ -166,11 +166,11 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
       },
     }),
     // New customers (first order in last 30 days)
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, createdAt: { gte: thirtyDaysAgo }, orderCount: { lte: 1 } },
     }),
     // Champions: Recent, frequent, high value
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         lastOrderDate: { gte: thirtyDaysAgo },
@@ -179,15 +179,15 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
       },
     }),
     // Loyal: Frequent buyers with good value
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, orderCount: { gte: 3 }, totalSpent: { gte: ltvThreshold * 0.5 } },
     }),
     // Hibernating: Old customers, low value
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, lastOrderDate: { lt: ninetyDaysAgo }, totalSpent: { lt: ltvThreshold * 0.3 } },
     }),
     // Customers who used store credit
-    db.customer.count({
+    prisma.customer.count({
       where: { shop, storeCredit: { lt: 0 } },
     }).catch(() => 0),
   ]);

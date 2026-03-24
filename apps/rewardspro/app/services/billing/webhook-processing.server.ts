@@ -7,7 +7,7 @@
  * @module webhook-processing.server
  */
 
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { v4 as uuidv4 } from "uuid";
 import * as crypto from "crypto";
 
@@ -56,7 +56,7 @@ export async function checkWebhookIdempotency(
 
   try {
     // 1. Check if webhook already processed
-    const existing = await db.processedWebhook.findUnique({
+    const existing = await prisma.processedWebhook.findUnique({
       where: { id: webhookId },
     });
 
@@ -79,7 +79,7 @@ export async function checkWebhookIdempotency(
     if (topic === "APP_SUBSCRIPTIONS_UPDATE" && (triggeredAt || updatedAt)) {
       const incomingTimestamp = updatedAt || triggeredAt;
 
-      const existingSubscription = await db.appSubscription.findUnique({
+      const existingSubscription = await prisma.appSubscription.findUnique({
         where: { shop },
         select: { webhookTimestamp: true },
       });
@@ -104,7 +104,7 @@ export async function checkWebhookIdempotency(
 
     // 3. Mark as processing (atomic insert)
     try {
-      await db.processedWebhook.create({
+      await prisma.processedWebhook.create({
         data: {
           id: webhookId,
           topic,
@@ -162,7 +162,7 @@ export async function checkWebhookIdempotency(
  */
 export async function markWebhookCompleted(webhookId: string): Promise<void> {
   try {
-    await db.processedWebhook.update({
+    await prisma.processedWebhook.update({
       where: { id: webhookId },
       data: {
         status: "COMPLETED",
@@ -183,7 +183,7 @@ export async function markWebhookFailed(
   errorMessage: string
 ): Promise<void> {
   try {
-    await db.processedWebhook.update({
+    await prisma.processedWebhook.update({
       where: { id: webhookId },
       data: {
         status: "FAILED",
@@ -202,7 +202,7 @@ export async function markWebhookFailed(
  */
 export async function clearWebhookForRetry(webhookId: string): Promise<void> {
   try {
-    await db.processedWebhook.delete({
+    await prisma.processedWebhook.delete({
       where: { id: webhookId },
     });
     console.log(`[WebhookProcessing] Cleared ${webhookId} for retry`);
@@ -224,7 +224,7 @@ async function logWebhookAction(
   metadata?: Record<string, any>
 ): Promise<void> {
   try {
-    await db.webhookAuditLog.create({
+    await prisma.webhookAuditLog.create({
       data: {
         id: uuidv4(),
         shop: context.shop,
@@ -291,7 +291,7 @@ export async function cleanupOldWebhooks(): Promise<number> {
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   try {
-    const result = await db.processedWebhook.deleteMany({
+    const result = await prisma.processedWebhook.deleteMany({
       where: {
         receivedAt: { lt: cutoff },
         status: { in: ["COMPLETED", "FAILED"] }, // Don't delete still-processing
@@ -319,10 +319,10 @@ export async function getWebhookStats(shop?: string): Promise<{
 
   try {
     const [total, completed, failed, processing] = await Promise.all([
-      db.processedWebhook.count({ where }),
-      db.processedWebhook.count({ where: { ...where, status: "COMPLETED" } }),
-      db.processedWebhook.count({ where: { ...where, status: "FAILED" } }),
-      db.processedWebhook.count({ where: { ...where, status: "PROCESSING" } }),
+      prisma.processedWebhook.count({ where }),
+      prisma.processedWebhook.count({ where: { ...where, status: "COMPLETED" } }),
+      prisma.processedWebhook.count({ where: { ...where, status: "FAILED" } }),
+      prisma.processedWebhook.count({ where: { ...where, status: "PROCESSING" } }),
     ]);
 
     return { total, completed, failed, processing };

@@ -63,7 +63,7 @@ import {
   deliverPrize,
   deliverAllRafflePrizes,
 } from "../services/raffle-prize-delivery.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { PointsIcon, DEFAULT_ICON_CONFIG } from "~/components/PointsIcon";
 import type { CurrencyIconType } from "~/services/points-config.server";
 
@@ -170,7 +170,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // Get recent entries
   let recentEntries: any[] = [];
   try {
-    const entries = await db.raffleEntry.findMany({
+    const entries = await prisma.raffleEntry.findMany({
       where: { raffleId },
       orderBy: { createdAt: "desc" },
       take: 10,

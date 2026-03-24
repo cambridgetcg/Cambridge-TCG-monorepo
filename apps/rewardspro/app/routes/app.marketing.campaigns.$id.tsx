@@ -19,7 +19,7 @@ import {
 } from "@shopify/polaris";
 import { useState } from "react";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 
 interface CampaignMetrics {
@@ -44,7 +44,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   let campaign = null;
   try {
-    campaign = await db.emailCampaign.findFirst({
+    campaign = await prisma.emailCampaign.findFirst({
       where: { id, shop },
     });
   } catch (e) {
@@ -58,7 +58,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // Fetch templates for the dropdown
   let templates: { id: string; name: string }[] = [];
   try {
-    templates = await db.emailTemplate.findMany({
+    templates = await prisma.emailTemplate.findMany({
       where: { shop },
       orderBy: { name: "asc" },
     });
@@ -98,7 +98,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (intent === "delete") {
     try {
-      await db.emailCampaign.deleteMany({
+      await prisma.emailCampaign.deleteMany({
         where: { id, shop },
       });
       return redirect("/app/marketing/campaigns");
@@ -110,7 +110,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (intent === "duplicate") {
     try {
       // Fetch the original campaign
-      const original = await db.emailCampaign.findFirst({
+      const original = await prisma.emailCampaign.findFirst({
         where: { id, shop },
       });
 
@@ -122,7 +122,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       const newId = uuidv4();
       const now = new Date();
 
-      await db.emailCampaign.create({
+      await prisma.emailCampaign.create({
         data: {
           id: newId,
           shop,
@@ -157,7 +157,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     }
 
     try {
-      await db.emailCampaign.updateMany({
+      await prisma.emailCampaign.updateMany({
         where: { id, shop },
         data: {
           name,

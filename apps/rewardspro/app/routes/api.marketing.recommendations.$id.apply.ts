@@ -1,7 +1,7 @@
 import { json, ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 
 /**
@@ -39,7 +39,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     // Check if this recommendation was already applied
     if (recommendation.status === 'applied' && recommendation.appliedAt) {
       // Try to find the existing campaign
-      const existingCampaign = await db.emailCampaign.findFirst({
+      const existingCampaign = await prisma.emailCampaign.findFirst({
         where: {
           shop,
           createdAt: {
@@ -63,7 +63,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const campaignData = await recommendationsService.transformToCampaign(recommendationId);
 
     // Create the email template
-    const template = await db.emailTemplate.create({
+    const template = await prisma.emailTemplate.create({
       data: {
         id: uuidv4(),
         shop,
@@ -84,7 +84,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     });
 
     // Create the campaign
-    const campaign = await db.emailCampaign.create({
+    const campaign = await prisma.emailCampaign.create({
       data: {
         id: uuidv4(),
         shop,

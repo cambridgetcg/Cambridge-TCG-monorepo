@@ -7,7 +7,7 @@
  * @module trial-eligibility.server
  */
 
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { v4 as uuidv4 } from "uuid";
 
 // ============================================
@@ -73,7 +73,7 @@ export async function checkTrialEligibility(
 ): Promise<TrialEligibilityResult> {
   try {
     // Get current subscription
-    const subscription = await db.appSubscription.findUnique({
+    const subscription = await prisma.appSubscription.findUnique({
       where: { shop },
       select: {
         hasUsedTrial: true,
@@ -195,7 +195,7 @@ export async function markTrialUsed(
   try {
     const now = new Date();
 
-    await db.appSubscription.update({
+    await prisma.appSubscription.update({
       where: { shop },
       data: {
         hasUsedTrial: true,
@@ -222,7 +222,7 @@ export async function markTrialUsed(
  */
 export async function logTrialAttempt(input: TrialAuditLogInput): Promise<void> {
   try {
-    await db.trialAuditLog.create({
+    await prisma.trialAuditLog.create({
       data: {
         id: uuidv4(),
         shop: input.shop,
@@ -265,7 +265,7 @@ export async function getTrialAuditHistory(
   limit: number = 50
 ): Promise<any[]> {
   try {
-    const logs = await db.trialAuditLog.findMany({
+    const logs = await prisma.trialAuditLog.findMany({
       where: { shop },
       orderBy: { createdAt: "desc" },
       take: limit,
@@ -290,10 +290,10 @@ export async function getTrialAbuseStats(): Promise<{
 }> {
   try {
     // Get total attempts
-    const totalAttempts = await db.trialAuditLog.count();
+    const totalAttempts = await prisma.trialAuditLog.count();
 
     // Get blocked attempts
-    const blockedAttempts = await db.trialAuditLog.count({
+    const blockedAttempts = await prisma.trialAuditLog.count({
       where: { wasBlocked: true },
     });
 

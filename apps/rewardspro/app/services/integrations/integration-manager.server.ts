@@ -5,7 +5,7 @@
  * Handles adapter registry, event broadcasting, and integration lifecycle.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { encrypt } from "~/utils/encryption";
 import { createLogger } from "~/services/logger.server";
 import type {
@@ -74,7 +74,7 @@ export function getRegisteredProviders(): IntegrationProvider[] {
  * Get all integrations for a shop
  */
 export async function getIntegrations(shop: string): Promise<Integration[]> {
-  return db.integration.findMany({
+  return prisma.integration.findMany({
     where: { shop },
     orderBy: { provider: "asc" },
   });
@@ -84,7 +84,7 @@ export async function getIntegrations(shop: string): Promise<Integration[]> {
  * Get connected integrations for a shop
  */
 export async function getConnectedIntegrations(shop: string): Promise<Integration[]> {
-  return db.integration.findMany({
+  return prisma.integration.findMany({
     where: {
       shop,
       status: "CONNECTED",
@@ -99,7 +99,7 @@ export async function getIntegration(
   shop: string,
   provider: IntegrationProvider
 ): Promise<Integration | null> {
-  return db.integration.findUnique({
+  return prisma.integration.findUnique({
     where: {
       shop_provider: { shop, provider },
     },
@@ -110,7 +110,7 @@ export async function getIntegration(
  * Get integration by ID
  */
 export async function getIntegrationById(id: string): Promise<Integration | null> {
-  return db.integration.findUnique({
+  return prisma.integration.findUnique({
     where: { id },
   });
 }
@@ -132,7 +132,7 @@ export async function upsertIntegration(
     name = adapter.config.name;
   }
 
-  return db.integration.upsert({
+  return prisma.integration.upsert({
     where: {
       shop_provider: { shop, provider },
     },
@@ -158,7 +158,7 @@ export async function updateIntegrationStatus(
   status: IntegrationStatus,
   error?: string
 ): Promise<Integration> {
-  return db.integration.update({
+  return prisma.integration.update({
     where: { id },
     data: {
       status,
@@ -221,7 +221,7 @@ export async function disconnectIntegration(
   shop: string,
   provider: IntegrationProvider
 ): Promise<void> {
-  await db.integration.update({
+  await prisma.integration.update({
     where: {
       shop_provider: { shop, provider },
     },
@@ -249,7 +249,7 @@ export async function updateEnabledFeatures(
   provider: IntegrationProvider,
   features: string[]
 ): Promise<Integration> {
-  return db.integration.update({
+  return prisma.integration.update({
     where: {
       shop_provider: { shop, provider },
     },
@@ -329,7 +329,7 @@ export async function broadcastEvent(
 
   // Queue events for delivery
   const eventPromises = relevantIntegrations.map((integration) =>
-    db.integrationEvent.create({
+    prisma.integrationEvent.create({
       data: {
         integrationId: integration.id,
         shop,
@@ -368,7 +368,7 @@ export async function processEventQueue(
   succeeded: number;
   failed: number;
 }> {
-  const pendingEvents = await db.integrationEvent.findMany({
+  const pendingEvents = await prisma.integrationEvent.findMany({
     where: {
       status: "PENDING",
       attempts: { lt: 3 }, // Max 3 retries
@@ -386,7 +386,7 @@ export async function processEventQueue(
   for (const event of pendingEvents) {
     // Skip if no adapter or integration disconnected
     if (!hasAdapter(event.integration.provider)) {
-      await db.integrationEvent.update({
+      await prisma.integrationEvent.update({
         where: { id: event.id },
         data: { status: "SKIPPED", error: "No adapter available" },
       });
@@ -394,7 +394,7 @@ export async function processEventQueue(
     }
 
     if (event.integration.status !== "CONNECTED") {
-      await db.integrationEvent.update({
+      await prisma.integrationEvent.update({
         where: { id: event.id },
         data: { status: "SKIPPED", error: "Integration not connected" },
       });
@@ -403,7 +403,7 @@ export async function processEventQueue(
 
     try {
       // Mark as processing
-      await db.integrationEvent.update({
+      await prisma.integrationEvent.update({
         where: { id: event.id },
         data: {
           status: "PROCESSING",
@@ -423,7 +423,7 @@ export async function processEventQueue(
       });
 
       if (result.success) {
-        await db.integrationEvent.update({
+        await prisma.integrationEvent.update({
           where: { id: event.id },
           data: {
             status: "DELIVERED",
@@ -441,7 +441,7 @@ export async function processEventQueue(
       // Determine if we should retry or fail permanently
       const shouldRetry = event.attempts < 2; // Will be 3 after this attempt
 
-      await db.integrationEvent.update({
+      await prisma.integrationEvent.update({
         where: { id: event.id },
         data: {
           status: shouldRetry ? "PENDING" : "FAILED",
@@ -487,7 +487,7 @@ export async function getPointsRules(
   shop: string,
   provider: IntegrationProvider
 ) {
-  return db.integrationPointsRule.findMany({
+  return prisma.integrationPointsRule.findMany({
     where: { shop, provider, enabled: true },
     orderBy: { triggerEvent: "asc" },
   });
@@ -508,7 +508,7 @@ export async function createDefaultPointsRules(
   const defaultRules = adapter.config.defaultPointsRules;
 
   for (const rule of defaultRules) {
-    await db.integrationPointsRule.upsert({
+    await prisma.integrationPointsRule.upsert({
       where: {
         shop_provider_triggerEvent: {
           shop,
@@ -562,7 +562,7 @@ export function getAvailableIntegrations(): IntegrationConfig[] {
  * Clean up stale OAuth states
  */
 export async function cleanupStaleOAuthStates(): Promise<number> {
-  const result = await db.oAuthState.deleteMany({
+  const result = await prisma.oAuthState.deleteMany({
     where: {
       OR: [
         { expiresAt: { lt: new Date() } },
@@ -584,7 +584,7 @@ export async function cleanupStaleOAuthStates(): Promise<number> {
 export async function cleanupOldWebhooks(daysToKeep: number = 7): Promise<number> {
   const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
 
-  const result = await db.integrationWebhook.deleteMany({
+  const result = await prisma.integrationWebhook.deleteMany({
     where: {
       createdAt: { lt: cutoffDate },
       status: { in: ["COMPLETED", "DUPLICATE"] },

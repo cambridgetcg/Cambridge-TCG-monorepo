@@ -9,7 +9,7 @@
  * @see https://docs.sendgrid.com/api-reference
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 // ============================================
 // TYPES
@@ -172,14 +172,14 @@ export async function sendEmail(
 
   try {
     // Get email settings for the shop
-    const emailSettings = await db.emailSettings.findUnique({
+    const emailSettings = await prisma.emailSettings.findUnique({
       where: { shop },
     });
 
     // Get custom domain if configured
     let customDomain = null;
     if (emailSettings?.customDomainId) {
-      customDomain = await db.sendGridDomain.findFirst({
+      customDomain = await prisma.sendGridDomain.findFirst({
         where: { id: emailSettings.customDomainId, shop },
       });
     }
@@ -468,7 +468,7 @@ export async function setupCustomDomain(
     const sendgridData = result.data;
 
     // Save to our database
-    const sendgridDomain = await db.sendGridDomain.create({
+    const sendgridDomain = await prisma.sendGridDomain.create({
       data: {
         shop,
         domain,
@@ -508,7 +508,7 @@ export async function verifyCustomDomain(
 
   try {
     // Get the domain from our database
-    const domain = await db.sendGridDomain.findFirst({
+    const domain = await prisma.sendGridDomain.findFirst({
       where: { id: domainId, shop },
     });
 
@@ -525,7 +525,7 @@ export async function verifyCustomDomain(
     }
 
     // Update status to verifying
-    await db.sendGridDomain.update({
+    await prisma.sendGridDomain.update({
       where: { id: domainId },
       data: { status: "VERIFYING", lastCheckedAt: new Date() },
     });
@@ -539,7 +539,7 @@ export async function verifyCustomDomain(
       const backoffMinutes = Math.min(Math.pow(2, currentErrorCount) * 5, 1440); // 5min, 10min, 20min, ... up to 24h
       const nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
 
-      await db.sendGridDomain.update({
+      await prisma.sendGridDomain.update({
         where: { id: domainId },
         data: {
           status: "DNS_PENDING",
@@ -560,7 +560,7 @@ export async function verifyCustomDomain(
     const isVerified = validationData.valid;
 
     // Update our database with verification results
-    await db.sendGridDomain.update({
+    await prisma.sendGridDomain.update({
       where: { id: domainId },
       data: {
         status: isVerified ? "VERIFIED" : "DNS_PENDING",
@@ -597,7 +597,7 @@ export async function removeCustomDomain(
   console.log(`[SendGrid] Removing domain ${domainId} for ${shop}`);
 
   try {
-    const domain = await db.sendGridDomain.findFirst({
+    const domain = await prisma.sendGridDomain.findFirst({
       where: { id: domainId, shop },
     });
 
@@ -611,13 +611,13 @@ export async function removeCustomDomain(
     }
 
     // Update any email settings using this domain
-    await db.emailSettings.updateMany({
+    await prisma.emailSettings.updateMany({
       where: { customDomainId: domainId },
       data: { customDomainId: null, sendingMode: "SHARED" },
     });
 
     // Delete from our database
-    await db.sendGridDomain.delete({
+    await prisma.sendGridDomain.delete({
       where: { id: domainId },
     });
 
@@ -641,11 +641,11 @@ export async function sendWelcomeEmail(
   customer: { email: string; firstName?: string; lastName?: string },
   tierInfo: { name: string; cashbackPercent: number }
 ): Promise<SendGridResponse> {
-  const emailSettings = await db.emailSettings.findUnique({
+  const emailSettings = await prisma.emailSettings.findUnique({
     where: { shop },
   });
 
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
   });
 
@@ -725,11 +725,11 @@ export async function sendTierUpgradeEmail(
     newCashbackPercent: number;
   }
 ): Promise<SendGridResponse> {
-  const emailSettings = await db.emailSettings.findUnique({
+  const emailSettings = await prisma.emailSettings.findUnique({
     where: { shop },
   });
 
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
   });
 
@@ -806,7 +806,7 @@ export async function sendTestEmail(
   shop: string,
   toEmail: string
 ): Promise<SendGridResponse> {
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
   });
 

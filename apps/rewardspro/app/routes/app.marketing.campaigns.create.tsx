@@ -25,7 +25,7 @@ import {
   PersonIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import {
@@ -81,14 +81,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (guardRedirect) return guardRedirect;
 
     // Check campaign limit for rate-based gating
-    const campaignCount = await db.emailCampaign.count({ where: { shop } });
+    const campaignCount = await prisma.emailCampaign.count({ where: { shop } });
     const limitAccess = await checkLimitAccess(shop, 'maxCampaigns', campaignCount);
 
     // Fetch email templates
     let templates: Template[] = [];
     try {
       console.log("[Create Campaign] Fetching email templates...");
-      const dbTemplates = await db.emailTemplate.findMany({
+      const dbTemplates = await prisma.emailTemplate.findMany({
         where: { shop },
         orderBy: { createdAt: 'desc' },
       });
@@ -109,7 +109,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     try {
       console.log("[Create Campaign] Fetching tiers...");
-      const tiers = await db.tier.findMany({
+      const tiers = await prisma.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
       });
@@ -117,7 +117,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       // Get total customer count
       console.log("[Create Campaign] Fetching customers...");
-      const allCustomers = await db.customer.findMany({
+      const allCustomers = await prisma.customer.findMany({
         where: { shop },
       });
       console.log("[Create Campaign] Found", allCustomers.length, "customers");
@@ -209,7 +209,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     previewText = inlinePreviewText || "";
 
     const inlineTemplateId = uuidv4();
-    await db.emailTemplate.create({
+    await prisma.emailTemplate.create({
       data: {
         id: inlineTemplateId,
         shop,
@@ -226,7 +226,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } else if (templateId) {
     finalTemplateId = templateId;
     try {
-      const template = await db.emailTemplate.findFirst({
+      const template = await prisma.emailTemplate.findFirst({
         where: { id: templateId, shop },
       });
       if (template) {
@@ -291,7 +291,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // If immediate send, mark as sent (in production would trigger actual sending)
     if (status === "sending") {
-      await db.emailCampaign.updateMany({
+      await prisma.emailCampaign.updateMany({
         where: { id: campaignId, shop },
         data: {
           status: "sent",

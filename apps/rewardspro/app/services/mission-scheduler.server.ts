@@ -8,7 +8,7 @@
  * - SPECIAL templates don't auto-generate (they're one-time or manual)
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { MissionCadence, MissionTemplate, Challenge } from "@prisma/client";
 import * as crypto from "crypto";
 
@@ -117,7 +117,7 @@ async function hasExistingInstance(
   const { startsAt, endsAt } = calculateDates(cadence);
 
   // Look for any challenge from this template that overlaps with the current period
-  const existing = await db.challenge.findFirst({
+  const existing = await prisma.challenge.findFirst({
     where: {
       templateId,
       shop,
@@ -155,7 +155,7 @@ async function generateFromTemplate(
   // If start time is in the future, start as SCHEDULED
   const status = startsAt <= now ? "ACTIVE" : "SCHEDULED";
 
-  const challenge = await db.challenge.create({
+  const challenge = await prisma.challenge.create({
     data: {
       id: crypto.randomUUID(),
       shop: template.shop,
@@ -224,7 +224,7 @@ export async function generateMissionInstances(options: {
   }
 
   // Get all active templates that match criteria
-  const templates = await db.missionTemplate.findMany({
+  const templates = await prisma.missionTemplate.findMany({
     where,
     orderBy: [{ shop: "asc" }, { cadence: "asc" }, { sortOrder: "asc" }] as any
   });
@@ -313,7 +313,7 @@ export async function closePreviousDailyMissions(shop?: string): Promise<number>
     where.shop = shop;
   }
 
-  const result = await db.challenge.updateMany({
+  const result = await prisma.challenge.updateMany({
     where,
     data: { status: "CLOSED" }
   });

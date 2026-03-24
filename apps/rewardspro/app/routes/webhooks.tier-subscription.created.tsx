@@ -9,7 +9,7 @@
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
@@ -60,7 +60,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const sellingPlanName = line.selling_plan_name;
 
           // Find the tier product in our database
-          const tierProduct = await db.tierProduct.findFirst({
+          const tierProduct = await prisma.tierProduct.findFirst({
             where: {
               shop,
               OR: [
@@ -81,7 +81,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           subscriptionLogger.dbQuery("findFirst", "TierProduct", { found: true });
 
           // Fetch the related tier
-          const tier = await db.tier.findUnique({
+          const tier = await prisma.tier.findUnique({
             where: { id: tierProduct.tierId },
           });
 
@@ -92,12 +92,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Find or create customer
           const customerShopifyId = customerId.replace("gid://shopify/Customer/", "");
-          let customer = await db.customer.findFirst({
+          let customer = await prisma.customer.findFirst({
             where: { shop, shopifyCustomerId: customerShopifyId },
           });
 
           if (!customer) {
-            customer = await db.customer.create({
+            customer = await prisma.customer.create({
               data: {
                 id: uuidv4(),
                 shop,
@@ -114,7 +114,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Check if subscription already exists (idempotency)
-          const existingSubscription = await db.tierSubscription.findFirst({
+          const existingSubscription = await prisma.tierSubscription.findFirst({
             where: { shopifyContractId: contractId },
           });
 
@@ -129,7 +129,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const billingInterval = determineBillingInterval(sellingPlanName);
 
           // Create subscription record
-          const newSubscription = await db.tierSubscription.create({
+          const newSubscription = await prisma.tierSubscription.create({
             data: {
               id: uuidv4(),
               shop,
@@ -188,7 +188,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Log error for monitoring
           try {
-            await db.webhookError.create({
+            await prisma.webhookError.create({
               data: {
                 id: uuidv4(),
                 shop,

@@ -8,7 +8,7 @@
  * @module tier-product-deletion.server
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { TierProduct, Tier } from "@prisma/client";
 import { isShopifyGid, toShopifyGid } from "~/utils/shopify-id-normalizer";
 
@@ -113,7 +113,7 @@ export async function validateTierProductDeletion(
   // 1. Find tier product - try by ID first, then by shopifyProductId as fallback
   // This handles both database UUIDs and Shopify GIDs
   console.log(`[TierProductDeletion:Validate] Attempting lookup by id field...`);
-  let product = await db.tierProduct.findFirst({
+  let product = await prisma.tierProduct.findFirst({
     where: {
       id: tierProductId,
       shop,
@@ -131,7 +131,7 @@ export async function validateTierProductDeletion(
     console.log(`[TierProductDeletion:Validate] ID is Shopify GID, trying shopifyProductId lookup with numeric ID: ${numericId}`);
 
     // Try both the full GID and just the numeric ID
-    product = await db.tierProduct.findFirst({
+    product = await prisma.tierProduct.findFirst({
       where: {
         OR: [
           { shopifyProductId: tierProductId, shop },
@@ -146,7 +146,7 @@ export async function validateTierProductDeletion(
 
   // DIAGNOSTIC: If still not found, list all tier products for this shop
   if (!product) {
-    const allProducts = await db.tierProduct.findMany({
+    const allProducts = await prisma.tierProduct.findMany({
       where: { shop, deletedAt: null },
       select: { id: true, shopifyProductId: true, sku: true }
     });
@@ -161,7 +161,7 @@ export async function validateTierProductDeletion(
     const numericIdForSoftDelete = isShopifyGID ? (tierProductId.split('/').pop() || tierProductId) : tierProductId;
 
     // Check if it exists but is soft-deleted (try ID, full GID, and numeric ID)
-    const softDeletedProduct = await db.tierProduct.findFirst({
+    const softDeletedProduct = await prisma.tierProduct.findFirst({
       where: {
         OR: [
           { id: tierProductId, shop },
@@ -205,7 +205,7 @@ export async function validateTierProductDeletion(
   const now = new Date();
   const productDbId = product.id; // Use the found product's actual ID
 
-  const lifetimePurchases = await db.tierPurchase.count({
+  const lifetimePurchases = await prisma.tierPurchase.count({
     where: {
       tierProductId: productDbId,
       status: 'ACTIVE',
@@ -213,7 +213,7 @@ export async function validateTierProductDeletion(
     }
   });
 
-  const unexpiredPurchases = await db.tierPurchase.count({
+  const unexpiredPurchases = await prisma.tierPurchase.count({
     where: {
       tierProductId: productDbId,
       status: 'ACTIVE',
@@ -233,14 +233,14 @@ export async function validateTierProductDeletion(
 
   // 3. Check active subscriptions (BLOCKER)
   // Split into two queries to avoid IN clause (Aurora Data API limitation)
-  const activeSubCount = await db.tierSubscription.count({
+  const activeSubCount = await prisma.tierSubscription.count({
     where: {
       tierProductId: productDbId,
       status: 'ACTIVE'
     }
   });
 
-  const pendingSubCount = await db.tierSubscription.count({
+  const pendingSubCount = await prisma.tierSubscription.count({
     where: {
       tierProductId: productDbId,
       status: 'PENDING'
@@ -259,14 +259,14 @@ export async function validateTierProductDeletion(
 
   // 4. Check inactive/expired purchases (WARNING)
   // Split queries to avoid OR clause (Aurora Data API limitation)
-  const nonActivePurchases = await db.tierPurchase.count({
+  const nonActivePurchases = await prisma.tierPurchase.count({
     where: {
       tierProductId: productDbId,
       status: { not: 'ACTIVE' }
     }
   });
 
-  const expiredPurchases = await db.tierPurchase.count({
+  const expiredPurchases = await prisma.tierPurchase.count({
     where: {
       tierProductId: productDbId,
       endDate: { lt: now }
@@ -286,13 +286,13 @@ export async function validateTierProductDeletion(
 
   // 5. Check cancelled/expired subscriptions (WARNING)
   // Split queries to avoid IN clause (Aurora Data API limitation)
-  const cancelledSubs = await db.tierSubscription.count({
+  const cancelledSubs = await prisma.tierSubscription.count({
     where: { tierProductId: productDbId, status: 'CANCELLED' }
   });
-  const expiredSubs = await db.tierSubscription.count({
+  const expiredSubs = await prisma.tierSubscription.count({
     where: { tierProductId: productDbId, status: 'EXPIRED' }
   });
-  const failedSubs = await db.tierSubscription.count({
+  const failedSubs = await prisma.tierSubscription.count({
     where: { tierProductId: productDbId, status: 'FAILED' }
   });
 
@@ -308,7 +308,7 @@ export async function validateTierProductDeletion(
 
   // 6. Check customers at this tier (WARNING - informational only)
   if (product.tierId) {
-    const customersAtTier = await db.customer.count({
+    const customersAtTier = await prisma.customer.count({
       where: {
         shop,
         currentTierId: product.tierId
@@ -513,9 +513,9 @@ export async function deleteTierProduct(
     console.log(`[TierProductDeletion] Soft deleting database record`);
 
     const now = new Date();
-    const lateActivePurchases = await db.tierPurchase.count({
+    const lateActivePurchases = await prisma.tierPurchase.count({
       where: { tierProductId: resolvedId, status: 'ACTIVE', endDate: { gte: now } }
-    }) + await db.tierPurchase.count({
+    }) + await prisma.tierPurchase.count({
       where: { tierProductId: resolvedId, status: 'ACTIVE', endDate: null }
     });
 
@@ -527,24 +527,24 @@ export async function deleteTierProduct(
     }
 
     // Count related records for audit log
-    const purchasesCount = await db.tierPurchase.count({
+    const purchasesCount = await prisma.tierPurchase.count({
       where: { tierProductId: resolvedId }
     });
 
-    const subscriptionsCount = await db.tierSubscription.count({
+    const subscriptionsCount = await prisma.tierSubscription.count({
       where: { tierProductId: resolvedId }
     });
 
     // 4a. Unlink subscriptions (set tierProductId to null) - do this even for soft delete
     // to prevent issues if product is restored
-    const subscriptionsUnlinked = await db.tierSubscription.updateMany({
+    const subscriptionsUnlinked = await prisma.tierSubscription.updateMany({
       where: { tierProductId: resolvedId },
       data: { tierProductId: null }
     });
     console.log(`[TierProductDeletion] Unlinked ${subscriptionsUnlinked.count} subscription(s)`);
 
     // 4b. Soft delete tier product record (set deletedAt instead of deleting)
-    await db.tierProduct.update({
+    await prisma.tierProduct.update({
       where: { id: resolvedId },
       data: {
         deletedAt: new Date(),
@@ -624,7 +624,7 @@ async function createAuditLog(
   entry: AuditLogEntry
 ): Promise<void> {
   try {
-    await db.tierProductAuditLog.create({
+    await prisma.tierProductAuditLog.create({
       data: {
         shop,
         tierProductId,
@@ -670,7 +670,7 @@ export async function restoreTierProduct(
     const numericId = isShopifyGID ? (tierProductId.split('/').pop() || tierProductId) : tierProductId;
 
     // Find the soft-deleted product - try by ID first, then by shopifyProductId (both formats)
-    let product = await db.tierProduct.findFirst({
+    let product = await prisma.tierProduct.findFirst({
       where: {
         OR: [
           { id: tierProductId, shop },
@@ -715,7 +715,7 @@ export async function restoreTierProduct(
     const resolvedId = product.id;
 
     // Restore the product
-    await db.tierProduct.update({
+    await prisma.tierProduct.update({
       where: { id: resolvedId },
       data: {
         deletedAt: null,
@@ -784,7 +784,7 @@ export async function permanentlyDeleteTierProduct(
     const numericId = isShopifyGID ? (tierProductId.split('/').pop() || tierProductId) : tierProductId;
 
     // Find the soft-deleted product - try by ID, full GID, and numeric ID
-    const product = await db.tierProduct.findFirst({
+    const product = await prisma.tierProduct.findFirst({
       where: {
         OR: [
           { id: tierProductId, shop },
@@ -823,7 +823,7 @@ export async function permanentlyDeleteTierProduct(
     // Fetch full audit history BEFORE delete (cascade will destroy DB audit logs)
     let auditTrail: Array<Record<string, unknown>> = [];
     try {
-      const auditLogs = await db.tierProductAuditLog.findMany({
+      const auditLogs = await prisma.tierProductAuditLog.findMany({
         where: { tierProductId: resolvedId },
         orderBy: { createdAt: 'asc' as const },
       });
@@ -910,7 +910,7 @@ export async function getDeletedTierProducts(shop: string): Promise<Array<{
   canRecover: boolean;
   daysUntilPermanentDelete: number;
 }>> {
-  const deletedProducts = await db.tierProduct.findMany({
+  const deletedProducts = await prisma.tierProduct.findMany({
     where: {
       shop,
       deletedAt: { not: null }
@@ -958,7 +958,7 @@ export async function getTierProductAuditLog(
   metadata: unknown;
   createdAt: Date;
 }>> {
-  return db.tierProductAuditLog.findMany({
+  return prisma.tierProductAuditLog.findMany({
     where: {
       shop,
       tierProductId
@@ -982,7 +982,7 @@ export async function cleanupExpiredDeletedProducts(shop?: string): Promise<numb
   console.log(`[TierProductDeletion] Running cleanup for products deleted before: ${cutoffDate.toISOString()}`);
 
   // Find expired soft-deleted products
-  const expiredProducts = await db.tierProduct.findMany({
+  const expiredProducts = await prisma.tierProduct.findMany({
     where: {
       ...(shop ? { shop } : {}),
       deletedAt: { lt: cutoffDate }
@@ -995,12 +995,12 @@ export async function cleanupExpiredDeletedProducts(shop?: string): Promise<numb
   for (const product of expiredProducts) {
     try {
       // Delete tier purchases first
-      await db.tierPurchase.deleteMany({
+      await prisma.tierPurchase.deleteMany({
         where: { tierProductId: product.id }
       });
 
       // Delete the product
-      await db.tierProduct.delete({
+      await prisma.tierProduct.delete({
         where: { id: product.id }
       });
 

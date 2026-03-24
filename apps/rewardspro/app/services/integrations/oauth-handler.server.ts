@@ -6,7 +6,7 @@
  */
 
 import { randomBytes, createHash } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { getAdapter, hasAdapter, storeOAuthTokens } from "./integration-manager.server";
 import type { IntegrationProvider } from "@prisma/client";
@@ -66,7 +66,7 @@ export async function createOAuthState(data: OAuthStateData): Promise<string> {
   const state = generateState();
   const expiresAt = new Date(Date.now() + STATE_EXPIRY_MS);
 
-  await db.oAuthState.create({
+  await prisma.oAuthState.create({
     data: {
       state,
       shop: data.shop,
@@ -93,7 +93,7 @@ export async function createOAuthState(data: OAuthStateData): Promise<string> {
 export async function validateOAuthState(
   state: string
 ): Promise<OAuthStateData | null> {
-  const oauthState = await db.oAuthState.findUnique({
+  const oauthState = await prisma.oAuthState.findUnique({
     where: { state },
   });
 
@@ -109,7 +109,7 @@ export async function validateOAuthState(
       expiredAt: oauthState.expiresAt,
     });
     // Clean up expired state
-    await db.oAuthState.delete({ where: { state } }).catch(() => {});
+    await prisma.oAuthState.delete({ where: { state } }).catch(() => {});
     return null;
   }
 
@@ -132,7 +132,7 @@ export async function validateOAuthState(
  * Mark OAuth state as used
  */
 export async function markStateAsUsed(state: string): Promise<void> {
-  await db.oAuthState.update({
+  await prisma.oAuthState.update({
     where: { state },
     data: { used: true },
   });
@@ -142,7 +142,7 @@ export async function markStateAsUsed(state: string): Promise<void> {
  * Delete OAuth state
  */
 export async function deleteOAuthState(state: string): Promise<void> {
-  await db.oAuthState.delete({
+  await prisma.oAuthState.delete({
     where: { state },
   }).catch(() => {
     // Ignore if already deleted
@@ -196,7 +196,7 @@ export async function initiateOAuth(
     const authResult = await adapter.generateAuthUrl(shop, redirectUri);
 
     // Store state with code verifier if PKCE is used
-    await db.oAuthState.create({
+    await prisma.oAuthState.create({
       data: {
         state: authResult.state,
         shop,
@@ -356,7 +356,7 @@ export async function handleOAuthCallback(
 export async function refreshIntegrationTokens(
   integrationId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const integration = await db.integration.findUnique({
+  const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
   });
 
@@ -408,7 +408,7 @@ export async function revokeOAuthTokens(
   shop: string,
   provider: IntegrationProvider
 ): Promise<{ success: boolean; error?: string }> {
-  const integration = await db.integration.findUnique({
+  const integration = await prisma.integration.findUnique({
     where: {
       shop_provider: { shop, provider },
     },
@@ -419,7 +419,7 @@ export async function revokeOAuthTokens(
   }
 
   // Clear tokens from database
-  await db.integration.update({
+  await prisma.integration.update({
     where: { id: integration.id },
     data: {
       status: "DISCONNECTED",
@@ -456,7 +456,7 @@ export async function hasValidTokens(
   shop: string,
   provider: IntegrationProvider
 ): Promise<boolean> {
-  const integration = await db.integration.findUnique({
+  const integration = await prisma.integration.findUnique({
     where: {
       shop_provider: { shop, provider },
     },

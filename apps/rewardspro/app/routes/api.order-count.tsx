@@ -7,7 +7,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { countOrdersDirectDataAPI, countOrdersWithFallback } from "../utils/order-count-strategies";
-import db from "../db.server";
+import prisma from "../db.server";
 
 // Plan order limits (monthly)
 const PLAN_ORDER_LIMITS: Record<string, number> = {
@@ -93,7 +93,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     let planLimit = DEFAULT_PLAN_LIMIT;
     let currentPlan = 'free';
     try {
-      const subscription = await db.billingSubscription.findUnique({
+      const subscription = await prisma.billingSubscription.findUnique({
         where: { shop },
         select: { planName: true, status: true }
       });

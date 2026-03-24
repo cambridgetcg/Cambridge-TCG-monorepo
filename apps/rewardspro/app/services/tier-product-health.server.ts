@@ -7,7 +7,7 @@
  * - Validates tier products before purchase flow
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { TierProduct, Tier } from "@prisma/client";
 
 // Extended type for tier products with tier relation
@@ -31,7 +31,7 @@ type TierProductWithTier = TierProduct & {
 export async function getOrphanedTierProducts(
   shop?: string
 ): Promise<TierProductWithTier[]> {
-  const products = await db.tierProduct.findMany({
+  const products = await prisma.tierProduct.findMany({
     where: shop ? { shop } : undefined,
     include: { tier: true }
   });
@@ -58,7 +58,7 @@ export async function getOrphanedTierProducts(
 export async function getActiveOrphanedProducts(
   shop?: string
 ): Promise<TierProductWithTier[]> {
-  const products = await db.tierProduct.findMany({
+  const products = await prisma.tierProduct.findMany({
     where: {
       ...(shop ? { shop } : {}),
       isActive: true
@@ -95,7 +95,7 @@ export async function deactivateOrphanedProducts(shop: string): Promise<{
   const productIds = orphaned.map(p => p.id);
 
   // Deactivate in bulk
-  const result = await db.tierProduct.updateMany({
+  const result = await prisma.tierProduct.updateMany({
     where: {
       id: { in: productIds }
     },
@@ -141,7 +141,7 @@ export async function deactivateAllOrphanedProducts(): Promise<{
   }
 
   // Deactivate all at once
-  const result = await db.tierProduct.updateMany({
+  const result = await prisma.tierProduct.updateMany({
     where: {
       id: { in: orphaned.map(p => p.id) }
     },
@@ -183,7 +183,7 @@ export async function validateTierProduct(
   tierProduct?: TierProductWithTier;
   error?: string;
 }> {
-  const tierProduct = await db.tierProduct.findUnique({
+  const tierProduct = await prisma.tierProduct.findUnique({
     where: { id: tierProductId },
     include: { tier: true }
   });
@@ -238,7 +238,7 @@ export async function validateTierProductByShopifyId(
     };
   }
 
-  const tierProduct = await db.tierProduct.findFirst({
+  const tierProduct = await prisma.tierProduct.findFirst({
     where: {
       shop,
       ...(shopifyProductId ? { shopifyProductId } : {}),
@@ -291,8 +291,8 @@ export async function getTierProductHealthSummary(shop?: string): Promise<{
   const whereClause = shop ? { shop } : {};
 
   const [total, active, orphaned, activeOrphaned] = await Promise.all([
-    db.tierProduct.count({ where: whereClause }),
-    db.tierProduct.count({ where: { ...whereClause, isActive: true } }),
+    prisma.tierProduct.count({ where: whereClause }),
+    prisma.tierProduct.count({ where: { ...whereClause, isActive: true } }),
     getOrphanedTierProducts(shop).then(p => p.length),
     getActiveOrphanedProducts(shop).then(p => p.length)
   ]);

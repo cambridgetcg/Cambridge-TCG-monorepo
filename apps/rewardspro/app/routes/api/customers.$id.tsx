@@ -6,7 +6,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../../shopify.server";
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { setManualOverride } from "../../services/tier-state.server";
 
 /**
@@ -24,7 +24,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Customer ID required", { status: 400 });
   }
   
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: {
       id: params.id,
       shop: session.shop
@@ -38,13 +38,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   // Fetch related data separately (Data API doesn't support includes)
   // SECURITY: Tier lookup scoped to shop to prevent cross-shop data access
   const [currentTier, creditLedger] = await Promise.all([
-    customer.currentTierId ? db.tier.findFirst({
+    customer.currentTierId ? prisma.tier.findFirst({
       where: {
         id: customer.currentTierId,
         shop: session.shop  // Enforce shop scope
       }
     }) : Promise.resolve(null),
-    db.storeCreditLedger.findMany({
+    prisma.storeCreditLedger.findMany({
       where: { customerId: customer.id },
       orderBy: { createdAt: 'desc' },
       take: 10
@@ -123,13 +123,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
       // Only update if we have fields other than tier to update
       let customer;
       if (Object.keys(updateData).length > 1) { // More than just updatedAt
-        customer = await db.customer.update({
+        customer = await prisma.customer.update({
           where: { id: params.id },
           data: updateData
         });
       } else {
         // Just fetch the customer for response
-        customer = await db.customer.findUnique({
+        customer = await prisma.customer.findUnique({
           where: { id: params.id }
         });
       }
@@ -151,7 +151,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     case "DELETE": {
       // SECURITY: Use deleteMany with shop scope to prevent IDOR attacks
       // A merchant should only be able to delete their own customers
-      const result = await db.customer.deleteMany({
+      const result = await prisma.customer.deleteMany({
         where: {
           id: params.id,
           shop: session.shop  // Enforce shop scope

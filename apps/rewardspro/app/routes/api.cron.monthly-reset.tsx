@@ -9,7 +9,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { timingSafeEqual } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 
@@ -94,7 +94,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const lastMonth = month === 1 ? 12 : month - 1;
   const lastYear = month === 1 ? year - 1 : year;
 
-  const lastMonthUsage = await db.monthlyOrderUsage.findMany({
+  const lastMonthUsage = await prisma.monthlyOrderUsage.findMany({
     where: {
       year: lastYear,
       month: lastMonth
@@ -120,7 +120,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     try {
       // Check if record already exists for current month
       // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
-      const existing = await db.monthlyOrderUsage.findFirst({
+      const existing = await prisma.monthlyOrderUsage.findFirst({
         where: {
           shop: usage.shop,
           year: year,
@@ -138,7 +138,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
 
       // Create new month record with reset count and unlocked state
-      await db.monthlyOrderUsage.create({
+      await prisma.monthlyOrderUsage.create({
         data: {
           id: uuidv4(),
           shop: usage.shop,

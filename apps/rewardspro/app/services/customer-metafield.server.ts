@@ -5,7 +5,7 @@
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import db from "../db.server";
+import prisma from "../db.server";
 
 export interface SetCustomerMetafieldResult {
   success: boolean;
@@ -112,7 +112,7 @@ export async function setCustomerMetafieldAndUpdateDb(
   if (result.success && result.metafieldId) {
     try {
       // Update customer record with metafield ID
-      await db.customer.update({
+      await prisma.customer.update({
         where: {
           id: customerId,
           shop

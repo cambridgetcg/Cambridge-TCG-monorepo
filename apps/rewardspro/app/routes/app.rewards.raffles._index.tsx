@@ -38,7 +38,7 @@ import {
   atomicWithinLimit,
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { UsageUpgradePrompt, LimitHint, PageLimitStatus, LimitExceededModal } from "~/components/Billing/UpgradePrompt";
 import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
 import { PointsIcon } from "~/components/PointsIcon";
@@ -102,7 +102,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const config = await getPointsConfig(shop);
 
   // Count active raffles for limit check
-  const activeRaffleCount = await db.raffle.count({
+  const activeRaffleCount = await prisma.raffle.count({
     where: { shop, status: { in: ['ACTIVE', 'SCHEDULED'] } },
   });
 

@@ -12,7 +12,7 @@ import {
   DataTable,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -20,7 +20,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // Get recent campaigns with metrics
   // DATA API COMPATIBLE: Nested include not supported, use two-step query
-  const campaigns = await db.emailCampaign.findMany({
+  const campaigns = await prisma.emailCampaign.findMany({
     where: {
       shop,
       status: 'sent',
@@ -33,7 +33,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Fetch templates separately and join in memory
   const templateIds = [...new Set(campaigns.map(c => c.templateId).filter(Boolean))];
   const templates = templateIds.length > 0
-    ? await db.emailTemplate.findMany({
+    ? await prisma.emailTemplate.findMany({
         where: { id: { in: templateIds } },
         select: { id: true, name: true, type: true }
       })

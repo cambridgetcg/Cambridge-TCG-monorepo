@@ -10,7 +10,7 @@
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
@@ -78,8 +78,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Fetch related data
           const [customer, tier] = await Promise.all([
-            db.customer.findUnique({ where: { id: subscription.customerId } }),
-            db.tier.findUnique({ where: { id: subscription.tierId } }),
+            prisma.customer.findUnique({ where: { id: subscription.customerId } }),
+            prisma.tier.findUnique({ where: { id: subscription.tierId } }),
           ]);
 
           if (isSuccess) {
@@ -99,7 +99,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Log error
           try {
-            await db.webhookError.create({
+            await prisma.webhookError.create({
               data: {
                 id: uuidv4(),
                 shop,
@@ -145,7 +145,7 @@ async function handleSuccessfulBilling(
   const wasInFailedStatus = subscription.status === "FAILED";
 
   // Check idempotency
-  const existingAttempt = await db.subscriptionBillingAttempt.findUnique({
+  const existingAttempt = await prisma.subscriptionBillingAttempt.findUnique({
     where: { idempotencyKey },
   });
 
@@ -171,7 +171,7 @@ async function handleSuccessfulBilling(
     });
 
     // Fallback: record directly
-    await db.subscriptionBillingAttempt.create({
+    await prisma.subscriptionBillingAttempt.create({
       data: {
         id: uuidv4(),
         subscriptionId: subscription.id,
@@ -201,7 +201,7 @@ async function handleSuccessfulBilling(
       subscription.billingInterval
     );
 
-    await db.tierSubscription.update({
+    await prisma.tierSubscription.update({
       where: { id: subscription.id },
       data: {
         lastBillingDate: new Date(billingAttempt.billing_date),
@@ -279,7 +279,7 @@ async function handleFailedBilling(
   const newFailureCount = (subscription.failureCount || 0) + 1;
 
   // Check idempotency
-  const existingAttempt = await db.subscriptionBillingAttempt.findUnique({
+  const existingAttempt = await prisma.subscriptionBillingAttempt.findUnique({
     where: { idempotencyKey },
   });
 
@@ -306,7 +306,7 @@ async function handleFailedBilling(
     });
 
     // Fallback
-    await db.subscriptionBillingAttempt.create({
+    await prisma.subscriptionBillingAttempt.create({
       data: {
         id: uuidv4(),
         subscriptionId: subscription.id,
@@ -345,7 +345,7 @@ async function handleFailedBilling(
       });
     }
 
-    await db.tierSubscription.update({
+    await prisma.tierSubscription.update({
       where: { id: subscription.id },
       data: updateData,
     });

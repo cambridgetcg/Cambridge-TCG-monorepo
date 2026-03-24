@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import type { Prisma } from "@prisma/client";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { getEntitlements } from "~/services/entitlements.server";
 import { getMemberExportRowsLimit } from "~/constants/plan-limits";
 
@@ -111,7 +111,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const remainingRows = maxExportRows - totalExported;
           const batchLimit = Math.min(BATCH_SIZE, remainingRows);
 
-          const customers = await db.customer.findMany({
+          const customers = await prisma.customer.findMany({
             where: whereClause,
             include: {
               currentTier: true,

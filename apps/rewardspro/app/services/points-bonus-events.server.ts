@@ -15,7 +15,7 @@
  * This can be migrated to a dedicated table if more features are needed.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { Prisma } from "@prisma/client";
 
 // ============================================
@@ -79,7 +79,7 @@ export interface ActiveBonusResult {
  * Get all bonus events for a shop
  */
 async function getStoredEvents(shop: string): Promise<BonusEvent[]> {
-  const settings = await db.shopSettings.findUnique({
+  const settings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: { metadata: true },
   });
@@ -103,14 +103,14 @@ async function getStoredEvents(shop: string): Promise<BonusEvent[]> {
  * Save bonus events for a shop
  */
 async function saveStoredEvents(shop: string, events: BonusEvent[]): Promise<void> {
-  const settings = await db.shopSettings.findUnique({
+  const settings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: { metadata: true },
   });
 
   const metadata = (settings?.metadata as Record<string, unknown>) || {};
 
-  await db.shopSettings.update({
+  await prisma.shopSettings.update({
     where: { shop },
     data: {
       metadata: {

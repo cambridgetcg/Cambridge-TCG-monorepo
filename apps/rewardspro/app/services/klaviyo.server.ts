@@ -14,7 +14,7 @@ import {
   ListsApi,
   type ProfileEnum,
 } from "klaviyo-api";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { Customer, Tier } from "@prisma/client";
 import crypto from "crypto";
 import { decryptSecret } from "~/utils/encryption.server";
@@ -430,7 +430,7 @@ export class KlaviyoService {
 export async function getKlaviyoService(
   shop: string
 ): Promise<KlaviyoService | null> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
   });
 
@@ -470,7 +470,7 @@ export async function getKlaviyoService(
  * Returns true if either OAuth is connected or API key is set
  */
 export async function isKlaviyoEnabled(shop: string): Promise<boolean> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: {
       klaviyoEnabled: true,

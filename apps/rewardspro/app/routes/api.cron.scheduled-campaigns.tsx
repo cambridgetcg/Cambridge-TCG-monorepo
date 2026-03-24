@@ -13,7 +13,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { sendCampaignEmails } from "../services/email-notifications.server";
 import * as crypto from "crypto";
@@ -81,7 +81,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   try {
     // 5. Find scheduled campaigns that are due
-    const dueCampaigns = await db.emailCampaign.findMany({
+    const dueCampaigns = await prisma.emailCampaign.findMany({
       where: {
         status: 'scheduled',
         scheduledFor: { lte: now },
@@ -114,7 +114,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
 
         // Update status to "sending"
-        await db.emailCampaign.updateMany({
+        await prisma.emailCampaign.updateMany({
           where: { id: campaign.id, shop: campaign.shop },
           data: {
             status: 'sending',
@@ -129,7 +129,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
         if (segmentRules?.fromRecommendation && segmentRules?.targetCustomerIds?.length) {
           // Recommendation-based targeting (exclude suppressed/unsubscribed)
-          const customers = await db.customer.findMany({
+          const customers = await prisma.customer.findMany({
             where: {
               shop: campaign.shop,
               id: { in: segmentRules.targetCustomerIds },
@@ -148,7 +148,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             }));
         } else if (segmentRules?.selectedTiers?.length) {
           // Tier-based targeting (exclude suppressed/unsubscribed)
-          const customers = await db.customer.findMany({
+          const customers = await prisma.customer.findMany({
             where: {
               shop: campaign.shop,
               email: { not: null },
@@ -167,7 +167,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             }));
         } else {
           // All customers with email (exclude suppressed/unsubscribed)
-          const customers = await db.customer.findMany({
+          const customers = await prisma.customer.findMany({
             where: { shop: campaign.shop, email: { not: null }, acceptsMarketing: true, emailSuppressed: false },
             select: { id: true, email: true, firstName: true, lastName: true },
           });
@@ -190,7 +190,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         const sendResult = await sendCampaignEmails(campaign.shop, campaign.id, recipients);
 
         // Update campaign with results
-        await db.emailCampaign.updateMany({
+        await prisma.emailCampaign.updateMany({
           where: { id: campaign.id, shop: campaign.shop },
           data: {
             status: 'sent',
@@ -227,7 +227,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
         // Reset status to "scheduled" so it can be retried
         try {
-          await db.emailCampaign.updateMany({
+          await prisma.emailCampaign.updateMany({
             where: { id: campaign.id, shop: campaign.shop, status: 'sending' },
             data: {
               status: 'failed',

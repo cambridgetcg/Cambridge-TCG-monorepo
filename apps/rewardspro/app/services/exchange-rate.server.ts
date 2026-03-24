@@ -11,7 +11,7 @@
  */
 
 import type { Currency } from '@prisma/client';
-import db from '~/db.server';
+import prisma from '~/db.server';
 import { z } from 'zod';
 
 // ============================================================================
@@ -201,7 +201,7 @@ export class ExchangeRateService {
     hoursSinceUpdate: number;
     lastUpdate: Date | null;
   }> {
-    const latest = await db.exchangeRate.findFirst({
+    const latest = await prisma.exchangeRate.findFirst({
       orderBy: { fetchedAt: 'desc' },
     });
 
@@ -234,7 +234,7 @@ export class ExchangeRateService {
    * Fetch rates from database
    */
   private async getFromDatabase(baseCurrency: Currency): Promise<CachedRates | null> {
-    const record = await db.exchangeRate.findFirst({
+    const record = await prisma.exchangeRate.findFirst({
       where: { baseCurrency },
       orderBy: { fetchedAt: 'desc' },
     });
@@ -307,7 +307,7 @@ export class ExchangeRateService {
         }
 
         // Save to database
-        const saved = await db.exchangeRate.create({
+        const saved = await prisma.exchangeRate.create({
           data: {
             id: `${baseCurrency}-${Date.now()}`,
             baseCurrency,
@@ -363,7 +363,7 @@ export class ExchangeRateService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     try {
-      const deleted = await db.exchangeRate.deleteMany({
+      const deleted = await prisma.exchangeRate.deleteMany({
         where: {
           fetchedAt: { lt: thirtyDaysAgo },
         },
@@ -459,19 +459,19 @@ async function sendAlert(message: string, details?: any): Promise<void> {
     const severity = message.includes('CRITICAL') ? 'CRITICAL' : 'WARNING';
 
     // Upsert: only keep one unresolved alert per type to prevent pile-up
-    const existing = await db.systemAlert.findFirst({
+    const existing = await prisma.systemAlert.findFirst({
       where: { type: 'EXCHANGE_RATE_STALENESS', resolved: false },
       orderBy: { createdAt: 'desc' },
     });
 
     if (existing) {
       // Update the existing alert rather than creating a new one
-      await db.systemAlert.update({
+      await prisma.systemAlert.update({
         where: { id: existing.id },
         data: { severity, message, details: details || {}, updatedAt: new Date() },
       });
     } else {
-      await db.systemAlert.create({
+      await prisma.systemAlert.create({
         data: {
           id: `alert-${Date.now()}`,
           type: 'EXCHANGE_RATE_STALENESS',

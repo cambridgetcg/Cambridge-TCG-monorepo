@@ -1,5 +1,5 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { ShopifyStoreCreditService } from "./shopify-store-credit.service";
 
 /**
@@ -43,7 +43,7 @@ export async function startCreditSyncJob(
   console.log(`[Credit Sync Job] Starting new sync job for shop: ${shop}`);
 
   // Check for existing in-progress job
-  const existingJob = await db.storeCreditSyncJob.findFirst({
+  const existingJob = await prisma.storeCreditSyncJob.findFirst({
     where: {
       shop,
       status: 'IN_PROGRESS'
@@ -74,7 +74,7 @@ export async function startCreditSyncJob(
   }
 
   // Count total customers in database (only customers with shopifyCustomerId)
-  const totalCustomers = await db.customer.count({
+  const totalCustomers = await prisma.customer.count({
     where: {
       shop,
       shopifyCustomerId: { not: null }
@@ -102,7 +102,7 @@ export async function startCreditSyncJob(
   }
 
   // Create new job
-  const job = await db.storeCreditSyncJob.create({
+  const job = await prisma.storeCreditSyncJob.create({
     data: {
       id: crypto.randomUUID(),
       shop,
@@ -144,7 +144,7 @@ export async function processCreditSyncBatch(
   admin: AdminApiContext
 ): Promise<CreditSyncJobResult> {
   // Get current job
-  const job = await db.storeCreditSyncJob.findUnique({
+  const job = await prisma.storeCreditSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -194,7 +194,7 @@ export async function processCreditSyncBatch(
 
   try {
     // Fetch batch of customers from database using cursor-based pagination
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         shopifyCustomerId: { not: null },
@@ -212,7 +212,7 @@ export async function processCreditSyncBatch(
 
     if (customers.length === 0) {
       // No more customers - job complete
-      const updatedJob = await db.storeCreditSyncJob.update({
+      const updatedJob = await prisma.storeCreditSyncJob.update({
         where: { id: jobId },
         data: {
           status: 'COMPLETED',
@@ -276,7 +276,7 @@ export async function processCreditSyncBatch(
         }
 
         // Update local balance and create ledger entry
-        await db.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx) => {
           // Update customer balance
           await tx.customer.update({
             where: { id: customer.id },
@@ -327,7 +327,7 @@ export async function processCreditSyncBatch(
     const lastCursor = customers[customers.length - 1]?.id || job.lastCursor;
 
     // Check if there are more customers
-    const remainingCount = await db.customer.count({
+    const remainingCount = await prisma.customer.count({
       where: {
         shop,
         shopifyCustomerId: { not: null },
@@ -340,7 +340,7 @@ export async function processCreditSyncBatch(
 
     // Update job progress
     // Note: Data API adapter doesn't support Prisma's increment syntax, calculate manually
-    const updatedJob = await db.storeCreditSyncJob.update({
+    const updatedJob = await prisma.storeCreditSyncJob.update({
       where: { id: jobId },
       data: {
         processedCount: job.processedCount + customers.length,
@@ -386,7 +386,7 @@ export async function processCreditSyncBatch(
     console.error('[Credit Sync Job] Batch processing failed:', error);
 
     // Update job with error
-    await db.storeCreditSyncJob.update({
+    await prisma.storeCreditSyncJob.update({
       where: { id: jobId },
       data: {
         status: 'FAILED',
@@ -422,7 +422,7 @@ export async function processCreditSyncBatch(
  */
 export async function getCreditSyncJobStatus(shop: string): Promise<CreditSyncJobResult | null> {
   // Get most recent job for this shop
-  const job = await db.storeCreditSyncJob.findFirst({
+  const job = await prisma.storeCreditSyncJob.findFirst({
     where: { shop },
     orderBy: { createdAt: 'desc' }
   });
@@ -456,7 +456,7 @@ export async function getCreditSyncJobStatus(shop: string): Promise<CreditSyncJo
  * Get credit sync job by ID
  */
 export async function getCreditSyncJobById(jobId: string): Promise<CreditSyncJobResult | null> {
-  const job = await db.storeCreditSyncJob.findUnique({
+  const job = await prisma.storeCreditSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -492,7 +492,7 @@ export async function resumeCreditSyncJob(
   jobId: string,
   admin: AdminApiContext
 ): Promise<CreditSyncJobResult> {
-  const job = await db.storeCreditSyncJob.findUnique({
+  const job = await prisma.storeCreditSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -539,7 +539,7 @@ export async function resumeCreditSyncJob(
   }
 
   // Reset job to in-progress
-  await db.storeCreditSyncJob.update({
+  await prisma.storeCreditSyncJob.update({
     where: { id: jobId },
     data: {
       status: 'IN_PROGRESS',
@@ -558,7 +558,7 @@ export async function resumeCreditSyncJob(
  * Cancel an in-progress credit sync job
  */
 export async function cancelCreditSyncJob(jobId: string): Promise<boolean> {
-  const job = await db.storeCreditSyncJob.findUnique({
+  const job = await prisma.storeCreditSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -566,7 +566,7 @@ export async function cancelCreditSyncJob(jobId: string): Promise<boolean> {
     return false;
   }
 
-  await db.storeCreditSyncJob.update({
+  await prisma.storeCreditSyncJob.update({
     where: { id: jobId },
     data: {
       status: 'CANCELLED',
@@ -593,7 +593,7 @@ export async function getCreditSyncStats(shop: string): Promise<{
   } | null;
 }> {
   // Count customers with positive credit balance
-  const customersWithCredit = await db.customer.count({
+  const customersWithCredit = await prisma.customer.count({
     where: {
       shop,
       storeCredit: { gt: 0 }
@@ -601,7 +601,7 @@ export async function getCreditSyncStats(shop: string): Promise<{
   });
 
   // Sum total credit balance
-  const creditSum = await db.customer.aggregate({
+  const creditSum = await prisma.customer.aggregate({
     where: { shop },
     _sum: { storeCredit: true }
   });
@@ -609,7 +609,7 @@ export async function getCreditSyncStats(shop: string): Promise<{
   // Get last sync job (handle case where table doesn't exist yet)
   let lastJob = null;
   try {
-    lastJob = await db.storeCreditSyncJob.findFirst({
+    lastJob = await prisma.storeCreditSyncJob.findFirst({
       where: { shop },
       orderBy: { createdAt: 'desc' },
       select: {

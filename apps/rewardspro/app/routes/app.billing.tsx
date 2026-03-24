@@ -27,7 +27,7 @@ import {
 import { CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { useState, useEffect } from "react";
-import db from "../db.server";
+import prisma from "../db.server";
 import {
   getAllPlans,
 } from "~/services/billing/plan-subscription.server";
@@ -363,7 +363,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     let usageMetrics = null;
     try {
-      const monthlyUsage = await db.monthlyOrderUsage.findFirst({
+      const monthlyUsage = await prisma.monthlyOrderUsage.findFirst({
         where: {
           shop: session.shop,
           year: year,

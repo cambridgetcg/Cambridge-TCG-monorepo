@@ -11,7 +11,7 @@
  * Transaction safety: Uses Prisma transactions for atomic operations
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { validatePrice } from "~/utils/price-validation";
 import { v4 as uuidv4 } from "uuid";
@@ -181,7 +181,7 @@ export class TierProductPurchaseService {
       });
 
       // Step 6: Create tier purchase record
-      const tierPurchase = await db.tierPurchase.create({
+      const tierPurchase = await prisma.tierPurchase.create({
         data: {
           id: uuidv4(),
           shop,
@@ -249,7 +249,7 @@ export class TierProductPurchaseService {
     errorCode?: "TIER_PRODUCT_DELETED" | "TIER_NOT_FOUND";
   }> {
     // Check tier product still exists and not soft-deleted
-    const currentTierProduct = await db.tierProduct.findUnique({
+    const currentTierProduct = await prisma.tierProduct.findUnique({
       where: { id: tierProductId },
       select: { id: true, deletedAt: true, tierId: true },
     });
@@ -278,7 +278,7 @@ export class TierProductPurchaseService {
     }
 
     // Check tier still exists
-    const tier = await db.tier.findUnique({
+    const tier = await prisma.tier.findUnique({
       where: { id: tierId },
     });
 
@@ -317,7 +317,7 @@ export class TierProductPurchaseService {
     existingCustomerId?: string
   ): Promise<Customer> {
     if (existingCustomerId) {
-      const customer = await db.customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: existingCustomerId },
       });
       if (customer) return customer;
@@ -325,7 +325,7 @@ export class TierProductPurchaseService {
 
     const shopifyCustomerId = order.customer?.id?.toString() || "";
 
-    return db.customer.upsert({
+    return prisma.customer.upsert({
       where: {
         shop_shopifyCustomerId: {
           shop,
@@ -391,7 +391,7 @@ export class TierProductPurchaseService {
     errorMessage: string
   ): Promise<void> {
     try {
-      await db.webhookError.create({
+      await prisma.webhookError.create({
         data: {
           id: uuidv4(),
           shop,
@@ -429,7 +429,7 @@ export class TierProductPurchaseService {
     shopifyOrderId: string,
     shopifyLineItemId: string
   ): Promise<boolean> {
-    const existing = await db.tierPurchase.findFirst({
+    const existing = await prisma.tierPurchase.findFirst({
       where: {
         shop,
         shopifyOrderId,
@@ -450,7 +450,7 @@ export class TierProductPurchaseService {
     shop: string,
     shopifyOrderId: string
   ): Promise<Array<TierPurchase & { tier: Tier | null }>> {
-    return db.tierPurchase.findMany({
+    return prisma.tierPurchase.findMany({
       where: {
         shop,
         shopifyOrderId,

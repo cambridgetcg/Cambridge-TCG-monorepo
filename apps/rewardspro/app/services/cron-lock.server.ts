@@ -18,7 +18,7 @@
  * - DynamoDB fallback for better reliability
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import * as crypto from "crypto";
 import { getAWSConfig } from "~/utils/aws-clients.server";
 
@@ -69,7 +69,7 @@ export async function acquireCronLock(
   try {
     // Try to create lock record
     // If another instance has the lock, unique constraint will fail
-    const lock = await db.cronLock.create({
+    const lock = await prisma.cronLock.create({
       data: {
         id: lockId,
         jobName,
@@ -91,7 +91,7 @@ export async function acquireCronLock(
     // Check if it's a unique constraint violation
     if (error?.code === "P2002" || error?.message?.includes("Unique constraint")) {
       // Another instance has the lock - check if it's expired
-      const existingLock = await db.cronLock.findUnique({
+      const existingLock = await prisma.cronLock.findUnique({
         where: { jobName },
       });
 
@@ -103,7 +103,7 @@ export async function acquireCronLock(
           );
 
           try {
-            await db.cronLock.delete({
+            await prisma.cronLock.delete({
               where: { jobName },
             });
 
@@ -146,7 +146,7 @@ export async function acquireCronLock(
  */
 export async function releaseCronLock(lockId: string): Promise<void> {
   try {
-    await db.cronLock.delete({
+    await prisma.cronLock.delete({
       where: { id: lockId },
     });
 
@@ -169,7 +169,7 @@ export async function cleanupExpiredLocks(): Promise<number> {
   const now = new Date();
 
   try {
-    const result = await db.cronLock.deleteMany({
+    const result = await prisma.cronLock.deleteMany({
       where: {
         expiresAt: { lt: now },
       },
@@ -200,7 +200,7 @@ export async function extendLock(
   additionalMinutes: number = 10
 ): Promise<boolean> {
   try {
-    const lock = await db.cronLock.findUnique({
+    const lock = await prisma.cronLock.findUnique({
       where: { id: lockId },
     });
 
@@ -213,7 +213,7 @@ export async function extendLock(
       Date.now() + additionalMinutes * 60 * 1000
     );
 
-    await db.cronLock.update({
+    await prisma.cronLock.update({
       where: { id: lockId },
       data: { expiresAt: newExpiresAt },
     });
@@ -247,7 +247,7 @@ export async function getLockStatus(
   isExpired?: boolean;
 } | null> {
   try {
-    const lock = await db.cronLock.findUnique({
+    const lock = await prisma.cronLock.findUnique({
       where: { jobName },
     });
 

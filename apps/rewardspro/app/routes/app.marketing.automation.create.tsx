@@ -20,7 +20,7 @@ import {
   Checkbox,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { checkLimitAccess } from "~/utils/require-feature.server";
 import { PageLimitStatus } from "~/components/Billing/UpgradePrompt";
@@ -69,11 +69,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (guardRedirect) return guardRedirect;
 
   // Check automation limit for rate-based gating
-  const automationCount = await db.emailAutomation.count({ where: { shop } });
+  const automationCount = await prisma.emailAutomation.count({ where: { shop } });
   const limitAccess = await checkLimitAccess(shop, 'maxAutomations', automationCount);
 
   // Fetch tiers for the shop
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     select: {
       id: true,
@@ -86,7 +86,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Fetch templates for the action step
   let templates: Template[] = [];
   try {
-    const dbTemplates = await db.emailTemplate.findMany({
+    const dbTemplates = await prisma.emailTemplate.findMany({
       where: { shop, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
@@ -140,7 +140,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   // Check automation limit
-  const automationCount = await db.emailAutomation.count({ where: { shop } });
+  const automationCount = await prisma.emailAutomation.count({ where: { shop } });
   const limitAccess = await checkLimitAccess(shop, 'maxAutomations', automationCount);
   if (!limitAccess.hasAccess) {
     return json({ error: limitAccess.error?.message || "Automation limit reached" }, { status: 403 });
@@ -177,7 +177,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // For non-email actions, we need a placeholder template or the FK is violated.
   // Check if template exists when provided.
   if (resolvedTemplateId) {
-    const templateExists = await db.emailTemplate.findFirst({
+    const templateExists = await prisma.emailTemplate.findFirst({
       where: { id: resolvedTemplateId, shop },
       select: { id: true },
     });
@@ -189,7 +189,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const isActive = intent === "activate";
 
   try {
-    const automation = await db.emailAutomation.create({
+    const automation = await prisma.emailAutomation.create({
       data: {
         shop,
         name: name.trim(),

@@ -14,7 +14,7 @@
  * Also handles daily free entries for habit formation.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { getStreakIconInfo } from "../utils/points-icon-library";
 
 const LOG_PREFIX = "[RaffleStreak]";
@@ -199,7 +199,7 @@ export async function getOrCreateStreakRecord(
   freeEntriesUsedToday: number;
   freeEntryLastUsedAt: Date | null;
 }> {
-  let streak = await db.raffleStreak.findUnique({
+  let streak = await prisma.raffleStreak.findUnique({
     where: { customerId },
     select: {
       id: true,
@@ -213,7 +213,7 @@ export async function getOrCreateStreakRecord(
   });
 
   if (!streak) {
-    streak = await db.raffleStreak.create({
+    streak = await prisma.raffleStreak.create({
       data: {
         shop,
         customerId,
@@ -338,7 +338,7 @@ export async function updateRaffleStreak(
   const newLongestStreak = Math.max(streak.longestStreak, newStreak);
 
   // Update database
-  await db.raffleStreak.update({
+  await prisma.raffleStreak.update({
     where: { customerId },
     data: {
       currentStreak: newStreak,
@@ -423,7 +423,7 @@ export async function claimFreeEntry(
   }
 
   // Claim the free entry
-  await db.raffleStreak.update({
+  await prisma.raffleStreak.update({
     where: { customerId },
     data: {
       freeEntriesUsedToday: freeEntriesUsedToday + 1,
@@ -460,7 +460,7 @@ export async function resetBrokenStreaks(shop: string): Promise<number> {
   const resetTime = getResetTimeForDate(now, config.resetHour);
   const cutoffTime = new Date(resetTime.getTime() - 24 * 60 * 60 * 1000);
 
-  const result = await db.raffleStreak.updateMany({
+  const result = await prisma.raffleStreak.updateMany({
     where: {
       shop,
       currentStreak: { gt: 0 },
@@ -495,7 +495,7 @@ export async function getRaffleStreakLeaderboard(
     customer: { email: string; firstName: string | null; lastName: string | null } | null;
   }>
 > {
-  const leaderboard = await db.raffleStreak.findMany({
+  const leaderboard = await prisma.raffleStreak.findMany({
     where: { shop, currentStreak: { gt: 0 } },
     orderBy: { currentStreak: "desc" },
     take: limit,

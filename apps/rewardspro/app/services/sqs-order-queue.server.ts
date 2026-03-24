@@ -33,7 +33,7 @@ import {
 } from "@aws-sdk/client-sqs";
 import { getSQSClient, getAWSConfig } from "~/utils/aws-clients.server";
 import { v4 as uuidv4 } from "uuid";
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 /**
  * Order queue message structure
@@ -481,7 +481,7 @@ export class SQSOrderQueueService {
     webhookId: string
   ): Promise<{ id: string } | null> {
     try {
-      const existing = await db.webhookProcessed.findUnique({
+      const existing = await prisma.webhookProcessed.findUnique({
         where: { webhookId },
         select: { id: true },
       });

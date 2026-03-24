@@ -8,7 +8,7 @@
  * acting as a fallback to ensure all customers have a tier.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { Tier, ShopSettings } from "@prisma/client";
 
 // ============================================
@@ -41,7 +41,7 @@ export interface BaseTierResult {
  * @returns Base tier configuration
  */
 export async function getBaseTierConfig(shop: string): Promise<BaseTierConfig> {
-  const settings = await db.shopSettings.findUnique({
+  const settings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: {
       autoAssignBaseTier: true,
@@ -95,7 +95,7 @@ export async function getBaseTier(shop: string): Promise<Tier | null> {
 
   // If a specific tier is configured, use it
   if (config.tierId) {
-    const tier = await db.tier.findFirst({
+    const tier = await prisma.tier.findFirst({
       where: {
         id: config.tierId,
         shop, // Ensure tier belongs to this shop
@@ -112,7 +112,7 @@ export async function getBaseTier(shop: string): Promise<Tier | null> {
   }
 
   // Auto-detect: find the tier with the lowest minSpend
-  const lowestTier = await db.tier.findFirst({
+  const lowestTier = await prisma.tier.findFirst({
     where: { shop },
     orderBy: { minSpend: 'asc' }
   });
@@ -156,7 +156,7 @@ export async function updateBaseTierConfig(
     updateData.defaultBaseTierId = config.tierId;
   }
 
-  await db.shopSettings.upsert({
+  await prisma.shopSettings.upsert({
     where: { shop },
     update: updateData,
     create: {
@@ -188,7 +188,7 @@ export async function getBaseTierStats(shop: string): Promise<{
 
   let customersWithBaseTier = 0;
   if (baseTier) {
-    customersWithBaseTier = await db.customer.count({
+    customersWithBaseTier = await prisma.customer.count({
       where: {
         shop,
         currentTierId: baseTier.id,
@@ -196,7 +196,7 @@ export async function getBaseTierStats(shop: string): Promise<{
     });
   }
 
-  const totalCustomersWithoutTier = await db.customer.count({
+  const totalCustomersWithoutTier = await prisma.customer.count({
     where: {
       shop,
       currentTierId: null,

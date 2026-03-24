@@ -40,7 +40,7 @@ import {
   StarIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { getMarketingModeInfo, setMarketingHubMode, markChoiceModalSeen } from "~/services/marketing-mode.server";
 import { MarketingChoiceModal } from "~/components/MarketingChoiceModal";
 import { KlaviyoMarketingDashboard } from "~/components/KlaviyoMarketingDashboard";
@@ -182,7 +182,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Count existing campaigns for limit check
   let campaignCount = 0;
   try {
-    campaignCount = await db.emailCampaign.count({ where: { shop } });
+    campaignCount = await prisma.emailCampaign.count({ where: { shop } });
   } catch (e) {
     // Table might not exist
   }
@@ -191,7 +191,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Check if email is configured
   let emailSettings = null;
   try {
-    emailSettings = await db.emailSettings.findUnique({
+    emailSettings = await prisma.emailSettings.findUnique({
       where: { shop },
     });
   } catch (e) {
@@ -214,7 +214,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const events = await db.emailEvent.findMany({
+    const events = await prisma.emailEvent.findMany({
       where: {
         shop,
         createdAt: { gte: thirtyDaysAgo },
@@ -235,7 +235,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Fetch recent campaigns
   let recentCampaigns: Campaign[] = [];
   try {
-    const campaigns = await db.emailCampaign.findMany({
+    const campaigns = await prisma.emailCampaign.findMany({
       where: { shop },
       orderBy: { createdAt: 'desc' },
       take: 5,
@@ -244,7 +244,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Fetch template names
     const templateIds = campaigns.map(c => c.templateId).filter(Boolean);
     const templates = templateIds.length > 0
-      ? await db.emailTemplate.findMany({
+      ? await prisma.emailTemplate.findMany({
           where: { id: { in: templateIds } },
         })
       : [];
@@ -267,7 +267,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Fetch automations
   let automations: Automation[] = [];
   try {
-    const autoList = await db.emailAutomation.findMany({
+    const autoList = await prisma.emailAutomation.findMany({
       where: { shop },
       orderBy: { createdAt: 'desc' },
     });
@@ -288,7 +288,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Fetch recommendations
   let recommendations: Recommendation[] = [];
   try {
-    const recs = await db.analyticsRecommendation.findMany({
+    const recs = await prisma.analyticsRecommendation.findMany({
       where: {
         shop,
         status: 'pending',
@@ -316,8 +316,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   let customerStats = { total: 0, withEmail: 0, subscribed: 0 };
   try {
     const [totalCount, withEmailCount] = await Promise.all([
-      db.customer.count({ where: { shop } }),
-      db.customer.count({ where: { shop, email: { not: null } } }),
+      prisma.customer.count({ where: { shop } }),
+      prisma.customer.count({ where: { shop, email: { not: null } } }),
     ]);
 
     customerStats.total = totalCount;
@@ -347,7 +347,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       try {
-        const eventsToday = await db.klaviyoEvent.count({
+        const eventsToday = await prisma.klaviyoEvent.count({
           where: {
             shop,
             createdAt: { gte: today },
@@ -362,7 +362,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Get automation settings for event toggles
       let automationSettings: any = null;
       try {
-        automationSettings = await db.klaviyoAutomationSettings.findUnique({
+        automationSettings = await prisma.klaviyoAutomationSettings.findUnique({
           where: { shop },
         });
       } catch (e) {
@@ -386,7 +386,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Get recent Klaviyo events
       let recentEvents: RecentKlaviyoEvent[] = [];
       try {
-        const events = await db.klaviyoEvent.findMany({
+        const events = await prisma.klaviyoEvent.findMany({
           where: { shop },
           orderBy: { createdAt: "desc" },
           take: 10,
@@ -526,7 +526,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       try {
-        await db.klaviyoAutomationSettings.upsert({
+        await prisma.klaviyoAutomationSettings.upsert({
           where: { shop },
           create: {
             shop,

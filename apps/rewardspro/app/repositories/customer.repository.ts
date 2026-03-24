@@ -1,7 +1,7 @@
 // Customer repository with caching and optimized queries
 import { BaseRepository, QueryOptions } from './base.repository';
 import type { Customer, Tier, StoreCreditLedger, Prisma } from '@prisma/client';
-import db from '~/db.server';
+import prisma from '~/db.server';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface CustomerWithRelations extends Customer {
@@ -60,7 +60,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
         ];
       }
       
-      const customers = await db.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where,
         include: {
           currentTier: true,
@@ -95,7 +95,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
     }
     
     try {
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: {
           id,
           shop: this.shop,
@@ -139,7 +139,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
     }
     
     try {
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: {
           shopifyCustomerId,
           shop: this.shop,
@@ -166,7 +166,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
   
   async create(input: Partial<CustomerWithRelations> | CreateCustomerInput): Promise<CustomerWithRelations> {
     try {
-      const customer = await db.customer.create({
+      const customer = await prisma.customer.create({
         data: {
           id: uuidv4(),
           shop: this.shop,
@@ -207,7 +207,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
         throw new Error('Customer not found');
       }
       
-      const customer = await db.customer.update({
+      const customer = await prisma.customer.update({
         where: {
           id,
           shop: this.shop, // Extra safety check
@@ -244,7 +244,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
   ): Promise<CustomerWithRelations> {
     try {
       // Use transaction for consistency
-      const result = await db.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx) => {
         // Get current customer
         const customer = await tx.customer.findFirst({
           where: { id, shop: this.shop },
@@ -308,7 +308,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
         return false;
       }
       
-      await db.customer.deleteMany({
+      await prisma.customer.deleteMany({
         where: {
           id,
           shop: this.shop,
@@ -328,7 +328,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
   // Batch operations
   async findByIds(ids: string[]): Promise<CustomerWithRelations[]> {
     try {
-      const customers = await db.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where: {
           id: { in: ids },
           shop: this.shop,
@@ -359,7 +359,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
   async bulkUpdateTiers(updates: Array<{ id: string; tierId: string | null }>): Promise<void> {
     try {
       // Use transaction for atomic updates
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         for (const update of updates) {
           await tx.customer.update({
             where: {
@@ -398,10 +398,10 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
     
     try {
       const [total, withTiers, withoutTiers, creditSum] = await Promise.all([
-        db.customer.count({ where: { shop: this.shop } }),
-        db.customer.count({ where: { shop: this.shop, currentTierId: { not: null } } }),
-        db.customer.count({ where: { shop: this.shop, currentTierId: null } }),
-        db.customer.aggregate({
+        prisma.customer.count({ where: { shop: this.shop } }),
+        prisma.customer.count({ where: { shop: this.shop, currentTierId: { not: null } } }),
+        prisma.customer.count({ where: { shop: this.shop, currentTierId: null } }),
+        prisma.customer.aggregate({
           where: { shop: this.shop },
           _sum: { storeCredit: true },
         }),

@@ -11,7 +11,7 @@
  * Uses normalized ID comparison to handle REST vs GraphQL ID format mismatch.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import {
   extractNumericId,
@@ -140,7 +140,7 @@ export class TierProductMatcher {
 
     // Query active tier products for shop
     // CRITICAL: Filter deletedAt IS NULL to exclude soft-deleted products
-    const tierProducts = await db.tierProduct.findMany({
+    const tierProducts = await prisma.tierProduct.findMany({
       where: {
         shop,
         deletedAt: null,
@@ -280,7 +280,7 @@ export class TierProductMatcher {
     const matchLogger = logger.withContext({ shop });
 
     // Query tier products once
-    const tierProducts = await db.tierProduct.findMany({
+    const tierProducts = await prisma.tierProduct.findMany({
       where: {
         shop,
         deletedAt: null,

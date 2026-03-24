@@ -14,13 +14,13 @@
  *   that atomically verify the count before inserting.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { getLimit, getEffectivePlan } from "~/services/entitlements.server";
 import type { LimitKey } from "~/services/entitlements.server";
 import { json } from "@remix-run/node";
 
 // Type for Prisma transaction client
-type TransactionClient = Parameters<Parameters<typeof db.$transaction>[0]>[0];
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /**
  * Error thrown when a limit is exceeded during atomic operations
@@ -132,7 +132,7 @@ export async function atomicWithinLimit<T>(
   }
 
   // Use transaction for atomic check-and-create
-  return db.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     // Count inside transaction to get consistent view
     const currentCount = await countFn(tx);
 
@@ -207,7 +207,7 @@ export const atomicTierCreate = async (
  */
 export const atomicRaffleCreate = async (
   shop: string,
-  data: Parameters<typeof db.raffle.create>[0]["data"]
+  data: Parameters<typeof prisma.raffle.create>[0]["data"]
 ) => {
   return atomicWithinLimit(
     shop,
@@ -258,7 +258,7 @@ export const atomicAutomationCreate = async (
  */
 export const atomicTierProductCreate = async (
   shop: string,
-  data: Parameters<typeof db.tierProduct.create>[0]["data"]
+  data: Parameters<typeof prisma.tierProduct.create>[0]["data"]
 ) => {
   return atomicWithinLimit(
     shop,

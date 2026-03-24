@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import db from "../db.server";
+import prisma from "../db.server";
 import type { Decimal } from "@prisma/client/runtime/library";
 import { clawbackPoints } from "./points-ledger.server";
 import { isPointsEnabled } from "./points-config.server";
@@ -29,7 +29,7 @@ export async function handleRefundClawback(
 
   try {
     // Use transaction to ensure consistency
-    const result = await db.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Find the order
       const order = await tx.order.findFirst({
         where: {
@@ -279,7 +279,7 @@ export async function handleRefundClawback(
           console.log(`[Refund Handler] Points system enabled - attempting points clawback`);
 
           // Get the internal order ID from the database
-          const order = await db.order.findFirst({
+          const order = await prisma.order.findFirst({
             where: { shop, shopifyOrderId },
             select: { id: true }
           });
@@ -367,7 +367,7 @@ export async function handleStoreCreditRefund(
   console.log(`[Refund Handler] Processing store credit refund for order ${shopifyOrderId}`);
 
   try {
-    const result = await db.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Find the order
       const order = await tx.order.findFirst({
         where: {

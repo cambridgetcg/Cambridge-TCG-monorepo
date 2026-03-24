@@ -29,7 +29,7 @@ import { ClockIcon, StarFilledIcon, PersonIcon, CheckCircleIcon } from "@shopify
 import { authenticate } from "../shopify.server";
 import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getMissionAnalytics } from "../services/mission-stats.server";
 import { createChallenge } from "../services/challenge-management.server";
 import {
@@ -169,7 +169,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Fetch challenges with rewards (using separate queries for Data API compatibility)
     const now = new Date();
-    const challenges = await db.challenge.findMany({
+    const challenges = await prisma.challenge.findMany({
       where: { shop },
       orderBy: { createdAt: "desc" },
       take: 100,
@@ -178,7 +178,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Fetch rewards for all challenges
     const challengeIds = challenges.map((c: { id: string }) => c.id);
     const rewards = challengeIds.length > 0
-      ? await db.challengeReward.findMany({
+      ? await prisma.challengeReward.findMany({
           where: { challengeId: { in: challengeIds } },
         })
       : [];
@@ -348,7 +348,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // Soft delete by marking as archived
-      await db.challenge.update({
+      await prisma.challenge.update({
         where: { id: missionId },
         data: { status: "ARCHIVED" },
       });

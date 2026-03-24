@@ -19,7 +19,7 @@
  * - Early bird bonuses
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 
 import {
   getRaffleStreakInfo,
@@ -107,7 +107,7 @@ async function getBestBonusEvent(
 ): Promise<AppliedBonus | null> {
   if (!raffleId) return null;
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
     select: {
       earlyBirdBonusPercent: true,
@@ -157,7 +157,7 @@ async function getActiveBonusEvents(
     ? { id: raffleId, shop, status: "ACTIVE" as const }
     : { shop, status: "ACTIVE" as const };
 
-  const raffles = await db.raffle.findMany({
+  const raffles = await prisma.raffle.findMany({
     where,
     select: {
       id: true,
@@ -311,7 +311,7 @@ export async function processPsychologyBonuses(
   console.log(`${LOG_PREFIX} Processing psychology bonuses for customer ${customerId}`);
 
   // Get raffle settings
-  const raffle = await db.raffle.findUnique({
+  const raffle = await prisma.raffle.findUnique({
     where: { id: raffleId },
     select: {
       enableStreakBonuses: true,
@@ -558,7 +558,7 @@ export async function getPsychologyDashboard(
   let upcomingMilestones = { nextMilestone: null as number | null, entriesToNext: 0 };
 
   if (raffleId) {
-    const raffle = await db.raffle.findUnique({
+    const raffle = await prisma.raffle.findUnique({
       where: { id: raffleId },
       select: { totalEntries: true },
     });
@@ -666,7 +666,7 @@ export function formatBonusSummary(bonuses: AppliedBonuses): string {
  * Check if any psychology features are enabled for a raffle
  */
 export async function hasPsychologyFeatures(raffleId: string): Promise<boolean> {
-  const raffle = await db.raffle.findUnique({
+  const raffle = await prisma.raffle.findUnique({
     where: { id: raffleId },
     select: {
       enableStreakBonuses: true,

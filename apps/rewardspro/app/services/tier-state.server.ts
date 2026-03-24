@@ -15,7 +15,7 @@
  * 4. SPENDING_BASED - Automatic calculation based on spending
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import type { CustomerTierState, TierSource, Tier } from "@prisma/client";
 
@@ -91,7 +91,7 @@ export async function getCustomerTierState(
   shop: string,
   customerId: string
 ): Promise<TierStateResult | null> {
-  const tierState = await db.customerTierState.findUnique({
+  const tierState = await prisma.customerTierState.findUnique({
     where: { customerId },
     include: {
       effectiveTier: true,
@@ -142,7 +142,7 @@ export async function resolveAndUpdateTierState(
     console.log(`[TierState] Resolving tier for customer ${customerId}, triggered by ${context.triggeredBy}`);
 
     // Get or create CustomerTierState
-    let tierState = await db.customerTierState.findUnique({
+    let tierState = await prisma.customerTierState.findUnique({
       where: { customerId },
       include: { effectiveTier: true },
     });
@@ -185,13 +185,13 @@ export async function resolveAndUpdateTierState(
     };
 
     if (tierState) {
-      tierState = await db.customerTierState.update({
+      tierState = await prisma.customerTierState.update({
         where: { customerId },
         data: updateData,
         include: { effectiveTier: true },
       });
     } else {
-      tierState = await db.customerTierState.create({
+      tierState = await prisma.customerTierState.create({
         data: {
           id: uuidv4(),
           customerId,
@@ -203,7 +203,7 @@ export async function resolveAndUpdateTierState(
     }
 
     // Also update Customer.currentTierId for backward compatibility
-    await db.customer.update({
+    await prisma.customer.update({
       where: { id: customerId },
       data: {
         currentTierId: winner.tierId,
@@ -265,7 +265,7 @@ export async function setManualOverride(
     // Get or verify tier
     let tier: Tier | null = null;
     if (tierId) {
-      tier = await db.tier.findUnique({ where: { id: tierId } });
+      tier = await prisma.tier.findUnique({ where: { id: tierId } });
       if (!tier) {
         return {
           success: false,
@@ -284,7 +284,7 @@ export async function setManualOverride(
     const expiresAt = isPermanent ? null : options?.expiresAt || null;
 
     // Get or create CustomerTierState
-    let tierState = await db.customerTierState.findUnique({
+    let tierState = await prisma.customerTierState.findUnique({
       where: { customerId },
     });
 
@@ -304,12 +304,12 @@ export async function setManualOverride(
     };
 
     if (tierState) {
-      await db.customerTierState.update({
+      await prisma.customerTierState.update({
         where: { customerId },
         data: updateData,
       });
     } else {
-      await db.customerTierState.create({
+      await prisma.customerTierState.create({
         data: {
           id: uuidv4(),
           customerId,
@@ -320,7 +320,7 @@ export async function setManualOverride(
     }
 
     // Also update Customer.currentTierId for backward compatibility
-    await db.customer.update({
+    await prisma.customer.update({
       where: { id: customerId },
       data: {
         currentTierId: tierId,
@@ -368,7 +368,7 @@ export async function removeManualOverride(
   try {
     console.log(`[TierState] Removing manual override for customer ${customerId}`);
 
-    const tierState = await db.customerTierState.findUnique({
+    const tierState = await prisma.customerTierState.findUnique({
       where: { customerId },
     });
 
@@ -385,7 +385,7 @@ export async function removeManualOverride(
     }
 
     // Clear manual override flags
-    await db.customerTierState.update({
+    await prisma.customerTierState.update({
       where: { customerId },
       data: {
         hasManualOverride: false,
@@ -431,7 +431,7 @@ export async function removeManualOverride(
  * This is a fast O(1) check using the explicit boolean field.
  */
 export async function hasActiveManualOverride(customerId: string): Promise<boolean> {
-  const tierState = await db.customerTierState.findUnique({
+  const tierState = await prisma.customerTierState.findUnique({
     where: { customerId },
     select: {
       hasManualOverride: true,
@@ -459,12 +459,12 @@ export async function ensureTierStateExists(
   shop: string,
   customerId: string
 ): Promise<CustomerTierState> {
-  let tierState = await db.customerTierState.findUnique({
+  let tierState = await prisma.customerTierState.findUnique({
     where: { customerId },
   });
 
   if (!tierState) {
-    tierState = await db.customerTierState.create({
+    tierState = await prisma.customerTierState.create({
       data: {
         id: uuidv4(),
         shop,
@@ -502,7 +502,7 @@ async function collectTierSources(
     const isExpired = tierState.manualOverrideExpiry && tierState.manualOverrideExpiry < now;
 
     if (!isExpired && tierState.effectiveTierId) {
-      const tier = await db.tier.findUnique({ where: { id: tierState.effectiveTierId } });
+      const tier = await prisma.tier.findUnique({ where: { id: tierState.effectiveTierId } });
       if (tier) {
         sources.push({
           source: 'MANUAL_OVERRIDE',
@@ -518,7 +518,7 @@ async function collectTierSources(
   }
 
   // 2. Check active subscriptions
-  const activeSubscription = await db.tierSubscription.findFirst({
+  const activeSubscription = await prisma.tierSubscription.findFirst({
     where: {
       customerId,
       status: 'ACTIVE',
@@ -540,7 +540,7 @@ async function collectTierSources(
   }
 
   // 3. Check active purchases
-  const activePurchase = await db.tierPurchase.findFirst({
+  const activePurchase = await prisma.tierPurchase.findFirst({
     where: {
       customerId,
       status: 'ACTIVE',
@@ -592,7 +592,7 @@ async function calculateSpendingBasedTier(
   customerId: string
 ): Promise<Tier | null> {
   // Get customer's spending
-  const customer = await db.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     select: { netSpent: true },
   });
@@ -602,7 +602,7 @@ async function calculateSpendingBasedTier(
   const netSpent = customer.netSpent?.toNumber() || 0;
 
   // Get all tiers for the shop, ordered by minSpend descending
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: 'desc' },
   });
@@ -650,8 +650,8 @@ async function logTierChange(
 ): Promise<void> {
   // Get tier names for historical reference
   const [fromTier, toTier] = await Promise.all([
-    fromTierId ? db.tier.findUnique({ where: { id: fromTierId } }) : null,
-    toTierId ? db.tier.findUnique({ where: { id: toTierId } }) : null,
+    fromTierId ? prisma.tier.findUnique({ where: { id: fromTierId } }) : null,
+    toTierId ? prisma.tier.findUnique({ where: { id: toTierId } }) : null,
   ]);
 
   // Determine change type
@@ -676,7 +676,7 @@ async function logTierChange(
     NONE: 'PERIODIC_REVIEW',
   };
 
-  await db.tierChangeLog.create({
+  await prisma.tierChangeLog.create({
     data: {
       id: uuidv4(),
       customerId,

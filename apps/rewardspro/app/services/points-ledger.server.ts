@@ -13,7 +13,7 @@
  * Points are stored as integers for simplicity and to avoid floating-point issues.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { PointsLedgerType, PointsRoundingMode, Prisma } from "@prisma/client";
 import { getPointsConfig, calculateExpirationDate, isPointsEnabled } from "./points-config.server";
 
@@ -84,7 +84,7 @@ export async function earnPoints(input: EarnPointsInput): Promise<PointsTransact
   }
 
   // Get current balance
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: input.customerId, shop: input.shop },
     select: { pointsBalance: true, lifetimePoints: true },
   });
@@ -100,7 +100,7 @@ export async function earnPoints(input: EarnPointsInput): Promise<PointsTransact
   const expiresAt = await calculateExpirationDate(input.shop);
 
   // Create ledger entry and update customer balance in transaction
-  const result = await db.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // Create ledger entry
     const entry = await tx.pointsLedger.create({
       data: {
@@ -163,7 +163,7 @@ export async function hasEnoughPoints(
   shop: string,
   amount: number
 ): Promise<boolean> {
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { pointsBalance: true },
   });
@@ -193,7 +193,7 @@ export async function spendPoints(input: SpendPointsInput): Promise<PointsTransa
 
   // Balance check + ledger entry + balance update all inside transaction
   // to prevent race conditions from concurrent spends
-  const result = await db.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // Read balance inside transaction (serializable isolation prevents TOCTOU)
     const customer = await tx.customer.findFirst({
       where: { id: input.customerId, shop: input.shop },
@@ -267,7 +267,7 @@ export async function getPointsBalance(
   customerId: string,
   shop: string
 ): Promise<PointsBalance> {
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: {
       pointsBalance: true,
@@ -290,7 +290,7 @@ export async function getPointsBalance(
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
   // Get expiring points (non-expired entries with expiration within 30 days)
-  const expiringEntries = await db.pointsLedger.findMany({
+  const expiringEntries = await prisma.pointsLedger.findMany({
     where: {
       customerId,
       shop,
@@ -348,13 +348,13 @@ export async function getTransactionHistory(
   }
 
   const [entries, total] = await Promise.all([
-    db.pointsLedger.findMany({
+    prisma.pointsLedger.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take: options?.limit ?? 50,
       skip: options?.offset ?? 0,
     }),
-    db.pointsLedger.count({ where }),
+    prisma.pointsLedger.count({ where }),
   ]);
 
   return {
@@ -396,7 +396,7 @@ export async function clawbackPoints(
   reason: string;
 }> {
   // Find the original points earned for this order
-  const originalEntry = await db.pointsLedger.findFirst({
+  const originalEntry = await prisma.pointsLedger.findFirst({
     where: {
       shop,
       customerId,
@@ -430,7 +430,7 @@ export async function clawbackPoints(
   }
 
   // Check if we already clawed back for this order
-  const existingClawback = await db.pointsLedger.findFirst({
+  const existingClawback = await prisma.pointsLedger.findFirst({
     where: {
       shop,
       customerId,
@@ -448,7 +448,7 @@ export async function clawbackPoints(
   }
 
   // Get current balance
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { pointsBalance: true },
   });
@@ -475,7 +475,7 @@ export async function clawbackPoints(
   }
 
   // Create clawback entry
-  await db.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     await tx.pointsLedger.create({
       data: {
         shop,
@@ -528,7 +528,7 @@ export async function expirePoints(shop: string): Promise<{
   const now = new Date();
 
   // Find all non-expired entries that are past their expiration date
-  const expiredEntries = await db.pointsLedger.findMany({
+  const expiredEntries = await prisma.pointsLedger.findMany({
     where: {
       shop,
       expired: false,
@@ -557,7 +557,7 @@ export async function expirePoints(shop: string): Promise<{
   }
 
   // Process expirations in transaction
-  await db.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     // Mark entries as expired
     await tx.pointsLedger.updateMany({
       where: {
@@ -637,7 +637,7 @@ export async function getExpiringPoints(
   const futureDate = new Date(now);
   futureDate.setDate(futureDate.getDate() + withinDays);
 
-  const entries = await db.pointsLedger.findMany({
+  const entries = await prisma.pointsLedger.findMany({
     where: {
       customerId,
       shop,

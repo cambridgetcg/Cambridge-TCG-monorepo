@@ -12,7 +12,7 @@
  * - Days 30+: gem - 100% bonus (Legendary)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[MissionStreak]";
 
@@ -163,7 +163,7 @@ function calculateHoursUntilStreakLoss(
  * Get streak configuration for a shop
  */
 export async function getStreakConfig(shop: string): Promise<StreakConfig> {
-  const config = await db.pointsConfig.findUnique({
+  const config = await prisma.pointsConfig.findUnique({
     where: { shop },
     select: {
       missionStreakBonusEnabled: true,
@@ -190,7 +190,7 @@ export async function getStreakInfo(
 ): Promise<StreakInfo> {
   const config = await getStreakConfig(shop);
 
-  const stats = await db.customerMissionStats.findUnique({
+  const stats = await prisma.customerMissionStats.findUnique({
     where: { customerId },
     select: {
       currentStreak: true,
@@ -264,7 +264,7 @@ export async function updateStreak(
 ): Promise<StreakInfo> {
   const config = await getStreakConfig(shop);
 
-  const stats = await db.customerMissionStats.findUnique({
+  const stats = await prisma.customerMissionStats.findUnique({
     where: { customerId },
     select: {
       currentStreak: true,
@@ -318,7 +318,7 @@ export async function updateStreak(
   const newLongestStreak = Math.max(stats.longestStreak, newStreak);
 
   // Update database
-  await db.customerMissionStats.update({
+  await prisma.customerMissionStats.update({
     where: { customerId },
     data: {
       currentStreak: newStreak,
@@ -367,7 +367,7 @@ export async function resetBrokenStreaks(shop: string): Promise<number> {
   const resetTime = getResetTimeForDate(now, config.missionResetHour);
   const cutoffTime = new Date(resetTime.getTime() - 24 * 60 * 60 * 1000);
 
-  const result = await db.customerMissionStats.updateMany({
+  const result = await prisma.customerMissionStats.updateMany({
     where: {
       shop,
       currentStreak: { gt: 0 },
@@ -402,7 +402,7 @@ export async function getStreakLeaderboard(
     customer: { email: string; firstName: string | null; lastName: string | null } | null;
   }>
 > {
-  const leaderboard = await db.customerMissionStats.findMany({
+  const leaderboard = await prisma.customerMissionStats.findMany({
     where: { shop, currentStreak: { gt: 0 } },
     orderBy: { currentStreak: "desc" },
     take: limit,

@@ -14,7 +14,7 @@
  * @module customer-tier-state-update.server
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { PrismaClient, Tier, TierSource } from "@prisma/client";
 import { resolveEffectiveTier, type TierResolutionResult } from "./tier-resolution.server";
 
@@ -344,7 +344,7 @@ export async function refreshShopProgress(
   shop: string
 ): Promise<{ totalCustomers: number; updated: number; failed: number }> {
   // Get all customer IDs for the shop
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: { shop },
     select: { id: true }
   });

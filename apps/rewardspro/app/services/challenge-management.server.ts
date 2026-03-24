@@ -6,7 +6,7 @@
  * complete objectives (spending, orders, referrals) to earn rewards.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[ChallengeManagement]";
 
@@ -184,7 +184,7 @@ export async function getChallenges(
     where.objectiveType = options.objectiveType;
   }
 
-  const challenges = await db.challenge.findMany({
+  const challenges = await prisma.challenge.findMany({
     where,
     include: {
       reward: options?.includeReward ?? true,
@@ -217,7 +217,7 @@ export async function getChallenge(
   challengeId: string,
   shop: string
 ): Promise<ChallengeWithDetails | null> {
-  const challenge = await db.challenge.findFirst({
+  const challenge = await prisma.challenge.findFirst({
     where: { id: challengeId, shop },
     include: { reward: true },
   });
@@ -261,7 +261,7 @@ export async function createChallenge(
   });
 
   try {
-    const challenge = await db.challenge.create({
+    const challenge = await prisma.challenge.create({
       data: {
         shop: input.shop,
         name: input.name,
@@ -316,7 +316,7 @@ export async function updateChallenge(
   console.log(`${LOG_PREFIX} Updating challenge ${challengeId}`);
 
   // Verify challenge exists and belongs to shop
-  const existing = await db.challenge.findFirst({
+  const existing = await prisma.challenge.findFirst({
     where: { id: challengeId, shop },
   });
 
@@ -339,7 +339,7 @@ export async function updateChallenge(
     }
   }
 
-  const challenge = await db.challenge.update({
+  const challenge = await prisma.challenge.update({
     where: { id: challengeId },
     data: {
       name: input.name,
@@ -382,7 +382,7 @@ export async function deleteChallenge(
 ): Promise<boolean> {
   console.log(`${LOG_PREFIX} Deleting challenge ${challengeId}`);
 
-  const challenge = await db.challenge.findFirst({
+  const challenge = await prisma.challenge.findFirst({
     where: { id: challengeId, shop },
   });
 
@@ -394,7 +394,7 @@ export async function deleteChallenge(
     throw new Error("Can only delete DRAFT challenges");
   }
 
-  await db.challenge.delete({
+  await prisma.challenge.delete({
     where: { id: challengeId },
   });
 
@@ -417,7 +417,7 @@ export async function setChallengeReward(
   console.log(`${LOG_PREFIX} Setting reward for challenge ${challengeId} (shop: ${shop})`);
 
   // Verify challenge exists and belongs to shop
-  const challenge = await db.challenge.findFirst({
+  const challenge = await prisma.challenge.findFirst({
     where: { id: challengeId, shop },
     include: { reward: true },
   });
@@ -428,7 +428,7 @@ export async function setChallengeReward(
 
   // Upsert the reward
   if (challenge.reward) {
-    await db.challengeReward.update({
+    await prisma.challengeReward.update({
       where: { id: challenge.reward.id },
       data: {
         rewardType: rewardData.rewardType,
@@ -437,7 +437,7 @@ export async function setChallengeReward(
       },
     });
   } else {
-    await db.challengeReward.create({
+    await prisma.challengeReward.create({
       data: {
         challengeId: challengeId,
         rewardType: rewardData.rewardType,
@@ -448,7 +448,7 @@ export async function setChallengeReward(
   }
 
   // Return updated challenge
-  const updated = await db.challenge.findUnique({
+  const updated = await prisma.challenge.findUnique({
     where: { id: challengeId },
     include: { reward: true },
   });
@@ -492,7 +492,7 @@ export async function transitionChallengeStatus(
 ): Promise<ChallengeWithDetails> {
   console.log(`${LOG_PREFIX} Transitioning challenge ${challengeId} to ${newStatus}`);
 
-  const challenge = await db.challenge.findFirst({
+  const challenge = await prisma.challenge.findFirst({
     where: { id: challengeId, shop },
     include: { reward: true },
   });
@@ -524,7 +524,7 @@ export async function transitionChallengeStatus(
     }
   }
 
-  const updated = await db.challenge.update({
+  const updated = await prisma.challenge.update({
     where: { id: challengeId },
     data: { status: newStatus },
     include: { reward: true },
@@ -557,12 +557,12 @@ export async function transitionChallengeStatus(
  */
 export async function getChallengeStats(shop: string): Promise<ChallengeStats> {
   const [counts, aggregates] = await Promise.all([
-    db.challenge.groupBy({
+    prisma.challenge.groupBy({
       by: ["status"],
       where: { shop },
       _count: true,
     }),
-    db.challenge.aggregate({
+    prisma.challenge.aggregate({
       where: { shop },
       _sum: {
         totalParticipants: true,
@@ -599,14 +599,14 @@ export async function canCreateChallenge(
   shop: string
 ): Promise<{ allowed: boolean; current: number; limit: number; reason?: string }> {
   // Get shop entitlements
-  const entitlements = await db.shopEntitlements.findUnique({
+  const entitlements = await prisma.shopEntitlements.findUnique({
     where: { shop },
   });
 
   const limit = entitlements?.limitMaxActiveChallenges ?? 1;
 
   // Count active challenges (DRAFT, SCHEDULED, ACTIVE)
-  const activeCount = await db.challenge.count({
+  const activeCount = await prisma.challenge.count({
     where: {
       shop,
       status: { in: ["DRAFT", "SCHEDULED", "ACTIVE"] },
@@ -636,7 +636,7 @@ export async function getActiveEligibleChallenges(
   const now = new Date();
 
   // Get all active challenges for the shop
-  const challenges = await db.challenge.findMany({
+  const challenges = await prisma.challenge.findMany({
     where: {
       shop,
       status: "ACTIVE",

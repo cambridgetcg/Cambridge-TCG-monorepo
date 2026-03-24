@@ -15,7 +15,7 @@
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate, unauthenticated } from "../shopify.server";
 import { getAuroraClient } from "../utils/aurora-data-api";
-import db from "../db.server";
+import prisma from "../db.server";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
 // SECURITY: Use Redis-backed rate limiter for effective distributed rate limiting
 import { appProxyRateLimit } from "../utils/rate-limiter-redis";
@@ -498,7 +498,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
         // DATA API COMPATIBLE: Two-step query (nested relation filtering not supported)
         // Step 1: Find tiers higher than current tier
-        const higherTiers = await db.tier.findMany({
+        const higherTiers = await prisma.tier.findMany({
           where: {
             shop,
             isActive: true,
@@ -516,7 +516,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
         // Step 2: Find tier products for those tiers
         const higherTierIds = higherTiers.map(t => t.id);
-        const tierProducts = higherTierIds.length > 0 ? await db.tierProduct.findMany({
+        const tierProducts = higherTierIds.length > 0 ? await prisma.tierProduct.findMany({
           where: {
             shop,
             deletedAt: null,
@@ -721,7 +721,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // Count active items for each feature (for highlighting in UI)
       const [activeRaffles, activeMysteryBoxes] = await Promise.all([
         features.raffles
-          ? db.raffle.count({
+          ? prisma.raffle.count({
               where: {
                 shop,
                 status: "ACTIVE",
@@ -731,7 +731,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             })
           : 0,
         features.mysteryBoxes
-          ? db.mysteryBox.count({
+          ? prisma.mysteryBox.count({
               where: {
                 shop,
                 status: "ACTIVE",
@@ -829,7 +829,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       log.debug('=== RAFFLES STEP 2: Querying active raffles ===');
       let raffles;
       try {
-        raffles = await db.raffle.findMany({
+        raffles = await prisma.raffle.findMany({
           where: {
             shop,
             status: "ACTIVE",
@@ -865,7 +865,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       if (raffles.length > 0) {
         try {
           const raffleIds = raffles.map((r: any) => r.id);
-          const prizes = await db.rafflePrize.findMany({
+          const prizes = await prisma.rafflePrize.findMany({
             where: { raffleId: { in: raffleIds } },
             orderBy: { displayOrder: "asc" },
           });
@@ -900,7 +900,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       if (customerId) {
         log.debug('=== RAFFLES STEP 3: Resolving customer ===', { customerId });
         try {
-          const customer = await db.customer.findFirst({
+          const customer = await prisma.customer.findFirst({
             where: { shop, shopifyCustomerId: customerId },
             select: { id: true, pointsBalance: true },
           });
@@ -915,7 +915,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
             if (raffles.length > 0) {
               try {
-                const entries = await db.raffleEntry.groupBy({
+                const entries = await prisma.raffleEntry.groupBy({
                   by: ["raffleId"],
                   where: {
                     customerId: customer.id,
@@ -1051,7 +1051,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       let internalCustomerId: string | null = null;
       let customerPointsBalance = 0;
       if (shopifyCustomerId) {
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: { shop, shopifyCustomerId },
           select: { id: true, pointsBalance: true },
         });
@@ -1062,7 +1062,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // Get active and public mystery boxes
       // NOTE: Data API adapter ignores nested `select` relations (rewards, _count).
       // We query boxes first, then fetch rewards separately.
-      const boxes = await db.mysteryBox.findMany({
+      const boxes = await prisma.mysteryBox.findMany({
         where: {
           shop,
           status: "ACTIVE",
@@ -1078,7 +1078,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       if (boxes.length > 0) {
         try {
           const boxIds = boxes.map((b: any) => b.id);
-          const rewards = await db.mysteryBoxReward.findMany({
+          const rewards = await prisma.mysteryBoxReward.findMany({
             where: { boxId: { in: boxIds } },
             orderBy: { probability: "desc" },
           });
@@ -1098,7 +1098,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       let customerOpensMap: Record<string, number> = {};
       if (internalCustomerId && boxes.length > 0) {
         const boxIds = boxes.map(b => b.id);
-        const customerOpens = await db.mysteryBoxOpen.findMany({
+        const customerOpens = await prisma.mysteryBoxOpen.findMany({
           where: {
             customerId: internalCustomerId,
             boxId: { in: boxIds },
@@ -1203,7 +1203,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     try {
       // Check if challenges are enabled via PointsConfig
-      const pointsConfig = await db.pointsConfig.findUnique({
+      const pointsConfig = await prisma.pointsConfig.findUnique({
         where: { shop },
         select: {
           challengesEnabled: true,
@@ -1224,7 +1224,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // Resolve internal customer ID from Shopify customer ID
       let internalCustomerId: string | null = null;
       if (shopifyCustomerId) {
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: { shop, shopifyCustomerId },
           select: { id: true },
         });
@@ -1233,7 +1233,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
       // Get active public challenges
       const now = new Date();
-      const challenges = await db.challenge.findMany({
+      const challenges = await prisma.challenge.findMany({
         where: {
           shop,
           status: "ACTIVE",
@@ -1264,7 +1264,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }> = {};
 
       if (internalCustomerId && challenges.length > 0) {
-        const participants = await db.challengeParticipant.findMany({
+        const participants = await prisma.challengeParticipant.findMany({
           where: {
             customerId: internalCustomerId,
             challengeId: { in: challenges.map(c => c.id) },
@@ -1359,7 +1359,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     try {
       // Check if missions/challenges are enabled via PointsConfig
-      const pointsConfig = await db.pointsConfig.findUnique({
+      const pointsConfig = await prisma.pointsConfig.findUnique({
         where: { shop },
         select: {
           challengesEnabled: true,
@@ -1386,7 +1386,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // Resolve internal customer ID from Shopify customer ID
       let internalCustomerId: string | null = null;
       if (shopifyCustomerId) {
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: { shop, shopifyCustomerId },
           select: { id: true },
         });
@@ -1461,7 +1461,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     try {
       // Resolve internal customer ID
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId },
         select: { id: true },
       });
@@ -1514,7 +1514,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     try {
       // Resolve internal customer ID
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId },
         select: { id: true },
       });
@@ -1565,7 +1565,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // Count active activities for highlights (only if features are enabled)
       const [activeRaffles, activeMysteryBoxes] = await Promise.all([
         features.raffles
-          ? db.raffle.count({
+          ? prisma.raffle.count({
               where: {
                 shop,
                 status: "ACTIVE",
@@ -1575,7 +1575,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             })
           : 0,
         features.mysteryBoxes
-          ? db.mysteryBox.count({
+          ? prisma.mysteryBox.count({
               where: {
                 shop,
                 status: "ACTIVE",
@@ -1589,7 +1589,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // Get customer data if authenticated
       let customerData = null;
       if (customerId) {
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: { shop, shopifyCustomerId: customerId },
           select: {
             pointsBalance: true,
@@ -1651,12 +1651,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     try {
       const [config, bundles, issuedCards] = await Promise.all([
-        db.giftCardConfig.findUnique({ where: { shop } }),
-        db.giftCardBundle.findMany({
+        prisma.giftCardConfig.findUnique({ where: { shop } }),
+        prisma.giftCardBundle.findMany({
           where: { shop, isActive: true },
           orderBy: { giftCardValue: "asc" },
         }),
-        db.issuedGiftCard.findMany({
+        prisma.issuedGiftCard.findMany({
           where: { shop, customerId },
           orderBy: { createdAt: "desc" },
           take: 20,
@@ -1689,7 +1689,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }));
 
       // Store credit balance from membership data
-      const memberRecord = await db.customer.findFirst({ where: { shop, shopifyCustomerId: customerId } });
+      const memberRecord = await prisma.customer.findFirst({ where: { shop, shopifyCustomerId: customerId } });
       const storeCredit = memberRecord ? Number(memberRecord.storeCredit ?? 0) : 0;
 
       return json({
@@ -1791,7 +1791,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       // Resolve internal customer ID from Shopify customer ID
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId: logged_in_customer_id },
         select: { id: true, pointsBalance: true },
       });
@@ -1900,7 +1900,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         return proxyError("Please sign in to enter raffles", { status: 401, headers });
       }
 
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId: logged_in_customer_id },
         select: { id: true, pointsBalance: true },
       });
@@ -1956,7 +1956,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         return proxyError("Please sign in to claim rewards", { status: 401, headers });
       }
 
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId: logged_in_customer_id },
         select: { id: true },
       });
@@ -1979,7 +1979,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         return proxyError(result.error || "Operation failed", { headers });
       }
 
-      const updatedCustomer = await db.customer.findUnique({
+      const updatedCustomer = await prisma.customer.findUnique({
         where: { id: customer.id },
         select: { pointsBalance: true },
       });
@@ -2022,7 +2022,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         return proxyError("Please sign in to join challenges", { status: 401, headers });
       }
 
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId: logged_in_customer_id },
         select: { id: true, currentTierId: true },
       });
@@ -2032,7 +2032,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       const now = new Date();
-      const challenge = await db.challenge.findFirst({
+      const challenge = await prisma.challenge.findFirst({
         where: {
           id: challengeId,
           shop,
@@ -2056,7 +2056,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         }
       }
 
-      const existing = await db.challengeParticipant.findUnique({
+      const existing = await prisma.challengeParticipant.findUnique({
         where: {
           challengeId_customerId: { challengeId, customerId: customer.id },
         },
@@ -2075,7 +2075,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         }, { headers });
       }
 
-      const participant = await db.challengeParticipant.create({
+      const participant = await prisma.challengeParticipant.create({
         data: {
           challengeId,
           customerId: customer.id,
@@ -2086,7 +2086,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         },
       });
 
-      await db.challenge.update({
+      await prisma.challenge.update({
         where: { id: challengeId },
         data: { totalParticipants: { increment: 1 } },
       });
@@ -2142,7 +2142,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         return proxyError("Please sign in to open mystery boxes", { status: 401, headers });
       }
 
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId: logged_in_customer_id },
         select: { id: true, pointsBalance: true },
       });
@@ -2204,8 +2204,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
       // Look up bundle and config in parallel
       const [bundle, config] = await Promise.all([
-        db.giftCardBundle.findFirst({ where: { id: bundleId, shop, isActive: true } }),
-        db.giftCardConfig.findUnique({ where: { shop } }),
+        prisma.giftCardBundle.findFirst({ where: { id: bundleId, shop, isActive: true } }),
+        prisma.giftCardConfig.findUnique({ where: { shop } }),
       ]);
 
       if (!bundle) {
@@ -2216,7 +2216,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       // Look up internal customer
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { shop, shopifyCustomerId: String(shopifyCustomerId) },
         select: { id: true, storeCredit: true },
       });
@@ -2256,7 +2256,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       // Fetch updated store credit balance
-      const updated = await db.customer.findFirst({
+      const updated = await prisma.customer.findFirst({
         where: { id: customer.id },
         select: { storeCredit: true },
       });

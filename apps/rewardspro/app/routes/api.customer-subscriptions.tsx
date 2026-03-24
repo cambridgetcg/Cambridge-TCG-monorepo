@@ -7,7 +7,7 @@
 
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { authenticate } from "~/shopify.server";
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -28,7 +28,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Map Shopify customer ID to our internal customer
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         shop,
         shopifyCustomerId,
@@ -42,7 +42,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // Fetch subscriptions from TierSubscription model
     // This is our source of truth for portal data
-    const tierSubscriptions = await db.tierSubscription.findMany({
+    const tierSubscriptions = await prisma.tierSubscription.findMany({
       where: {
         customerId: customer.id,
         shop,
@@ -57,7 +57,7 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     // Also fetch app-level subscriptions if any
-    const appSubscriptions = await db.subscription.findMany({
+    const appSubscriptions = await prisma.subscription.findMany({
       where: {
         customerId: customer.id,
         shop,

@@ -24,7 +24,7 @@ import {
   DeleteIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { useState, useCallback } from "react";
@@ -123,7 +123,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get existing automations with stats
   let automations: any[] = [];
   try {
-    automations = await db.emailAutomation.findMany({
+    automations = await prisma.emailAutomation.findMany({
       where: { shop },
       orderBy: { createdAt: "desc" },
     });
@@ -132,7 +132,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const templateIds = automations.map((a) => a.templateId).filter(Boolean);
     let templates: any[] = [];
     if (templateIds.length > 0) {
-      templates = await db.emailTemplate.findMany({
+      templates = await prisma.emailTemplate.findMany({
         where: { id: { in: templateIds } },
       });
     }
@@ -189,7 +189,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     try {
       // Create email template
-      const emailTemplate = await db.emailTemplate.create({
+      const emailTemplate = await prisma.emailTemplate.create({
         data: {
           id: uuidv4(),
           shop,
@@ -206,7 +206,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       // Create automation
-      const automation = await db.emailAutomation.create({
+      const automation = await prisma.emailAutomation.create({
         data: {
           id: uuidv4(),
           shop,
@@ -239,7 +239,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const automationId = formData.get("automationId") as string;
 
     try {
-      const automation = await db.emailAutomation.findFirst({
+      const automation = await prisma.emailAutomation.findFirst({
         where: { id: automationId, shop },
       });
 
@@ -247,7 +247,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ error: "Automation not found" }, { status: 404 });
       }
 
-      await db.emailAutomation.updateMany({
+      await prisma.emailAutomation.updateMany({
         where: { id: automationId, shop },
         data: {
           isEnabled: !automation.isEnabled,
@@ -270,7 +270,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const automationId = formData.get("automationId") as string;
 
     try {
-      await db.emailAutomation.deleteMany({
+      await prisma.emailAutomation.deleteMany({
         where: { id: automationId, shop },
       });
 

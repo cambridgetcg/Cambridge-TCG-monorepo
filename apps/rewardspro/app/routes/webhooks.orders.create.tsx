@@ -19,7 +19,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { v4 as uuidv4 } from 'uuid';
 import { incrementMonthlyOrderCount } from "~/utils/order-count-strategies";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
@@ -82,7 +82,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const webhookId = request.headers.get('X-Shopify-Webhook-Id');
     if (webhookId) {
       try {
-        const existing = await db.webhookProcessed.findUnique({
+        const existing = await prisma.webhookProcessed.findUnique({
           where: { webhookId }
         });
         if (existing) {
@@ -98,7 +98,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // Increment monthly order count for ALL orders (including guest orders)
     try {
       // Fetch the shop's current subscription to get the correct plan limit
-      const subscription = await db.appSubscription.findUnique({
+      const subscription = await prisma.appSubscription.findUnique({
         where: { shop },
         select: { planName: true }
       });
@@ -217,7 +217,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // ========================================================================
     
     // Find or create customer in database
-    let dbCustomer = await db.customer.findFirst({
+    let dbCustomer = await prisma.customer.findFirst({
       where: {
         shop: shop,
         shopifyCustomerId: shopifyCustomerId
@@ -233,7 +233,7 @@ export async function action({ request }: ActionFunctionArgs) {
       // orders/paid webhook will recalculate with accurate values from Order table
       const initialTotalSpent = parseFloat(order.customer.total_spent || "0");
 
-      dbCustomer = await db.customer.create({
+      dbCustomer = await prisma.customer.create({
         data: {
           id: uuidv4(),
           shop: shop,
@@ -253,7 +253,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
       
       // Create initial ledger entry
-      await db.storeCreditLedger.create({
+      await prisma.storeCreditLedger.create({
         data: {
           id: uuidv4(),
           customerId: dbCustomer.id,
@@ -287,7 +287,7 @@ export async function action({ request }: ActionFunctionArgs) {
           console.log(`[OrdersCreateWebhook] Balance decreased by ${Math.abs(balanceChange)} - customer used store credit`);
 
           // Create ledger entry for store credit payment
-          await db.storeCreditLedger.create({
+          await prisma.storeCreditLedger.create({
             data: {
               id: uuidv4(),
               customerId: dbCustomer.id,
@@ -317,7 +317,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const updatedTotalSpent = parseFloat(order.customer.total_spent || "0");
         const currentTotalRefunded = Number(dbCustomer.totalRefunded || 0);
 
-        await db.customer.update({
+        await prisma.customer.update({
           where: { id: dbCustomer.id },
           data: {
             storeCredit: totalStoreCredit,
@@ -335,7 +335,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const updatedTotalSpent = parseFloat(order.customer.total_spent || "0");
         const currentTotalRefunded = Number(dbCustomer.totalRefunded || 0);
 
-        await db.customer.update({
+        await prisma.customer.update({
           where: { id: dbCustomer.id },
           data: {
             totalSpent: updatedTotalSpent,
@@ -368,7 +368,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // Record webhook as processed for idempotency
     if (webhookId) {
       try {
-        await db.webhookProcessed.create({
+        await prisma.webhookProcessed.create({
           data: {
             id: uuidv4(),
             shop,

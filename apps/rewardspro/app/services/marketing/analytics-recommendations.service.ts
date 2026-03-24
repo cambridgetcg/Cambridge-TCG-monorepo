@@ -1,4 +1,4 @@
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 export interface MarketingRecommendation {
   id: string;
@@ -35,7 +35,7 @@ export class AnalyticsRecommendationsService {
   ): Promise<{ rate: number; isHistorical: boolean; sampleSize: number }> {
     try {
       // Get completed campaigns with metrics
-      const campaigns = await db.emailCampaign.findMany({
+      const campaigns = await prisma.emailCampaign.findMany({
         where: {
           shop,
           status: 'sent',
@@ -85,7 +85,7 @@ export class AnalyticsRecommendationsService {
    */
   private static async getAverageOrderValue(shop: string): Promise<number> {
     try {
-      const customers = await db.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where: {
           shop,
           orderCount: { gt: 0 },
@@ -155,7 +155,7 @@ export class AnalyticsRecommendationsService {
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-    const inactiveCustomers = await db.customer.findMany({
+    const inactiveCustomers = await prisma.customer.findMany({
       where: {
         shop,
         lastOrderDate: {
@@ -212,14 +212,14 @@ export class AnalyticsRecommendationsService {
    */
   private static async getTierUpgradeRecommendation(shop: string): Promise<MarketingRecommendation | null> {
     // Get all tiers sorted by minSpend threshold
-    const tiers = await db.tier.findMany({
+    const tiers = await prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'asc' }
     });
 
     if (tiers.length < 2) return null;
 
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         totalSpent: { gt: 0 }
@@ -294,7 +294,7 @@ export class AnalyticsRecommendationsService {
     fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
 
     // Find customers with store credit that has expiring ledger entries
-    const expiringRewards = await db.storeCreditLedger.findMany({
+    const expiringRewards = await prisma.storeCreditLedger.findMany({
       where: {
         shop,
         expiresAt: {
@@ -366,14 +366,14 @@ export class AnalyticsRecommendationsService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     // Get top tier by minSpend
-    const topTier = await db.tier.findFirst({
+    const topTier = await prisma.tier.findFirst({
       where: { shop },
       orderBy: { minSpend: 'desc' }
     });
 
     if (!topTier) return null;
 
-    const vipCustomers = await db.customer.findMany({
+    const vipCustomers = await prisma.customer.findMany({
       where: {
         shop,
         currentTierId: topTier.id,
@@ -440,7 +440,7 @@ export class AnalyticsRecommendationsService {
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
     // Query customers with birthdays set
-    const customersWithBirthday = await db.customer.findMany({
+    const customersWithBirthday = await prisma.customer.findMany({
       where: {
         shop,
         birthday: { not: null },
@@ -517,7 +517,7 @@ export class AnalyticsRecommendationsService {
    * Get customers with low unused balance
    */
   private static async getLowBalanceRecommendation(shop: string): Promise<MarketingRecommendation | null> {
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         storeCredit: {

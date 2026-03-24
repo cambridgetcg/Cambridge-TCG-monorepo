@@ -4,7 +4,7 @@
  * Implements best practices for performance optimization
  */
 
-import db from '../db.server';
+import prisma from '../db.server';
 
 interface CacheEntry {
   ids: Set<string>;
@@ -37,7 +37,7 @@ export class TierProductCache {
     // Otherwise, fetch from database
     // NOTE: isActive field doesn't exist in production database yet
     // TODO: Add migration to include isActive field
-    const products = await db.tierProduct.findMany({
+    const products = await prisma.tierProduct.findMany({
       where: {
         shop
         // isActive: true // Commented out - field doesn't exist in database

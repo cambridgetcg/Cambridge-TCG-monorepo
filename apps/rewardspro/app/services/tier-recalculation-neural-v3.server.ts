@@ -61,7 +61,7 @@
  *                            └─► L4: PRIORITY CLUSTER  (Immediate | Batch | Deferred)
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { Tier, Customer, TierSubscription, TierPurchase, TierSource as TierSourceEnum } from "@prisma/client";
 import { createLogger } from "./logger.server";
 import { v4 as uuidv4 } from "uuid";
@@ -222,13 +222,13 @@ async function thalamusSensoryRelay(shop: string): Promise<ThalamusState> {
 
   // Parallel afferent streams
   const [tiers, overrideStates, subscriptions, purchases] = await Promise.all([
-    db.tier.findMany({ where: { shop }, orderBy: { minSpend: 'desc' } }),
-    db.customerTierState.findMany({
+    prisma.tier.findMany({ where: { shop }, orderBy: { minSpend: 'desc' } }),
+    prisma.customerTierState.findMany({
       where: { shop, tierSource: 'MANUAL_OVERRIDE', effectiveTierId: { not: null } },
       select: { customerId: true, effectiveTierId: true, manualOverrideExpiresAt: true },
     }),
-    db.tierSubscription.findMany({ where: { shop, status: 'ACTIVE' }, include: { tier: true } }),
-    db.tierPurchase.findMany({
+    prisma.tierSubscription.findMany({ where: { shop, status: 'ACTIVE' }, include: { tier: true } }),
+    prisma.tierPurchase.findMany({
       where: { shop, status: 'ACTIVE', OR: [{ endDate: null }, { endDate: { gte: new Date() } }] },
       include: { tier: true },
     }),
@@ -725,7 +725,7 @@ async function medullaReflex(
     const batch = changes.slice(i, i + BATCH_SIZE);
 
     try {
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         for (const change of batch) {
           // Update customer
           await tx.customer.update({
@@ -831,7 +831,7 @@ async function ponsRelay(
     const batch = changes.slice(i, i + BATCH_SIZE);
 
     try {
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         for (const change of batch) {
           const progress = temporalCortex(change.netSpent, change.newTierId, thalamus.tiersAscending);
 
@@ -944,7 +944,7 @@ export async function recalculateTiersAnatomical(
   let offset = 0;
 
   while (true) {
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: { shop },
       include: { currentTier: true },
       skip: offset,

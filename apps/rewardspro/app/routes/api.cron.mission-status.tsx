@@ -12,7 +12,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "crypto";
 
@@ -82,7 +82,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   try {
     // 5. Transition SCHEDULED → ACTIVE
     // Find missions that should now be active
-    const scheduledMissions = await db.challenge.findMany({
+    const scheduledMissions = await prisma.challenge.findMany({
       where: {
         status: 'SCHEDULED',
         startsAt: {
@@ -106,7 +106,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         if (mission.endsAt <= now) {
           // Mission period already passed, go directly to CLOSED
           if (!isDryRun) {
-            await db.challenge.update({
+            await prisma.challenge.update({
               where: { id: mission.id },
               data: { status: 'CLOSED' }
             });
@@ -125,7 +125,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         } else {
           // Normal activation
           if (!isDryRun) {
-            await db.challenge.update({
+            await prisma.challenge.update({
               where: { id: mission.id },
               data: { status: 'ACTIVE' }
             });
@@ -151,7 +151,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // 6. Transition ACTIVE → CLOSED
     // Find missions that have ended
-    const expiredMissions = await db.challenge.findMany({
+    const expiredMissions = await prisma.challenge.findMany({
       where: {
         status: 'ACTIVE',
         endsAt: {
@@ -172,7 +172,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const mission of expiredMissions) {
       try {
         if (!isDryRun) {
-          await db.challenge.update({
+          await prisma.challenge.update({
             where: { id: mission.id },
             data: { status: 'CLOSED' }
           });

@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import * as crypto from "crypto";
 import { timingSafeEqual } from "crypto";
-import db from "../db.server";
+import prisma from "../db.server";
 import { UsageRecordService } from "../services/billing/usage-record.service";
 import { shopifyApi, ApiVersion } from "@shopify/shopify-api";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
@@ -121,7 +121,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // 5. Idempotency check - prevent double processing
   if (!isDryRun) {
     try {
-      const existingCount = await db.usageSummary.count({
+      const existingCount = await prisma.usageSummary.count({
         where: {
           date: {
             gte: targetDate,
@@ -160,7 +160,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // 6. Get all shops with active subscriptions
   let activeShops;
   try {
-    activeShops = await db.billingSubscription.findMany({
+    activeShops = await prisma.billingSubscription.findMany({
       where: {
         status: "ACTIVE",
         cappedAmount: { not: null }, // Only shops with usage-based billing
@@ -218,7 +218,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
 
         // Get shop session for API calls
-        const session = await db.session.findFirst({
+        const session = await prisma.session.findFirst({
           where: {
             shop: subscription.shop,
             isActive: true,

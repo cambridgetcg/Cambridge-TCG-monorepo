@@ -25,7 +25,7 @@
 
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { customerActionRateLimit } from "~/utils/rate-limiter-redis";
 import { GiftCardService } from "~/services/gift-card";
 
@@ -150,7 +150,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   try {
     // Find internal customer record
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { shop, shopifyCustomerId },
       select: {
         id: true,
@@ -179,13 +179,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // Fetch data in parallel
     const [config, bundles, issuedCards, tierSettings] = await Promise.all([
-      db.giftCardConfig.findUnique({ where: { shop } }),
-      db.giftCardBundle.findMany({
+      prisma.giftCardConfig.findUnique({ where: { shop } }),
+      prisma.giftCardBundle.findMany({
         where: { shop, isActive: true },
         include: { tier: { select: { name: true } } },
         orderBy: { sortOrder: "asc" },
       }),
-      db.issuedGiftCard.findMany({
+      prisma.issuedGiftCard.findMany({
         where: {
           shop,
           OR: [{ purchasedByCustomerId: customer.id }, { recipientCustomerId: customer.id }],
@@ -194,7 +194,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         take: 10,
       }),
       customer.currentTierId
-        ? db.tierGiftCardSettings.findUnique({ where: { tierId: customer.currentTierId } })
+        ? prisma.tierGiftCardSettings.findUnique({ where: { tierId: customer.currentTierId } })
         : null,
     ]);
 
@@ -304,7 +304,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Find internal customer record
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { shop, shopifyCustomerId: customer_id },
     select: {
       id: true,
@@ -336,7 +336,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Get shop settings for currency
-    const shopSettings = await db.shopSettings.findUnique({
+    const shopSettings = await prisma.shopSettings.findUnique({
       where: { shop },
       select: { storeCurrency: true },
     });
@@ -349,7 +349,7 @@ export async function action({ request }: ActionFunctionArgs) {
     try {
       // Create a pending conversion record
       // The actual gift card will be created by a background job or admin action
-      const conversion = await db.issuedGiftCard.create({
+      const conversion = await prisma.issuedGiftCard.create({
         data: {
           shop,
           shopifyGiftCardId: `pending_${Date.now()}_${customer.id}`,
@@ -366,7 +366,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
 
       // Debit the store credit
-      await db.$transaction(async (tx: any) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.customer.update({
           where: { id: customer.id },
           data: {

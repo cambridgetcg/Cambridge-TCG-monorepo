@@ -10,7 +10,7 @@
  * - Feature toggles (raffles, mystery boxes, etc.)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type { PointsConfig, PointsRoundingMode } from "@prisma/client";
 
 // ============================================
@@ -27,15 +27,15 @@ function logDbState(context: string) {
   if (db) {
     const dbKeys = Object.keys(db);
     console.log(`${LOG_PREFIX} [${context}] db keys count: ${dbKeys.length}`);
-    console.log(`${LOG_PREFIX} [${context}] db has pointsConfig: ${!!db.pointsConfig}`);
-    console.log(`${LOG_PREFIX} [${context}] db has pointsLedger: ${!!db.pointsLedger}`);
-    console.log(`${LOG_PREFIX} [${context}] db has customer: ${!!db.customer}`);
+    console.log(`${LOG_PREFIX} [${context}] db has pointsConfig: ${!!prisma.pointsConfig}`);
+    console.log(`${LOG_PREFIX} [${context}] db has pointsLedger: ${!!prisma.pointsLedger}`);
+    console.log(`${LOG_PREFIX} [${context}] db has customer: ${!!prisma.customer}`);
 
-    if (db.pointsConfig) {
-      console.log(`${LOG_PREFIX} [${context}] pointsConfig type: ${typeof db.pointsConfig}`);
-      console.log(`${LOG_PREFIX} [${context}] pointsConfig has findUnique: ${typeof db.pointsConfig.findUnique}`);
+    if (prisma.pointsConfig) {
+      console.log(`${LOG_PREFIX} [${context}] pointsConfig type: ${typeof prisma.pointsConfig}`);
+      console.log(`${LOG_PREFIX} [${context}] pointsConfig has findUnique: ${typeof prisma.pointsConfig.findUnique}`);
     } else {
-      console.error(`${LOG_PREFIX} [${context}] ERROR: db.pointsConfig is undefined!`);
+      console.error(`${LOG_PREFIX} [${context}] ERROR: prisma.pointsConfig is undefined!`);
       console.log(`${LOG_PREFIX} [${context}] Available db keys: ${dbKeys.slice(0, 20).join(', ')}...`);
     }
   } else {
@@ -161,27 +161,27 @@ export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
   logDbState("getPointsConfig");
 
   try {
-    // Defensive check before accessing db.pointsConfig
+    // Defensive check before accessing prisma.pointsConfig
     if (!db) {
       console.error(`${LOG_PREFIX} CRITICAL: db is null/undefined in getPointsConfig`);
       throw new Error("Database client is not initialized");
     }
 
-    if (!db.pointsConfig) {
-      console.error(`${LOG_PREFIX} CRITICAL: db.pointsConfig is undefined`);
+    if (!prisma.pointsConfig) {
+      console.error(`${LOG_PREFIX} CRITICAL: prisma.pointsConfig is undefined`);
       console.error(`${LOG_PREFIX} db object keys: ${Object.keys(db).join(', ')}`);
       throw new Error("pointsConfig model is not registered in database client");
     }
 
-    if (typeof db.pointsConfig.findUnique !== 'function') {
-      console.error(`${LOG_PREFIX} CRITICAL: db.pointsConfig.findUnique is not a function`);
-      console.error(`${LOG_PREFIX} pointsConfig type: ${typeof db.pointsConfig}`);
-      console.error(`${LOG_PREFIX} pointsConfig keys: ${Object.keys(db.pointsConfig).join(', ')}`);
+    if (typeof prisma.pointsConfig.findUnique !== 'function') {
+      console.error(`${LOG_PREFIX} CRITICAL: prisma.pointsConfig.findUnique is not a function`);
+      console.error(`${LOG_PREFIX} pointsConfig type: ${typeof prisma.pointsConfig}`);
+      console.error(`${LOG_PREFIX} pointsConfig keys: ${Object.keys(prisma.pointsConfig).join(', ')}`);
       throw new Error("pointsConfig.findUnique is not available");
     }
 
-    console.log(`${LOG_PREFIX} Calling db.pointsConfig.findUnique for shop: ${shop}`);
-    const config = await db.pointsConfig.findUnique({
+    console.log(`${LOG_PREFIX} Calling prisma.pointsConfig.findUnique for shop: ${shop}`);
+    const config = await prisma.pointsConfig.findUnique({
       where: { shop },
     });
     console.log(`${LOG_PREFIX} findUnique completed in ${Date.now() - startTime}ms, config found: ${!!config}`);
@@ -238,11 +238,11 @@ export async function isPointsEnabled(shop: string): Promise<boolean> {
 
   try {
     if (!db?.pointsConfig) {
-      console.error(`${LOG_PREFIX} isPointsEnabled: db.pointsConfig is undefined`);
+      console.error(`${LOG_PREFIX} isPointsEnabled: prisma.pointsConfig is undefined`);
       return false;
     }
 
-    const config = await db.pointsConfig.findUnique({
+    const config = await prisma.pointsConfig.findUnique({
       where: { shop },
       select: { isEnabled: true },
     });
@@ -264,7 +264,7 @@ export async function isPointsEnabled(shop: string): Promise<boolean> {
  * @returns Points per dollar
  */
 export async function getPointsPerDollar(shop: string): Promise<number> {
-  const config = await db.pointsConfig.findUnique({
+  const config = await prisma.pointsConfig.findUnique({
     where: { shop },
     select: { pointsPerDollar: true },
   });
@@ -288,7 +288,7 @@ export async function getCurrencyBranding(shop: string): Promise<{
   // iconId: string | null;
   // iconColor: string | null;
 }> {
-  const config = await db.pointsConfig.findUnique({
+  const config = await prisma.pointsConfig.findUnique({
     where: { shop },
     select: {
       currencyName: true,
@@ -361,7 +361,7 @@ export async function updatePointsConfig(
   if (input.streakBonusEnabled !== undefined) updateData.streakBonusEnabled = input.streakBonusEnabled;
   if (input.streakBonusMultiplier !== undefined) updateData.streakBonusMultiplier = input.streakBonusMultiplier;
 
-  await db.pointsConfig.upsert({
+  await prisma.pointsConfig.upsert({
     where: { shop },
     update: updateData,
     create: {
@@ -411,7 +411,7 @@ export async function isFeatureEnabled(
   shop: string,
   feature: 'raffles' | 'mysteryBoxes' | 'spinWheel' | 'challenges' | 'scratchCards' | 'givebackPools'
 ): Promise<boolean> {
-  const config = await db.pointsConfig.findUnique({
+  const config = await prisma.pointsConfig.findUnique({
     where: { shop },
     select: {
       isEnabled: true,
@@ -462,14 +462,14 @@ export async function getEnabledFeatures(shop: string): Promise<{
 
   try {
     if (!db?.pointsConfig) {
-      console.error(`${LOG_PREFIX} getEnabledFeatures: db.pointsConfig is undefined`);
+      console.error(`${LOG_PREFIX} getEnabledFeatures: prisma.pointsConfig is undefined`);
       return {
         pointsSystem: false, raffles: false, mysteryBoxes: false, spinWheel: false,
         challenges: false, scratchCards: false, givebackPools: false, dailySpin: false, streakBonus: false,
       };
     }
 
-    const config = await db.pointsConfig.findUnique({
+    const config = await prisma.pointsConfig.findUnique({
       where: { shop },
       select: {
         isEnabled: true,
@@ -522,7 +522,7 @@ export async function getExpirationSettings(shop: string): Promise<{
   days: number;
   warningDays: number;
 }> {
-  const config = await db.pointsConfig.findUnique({
+  const config = await prisma.pointsConfig.findUnique({
     where: { shop },
     select: {
       pointsExpire: true,
@@ -584,14 +584,14 @@ export async function getPointsStats(shop: string): Promise<{
       throw new Error("Database client not initialized");
     }
 
-    console.log(`${LOG_PREFIX} getPointsStats checking models - pointsConfig: ${!!db.pointsConfig}, pointsLedger: ${!!db.pointsLedger}, customer: ${!!db.customer}`);
+    console.log(`${LOG_PREFIX} getPointsStats checking models - pointsConfig: ${!!prisma.pointsConfig}, pointsLedger: ${!!prisma.pointsLedger}, customer: ${!!prisma.customer}`);
 
-    if (!db.pointsConfig) {
-      console.error(`${LOG_PREFIX} getPointsStats: db.pointsConfig is undefined`);
+    if (!prisma.pointsConfig) {
+      console.error(`${LOG_PREFIX} getPointsStats: prisma.pointsConfig is undefined`);
       throw new Error("pointsConfig model not registered");
     }
-    if (!db.pointsLedger) {
-      console.error(`${LOG_PREFIX} getPointsStats: db.pointsLedger is undefined`);
+    if (!prisma.pointsLedger) {
+      console.error(`${LOG_PREFIX} getPointsStats: prisma.pointsLedger is undefined`);
       throw new Error("pointsLedger model not registered");
     }
 
@@ -599,12 +599,12 @@ export async function getPointsStats(shop: string): Promise<{
     // DATA API COMPATIBLE: groupBy with _sum is not supported by Aurora Data API adapter
     // Instead, fetch type and amount fields and aggregate in memory
     const [config, ledgerEntries] = await Promise.all([
-      db.pointsConfig.findUnique({
+      prisma.pointsConfig.findUnique({
         where: { shop },
         select: { isEnabled: true },
       }),
       // Fetch only type and amount for aggregation in memory
-      db.pointsLedger.findMany({
+      prisma.pointsLedger.findMany({
         where: { shop },
         select: { type: true, amount: true },
       }),
@@ -654,7 +654,7 @@ export async function getPointsStats(shop: string): Promise<{
 
     // Get count of customers with points
     console.log(`${LOG_PREFIX} getPointsStats: Fetching customer counts...`);
-    const customersWithPoints = await db.customer.count({
+    const customersWithPoints = await prisma.customer.count({
       where: {
         shop,
         pointsBalance: { gt: 0 },
@@ -662,7 +662,7 @@ export async function getPointsStats(shop: string): Promise<{
     });
 
     // Get active points balance (sum of all customer balances)
-    const balanceResult = await db.customer.aggregate({
+    const balanceResult = await prisma.customer.aggregate({
       where: { shop },
       _sum: { pointsBalance: true },
     });

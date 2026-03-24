@@ -21,7 +21,7 @@
  * - Free product (future)
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { spendPoints, hasEnoughPoints } from "./points-ledger.server";
 import { getPointsConfig, getCurrencyBranding } from "./points-config.server";
 import type { Prisma } from "@prisma/client";
@@ -135,7 +135,7 @@ const DEFAULT_REDEMPTION_TIERS: RedemptionTier[] = [
  * Get redemption tiers from shop settings
  */
 async function getStoredTiers(shop: string): Promise<RedemptionTier[]> {
-  const settings = await db.shopSettings.findUnique({
+  const settings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: { metadata: true },
   });
@@ -150,14 +150,14 @@ async function getStoredTiers(shop: string): Promise<RedemptionTier[]> {
  * Save redemption tiers to shop settings
  */
 async function saveStoredTiers(shop: string, tiers: RedemptionTier[]): Promise<void> {
-  const settings = await db.shopSettings.findUnique({
+  const settings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: { metadata: true },
   });
 
   const metadata = (settings?.metadata as Record<string, unknown>) || {};
 
-  await db.shopSettings.update({
+  await prisma.shopSettings.update({
     where: { shop },
     data: {
       metadata: {
@@ -257,7 +257,7 @@ export async function deleteRedemptionTier(shop: string, tierId: string): Promis
  * Get redemption history from customer metadata
  */
 async function getCustomerRedemptions(customerId: string, shop: string): Promise<Redemption[]> {
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { metadata: true },
   });
@@ -283,7 +283,7 @@ async function saveCustomerRedemption(
   shop: string,
   redemption: Redemption
 ): Promise<void> {
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { metadata: true },
   });
@@ -293,7 +293,7 @@ async function saveCustomerRedemption(
 
   redemptions.push(redemption);
 
-  await db.customer.update({
+  await prisma.customer.update({
     where: { id: customerId },
     data: {
       metadata: {
@@ -314,7 +314,7 @@ async function updateRedemptionStatus(
   status: Redemption["status"],
   usedAt?: Date
 ): Promise<void> {
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { metadata: true },
   });
@@ -329,7 +329,7 @@ async function updateRedemptionStatus(
       redemptions[index].usedAt = usedAt;
     }
 
-    await db.customer.update({
+    await prisma.customer.update({
       where: { id: customerId },
       data: {
         metadata: {
@@ -456,7 +456,7 @@ export async function redeemPoints(
     console.log(`[Redemption] Customer ${customerId} redeemed ${tier.pointsCost} points for "${tier.name}"`);
 
     // Get remaining balance
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { id: customerId, shop },
       select: { pointsBalance: true },
     });
@@ -501,7 +501,7 @@ export async function markRedemptionUsedByCode(
   discountCode: string
 ): Promise<boolean> {
   // Find the customer with this redemption
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: { shop },
     select: { id: true, metadata: true },
   });
@@ -585,7 +585,7 @@ export async function getActiveDiscountCodes(
  * Check for expired redemptions and update their status
  */
 export async function processExpiredRedemptions(shop: string): Promise<number> {
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: { shop },
     select: { id: true, metadata: true },
   });
@@ -609,7 +609,7 @@ export async function processExpiredRedemptions(shop: string): Promise<number> {
     }
 
     if (hasChanges) {
-      await db.customer.update({
+      await prisma.customer.update({
         where: { id: customer.id },
         data: {
           metadata: {
@@ -653,7 +653,7 @@ export async function getRedemptionStats(shop: string): Promise<{
   byTier: Record<string, { count: number; points: number }>;
   byStatus: Record<string, number>;
 }> {
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: { shop },
     select: { metadata: true },
   });

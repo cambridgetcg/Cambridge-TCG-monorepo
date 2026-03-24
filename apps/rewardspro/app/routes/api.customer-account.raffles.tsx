@@ -20,7 +20,7 @@
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getPointsConfig } from "../services/points-config.server";
 import { getPointsBalance } from "../services/points-ledger.server";
 import {
@@ -47,7 +47,7 @@ async function getComputedBonusEvents(shop: string, raffleId?: string) {
     ? { id: raffleId, shop }
     : { shop, status: "ACTIVE" as const };
 
-  const raffles = await db.raffle.findMany({
+  const raffles = await prisma.raffle.findMany({
     where,
     select: {
       id: true,
@@ -177,7 +177,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // If no customer, return public raffle list
     if (!customerId) {
-      const publicRaffles = await db.raffle.findMany({
+      const publicRaffles = await prisma.raffle.findMany({
         where: {
           shop,
           isPublic: true,
@@ -439,7 +439,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Get customer's tier multiplier if they have one
       let tierMultiplier = 1.0;
       try {
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: { id: customerId, shop },
           include: { currentTier: true },
         });

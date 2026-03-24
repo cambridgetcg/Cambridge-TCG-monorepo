@@ -17,7 +17,7 @@
  * - Pity system (guaranteed non-common after N commons)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[MysteryBoxStreak]";
 
@@ -207,12 +207,12 @@ export async function getMysteryBoxStreak(
   shop: string,
   customerId: string
 ): Promise<MysteryBoxStreakInfo> {
-  let streak = await db.mysteryBoxStreak.findUnique({
+  let streak = await prisma.mysteryBoxStreak.findUnique({
     where: { customerId },
   });
 
   if (!streak) {
-    streak = await db.mysteryBoxStreak.create({
+    streak = await prisma.mysteryBoxStreak.create({
       data: {
         shop,
         customerId,
@@ -287,7 +287,7 @@ export async function getMysteryBoxStreak(
 export async function getLuckyStreakInfo(
   customerId: string
 ): Promise<LuckyStreakInfo> {
-  const streak = await db.mysteryBoxStreak.findUnique({
+  const streak = await prisma.mysteryBoxStreak.findUnique({
     where: { customerId },
   });
 
@@ -322,7 +322,7 @@ export async function getPityInfo(
   customerId: string,
   pityThreshold: number = 10
 ): Promise<PityInfo> {
-  const streak = await db.mysteryBoxStreak.findUnique({
+  const streak = await prisma.mysteryBoxStreak.findUnique({
     where: { customerId },
   });
 
@@ -356,12 +356,12 @@ export async function updateMysteryBoxStreak(
   const now = new Date();
 
   // Get or create streak record
-  let streak = await db.mysteryBoxStreak.findUnique({
+  let streak = await prisma.mysteryBoxStreak.findUnique({
     where: { customerId },
   });
 
   if (!streak) {
-    streak = await db.mysteryBoxStreak.create({
+    streak = await prisma.mysteryBoxStreak.create({
       data: {
         shop,
         customerId,
@@ -412,7 +412,7 @@ export async function updateMysteryBoxStreak(
   const pityWasTriggered = streak.commonsSinceRare >= 10 && !isCommon;
 
   // Update database
-  const updatedStreak = await db.mysteryBoxStreak.update({
+  const updatedStreak = await prisma.mysteryBoxStreak.update({
     where: { customerId },
     data: {
       currentStreak: newStreak,
@@ -476,13 +476,13 @@ export async function claimFreeOpen(
   customerId: string,
   dailyFreeOpens: number
 ): Promise<{ success: boolean; error?: string }> {
-  const streak = await db.mysteryBoxStreak.findUnique({
+  const streak = await prisma.mysteryBoxStreak.findUnique({
     where: { customerId },
   });
 
   if (!streak) {
     // Create streak record if it doesn't exist
-    await db.mysteryBoxStreak.create({
+    await prisma.mysteryBoxStreak.create({
       data: {
         shop,
         customerId,
@@ -508,7 +508,7 @@ export async function claimFreeOpen(
   }
 
   // Update free opens counter
-  await db.mysteryBoxStreak.update({
+  await prisma.mysteryBoxStreak.update({
     where: { customerId },
     data: {
       freeOpensUsedToday: freeOpensUsedToday + 1,
@@ -532,7 +532,7 @@ export async function canClaimFreeOpen(
 ): Promise<boolean> {
   if (dailyFreeOpens <= 0) return false;
 
-  const streak = await db.mysteryBoxStreak.findUnique({
+  const streak = await prisma.mysteryBoxStreak.findUnique({
     where: { customerId },
   });
 
@@ -558,7 +558,7 @@ export function isStreakMilestone(streakDays: number): boolean {
  * Reset pity counter (called when customer wins non-common)
  */
 export async function resetPityCounter(customerId: string): Promise<void> {
-  await db.mysteryBoxStreak.updateMany({
+  await prisma.mysteryBoxStreak.updateMany({
     where: { customerId },
     data: { commonsSinceRare: 0 },
   });
@@ -568,12 +568,12 @@ export async function resetPityCounter(customerId: string): Promise<void> {
  * Increment pity counter (called when customer wins common)
  */
 export async function incrementPityCounter(customerId: string): Promise<number> {
-  const result = await db.mysteryBoxStreak.updateMany({
+  const result = await prisma.mysteryBoxStreak.updateMany({
     where: { customerId },
     data: { commonsSinceRare: { increment: 1 } },
   });
 
-  const streak = await db.mysteryBoxStreak.findUnique({
+  const streak = await prisma.mysteryBoxStreak.findUnique({
     where: { customerId },
   });
 

@@ -13,7 +13,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import {
@@ -95,7 +95,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   try {
     // 3. Process expired subscriptions
-    const expiredSubscriptions = await db.tierSubscription.findMany({
+    const expiredSubscriptions = await prisma.tierSubscription.findMany({
       where: {
         status: 'ACTIVE',
         endDate: {
@@ -115,7 +115,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       try {
         if (!isDryRun) {
           // Mark as expired
-          await db.tierSubscription.update({
+          await prisma.tierSubscription.update({
             where: { id: subscription.id },
             data: {
               status: 'EXPIRED',
@@ -146,7 +146,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
 
     // 4. Process expired one-time purchases
-    const expiredPurchases = await db.tierPurchase.findMany({
+    const expiredPurchases = await prisma.tierPurchase.findMany({
       where: {
         status: 'ACTIVE',
         endDate: {
@@ -166,7 +166,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       try {
         if (!isDryRun) {
           // Mark as expired
-          await db.tierPurchase.update({
+          await prisma.tierPurchase.update({
             where: { id: purchase.id },
             data: { status: 'EXPIRED' }
           });
@@ -218,7 +218,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       warningDateEnd.setHours(23, 59, 59, 999);
 
       // Find purchases expiring on this warning date that haven't been warned
-      const expiringPurchases = await db.tierPurchase.findMany({
+      const expiringPurchases = await prisma.tierPurchase.findMany({
         where: {
           status: 'ACTIVE',
           endDate: {
@@ -239,7 +239,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         try {
           // Check if we've already sent this warning level
           const warningKey = `EXPIRATION_WARNING_${warningDays}D`;
-          const existingWarning = await db.emailEvent.findFirst({
+          const existingWarning = await prisma.emailEvent.findFirst({
             where: {
               shop: purchase.shop,
               eventType: 'TIER_EXPIRATION_WARNING',
@@ -326,7 +326,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     gracePeriodDate.setDate(gracePeriodDate.getDate() - DOWNGRADE_GRACE_PERIOD_DAYS);
 
     // Find customers who haven't made a purchase recently and might need downgrading
-    const inactiveCustomers = await db.customer.findMany({
+    const inactiveCustomers = await prisma.customer.findMany({
       where: {
         currentTierId: { not: null },
         // No active purchased tiers
@@ -344,7 +344,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const customer of inactiveCustomers) {
       try {
         // Check if they still qualify for their current tier based on spending
-        const earnedTier = await db.tier.findFirst({
+        const earnedTier = await prisma.tier.findFirst({
           where: {
             shop: customer.shop,
             minSpend: { lte: customer.netSpent.toNumber() }
@@ -356,7 +356,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
         if (shouldDowngrade) {
           // Check if we've already warned them
-          const recentWarning = await db.tierChangeLog.findFirst({
+          const recentWarning = await prisma.tierChangeLog.findFirst({
             where: {
               customerId: customer.id,
               metadata: {
@@ -372,7 +372,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           if (!recentWarning) {
             // Send warning
             if (!isDryRun) {
-              await db.tierChangeLog.create({
+              await prisma.tierChangeLog.create({
                 data: {
                   id: crypto.randomUUID(),
                   customerId: customer.id,
@@ -460,7 +460,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // This detects when the two sources of truth have gotten out of sync
     let consistencyRepairs = 0;
     try {
-      const desyncedCustomers = await db.$queryRaw`
+      const desyncedCustomers = await prisma.$queryRaw`
         SELECT c.id, c.shop, c."currentTierId", cts."effectiveTierId"
         FROM "Customer" c
         JOIN "CustomerTierState" cts ON c.id = cts."customerId"

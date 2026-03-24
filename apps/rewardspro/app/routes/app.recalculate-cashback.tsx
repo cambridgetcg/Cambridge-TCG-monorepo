@@ -20,7 +20,7 @@ import {
   Divider,
   ProgressBar,
 } from "@shopify/polaris";
-import db from "../db.server";
+import prisma from "../db.server";
 import { formatCurrency } from "~/utils/currency";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -29,17 +29,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   // Get statistics and shop settings
   const [totalOrders, ordersWithCashback, ordersWithoutCashback, unprocessedCashback, shopSettings] = await Promise.all([
-    db.order.count({ where: { shop } }),
-    db.order.count({ where: { shop, cashbackAmount: { not: null } } }),
-    db.order.count({ where: { shop, cashbackAmount: null, cashbackEligible: true, financialStatus: 'PAID' } }),
-    db.order.count({ where: { shop, cashbackAmount: { not: null }, cashbackProcessed: false } }),
-    db.shopSettings.findUnique({
+    prisma.order.count({ where: { shop } }),
+    prisma.order.count({ where: { shop, cashbackAmount: { not: null } } }),
+    prisma.order.count({ where: { shop, cashbackAmount: null, cashbackEligible: true, financialStatus: 'PAID' } }),
+    prisma.order.count({ where: { shop, cashbackAmount: { not: null }, cashbackProcessed: false } }),
+    prisma.shopSettings.findUnique({
       where: { shop },
       select: { storeCurrency: true, currencyDisplayType: true }
     })
   ]);
 
-  const totalUnprocessedAmount = await db.order.aggregate({
+  const totalUnprocessedAmount = await prisma.order.aggregate({
     where: {
       shop,
       cashbackAmount: { not: null },

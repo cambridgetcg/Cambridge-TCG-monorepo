@@ -1,5 +1,5 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { v4 as uuidv4 } from "uuid";
 import * as crypto from "crypto";
 
@@ -196,7 +196,7 @@ export class UsageRecordService {
           console.error(`[UsageRecord] Cap exceeded for ${this.shop}`);
           // Update subscription status in DB
           try {
-            await db.billingSubscription.update({
+            await prisma.billingSubscription.update({
               where: { shop: this.shop },
               data: {
                 balanceRemaining: 0,
@@ -216,7 +216,7 @@ export class UsageRecordService {
 
       // Store usage record in database
       try {
-        await db.usageRecord.create({
+        await prisma.usageRecord.create({
           data: {
             id: uuidv4(),
             shop: this.shop,
@@ -270,7 +270,7 @@ export class UsageRecordService {
       // Aggregate usage data for the day
       const [ordersData, customersData] = await Promise.all([
         // Count orders processed
-        db.order.count({
+        prisma.order.count({
           where: {
             shop: this.shop,
             createdAt: {
@@ -280,7 +280,7 @@ export class UsageRecordService {
           }
         }),
         // Count active customers
-        db.customer.count({
+        prisma.customer.count({
           where: {
             shop: this.shop,
             lastOrderDate: {
@@ -292,7 +292,7 @@ export class UsageRecordService {
       ]);
 
       // Calculate total cashback issued for the day
-      const cashbackData = await db.storeCreditLedger.aggregate({
+      const cashbackData = await prisma.storeCreditLedger.aggregate({
         where: {
           shop: this.shop,
           type: "CASHBACK_EARNED",
@@ -332,7 +332,7 @@ export class UsageRecordService {
       if (result.success) {
         // Store usage summary in database
         try {
-          await db.usageSummary.create({
+          await prisma.usageSummary.create({
             data: {
               id: uuidv4(),
               shop: this.shop,
@@ -372,7 +372,7 @@ export class UsageRecordService {
    */
   async getUsageSummary(startDate: Date, endDate: Date): Promise<UsageSummary[]> {
     try {
-      const summaries = await db.usageSummary.findMany({
+      const summaries = await prisma.usageSummary.findMany({
         where: {
           shop: this.shop,
           date: {

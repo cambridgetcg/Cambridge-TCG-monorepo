@@ -3,7 +3,7 @@
  * Tracks order usage and manages usage-based billing
  */
 
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { GraphQLBillingService } from "./graphql-billing.service";
 import { getPlanConfig } from "./plan-subscription.server";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
@@ -34,7 +34,7 @@ export class UsageTrackerService {
   async trackOrder(shop: string, orderId: string): Promise<void> {
     try {
       // 1. Check if order already tracked (idempotency)
-      const existingOrder = await db.order.findFirst({
+      const existingOrder = await prisma.order.findFirst({
         where: {
           shop,
           shopifyOrderId: orderId,
@@ -47,7 +47,7 @@ export class UsageTrackerService {
         return;
       }
 
-      const billingSubscription = await db.billingSubscription.findUnique({
+      const billingSubscription = await prisma.billingSubscription.findUnique({
         where: { shop }
       });
 
@@ -62,7 +62,7 @@ export class UsageTrackerService {
       // 2. Increment order count atomically
       // The { increment: 1 } operation is atomic at the database level
       // This prevents race conditions in concurrent order processing
-      await db.billingSubscription.update({
+      await prisma.billingSubscription.update({
         where: { shop },
         data: {
           currentPeriodOrders: {
@@ -86,7 +86,7 @@ export class UsageTrackerService {
    */
   async getCurrentUsage(shop: string): Promise<UsageStatus | null> {
     try {
-      const billingSubscription = await db.billingSubscription.findUnique({
+      const billingSubscription = await prisma.billingSubscription.findUnique({
         where: { shop }
       });
 
@@ -140,7 +140,7 @@ export class UsageTrackerService {
    */
   async shouldChargeUsage(shop: string): Promise<boolean> {
     try {
-      const billingSubscription = await db.billingSubscription.findUnique({
+      const billingSubscription = await prisma.billingSubscription.findUnique({
         where: { shop }
       });
 
@@ -179,7 +179,7 @@ export class UsageTrackerService {
    */
   async resetUsageForNewPeriod(shop: string): Promise<void> {
     try {
-      await db.billingSubscription.update({
+      await prisma.billingSubscription.update({
         where: { shop },
         data: {
           currentPeriodOrders: 0,
@@ -215,7 +215,7 @@ export class UsageTrackerService {
       const newPeriodEnd = new Date(periodEnd);
       newPeriodEnd.setDate(newPeriodEnd.getDate() + 30);
 
-      await db.billingSubscription.update({
+      await prisma.billingSubscription.update({
         where: { shop },
         data: {
           currentPeriodEnd: newPeriodEnd
@@ -229,7 +229,7 @@ export class UsageTrackerService {
    */
   private async chargeUsageIfNeeded(shop: string): Promise<void> {
     try {
-      const billingSubscription = await db.billingSubscription.findUnique({
+      const billingSubscription = await prisma.billingSubscription.findUnique({
         where: { shop }
       });
 
@@ -286,7 +286,7 @@ export class UsageTrackerService {
 
           if (result.success) {
             // Update lastChargedBatch to current to prevent re-charging
-            await db.billingSubscription.update({
+            await prisma.billingSubscription.update({
               where: { shop },
               data: { lastChargedBatch: currentBatch }
             });
@@ -306,7 +306,7 @@ export class UsageTrackerService {
 
       if (result.success) {
         // Update lastChargedBatch to track what we just charged
-        await db.billingSubscription.update({
+        await prisma.billingSubscription.update({
           where: { shop },
           data: { lastChargedBatch: currentBatch }
         });

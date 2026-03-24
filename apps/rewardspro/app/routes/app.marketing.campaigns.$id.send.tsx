@@ -18,7 +18,7 @@ import {
 } from "@shopify/polaris";
 import { useState } from "react";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { sendCampaignEmails } from "~/services/email-notifications.server";
 
 interface Campaign {
@@ -63,7 +63,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // Fetch campaign
   let campaign: Campaign | null = null;
   try {
-    const dbCampaign = await db.emailCampaign.findFirst({
+    const dbCampaign = await prisma.emailCampaign.findFirst({
       where: { id, shop },
     });
 
@@ -94,7 +94,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // Get audience stats
   let audienceStats: AudienceStats = { total: 0, withEmail: 0, reachable: 0, recommendedSegment: 0 };
   try {
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: { shop },
     });
     audienceStats.total = customers.length;
@@ -105,7 +105,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const segmentRules = campaign?.segmentRules as Campaign['segmentRules'];
     if (segmentRules?.fromRecommendation && segmentRules.targetCustomerIds?.length) {
       // Count how many of the target customers have valid emails
-      const targetCustomers = await db.customer.findMany({
+      const targetCustomers = await prisma.customer.findMany({
         where: {
           shop,
           id: { in: segmentRules.targetCustomerIds },
@@ -122,7 +122,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // Get tiers for segmentation
   let tiers: { id: string; name: string; customerCount: number }[] = [];
   try {
-    const dbTiers = await db.tier.findMany({
+    const dbTiers = await prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: "asc" },
     });
@@ -130,7 +130,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     // DATA API COMPATIBLE: Batch count instead of N+1 queries
     const tierIds = dbTiers.map(t => t.id);
     const customerTierAssignments = tierIds.length > 0
-      ? await db.customer.findMany({
+      ? await prisma.customer.findMany({
           where: { shop, tierId: { in: tierIds } },
           select: { tierId: true },
         })
@@ -178,7 +178,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       const selectedTiers = formData.getAll("selectedTiers") as string[];
 
       // Update campaign status to sending
-      await db.emailCampaign.updateMany({
+      await prisma.emailCampaign.updateMany({
         where: { id, shop },
         data: {
           status: "sending",
@@ -192,7 +192,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
       if (sendToRecommended) {
         // Get the campaign to access targetCustomerIds
-        const campaignData = await db.emailCampaign.findFirst({
+        const campaignData = await prisma.emailCampaign.findFirst({
           where: { id, shop },
           select: { segmentRules: true },
         });
@@ -201,7 +201,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
         if (targetCustomerIds.length > 0) {
           // Get customers from the recommendation segment (exclude suppressed/unsubscribed)
-          const customers = await db.customer.findMany({
+          const customers = await prisma.customer.findMany({
             where: {
               shop,
               id: { in: targetCustomerIds },
@@ -221,7 +221,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         }
       } else if (sendToAll) {
         // Get all customers with email (exclude suppressed/unsubscribed)
-        const customers = await db.customer.findMany({
+        const customers = await prisma.customer.findMany({
           where: { shop, email: { not: null }, acceptsMarketing: true, emailSuppressed: false },
           select: { id: true, email: true, firstName: true, lastName: true },
         });
@@ -234,7 +234,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           }));
       } else if (selectedTiers.length > 0) {
         // Get customers in selected tiers (exclude suppressed/unsubscribed)
-        const customers = await db.customer.findMany({
+        const customers = await prisma.customer.findMany({
           where: {
             shop,
             email: { not: null },
@@ -256,7 +256,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       // Guard: prevent sending to zero recipients
       if (recipients.length === 0) {
         // Reset status back to draft
-        await db.emailCampaign.updateMany({
+        await prisma.emailCampaign.updateMany({
           where: { id, shop, status: "sending" },
           data: { status: "draft", updatedAt: new Date() },
         });
@@ -269,12 +269,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       // Snapshot template HTML at send time for audit trail
       let templateSnapshot: { subject?: string; htmlContent?: string } = {};
       try {
-        const campaignData = await db.emailCampaign.findFirst({
+        const campaignData = await prisma.emailCampaign.findFirst({
           where: { id, shop },
           select: { templateId: true, subject: true },
         });
         if (campaignData?.templateId) {
-          const tmpl = await db.emailTemplate.findFirst({
+          const tmpl = await prisma.emailTemplate.findFirst({
             where: { id: campaignData.templateId, shop },
             select: { subject: true, htmlContent: true },
           });
@@ -293,7 +293,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       const sendResult = await sendCampaignEmails(shop, id, recipients);
 
       // Update campaign with results + template snapshot
-      await db.emailCampaign.updateMany({
+      await prisma.emailCampaign.updateMany({
         where: { id, shop },
         data: {
           status: "sent",
@@ -319,7 +319,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       console.error(`[Campaign] Error sending campaign:`, e);
       // Reset status from "sending" back to "draft" so campaign isn't orphaned
       try {
-        await db.emailCampaign.updateMany({
+        await prisma.emailCampaign.updateMany({
           where: { id, shop, status: "sending" },
           data: { status: "draft", updatedAt: new Date() },
         });
@@ -338,7 +338,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     }
 
     try {
-      await db.emailCampaign.updateMany({
+      await prisma.emailCampaign.updateMany({
         where: { id, shop },
         data: {
           status: "scheduled",

@@ -5,7 +5,7 @@
  * and generates insights. Part of the AI Feedback System for self-improvement.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import * as fs from "fs/promises";
 import * as path from "path";
 import type { AILearningPattern, AICodeQualitySignal, AIArchitectureHealth, AISessionAction, AISessionFeedback } from "@prisma/client";
@@ -46,7 +46,7 @@ const AI_FEEDBACK_DIR = path.join(process.cwd(), ".ai-feedback");
  * Record feedback for a session
  */
 export async function recordFeedback(feedback: FeedbackInput): Promise<void> {
-  const session = await db.aISession.findUnique({
+  const session = await prisma.aISession.findUnique({
     where: { sessionId: feedback.sessionId },
   });
 
@@ -54,7 +54,7 @@ export async function recordFeedback(feedback: FeedbackInput): Promise<void> {
     throw new Error(`Session not found: ${feedback.sessionId}`);
   }
 
-  await db.aISessionFeedback.create({
+  await prisma.aISessionFeedback.create({
     data: {
       sessionId: session.id,
       dimension: feedback.dimension,
@@ -74,13 +74,13 @@ export async function updatePatternConfidence(
   wasSuccessful: boolean,
   context?: string[]
 ): Promise<AILearningPattern> {
-  let pattern = await db.aILearningPattern.findUnique({
+  let pattern = await prisma.aILearningPattern.findUnique({
     where: { patternName },
   });
 
   if (!pattern) {
     // Create new pattern
-    pattern = await db.aILearningPattern.create({
+    pattern = await prisma.aILearningPattern.create({
       data: {
         patternName,
         description: `Auto-created pattern: ${patternName}`,
@@ -105,7 +105,7 @@ export async function updatePatternConfidence(
     const recencyBonus = Math.max(0, 1 - daysSinceLastUse / 30) * 0.1;
     const newConfidence = Math.min(1, baseConfidence * 0.7 + recencyBonus * 0.3 + (wasSuccessful ? 0.1 : 0));
 
-    pattern = await db.aILearningPattern.update({
+    pattern = await prisma.aILearningPattern.update({
       where: { id: pattern.id },
       data: {
         timesUsed: newTimesUsed,
@@ -127,7 +127,7 @@ export async function updatePatternConfidence(
  * Flag a code quality signal
  */
 export async function flagCodeSignal(signal: CodeSignal): Promise<AICodeQualitySignal> {
-  const created = await db.aICodeQualitySignal.create({
+  const created = await prisma.aICodeQualitySignal.create({
     data: {
       area: signal.area,
       signalType: signal.signalType,
@@ -150,7 +150,7 @@ export async function resolveSignal(
   signalId: string,
   resolvedBySessionId: string
 ): Promise<AICodeQualitySignal> {
-  return db.aICodeQualitySignal.update({
+  return prisma.aICodeQualitySignal.update({
     where: { id: signalId },
     data: {
       resolved: true,
@@ -168,7 +168,7 @@ export async function getActiveSignals(
   severity?: string
 ): Promise<AICodeQualitySignal[]> {
   // DATA API COMPATIBLE: orderBy only supports single field
-  const signals = await db.aICodeQualitySignal.findMany({
+  const signals = await prisma.aICodeQualitySignal.findMany({
     where: {
       resolved: false,
       ...(area && { area }),
@@ -190,7 +190,7 @@ export async function getActiveSignals(
  * Get architecture health snapshot
  */
 export async function getArchitectureHealth(): Promise<AIArchitectureHealth | null> {
-  return db.aIArchitectureHealth.findFirst({
+  return prisma.aIArchitectureHealth.findFirst({
     orderBy: { snapshotDate: "desc" },
   });
 }
@@ -208,7 +208,7 @@ export async function createArchitectureSnapshot(metrics: {
   errorHandlingScore: number;
   trendDirection: "improving" | "stable" | "declining";
 }): Promise<AIArchitectureHealth> {
-  return db.aIArchitectureHealth.create({
+  return prisma.aIArchitectureHealth.create({
     data: {
       ...metrics,
       snapshotDate: new Date(),
@@ -221,21 +221,21 @@ export async function createArchitectureSnapshot(metrics: {
  */
 export async function synthesizePatterns(): Promise<PatternSynthesis> {
   const [highConfidence, lowConfidence, mostUsed, recentlyUsed] = await Promise.all([
-    db.aILearningPattern.findMany({
+    prisma.aILearningPattern.findMany({
       where: { confidence: { gte: 0.8 } },
       orderBy: { confidence: "desc" },
       take: 10,
     }),
-    db.aILearningPattern.findMany({
+    prisma.aILearningPattern.findMany({
       where: { confidence: { lt: 0.4 } },
       orderBy: { confidence: "asc" },
       take: 10,
     }),
-    db.aILearningPattern.findMany({
+    prisma.aILearningPattern.findMany({
       orderBy: { timesUsed: "desc" },
       take: 10,
     }),
-    db.aILearningPattern.findMany({
+    prisma.aILearningPattern.findMany({
       where: { lastUsedAt: { not: null } },
       orderBy: { lastUsedAt: "desc" },
       take: 10,
@@ -253,7 +253,7 @@ export async function writeSessionNarrative(
   narrative: string
 ): Promise<void> {
   // DATA API COMPATIBLE: include not supported in findUnique, use two-step query
-  const session = await db.aISession.findUnique({
+  const session = await prisma.aISession.findUnique({
     where: { sessionId },
   });
 
@@ -263,11 +263,11 @@ export async function writeSessionNarrative(
 
   // Fetch related data separately
   const [actions, feedback] = await Promise.all([
-    db.aISessionAction.findMany({
+    prisma.aISessionAction.findMany({
       where: { sessionId: session.id },
       orderBy: { createdAt: "asc" },
     }),
-    db.aISessionFeedback.findMany({
+    prisma.aISessionFeedback.findMany({
       where: { sessionId: session.id },
       orderBy: { createdAt: "asc" },
     }),
@@ -318,7 +318,7 @@ ${session.learnings || "No specific learnings noted"}
  * Update patterns.md with current patterns
  */
 export async function updatePatternsMarkdown(): Promise<void> {
-  const patterns = await db.aILearningPattern.findMany({
+  const patterns = await prisma.aILearningPattern.findMany({
     where: { confidence: { gte: 0.5 } },
     orderBy: { confidence: "desc" },
   });
@@ -411,12 +411,12 @@ export async function seedInitialPatterns(): Promise<void> {
   ];
 
   for (const pattern of initialPatterns) {
-    const existing = await db.aILearningPattern.findUnique({
+    const existing = await prisma.aILearningPattern.findUnique({
       where: { patternName: pattern.patternName },
     });
 
     if (!existing) {
-      await db.aILearningPattern.create({
+      await prisma.aILearningPattern.create({
         data: {
           ...pattern,
           lastUsedAt: new Date(),

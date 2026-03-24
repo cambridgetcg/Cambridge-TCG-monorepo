@@ -42,7 +42,7 @@ import {
   MagicIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 import { SortableBlockList } from "~/components/EmailEditor";
@@ -87,13 +87,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   try {
     const [template, shopSettings] = await Promise.all([
-      db.emailTemplate.findFirst({
+      prisma.emailTemplate.findFirst({
         where: {
           id: templateId,
           shop,
         },
       }),
-      db.shopSettings.findUnique({
+      prisma.shopSettings.findUnique({
         where: { shop },
         select: {
           brandKitEnabled: true,
@@ -178,7 +178,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (actionType === "delete") {
     try {
-      await db.emailTemplate.deleteMany({
+      await prisma.emailTemplate.deleteMany({
         where: { id: templateId, shop },
       });
       return redirect("/app/marketing/templates");
@@ -209,7 +209,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 
   try {
-    await db.emailTemplate.updateMany({
+    await prisma.emailTemplate.updateMany({
       where: { id: templateId, shop },
       data: {
         name,

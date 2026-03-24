@@ -9,7 +9,7 @@
 
 import { json, ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import sendgrid from "~/services/sendgrid.server";
 
 // ============================================
@@ -22,13 +22,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   try {
     // Get all domains for this shop
-    const domains = await db.sendGridDomain.findMany({
+    const domains = await prisma.sendGridDomain.findMany({
       where: { shop },
       orderBy: { createdAt: "desc" },
     });
 
     // Get email settings to see current sending mode
-    const emailSettings = await db.emailSettings.findUnique({
+    const emailSettings = await prisma.emailSettings.findUnique({
       where: { shop },
     });
 
@@ -79,7 +79,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Check if domain already exists
-        const existing = await db.sendGridDomain.findFirst({
+        const existing = await prisma.sendGridDomain.findFirst({
           where: { shop, domain },
         });
 
@@ -158,7 +158,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Check domain is verified
-        const domain = await db.sendGridDomain.findFirst({
+        const domain = await prisma.sendGridDomain.findFirst({
           where: { id: domainId, shop, status: "VERIFIED" },
         });
 
@@ -170,7 +170,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Update email settings to use this domain
-        await db.emailSettings.upsert({
+        await prisma.emailSettings.upsert({
           where: { shop },
           create: {
             shop,
@@ -193,7 +193,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       case "deactivate": {
         // Switch back to shared domain
-        await db.emailSettings.updateMany({
+        await prisma.emailSettings.updateMany({
           where: { shop },
           data: {
             sendingMode: "SHARED",

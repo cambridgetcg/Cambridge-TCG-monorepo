@@ -21,7 +21,7 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { decrypt } from "~/utils/encryption";
 import { getIntegration } from "~/services/integrations/integration-manager.server";
@@ -59,7 +59,7 @@ async function authenticateZapierRequest(request: Request): Promise<AuthResult> 
   }
 
   // Find integration with this API key
-  const integrations = await db.integration.findMany({
+  const integrations = await prisma.integration.findMany({
     where: {
       provider: "ZAPIER",
       status: "CONNECTED",
@@ -251,7 +251,7 @@ async function handleAwardPoints(
   }
 
   // Award points
-  const updatedCustomer = await db.customer.update({
+  const updatedCustomer = await prisma.customer.update({
     where: { id: customer.id },
     data: {
       totalPointsEarned: { increment: points },
@@ -260,7 +260,7 @@ async function handleAwardPoints(
   });
 
   // Create ledger entry
-  await db.pointsLedger.create({
+  await prisma.pointsLedger.create({
     data: {
       shop,
       customerId: customer.id,
@@ -327,7 +327,7 @@ async function handleDeductPoints(
   }
 
   // Deduct points
-  const updatedCustomer = await db.customer.update({
+  const updatedCustomer = await prisma.customer.update({
     where: { id: customer.id },
     data: {
       currentPoints: { decrement: points },
@@ -335,7 +335,7 @@ async function handleDeductPoints(
   });
 
   // Create ledger entry
-  await db.pointsLedger.create({
+  await prisma.pointsLedger.create({
     data: {
       shop,
       customerId: customer.id,
@@ -384,17 +384,17 @@ async function handleFindCustomer(
   let customer = null;
 
   if (customer_id) {
-    customer = await db.customer.findUnique({
+    customer = await prisma.customer.findUnique({
       where: { id: customer_id },
       include: { tier: true },
     });
   } else if (email) {
-    customer = await db.customer.findUnique({
+    customer = await prisma.customer.findUnique({
       where: { shop_email: { shop, email: email.toLowerCase() } },
       include: { tier: true },
     });
   } else if (shopify_customer_id) {
-    customer = await db.customer.findUnique({
+    customer = await prisma.customer.findUnique({
       where: { shop_shopifyCustomerId: { shop, shopifyCustomerId: shopify_customer_id } },
       include: { tier: true },
     });
@@ -444,7 +444,7 @@ async function handleGetTier(
     return json({ error: "Customer not found" }, { status: 404 });
   }
 
-  const customerWithTier = await db.customer.findUnique({
+  const customerWithTier = await prisma.customer.findUnique({
     where: { id: customer.id },
     include: { tier: true },
   });
@@ -490,9 +490,9 @@ async function handleSetTier(
   // Find tier
   let tier = null;
   if (tier_id) {
-    tier = await db.tier.findUnique({ where: { id: tier_id } });
+    tier = await prisma.tier.findUnique({ where: { id: tier_id } });
   } else if (tier_name) {
-    tier = await db.tier.findFirst({
+    tier = await prisma.tier.findFirst({
       where: { shop, name: { equals: tier_name, mode: "insensitive" } },
     });
   }
@@ -502,7 +502,7 @@ async function handleSetTier(
   }
 
   // Update customer's tier
-  const updatedCustomer = await db.customer.update({
+  const updatedCustomer = await prisma.customer.update({
     where: { id: customer.id },
     data: { tierId: tier.id },
     include: { tier: true },
@@ -578,7 +578,7 @@ async function handleSubscribe(
   );
 
   // Save to integration
-  await db.integration.update({
+  await prisma.integration.update({
     where: { id: integration.id },
     data: {
       metadata: {
@@ -669,7 +669,7 @@ async function handleUnsubscribe(
   );
 
   // Save to integration
-  await db.integration.update({
+  await prisma.integration.update({
     where: { id: integration.id },
     data: {
       metadata: {
@@ -744,13 +744,13 @@ async function findCustomerByEmailOrId(
   customerId?: string
 ) {
   if (customerId) {
-    return db.customer.findUnique({
+    return prisma.customer.findUnique({
       where: { id: customerId },
     });
   }
 
   if (email) {
-    return db.customer.findUnique({
+    return prisma.customer.findUnique({
       where: { shop_email: { shop, email: email.toLowerCase() } },
     });
   }

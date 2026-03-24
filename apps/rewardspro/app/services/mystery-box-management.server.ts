@@ -7,7 +7,7 @@
  * - Status transitions and validation
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type { MysteryBox, MysteryBoxReward } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxManagement]";
@@ -97,7 +97,7 @@ export interface EligibilityResult {
 export async function createMysteryBox(input: CreateMysteryBoxInput): Promise<MysteryBox> {
   console.log(`${LOG_PREFIX} createMysteryBox: ${input.name} for shop ${input.shop}`);
 
-  const box = await db.mysteryBox.create({
+  const box = await prisma.mysteryBox.create({
     data: {
       shop: input.shop,
       name: input.name,
@@ -129,7 +129,7 @@ export async function updateMysteryBox(
 ): Promise<MysteryBox> {
   console.log(`${LOG_PREFIX} updateMysteryBox: ${id}`);
 
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id, shop },
   });
 
@@ -142,7 +142,7 @@ export async function updateMysteryBox(
     console.warn(`${LOG_PREFIX} Attempting to update restricted fields on active box`);
   }
 
-  const updatedBox = await db.mysteryBox.update({
+  const updatedBox = await prisma.mysteryBox.update({
     where: { id },
     data: {
       name: input.name,
@@ -173,14 +173,14 @@ export async function getMysteryBox(
 ): Promise<MysteryBoxWithRewards | null> {
   console.log(`${LOG_PREFIX} getMysteryBox: ${id}`);
 
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id, shop },
   });
 
   if (!box) return null;
 
   // Separate rewards query — Data API adapter drops nested include
-  const rewards = await db.mysteryBoxReward.findMany({
+  const rewards = await prisma.mysteryBoxReward.findMany({
     where: { boxId: id },
     orderBy: { position: "asc" },
   });
@@ -209,7 +209,7 @@ export async function getMysteryBoxes(
       : options.status;
   }
 
-  const boxes = await db.mysteryBox.findMany({
+  const boxes = await prisma.mysteryBox.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: options?.limit,
@@ -218,7 +218,7 @@ export async function getMysteryBoxes(
   // Separate rewards query — Data API adapter drops nested include
   if (options?.includeRewards && boxes.length > 0) {
     const boxIds = boxes.map((b) => b.id);
-    const rewards = await db.mysteryBoxReward.findMany({
+    const rewards = await prisma.mysteryBoxReward.findMany({
       where: { boxId: { in: boxIds } },
       orderBy: { position: "asc" },
     });
@@ -244,7 +244,7 @@ export async function getMysteryBoxes(
 export async function deleteMysteryBox(id: string, shop: string): Promise<void> {
   console.log(`${LOG_PREFIX} deleteMysteryBox: ${id}`);
 
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id, shop },
   });
 
@@ -258,7 +258,7 @@ export async function deleteMysteryBox(id: string, shop: string): Promise<void> 
   }
 
   // Cascade delete handles rewards, opens, and winners
-  await db.mysteryBox.delete({
+  await prisma.mysteryBox.delete({
     where: { id },
   });
 
@@ -291,7 +291,7 @@ export async function transitionStatus(
 ): Promise<MysteryBox> {
   console.log(`${LOG_PREFIX} transitionStatus: ${id} -> ${newStatus}`);
 
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id, shop },
   });
 
@@ -311,7 +311,7 @@ export async function transitionStatus(
   // Validation for specific transitions
   if (newStatus === "SCHEDULED" || newStatus === "ACTIVE") {
     // Separate rewards query — Data API adapter drops nested include
-    const rewards = await db.mysteryBoxReward.findMany({
+    const rewards = await prisma.mysteryBoxReward.findMany({
       where: { boxId: id },
     });
 
@@ -327,7 +327,7 @@ export async function transitionStatus(
     }
   }
 
-  const updatedBox = await db.mysteryBox.update({
+  const updatedBox = await prisma.mysteryBox.update({
     where: { id },
     data: {
       status: newStatus,
@@ -354,7 +354,7 @@ export async function addReward(
   console.log(`${LOG_PREFIX} addReward to box: ${boxId}`);
 
   // Verify box exists and belongs to shop
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id: boxId, shop },
   });
 
@@ -363,13 +363,13 @@ export async function addReward(
   }
 
   // Get max position for ordering
-  const maxPositionReward = await db.mysteryBoxReward.findFirst({
+  const maxPositionReward = await prisma.mysteryBoxReward.findFirst({
     where: { boxId },
     orderBy: { position: "desc" },
   });
   const nextPosition = input.position ?? (maxPositionReward?.position ?? -1) + 1;
 
-  const reward = await db.mysteryBoxReward.create({
+  const reward = await prisma.mysteryBoxReward.create({
     data: {
       boxId,
       name: input.name,
@@ -400,7 +400,7 @@ export async function updateReward(
 
   // Verify reward's box belongs to shop
   // NOTE: Flat queries — Data API adapter silently drops include: { box: true }
-  const reward = await db.mysteryBoxReward.findFirst({
+  const reward = await prisma.mysteryBoxReward.findFirst({
     where: { id: rewardId },
   });
 
@@ -409,7 +409,7 @@ export async function updateReward(
     throw new Error("Reward not found");
   }
 
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id: reward.boxId, shop },
   });
 
@@ -418,7 +418,7 @@ export async function updateReward(
     throw new Error("Reward not found");
   }
 
-  const updatedReward = await db.mysteryBoxReward.update({
+  const updatedReward = await prisma.mysteryBoxReward.update({
     where: { id: rewardId },
     data: {
       name: input.name,
@@ -446,7 +446,7 @@ export async function removeReward(rewardId: string, shop: string): Promise<void
 
   // Verify reward's box belongs to shop
   // NOTE: Flat queries — Data API adapter silently drops include: { box: true }
-  const reward = await db.mysteryBoxReward.findFirst({
+  const reward = await prisma.mysteryBoxReward.findFirst({
     where: { id: rewardId },
   });
 
@@ -455,7 +455,7 @@ export async function removeReward(rewardId: string, shop: string): Promise<void
     throw new Error("Reward not found");
   }
 
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id: reward.boxId, shop },
   });
 
@@ -470,7 +470,7 @@ export async function removeReward(rewardId: string, shop: string): Promise<void
     throw new Error("Cannot remove rewards from an active mystery box");
   }
 
-  await db.mysteryBoxReward.delete({
+  await prisma.mysteryBoxReward.delete({
     where: { id: rewardId },
   });
 
@@ -488,7 +488,7 @@ export async function reorderRewards(
   console.log(`${LOG_PREFIX} reorderRewards for box: ${boxId}`);
 
   // Verify box belongs to shop
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id: boxId, shop },
   });
 
@@ -499,7 +499,7 @@ export async function reorderRewards(
   // Update positions
   await Promise.all(
     rewardIds.map((rewardId, index) =>
-      db.mysteryBoxReward.update({
+      prisma.mysteryBoxReward.update({
         where: { id: rewardId },
         data: { position: index },
       })
@@ -560,7 +560,7 @@ export async function checkMysteryBoxEligibility(
 ): Promise<EligibilityResult> {
   console.log(`${LOG_PREFIX} checkMysteryBoxEligibility: box=${boxId}, customer=${customerId}`);
 
-  const box = await db.mysteryBox.findFirst({
+  const box = await prisma.mysteryBox.findFirst({
     where: { id: boxId, shop },
   });
 
@@ -588,7 +588,7 @@ export async function checkMysteryBoxEligibility(
   }
 
   // Check customer's opens
-  const customerOpens = await db.mysteryBoxOpen.count({
+  const customerOpens = await prisma.mysteryBoxOpen.count({
     where: { boxId, customerId },
   });
 
@@ -621,7 +621,7 @@ export async function checkMysteryBoxEligibility(
     // Check minimumTier requirement
     if (box.minimumTier) {
       if (!tierResult.effectiveTierId) {
-        const minimumTier = await db.tier.findUnique({ where: { id: box.minimumTier } });
+        const minimumTier = await prisma.tier.findUnique({ where: { id: box.minimumTier } });
         return {
           eligible: false,
           reason: `Requires ${minimumTier?.name || 'a membership'} tier or above`,
@@ -631,8 +631,8 @@ export async function checkMysteryBoxEligibility(
       if (tierResult.effectiveTierId !== box.minimumTier) {
         // Check tier hierarchy - compare minSpend values
         const [customerTier, minimumTier] = await Promise.all([
-          db.tier.findUnique({ where: { id: tierResult.effectiveTierId } }),
-          db.tier.findUnique({ where: { id: box.minimumTier } }),
+          prisma.tier.findUnique({ where: { id: tierResult.effectiveTierId } }),
+          prisma.tier.findUnique({ where: { id: box.minimumTier } }),
         ]);
 
         if (!customerTier || !minimumTier || customerTier.minSpend < minimumTier.minSpend) {
@@ -667,9 +667,9 @@ export async function getMysteryBoxStats(shop: string): Promise<{
   console.log(`${LOG_PREFIX} getMysteryBoxStats for shop: ${shop}`);
 
   const [totalBoxes, activeBoxes, aggregates] = await Promise.all([
-    db.mysteryBox.count({ where: { shop } }),
-    db.mysteryBox.count({ where: { shop, status: "ACTIVE" } }),
-    db.mysteryBox.aggregate({
+    prisma.mysteryBox.count({ where: { shop } }),
+    prisma.mysteryBox.count({ where: { shop, status: "ACTIVE" } }),
+    prisma.mysteryBox.aggregate({
       where: { shop },
       _sum: {
         totalOpens: true,

@@ -12,7 +12,7 @@ type AdminApiContextWithRest = AdminApiContext & {
 };
 
 type AdminApiContextType = AdminApiContext | AdminApiContextWithRest;
-import db from "../db.server";
+import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { hasManualOverride } from "./manual-tier-assignment.server";
 import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
@@ -88,7 +88,7 @@ export async function calculateCustomerTierFromDB(
         calcLogger.info('Customer has manual tier override - skipping calculation');
 
         // Get current tier info for response
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: {
             id: customerId,
             shop: shop
@@ -97,7 +97,7 @@ export async function calculateCustomerTierFromDB(
 
         let currentTier = null;
         if (customer?.currentTierId) {
-          currentTier = await db.tier.findUnique({
+          currentTier = await prisma.tier.findUnique({
             where: { id: customer.currentTierId }
           });
         }
@@ -116,7 +116,7 @@ export async function calculateCustomerTierFromDB(
     }
 
     // Get customer data
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
         shop: shop
@@ -132,7 +132,7 @@ export async function calculateCustomerTierFromDB(
     // Get current tier separately if exists
     let currentTier = null;
     if (customer?.currentTierId) {
-      currentTier = await db.tier.findUnique({
+      currentTier = await prisma.tier.findUnique({
         where: { id: customer.currentTierId }
       });
       calcLogger.debug('Current tier', { tierName: currentTier?.name || 'not found' });
@@ -144,7 +144,7 @@ export async function calculateCustomerTierFromDB(
     }
 
     // Get all tiers for the shop
-    const tiers = await db.tier.findMany({
+    const tiers = await prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'asc' } // Order by lowest spend first (correct order)
     });
@@ -225,7 +225,7 @@ export async function calculateCustomerTierFromDB(
 
     if (tierChanged) {
       // Update customer's tier
-      await db.customer.update({
+      await prisma.customer.update({
         where: { id: customerId },
         data: {
           currentTierId: qualifyingTier?.id || null,
@@ -234,7 +234,7 @@ export async function calculateCustomerTierFromDB(
       });
 
       // Log the tier change
-      await db.tierChangeLog.create({
+      await prisma.tierChangeLog.create({
         data: {
           id: uuidv4(),
           customerId,
@@ -318,7 +318,7 @@ export async function calculateCustomerTier(
       console.log(`[TierCalc] Customer ${customerId} has manual override - skipping calculation`);
       
       // Get customer data to return current state
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { 
           id: customerId,
           shop: shop 
@@ -327,7 +327,7 @@ export async function calculateCustomerTier(
       
       let currentTier = null;
       if (customer?.currentTierId) {
-        currentTier = await db.tier.findUnique({
+        currentTier = await prisma.tier.findUnique({
           where: { id: customer.currentTierId }
         });
       }
@@ -345,7 +345,7 @@ export async function calculateCustomerTier(
     }
     
     // Get customer data
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { 
         id: customerId,
         shop: shop 
@@ -355,7 +355,7 @@ export async function calculateCustomerTier(
     // Get current tier separately if exists
     let currentTier = null;
     if (customer?.currentTierId) {
-      currentTier = await db.tier.findUnique({
+      currentTier = await prisma.tier.findUnique({
         where: { id: customer.currentTierId }
       });
     }
@@ -365,7 +365,7 @@ export async function calculateCustomerTier(
     }
 
     // Get all tiers for the shop
-    const tiers = await db.tier.findMany({
+    const tiers = await prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'asc' } // Order by lowest spend first (correct order)
     });
@@ -442,7 +442,7 @@ export async function calculateCustomerTier(
 
     if (tierChanged) {
       // Update customer's tier
-      await db.customer.update({
+      await prisma.customer.update({
         where: { id: customerId },
         data: {
           currentTierId: qualifyingTier?.id || null,
@@ -451,7 +451,7 @@ export async function calculateCustomerTier(
       });
 
       // Log the tier change
-      await db.tierChangeLog.create({
+      await prisma.tierChangeLog.create({
         data: {
           id: uuidv4(),
           customerId,
@@ -589,7 +589,7 @@ export async function calculateAllCustomerTiers(
   console.log(`[TierCalc] Starting tier calculation for all customers in shop ${shop} via Tier Resolution System`);
   
   // Get all customers for the shop
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: { shop },
     select: { id: true }
   });
@@ -626,7 +626,7 @@ async function getCustomerSpendingFromDB(
     console.log(`[TierCalc] Getting spending from local DB for customer ${customerId}, period: ${evaluationPeriod}`);
 
     // Get customer to ensure we have the right one
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
         shop
@@ -662,7 +662,7 @@ async function getCustomerSpendingFromDB(
     console.log(`[TierCalc] Query where clause:`, JSON.stringify(whereClause, null, 2));
 
     // Fetch only eligible orders using DB-level filters (not all orders)
-    const eligibleOrders = await db.order.findMany({
+    const eligibleOrders = await prisma.order.findMany({
       where: whereClause,
       select: {
         id: true,
@@ -881,7 +881,7 @@ export async function calculateTierAfterOrder(
 ): Promise<TierCalculationResult | null> {
   try {
     // Find the customer
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         shop,
         shopifyCustomerId

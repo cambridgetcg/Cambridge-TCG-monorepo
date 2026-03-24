@@ -18,7 +18,7 @@ import {
 import { SyncProgressCard, type SyncStatus } from "~/components/SyncActionCard";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { useState, useCallback, useEffect, useRef } from "react";
 
 interface SyncProgress {
@@ -48,13 +48,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Get current customer statistics
-  const customerStats = await db.customer.aggregate({
+  const customerStats = await prisma.customer.aggregate({
     where: { shop: session.shop },
     _count: { id: true },
   });
 
   // Count customers with placeholder emails
-  const placeholderCount = await db.customer.count({
+  const placeholderCount = await prisma.customer.count({
     where: {
       shop: session.shop,
       email: {
@@ -64,7 +64,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   });
 
   // Count customers with 'customer' prefix (another placeholder pattern)
-  const customerPrefixCount = await db.customer.count({
+  const customerPrefixCount = await prisma.customer.count({
     where: {
       shop: session.shop,
       email: {
@@ -74,18 +74,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
   });
 
   // Get tier count
-  const tierCount = await db.tier.count({
+  const tierCount = await prisma.tier.count({
     where: { shop: session.shop }
   });
 
   // Get most recent sync job
-  const lastSyncJob = await db.customerSyncJob.findFirst({
+  const lastSyncJob = await prisma.customerSyncJob.findFirst({
     where: { shop: session.shop },
     orderBy: { createdAt: 'desc' }
   });
 
   // Check shop settings for legacy sync status
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop: session.shop }
   });
 

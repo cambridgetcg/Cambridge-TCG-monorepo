@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import db from "../db.server";
+import prisma from "../db.server";
 import type { Tier, Customer } from "@prisma/client";
 import { updateCustomerToEffectiveTier, resolveEffectiveTier } from "./tier-resolution.server";
 import { recalculateTiersOptimized } from "./tier-recalculation-optimized.server";
@@ -12,7 +12,7 @@ import { recalculateTiersAnatomical } from "./tier-recalculation-neural-v3.serve
  */
 export async function ensureBaseTierExists(shop: string): Promise<Tier> {
   // Check if a base tier already exists
-  const existingBaseTier = await db.tier.findFirst({
+  const existingBaseTier = await prisma.tier.findFirst({
     where: {
       shop,
       minSpend: 0
@@ -29,7 +29,7 @@ export async function ensureBaseTierExists(shop: string): Promise<Tier> {
 
   // Create base tier if it doesn't exist
   console.log(`[Tier Management] Creating base tier for shop: ${shop}`);
-  const baseTier = await db.tier.create({
+  const baseTier = await prisma.tier.create({
     data: {
       id: `${shop}-base-${Date.now()}`,
       shop,
@@ -61,7 +61,7 @@ export async function assignDefaultTierToCustomer(
   shop: string,
   _skipLog: boolean = false // kept for backward compatibility
 ): Promise<void> {
-  const customer = await db.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     select: {
       id: true,
@@ -142,7 +142,7 @@ export async function assignBaseTierToAllCustomersWithoutTier(shop: string): Pro
   console.log(`[Tier Management] Using Tier Resolution System (respects purchases/subscriptions)`);
 
   // Get all customers without a tier
-  const customersWithoutTier = await db.customer.findMany({
+  const customersWithoutTier = await prisma.customer.findMany({
     where: {
       shop,
       currentTierId: null
@@ -220,7 +220,7 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
   console.log(`[Tier Management] Using Tier Resolution System (respects purchases/subscriptions)`);
   console.log(`[Tier Management] ========================================`);
 
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: { shop },
     select: { id: true, currentTierId: true }
   });
@@ -272,10 +272,10 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
         if (result.changed) {
           // Check if upgrade or downgrade by comparing tier levels
           const oldTier = result.previousTierId
-            ? await db.tier.findUnique({ where: { id: result.previousTierId } })
+            ? await prisma.tier.findUnique({ where: { id: result.previousTierId } })
             : null;
           const newTier = result.newTierId
-            ? await db.tier.findUnique({ where: { id: result.newTierId } })
+            ? await prisma.tier.findUnique({ where: { id: result.newTierId } })
             : null;
 
           if (oldTier && newTier) {
@@ -388,7 +388,7 @@ export async function recalculateTiersSmart(
   optimizedPath: boolean;
 }> {
   // Check customer count for engine selection
-  const customerCount = await db.customer.count({ where: { shop } });
+  const customerCount = await prisma.customer.count({ where: { shop } });
 
   // Engine selection logic
   let engine: 'LEGACY' | 'OPTIMIZED' | 'NEURAL_V2' | 'NEURAL_V3';
@@ -540,7 +540,7 @@ export async function refreshAnnualSpending(
 
   try {
     // Get all customers for this shop
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: { shop },
       select: {
         id: true,
@@ -564,7 +564,7 @@ export async function refreshAnnualSpending(
       const updatePromises = batch.map(async (customer) => {
         try {
           // Calculate annual spending from orders in the last 12 months
-          const orderStats = await db.order.aggregate({
+          const orderStats = await prisma.order.aggregate({
             where: {
               shop,
               customerId: customer.id,
@@ -584,7 +584,7 @@ export async function refreshAnnualSpending(
           // Only update if the value has changed
           const currentAnnualSpent = Number(customer.annualSpent || 0);
           if (Math.abs(newAnnualSpent - currentAnnualSpent) > 0.01) {
-            await db.customer.update({
+            await prisma.customer.update({
               where: { id: customer.id },
               data: {
                 annualSpent: newAnnualSpent,

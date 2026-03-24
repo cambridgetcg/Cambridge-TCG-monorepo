@@ -4,7 +4,7 @@
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import db from "../../db.server";
+import prisma from "../../db.server";
 import {
   BillingConfig,
   formatMoneyInput,
@@ -406,7 +406,7 @@ export class GraphQLBillingService {
         );
 
         // Update billing subscription in database
-        await db.billingSubscription.upsert({
+        await prisma.billingSubscription.upsert({
           where: { shop },
           create: {
             id: uuidv4(), // Data API doesn't auto-generate UUIDs
@@ -461,7 +461,7 @@ export class GraphQLBillingService {
   ): Promise<UsageRecordResult> {
     try {
       // Get subscription line item ID
-      const billingSubscription = await db.billingSubscription.findUnique({
+      const billingSubscription = await prisma.billingSubscription.findUnique({
         where: { shop }
       });
 
@@ -526,7 +526,7 @@ export class GraphQLBillingService {
       }
 
       // Update current period usage fee
-      await db.billingSubscription.update({
+      await prisma.billingSubscription.update({
         where: { shop },
         data: {
           currentPeriodUsageFee: {
@@ -555,7 +555,7 @@ export class GraphQLBillingService {
    */
   async cancelSubscription(shop: string): Promise<SubscriptionResult> {
     try {
-      const billingSubscription = await db.billingSubscription.findUnique({
+      const billingSubscription = await prisma.billingSubscription.findUnique({
         where: { shop }
       });
 
@@ -584,7 +584,7 @@ export class GraphQLBillingService {
       }
 
       // Update database
-      await db.billingSubscription.update({
+      await prisma.billingSubscription.update({
         where: { shop },
         data: {
           subscriptionStatus: 'CANCELLED'
@@ -625,7 +625,7 @@ export class GraphQLBillingService {
 
       if (activeSubscriptions.length === 0) {
         // No active subscription
-        await db.billingSubscription.update({
+        await prisma.billingSubscription.update({
           where: { shop },
           data: {
             subscriptionStatus: 'INACTIVE'
@@ -641,7 +641,7 @@ export class GraphQLBillingService {
       const subscription = activeSubscriptions[0];
 
       // Update database with current status
-      await db.billingSubscription.update({
+      await prisma.billingSubscription.update({
         where: { shop },
         data: {
           subscriptionStatus: subscription.status,
@@ -667,7 +667,7 @@ export class GraphQLBillingService {
    * Store pending charge info
    */
   private async storePendingCharge(shop: string, chargeId: string, confirmationUrl: string) {
-    await db.billingSubscription.upsert({
+    await prisma.billingSubscription.upsert({
       where: { shop },
       create: {
         id: uuidv4(),
@@ -713,7 +713,7 @@ export class GraphQLBillingService {
    * Check if pending charge has expired
    */
   async checkExpiredCharge(shop: string): Promise<{ expired: boolean; reminder?: boolean }> {
-    const billingSubscription = await db.billingSubscription.findUnique({
+    const billingSubscription = await prisma.billingSubscription.findUnique({
       where: { shop }
     });
 
@@ -723,7 +723,7 @@ export class GraphQLBillingService {
 
       if (hoursSinceCreation > 48) {
         // Charge expired, clear it
-        await db.billingSubscription.update({
+        await prisma.billingSubscription.update({
           where: { shop },
           data: {
             pendingChargeId: null,

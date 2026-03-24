@@ -13,7 +13,7 @@ import {
   DataTable,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -31,7 +31,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Fetch email templates
     let templates: any[] = [];
     try {
-      templates = await db.emailTemplate.findMany({
+      templates = await prisma.emailTemplate.findMany({
         where: { shop },
         orderBy: { updatedAt: 'desc' },
       });

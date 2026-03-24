@@ -29,7 +29,7 @@ import { SubscriptionCard, UsageUpgradePrompt } from "~/components/Billing/Upgra
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { invalidateShopSettings } from "../services/shop-data-provider.server";
 import { getCreditSyncStats } from "../services/credit-sync-job.server";
 import { getCustomerSyncStats } from "../services/customer-sync-job.server";
@@ -404,14 +404,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Try to fetch existing settings
-    let settings = await db.shopSettings.findUnique({
+    let settings = await prisma.shopSettings.findUnique({
       where: { shop },
     });
 
     // If no settings exist, create with Shopify defaults
     if (!settings) {
       const now = new Date();
-      settings = await db.shopSettings.create({
+      settings = await prisma.shopSettings.create({
         data: {
           id: crypto.randomUUID(),
           shop,
@@ -427,7 +427,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     } else {
       // Update timezone if it differs from Shopify
       if (settings.timezone !== shopifyTimezone) {
-        settings = await db.shopSettings.update({
+        settings = await prisma.shopSettings.update({
           where: { id: settings.id },
           data: {
             timezone: shopifyTimezone,
@@ -438,7 +438,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Fetch tiers for base tier selection
-    const tiers = await db.tier.findMany({
+    const tiers = await prisma.tier.findMany({
       where: { shop },
       select: {
         id: true,
@@ -451,7 +451,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Fetch order statistics
     let orderStats: OrderStats | undefined;
     try {
-      const orderAggregates = await db.order.aggregate({
+      const orderAggregates = await prisma.order.aggregate({
         where: { shop },
         _count: { id: true },
         _sum: { cashbackAmount: true },
@@ -459,20 +459,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         _min: { shopifyCreatedAt: true }
       });
 
-      const customerCount = await db.customer.count({
+      const customerCount = await prisma.customer.count({
         where: { shop }
       });
 
       // Check for discrepancies (simplified check)
       // Count orders that have been processed but have no ledger entries
-      const processedOrders = await db.order.count({
+      const processedOrders = await prisma.order.count({
         where: {
           shop,
           cashbackProcessed: true
         }
       });
 
-      const ordersWithLedger = await db.storeCreditLedger.count({
+      const ordersWithLedger = await prisma.storeCreditLedger.count({
         where: {
           shop,
           orderId: { not: null },
@@ -604,7 +604,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Fetch billing subscription from database as fallback
-    const billingSubscription = await db.billingSubscription.findUnique({
+    const billingSubscription = await prisma.billingSubscription.findUnique({
       where: { shop },
     }).catch(() => null); // Gracefully handle if table doesn't exist yet
 
@@ -639,7 +639,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     } catch (error) {
       console.error("[Settings Page] Error counting orders:", error);
       // Fallback to simple total count
-      orderCount = await db.order.count({ where: { shop } });
+      orderCount = await prisma.order.count({ where: { shop } });
       orderCountStrategy = "TotalFallback";
     }
 
@@ -942,7 +942,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Log the cancellation
-        await db.billingAuditLog.create({
+        await prisma.billingAuditLog.create({
           data: {
             id: uuidv4(),
             shop,
@@ -987,7 +987,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Log the downgrade
-        await db.billingAuditLog.create({
+        await prisma.billingAuditLog.create({
           data: {
             id: uuidv4(),
             shop,
@@ -1031,7 +1031,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const result = await recalculateTiersSmart(shop);
 
         // Update last run timestamp
-        await db.shopSettings.update({
+        await prisma.shopSettings.update({
           where: { shop },
           data: {
             tierRecalculationLastRun: new Date(),
@@ -1102,7 +1102,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const shopifyCurrency = shopDetails.currencyCode || "UNKNOWN";
 
         // Get current settings for comparison
-        const currentSettings = await db.shopSettings.findUnique({
+        const currentSettings = await prisma.shopSettings.findUnique({
           where: { shop },
           select: { storeCurrency: true }
         });
@@ -1242,7 +1242,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Update settings (timezone stays as-is, synced from Shopify)
     const now = new Date();
-    const updatedSettings = await db.shopSettings.update({
+    const updatedSettings = await prisma.shopSettings.update({
       where: { shop },
       data: {
         storeName: storeName.trim(),

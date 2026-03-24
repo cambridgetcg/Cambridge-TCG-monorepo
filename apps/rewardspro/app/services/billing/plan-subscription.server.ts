@@ -6,7 +6,7 @@
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { updatePlanLimit, unlockShop } from "~/utils/plan-access-control.server";
 import { isTestMode } from "~/utils/billing-test-mode.server";
@@ -139,7 +139,7 @@ export async function checkRateLimit(shop: string): Promise<{ allowed: boolean; 
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
   try {
-    const recentAttempts = await db.billingAuditLog.count({
+    const recentAttempts = await prisma.billingAuditLog.count({
       where: {
         shop,
         attemptedAt: {
@@ -172,7 +172,7 @@ export async function logBillingAttempt(
   metadata?: Record<string, any>
 ): Promise<void> {
   try {
-    await db.billingAuditLog.create({
+    await prisma.billingAuditLog.create({
       data: {
         id: uuidv4(),
         shop,
@@ -422,7 +422,7 @@ async function saveBillingSubscription(
   planName: string
 ): Promise<void> {
   try {
-    await db.billingSubscription.upsert({
+    await prisma.billingSubscription.upsert({
       where: { shop },
       update: {
         subscriptionId,
@@ -462,7 +462,7 @@ export async function cancelSubscription(
     console.log(`[BillingService] Cancelling subscription for ${shop}`);
 
     // Update database
-    await db.billingSubscription.updateMany({
+    await prisma.billingSubscription.updateMany({
       where: { shop },
       data: {
         subscriptionStatus: "CANCELLED",

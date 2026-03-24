@@ -5,7 +5,7 @@
  * Allows seamless switching between providers based on shop settings.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { EmailProvider as EmailProviderEnum, Tier, Customer } from "@prisma/client";
 import {
   sendEmail as sendGridSendEmail,
@@ -89,7 +89,7 @@ export interface TierUpgradeEmailParams {
 export async function getEmailProviderType(
   shop: string
 ): Promise<EmailProviderEnum> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: { emailProvider: true },
   });
@@ -101,7 +101,7 @@ export async function getEmailProviderType(
  * Check if Klaviyo should handle marketing emails for this shop
  */
 export async function shouldUseKlaviyoForMarketing(shop: string): Promise<boolean> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: { emailProvider: true, klaviyoEnabled: true, klaviyoApiKey: true },
   });
@@ -121,7 +121,7 @@ export async function shouldUseKlaviyoForMarketing(shop: string): Promise<boolea
 export async function shouldUseSendGridForTransactional(
   shop: string
 ): Promise<boolean> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: { emailProvider: true },
   });
@@ -217,7 +217,7 @@ export async function sendWelcomeEmailUnified(
   // Always sync to Klaviyo if enabled (for both KLAVIYO and HYBRID modes)
   if (await isKlaviyoEnabled(shop)) {
     // Get tiers for profile properties
-    const tiers = await db.tier.findMany({
+    const tiers = await prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: "asc" },
     });
@@ -238,7 +238,7 @@ export async function sendWelcomeEmailUnified(
 
   // For SENDGRID and HYBRID modes, also send via SendGrid
   try {
-    const settings = await db.emailSettings.findUnique({
+    const settings = await prisma.emailSettings.findUnique({
       where: { shop },
     });
 
@@ -283,7 +283,7 @@ export async function sendTierUpgradeEmailUnified(
 
   // Always sync to Klaviyo if enabled
   if (await isKlaviyoEnabled(shop)) {
-    const tiers = await db.tier.findMany({
+    const tiers = await prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: "asc" },
     });
@@ -317,7 +317,7 @@ export async function sendTierUpgradeEmailUnified(
 
   // For SENDGRID and HYBRID modes, also send via SendGrid
   try {
-    const settings = await db.emailSettings.findUnique({
+    const settings = await prisma.emailSettings.findUnique({
       where: { shop },
     });
 
@@ -325,7 +325,7 @@ export async function sendTierUpgradeEmailUnified(
       return false;
     }
 
-    const store = await db.shopSettings.findUnique({
+    const store = await prisma.shopSettings.findUnique({
       where: { shop },
       select: { storeName: true },
     });
@@ -378,7 +378,7 @@ export async function trackOrderForKlaviyo(
     return false;
   }
 
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: "asc" },
   });
@@ -480,7 +480,7 @@ export async function sendBatchMarketingEmails(
  * Get email settings for a shop with provider info
  */
 export async function getEmailSettingsWithProvider(shop: string) {
-  return db.emailSettings.findUnique({
+  return prisma.emailSettings.findUnique({
     where: { shop },
     select: {
       shop: true,
@@ -515,7 +515,7 @@ export async function updateEmailProviderSettings(
     klaviyoSyncEvents?: boolean;
   }
 ) {
-  return db.emailSettings.update({
+  return prisma.emailSettings.update({
     where: { shop },
     data: settings,
   });

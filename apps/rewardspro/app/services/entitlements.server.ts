@@ -6,7 +6,7 @@
  * providing caching and consistent access patterns across the application.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { ShopEntitlements, EntitlementSource } from "@prisma/client";
 import {
   FREE_PLAN,
@@ -280,7 +280,7 @@ export async function getEntitlements(shop: string): Promise<ShopEntitlements> {
   console.log(`${LOG_PREFIX} Cache MISS for ${shop}, querying database...`);
 
   // Query database
-  let entitlements = await db.shopEntitlements.findUnique({
+  let entitlements = await prisma.shopEntitlements.findUnique({
     where: { shop },
   });
 
@@ -289,7 +289,7 @@ export async function getEntitlements(shop: string): Promise<ShopEntitlements> {
     console.log(`${LOG_PREFIX} No entitlements found, creating defaults for ${shop}`);
     // Filter out unmigrated columns to prevent "column does not exist" errors
     const safeDefaults = filterUnmigratedColumns(DEFAULT_ENTITLEMENTS);
-    entitlements = await db.shopEntitlements.create({
+    entitlements = await prisma.shopEntitlements.create({
       data: {
         shop,
         ...safeDefaults,
@@ -377,7 +377,7 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   console.log(`[Entitlements] Refreshing entitlements for ${shop}`);
 
   // Debounce: skip refresh if last resolved within 5 seconds (prevents callback/webhook race)
-  const recentCheck = await db.shopEntitlements.findUnique({
+  const recentCheck = await prisma.shopEntitlements.findUnique({
     where: { shop },
     select: { lastResolvedAt: true },
   });
@@ -395,11 +395,11 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
 
   // Get current subscription state
   const [billingSubscription, shopSettings] = await Promise.all([
-    db.billingSubscription.findFirst({
+    prisma.billingSubscription.findFirst({
       where: { shop, subscriptionStatus: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
     }),
-    db.shopSettings.findUnique({
+    prisma.shopSettings.findUnique({
       where: { shop },
     }),
   ]);
@@ -428,7 +428,7 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   const safeDefaultEntitlements = filterUnmigratedColumns(DEFAULT_ENTITLEMENTS);
 
   // Check for existing entitlements with overrides
-  const existing = await db.shopEntitlements.findUnique({
+  const existing = await prisma.shopEntitlements.findUnique({
     where: { shop },
   });
 
@@ -452,7 +452,7 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   }
 
   // Upsert the entitlements record
-  const entitlements = await db.shopEntitlements.upsert({
+  const entitlements = await prisma.shopEntitlements.upsert({
     where: { shop },
     create: {
       shop,
@@ -538,7 +538,7 @@ export async function setOverride(
   const safeUpdateData = filterUnmigratedColumns(updateData);
 
   // Update with overrides
-  const entitlements = await db.shopEntitlements.update({
+  const entitlements = await prisma.shopEntitlements.update({
     where: { shop },
     data: safeUpdateData,
   });
@@ -559,7 +559,7 @@ export async function removeOverride(shop: string): Promise<ShopEntitlements> {
   console.log(`[Entitlements] Removing override for ${shop}`);
 
   // First, clear the override flags
-  await db.shopEntitlements.update({
+  await prisma.shopEntitlements.update({
     where: { shop },
     data: {
       hasOverride: false,

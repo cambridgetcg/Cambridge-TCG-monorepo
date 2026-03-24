@@ -11,7 +11,7 @@
  * - Event creation for animations
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type { MissionCadence, MissionRarity, MissionCategory } from "@prisma/client";
 
 import {
@@ -148,7 +148,7 @@ export async function getPlayerStats(
     : 100;
 
   // Get full stats including mission counts
-  const fullStats = await db.customerMissionStats.findUnique({
+  const fullStats = await prisma.customerMissionStats.findUnique({
     where: { customerId },
     select: {
       totalCompleted: true,
@@ -194,13 +194,13 @@ export async function getMissionsForCustomer(
   const pendingEvents = await getUnacknowledgedEvents(shop, customerId);
 
   // Get customer's current tier for eligibility checks
-  const customer = await db.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { id: customerId },
   });
 
   // Get active challenges (Data API doesn't support include, so fetch separately)
   const now = new Date();
-  const challenges = await db.challenge.findMany({
+  const challenges = await prisma.challenge.findMany({
     where: {
       shop,
       status: "ACTIVE",
@@ -215,12 +215,12 @@ export async function getMissionsForCustomer(
 
   const [rewards, participants] = await Promise.all([
     challengeIds.length > 0
-      ? db.challengeReward.findMany({
+      ? prisma.challengeReward.findMany({
           where: { challengeId: { in: challengeIds } },
         })
       : [],
     challengeIds.length > 0
-      ? db.challengeParticipant.findMany({
+      ? prisma.challengeParticipant.findMany({
           where: { challengeId: { in: challengeIds }, customerId },
         })
       : [],
@@ -367,8 +367,8 @@ export async function processMissionCompletion(
 ): Promise<MissionCompletionResult> {
   // Get challenge details (Data API doesn't support include)
   const [challenge, reward] = await Promise.all([
-    db.challenge.findUnique({ where: { id: challengeId } }),
-    db.challengeReward.findUnique({ where: { challengeId } }),
+    prisma.challenge.findUnique({ where: { id: challengeId } }),
+    prisma.challengeReward.findUnique({ where: { challengeId } }),
   ]);
 
   if (!challenge) {
@@ -461,7 +461,7 @@ async function updateCompletionCounts(
       break;
   }
 
-  await db.customerMissionStats.update({
+  await prisma.customerMissionStats.update({
     where: { customerId },
     data: updateData,
   });
@@ -514,20 +514,20 @@ export async function getMissionAnalytics(shop: string): Promise<{
   completionsByType: { cadence: string; count: number }[];
 }> {
   const [xpStats, streakStats, completionStats] = await Promise.all([
-    db.customerMissionStats.aggregate({
+    prisma.customerMissionStats.aggregate({
       where: { shop },
       _sum: { totalXp: true },
       _avg: { currentLevel: true },
       _max: { currentLevel: true },
       _count: { id: true },
     }),
-    db.customerMissionStats.aggregate({
+    prisma.customerMissionStats.aggregate({
       where: { shop, currentStreak: { gt: 0 } },
       _count: { id: true },
       _avg: { currentStreak: true },
       _max: { longestStreak: true },
     }),
-    db.customerMissionStats.aggregate({
+    prisma.customerMissionStats.aggregate({
       where: { shop },
       _sum: {
         totalCompleted: true,

@@ -6,7 +6,7 @@
  */
 
 import { createHash } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import {
   getAdapter,
@@ -63,7 +63,7 @@ async function checkIdempotency(
   shop: string,
   webhookId: string
 ): Promise<boolean> {
-  const existing = await db.integrationWebhook.findFirst({
+  const existing = await prisma.integrationWebhook.findFirst({
     where: {
       shop,
       webhookId,
@@ -145,7 +145,7 @@ export async function processWebhook(
   const adapter = getAdapter(provider);
 
   // Create webhook record (RECEIVED status)
-  const webhookRecord = await db.integrationWebhook.create({
+  const webhookRecord = await prisma.integrationWebhook.create({
     data: {
       integrationId: integration.id,
       shop,
@@ -170,7 +170,7 @@ export async function processWebhook(
     }
 
     // Update status to PROCESSING
-    await db.integrationWebhook.update({
+    await prisma.integrationWebhook.update({
       where: { id: webhookRecord.id },
       data: { status: "PROCESSING" },
     });
@@ -196,7 +196,7 @@ export async function processWebhook(
     const processingTime = Date.now() - startTime;
 
     // Update webhook record as completed
-    await db.integrationWebhook.update({
+    await prisma.integrationWebhook.update({
       where: { id: webhookRecord.id },
       data: {
         status: "COMPLETED",
@@ -231,7 +231,7 @@ export async function processWebhook(
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
     // Update webhook record as failed
-    await db.integrationWebhook.update({
+    await prisma.integrationWebhook.update({
       where: { id: webhookRecord.id },
       data: {
         status: "FAILED",
@@ -278,7 +278,7 @@ async function awardWebhookPoints(
   let customer = null;
 
   if (result.shopifyCustomerId) {
-    customer = await db.customer.findUnique({
+    customer = await prisma.customer.findUnique({
       where: {
         shop_shopifyCustomerId: {
           shop,
@@ -289,7 +289,7 @@ async function awardWebhookPoints(
   }
 
   if (!customer && result.customerEmail) {
-    customer = await db.customer.findUnique({
+    customer = await prisma.customer.findUnique({
       where: {
         shop_email: {
           shop,
@@ -347,7 +347,7 @@ async function awardWebhookPoints(
   const newBalance = currentBalance + points;
 
   // Award points to customer
-  await db.customer.update({
+  await prisma.customer.update({
     where: { id: customer.id },
     data: {
       lifetimePoints: { increment: points },
@@ -356,7 +356,7 @@ async function awardWebhookPoints(
   });
 
   // Create points ledger entry
-  await db.pointsLedger.create({
+  await prisma.pointsLedger.create({
     data: {
       shop,
       customerId: customer.id,
@@ -420,7 +420,7 @@ export async function getWebhookHistory(
   };
 
   const [webhooks, total] = await Promise.all([
-    db.integrationWebhook.findMany({
+    prisma.integrationWebhook.findMany({
       where,
       select: {
         id: true,
@@ -435,7 +435,7 @@ export async function getWebhookHistory(
       take: limit,
       skip: offset,
     }),
-    db.integrationWebhook.count({ where }),
+    prisma.integrationWebhook.count({ where }),
   ]);
 
   return { webhooks, total };
@@ -445,7 +445,7 @@ export async function getWebhookHistory(
  * Retry a failed webhook
  */
 export async function retryWebhook(webhookId: string): Promise<WebhookResponse> {
-  const webhook = await db.integrationWebhook.findUnique({
+  const webhook = await prisma.integrationWebhook.findUnique({
     where: { id: webhookId },
   });
 
@@ -458,7 +458,7 @@ export async function retryWebhook(webhookId: string): Promise<WebhookResponse> 
   }
 
   // Fetch the integration separately
-  const integration = await db.integration.findUnique({
+  const integration = await prisma.integration.findUnique({
     where: { id: webhook.integrationId },
   });
 
@@ -479,7 +479,7 @@ export async function retryWebhook(webhookId: string): Promise<WebhookResponse> 
   }
 
   // Reset the webhook for reprocessing
-  await db.integrationWebhook.update({
+  await prisma.integrationWebhook.update({
     where: { id: webhookId },
     data: {
       status: "RECEIVED",
@@ -518,17 +518,17 @@ export async function getWebhookStats(
     ...(provider && { integration: { provider } }),
   };
 
-  const stats = await db.integrationWebhook.aggregate({
+  const stats = await prisma.integrationWebhook.aggregate({
     where,
     _count: { id: true },
     _sum: { pointsAwarded: true },
   });
 
   const [completed, failed, received, duplicate] = await Promise.all([
-    db.integrationWebhook.count({ where: { ...where, status: "COMPLETED" } }),
-    db.integrationWebhook.count({ where: { ...where, status: "FAILED" } }),
-    db.integrationWebhook.count({ where: { ...where, status: "RECEIVED" } }),
-    db.integrationWebhook.count({ where: { ...where, status: "DUPLICATE" } }),
+    prisma.integrationWebhook.count({ where: { ...where, status: "COMPLETED" } }),
+    prisma.integrationWebhook.count({ where: { ...where, status: "FAILED" } }),
+    prisma.integrationWebhook.count({ where: { ...where, status: "RECEIVED" } }),
+    prisma.integrationWebhook.count({ where: { ...where, status: "DUPLICATE" } }),
   ]);
 
   return {
@@ -547,7 +547,7 @@ export async function getWebhookStats(
 export async function cleanupOldWebhooks(daysToKeep: number = 7): Promise<number> {
   const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
 
-  const result = await db.integrationWebhook.deleteMany({
+  const result = await prisma.integrationWebhook.deleteMany({
     where: {
       createdAt: { lt: cutoffDate },
       status: { in: ["COMPLETED", "DUPLICATE"] },

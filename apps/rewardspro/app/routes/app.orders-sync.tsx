@@ -18,7 +18,7 @@ import {
 } from "@shopify/polaris";
 import { SyncProgressCard, type SyncStatus } from "~/components/SyncActionCard";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { useState, useCallback, useEffect, useRef } from "react";
 
 interface SyncJobProgress {
@@ -48,20 +48,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Get sync statistics
-  const orderStats = await db.order.aggregate({
+  const orderStats = await prisma.order.aggregate({
     where: { shop: session.shop },
     _count: { id: true },
     _max: { shopifyCreatedAt: true },
     _min: { shopifyCreatedAt: true }
   });
 
-  const customerStats = await db.customer.aggregate({
+  const customerStats = await prisma.customer.aggregate({
     where: { shop: session.shop },
     _count: { id: true }
   });
 
   // Get current sync job status
-  const currentJob = await db.orderSyncJob.findFirst({
+  const currentJob = await prisma.orderSyncJob.findFirst({
     where: { shop: session.shop },
     orderBy: { createdAt: 'desc' }
   });

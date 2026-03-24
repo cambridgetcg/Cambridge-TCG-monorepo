@@ -6,7 +6,7 @@
  */
 
 import { createHmac, timingSafeEqual } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { encrypt, decrypt } from "~/utils/encryption";
 import { createLogger } from "~/services/logger.server";
 import type { Integration, IntegrationProvider } from "@prisma/client";
@@ -125,7 +125,7 @@ export abstract class BaseIntegrationAdapter implements IIntegrationAdapter {
             const newTokens = await this.refreshAccessToken(refreshToken);
 
             // Update stored tokens
-            await db.integration.update({
+            await prisma.integration.update({
               where: { id: integration.id },
               data: {
                 accessToken: encrypt(newTokens.accessToken),
@@ -151,7 +151,7 @@ export abstract class BaseIntegrationAdapter implements IIntegrationAdapter {
             });
 
             // Mark integration as error state
-            await db.integration.update({
+            await prisma.integration.update({
               where: { id: integration.id },
               data: {
                 status: "ERROR",
@@ -285,7 +285,7 @@ export abstract class BaseIntegrationAdapter implements IIntegrationAdapter {
     const retryAfter = response.headers.get("Retry-After");
     const retryMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000;
 
-    await db.integration.update({
+    await prisma.integration.update({
       where: { id: integration.id },
       data: {
         status: "RATE_LIMITED",

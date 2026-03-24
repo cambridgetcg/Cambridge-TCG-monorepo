@@ -29,7 +29,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 
 // ============================================================================
 // Configurable Logging
@@ -278,7 +278,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Step 5: Fetch customer with tier AND tier state included (optimized single query)
     let customer;
     try {
-      customer = await db.customer.findFirst({
+      customer = await prisma.customer.findFirst({
         where: {
           shopifyCustomerId: customerId,
           shop: shop  // CRITICAL: Always scope to shop!
@@ -322,7 +322,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     log.debug(`[${requestId}] TierState cached:`, tierState ? 'yes' : 'no');
 
     // Step 7: Fetch all tiers sorted by minSpend (needed for allTiers display and dual progress)
-    const allTiers = await db.tier.findMany({
+    const allTiers = await prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'asc' }
     });
@@ -405,7 +405,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Step 10-13: Batch fetch transactions, shop settings, tier purchase, orders, pending cashback, and tier changes (parallel)
     const [transactions, shopSettings, activeTierPurchase, recentOrders, pendingCashbackOrders, recentTierChangeLog, tierUpgradeProducts] = await Promise.all([
       // Transactions (last 50 for pagination in frontend)
-      db.storeCreditLedger.findMany({
+      prisma.storeCreditLedger.findMany({
         where: {
           customerId: customer.id,
           shop: shop  // CRITICAL: Scope to shop!
@@ -422,11 +422,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
       }),
       // Shop settings for currency
-      db.shopSettings.findUnique({
+      prisma.shopSettings.findUnique({
         where: { shop }
       }),
       // Active tier purchase (for expiration info)
-      db.tierPurchase.findFirst({
+      prisma.tierPurchase.findFirst({
         where: {
           customerId: customer.id,
           shop: shop,
@@ -441,7 +441,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
       }),
       // Recent orders for enhanced transaction context
-      db.order.findMany({
+      prisma.order.findMany({
         where: {
           customerId: customer.id,
           shop: shop
@@ -456,7 +456,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
       }),
       // Pending cashback: Orders that are paid but cashback not yet credited
-      db.order.findMany({
+      prisma.order.findMany({
         where: {
           customerId: customer.id,
           shop: shop,
@@ -475,7 +475,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
       }),
       // Recent tier change (within last 7 days) for celebration/alert banners
-      db.tierChangeLog.findFirst({
+      prisma.tierChangeLog.findFirst({
         where: {
           customerId: customer.id,
           shop: shop,
@@ -493,7 +493,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
       }),
       // Tier products for upgrade options (tiers higher than current)
-      db.tierProduct.findMany({
+      prisma.tierProduct.findMany({
         where: {
           shop,
           deletedAt: null,

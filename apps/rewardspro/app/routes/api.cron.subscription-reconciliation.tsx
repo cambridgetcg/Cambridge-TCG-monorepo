@@ -20,7 +20,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { timingSafeEqual } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import { updateCustomerToEffectiveTier } from "~/services/tier-resolution.server";
 import * as crypto from "crypto";
@@ -128,7 +128,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
     // Get all distinct shops that have active tier subscriptions using findMany + Set
-    const activeSubscriptions = await db.tierSubscription.findMany({
+    const activeSubscriptions = await prisma.tierSubscription.findMany({
       where: { status: 'ACTIVE' },
       select: { shop: true },
     });
@@ -154,7 +154,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         log('info', `Processing shop: ${shop}`);
 
         // Get all active tier subscriptions for this shop
-        const activeSubscriptions = await db.tierSubscription.findMany({
+        const activeSubscriptions = await prisma.tierSubscription.findMany({
           where: {
             shop,
             status: 'ACTIVE'
@@ -192,7 +192,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
             try {
               // Auto-fix: Mark as expired
-              await db.tierSubscription.update({
+              await prisma.tierSubscription.update({
                 where: { id: subscription.id },
                 data: {
                   status: 'EXPIRED',

@@ -18,7 +18,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { updateCustomerToEffectiveTier } from "~/services/tier-resolution.server";
 
@@ -92,7 +92,7 @@ export class GiftCardRedemptionHandler {
 
     // Find ACTIVE gift cards assigned to this customer with bundled memberships
     // This matches cards we issued where recipientCustomerId = the ordering customer
-    const pendingMembershipCards = await db.issuedGiftCard.findMany({
+    const pendingMembershipCards = await prisma.issuedGiftCard.findMany({
       where: {
         shop,
         status: "ACTIVE",
@@ -111,7 +111,7 @@ export class GiftCardRedemptionHandler {
     }
 
     // Get customer email for matching cards assigned by email
-    const customer = await db.customer.findUnique({
+    const customer = await prisma.customer.findUnique({
       where: { id: customerId },
       select: { email: true },
     });
@@ -218,7 +218,7 @@ export class GiftCardRedemptionHandler {
       }
 
       // Use transaction to ensure atomicity
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         // Create TierPurchase record
         await tx.tierPurchase.create({
           data: {
@@ -292,7 +292,7 @@ export class GiftCardRedemptionHandler {
    * Check if a gift card code has been redeemed
    */
   static async isRedeemed(shop: string, lastFourDigits: string): Promise<boolean> {
-    const giftCard = await db.issuedGiftCard.findFirst({
+    const giftCard = await prisma.issuedGiftCard.findFirst({
       where: {
         shop,
         lastFourDigits,
@@ -306,7 +306,7 @@ export class GiftCardRedemptionHandler {
    * Get redemption history for a customer
    */
   static async getCustomerRedemptions(shop: string, customerId: string) {
-    return db.issuedGiftCard.findMany({
+    return prisma.issuedGiftCard.findMany({
       where: {
         shop,
         recipientCustomerId: customerId,

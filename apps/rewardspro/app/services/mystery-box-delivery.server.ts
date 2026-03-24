@@ -10,7 +10,7 @@
  * - NOTHING: No delivery needed (consolation prize)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { earnPoints } from "./points-ledger.server";
 import type { MysteryBoxWinner } from "@prisma/client";
 
@@ -73,7 +73,7 @@ export async function deliverReward(
 
   try {
     // Get winner with reward and box details
-    const winner = await db.mysteryBoxWinner.findFirst({
+    const winner = await prisma.mysteryBoxWinner.findFirst({
       where: { id: winnerId },
       include: {
         reward: true,
@@ -343,7 +343,7 @@ async function deliverStoreCreditReward(
 
   try {
     // Create store credit ledger entry
-    const entry = await db.storeCreditLedger.create({
+    const entry = await prisma.storeCreditLedger.create({
       data: {
         shop,
         customerId,
@@ -355,7 +355,7 @@ async function deliverStoreCreditReward(
     });
 
     // Update customer's store credit balance
-    await db.customer.update({
+    await prisma.customer.update({
       where: { id: customerId },
       data: {
         storeCredit: { increment: amountDecimal },
@@ -409,7 +409,7 @@ async function deliverProductReward(
   if (admin) {
     try {
       // Get customer's Shopify GID for draft order
-      const customer = await db.customer.findFirst({
+      const customer = await prisma.customer.findFirst({
         where: { id: customerId, shop },
         select: { shopifyCustomerId: true, email: true },
       });
@@ -487,7 +487,7 @@ async function updateDeliveryStatus(
     deliveryNotes?: string;
   }
 ): Promise<void> {
-  await db.mysteryBoxWinner.update({
+  await prisma.mysteryBoxWinner.update({
     where: { id: winnerId },
     data: {
       deliveryStatus: status,
@@ -505,7 +505,7 @@ async function updateDeliveryStatus(
  * Mark winner as notified
  */
 async function markWinnerNotified(winnerId: string): Promise<void> {
-  await db.mysteryBoxWinner.update({
+  await prisma.mysteryBoxWinner.update({
     where: { id: winnerId },
     data: {
       notifiedAt: new Date(),
@@ -535,7 +535,7 @@ export async function deliverAllPendingRewards(
   console.log(`${LOG_PREFIX} deliverAllPendingRewards for box: ${boxId}`);
 
   // Get all pending winners
-  const winners = await db.mysteryBoxWinner.findMany({
+  const winners = await prisma.mysteryBoxWinner.findMany({
     where: {
       boxId,
       shop,
@@ -593,7 +593,7 @@ export async function retryFailedDeliveries(
   console.log(`${LOG_PREFIX} retryFailedDeliveries for box: ${boxId}`);
 
   // Get failed winners
-  const failedWinners = await db.mysteryBoxWinner.findMany({
+  const failedWinners = await prisma.mysteryBoxWinner.findMany({
     where: {
       boxId,
       shop,
@@ -642,7 +642,7 @@ export async function getDeliveryStats(
 }> {
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
   // Instead, fetch deliveryStatus for all winners and count in memory
-  const winners = await db.mysteryBoxWinner.findMany({
+  const winners = await prisma.mysteryBoxWinner.findMany({
     where: { boxId, shop },
     select: { deliveryStatus: true },
   });

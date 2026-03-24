@@ -8,7 +8,7 @@
  * See: app/services/sqs-order-queue.server.ts
  */
 
-import db from '../db.server';
+import prisma from '../db.server';
 import { v4 as uuidv4 } from 'uuid';
 import { getAWSConfig } from '~/utils/aws-clients.server';
 
@@ -50,7 +50,7 @@ export class OrderProcessingQueue {
 
     // Check if webhook already processed (idempotency)
     if (webhookId) {
-      const existing = await db.webhookProcessed.findUnique({
+      const existing = await prisma.webhookProcessed.findUnique({
         where: {
           webhookId
         }
@@ -145,7 +145,7 @@ export class OrderProcessingQueue {
     try {
       // Record webhook as processed (for idempotency, without payload to avoid timeout)
       if (item.webhookId) {
-        await db.webhookProcessed.create({
+        await prisma.webhookProcessed.create({
           data: {
             id: uuidv4(),
             shop: item.shop,
@@ -252,7 +252,7 @@ export class OrderProcessingQueue {
    */
   private static async saveDeadLetter(item: OrderQueueItem): Promise<void> {
     try {
-      await db.deadLetterQueue.create({
+      await prisma.deadLetterQueue.create({
         data: {
           id: uuidv4(),
           webhookId: item.webhookId || null,

@@ -1,5 +1,5 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
 import { withRetry } from "../utils/retry";
 
@@ -122,7 +122,7 @@ export async function startSyncJob(
   console.log(`[Sync Job] Starting new sync job for shop: ${shop}`);
 
   // Check for existing in-progress job
-  const existingJob = await db.customerSyncJob.findFirst({
+  const existingJob = await prisma.customerSyncJob.findFirst({
     where: {
       shop,
       status: 'IN_PROGRESS'
@@ -168,7 +168,7 @@ export async function startSyncJob(
   }
 
   // Get tier information for assignments
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: 'desc' }
   });
@@ -201,7 +201,7 @@ export async function startSyncJob(
   }
 
   // Create new job
-  const job = await db.customerSyncJob.create({
+  const job = await prisma.customerSyncJob.create({
     data: {
       id: crypto.randomUUID(),
       shop,
@@ -247,7 +247,7 @@ export async function processNextBatch(
   admin: AdminApiContext
 ): Promise<SyncJobResult> {
   // Get current job
-  const job = await db.customerSyncJob.findUnique({
+  const job = await prisma.customerSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -294,7 +294,7 @@ export async function processNextBatch(
   // Check for job timeout (4 hours max)
   const jobAge = Date.now() - new Date(job.startedAt || job.createdAt).getTime();
   if (jobAge > MAX_JOB_DURATION_MS) {
-    await db.customerSyncJob.update({
+    await prisma.customerSyncJob.update({
       where: { id: jobId },
       data: {
         status: 'FAILED',
@@ -326,13 +326,13 @@ export async function processNextBatch(
   const shop = job.shop;
 
   // Get tiers for assignment
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: 'desc' }
   });
 
   if (tiers.length === 0) {
-    await db.customerSyncJob.update({
+    await prisma.customerSyncJob.update({
       where: { id: jobId },
       data: {
         status: 'FAILED',
@@ -422,7 +422,7 @@ export async function processNextBatch(
         }
 
         // Check if customer exists
-        const existingCustomer = await db.customer.findFirst({
+        const existingCustomer = await prisma.customer.findFirst({
           where: {
             shop,
             shopifyCustomerId: shopifyId
@@ -435,7 +435,7 @@ export async function processNextBatch(
           // NEUROSURGICAL FIX: Initialize netSpent and totalRefunded for new customers
           const initialTotalSpent = Number(totalSpent);
 
-          const newCustomer = await db.customer.create({
+          const newCustomer = await prisma.customer.create({
             data: {
               shop,
               shopifyCustomerId: shopifyId,
@@ -468,7 +468,7 @@ export async function processNextBatch(
           const updatedTotalSpent = Number(totalSpent);
           const currentTotalRefunded = Number(existingCustomer.totalRefunded || 0);
 
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: existingCustomer.id },
             data: {
               email: shopifyCustomer.email,
@@ -501,7 +501,7 @@ export async function processNextBatch(
     const hasMore = customers.pageInfo.hasNextPage;
     const newStatus = hasMore ? 'IN_PROGRESS' : 'COMPLETED';
 
-    const updatedJob = await db.customerSyncJob.update({
+    const updatedJob = await prisma.customerSyncJob.update({
       where: { id: jobId },
       data: {
         processedCount: newProcessedCount,
@@ -560,7 +560,7 @@ export async function processNextBatch(
     if (isThrottled) {
       // Don't mark as FAILED - keep as IN_PROGRESS for auto-resume with delay
       const metadata = (job.metadata as Record<string, unknown>) || {};
-      await db.customerSyncJob.update({
+      await prisma.customerSyncJob.update({
         where: { id: jobId },
         data: {
           lastError: 'Rate limited by Shopify - will retry',
@@ -598,7 +598,7 @@ export async function processNextBatch(
     }
 
     // Non-throttle error: mark as failed
-    await db.customerSyncJob.update({
+    await prisma.customerSyncJob.update({
       where: { id: jobId },
       data: {
         status: 'FAILED',
@@ -634,7 +634,7 @@ export async function processNextBatch(
  */
 export async function getSyncJobStatus(shop: string): Promise<SyncJobResult | null> {
   // Get most recent job for this shop
-  const job = await db.customerSyncJob.findFirst({
+  const job = await prisma.customerSyncJob.findFirst({
     where: { shop },
     orderBy: { createdAt: 'desc' }
   });
@@ -671,7 +671,7 @@ export async function resumeSyncJob(
   jobId: string,
   admin: AdminApiContext
 ): Promise<SyncJobResult> {
-  const job = await db.customerSyncJob.findUnique({
+  const job = await prisma.customerSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -716,7 +716,7 @@ export async function resumeSyncJob(
   }
 
   // Reset job to in-progress
-  await db.customerSyncJob.update({
+  await prisma.customerSyncJob.update({
     where: { id: jobId },
     data: {
       status: 'IN_PROGRESS',
@@ -735,7 +735,7 @@ export async function resumeSyncJob(
  * Cancel an in-progress sync job
  */
 export async function cancelSyncJob(jobId: string): Promise<boolean> {
-  const job = await db.customerSyncJob.findUnique({
+  const job = await prisma.customerSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -743,7 +743,7 @@ export async function cancelSyncJob(jobId: string): Promise<boolean> {
     return false;
   }
 
-  await db.customerSyncJob.update({
+  await prisma.customerSyncJob.update({
     where: { id: jobId },
     data: {
       status: 'CANCELLED',
@@ -759,7 +759,7 @@ export async function cancelSyncJob(jobId: string): Promise<boolean> {
  * Get sync job by ID
  */
 export async function getSyncJobById(jobId: string): Promise<SyncJobResult | null> {
-  const job = await db.customerSyncJob.findUnique({
+  const job = await prisma.customerSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -805,12 +805,12 @@ export async function getCustomerSyncStats(shop: string): Promise<{
   } | null;
 }> {
   // Count total customers
-  const totalCustomers = await db.customer.count({
+  const totalCustomers = await prisma.customer.count({
     where: { shop }
   });
 
   // Count customers with a tier assigned
-  const customersWithTier = await db.customer.count({
+  const customersWithTier = await prisma.customer.count({
     where: {
       shop,
       currentTierId: { not: null }
@@ -818,7 +818,7 @@ export async function getCustomerSyncStats(shop: string): Promise<{
   });
 
   // Check if initial sync has been done
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
     select: { customersInitialSynced: true }
   });
@@ -826,7 +826,7 @@ export async function getCustomerSyncStats(shop: string): Promise<{
   // Get last sync job (handle case where table doesn't exist yet)
   let lastJob = null;
   try {
-    lastJob = await db.customerSyncJob.findFirst({
+    lastJob = await prisma.customerSyncJob.findFirst({
       where: { shop },
       orderBy: { createdAt: 'desc' },
       select: {

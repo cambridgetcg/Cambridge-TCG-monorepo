@@ -16,7 +16,7 @@
  * - Gamification (game-like elements)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[RaffleLuckyNumbers]";
 
@@ -183,7 +183,7 @@ export async function checkLuckyNumber(
   }
 
   // Record the lucky number hit
-  await db.raffleLuckyNumber.create({
+  await prisma.raffleLuckyNumber.create({
     data: {
       raffleId,
       shop,
@@ -277,7 +277,7 @@ export async function getCustomerLuckyHistory(
     createdAt: Date;
   }>
 > {
-  return db.raffleLuckyNumber.findMany({
+  return prisma.raffleLuckyNumber.findMany({
     where: { shop, customerId },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -304,7 +304,7 @@ export async function getLuckyNumberStats(raffleId: string): Promise<{
     createdAt: Date;
   }>;
 }> {
-  const hits = await db.raffleLuckyNumber.findMany({
+  const hits = await prisma.raffleLuckyNumber.findMany({
     where: { raffleId },
     orderBy: { createdAt: "desc" },
     select: {
@@ -346,7 +346,7 @@ export async function getLuckyNumberStats(raffleId: string): Promise<{
 export async function getHitLuckyNumbers(
   raffleId: string
 ): Promise<number[]> {
-  const hits = await db.raffleLuckyNumber.findMany({
+  const hits = await prisma.raffleLuckyNumber.findMany({
     where: { raffleId },
     select: { luckyNumber: true },
     distinct: ["luckyNumber"],
@@ -362,7 +362,7 @@ export async function isLuckyNumberAlreadyHit(
   raffleId: string,
   luckyNumber: number
 ): Promise<boolean> {
-  const hit = await db.raffleLuckyNumber.findFirst({
+  const hit = await prisma.raffleLuckyNumber.findFirst({
     where: { raffleId, luckyNumber },
     select: { id: true },
   });

@@ -6,7 +6,7 @@
  * Integrates with the mission gamification system for XP, streaks, and combos.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { earnPoints } from "./points-ledger.server";
 import { createClaimEvent } from "./mission-events.server";
 import type { ChallengeRewardType, RewardValue } from "./challenge-management.server";
@@ -47,7 +47,7 @@ export async function claimChallengeReward(
   // Atomically claim the participant slot to prevent double-claim race condition
   // Uses updateMany with status filter — returns count=0 if already claimed by concurrent request
   // We set claimedAt as a lock marker (actual CLAIMED status is set after delivery)
-  const claimLock = await db.challengeParticipant.updateMany({
+  const claimLock = await prisma.challengeParticipant.updateMany({
     where: {
       challengeId,
       customerId,
@@ -61,7 +61,7 @@ export async function claimChallengeReward(
 
   if (claimLock.count === 0) {
     // Either not enrolled, not completed, or already claimed
-    const participant = await db.challengeParticipant.findFirst({
+    const participant = await prisma.challengeParticipant.findFirst({
       where: { challengeId, customerId },
       select: { status: true },
     });
@@ -87,7 +87,7 @@ export async function claimChallengeReward(
   }
 
   // Get participant record (now locked via claimedAt)
-  const participant = await db.challengeParticipant.findFirst({
+  const participant = await prisma.challengeParticipant.findFirst({
     where: { challengeId, customerId },
   });
 
@@ -100,13 +100,13 @@ export async function claimChallengeReward(
 
   // Fetch challenge and reward separately
   const [challenge, reward] = await Promise.all([
-    db.challenge.findUnique({ where: { id: challengeId } }),
-    db.challengeReward.findFirst({ where: { challengeId } }),
+    prisma.challenge.findUnique({ where: { id: challengeId } }),
+    prisma.challengeReward.findFirst({ where: { challengeId } }),
   ]);
 
   if (!challenge) {
     // Revert claim lock since we can't deliver
-    await db.challengeParticipant.update({
+    await prisma.challengeParticipant.update({
       where: { id: participant.id },
       data: { claimedAt: null },
     });
@@ -118,7 +118,7 @@ export async function claimChallengeReward(
 
   // Verify challenge belongs to shop
   if (challenge.shop !== shop) {
-    await db.challengeParticipant.update({
+    await prisma.challengeParticipant.update({
       where: { id: participant.id },
       data: { claimedAt: null },
     });
@@ -211,7 +211,7 @@ export async function claimChallengeReward(
 
   // If delivery succeeded, update participant status
   if (deliveryResult.success) {
-    await db.challengeParticipant.update({
+    await prisma.challengeParticipant.update({
       where: { id: participant.id },
       data: {
         status: "CLAIMED",
@@ -223,7 +223,7 @@ export async function claimChallengeReward(
     });
 
     // Update challenge statistics
-    await db.challenge.update({
+    await prisma.challenge.update({
       where: { id: challengeId },
       data: {
         claimedCount: { increment: 1 },
@@ -260,7 +260,7 @@ export async function claimChallengeReward(
   }
 
   // Delivery failed — revert claim lock so customer can retry
-  await db.challengeParticipant.update({
+  await prisma.challengeParticipant.update({
     where: { id: participant.id },
     data: { claimedAt: null },
   });
@@ -330,7 +330,7 @@ async function deliverStoreCreditReward(
   );
 
   // Create store credit ledger entry
-  const ledgerEntry = await db.storeCreditLedger.create({
+  const ledgerEntry = await prisma.storeCreditLedger.create({
     data: {
       shop,
       customerId,
@@ -342,7 +342,7 @@ async function deliverStoreCreditReward(
   });
 
   // Update customer store credit balance
-  await db.customer.update({
+  await prisma.customer.update({
     where: { id: customerId },
     data: {
       storeCredit: { increment: amountInDollars },
@@ -350,7 +350,7 @@ async function deliverStoreCreditReward(
   });
 
   // Get updated balance
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: { storeCredit: true },
   });
@@ -443,7 +443,7 @@ async function deliverTierUpgradeReward(
   }
 
   // Verify the tier exists
-  const tier = await db.tier.findFirst({
+  const tier = await prisma.tier.findFirst({
     where: { id: config.tierId, shop },
   });
 
@@ -462,7 +462,7 @@ async function deliverTierUpgradeReward(
   // Update the customer's tier
   // Note: This is a simplified implementation
   // A full implementation would use the tier resolution service
-  await db.customer.update({
+  await prisma.customer.update({
     where: { id: customerId },
     data: {
       currentTierId: config.tierId,
@@ -470,7 +470,7 @@ async function deliverTierUpgradeReward(
   });
 
   // Log the tier change
-  await db.tierChangeLog.create({
+  await prisma.tierChangeLog.create({
     data: {
       shop,
       customerId,
@@ -531,7 +531,7 @@ export async function expireUnclaimedRewards(
   cutoffDate.setDate(cutoffDate.getDate() - gracePeriodDays);
 
   // Find completed but unclaimed participants past grace period
-  const result = await db.challengeParticipant.updateMany({
+  const result = await prisma.challengeParticipant.updateMany({
     where: {
       shop,
       status: "COMPLETED",

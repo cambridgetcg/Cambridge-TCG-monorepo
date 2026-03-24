@@ -15,7 +15,7 @@
  * - FREE_OPEN_CLAIMED: Customer claimed a free open
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { MysteryBoxActivityType, MysteryBoxRarity } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxActivityFeed]";
@@ -171,7 +171,7 @@ export async function logActivity(params: {
   const expiresAt = new Date(Date.now() + ACTIVITY_EXPIRATION_MS);
 
   try {
-    await db.mysteryBoxActivity.create({
+    await prisma.mysteryBoxActivity.create({
       data: {
         boxId: params.boxId,
         shop: params.shop,
@@ -348,7 +348,7 @@ export async function getActivityFeed(params: {
 
   const now = new Date();
 
-  const activities = await db.mysteryBoxActivity.findMany({
+  const activities = await prisma.mysteryBoxActivity.findMany({
     where: {
       shop,
       ...(boxId && { boxId }),
@@ -408,7 +408,7 @@ export async function getRecentWinners(params: {
             ? ["LEGENDARY_WIN"]
             : ["BOX_OPENED", "RARE_WIN", "EPIC_WIN", "LEGENDARY_WIN"];
 
-  const activities = await db.mysteryBoxActivity.findMany({
+  const activities = await prisma.mysteryBoxActivity.findMany({
     where: {
       boxId,
       shop,
@@ -447,7 +447,7 @@ export async function getRecentWinners(params: {
 export async function cleanupExpiredActivities(shop?: string): Promise<number> {
   const now = new Date();
 
-  const result = await db.mysteryBoxActivity.deleteMany({
+  const result = await prisma.mysteryBoxActivity.deleteMany({
     where: {
       ...(shop && { shop }),
       expiresAt: { lt: now },

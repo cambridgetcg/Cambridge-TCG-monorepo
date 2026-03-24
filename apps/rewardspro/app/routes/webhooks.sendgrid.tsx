@@ -16,7 +16,7 @@
 
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import * as crypto from "crypto";
 
 // ============================================
@@ -102,7 +102,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
   let processedEventIds = new Set<string>();
   if (eventIds.length > 0) {
     try {
-      const existing = await db.emailEvent.findMany({
+      const existing = await prisma.emailEvent.findMany({
         where: { id: { in: eventIds } },
         select: { id: true },
       });
@@ -159,7 +159,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
           // Suppress customer on hard bounce to protect sender reputation
           if (event.email && event.type === "bounce") {
             try {
-              await db.customer.updateMany({
+              await prisma.customer.updateMany({
                 where: { shop, email: event.email, emailSuppressed: false },
                 data: {
                   emailSuppressed: true,
@@ -177,7 +177,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
           // Respect unsubscribe by updating marketing consent
           if (event.email) {
             try {
-              await db.customer.updateMany({
+              await prisma.customer.updateMany({
                 where: { shop, email: event.email },
                 data: { acceptsMarketing: false },
               });
@@ -191,7 +191,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
           // Suppress customer on spam complaint
           if (event.email) {
             try {
-              await db.customer.updateMany({
+              await prisma.customer.updateMany({
                 where: { shop, email: event.email, emailSuppressed: false },
                 data: {
                   emailSuppressed: true,
@@ -214,7 +214,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
       // Record event for deduplication
       if (event.sg_event_id) {
         try {
-          await db.emailEvent.create({
+          await prisma.emailEvent.create({
             data: {
               id: event.sg_event_id,
               shop,
@@ -245,7 +245,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
   for (const [campaignId, updates] of campaignUpdates) {
     try {
       // Fetch current metrics
-      const campaign = await db.emailCampaign.findFirst({
+      const campaign = await prisma.emailCampaign.findFirst({
         where: { id: campaignId, shop: updates.shop },
         select: { metrics: true },
       });
@@ -276,7 +276,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
         unsubscribed: currentMetrics.unsubscribed + updates.unsubscribed,
       };
 
-      await db.emailCampaign.updateMany({
+      await prisma.emailCampaign.updateMany({
         where: { id: campaignId, shop: updates.shop },
         data: {
           metrics: newMetrics,

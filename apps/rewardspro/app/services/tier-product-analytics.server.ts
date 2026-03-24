@@ -8,7 +8,7 @@
  * - Product performance comparisons
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 // Helper to safely convert Decimal/number values (Data API returns plain numbers, Prisma returns Decimal objects)
 // Uses Number() which calls valueOf() - more reliable than .toNumber() which can fail in minified builds
@@ -79,7 +79,7 @@ export async function getTierProductSummary(shop: string): Promise<TierProductSu
 
   // Fetch all purchases and subscriptions in parallel
   const [purchases, subscriptions] = await Promise.all([
-    db.tierPurchase.findMany({
+    prisma.tierPurchase.findMany({
       where: { shop },
       select: {
         id: true,
@@ -88,7 +88,7 @@ export async function getTierProductSummary(shop: string): Promise<TierProductSu
         endDate: true,
       },
     }),
-    db.tierSubscription.findMany({
+    prisma.tierSubscription.findMany({
       where: { shop },
       select: {
         id: true,
@@ -151,7 +151,7 @@ export async function getTierProductSummary(shop: string): Promise<TierProductSu
  */
 export async function getTierProductMetrics(shop: string): Promise<TierProductMetrics[]> {
   // Fetch tier products (include: tier is safe — hardcoded in adapter)
-  const tierProducts = await db.tierProduct.findMany({
+  const tierProducts = await prisma.tierProduct.findMany({
     where: {
       shop,
       deletedAt: null,
@@ -164,7 +164,7 @@ export async function getTierProductMetrics(shop: string): Promise<TierProductMe
   // Fetch purchases separately (Data API adapter ignores nested include on purchases)
   const tierProductIds = tierProducts.map((tp: any) => tp.id);
   const allPurchases = tierProductIds.length > 0
-    ? await db.tierPurchase.findMany({
+    ? await prisma.tierPurchase.findMany({
         where: { tierProductId: { in: tierProductIds } },
       })
     : [];
@@ -218,7 +218,7 @@ export async function getTierProductTrends(
   const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
 
   // Fetch purchases within date range
-  const purchases = await db.tierPurchase.findMany({
+  const purchases = await prisma.tierPurchase.findMany({
     where: {
       shop,
       createdAt: {
@@ -260,7 +260,7 @@ export async function getTierProductTrends(
   }
 
   // Fetch expirations that occurred in this period
-  const expirations = await db.tierPurchase.findMany({
+  const expirations = await prisma.tierPurchase.findMany({
     where: {
       shop,
       status: 'EXPIRED',
@@ -329,15 +329,15 @@ export async function getTierProductQuickStats(shop: string): Promise<{
 
   const [productCount, activePurchases, recentPurchases, expiringCount] = await Promise.all([
     // Count active tier products
-    db.tierProduct.count({
+    prisma.tierProduct.count({
       where: { shop, deletedAt: null },
     }),
     // Count active purchases
-    db.tierPurchase.count({
+    prisma.tierPurchase.count({
       where: { shop, status: 'ACTIVE' },
     }),
     // Get purchases in last 30 days for revenue calculation
-    db.tierPurchase.findMany({
+    prisma.tierPurchase.findMany({
       where: {
         shop,
         createdAt: { gte: oneMonthAgo },
@@ -345,7 +345,7 @@ export async function getTierProductQuickStats(shop: string): Promise<{
       select: { purchasePrice: true },
     }),
     // Count expiring in next 7 days
-    db.tierPurchase.count({
+    prisma.tierPurchase.count({
       where: {
         shop,
         status: 'ACTIVE',

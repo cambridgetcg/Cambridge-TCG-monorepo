@@ -10,7 +10,7 @@
  * @see /app/routes/app.marketing.klaviyo.tsx - Klaviyo integration
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { MarketingHubMode } from "@prisma/client";
 
 // ============================================
@@ -39,7 +39,7 @@ export interface SetModeResult {
  * Get the current marketing hub mode for a shop
  */
 export async function getMarketingHubMode(shop: string): Promise<MarketingHubMode> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: { marketingHubMode: true },
   });
@@ -51,7 +51,7 @@ export async function getMarketingHubMode(shop: string): Promise<MarketingHubMod
  * Get full marketing mode information including connection status
  */
 export async function getMarketingModeInfo(shop: string): Promise<MarketingModeInfo> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: {
       marketingHubMode: true,
@@ -148,7 +148,7 @@ export async function setMarketingHubMode(
 
     // If switching to KLAVIYO, verify Klaviyo is connected
     if (mode === "KLAVIYO") {
-      const settings = await db.emailSettings.findUnique({
+      const settings = await prisma.emailSettings.findUnique({
         where: { shop },
         select: { klaviyoOAuthConnected: true, klaviyoEnabled: true },
       });
@@ -163,7 +163,7 @@ export async function setMarketingHubMode(
     }
 
     // Update the mode
-    await db.emailSettings.upsert({
+    await prisma.emailSettings.upsert({
       where: { shop },
       create: {
         shop,
@@ -181,7 +181,7 @@ export async function setMarketingHubMode(
 
     // If switching to INHOUSE, enable email provider as SendGrid
     if (mode === "INHOUSE") {
-      await db.emailSettings.update({
+      await prisma.emailSettings.update({
         where: { shop },
         data: { emailProvider: "SENDGRID" },
       });
@@ -189,7 +189,7 @@ export async function setMarketingHubMode(
 
     // If switching to KLAVIYO, update email provider
     if (mode === "KLAVIYO") {
-      await db.emailSettings.update({
+      await prisma.emailSettings.update({
         where: { shop },
         data: { emailProvider: "KLAVIYO" },
       });
@@ -209,7 +209,7 @@ export async function setMarketingHubMode(
  * (They may have dismissed it without choosing)
  */
 export async function markChoiceModalSeen(shop: string): Promise<void> {
-  await db.emailSettings.upsert({
+  await prisma.emailSettings.upsert({
     where: { shop },
     create: {
       shop,
@@ -236,7 +236,7 @@ export async function switchMarketingMode(
   if (currentMode === "INHOUSE" && newMode === "KLAVIYO") {
     try {
       // Archive draft and scheduled campaigns (don't delete)
-      await db.emailCampaign.updateMany({
+      await prisma.emailCampaign.updateMany({
         where: {
           shop,
           status: { in: ["draft", "scheduled"] },
@@ -247,7 +247,7 @@ export async function switchMarketingMode(
       });
 
       // Disable in-house automations
-      await db.emailAutomation.updateMany({
+      await prisma.emailAutomation.updateMany({
         where: { shop },
         data: { isEnabled: false },
       });
@@ -277,9 +277,9 @@ export async function getMarketingModeStats(): Promise<{
   total: number;
 }> {
   const [unconfigured, inhouse, klaviyo] = await Promise.all([
-    db.emailSettings.count({ where: { marketingHubMode: "UNCONFIGURED" } }),
-    db.emailSettings.count({ where: { marketingHubMode: "INHOUSE" } }),
-    db.emailSettings.count({ where: { marketingHubMode: "KLAVIYO" } }),
+    prisma.emailSettings.count({ where: { marketingHubMode: "UNCONFIGURED" } }),
+    prisma.emailSettings.count({ where: { marketingHubMode: "INHOUSE" } }),
+    prisma.emailSettings.count({ where: { marketingHubMode: "KLAVIYO" } }),
   ]);
 
   return {

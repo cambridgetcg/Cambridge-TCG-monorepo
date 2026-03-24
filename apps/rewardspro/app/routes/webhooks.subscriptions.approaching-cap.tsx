@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import * as crypto from "crypto";
-import db from "../db.server";
+import prisma from "../db.server";
 
 /**
  * Webhook handler for APP_SUBSCRIPTIONS_APPROACHING_CAPPED_AMOUNT
@@ -105,7 +105,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // 6. Log to UsageCapAlert table
     try {
-      await db.usageCapAlert.create({
+      await prisma.usageCapAlert.create({
         data: {
           shop: shopDomain,
           subscriptionId: subscription.admin_graphql_api_id,
@@ -134,7 +134,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // 7. Update ShopSettings with usage cap flag
     try {
       if (usagePercentage >= 100) {
-        await db.shopSettings.update({
+        await prisma.shopSettings.update({
           where: { shop: shopDomain },
           data: {
             usageCapReached: true,
@@ -156,7 +156,7 @@ export async function action({ request }: ActionFunctionArgs) {
           ? `Your usage is at ${usagePercentage.toFixed(1)}% of your plan's cap ($${balanceRemaining.toFixed(2)} remaining). Please upgrade your plan to avoid service interruption.`
           : `Your usage is at ${usagePercentage.toFixed(1)}% of your plan's cap ($${balanceRemaining.toFixed(2)} remaining). Consider upgrading your plan soon.`;
 
-      await db.notification.create({
+      await prisma.notification.create({
         data: {
           shop: shopDomain,
           type: "USAGE_CAP_WARNING",
@@ -181,7 +181,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // 9. Log to BillingHistory for audit trail
     try {
-      await db.billingHistory.create({
+      await prisma.billingHistory.create({
         data: {
           shop: shopDomain,
           eventType: "APPROACHING_CAP",

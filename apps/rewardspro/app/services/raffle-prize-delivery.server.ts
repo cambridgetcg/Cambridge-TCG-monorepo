@@ -9,7 +9,7 @@
  * - CUSTOM: Marks for manual fulfillment
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { earnPoints } from "./points-ledger.server";
 import { updateWinnerDeliveryStatus, markWinnerNotified } from "./raffle-drawing.server";
 import { trackRaffleWon } from "./klaviyo-events.server";
@@ -77,7 +77,7 @@ export async function deliverPrize(
 
   try {
     // Get winner with prize and raffle details
-    const winner = await db.raffleWinner.findFirst({
+    const winner = await prisma.raffleWinner.findFirst({
       where: { id: winnerId },
       include: {
         prize: true,
@@ -188,13 +188,13 @@ export async function deliverPrize(
       // Run async without blocking
       (async () => {
         try {
-          const fullCustomer = await db.customer.findUnique({
+          const fullCustomer = await prisma.customer.findUnique({
             where: { id: customerId },
             include: { currentTier: true },
           });
 
           // Get entry info for win details
-          const entry = await db.raffleEntry.findFirst({
+          const entry = await prisma.raffleEntry.findFirst({
             where: { raffleId: raffle.id, customerId },
           });
 
@@ -343,7 +343,7 @@ async function deliverStoreCreditPrize(
 
   try {
     // Create store credit ledger entry
-    const entry = await db.storeCreditLedger.create({
+    const entry = await prisma.storeCreditLedger.create({
       data: {
         shop,
         customerId,
@@ -355,7 +355,7 @@ async function deliverStoreCreditPrize(
     });
 
     // Update customer's store credit balance
-    await db.customer.update({
+    await prisma.customer.update({
       where: { id: customerId },
       data: {
         storeCredit: { increment: amountDecimal },
@@ -463,7 +463,7 @@ async function deliverProductPrize(
 
   try {
     // Get customer's Shopify ID for the draft order
-    const customer = await db.customer.findUnique({
+    const customer = await prisma.customer.findUnique({
       where: { id: customerId },
       select: { shopifyCustomerId: true, email: true },
     });
@@ -569,7 +569,7 @@ export async function deliverAllRafflePrizes(
   console.log(`${LOG_PREFIX} deliverAllRafflePrizes for raffle: ${raffleId}`);
 
   // Get all pending winners
-  const winners = await db.raffleWinner.findMany({
+  const winners = await prisma.raffleWinner.findMany({
     where: {
       raffleId,
       shop,
@@ -629,7 +629,7 @@ export async function retryFailedDeliveries(
   console.log(`${LOG_PREFIX} retryFailedDeliveries for raffle: ${raffleId}`);
 
   // Get failed winners
-  const failedWinners = await db.raffleWinner.findMany({
+  const failedWinners = await prisma.raffleWinner.findMany({
     where: {
       raffleId,
       shop,

@@ -17,7 +17,7 @@ import {
   cleanupExpiredDeletedProducts,
   getDeletedTierProducts,
 } from "~/services/tier-products/tier-product-deletion.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const startTime = Date.now();
@@ -44,7 +44,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Gather stats: all soft-deleted products across shops
     const shops = shopFilter
       ? [shopFilter]
-      : await db.tierProduct
+      : await prisma.tierProduct
           .findMany({
             where: { deletedAt: { not: null } },
             select: { shop: true },

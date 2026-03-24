@@ -9,7 +9,7 @@
  * Performance: 100x improvement (150K queries → ~10 queries for 10K customers)
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { Tier, Customer, TierSubscription, TierPurchase, TierSource as TierSourceEnum } from "@prisma/client";
 import { createLogger } from "./logger.server";
 import { v4 as uuidv4 } from "uuid";
@@ -99,13 +99,13 @@ async function loadRecalculationContext(shop: string): Promise<TierRecalculation
   // Parallel data loading - single query per data type
   const [tiers, overrideStates, activeSubscriptions, activePurchases] = await Promise.all([
     // 1. All tiers for shop
-    db.tier.findMany({
+    prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'desc' },
     }),
 
     // 2. All customers with manual overrides (via CustomerTierState)
-    db.customerTierState.findMany({
+    prisma.customerTierState.findMany({
       where: {
         shop,
         tierSource: 'MANUAL_OVERRIDE',
@@ -119,7 +119,7 @@ async function loadRecalculationContext(shop: string): Promise<TierRecalculation
     }),
 
     // 3. All active tier subscriptions
-    db.tierSubscription.findMany({
+    prisma.tierSubscription.findMany({
       where: {
         shop,
         status: 'ACTIVE',
@@ -128,7 +128,7 @@ async function loadRecalculationContext(shop: string): Promise<TierRecalculation
     }),
 
     // 4. All active tier purchases (lifetime or not expired)
-    db.tierPurchase.findMany({
+    prisma.tierPurchase.findMany({
       where: {
         shop,
         status: 'ACTIVE',
@@ -459,7 +459,7 @@ async function applyTierChanges(
     const batch = actualChanges.slice(i, i + BATCH_SIZE);
 
     try {
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         for (const change of batch) {
           // Update customer tier
           await tx.customer.update({
@@ -589,7 +589,7 @@ async function updateUnchangedCustomerStates(
     const batch = unchangedCustomers.slice(i, i + BATCH_SIZE);
 
     try {
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         for (const change of batch) {
           const progress = calculateProgressFast(
             change.netSpent,
@@ -706,7 +706,7 @@ export async function recalculateTiersOptimized(
   let offset = 0;
 
   while (true) {
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: { shop },
       include: { currentTier: true },
       skip: offset,

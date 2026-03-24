@@ -16,7 +16,7 @@ import {
 } from "@shopify/polaris";
 import { CheckIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 
 // ============= TYPES =============
 
@@ -38,13 +38,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
 
   // Fetch current automation settings
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
   });
 
   // If no settings exist, create them with defaults
   if (!shopSettings) {
-    await db.shopSettings.upsert({
+    await prisma.shopSettings.upsert({
       where: { shop },
       create: {
         shop,
@@ -105,13 +105,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     // Get current value for audit logging
-    const currentSettings = await db.shopSettings.findUnique({
+    const currentSettings = await prisma.shopSettings.findUnique({
       where: { shop },
       select: { [field]: true }
     });
 
     // Update the specific automation setting (field is now validated)
-    await db.shopSettings.update({
+    await prisma.shopSettings.update({
       where: { shop },
       data: {
         [field]: enabled,

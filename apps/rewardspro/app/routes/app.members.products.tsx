@@ -37,7 +37,7 @@ import {
   ArchiveIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { getTierStyle } from "../utils/tier-styles";
 import { SellingPlanManagerEnhanced } from "../services/subscription/selling-plan-manager-enhanced.server";
@@ -179,15 +179,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
     // Instead, fetch only currentTierId and count in memory
     const [tiers, shopSettings, customersWithTiers, analytics] = await Promise.all([
-      db.tier.findMany({
+      prisma.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
       }),
-      db.shopSettings.findUnique({
+      prisma.shopSettings.findUnique({
         where: { shop },
       }),
       // Fetch only tierId field for counting - more efficient than full records
-      db.customer.findMany({
+      prisma.customer.findMany({
         where: { shop },
         select: { currentTierId: true }
       }),
@@ -486,10 +486,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
       // Fetch tier and shop settings for currency
       const [tier, shopSettings] = await Promise.all([
-        db.tier.findFirst({
+        prisma.tier.findFirst({
           where: { id: tierId, shop }
         }),
-        db.shopSettings.findUnique({
+        prisma.shopSettings.findUnique({
           where: { shop }
         })
       ]);
@@ -1231,7 +1231,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const newPrice = parseFloat(formData.get("price") as string);
       
       // Get tier product to find selling plan group
-      const tierProduct = await db.tierProduct.findFirst({
+      const tierProduct = await prisma.tierProduct.findFirst({
         where: {
           shop,
           shopifyProductId: productId,

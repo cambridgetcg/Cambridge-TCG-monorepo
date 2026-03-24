@@ -14,7 +14,7 @@
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { v4 as uuidv4 } from "uuid";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import {
   ShopifyGiftCardAdapter,
@@ -128,7 +128,7 @@ export class GiftCardService {
    * Get gift card configuration for a shop
    */
   static async getConfig(shop: string) {
-    return db.giftCardConfig.findUnique({
+    return prisma.giftCardConfig.findUnique({
       where: { shop },
     });
   }
@@ -145,7 +145,7 @@ export class GiftCardService {
       defaultTemplateSuffix?: string;
     }
   ) {
-    return db.giftCardConfig.upsert({
+    return prisma.giftCardConfig.upsert({
       where: { shop },
       create: {
         id: uuidv4(),
@@ -160,7 +160,7 @@ export class GiftCardService {
    * Get tier-specific gift card settings
    */
   static async getTierSettings(shop: string, tierId: string) {
-    return db.tierGiftCardSettings.findFirst({
+    return prisma.tierGiftCardSettings.findFirst({
       where: { shop, tierId },
     });
   }
@@ -194,7 +194,7 @@ export class GiftCardService {
       if (input.purchaserInternalId && config?.enableTierBranding) {
         // DATA API COMPATIBLE: Nested include not supported, use two-step query
         // Get purchaser's current tier
-        const customer = await db.customer.findUnique({
+        const customer = await prisma.customer.findUnique({
           where: { id: input.purchaserInternalId },
           include: {
             currentTier: true, // Flat include, no nested giftCardSettings
@@ -203,7 +203,7 @@ export class GiftCardService {
 
         // Fetch giftCardSettings separately if customer has a tier
         const tierSettings = customer?.currentTier
-          ? await db.tierGiftCardSettings.findUnique({
+          ? await prisma.tierGiftCardSettings.findUnique({
               where: { tierId: customer.currentTier.id },
             })
           : null;
@@ -262,7 +262,7 @@ export class GiftCardService {
       let purchaserTierName: string | undefined;
 
       if (input.purchaserInternalId) {
-        const customer = await db.customer.findUnique({
+        const customer = await prisma.customer.findUnique({
           where: { id: input.purchaserInternalId },
           include: { currentTier: true },
         });
@@ -271,7 +271,7 @@ export class GiftCardService {
       }
 
       // Record in our database
-      const issuedGiftCard = await db.issuedGiftCard.create({
+      const issuedGiftCard = await prisma.issuedGiftCard.create({
         data: {
           id: uuidv4(),
           shop: input.shop,
@@ -306,7 +306,7 @@ export class GiftCardService {
         try {
           if (await isKlaviyoEnabled(input.shop)) {
             if (input.purchaserInternalId) {
-              const purchaser = await db.customer.findUnique({
+              const purchaser = await prisma.customer.findUnique({
                 where: { id: input.purchaserInternalId },
                 include: { currentTier: true },
               });
@@ -370,7 +370,7 @@ export class GiftCardService {
 
       // Get configuration from bundle or custom input
       if (input.bundleId) {
-        const bundle = await db.giftCardBundle.findUnique({
+        const bundle = await prisma.giftCardBundle.findUnique({
           where: { id: input.bundleId },
           include: { tier: true },
         });
@@ -397,7 +397,7 @@ export class GiftCardService {
         duration = input.custom.duration;
 
         // Get tier details
-        const tier = await db.tier.findUnique({
+        const tier = await prisma.tier.findUnique({
           where: { id: tierId },
           include: { giftCardSettings: true },
         });
@@ -439,7 +439,7 @@ export class GiftCardService {
       }
 
       // Record in our database with membership bundle info
-      const issuedGiftCard = await db.issuedGiftCard.create({
+      const issuedGiftCard = await prisma.issuedGiftCard.create({
         data: {
           id: uuidv4(),
           shop: input.shop,
@@ -504,7 +504,7 @@ export class GiftCardService {
 
     try {
       // Use transaction to ensure atomicity
-      const result = await db.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx) => {
         // DATA API COMPATIBLE: Nested include not supported, use two-step query
         // Get customer with current balance
         const customer = await tx.customer.findUnique({
@@ -608,7 +608,7 @@ export class GiftCardService {
       }
 
       // Record the issued gift card
-      const issuedGiftCard = await db.issuedGiftCard.create({
+      const issuedGiftCard = await prisma.issuedGiftCard.create({
         data: {
           id: uuidv4(),
           shop: input.shop,
@@ -638,7 +638,7 @@ export class GiftCardService {
       (async () => {
         try {
           if (await isKlaviyoEnabled(input.shop)) {
-            const customer = await db.customer.findUnique({
+            const customer = await prisma.customer.findUnique({
               where: { id: input.customerId },
               include: { currentTier: true },
             });
@@ -694,7 +694,7 @@ export class GiftCardService {
     }
 
     // DATA API COMPATIBLE: Nested include not supported, use two-step query
-    const customer = await db.customer.findUnique({
+    const customer = await prisma.customer.findUnique({
       where: { id: customerId },
       include: {
         currentTier: true, // Flat include, no nested giftCardSettings
@@ -703,7 +703,7 @@ export class GiftCardService {
 
     // Fetch giftCardSettings separately if customer has a tier
     const giftCardSettings = customer?.currentTier
-      ? await db.tierGiftCardSettings.findUnique({
+      ? await prisma.tierGiftCardSettings.findUnique({
           where: { tierId: customer.currentTier.id },
         })
       : null;
@@ -722,7 +722,7 @@ export class GiftCardService {
    * Get all gift card bundles for a shop
    */
   static async getBundles(shop: string, activeOnly = true) {
-    return db.giftCardBundle.findMany({
+    return prisma.giftCardBundle.findMany({
       where: {
         shop,
         ...(activeOnly && { isActive: true }),
@@ -749,7 +749,7 @@ export class GiftCardService {
       sortOrder?: number;
     }
   ) {
-    return db.giftCardBundle.create({
+    return prisma.giftCardBundle.create({
       data: {
         id: uuidv4(),
         shop,
@@ -787,7 +787,7 @@ export class GiftCardService {
       where.bundledTierId = filters.hasMembership ? { not: null } : null;
     }
 
-    return db.issuedGiftCard.findMany({
+    return prisma.issuedGiftCard.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: pagination?.skip,

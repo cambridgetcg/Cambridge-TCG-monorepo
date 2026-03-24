@@ -10,7 +10,7 @@
  * This service is designed to be called by a scheduled job (cron, AWS Lambda, etc.)
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { isKlaviyoEnabled } from "./klaviyo.server";
 import {
   syncCustomerToKlaviyo,
@@ -59,7 +59,7 @@ async function isOnCooldown(
   const cooldownStart = new Date();
   cooldownStart.setDate(cooldownStart.getDate() - cooldownDays);
 
-  const recentEvent = await db.klaviyoEvent.findFirst({
+  const recentEvent = await prisma.klaviyoEvent.findFirst({
     where: {
       shop,
       customerId,
@@ -99,7 +99,7 @@ export async function processPointsExpiringForShop(
   const cooldownDays = settings.expiryReminderCooldownDays || 7;
 
   // Get tiers for profile properties
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: "asc" },
   });
@@ -111,7 +111,7 @@ export async function processPointsExpiringForShop(
     expiryDate.setDate(expiryDate.getDate() + daysUntilExpiry);
 
     // Get customers with points expiring around this date
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         storeCredit: { gt: 0 },
@@ -139,7 +139,7 @@ export async function processPointsExpiringForShop(
 
         // Get customer tier
         const currentTier = customer.currentTierId
-          ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+          ? await prisma.tier.findUnique({ where: { id: customer.currentTierId } })
           : null;
 
         const customerWithTier = { ...customer, currentTier };
@@ -191,7 +191,7 @@ export async function processWinBackForShop(
   const cooldownDays = settings.winBackCooldownDays || 30;
 
   // Get tiers for profile properties
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: "asc" },
   });
@@ -201,7 +201,7 @@ export async function processWinBackForShop(
     targetDate.setDate(targetDate.getDate() - daysSinceOrder);
 
     // Find customers who haven't ordered since target date
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         orderCount: { gt: 0 }, // Has ordered before
@@ -230,7 +230,7 @@ export async function processWinBackForShop(
 
         // Get customer tier
         const currentTier = customer.currentTierId
-          ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+          ? await prisma.tier.findUnique({ where: { id: customer.currentTierId } })
           : null;
 
         const customerWithTier = { ...customer, currentTier };
@@ -287,13 +287,13 @@ export async function processBalanceRemindersForShop(
   targetDate.setDate(targetDate.getDate() - reminderDays);
 
   // Get tiers for profile properties
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: "asc" },
   });
 
   // Find customers with cashback who haven't ordered recently
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: {
       shop,
       storeCredit: { gt: 0 }, // Has cashback to use
@@ -322,7 +322,7 @@ export async function processBalanceRemindersForShop(
 
       // Get customer tier
       const currentTier = customer.currentTierId
-        ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+        ? await prisma.tier.findUnique({ where: { id: customer.currentTierId } })
         : null;
 
       const customerWithTier = { ...customer, currentTier };
@@ -375,7 +375,7 @@ export async function processTierNudgesForShop(
   const cooldownDays = settings.tierNudgeCooldownDays || 14;
 
   // Get all tiers for the shop
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: "asc" },
   });
@@ -386,7 +386,7 @@ export async function processTierNudgesForShop(
   }
 
   // Find customers who are close to next tier
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: {
       shop,
       currentTierId: { not: null },
@@ -401,7 +401,7 @@ export async function processTierNudgesForShop(
     try {
       // Get customer's current tier
       const currentTier = customer.currentTierId
-        ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+        ? await prisma.tier.findUnique({ where: { id: customer.currentTierId } })
         : null;
 
       if (!currentTier) continue;
@@ -499,14 +499,14 @@ export async function processSegmentChangesForShop(
   }
 
   // Get all tiers for segment calculation
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: "asc" },
   });
 
   // Find customers who might have segment changes
   // Process customers with Klaviyo profiles (already synced)
-  const profiles = await db.klaviyoProfile.findMany({
+  const profiles = await prisma.klaviyoProfile.findMany({
     where: { shop },
     take: 200, // Process in batches
   });
@@ -516,14 +516,14 @@ export async function processSegmentChangesForShop(
 
     try {
       // Get customer with tier
-      const customer = await db.customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: profile.customerId },
       });
 
       if (!customer) continue;
 
       const currentTier = customer.currentTierId
-        ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+        ? await prisma.tier.findUnique({ where: { id: customer.currentTierId } })
         : null;
 
       const customerWithTier = { ...customer, currentTier };
@@ -547,7 +547,7 @@ export async function processSegmentChangesForShop(
         }
 
         // Update the profile with new segment
-        await db.klaviyoProfile.update({
+        await prisma.klaviyoProfile.update({
           where: { id: profile.id },
           data: { lastKnownSegment: currentSegment },
         });
@@ -580,7 +580,7 @@ export async function processScheduledEventsForShop(
   }
 
   // Get automation settings
-  const settings = await db.klaviyoAutomationSettings.findUnique({
+  const settings = await prisma.klaviyoAutomationSettings.findUnique({
     where: { shop },
   });
 
@@ -640,7 +640,7 @@ export async function processScheduledEventsForAllShops(): Promise<ProcessAllSho
 
   try {
     // Find all shops with Klaviyo automation enabled
-    const shops = await db.klaviyoAutomationSettings.findMany({
+    const shops = await prisma.klaviyoAutomationSettings.findMany({
       where: {
         automationsEnabled: true,
       },

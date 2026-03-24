@@ -37,7 +37,7 @@ import {
 } from "../services/mystery-box-streak.server";
 import { getActivityFeed, getRecentWinners } from "../services/mystery-box-activity-feed.server";
 import { getActiveBonusEvents, getBestBonusEvent } from "../services/mystery-box-bonus-events.server";
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[api.customer-account.mystery-boxes]";
 
@@ -127,7 +127,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Get box-specific config if boxId provided
       let pityThreshold = 10;
       if (boxId) {
-        const box = await db.mysteryBox.findFirst({
+        const box = await prisma.mysteryBox.findFirst({
           where: { id: boxId, shop },
           select: { pityThreshold: true },
         });
@@ -209,7 +209,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const streakInfo = await getMysteryBoxStreak(shop, customerId);
 
       // Check if free open is available (need to get a box for dailyFreeOpens config)
-      const boxes = await db.mysteryBox.findMany({
+      const boxes = await prisma.mysteryBox.findMany({
         where: { shop, status: "ACTIVE", isPublic: true },
         select: { dailyFreeOpens: true },
         take: 1,
@@ -311,7 +311,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         return json({ error: "boxId is required for pre-open" }, { status: 400, headers: corsHeaders });
       }
 
-      const box = await db.mysteryBox.findFirst({
+      const box = await prisma.mysteryBox.findFirst({
         where: { id: boxId, shop },
       });
 
@@ -319,7 +319,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         return json({ error: "Mystery box not found" }, { status: 404, headers: corsHeaders });
       }
 
-      const customer = await db.customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: customerId },
         select: { firstName: true, lastName: true },
       });
@@ -407,7 +407,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const streakInfo = await getMysteryBoxStreak(shop, customerId);
 
     // Get free open availability based on the first active box's config
-    const activeBoxConfigs = await db.mysteryBox.findMany({
+    const activeBoxConfigs = await prisma.mysteryBox.findMany({
       where: { shop, status: "ACTIVE", isPublic: true },
       select: { id: true, dailyFreeOpens: true },
     });
@@ -500,7 +500,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // Get box configuration
-      const box = await db.mysteryBox.findFirst({
+      const box = await prisma.mysteryBox.findFirst({
         where: { id: boxId, shop },
       });
 

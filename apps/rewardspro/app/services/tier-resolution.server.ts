@@ -15,7 +15,7 @@
  * updateCustomerToEffectiveTier() which ensures atomic reads and writes.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { Prisma, PrismaClient, TierSource as TierSourceEnum } from "@prisma/client";
 import { getManualOverride } from "./manual-tier-assignment.server";
 import { calculateCustomerTierFromDB } from "./tier-calculation.server";
@@ -488,7 +488,7 @@ export async function updateCustomerToEffectiveTier(
   try {
     // Wrap ALL reads and writes in a transaction to prevent race conditions
     // Using ReadCommitted isolation to prevent dirty reads while allowing concurrent access
-    const result = await db.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Get current state within transaction
       const customer = await tx.customer.findFirst({
         where: { id: customerId, shop },

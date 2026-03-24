@@ -19,7 +19,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import {
   getPointsBalance,
   getTransactionHistory,
@@ -242,7 +242,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
 
     // Find customer using authenticated shop (multi-tenancy isolation)
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         shopifyCustomerId,
         shop, // CRITICAL: Always scope to authenticated shop!
@@ -368,7 +368,7 @@ async function getCustomerStreakInfo(
   bonusMultiplier: number;
 }> {
   // Get customer's recent activity
-  const customer = await db.customer.findFirst({
+  const customer = await prisma.customer.findFirst({
     where: { id: customerId, shop },
     select: {
       lastOrderDate: true,

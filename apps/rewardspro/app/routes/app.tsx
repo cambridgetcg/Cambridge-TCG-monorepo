@@ -1,6 +1,6 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, Outlet, useLoaderData, useRouteError, useNavigation } from "@remix-run/react";
+import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
@@ -13,7 +13,7 @@ import { HelpAssistant } from "../components/HelpAssistant";
 import { PageAnimationProvider, NavigationProgress } from "../components/PageAnimation";
 import { GA4Provider } from "../components/GA4Provider";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
 import type { ShopEntitlements } from "@prisma/client";
@@ -140,7 +140,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const month = now.getMonth() + 1;
 
           // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
-          const monthlyUsage = await db.monthlyOrderUsage.findFirst({
+          const monthlyUsage = await prisma.monthlyOrderUsage.findFirst({
             where: {
               shop: session.shop,
               year: year,
@@ -270,13 +270,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
   const { apiKey, shop, host, features, ga4MeasurementId } = useLoaderData<typeof loader>();
-  const navigation = useNavigation();
-
-  // Determine if we're navigating (for CSS-based transition)
-  const isNavigating = navigation.state === "loading";
-
-  // Log for debugging
-  console.log("[App Component] Rendering with:", { apiKey: apiKey ? "present" : "missing", shop, host, features });
 
   if (!apiKey) {
     console.error("[App Component] No API key available!");
@@ -321,8 +314,6 @@ export default function App() {
           <div
             className="page-content-wrapper"
             style={{
-              opacity: isNavigating ? 0.7 : 1,
-              transition: 'opacity 150ms ease-out',
               minHeight: '100vh',
             }}
           >

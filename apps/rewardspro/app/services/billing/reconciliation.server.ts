@@ -7,7 +7,7 @@
  * @module reconciliation.server
  */
 
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { v4 as uuidv4 } from "uuid";
 
 // ============================================
@@ -56,7 +56,7 @@ export async function reconcileLocalState(shop: string): Promise<ReconciliationR
   try {
     // Fetch all related records
     const [appSubscription, shopSettings, billingSubscription] = await Promise.all([
-      db.appSubscription.findUnique({
+      prisma.appSubscription.findUnique({
         where: { shop },
         select: {
           status: true,
@@ -64,7 +64,7 @@ export async function reconcileLocalState(shop: string): Promise<ReconciliationR
           shopifySubscriptionId: true,
         },
       }),
-      db.shopSettings.findUnique({
+      prisma.shopSettings.findUnique({
         where: { shop },
         select: {
           subscriptionStatus: true,
@@ -72,7 +72,7 @@ export async function reconcileLocalState(shop: string): Promise<ReconciliationR
           billingStatus: true,
         },
       }),
-      db.billingSubscription.findUnique({
+      prisma.billingSubscription.findUnique({
         where: { shop },
         select: {
           subscriptionStatus: true,
@@ -179,7 +179,7 @@ export async function reconcileLocalState(shop: string): Promise<ReconciliationR
  */
 export async function fixLocalStateInconsistencies(shop: string): Promise<boolean> {
   try {
-    const appSubscription = await db.appSubscription.findUnique({
+    const appSubscription = await prisma.appSubscription.findUnique({
       where: { shop },
       select: {
         status: true,
@@ -195,7 +195,7 @@ export async function fixLocalStateInconsistencies(shop: string): Promise<boolea
 
     const now = new Date();
 
-    await db.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Update ShopSettings to match AppSubscription
       await tx.shopSettings.update({
         where: { shop },
@@ -253,7 +253,7 @@ export async function runReconciliationJob(): Promise<ReconciliationJobResult> {
 
   try {
     // Get all shops with subscription data
-    const shops = await db.appSubscription.findMany({
+    const shops = await prisma.appSubscription.findMany({
       select: { shop: true },
     });
 
@@ -269,7 +269,7 @@ export async function runReconciliationJob(): Promise<ReconciliationJobResult> {
           result.issuesFound++;
 
           // Log the issue
-          await db.reconciliationLog.create({
+          await prisma.reconciliationLog.create({
             data: {
               id: uuidv4(),
               shop,
@@ -286,7 +286,7 @@ export async function runReconciliationJob(): Promise<ReconciliationJobResult> {
               result.autoFixed++;
 
               // Update log
-              await db.reconciliationLog.updateMany({
+              await prisma.reconciliationLog.updateMany({
                 where: {
                   shop,
                   action: "DETECTED",
@@ -335,7 +335,7 @@ export async function runReconciliationJob(): Promise<ReconciliationJobResult> {
  */
 export async function getPendingReconciliationIssues(): Promise<any[]> {
   try {
-    return await db.reconciliationLog.findMany({
+    return await prisma.reconciliationLog.findMany({
       where: {
         action: "MANUAL_REVIEW",
         resolvedAt: null,
@@ -358,7 +358,7 @@ export async function resolveReconciliationIssue(
   resolvedBy: string
 ): Promise<boolean> {
   try {
-    await db.reconciliationLog.update({
+    await prisma.reconciliationLog.update({
       where: { id: logId },
       data: {
         action: "RESOLVED",
@@ -386,10 +386,10 @@ export async function getReconciliationStats(): Promise<{
 }> {
   try {
     const [total, autoFixed, manualReview, resolved] = await Promise.all([
-      db.reconciliationLog.count(),
-      db.reconciliationLog.count({ where: { action: "AUTO_FIXED" } }),
-      db.reconciliationLog.count({ where: { action: "MANUAL_REVIEW" } }),
-      db.reconciliationLog.count({ where: { action: "RESOLVED" } }),
+      prisma.reconciliationLog.count(),
+      prisma.reconciliationLog.count({ where: { action: "AUTO_FIXED" } }),
+      prisma.reconciliationLog.count({ where: { action: "MANUAL_REVIEW" } }),
+      prisma.reconciliationLog.count({ where: { action: "RESOLVED" } }),
     ]);
 
     const pending = manualReview - resolved;

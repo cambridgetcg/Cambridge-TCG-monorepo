@@ -37,7 +37,7 @@ import {
   atomicWithinLimit,
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { UsageUpgradePrompt, LimitHint, PageLimitStatus, LimitExceededModal } from "~/components/Billing/UpgradePrompt";
 import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
 import { PointsIcon, DEFAULT_ICON_CONFIG } from "~/components/PointsIcon";
@@ -113,7 +113,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Rate-based gating: all features enabled, check limits only
     // Count active mystery boxes for limit check
-    const activeBoxCount = await db.mysteryBox.count({
+    const activeBoxCount = await prisma.mysteryBox.count({
       where: { shop, status: 'ACTIVE' },
     });
 

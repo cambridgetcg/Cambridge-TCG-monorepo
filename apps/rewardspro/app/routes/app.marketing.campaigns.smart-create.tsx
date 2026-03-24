@@ -18,7 +18,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -63,7 +63,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get email settings to check if configured
   let emailSettings = null;
   try {
-    emailSettings = await db.emailSettings.findUnique({
+    emailSettings = await prisma.emailSettings.findUnique({
       where: { shop },
     });
   } catch (error) {
@@ -104,7 +104,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Create email template
-    const template = await db.emailTemplate.create({
+    const template = await prisma.emailTemplate.create({
       data: {
         id: uuidv4(),
         shop,
@@ -145,7 +145,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Create campaign
-    const campaign = await db.emailCampaign.create({
+    const campaign = await prisma.emailCampaign.create({
       data: {
         id: uuidv4(),
         shop,

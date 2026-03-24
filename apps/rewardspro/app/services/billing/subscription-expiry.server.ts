@@ -7,7 +7,7 @@
  * @module subscription-expiry.server
  */
 
-import db from "../../db.server";
+import prisma from "../../db.server";
 
 // ============================================
 // TYPES
@@ -40,7 +40,7 @@ export interface ExpiryCheckResult {
  */
 export async function isSubscriptionExpired(shop: string): Promise<boolean> {
   try {
-    const subscription = await db.appSubscription.findUnique({
+    const subscription = await prisma.appSubscription.findUnique({
       where: { shop },
       select: {
         status: true,
@@ -83,7 +83,7 @@ export async function getSubscriptionStatus(shop: string): Promise<{
   gracePeriodRemaining: number | null;
 }> {
   try {
-    const subscription = await db.appSubscription.findUnique({
+    const subscription = await prisma.appSubscription.findUnique({
       where: { shop },
       select: {
         status: true,
@@ -162,7 +162,7 @@ export async function findExpiredSubscriptions(): Promise<ExpiredSubscription[]>
     const now = new Date();
 
     // Find subscriptions that are marked ACTIVE but have passed their period end
-    const subscriptions = await db.appSubscription.findMany({
+    const subscriptions = await prisma.appSubscription.findMany({
       where: {
         status: "ACTIVE",
         currentPeriodEnd: {
@@ -204,7 +204,7 @@ export async function markSubscriptionExpired(shop: string): Promise<boolean> {
   try {
     const now = new Date();
 
-    await db.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Update AppSubscription
       await tx.appSubscription.update({
         where: { shop },

@@ -15,7 +15,7 @@
  */
 
 import crypto from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { encrypt, decrypt } from "~/utils/encryption";
 
 // ============================================
@@ -262,7 +262,7 @@ export async function storeOAuthTokens(
   const encryptedAccessToken = encrypt(tokens.access_token);
   const encryptedRefreshToken = encrypt(tokens.refresh_token);
 
-  await db.emailSettings.upsert({
+  await prisma.emailSettings.upsert({
     where: { shop },
     create: {
       id: crypto.randomUUID(),
@@ -294,7 +294,7 @@ export async function storeOAuthTokens(
 export async function getValidAccessToken(
   shop: string
 ): Promise<string | null> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: {
       klaviyoAccessToken: true,
@@ -324,7 +324,7 @@ export async function getValidAccessToken(
     } catch (error) {
       console.error(`[Klaviyo OAuth] Failed to refresh token for ${shop}:`, error);
       // Mark as disconnected if refresh fails
-      await db.emailSettings.update({
+      await prisma.emailSettings.update({
         where: { shop },
         data: {
           klaviyoOAuthConnected: false,
@@ -349,7 +349,7 @@ export async function getValidAccessToken(
  * Disconnect Klaviyo OAuth for a shop
  */
 export async function disconnectKlaviyoOAuth(shop: string): Promise<void> {
-  await db.emailSettings.update({
+  await prisma.emailSettings.update({
     where: { shop },
     data: {
       klaviyoEnabled: false,
@@ -367,7 +367,7 @@ export async function disconnectKlaviyoOAuth(shop: string): Promise<void> {
  * Check if a shop has Klaviyo OAuth connected
  */
 export async function isKlaviyoOAuthConnected(shop: string): Promise<boolean> {
-  const settings = await db.emailSettings.findUnique({
+  const settings = await prisma.emailSettings.findUnique({
     where: { shop },
     select: { klaviyoOAuthConnected: true },
   });

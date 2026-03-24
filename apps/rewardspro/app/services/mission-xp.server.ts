@@ -10,7 +10,7 @@
  * - Level 1: 0-99 XP, Level 2: 100-219 XP, Level 3: 220-383 XP, etc.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type { MissionRarity } from "@prisma/client";
 
 const LOG_PREFIX = "[MissionXP]";
@@ -138,7 +138,7 @@ export function getBaseXpForRarity(rarity: MissionRarity): number {
  * Get XP configuration for a shop
  */
 export async function getXpConfig(shop: string): Promise<XpConfig> {
-  const config = await db.pointsConfig.findUnique({
+  const config = await prisma.pointsConfig.findUnique({
     where: { shop },
     select: {
       xpEnabled: true,
@@ -168,7 +168,7 @@ export async function getOrCreateMissionStats(
   currentStreak: number;
   todayComboCount: number;
 }> {
-  let stats = await db.customerMissionStats.findUnique({
+  let stats = await prisma.customerMissionStats.findUnique({
     where: { customerId },
     select: {
       id: true,
@@ -185,7 +185,7 @@ export async function getOrCreateMissionStats(
     const config = await getXpConfig(shop);
     const xpToNextLevelValue = calculateXpForLevel(2, config.xpPerLevel, config.xpLevelScaling);
 
-    const created = await db.customerMissionStats.create({
+    const created = await prisma.customerMissionStats.create({
       data: {
         shop,
         customerId,
@@ -257,7 +257,7 @@ export async function awardMissionXp(
   const leveledUp = newLevel > previousLevel;
 
   // Update stats
-  await db.customerMissionStats.update({
+  await prisma.customerMissionStats.update({
     where: { customerId },
     data: {
       totalXp: newTotalXp,
@@ -297,7 +297,7 @@ export async function getXpLeaderboard(
     customer: { email: string; firstName: string | null; lastName: string | null } | null;
   }>
 > {
-  const leaderboard = await db.customerMissionStats.findMany({
+  const leaderboard = await prisma.customerMissionStats.findMany({
     where: { shop },
     orderBy: { totalXp: "desc" },
     take: limit,
@@ -327,7 +327,7 @@ export async function getXpStats(shop: string): Promise<{
   maxLevel: number;
   customersWithXp: number;
 }> {
-  const stats = await db.customerMissionStats.aggregate({
+  const stats = await prisma.customerMissionStats.aggregate({
     where: { shop },
     _sum: { totalXp: true },
     _avg: { currentLevel: true },

@@ -7,7 +7,7 @@
  */
 
 import type { AdminApiContext } from '@shopify/shopify-app-remix/server';
-import db from '~/db.server';
+import prisma from '~/db.server';
 
 // ============================================================================
 // TYPES
@@ -486,7 +486,7 @@ export class PaymentMethodValidationService {
     try {
       // This would typically be called by a cron job
       // Query all customers with active subscriptions
-      const customers = await db.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where: {
           shop: this.shop,
           hasActiveSubscription: true,

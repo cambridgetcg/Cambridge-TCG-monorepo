@@ -5,7 +5,7 @@
  * Provides a clean API for emitting events from various parts of the application.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { broadcastEvent, processEventQueue } from "./integration-manager.server";
 import type { LoyaltyEventType } from "@prisma/client";
@@ -572,11 +572,11 @@ export async function getEventQueueStats(shop?: string): Promise<{
   const where = shop ? { shop } : {};
 
   const [pending, processing, delivered, failed, skipped] = await Promise.all([
-    db.integrationEvent.count({ where: { ...where, status: "PENDING" } }),
-    db.integrationEvent.count({ where: { ...where, status: "PROCESSING" } }),
-    db.integrationEvent.count({ where: { ...where, status: "DELIVERED" } }),
-    db.integrationEvent.count({ where: { ...where, status: "FAILED" } }),
-    db.integrationEvent.count({ where: { ...where, status: "SKIPPED" } }),
+    prisma.integrationEvent.count({ where: { ...where, status: "PENDING" } }),
+    prisma.integrationEvent.count({ where: { ...where, status: "PROCESSING" } }),
+    prisma.integrationEvent.count({ where: { ...where, status: "DELIVERED" } }),
+    prisma.integrationEvent.count({ where: { ...where, status: "FAILED" } }),
+    prisma.integrationEvent.count({ where: { ...where, status: "SKIPPED" } }),
   ]);
 
   return { pending, processing, delivered, failed, skipped };
@@ -586,7 +586,7 @@ export async function getEventQueueStats(shop?: string): Promise<{
  * Retry failed events for a shop
  */
 export async function retryFailedEvents(shop: string): Promise<number> {
-  const result = await db.integrationEvent.updateMany({
+  const result = await prisma.integrationEvent.updateMany({
     where: {
       shop,
       status: "FAILED",
@@ -614,7 +614,7 @@ export async function clearDeliveredEvents(
 ): Promise<number> {
   const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
 
-  const result = await db.integrationEvent.deleteMany({
+  const result = await prisma.integrationEvent.deleteMany({
     where: {
       status: "DELIVERED",
       deliveredAt: { lt: cutoff },

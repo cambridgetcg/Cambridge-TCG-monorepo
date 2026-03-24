@@ -1,4 +1,4 @@
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { analyticsCache } from "./cache.service";
 
 export type DateRange = { start: Date; end: Date };
@@ -13,7 +13,7 @@ export class AnalyticsAggregator {
     const cached = analyticsCache.get<any[]>(key);
     if (cached) return cached;
 
-    const rows = await db.$queryRaw`
+    const rows = await prisma.$queryRaw`
       SELECT date_trunc('day', "createdAt") AS day, SUM("netAmount")::float AS revenue
        FROM "Order"
        WHERE shop = ${shopId} AND "createdAt" BETWEEN ${range.start} AND ${range.end}
@@ -29,7 +29,7 @@ export class AnalyticsAggregator {
     const cached = analyticsCache.get<any[]>(key);
     if (cached) return cached;
 
-    const rows = await db.$queryRaw`
+    const rows = await prisma.$queryRaw`
       SELECT t.name AS tier, COUNT(*)::int AS customers
        FROM "Customer" c
        LEFT JOIN "Tier" t ON c."tierId" = t.id
@@ -45,7 +45,7 @@ export class AnalyticsAggregator {
     const cached = analyticsCache.get<any>(key);
     if (cached) return cached;
 
-    const results = await db.$queryRaw`
+    const results = await prisma.$queryRaw`
       WITH active AS (
          SELECT COUNT(DISTINCT "customerId") AS active_30d
            FROM "Order"
@@ -65,7 +65,7 @@ export class AnalyticsAggregator {
     const cached = analyticsCache.get<any[]>(key);
     if (cached) return cached;
 
-    const rows = await db.$queryRaw`
+    const rows = await prisma.$queryRaw`
       WITH first_order AS (
          SELECT "customerId", date_trunc('month', MIN("createdAt")) AS cohort_month
            FROM "Order" WHERE shop = ${shopId}
@@ -93,7 +93,7 @@ export class AnalyticsAggregator {
     const cached = analyticsCache.get<any[]>(key);
     if (cached) return cached;
 
-    const rows = await db.$queryRaw`
+    const rows = await prisma.$queryRaw`
       SELECT
         date_trunc('day', "createdAt") AS day,
         SUM(CASE WHEN type = 'CASHBACK_EARNED' THEN amount ELSE 0 END)::float AS cashback_earned,
@@ -111,7 +111,7 @@ export class AnalyticsAggregator {
     const cached = analyticsCache.get<any[]>(key);
     if (cached) return cached;
 
-    const rows = await db.$queryRaw`
+    const rows = await prisma.$queryRaw`
       SELECT
         c.id AS customer_id,
         c.email,
@@ -131,7 +131,7 @@ export class AnalyticsAggregator {
     const cached = analyticsCache.get<any[]>(key);
     if (cached) return cached;
 
-    const rows = await db.$queryRaw`
+    const rows = await prisma.$queryRaw`
       SELECT
         date_trunc('day', "createdAt") AS day,
         COUNT(*)::int AS order_count,

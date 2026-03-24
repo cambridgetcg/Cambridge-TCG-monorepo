@@ -1,5 +1,5 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 
 /**
@@ -182,7 +182,7 @@ export async function startOrderSyncJob(
   console.log(`[Order Sync Job] Starting new sync job for shop: ${shop}`);
 
   // Check for existing in-progress job
-  const existingJob = await db.orderSyncJob.findFirst({
+  const existingJob = await prisma.orderSyncJob.findFirst({
     where: {
       shop,
       status: 'IN_PROGRESS'
@@ -238,7 +238,7 @@ export async function startOrderSyncJob(
   }
 
   // Create new job
-  const job = await db.orderSyncJob.create({
+  const job = await prisma.orderSyncJob.create({
     data: {
       id: crypto.randomUUID(),
       shop,
@@ -284,7 +284,7 @@ export async function processOrderBatch(
   admin: AdminApiContext
 ): Promise<SyncJobResult> {
   // Get current job
-  const job = await db.orderSyncJob.findUnique({
+  const job = await prisma.orderSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -376,7 +376,7 @@ export async function processOrderBatch(
         }
 
         // Find customer in our database
-        const customer = await db.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
           where: {
             shop,
             shopifyCustomerId
@@ -422,7 +422,7 @@ export async function processOrderBatch(
     const hasMore = orders.pageInfo.hasNextPage;
     const newStatus = hasMore ? 'IN_PROGRESS' : 'COMPLETED';
 
-    const updatedJob = await db.orderSyncJob.update({
+    const updatedJob = await prisma.orderSyncJob.update({
       where: { id: jobId },
       data: {
         processedCount: newProcessedCount,
@@ -470,7 +470,7 @@ export async function processOrderBatch(
     console.error('[Order Sync Job] Batch processing failed:', error);
 
     // Update job with error
-    await db.orderSyncJob.update({
+    await prisma.orderSyncJob.update({
       where: { id: jobId },
       data: {
         status: 'FAILED',
@@ -505,7 +505,7 @@ export async function processOrderBatch(
  */
 export async function getOrderSyncJobStatus(shop: string): Promise<SyncJobResult | null> {
   // Get most recent job for this shop
-  const job = await db.orderSyncJob.findFirst({
+  const job = await prisma.orderSyncJob.findFirst({
     where: { shop },
     orderBy: { createdAt: 'desc' }
   });
@@ -541,7 +541,7 @@ export async function resumeOrderSyncJob(
   jobId: string,
   admin: AdminApiContext
 ): Promise<SyncJobResult> {
-  const job = await db.orderSyncJob.findUnique({
+  const job = await prisma.orderSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -586,7 +586,7 @@ export async function resumeOrderSyncJob(
   }
 
   // Reset job to in-progress
-  await db.orderSyncJob.update({
+  await prisma.orderSyncJob.update({
     where: { id: jobId },
     data: {
       status: 'IN_PROGRESS',
@@ -605,7 +605,7 @@ export async function resumeOrderSyncJob(
  * Cancel an in-progress order sync job
  */
 export async function cancelOrderSyncJob(jobId: string): Promise<boolean> {
-  const job = await db.orderSyncJob.findUnique({
+  const job = await prisma.orderSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -613,7 +613,7 @@ export async function cancelOrderSyncJob(jobId: string): Promise<boolean> {
     return false;
   }
 
-  await db.orderSyncJob.update({
+  await prisma.orderSyncJob.update({
     where: { id: jobId },
     data: {
       status: 'CANCELLED',
@@ -629,7 +629,7 @@ export async function cancelOrderSyncJob(jobId: string): Promise<boolean> {
  * Get sync job by ID
  */
 export async function getOrderSyncJobById(jobId: string): Promise<SyncJobResult | null> {
-  const job = await db.orderSyncJob.findUnique({
+  const job = await prisma.orderSyncJob.findUnique({
     where: { id: jobId }
   });
 
@@ -678,12 +678,12 @@ export async function getOrderSyncStats(shop: string): Promise<{
   } | null;
 }> {
   // Count total orders
-  const totalOrders = await db.order.count({
+  const totalOrders = await prisma.order.count({
     where: { shop }
   });
 
   // Count orders with cashback
-  const ordersWithCashback = await db.order.count({
+  const ordersWithCashback = await prisma.order.count({
     where: {
       shop,
       cashbackAmount: { gt: 0 }
@@ -691,7 +691,7 @@ export async function getOrderSyncStats(shop: string): Promise<{
   });
 
   // Sum total cashback
-  const cashbackSum = await db.order.aggregate({
+  const cashbackSum = await prisma.order.aggregate({
     where: { shop },
     _sum: { cashbackAmount: true },
     _min: { shopifyCreatedAt: true },
@@ -701,7 +701,7 @@ export async function getOrderSyncStats(shop: string): Promise<{
   // Get last sync job (handle case where table doesn't exist yet)
   let lastJob = null;
   try {
-    lastJob = await db.orderSyncJob.findFirst({
+    lastJob = await prisma.orderSyncJob.findFirst({
       where: { shop },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -818,7 +818,7 @@ async function createNewOrder(
 
   // Create historical ledger entry for cashback
   if (cashbackAmount > 0) {
-    await db.storeCreditLedger.create({
+    await prisma.storeCreditLedger.create({
       data: {
         id: uuidv4(),
         shop,
@@ -964,7 +964,7 @@ function mapFinancialStatus(status: string): string {
 async function updateCustomerSpendingTotals(shop: string): Promise<void> {
   console.log("[Order Sync Job] Updating customer spending totals...");
 
-  const customers = await db.customer.findMany({
+  const customers = await prisma.customer.findMany({
     where: { shop },
     select: { id: true }
   });
@@ -989,7 +989,7 @@ async function updateCustomerSpendingTotals(shop: string): Promise<void> {
       }
     });
 
-    await db.customer.update({
+    await prisma.customer.update({
       where: { id: customer.id },
       data: {
         totalSpent: orderStats._sum.totalPrice || 0,

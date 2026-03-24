@@ -33,7 +33,7 @@ import {
   CreditCardIcon,
 } from "~/utils/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
 
@@ -218,7 +218,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const [shopSettings, billingSubscription, tierCount, syncStatusRecords] = await Promise.all([
       // Shop settings for feature manager and currency (with health monitoring)
       measureQuery(() =>
-        db.shopSettings.findUnique({
+        prisma.shopSettings.findUnique({
           where: { shop },
           select: {
             storeCurrency: true,
@@ -236,17 +236,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ),
 
       // Billing subscription from database for plan details
-      db.billingSubscription.findUnique({
+      prisma.billingSubscription.findUnique({
         where: { shop },
       }).catch(() => null),
 
       // Tier count for loyalty engine status
-      db.tier.count({
+      prisma.tier.count({
         where: { shop }
       }).catch(() => 0),
 
       // Sync status for data sync health
-      db.syncStatus.findMany({
+      prisma.syncStatus.findMany({
         where: { shop },
         orderBy: { lastSyncAt: 'desc' }
       }).catch(() => []),
@@ -263,7 +263,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       // Try to get from cache first
       // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
-      const cachedUsage = await db.monthlyOrderUsage.findFirst({
+      const cachedUsage = await prisma.monthlyOrderUsage.findFirst({
         where: {
           shop: shop,
           year: year,
@@ -279,7 +279,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         const startOfMonth = new Date(year, month - 1, 1);
         const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
-        orderCount = await db.order.count({
+        orderCount = await prisma.order.count({
           where: {
             shop,
             createdAt: {
@@ -344,19 +344,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const lastHour = new Date(Date.now() - 60 * 60 * 1000);
 
     const [webhookProcessedCount, webhookErrorsLast24h, webhookErrorsLastHour] = await Promise.all([
-      db.webhookProcessed.count({
+      prisma.webhookProcessed.count({
         where: {
           shop,
           processedAt: { gte: last24Hours }
         }
       }),
-      db.webhookError.count({
+      prisma.webhookError.count({
         where: {
           shop,
           createdAt: { gte: last24Hours }
         }
       }),
-      db.webhookError.count({
+      prisma.webhookError.count({
         where: {
           shop,
           createdAt: { gte: lastHour }
@@ -587,7 +587,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Single DB operation with error handling
     try {
-      await db.shopSettings.update({
+      await prisma.shopSettings.update({
         where: { shop },
         data: updateData,
       });

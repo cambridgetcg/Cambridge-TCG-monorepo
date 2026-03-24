@@ -37,7 +37,7 @@ import {
   ChevronUpIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
 import { getEmailUsageStats, type EmailUsageStats } from "~/services/email-usage-control.server";
 import type { MarketingHubMode } from "@prisma/client";
@@ -80,17 +80,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
 
   // Get email settings or create default
-  const emailSettings = await db.emailSettings.findUnique({
+  const emailSettings = await prisma.emailSettings.findUnique({
     where: { shop },
   });
 
   // Get shop settings for defaults
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop },
   });
 
   // Get all domains for this shop
-  const domains = await db.sendGridDomain.findMany({
+  const domains = await prisma.sendGridDomain.findMany({
     where: { shop },
     orderBy: { createdAt: "desc" },
   });
@@ -98,7 +98,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get active custom domain if exists
   let customDomain = null;
   if (emailSettings?.customDomainId) {
-    customDomain = await db.sendGridDomain.findFirst({
+    customDomain = await prisma.sendGridDomain.findFirst({
       where: { id: emailSettings.customDomainId, shop },
     });
   }
@@ -158,7 +158,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const sendTimePrefs = { preferredTime, timezone, dailyLimit, hourlyLimit };
 
     // Upsert settings
-    await db.emailSettings.upsert({
+    await prisma.emailSettings.upsert({
       where: { shop },
       create: {
         shop,

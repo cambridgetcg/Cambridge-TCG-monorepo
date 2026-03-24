@@ -11,7 +11,7 @@
  * - Triggers new rewards availability notifications
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import {
   trackRewardsDormant,
   trackHighPointsNoActivity,
@@ -54,7 +54,7 @@ export async function processRewardsDormancy(
     dormancyCutoff.setDate(dormancyCutoff.getDate() - dormancyDays);
 
     // Get customers with points balance but no recent orders
-    const dormantCustomers = await db.customer.findMany({
+    const dormantCustomers = await prisma.customer.findMany({
       where: {
         shop,
         pointsBalance: { gt: 0 },
@@ -70,8 +70,8 @@ export async function processRewardsDormancy(
 
     // Get active rewards counts
     const [activeRaffles, activeMysteryBoxes, activeChallenges] = await Promise.all([
-      db.raffle.count({ where: { shop, status: "ACTIVE" } }),
-      db.mysteryBox.count({ where: { shop, status: "ACTIVE" } }),
+      prisma.raffle.count({ where: { shop, status: "ACTIVE" } }),
+      prisma.mysteryBox.count({ where: { shop, status: "ACTIVE" } }),
       0, // Challenges not yet implemented
     ]);
 
@@ -129,7 +129,7 @@ export async function processHighPointsNoActivity(
     inactiveCutoff.setDate(inactiveCutoff.getDate() - inactiveDays);
 
     // Get customers with high points balance
-    const highPointsCustomers = await db.customer.findMany({
+    const highPointsCustomers = await prisma.customer.findMany({
       where: {
         shop,
         pointsBalance: { gte: pointsThreshold },
@@ -144,7 +144,7 @@ export async function processHighPointsNoActivity(
       result.customersProcessed++;
 
       // Check last points spending transaction
-      const lastSpend = await db.pointsLedger.findFirst({
+      const lastSpend = await prisma.pointsLedger.findFirst({
         where: {
           customerId: customer.id,
           points: { lt: 0 }, // Negative means spent
@@ -191,7 +191,7 @@ async function getSuggestedRedemption(
   pointsBalance: number
 ): Promise<{ type: "raffle" | "mystery_box" | "redemption"; name: string; cost: number } | undefined> {
   // Check for affordable raffles
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: {
       shop,
       status: "ACTIVE",
@@ -205,7 +205,7 @@ async function getSuggestedRedemption(
   }
 
   // Check for affordable mystery boxes
-  const mysteryBox = await db.mysteryBox.findFirst({
+  const mysteryBox = await prisma.mysteryBox.findFirst({
     where: {
       shop,
       status: "ACTIVE",
@@ -251,7 +251,7 @@ export async function processRaffleEndingReminders(
     const reminderCutoff = new Date(now.getTime() + hoursBeforeEnd * 60 * 60 * 1000);
 
     // Find raffles ending soon
-    const endingRaffles = await db.raffle.findMany({
+    const endingRaffles = await prisma.raffle.findMany({
       where: {
         shop,
         status: "ACTIVE",
@@ -271,7 +271,7 @@ export async function processRaffleEndingReminders(
       result.rafflesProcessed++;
 
       // Get all customers with points who haven't entered this raffle
-      const customersWithPoints = await db.customer.findMany({
+      const customersWithPoints = await prisma.customer.findMany({
         where: {
           shop,
           pointsBalance: { gte: raffle.entryCost },
@@ -282,7 +282,7 @@ export async function processRaffleEndingReminders(
       });
 
       // Get customers who have already entered
-      const entries = await db.raffleEntry.findMany({
+      const entries = await prisma.raffleEntry.findMany({
         where: { raffleId: raffle.id },
         select: { customerId: true, entriesCount: true },
       });
@@ -352,7 +352,7 @@ export async function announceNewRaffle(
   };
 
   try {
-    const raffle = await db.raffle.findFirst({
+    const raffle = await prisma.raffle.findFirst({
       where: { id: raffleId, shop },
       include: {
         prizes: {
@@ -366,7 +366,7 @@ export async function announceNewRaffle(
     }
 
     // Get customers with email
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         email: { not: null },
@@ -421,7 +421,7 @@ export async function announceNewMysteryBox(
   };
 
   try {
-    const mysteryBox = await db.mysteryBox.findFirst({
+    const mysteryBox = await prisma.mysteryBox.findFirst({
       where: { id: mysteryBoxId, shop },
       include: {
         rewards: {
@@ -435,7 +435,7 @@ export async function announceNewMysteryBox(
     }
 
     // Get customers with email
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         email: { not: null },
@@ -496,7 +496,7 @@ export async function announceBonusEvent(
 
   try {
     // Get customers with email
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         shop,
         email: { not: null },
@@ -539,7 +539,7 @@ export async function runScheduledEngagementJobs(shop: string): Promise<{
   console.log(`${LOG_PREFIX} Running all scheduled engagement jobs for shop: ${shop}`);
 
   // Get automation settings for thresholds
-  const settings = await db.klaviyoAutomationSettings.findUnique({
+  const settings = await prisma.klaviyoAutomationSettings.findUnique({
     where: { shop },
   });
 

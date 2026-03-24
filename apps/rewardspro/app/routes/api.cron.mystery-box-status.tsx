@@ -12,7 +12,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { verifyCronAuth } from "../utils/cron-auth.server";
 import * as crypto from "crypto";
@@ -80,7 +80,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   try {
     // 5. Transition SCHEDULED → ACTIVE
     // Find mystery boxes that should now be active
-    const scheduledBoxes = await db.mysteryBox.findMany({
+    const scheduledBoxes = await prisma.mysteryBox.findMany({
       where: {
         status: 'SCHEDULED',
         startsAt: {
@@ -104,7 +104,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         if (box.endsAt <= now) {
           // Box period already passed, go directly to CLOSED
           if (!isDryRun) {
-            await db.mysteryBox.update({
+            await prisma.mysteryBox.update({
               where: { id: box.id },
               data: { status: 'CLOSED' }
             });
@@ -123,7 +123,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         } else {
           // Normal activation
           if (!isDryRun) {
-            await db.mysteryBox.update({
+            await prisma.mysteryBox.update({
               where: { id: box.id },
               data: { status: 'ACTIVE' }
             });
@@ -149,7 +149,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // 6. Transition ACTIVE → CLOSED
     // Find mystery boxes that have ended
-    const expiredBoxes = await db.mysteryBox.findMany({
+    const expiredBoxes = await prisma.mysteryBox.findMany({
       where: {
         status: 'ACTIVE',
         endsAt: {
@@ -170,7 +170,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const box of expiredBoxes) {
       try {
         if (!isDryRun) {
-          await db.mysteryBox.update({
+          await prisma.mysteryBox.update({
             where: { id: box.id },
             data: { status: 'CLOSED' }
           });

@@ -11,7 +11,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import type { IntegrationProvider, IntegrationPointsType } from "@prisma/client";
 
@@ -38,7 +38,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       where.provider = provider;
     }
 
-    const rules = await db.integrationPointsRule.findMany({
+    const rules = await prisma.integrationPointsRule.findMany({
       where,
       orderBy: { createdAt: "desc" },
     });
@@ -143,7 +143,7 @@ async function handleCreate(shop: string, body: CreateRuleBody) {
   }
 
   // Check for existing rule
-  const existing = await db.integrationPointsRule.findFirst({
+  const existing = await prisma.integrationPointsRule.findFirst({
     where: {
       shop,
       provider,
@@ -160,7 +160,7 @@ async function handleCreate(shop: string, body: CreateRuleBody) {
 
   console.log(`[PointsRulesAPI] Creating rule for ${provider}/${triggerEvent}`);
 
-  const rule = await db.integrationPointsRule.create({
+  const rule = await prisma.integrationPointsRule.create({
     data: {
       id: uuidv4(),
       shop,
@@ -211,7 +211,7 @@ async function handleUpdate(shop: string, body: UpdateRuleBody) {
   }
 
   // Find existing rule
-  const existing = await db.integrationPointsRule.findFirst({
+  const existing = await prisma.integrationPointsRule.findFirst({
     where: { id, shop },
   });
 
@@ -224,7 +224,7 @@ async function handleUpdate(shop: string, body: UpdateRuleBody) {
 
   console.log(`[PointsRulesAPI] Updating rule ${id}`);
 
-  const rule = await db.integrationPointsRule.update({
+  const rule = await prisma.integrationPointsRule.update({
     where: { id },
     data: {
       ...updates,
@@ -253,7 +253,7 @@ async function handleDelete(shop: string, body: { id: string }) {
   }
 
   // Find existing rule
-  const existing = await db.integrationPointsRule.findFirst({
+  const existing = await prisma.integrationPointsRule.findFirst({
     where: { id, shop },
   });
 
@@ -266,7 +266,7 @@ async function handleDelete(shop: string, body: { id: string }) {
 
   console.log(`[PointsRulesAPI] Deleting rule ${id}`);
 
-  await db.integrationPointsRule.delete({
+  await prisma.integrationPointsRule.delete({
     where: { id },
   });
 

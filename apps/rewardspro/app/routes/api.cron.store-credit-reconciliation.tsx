@@ -15,7 +15,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { timingSafeEqual } from "crypto";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import * as crypto from "crypto";
 
@@ -107,7 +107,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   try {
     // Get all shops with active settings
-    const shops = await db.shopSettings.findMany({
+    const shops = await prisma.shopSettings.findMany({
       where: {
         widgetIsActive: true // Only check shops with active widget
       },
@@ -126,7 +126,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         log('info', `Processing shop: ${shop}`);
 
         // Get all customers with non-zero store credit
-        const customers = await db.customer.findMany({
+        const customers = await prisma.customer.findMany({
           where: {
             shop,
             storeCredit: { gt: 0 }
@@ -168,7 +168,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           // webhook that already queries Shopify balance on each order
 
           // Check if the last ledger entry balance matches the customer's storeCredit field
-          const lastLedger = await db.storeCreditLedger.findFirst({
+          const lastLedger = await prisma.storeCreditLedger.findFirst({
             where: { customerId: customer.id },
             orderBy: { createdAt: 'desc' },
             select: { balance: true }

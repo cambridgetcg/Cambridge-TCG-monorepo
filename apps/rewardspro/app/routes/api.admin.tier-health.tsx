@@ -16,7 +16,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Prisma } from "@prisma/client";
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 interface TierHealthReport {
   healthy: boolean;
@@ -72,7 +72,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // 3. Count orphaned tier purchases (tier is null but status is ACTIVE)
     // With the SetNull change, tier will be null when the tier is deleted
-    const orphanedPurchases = await db.tierPurchase.findMany({
+    const orphanedPurchases = await prisma.tierPurchase.findMany({
       where: {
         ...shopWhere,
         tierId: null,  // Tier was deleted (SetNull)
@@ -82,7 +82,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
 
     // 4. Count orphaned tier subscriptions
-    const orphanedSubscriptions = await db.tierSubscription.findMany({
+    const orphanedSubscriptions = await prisma.tierSubscription.findMany({
       where: {
         ...shopWhere,
         tierId: null,  // Tier was deleted (SetNull)
@@ -98,7 +98,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ? Prisma.sql`AND c.shop = ${shopFilter}`
       : Prisma.empty;
 
-    const customersWithOrphanedTier = await db.$queryRaw(Prisma.sql`
+    const customersWithOrphanedTier = await prisma.$queryRaw(Prisma.sql`
       SELECT c.id, c.shop, c."currentTierId"
       FROM "Customer" c
       LEFT JOIN "Tier" t ON c."currentTierId" = t.id
@@ -113,7 +113,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ? Prisma.sql`AND shop = ${shopFilter}`
       : Prisma.empty;
 
-    const duplicateActiveSubscriptions = await db.$queryRaw(Prisma.sql`
+    const duplicateActiveSubscriptions = await prisma.$queryRaw(Prisma.sql`
       SELECT "customerId", shop, COUNT(*) as count
       FROM "TierSubscription"
       WHERE status = 'ACTIVE'
@@ -124,11 +124,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     `) as Array<{ customerId: string; shop: string; count: bigint }>;
 
     // 7. Get total counts for context
-    const totalActiveSubscriptions = await db.tierSubscription.count({
+    const totalActiveSubscriptions = await prisma.tierSubscription.count({
       where: { ...shopWhere, status: 'ACTIVE' }
     });
 
-    const totalActivePurchases = await db.tierPurchase.count({
+    const totalActivePurchases = await prisma.tierPurchase.count({
       where: { ...shopWhere, status: 'ACTIVE' }
     });
 

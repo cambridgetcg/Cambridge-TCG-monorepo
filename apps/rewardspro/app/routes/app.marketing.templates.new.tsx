@@ -56,7 +56,7 @@ import {
   MagicIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
@@ -77,7 +77,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (guardRedirect) return guardRedirect;
 
   // Load brand kit settings from ShopSettings
-  const shopSettings = await db.shopSettings.findUnique({
+  const shopSettings = await prisma.shopSettings.findUnique({
     where: { shop: session.shop },
     select: {
       brandKitEnabled: true,
@@ -155,7 +155,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     const templateId = uuidv4();
-    await db.emailTemplate.create({
+    await prisma.emailTemplate.create({
       data: {
         id: templateId,
         shop,

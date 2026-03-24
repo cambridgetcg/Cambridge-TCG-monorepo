@@ -9,7 +9,7 @@
 
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { authenticate } from "~/shopify.server";
 import { pauseCustomerSubscription, resumeCustomerSubscription, cancelCustomerSubscription } from "~/services/subscription/subscription-contract.server";
 import { TierSubscriptionBridgeV2 } from "~/services/subscription/tier-subscription-bridge.server";
@@ -32,7 +32,7 @@ async function checkRateLimitAndCooldown(
   const cooldownStart = new Date(now.getTime() - COOLDOWN_PERIOD_MS);
 
   // Count recent actions for this subscription
-  const recentActions = await db.subscriptionEvent.count({
+  const recentActions = await prisma.subscriptionEvent.count({
     where: {
       subscriptionId,
       createdAt: { gte: windowStart },
@@ -48,7 +48,7 @@ async function checkRateLimitAndCooldown(
   }
 
   // Check cooldown for same action type (prevent rapid toggle)
-  const lastSameAction = await db.subscriptionEvent.findFirst({
+  const lastSameAction = await prisma.subscriptionEvent.findFirst({
     where: {
       subscriptionId,
       eventType: actionType.toUpperCase(),
@@ -106,7 +106,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Verify the customer owns this subscription
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         shop,
         shopifyCustomerId,
@@ -118,7 +118,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Find the subscription (check both models)
-    let subscription = await db.tierSubscription.findFirst({
+    let subscription = await prisma.tierSubscription.findFirst({
       where: {
         id: subscriptionId,
         customerId: customer.id,
@@ -129,7 +129,7 @@ export async function action({ request }: ActionFunctionArgs) {
     let isAppSubscription = false;
     if (!subscription) {
       // Check app-level subscriptions
-      const appSub = await db.subscription.findFirst({
+      const appSub = await prisma.subscription.findFirst({
         where: {
           id: subscriptionId,
           customerId: customer.id,
@@ -161,7 +161,7 @@ export async function action({ request }: ActionFunctionArgs) {
         if (result.success) {
           // Update our database
           if (isAppSubscription) {
-            await db.subscription.update({
+            await prisma.subscription.update({
               where: { id: subscriptionId },
               data: {
                 status: 'PAUSED',
@@ -187,7 +187,7 @@ export async function action({ request }: ActionFunctionArgs) {
         if (result.success) {
           // Update our database
           if (isAppSubscription) {
-            await db.subscription.update({
+            await prisma.subscription.update({
               where: { id: subscriptionId },
               data: {
                 status: 'ACTIVE',
@@ -214,7 +214,7 @@ export async function action({ request }: ActionFunctionArgs) {
         if (result.success) {
           // Update our database
           if (isAppSubscription) {
-            await db.subscription.update({
+            await prisma.subscription.update({
               where: { id: subscriptionId },
               data: {
                 status: 'CANCELLED',
@@ -225,7 +225,7 @@ export async function action({ request }: ActionFunctionArgs) {
             });
 
             // Update customer subscription status for app subscriptions
-            await db.customer.update({
+            await prisma.customer.update({
               where: { id: customer.id },
               data: {
                 hasActiveSubscription: false,
@@ -268,7 +268,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Log the action for analytics
-    await db.subscriptionEvent.create({
+    await prisma.subscriptionEvent.create({
       data: {
         id: crypto.randomUUID(),
         shop,

@@ -1,6 +1,6 @@
 import { json, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 
 /**
  * Setup Customer Metafield for Storefront Widget
@@ -78,7 +78,7 @@ export async function action({ request }: ActionFunctionArgs) {
     console.log("Customer metafield definition created:", definition);
 
     // Now populate metafield for existing customers
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: { shop },
       select: {
         id: true,
@@ -152,7 +152,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
         if (metafieldId) {
           // Update customer record with metafield ID
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: customer.id },
             data: { shopifyCustomerMetafieldId: metafieldId }
           });

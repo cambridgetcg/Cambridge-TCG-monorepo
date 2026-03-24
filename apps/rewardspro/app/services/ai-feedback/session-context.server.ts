@@ -5,7 +5,7 @@
  * Part of the AI Feedback System for self-improvement.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { AISession, AISessionAction, AILearningPattern, Prisma } from "@prisma/client";
 
 // Types
@@ -47,7 +47,7 @@ export async function startSession(
   territory?: "charted" | "uncharted"
 ): Promise<AISession> {
   // Check if session already exists (recovery from crash)
-  const existing = await db.aISession.findUnique({
+  const existing = await prisma.aISession.findUnique({
     where: { sessionId },
   });
 
@@ -56,7 +56,7 @@ export async function startSession(
     return existing;
   }
 
-  const session = await db.aISession.create({
+  const session = await prisma.aISession.create({
     data: {
       sessionId,
       primaryIntent: intent,
@@ -76,7 +76,7 @@ export async function recordAction(
   sessionId: string,
   action: SessionAction
 ): Promise<AISessionAction> {
-  const session = await db.aISession.findUnique({
+  const session = await prisma.aISession.findUnique({
     where: { sessionId },
   });
 
@@ -84,7 +84,7 @@ export async function recordAction(
     throw new Error(`Session not found: ${sessionId}`);
   }
 
-  const recorded = await db.aISessionAction.create({
+  const recorded = await prisma.aISessionAction.create({
     data: {
       sessionId: session.id,
       actionType: action.actionType,
@@ -106,7 +106,7 @@ export async function endSession(
   sessionId: string,
   reflection: SessionReflection
 ): Promise<AISession> {
-  const session = await db.aISession.findUnique({
+  const session = await prisma.aISession.findUnique({
     where: { sessionId },
   });
 
@@ -115,7 +115,7 @@ export async function endSession(
   }
 
   // Update session with reflection
-  const updated = await db.aISession.update({
+  const updated = await prisma.aISession.update({
     where: { id: session.id },
     data: {
       endedAt: new Date(),
@@ -131,7 +131,7 @@ export async function endSession(
   // Record feedback if provided
   if (reflection.feedback && reflection.feedback.length > 0) {
     for (const fb of reflection.feedback) {
-      await db.aISessionFeedback.create({
+      await prisma.aISessionFeedback.create({
         data: {
           sessionId: session.id,
           dimension: fb.dimension,
@@ -151,21 +151,21 @@ export async function endSession(
  */
 export async function getSessionContext(sessionId: string): Promise<SessionContext> {
   // DATA API COMPATIBLE: include not supported in findUnique, use two-step query
-  const session = await db.aISession.findUnique({
+  const session = await prisma.aISession.findUnique({
     where: { sessionId },
   });
 
   // Fetch actions separately if session exists
   let actions: AISessionAction[] = [];
   if (session) {
-    actions = await db.aISessionAction.findMany({
+    actions = await prisma.aISessionAction.findMany({
       where: { sessionId: session.id },
       orderBy: { createdAt: "asc" },
     });
   }
 
   // Get recent patterns for suggestions
-  const recentPatterns = await db.aILearningPattern.findMany({
+  const recentPatterns = await prisma.aILearningPattern.findMany({
     where: {
       confidence: { gte: 0.7 },
     },
@@ -174,7 +174,7 @@ export async function getSessionContext(sessionId: string): Promise<SessionConte
   });
 
   // Get low-confidence patterns as blindspots
-  const blindspots = await db.aILearningPattern.findMany({
+  const blindspots = await prisma.aILearningPattern.findMany({
     where: {
       confidence: { lt: 0.4 },
     },
@@ -200,7 +200,7 @@ export async function getRecentPatterns(limit: number = 10): Promise<Array<{
   applicableTo: string[];
 }>> {
   // DATA API COMPATIBLE: orderBy only supports single field
-  const patterns = await db.aILearningPattern.findMany({
+  const patterns = await prisma.aILearningPattern.findMany({
     where: {
       confidence: { gte: 0.5 },
     },
@@ -237,7 +237,7 @@ export async function getSessionStats(days: number = 30): Promise<{
   const since = new Date();
   since.setDate(since.getDate() - days);
 
-  const sessions = await db.aISession.findMany({
+  const sessions = await prisma.aISession.findMany({
     where: {
       startedAt: { gte: since },
       endedAt: { not: null },
@@ -265,7 +265,7 @@ export async function getSessionStats(days: number = 30): Promise<{
  * Get active (unfinished) sessions
  */
 export async function getActiveSessions(): Promise<AISession[]> {
-  return db.aISession.findMany({
+  return prisma.aISession.findMany({
     where: {
       endedAt: null,
     },
@@ -280,7 +280,7 @@ export async function cleanupStaleSessions(): Promise<number> {
   const staleThreshold = new Date();
   staleThreshold.setHours(staleThreshold.getHours() - 24);
 
-  const stale = await db.aISession.findMany({
+  const stale = await prisma.aISession.findMany({
     where: {
       endedAt: null,
       startedAt: { lt: staleThreshold },
@@ -288,7 +288,7 @@ export async function cleanupStaleSessions(): Promise<number> {
   });
 
   for (const session of stale) {
-    await db.aISession.update({
+    await prisma.aISession.update({
       where: { id: session.id },
       data: {
         endedAt: new Date(),

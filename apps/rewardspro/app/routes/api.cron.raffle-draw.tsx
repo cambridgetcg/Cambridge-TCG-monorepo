@@ -16,7 +16,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { executeRaffleDraw } from "../services/raffle-drawing.server";
 import { verifyCronAuth } from "../utils/cron-auth.server";
@@ -84,7 +84,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   try {
     // 5. Find CLOSED raffles with drawAt set and no winners
-    const rafflesToDraw = await db.raffle.findMany({
+    const rafflesToDraw = await prisma.raffle.findMany({
       where: {
         status: 'CLOSED',
         drawAt: {

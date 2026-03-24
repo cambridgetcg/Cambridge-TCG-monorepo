@@ -1,6 +1,6 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import crypto from "crypto";
-import db from "../db.server";
+import prisma from "../db.server";
 
 /**
  * Background customer sync function for afterAuth hook
@@ -15,7 +15,7 @@ export async function syncCustomersInBackground(
 
   try {
     // Mark sync as in progress
-    await db.shopSettings.upsert({
+    await prisma.shopSettings.upsert({
       where: { shop },
       create: {
         shop,
@@ -82,7 +82,7 @@ export async function syncCustomersInBackground(
 
         try {
           // Check if customer already exists
-          const existingCustomer = await db.customer.findFirst({
+          const existingCustomer = await prisma.customer.findFirst({
             where: {
               shop,
               shopifyCustomerId: shopifyId,
@@ -91,7 +91,7 @@ export async function syncCustomersInBackground(
 
           if (!existingCustomer) {
             // Create new customer with minimal required fields
-            await db.customer.create({
+            await prisma.customer.create({
               data: {
                 id: crypto.randomUUID(),
                 shop,
@@ -108,7 +108,7 @@ export async function syncCustomersInBackground(
           } else {
             // Update existing customer only if email has changed
             if (shopifyCustomer.email && shopifyCustomer.email !== existingCustomer.email) {
-              await db.customer.update({
+              await prisma.customer.update({
                 where: { id: existingCustomer.id },
                 data: {
                   email: shopifyCustomer.email,
@@ -139,7 +139,7 @@ export async function syncCustomersInBackground(
     );
 
     // Mark sync as completed
-    await db.shopSettings.update({
+    await prisma.shopSettings.update({
       where: { shop },
       data: {
         customersInitialSynced: true,
@@ -153,7 +153,7 @@ export async function syncCustomersInBackground(
 
     // Mark sync as failed
     try {
-      await db.shopSettings.update({
+      await prisma.shopSettings.update({
         where: { shop },
         data: {
           customersSyncInProgress: false,

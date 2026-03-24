@@ -4,7 +4,7 @@
  * Reduces queries from ~10+ to 3 and limits data to recent months
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { getCachedOrCompute } from "~/utils/analytics-cache.server";
 
 // Types
@@ -105,7 +105,7 @@ async function fetchCohortAnalysis(shop: string): Promise<CohortAnalysis> {
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
   // Get tiers for tier progression analysis
-  const tiers = await db.tier.findMany({
+  const tiers = await prisma.tier.findMany({
     where: { shop },
     orderBy: { minSpend: 'asc' },
     select: { id: true, name: true },
@@ -113,7 +113,7 @@ async function fetchCohortAnalysis(shop: string): Promise<CohortAnalysis> {
 
   // OPTIMIZED: Only fetch customers created in last 12 months
   // Limit to 5000 customers max to prevent memory issues
-  const customersWithOrders = await db.customer.findMany({
+  const customersWithOrders = await prisma.customer.findMany({
     where: {
       shop,
       orderCount: { gt: 0 },
@@ -136,7 +136,7 @@ async function fetchCohortAnalysis(shop: string): Promise<CohortAnalysis> {
   // OPTIMIZED: Only fetch orders for the customers we're analyzing
   const customerIds = customersWithOrders.map(c => c.id);
 
-  const allOrders = customerIds.length > 0 ? await db.order.findMany({
+  const allOrders = customerIds.length > 0 ? await prisma.order.findMany({
     where: {
       shop,
       customerId: { in: customerIds },
@@ -154,7 +154,7 @@ async function fetchCohortAnalysis(shop: string): Promise<CohortAnalysis> {
   console.log(`[Cohort Analysis] Fetched ${allOrders.length} orders`);
 
   // OPTIMIZED: Only fetch tier changes for analyzed customers
-  const tierChangeLogs = customerIds.length > 0 ? await db.tierChangeLog.findMany({
+  const tierChangeLogs = customerIds.length > 0 ? await prisma.tierChangeLog.findMany({
     where: {
       shop,
       customerId: { in: customerIds },

@@ -6,7 +6,7 @@
  */
 
 import type { Currency } from '@prisma/client';
-import db from '~/db.server';
+import prisma from '~/db.server';
 import { z } from 'zod';
 
 // ============================================================================

@@ -15,7 +15,7 @@
  * - Recurring (same hours on specific days)
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { MysteryBoxBonusEventType } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxBonusEvents]";
@@ -159,7 +159,7 @@ export async function getActiveBonusEvents(params: {
   const now = new Date();
 
   // Get active events — use AND to combine two OR conditions
-  const allEvents = await db.mysteryBoxBonusEvent.findMany({
+  const allEvents = await prisma.mysteryBoxBonusEvent.findMany({
     where: {
       shop,
       isActive: true,
@@ -258,7 +258,7 @@ export async function getBestBonusEvent(params: {
   // If customer provided, check per-customer usage limits
   let eligibleEvents = events;
   if (customerId) {
-    const customerUsages = await db.mysteryBoxBonusEventUsage.findMany({
+    const customerUsages = await prisma.mysteryBoxBonusEventUsage.findMany({
       where: {
         customerId,
         eventId: { in: events.map((e) => e.id) },
@@ -271,7 +271,7 @@ export async function getBestBonusEvent(params: {
     }
 
     // Get events with per-customer limits
-    const eventsWithLimits = await db.mysteryBoxBonusEvent.findMany({
+    const eventsWithLimits = await prisma.mysteryBoxBonusEvent.findMany({
       where: {
         id: { in: events.map((e) => e.id) },
         maxUsesPerCustomer: { not: null },
@@ -328,7 +328,7 @@ export async function recordBonusEventUsage(params: {
 
   try {
     // Create usage record
-    await db.mysteryBoxBonusEventUsage.create({
+    await prisma.mysteryBoxBonusEventUsage.create({
       data: {
         eventId,
         customerId,
@@ -337,7 +337,7 @@ export async function recordBonusEventUsage(params: {
     });
 
     // Increment current uses
-    await db.mysteryBoxBonusEvent.update({
+    await prisma.mysteryBoxBonusEvent.update({
       where: { id: eventId },
       data: { currentUses: { increment: 1 } },
     });
@@ -385,7 +385,7 @@ export async function createHappyHour(params: {
     params.startsAt.getTime() + params.durationHours * 60 * 60 * 1000
   );
 
-  const event = await db.mysteryBoxBonusEvent.create({
+  const event = await prisma.mysteryBoxBonusEvent.create({
     data: {
       shop: params.shop,
       boxId: params.boxId,
@@ -426,7 +426,7 @@ export async function createFlashDiscount(params: {
   const startsAt = new Date();
   const endsAt = new Date(startsAt.getTime() + params.durationMinutes * 60 * 1000);
 
-  const event = await db.mysteryBoxBonusEvent.create({
+  const event = await prisma.mysteryBoxBonusEvent.create({
     data: {
       shop: params.shop,
       boxId: params.boxId,
@@ -463,7 +463,7 @@ export async function createDoubleRewards(params: {
   endsAt: Date;
   maxUses?: number;
 }): Promise<{ id: string }> {
-  const event = await db.mysteryBoxBonusEvent.create({
+  const event = await prisma.mysteryBoxBonusEvent.create({
     data: {
       shop: params.shop,
       boxId: params.boxId,
@@ -500,7 +500,7 @@ export async function createRecurringHappyHour(params: {
   endHour: number; // UTC hour (0-23)
   validUntil: Date;
 }): Promise<{ id: string }> {
-  const event = await db.mysteryBoxBonusEvent.create({
+  const event = await prisma.mysteryBoxBonusEvent.create({
     data: {
       shop: params.shop,
       boxId: params.boxId,
@@ -530,7 +530,7 @@ export async function createRecurringHappyHour(params: {
  * Deactivate a bonus event
  */
 export async function deactivateBonusEvent(eventId: string): Promise<void> {
-  await db.mysteryBoxBonusEvent.update({
+  await prisma.mysteryBoxBonusEvent.update({
     where: { id: eventId },
     data: { isActive: false },
   });

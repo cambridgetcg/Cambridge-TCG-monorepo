@@ -15,7 +15,7 @@
  */
 
 import { unauthenticated } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { handleCustomerCreate, type ShopifyCustomerWebhook } from "./webhook-customer-sync.server";
 import { setCustomerMetafield } from "./customer-metafield.server";
 
@@ -39,7 +39,7 @@ async function checkSyncRateLimit(shop: string): Promise<{
 
   try {
     // Count recent syncs (new customers created in the last minute)
-    const recentSyncs = await db.customer.count({
+    const recentSyncs = await prisma.customer.count({
       where: {
         shop,
         createdAt: { gte: windowStart },
@@ -56,7 +56,7 @@ async function checkSyncRateLimit(shop: string): Promise<{
     }
 
     // Count daily syncs
-    const dailySyncs = await db.customer.count({
+    const dailySyncs = await prisma.customer.count({
       where: {
         shop,
         createdAt: { gte: dayStart },
@@ -128,7 +128,7 @@ export async function fetchAndSyncCustomerFromShopify(
 
   try {
     // Check if customer already exists in database
-    const existingCustomer = await db.customer.findFirst({
+    const existingCustomer = await prisma.customer.findFirst({
       where: {
         shop,
         shopifyCustomerId,

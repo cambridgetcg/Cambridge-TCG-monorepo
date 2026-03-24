@@ -7,7 +7,7 @@
  * @module usage-enforcement.server
  */
 
-import db from "../../db.server";
+import prisma from "../../db.server";
 import { getPlanConfig } from "./plan-subscription.server";
 
 // ============================================
@@ -57,7 +57,7 @@ export async function enforceUsageCap(shop: string): Promise<UsageEnforcementRes
   try {
     // 1. Get current subscription and usage
     const [billingSubscription, shopSettings] = await Promise.all([
-      db.billingSubscription.findUnique({
+      prisma.billingSubscription.findUnique({
         where: { shop },
         select: {
           subscriptionStatus: true,
@@ -67,7 +67,7 @@ export async function enforceUsageCap(shop: string): Promise<UsageEnforcementRes
           planType: true,
         },
       }),
-      db.shopSettings.findUnique({
+      prisma.shopSettings.findUnique({
         where: { shop },
         select: {
           subscriptionStatus: true,
@@ -268,7 +268,7 @@ export async function recordThresholdAlert(
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Check if alert already sent this period
-    const existing = await db.notification.findFirst({
+    const existing = await prisma.notification.findFirst({
       where: {
         shop,
         type: "USAGE_THRESHOLD_ALERT",
@@ -285,7 +285,7 @@ export async function recordThresholdAlert(
     }
 
     // Create alert notification
-    await db.notification.create({
+    await prisma.notification.create({
       data: {
         id: `${key}_${now.getTime()}`,
         shop,
@@ -324,7 +324,7 @@ export async function getUsageSummary(shop: string): Promise<{
   onTrackToExceed: boolean;
 }> {
   try {
-    const billingSubscription = await db.billingSubscription.findUnique({
+    const billingSubscription = await prisma.billingSubscription.findUnique({
       where: { shop },
       select: {
         currentPeriodOrders: true,

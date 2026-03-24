@@ -21,7 +21,7 @@
  * - And all rewards engagement triggers (raffle, mystery box, etc.)
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import * as sendgrid from "./sendgrid.server";
 
 /**
@@ -114,7 +114,7 @@ export async function processAutomationTrigger(
     }
 
     // Find all active automations matching this trigger for the shop
-    const automations = await db.emailAutomation.findMany({
+    const automations = await prisma.emailAutomation.findMany({
       where: {
         shop: event.shop,
         trigger: event.type,
@@ -155,7 +155,7 @@ export async function processAutomationTrigger(
           // Delayed execution — store in PendingAutomation for cron processing
           try {
             const executeAt = new Date(Date.now() + automation.delayMinutes * 60 * 1000);
-            await db.pendingAutomation.create({
+            await prisma.pendingAutomation.create({
               data: {
                 shop: event.shop,
                 automationId: automation.id,
@@ -256,7 +256,7 @@ async function executeAutomationAction(
   }
 
   // Fetch template
-  const template = await db.emailTemplate.findFirst({
+  const template = await prisma.emailTemplate.findFirst({
     where: { id: automation.templateId, shop: event.shop },
     select: { subject: true, htmlContent: true, bodyHtml: true, name: true },
   });
@@ -293,7 +293,7 @@ async function executeAutomationAction(
 
   // Update automation metrics
   try {
-    await db.emailAutomation.update({
+    await prisma.emailAutomation.update({
       where: { id: automation.id },
       data: {
         totalSent: { increment: 1 },
@@ -325,7 +325,7 @@ export async function processDelayedAutomations(): Promise<{
 
   try {
     // Fetch pending automations that are due
-    const pending = await db.pendingAutomation.findMany({
+    const pending = await prisma.pendingAutomation.findMany({
       where: {
         status: "pending",
         executeAt: { lte: new Date() },
@@ -345,7 +345,7 @@ export async function processDelayedAutomations(): Promise<{
 
       try {
         // Fetch template
-        const template = await db.emailTemplate.findFirst({
+        const template = await prisma.emailTemplate.findFirst({
           where: { id: item.templateId, shop: item.shop },
           select: { subject: true, htmlContent: true, bodyHtml: true },
         });
@@ -378,14 +378,14 @@ export async function processDelayedAutomations(): Promise<{
         });
 
         // Mark as sent
-        await db.pendingAutomation.update({
+        await prisma.pendingAutomation.update({
           where: { id: item.id },
           data: { status: "sent", sentAt: new Date() },
         });
 
         // Update automation metrics
         try {
-          await db.emailAutomation.update({
+          await prisma.emailAutomation.update({
             where: { id: item.automationId },
             data: { totalSent: { increment: 1 }, updatedAt: new Date() },
           });
@@ -396,7 +396,7 @@ export async function processDelayedAutomations(): Promise<{
         result.sent++;
       } catch (error: any) {
         // Mark as failed
-        await db.pendingAutomation.update({
+        await prisma.pendingAutomation.update({
           where: { id: item.id },
           data: { status: "failed", error: error.message },
         });

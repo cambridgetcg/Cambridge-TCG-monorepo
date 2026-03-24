@@ -3,7 +3,7 @@
  * Tracks loyalty program usage and influenced sales
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { getCachedOrCompute } from "~/utils/analytics-cache.server";
 
 export interface ProgramImpactMetrics {
@@ -55,7 +55,7 @@ function getPreviousPeriod(): { year: number; month: number } {
  * Usage Rate = (Total Earned - Current Balance) / Total Earned * 100
  */
 async function calculateUsageRate(shop: string): Promise<number> {
-  const customers = await db.customer.aggregate({
+  const customers = await prisma.customer.aggregate({
     where: { shop },
     _sum: {
       totalCashbackEarned: true, // Total earned
@@ -82,7 +82,7 @@ async function calculateUsageRate(shop: string): Promise<number> {
  * Influenced sales = orders where cashback was processed
  */
 async function calculateInfluencedSales(shop: string): Promise<number> {
-  const result = await db.order.aggregate({
+  const result = await prisma.order.aggregate({
     where: {
       shop,
       cashbackProcessed: true, // Orders that earned cashback
@@ -155,7 +155,7 @@ async function fetchMonthlyImpactData(shop: string): Promise<MonthlyImpactData[]
     // Credits (earned) per month
     Promise.all(
       monthRanges.map(({ start, end }) =>
-        db.storeCreditLedger.aggregate({
+        prisma.storeCreditLedger.aggregate({
           where: {
             shop,
             createdAt: { gte: start, lte: end },
@@ -169,7 +169,7 @@ async function fetchMonthlyImpactData(shop: string): Promise<MonthlyImpactData[]
     // Debits (redeemed) per month
     Promise.all(
       monthRanges.map(({ start, end }) =>
-        db.storeCreditLedger.aggregate({
+        prisma.storeCreditLedger.aggregate({
           where: {
             shop,
             createdAt: { gte: start, lte: end },
@@ -183,7 +183,7 @@ async function fetchMonthlyImpactData(shop: string): Promise<MonthlyImpactData[]
     // Influenced sales per month
     Promise.all(
       monthRanges.map(({ start, end }) =>
-        db.order.aggregate({
+        prisma.order.aggregate({
           where: {
             shop,
             cashbackProcessed: true,

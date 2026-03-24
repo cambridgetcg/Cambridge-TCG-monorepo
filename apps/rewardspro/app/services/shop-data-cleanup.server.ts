@@ -17,7 +17,7 @@
  * regardless of which models are typed in the Data API adapter.
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 export interface CleanupResult {
   success: boolean;
@@ -78,79 +78,79 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
 
     // Points system
     await safeDeleteModel("PointsLedger", () =>
-      db.pointsLedger.deleteMany({ where: { shop } })
+      prisma.pointsLedger.deleteMany({ where: { shop } })
     );
 
     // Raffle system
     await safeDeleteModel("RaffleWinner", () =>
-      db.raffleWinner.deleteMany({ where: { shop } })
+      prisma.raffleWinner.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("RaffleEntry", () =>
-      db.raffleEntry.deleteMany({ where: { shop } })
+      prisma.raffleEntry.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("RafflePrize", () =>
-      db.rafflePrize.deleteMany({ where: { raffle: { shop } } })
+      prisma.rafflePrize.deleteMany({ where: { raffle: { shop } } })
     );
     await safeDeleteModel("Raffle", () =>
-      db.raffle.deleteMany({ where: { shop } })
+      prisma.raffle.deleteMany({ where: { shop } })
     );
 
     // Mystery box system
     await safeDeleteModel("MysteryBoxWinner", () =>
-      db.mysteryBoxWinner.deleteMany({ where: { shop } })
+      prisma.mysteryBoxWinner.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("MysteryBoxOpen", () =>
-      db.mysteryBoxOpen.deleteMany({ where: { shop } })
+      prisma.mysteryBoxOpen.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("MysteryBoxReward", () =>
-      db.mysteryBoxReward.deleteMany({ where: { mysteryBox: { shop } } })
+      prisma.mysteryBoxReward.deleteMany({ where: { mysteryBox: { shop } } })
     );
     await safeDeleteModel("MysteryBox", () =>
-      db.mysteryBox.deleteMany({ where: { shop } })
+      prisma.mysteryBox.deleteMany({ where: { shop } })
     );
 
     // Email system
     await safeDeleteModel("EmailEvent", () =>
-      db.emailEvent.deleteMany({ where: { shop } })
+      prisma.emailEvent.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("EmailCampaign", () =>
-      db.emailCampaign.deleteMany({ where: { shop } })
+      prisma.emailCampaign.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("EmailAutomation", () =>
-      db.emailAutomation.deleteMany({ where: { shop } })
+      prisma.emailAutomation.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("EmailTemplate", () =>
-      db.emailTemplate.deleteMany({ where: { shop } })
+      prisma.emailTemplate.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("SendGridDomain", () =>
-      db.sendGridDomain.deleteMany({ where: { shop } })
+      prisma.sendGridDomain.deleteMany({ where: { shop } })
     );
 
     // Analytics
     await safeDeleteModel("AnalyticsRecommendation", () =>
-      db.analyticsRecommendation.deleteMany({ where: { shop } })
+      prisma.analyticsRecommendation.deleteMany({ where: { shop } })
     );
 
     // Webhook processing records
     await safeDeleteModel("WebhookProcessed", () =>
-      db.webhookProcessed.deleteMany({ where: { shop } })
+      prisma.webhookProcessed.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("WebhookError", () =>
-      db.webhookError.deleteMany({ where: { shop } })
+      prisma.webhookError.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("WebhookProcess", () =>
-      db.webhookProcess.deleteMany({ where: { shop } })
+      prisma.webhookProcess.deleteMany({ where: { shop } })
     );
 
     // System records
     await safeDeleteModel("DeadLetterQueue", () =>
-      db.deadLetterQueue.deleteMany({ where: { shop } })
+      prisma.deadLetterQueue.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("SyncStatus", () =>
-      db.syncStatus.deleteMany({ where: { shop } })
+      prisma.syncStatus.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("Notification", () =>
-      db.notification.deleteMany({ where: { shop } })
+      prisma.notification.deleteMany({ where: { shop } })
     );
 
     // ================================================================
@@ -158,22 +158,22 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
     // ================================================================
 
     await safeDeleteModel("OrderRefundLineItem", () =>
-      db.orderRefundLineItem.deleteMany({ where: { refund: { order: { shop } } } })
+      prisma.orderRefundLineItem.deleteMany({ where: { refund: { order: { shop } } } })
     );
     await safeDeleteModel("OrderRefund", () =>
-      db.orderRefund.deleteMany({ where: { order: { shop } } })
+      prisma.orderRefund.deleteMany({ where: { order: { shop } } })
     );
     await safeDeleteModel("OrderLineItem", () =>
-      db.orderLineItem.deleteMany({ where: { order: { shop } } })
+      prisma.orderLineItem.deleteMany({ where: { order: { shop } } })
     );
 
     // Store credit ledger (references orders)
     await safeDeleteModel("StoreCreditLedger", () =>
-      db.storeCreditLedger.deleteMany({ where: { shop } })
+      prisma.storeCreditLedger.deleteMany({ where: { shop } })
     );
 
     await safeDeleteModel("Order", () =>
-      db.order.deleteMany({ where: { shop } })
+      prisma.order.deleteMany({ where: { shop } })
     );
 
     // ================================================================
@@ -181,32 +181,32 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
     // ================================================================
 
     await safeDeleteModel("SubscriptionEvent", () =>
-      db.subscriptionEvent.deleteMany({ where: { shop } })
+      prisma.subscriptionEvent.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("SubscriptionRetry", () =>
-      db.subscriptionRetry.deleteMany({ where: { shop } })
+      prisma.subscriptionRetry.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("SubscriptionBillingAttempt", () =>
-      db.subscriptionBillingAttempt.deleteMany({ where: { subscription: { shop } } })
+      prisma.subscriptionBillingAttempt.deleteMany({ where: { subscription: { shop } } })
     );
     await safeDeleteModel("SubscriptionPricingHistory", () =>
-      db.subscriptionPricingHistory.deleteMany({ where: { shop } })
+      prisma.subscriptionPricingHistory.deleteMany({ where: { shop } })
     );
 
     // Tier subscriptions and purchases
     await safeDeleteModel("TierSubscription", () =>
-      db.tierSubscription.deleteMany({ where: { shop } })
+      prisma.tierSubscription.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("TierPurchase", () =>
-      db.tierPurchase.deleteMany({ where: { shop } })
+      prisma.tierPurchase.deleteMany({ where: { shop } })
     );
 
     // Selling plans
     await safeDeleteModel("SellingPlan", () =>
-      db.sellingPlan.deleteMany({ where: { group: { shop } } })
+      prisma.sellingPlan.deleteMany({ where: { group: { shop } } })
     );
     await safeDeleteModel("SellingPlanGroup", () =>
-      db.sellingPlanGroup.deleteMany({ where: { shop } })
+      prisma.sellingPlanGroup.deleteMany({ where: { shop } })
     );
 
     // ================================================================
@@ -214,27 +214,27 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
     // ================================================================
 
     await safeDeleteModel("CustomerTierState", () =>
-      db.customerTierState.deleteMany({ where: { shop } })
+      prisma.customerTierState.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("TierChangeLog", () =>
-      db.tierChangeLog.deleteMany({ where: { shop } })
+      prisma.tierChangeLog.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("Customer", () =>
-      db.customer.deleteMany({ where: { shop } })
+      prisma.customer.deleteMany({ where: { shop } })
     );
 
     // Sync jobs
     await safeDeleteModel("CustomerSyncJob", () =>
-      db.customerSyncJob.deleteMany({ where: { shop } })
+      prisma.customerSyncJob.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("StoreCreditSyncJob", () =>
-      db.storeCreditSyncJob.deleteMany({ where: { shop } })
+      prisma.storeCreditSyncJob.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("OrderSyncJob", () =>
-      db.orderSyncJob.deleteMany({ where: { shop } })
+      prisma.orderSyncJob.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("BulkOperationLog", () =>
-      db.bulkOperationLog.deleteMany({ where: { shop } })
+      prisma.bulkOperationLog.deleteMany({ where: { shop } })
     );
 
     // ================================================================
@@ -242,10 +242,10 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
     // ================================================================
 
     await safeDeleteModel("TierProduct", () =>
-      db.tierProduct.deleteMany({ where: { shop } })
+      prisma.tierProduct.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("Tier", () =>
-      db.tier.deleteMany({ where: { shop } })
+      prisma.tier.deleteMany({ where: { shop } })
     );
 
     // ================================================================
@@ -253,25 +253,25 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
     // ================================================================
 
     await safeDeleteModel("UsageRecord", () =>
-      db.usageRecord.deleteMany({ where: { shop } })
+      prisma.usageRecord.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("MonthlyOrderUsage", () =>
-      db.monthlyOrderUsage.deleteMany({ where: { shop } })
+      prisma.monthlyOrderUsage.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("BillingHistory", () =>
-      db.billingHistory.deleteMany({ where: { shop } })
+      prisma.billingHistory.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("BillingAuditLog", () =>
-      db.billingAuditLog.deleteMany({ where: { shop } })
+      prisma.billingAuditLog.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("TierTrialAuditLog", () =>
-      db.tierTrialAuditLog.deleteMany({ where: { shop } })
+      prisma.tierTrialAuditLog.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("AppSubscription", () =>
-      db.appSubscription.deleteMany({ where: { shop } })
+      prisma.appSubscription.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("BillingSubscription", () =>
-      db.billingSubscription.deleteMany({ where: { shop } })
+      prisma.billingSubscription.deleteMany({ where: { shop } })
     );
 
     // ================================================================
@@ -279,19 +279,19 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
     // ================================================================
 
     await safeDeleteModel("PointsConfig", () =>
-      db.pointsConfig.deleteMany({ where: { shop } })
+      prisma.pointsConfig.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("SubscriptionPricingConfig", () =>
-      db.subscriptionPricingConfig.deleteMany({ where: { shop } })
+      prisma.subscriptionPricingConfig.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("EmailSettings", () =>
-      db.emailSettings.deleteMany({ where: { shop } })
+      prisma.emailSettings.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("ShopEntitlements", () =>
-      db.shopEntitlements.deleteMany({ where: { shop } })
+      prisma.shopEntitlements.deleteMany({ where: { shop } })
     );
     await safeDeleteModel("ShopSettings", () =>
-      db.shopSettings.deleteMany({ where: { shop } })
+      prisma.shopSettings.deleteMany({ where: { shop } })
     );
 
     // ================================================================
@@ -299,7 +299,7 @@ export async function cleanupShopData(shop: string): Promise<CleanupResult> {
     // ================================================================
 
     await safeDeleteModel("Session", () =>
-      db.session.deleteMany({ where: { shop } })
+      prisma.session.deleteMany({ where: { shop } })
     );
 
     const durationMs = Date.now() - startTime;
@@ -341,12 +341,12 @@ export async function getShopDataCounts(shop: string): Promise<Record<string, nu
   const counts: Record<string, number> = {};
 
   // Count key tables
-  counts.sessions = await db.session.count({ where: { shop } });
-  counts.customers = await db.customer.count({ where: { shop } });
-  counts.orders = await db.order.count({ where: { shop } });
-  counts.tiers = await db.tier.count({ where: { shop } });
-  counts.pointsLedger = await db.pointsLedger.count({ where: { shop } });
-  counts.storeCreditLedger = await db.storeCreditLedger.count({ where: { shop } });
+  counts.sessions = await prisma.session.count({ where: { shop } });
+  counts.customers = await prisma.customer.count({ where: { shop } });
+  counts.orders = await prisma.order.count({ where: { shop } });
+  counts.tiers = await prisma.tier.count({ where: { shop } });
+  counts.pointsLedger = await prisma.pointsLedger.count({ where: { shop } });
+  counts.storeCreditLedger = await prisma.storeCreditLedger.count({ where: { shop } });
 
   return counts;
 }

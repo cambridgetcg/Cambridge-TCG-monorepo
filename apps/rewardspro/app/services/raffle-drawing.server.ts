@@ -9,7 +9,7 @@
  */
 
 import * as crypto from "crypto";
-import db from "../db.server";
+import prisma from "../db.server";
 import type { RaffleDrawType, RafflePrizeDeliveryStatus } from "./raffle-management.server";
 
 /**
@@ -86,7 +86,7 @@ export async function executeRaffleDraw(
 
   try {
     // 1. Get raffle with prizes and entries
-    const raffle = await db.raffle.findFirst({
+    const raffle = await prisma.raffle.findFirst({
       where: { id: raffleId, shop },
     });
 
@@ -106,7 +106,7 @@ export async function executeRaffleDraw(
     }
 
     // 3. Get prizes
-    const prizes = await db.rafflePrize.findMany({
+    const prizes = await prisma.rafflePrize.findMany({
       where: { raffleId },
       orderBy: { displayOrder: "asc" },
     });
@@ -116,7 +116,7 @@ export async function executeRaffleDraw(
     }
 
     // 4. Get all entries
-    const entries = await db.raffleEntry.findMany({
+    const entries = await prisma.raffleEntry.findMany({
       where: { raffleId },
       include: {
         customer: {
@@ -131,7 +131,7 @@ export async function executeRaffleDraw(
 
     // 5. Transition to DRAWING status if not already
     if (raffle.status !== "DRAWING") {
-      await db.raffle.update({
+      await prisma.raffle.update({
         where: { id: raffleId },
         data: { status: "DRAWING", updatedAt: new Date() },
       });
@@ -190,7 +190,7 @@ export async function executeRaffleDraw(
 
       try {
         // Create winner record
-        const winnerRecord = await db.raffleWinner.create({
+        const winnerRecord = await prisma.raffleWinner.create({
           data: {
             raffleId,
             raffleEntryId: winner.entryId,
@@ -205,13 +205,13 @@ export async function executeRaffleDraw(
         });
 
         // Mark entry as winner
-        await db.raffleEntry.update({
+        await prisma.raffleEntry.update({
           where: { id: winner.entryId },
           data: { isWinner: true },
         });
 
         // Update prize quantity won
-        await db.rafflePrize.update({
+        await prisma.rafflePrize.update({
           where: { id: prize.prizeId },
           data: {
             quantityWon: { increment: 1 },
@@ -241,7 +241,7 @@ export async function executeRaffleDraw(
     }
 
     // 11. Mark raffle as completed
-    await db.raffle.update({
+    await prisma.raffle.update({
       where: { id: raffleId },
       data: {
         status: "COMPLETED",
@@ -263,7 +263,7 @@ export async function executeRaffleDraw(
 
     // Try to revert status if possible
     try {
-      await db.raffle.update({
+      await prisma.raffle.update({
         where: { id: raffleId },
         data: { status: "CLOSED", updatedAt: new Date() },
       });
@@ -442,7 +442,7 @@ export async function getRaffleWinners(
 ): Promise<any[]> {
   console.log(`${LOG_PREFIX} getRaffleWinners: ${raffleId}`);
 
-  const winners = await db.raffleWinner.findMany({
+  const winners = await prisma.raffleWinner.findMany({
     where: { raffleId, shop },
     orderBy: { winPosition: "asc" },
     include: {
@@ -504,7 +504,7 @@ export async function updateWinnerDeliveryStatus(
   if (details?.pointsLedgerId) updateData.pointsLedgerId = details.pointsLedgerId;
   if (details?.deliveryNotes) updateData.deliveryNotes = details.deliveryNotes;
 
-  const winner = await db.raffleWinner.update({
+  const winner = await prisma.raffleWinner.update({
     where: { id: winnerId },
     data: updateData,
   });
@@ -516,7 +516,7 @@ export async function updateWinnerDeliveryStatus(
  * Mark winner as notified
  */
 export async function markWinnerNotified(winnerId: string): Promise<void> {
-  await db.raffleWinner.update({
+  await prisma.raffleWinner.update({
     where: { id: winnerId },
     data: {
       notifiedAt: new Date(),
@@ -530,7 +530,7 @@ export async function markWinnerNotified(winnerId: string): Promise<void> {
  * Mark winner as claimed (acknowledged receipt)
  */
 export async function markWinnerClaimed(winnerId: string): Promise<void> {
-  await db.raffleWinner.update({
+  await prisma.raffleWinner.update({
     where: { id: winnerId },
     data: {
       claimedAt: new Date(),
@@ -566,7 +566,7 @@ export async function previewRaffleDraw(
 }> {
   console.log(`${LOG_PREFIX} previewRaffleDraw: ${raffleId}`);
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
@@ -574,12 +574,12 @@ export async function previewRaffleDraw(
     throw new Error("Raffle not found");
   }
 
-  const prizes = await db.rafflePrize.findMany({
+  const prizes = await prisma.rafflePrize.findMany({
     where: { raffleId },
     orderBy: { displayOrder: "asc" },
   });
 
-  const entries = await db.raffleEntry.findMany({
+  const entries = await prisma.raffleEntry.findMany({
     where: { raffleId },
     include: {
       customer: {

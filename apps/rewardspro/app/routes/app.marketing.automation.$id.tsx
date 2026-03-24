@@ -32,7 +32,7 @@ import {
 } from "@shopify/polaris-icons";
 import { useState, useCallback } from "react";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
@@ -173,7 +173,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // Fetch automation
   let automation: Automation | null = null;
   try {
-    const dbAutomation = await db.emailAutomation.findFirst({
+    const dbAutomation = await prisma.emailAutomation.findFirst({
       where: { id, shop },
     });
 
@@ -204,7 +204,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   // Fetch all templates for dropdown
   let templates: Template[] = [];
   try {
-    const dbTemplates = await db.emailTemplate.findMany({
+    const dbTemplates = await prisma.emailTemplate.findMany({
       where: { shop },
       orderBy: { name: "asc" },
     });
@@ -246,7 +246,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (intent === "delete") {
     try {
-      await db.emailAutomation.deleteMany({
+      await prisma.emailAutomation.deleteMany({
         where: { id, shop },
       });
       return redirect("/app/marketing/automation/workflows");
@@ -266,7 +266,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     }
 
     try {
-      await db.emailAutomation.updateMany({
+      await prisma.emailAutomation.updateMany({
         where: { id, shop },
         data: {
           name,
@@ -284,7 +284,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (intent === "toggle") {
     try {
-      const automation = await db.emailAutomation.findFirst({
+      const automation = await prisma.emailAutomation.findFirst({
         where: { id, shop },
       });
 
@@ -293,7 +293,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       }
 
       const newState = !automation.isEnabled;
-      await db.emailAutomation.updateMany({
+      await prisma.emailAutomation.updateMany({
         where: { id, shop },
         data: {
           isEnabled: newState,

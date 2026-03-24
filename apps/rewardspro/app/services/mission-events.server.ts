@@ -8,7 +8,7 @@
  * after being displayed to the customer.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import type { MissionEventType } from "@prisma/client";
 import type { XpAwardResult } from "./mission-xp.server";
 import type { StreakInfo } from "./mission-streak.server";
@@ -133,7 +133,7 @@ export async function createCompletionEvent(
     rewardDescription,
   };
 
-  const event = await db.missionCompletionEvent.create({
+  const event = await prisma.missionCompletionEvent.create({
     data: {
       shop,
       customerId,
@@ -186,7 +186,7 @@ export async function createLevelUpEvent(
     milestoneValue: newLevel,
   };
 
-  const event = await db.missionCompletionEvent.create({
+  const event = await prisma.missionCompletionEvent.create({
     data: {
       shop,
       customerId,
@@ -226,7 +226,7 @@ export async function createStreakMilestoneEvent(
     milestoneValue: streakInfo.currentStreak,
   };
 
-  const event = await db.missionCompletionEvent.create({
+  const event = await prisma.missionCompletionEvent.create({
     data: {
       shop,
       customerId,
@@ -266,7 +266,7 @@ export async function createComboMilestoneEvent(
     milestoneValue: comboInfo.todayComboCount,
   };
 
-  const event = await db.missionCompletionEvent.create({
+  const event = await prisma.missionCompletionEvent.create({
     data: {
       shop,
       customerId,
@@ -304,7 +304,7 @@ export async function createClaimEvent(
     rewardDescription,
   };
 
-  const event = await db.missionCompletionEvent.create({
+  const event = await prisma.missionCompletionEvent.create({
     data: {
       shop,
       customerId,
@@ -338,7 +338,7 @@ export async function getUnacknowledgedEvents(
   customerId: string,
   limit: number = 10
 ): Promise<MissionEvent[]> {
-  const events = await db.missionCompletionEvent.findMany({
+  const events = await prisma.missionCompletionEvent.findMany({
     where: {
       shop,
       customerId,
@@ -359,7 +359,7 @@ export async function getRecentEvents(
   customerId: string,
   limit: number = 20
 ): Promise<MissionEvent[]> {
-  const events = await db.missionCompletionEvent.findMany({
+  const events = await prisma.missionCompletionEvent.findMany({
     where: { shop, customerId },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -372,7 +372,7 @@ export async function getRecentEvents(
  * Acknowledge events (mark as displayed to customer)
  */
 export async function acknowledgeEvents(eventIds: string[]): Promise<number> {
-  const result = await db.missionCompletionEvent.updateMany({
+  const result = await prisma.missionCompletionEvent.updateMany({
     where: { id: { in: eventIds } },
     data: { acknowledged: true },
   });
@@ -386,7 +386,7 @@ export async function acknowledgeEvents(eventIds: string[]): Promise<number> {
  */
 export async function acknowledgeEvent(eventId: string): Promise<boolean> {
   try {
-    await db.missionCompletionEvent.update({
+    await prisma.missionCompletionEvent.update({
       where: { id: eventId },
       data: { acknowledged: true },
     });
@@ -410,7 +410,7 @@ export async function cleanupOldEvents(
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-  const result = await db.missionCompletionEvent.deleteMany({
+  const result = await prisma.missionCompletionEvent.deleteMany({
     where: {
       shop,
       acknowledged: true,

@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { invalidateShopSettings } from "../services/shop-data-provider.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -16,7 +16,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log(`[Shop Update] Money format: ${payload.money_format}`);
     
     // Clear the session to force re-authentication with new shop data
-    const deletedSessions = await db.session.deleteMany({
+    const deletedSessions = await prisma.session.deleteMany({
       where: { shop }
     });
     
@@ -24,7 +24,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log("[Shop Update] App will re-authenticate on next access");
     
     // Update shop settings with new timezone and currency if they exist
-    const shopSettings = await db.shopSettings.findUnique({
+    const shopSettings = await prisma.shopSettings.findUnique({
       where: { shop }
     });
     
@@ -49,7 +49,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (Object.keys(updates).length > 0) {
         updates.updatedAt = new Date();
 
-        await db.shopSettings.update({
+        await prisma.shopSettings.update({
           where: { id: shopSettings.id },
           data: updates
         });

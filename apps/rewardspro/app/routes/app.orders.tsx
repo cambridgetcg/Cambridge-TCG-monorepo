@@ -40,7 +40,7 @@ import {
   InfoIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
 import { formatCurrency, type ShopSettings } from "../utils/currency";
 import type { Decimal } from "@prisma/client/runtime/library";
@@ -143,7 +143,7 @@ async function updateCustomerSpendingTotals(customerId: string, shop: string) {
   // OPTIMIZED: Run both aggregations in parallel instead of sequentially
   const [orderStats, annualOrderStats] = await Promise.all([
     // All-time spending (PAID/PARTIALLY_REFUNDED)
-    db.order.aggregate({
+    prisma.order.aggregate({
       where: {
         shop,
         customerId,
@@ -162,7 +162,7 @@ async function updateCustomerSpendingTotals(customerId: string, shop: string) {
       }
     }),
     // Annual spending (last 12 months)
-    db.order.aggregate({
+    prisma.order.aggregate({
       where: {
         shop,
         customerId,
@@ -183,7 +183,7 @@ async function updateCustomerSpendingTotals(customerId: string, shop: string) {
 
   console.log(`[Orders] Aggregation results - orders: ${orderStats._count.id}, totalSpent: ${totalSpent}, annualSpent: ${annualSpent}`);
 
-  await db.customer.update({
+  await prisma.customer.update({
     where: { id: customerId },
     data: {
       totalSpent,
@@ -268,7 +268,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.log('[Orders Loader] Using search query, fetching all orders first...');
       // DATA API COMPATIBLE: Nested include not supported, use two-step query
       // Fetch all orders for the shop first, then filter
-      const allOrders = await db.order.findMany({
+      const allOrders = await prisma.order.findMany({
         where: whereClause,
         include: {
           customer: true, // Flat include, no nested currentTier
@@ -302,7 +302,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.log('[Orders Loader] No search query, using direct pagination...');
       // DATA API COMPATIBLE: Nested include not supported, use two-step query
       // No search, use normal pagination
-      ordersQuery = await db.order.findMany({
+      ordersQuery = await prisma.order.findMany({
         where: whereClause,
         include: {
           customer: true, // Flat include, no nested currentTier
@@ -320,7 +320,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       });
       console.log('[Orders Loader] Direct query returned orders:', ordersQuery.length);
 
-      var filteredTotalCount = await db.order.count({ where: whereClause });
+      var filteredTotalCount = await prisma.order.count({ where: whereClause });
       console.log('[Orders Loader] Total count from database:', filteredTotalCount);
     }
 
@@ -332,7 +332,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         .filter((id: string | null | undefined): id is string => !!id)
     )];
     const tiers = tierIds.length > 0
-      ? await db.tier.findMany({
+      ? await prisma.tier.findMany({
           where: { id: { in: tierIds } },
           select: { id: true, name: true, cashbackPercent: true },
         })
@@ -366,20 +366,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // OPTIMIZED: Calculate stats using aggregation instead of fetching all orders
     console.log('[Orders Loader] Calculating stats using aggregation...');
     const [orderCount, totalCashbackAgg, pendingCashbackAgg, processedCashbackAgg, totalRefundedAgg] = await Promise.all([
-      db.order.count({ where: { shop } }),
-      db.order.aggregate({
+      prisma.order.count({ where: { shop } }),
+      prisma.order.aggregate({
         where: { shop },
         _sum: { cashbackAmount: true }
       }),
-      db.order.aggregate({
+      prisma.order.aggregate({
         where: { shop, cashbackProcessed: false, cashbackAmount: { not: null } },
         _sum: { cashbackAmount: true }
       }),
-      db.order.aggregate({
+      prisma.order.aggregate({
         where: { shop, cashbackProcessed: true, cashbackAmount: { not: null } },
         _sum: { cashbackAmount: true }
       }),
-      db.order.aggregate({
+      prisma.order.aggregate({
         where: { shop },
         _sum: { totalRefunded: true }
       }),
@@ -510,7 +510,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         try {
           // Get customer with Shopify ID
-          const customer = await db.customer.findFirst({
+          const customer = await prisma.customer.findFirst({
             where: { id: customerId, shop },
           });
 
@@ -568,7 +568,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Update database with current balance
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: customerId },
             data: {
               storeCredit: totalCredit,
@@ -598,7 +598,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const reason = formData.get("reason") as string;
 
         // OPTIMIZED: Fetch order with customer in single query
-        const order = await db.order.findFirst({
+        const order = await prisma.order.findFirst({
           where: { id: orderId, shop },
           include: { customer: true }
         });
@@ -618,7 +618,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Get shop settings for currency
-        const shopSettings = await db.shopSettings.findUnique({
+        const shopSettings = await prisma.shopSettings.findUnique({
           where: { shop }
         });
 
@@ -643,7 +643,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const newBalance = result.balance || (parseFloat(customer.storeCredit.toString()) + amount);
 
           // Check if a ledger entry already exists for this order
-          const existingLedger = await db.storeCreditLedger.findFirst({
+          const existingLedger = await prisma.storeCreditLedger.findFirst({
             where: {
               shop,
               shopifyOrderId: order.shopifyOrderId,
@@ -653,7 +653,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           if (!existingLedger) {
             // Create ledger entry
-            await db.storeCreditLedger.create({
+            await prisma.storeCreditLedger.create({
               data: {
                 id: uuidv4(),
                 customerId: order.customerId,
@@ -687,7 +687,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             : 0;
 
           // Update customer balance to match Shopify
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: order.customerId },
             data: {
               storeCredit: newBalance,
@@ -697,7 +697,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Mark order as processed
-          await db.order.update({
+          await prisma.order.update({
             where: { id: orderId },
             data: {
               cashbackProcessed: true,
@@ -727,7 +727,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const orderId = formData.get("orderId") as string;
 
         // OPTIMIZED: Fetch order with customer in single query
-        const order = await db.order.findFirst({
+        const order = await prisma.order.findFirst({
           where: { id: orderId, shop },
           include: { customer: true }
         });
@@ -751,7 +751,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Get shop settings for currency
-        const shopSettings = await db.shopSettings.findUnique({
+        const shopSettings = await prisma.shopSettings.findUnique({
           where: { shop }
         });
 
@@ -828,7 +828,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           console.log(`[Orders]    New balance: ${newBalance} ${currency}`);
 
           // Check if a ledger entry already exists for this order
-          const existingLedger = await db.storeCreditLedger.findFirst({
+          const existingLedger = await prisma.storeCreditLedger.findFirst({
             where: {
               shop,
               shopifyOrderId: order.shopifyOrderId,
@@ -840,7 +840,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             // Create ledger entry - store sync info in metadata
             // to avoid column missing errors in Aurora Data API
             const ledgerId = uuidv4();
-            await db.storeCreditLedger.create({
+            await prisma.storeCreditLedger.create({
               data: {
                 id: ledgerId,
                 customerId: order.customerId,
@@ -875,7 +875,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             : 0;
 
           // Update customer balance to match Shopify
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: order.customerId },
             data: {
               storeCredit: newBalance,
@@ -885,7 +885,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Mark order as processed
-          await db.order.update({
+          await prisma.order.update({
             where: { id: orderId },
             data: {
               cashbackProcessed: true,
@@ -907,7 +907,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const localNewBalance = currentBalance + cashbackAmount;
 
           // Check if a ledger entry already exists before creating failed entry
-          const existingFailedLedger = await db.storeCreditLedger.findFirst({
+          const existingFailedLedger = await prisma.storeCreditLedger.findFirst({
             where: {
               shop,
               shopifyOrderId: order.shopifyOrderId,
@@ -918,7 +918,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           if (!existingFailedLedger) {
             // Create failed ledger entry - store sync info in metadata
             // to avoid column missing errors in Aurora Data API
-            await db.storeCreditLedger.create({
+            await prisma.storeCreditLedger.create({
               data: {
                 id: uuidv4(),
                 customerId: order.customerId,
@@ -952,7 +952,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             : 0;
 
           // Update customer balance locally
-          await db.customer.update({
+          await prisma.customer.update({
             where: { id: order.customerId },
             data: {
               storeCredit: localNewBalance,
@@ -962,7 +962,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Mark order as processed even if Shopify sync failed
-          await db.order.update({
+          await prisma.order.update({
             where: { id: orderId },
             data: {
               cashbackProcessed: true,
@@ -983,7 +983,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const refundId = formData.get("refundId") as string;
 
         // Fetch refund first
-        const refund = await db.orderRefund.findFirst({
+        const refund = await prisma.orderRefund.findFirst({
           where: { id: refundId, orderId },
         });
 
@@ -992,7 +992,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Verify order belongs to shop
-        const refundOrder = await db.order.findFirst({
+        const refundOrder = await prisma.order.findFirst({
           where: { id: refund.orderId, shop },
         });
 
@@ -1002,7 +1002,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Fetch customer if needed
         const refundCustomer = refundOrder.customerId !== "unknown"
-          ? await db.customer.findUnique({
+          ? await prisma.customer.findUnique({
               where: { id: refundOrder.customerId }
             })
           : null;
@@ -1025,7 +1025,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const newBalance = Math.max(0, currentBalance - adjustmentAmount);
 
         // Create ledger entry for refund
-        await db.storeCreditLedger.create({
+        await prisma.storeCreditLedger.create({
           data: {
             id: uuidv4(),
             customerId: refundOrder.customerId,
@@ -1045,7 +1045,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         // Update customer balance
-        await db.customer.update({
+        await prisma.customer.update({
           where: { id: refundOrder.customerId },
           data: {
             storeCredit: newBalance,
@@ -1054,7 +1054,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         // Mark refund as processed
-        await db.orderRefund.update({
+        await prisma.orderRefund.update({
           where: { id: refundId },
           data: {
             cashbackProcessed: true,
@@ -1108,7 +1108,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // If no order data passed, fall back to fetching from DB
         // OPTIMIZED: Use single findMany with IN clause instead of N individual queries
         if (ordersToProcess.length === 0 && orderIds.length > 0) {
-          const fetchedOrders = await db.order.findMany({
+          const fetchedOrders = await prisma.order.findMany({
             where: { id: { in: orderIds }, shop },
             include: { customer: true }
           });
@@ -1150,7 +1150,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 debugLog.push(`[FETCH] No customer object, fetching by customerId: ${order.customerId}`);
               }
 
-              customer = await db.customer.findFirst({
+              customer = await prisma.customer.findFirst({
                 where: {
                   id: order.customerId,
                   shop
@@ -1268,7 +1268,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               : 0;
 
               // Update customer balance
-              await db.customer.update({
+              await prisma.customer.update({
                 where: { id: customer.id },
                 data: {
                   storeCredit: newBalance,
@@ -1278,7 +1278,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               });
 
               // Check if ledger entry already exists
-              const existingLedger = await db.storeCreditLedger.findFirst({
+              const existingLedger = await prisma.storeCreditLedger.findFirst({
                 where: {
                   shop,
                   shopifyOrderId: order.shopifyOrderId,
@@ -1288,7 +1288,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
               if (!existingLedger) {
                 // Create ledger entry - put potentially missing columns in metadata
-                await db.storeCreditLedger.create({
+                await prisma.storeCreditLedger.create({
                   data: {
                     id: uuidv4(),
                     shop,
@@ -1316,7 +1316,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               }
 
               // Mark order as processed
-              await db.order.update({
+              await prisma.order.update({
                 where: { id: order.id },
                 data: {
                   cashbackProcessed: true,

@@ -7,7 +7,7 @@
  * @module email-usage-control.server
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { getLimit, getEffectivePlan } from "./entitlements.server";
 
 // ============================================
@@ -51,7 +51,7 @@ async function getOrCreateMonthlyUsage(shop: string) {
   const month = now.getMonth() + 1; // 1-12
 
   // Try to find existing record
-  let usage = await db.monthlyEmailUsage.findUnique({
+  let usage = await prisma.monthlyEmailUsage.findUnique({
     where: {
       shop_year_month: { shop, year, month },
     },
@@ -64,7 +64,7 @@ async function getOrCreateMonthlyUsage(shop: string) {
       getEffectivePlan(shop),
     ]);
 
-    usage = await db.monthlyEmailUsage.create({
+    usage = await prisma.monthlyEmailUsage.create({
       data: {
         shop,
         year,
@@ -187,7 +187,7 @@ export async function recordEmailSent(
     ]);
 
     // Upsert to handle concurrent requests gracefully
-    await db.monthlyEmailUsage.upsert({
+    await prisma.monthlyEmailUsage.upsert({
       where: {
         shop_year_month: { shop, year, month },
       },
@@ -307,7 +307,7 @@ export async function lockEmailSending(
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
 
-  await db.monthlyEmailUsage.upsert({
+  await prisma.monthlyEmailUsage.upsert({
     where: {
       shop_year_month: { shop, year, month },
     },
@@ -345,7 +345,7 @@ export async function unlockEmailSending(shop: string): Promise<void> {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
 
-  await db.monthlyEmailUsage.updateMany({
+  await prisma.monthlyEmailUsage.updateMany({
     where: {
       shop,
       year,
@@ -378,7 +378,7 @@ export async function updateEmailPlanLimits(shop: string): Promise<void> {
       getEffectivePlan(shop),
     ]);
 
-    await db.monthlyEmailUsage.updateMany({
+    await prisma.monthlyEmailUsage.updateMany({
       where: {
         shop,
         year,

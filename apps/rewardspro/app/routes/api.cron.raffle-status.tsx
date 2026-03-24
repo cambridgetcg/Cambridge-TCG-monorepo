@@ -14,7 +14,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { verifyCronAuth } from "../utils/cron-auth.server";
 import * as crypto from "crypto";
@@ -82,7 +82,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   try {
     // 5. Transition SCHEDULED → ACTIVE
     // Find raffles that should now be active
-    const scheduledRaffles = await db.raffle.findMany({
+    const scheduledRaffles = await prisma.raffle.findMany({
       where: {
         status: 'SCHEDULED',
         startsAt: {
@@ -106,7 +106,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         if (raffle.endsAt <= now) {
           // Raffle period already passed, go directly to CLOSED
           if (!isDryRun) {
-            await db.raffle.update({
+            await prisma.raffle.update({
               where: { id: raffle.id },
               data: { status: 'CLOSED' }
             });
@@ -125,7 +125,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         } else {
           // Normal activation
           if (!isDryRun) {
-            await db.raffle.update({
+            await prisma.raffle.update({
               where: { id: raffle.id },
               data: { status: 'ACTIVE' }
             });
@@ -151,7 +151,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // 6. Transition ACTIVE → CLOSED
     // Find raffles that have ended (only if not already in DRAWING or later states)
-    const expiredRaffles = await db.raffle.findMany({
+    const expiredRaffles = await prisma.raffle.findMany({
       where: {
         status: 'ACTIVE',
         endsAt: {
@@ -172,7 +172,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const raffle of expiredRaffles) {
       try {
         if (!isDryRun) {
-          await db.raffle.update({
+          await prisma.raffle.update({
             where: { id: raffle.id },
             data: { status: 'CLOSED' }
           });

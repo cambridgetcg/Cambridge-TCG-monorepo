@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { csvHeader, csvRow } from "../utils/csv";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
 
 /**
@@ -26,7 +26,7 @@ async function logExportAudit(
 
   // Also try to persist to database for long-term retention
   try {
-    await db.billingAuditLog.create({
+    await prisma.billingAuditLog.create({
       data: {
         id: crypto.randomUUID(),
         shop,
@@ -54,7 +54,7 @@ async function* iterateTransactions(shopId: string, minDate: Date | null, batchS
   let lastId: string | null = null;
 
   while (true) {
-    const rows = await db.$queryRaw`
+    const rows = await prisma.$queryRaw`
       SELECT id, "createdAt", "customerId", "netAmount", cashback_amount
         FROM "Order"
        WHERE shop = ${shopId}

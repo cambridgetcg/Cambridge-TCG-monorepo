@@ -39,7 +39,7 @@ import {
   CheckCircleIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { KlaviyoService } from "~/services/klaviyo.server";
 import type { EmailProvider } from "@prisma/client";
 import { klaviyoConnectionSchema, safeValidate } from "~/utils/validation.server";
@@ -110,7 +110,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Get email settings
     console.log("[Klaviyo] Fetching email settings...");
-    const emailSettings = await db.emailSettings.findUnique({
+    const emailSettings = await prisma.emailSettings.findUnique({
       where: { shop },
       select: {
         emailProvider: true,
@@ -130,7 +130,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log("[Klaviyo] Fetching automation settings...");
     let automationSettings = null;
     try {
-      automationSettings = await db.klaviyoAutomationSettings.findUnique({
+      automationSettings = await prisma.klaviyoAutomationSettings.findUnique({
         where: { shop },
       });
     } catch (error) {
@@ -156,12 +156,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     let profileCount = 0;
     let eventCount = 0;
     try {
-      profileCount = await db.klaviyoProfile.count({ where: { shop } });
+      profileCount = await prisma.klaviyoProfile.count({ where: { shop } });
     } catch (error) {
       console.error("[Klaviyo] Error fetching profile count:", error);
     }
     try {
-      eventCount = await db.klaviyoEvent.count({
+      eventCount = await prisma.klaviyoEvent.count({
         where: { shop, status: "SENT" },
       });
     } catch (error) {
@@ -264,7 +264,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     };
 
     try {
-      await db.emailSettings.upsert({
+      await prisma.emailSettings.upsert({
         where: { shop },
         create: { shop, ...connectionData },
         update: connectionData,
@@ -303,7 +303,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const winBackCooldownDays = parseInt(formData.get("winBackCooldownDays") as string) || 30;
     const tierNudgeCooldownDays = parseInt(formData.get("tierNudgeCooldownDays") as string) || 14;
 
-    await db.klaviyoAutomationSettings.upsert({
+    await prisma.klaviyoAutomationSettings.upsert({
       where: { shop },
       create: {
         id: crypto.randomUUID(),
@@ -357,7 +357,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   if (intent === "testConnection") {
-    const settings = await db.emailSettings.findUnique({
+    const settings = await prisma.emailSettings.findUnique({
       where: { shop },
       select: { klaviyoApiKey: true },
     });

@@ -6,7 +6,7 @@
 
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import TierProductCache from "../services/tier-product-cache.server";
 import * as crypto from 'crypto';
@@ -118,7 +118,7 @@ export async function action({ request }: ActionFunctionArgs) {
   try {
     // 4. Check idempotency - have we processed this refund webhook already?
     if (webhookId) {
-      const existingRefund = await db.webhookProcessed.findUnique({
+      const existingRefund = await prisma.webhookProcessed.findUnique({
         where: {
           webhookId
         }
@@ -143,7 +143,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // 5. STEP 1: Process membership cancellation in transaction (atomic)
     // NOTE: Webhook idempotency record is created AFTER ALL operations succeed
-    const transactionResult = await db.$transaction(async (tx) => {
+    const transactionResult = await prisma.$transaction(async (tx) => {
       // Find the original order in our system
       const orderRecord = await tx.order.findFirst({
         where: {
@@ -302,7 +302,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // This ensures Shopify can retry if processing fails mid-way
     if (webhookId) {
       try {
-        await db.webhookProcessed.create({
+        await prisma.webhookProcessed.create({
           data: {
             id: uuidv4(),
             shop: shopDomain,

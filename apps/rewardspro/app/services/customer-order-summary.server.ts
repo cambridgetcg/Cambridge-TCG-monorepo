@@ -11,7 +11,7 @@
  * - Batch operations for efficient list views
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 const LOG_PREFIX = "[CustomerOrderSummary]";
 
@@ -74,7 +74,7 @@ export async function getCustomerOrderSummary(
 ): Promise<CustomerOrderSummary | null> {
   try {
     // Get customer with their order count
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { id: customerId, shop },
       select: {
         id: true,
@@ -143,7 +143,7 @@ export async function getCustomerDetailedOrders(
     const offset = options?.offset || 0;
 
     const [orders, totalCount] = await Promise.all([
-      db.order.findMany({
+      prisma.order.findMany({
         where: { shop, customerId },
         orderBy: { shopifyCreatedAt: "desc" },
         take: limit,
@@ -163,7 +163,7 @@ export async function getCustomerDetailedOrders(
             }
           : undefined,
       }),
-      db.order.count({ where: { shop, customerId } }),
+      prisma.order.count({ where: { shop, customerId } }),
     ]);
 
     return {
@@ -209,7 +209,7 @@ export async function getCustomerOrderSummariesBatch(
   }
 
   try {
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: {
         id: { in: customerIds },
         shop,
@@ -402,32 +402,32 @@ export async function getActivityDistribution(
 
   // Use parallel queries for efficiency
   const [activeCount, atRiskCount, dormantCount, newCount, neverOrderedCount] = await Promise.all([
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         lastOrderDate: { gte: activeThreshold },
       },
     }),
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         lastOrderDate: { lt: activeThreshold, gte: atRiskThreshold },
       },
     }),
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         lastOrderDate: { lt: atRiskThreshold },
       },
     }),
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         orderCount: 0,
         createdAt: { gte: newThreshold },
       },
     }),
-    db.customer.count({
+    prisma.customer.count({
       where: {
         shop,
         orderCount: 0,

@@ -30,7 +30,7 @@ import {
   AutomationIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { useToast } from "~/hooks/useToast";
 import { getPointsConfig, getPointsStats, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
 import { PointsIcon } from "~/components/PointsIcon";
@@ -113,23 +113,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Verify db models exist before querying
     console.log(`${LOG_PREFIX} Checking db models...`);
     console.log(`${LOG_PREFIX} db exists: ${!!db}`);
-    console.log(`${LOG_PREFIX} db.pointsConfig exists: ${!!db?.pointsConfig}`);
-    console.log(`${LOG_PREFIX} db.pointsLedger exists: ${!!db?.pointsLedger}`);
-    console.log(`${LOG_PREFIX} db.customer exists: ${!!db?.customer}`);
+    console.log(`${LOG_PREFIX} prisma.pointsConfig exists: ${!!db?.pointsConfig}`);
+    console.log(`${LOG_PREFIX} prisma.pointsLedger exists: ${!!db?.pointsLedger}`);
+    console.log(`${LOG_PREFIX} prisma.customer exists: ${!!db?.customer}`);
 
     if (!db) {
       console.error(`${LOG_PREFIX} CRITICAL: db is undefined!`);
       throw new Error("Database client not initialized");
     }
 
-    if (!db.pointsConfig) {
-      console.error(`${LOG_PREFIX} CRITICAL: db.pointsConfig is undefined!`);
+    if (!prisma.pointsConfig) {
+      console.error(`${LOG_PREFIX} CRITICAL: prisma.pointsConfig is undefined!`);
       console.error(`${LOG_PREFIX} Available db keys: ${Object.keys(db).join(', ')}`);
       throw new Error("pointsConfig model not registered in database client");
     }
 
-    if (!db.pointsLedger) {
-      console.error(`${LOG_PREFIX} CRITICAL: db.pointsLedger is undefined!`);
+    if (!prisma.pointsLedger) {
+      console.error(`${LOG_PREFIX} CRITICAL: prisma.pointsLedger is undefined!`);
       throw new Error("pointsLedger model not registered in database client");
     }
 

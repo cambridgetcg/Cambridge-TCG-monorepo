@@ -8,7 +8,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import {
   getKlaviyoService,
   buildProfileProperties,
@@ -157,7 +157,7 @@ export async function dispatchKlaviyoEvent(
   }
 
   // Check automation settings
-  const automationSettings = await db.klaviyoAutomationSettings.findUnique({
+  const automationSettings = await prisma.klaviyoAutomationSettings.findUnique({
     where: { shop },
   });
 
@@ -171,7 +171,7 @@ export async function dispatchKlaviyoEvent(
   }
 
   // Create event record in database
-  const eventRecord = await db.klaviyoEvent.create({
+  const eventRecord = await prisma.klaviyoEvent.create({
     data: {
       id: uuidv4(),
       shop,
@@ -204,7 +204,7 @@ export async function dispatchKlaviyoEvent(
     });
 
     // Update status to sent
-    await db.klaviyoEvent.update({
+    await prisma.klaviyoEvent.update({
       where: { id: eventRecord.id },
       data: {
         status: "SENT",
@@ -214,7 +214,7 @@ export async function dispatchKlaviyoEvent(
 
     // Update KlaviyoProfile with last event info
     if (customerId) {
-      await db.klaviyoProfile.updateMany({
+      await prisma.klaviyoProfile.updateMany({
         where: { shop, customerId },
         data: {
           lastEventAt: new Date(),
@@ -228,7 +228,7 @@ export async function dispatchKlaviyoEvent(
     console.error(`[Klaviyo] Failed to dispatch event ${eventType}:`, error);
 
     // Update status to failed
-    await db.klaviyoEvent.update({
+    await prisma.klaviyoEvent.update({
       where: { id: eventRecord.id },
       data: {
         status: "FAILED",
@@ -1866,7 +1866,7 @@ export async function syncCustomerToKlaviyo(
   const dataHash = hashProfileData(properties as unknown as Record<string, unknown>);
 
   // Check if we need to sync (compare hash)
-  const existingProfile = await db.klaviyoProfile.findUnique({
+  const existingProfile = await prisma.klaviyoProfile.findUnique({
     where: { shop_customerId: { shop, customerId: customer.id } },
   });
 
@@ -1887,7 +1887,7 @@ export async function syncCustomerToKlaviyo(
     });
 
     // Update or create local record
-    await db.klaviyoProfile.upsert({
+    await prisma.klaviyoProfile.upsert({
       where: { shop_customerId: { shop, customerId: customer.id } },
       create: {
         id: uuidv4(),
@@ -1918,7 +1918,7 @@ export async function syncCustomerToKlaviyo(
 
     // Update profile with error
     if (existingProfile) {
-      await db.klaviyoProfile.update({
+      await prisma.klaviyoProfile.update({
         where: { id: existingProfile.id },
         data: {
           syncStatus: "ERROR",

@@ -9,7 +9,7 @@
  */
 
 import * as crypto from "crypto";
-import db from "../db.server";
+import prisma from "../db.server";
 
 /**
  * Cryptographically secure random number in [0, 1).
@@ -143,7 +143,7 @@ export async function openMysteryBox(
 
   try {
     // 1. Get the box (flat query — Data API adapter silently ignores nested include)
-    const box = await db.mysteryBox.findFirst({
+    const box = await prisma.mysteryBox.findFirst({
       where: { id: boxId, shop },
     });
 
@@ -152,7 +152,7 @@ export async function openMysteryBox(
     }
 
     // Fetch rewards separately (Data API adapter compat — same pattern as proxy GET handler)
-    const boxRewards = await db.mysteryBoxReward.findMany({
+    const boxRewards = await prisma.mysteryBoxReward.findMany({
       where: { boxId },
       orderBy: { position: "asc" },
     });
@@ -174,7 +174,7 @@ export async function openMysteryBox(
     }
 
     // 3. Check customer hasn't exceeded max opens
-    const existingOpens = await db.mysteryBoxOpen.count({
+    const existingOpens = await prisma.mysteryBoxOpen.count({
       where: { boxId, customerId },
     });
 
@@ -234,7 +234,7 @@ export async function openMysteryBox(
     // with no prize — unacceptable.
     const isNewOpener = existingOpens === 0;
 
-    const { open, winner } = await db.$transaction(async (tx) => {
+    const { open, winner } = await prisma.$transaction(async (tx) => {
       // Create opening record
       const open = await tx.mysteryBoxOpen.create({
         data: {
@@ -301,7 +301,7 @@ export async function openMysteryBox(
     (async () => {
       try {
         // Get customer with tier for event tracking
-        const customer = await db.customer.findUnique({
+        const customer = await prisma.customer.findUnique({
           where: { id: customerId },
           include: { currentTier: true },
         });
@@ -441,7 +441,7 @@ export async function getCustomerAvailableBoxes(
   console.log(`${LOG_PREFIX} getCustomerAvailableBoxes: customer=${customerId}`);
 
   // Get all public, active/scheduled boxes
-  const boxes = await db.mysteryBox.findMany({
+  const boxes = await prisma.mysteryBox.findMany({
     where: {
       shop,
       isPublic: true,
@@ -454,7 +454,7 @@ export async function getCustomerAvailableBoxes(
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
   // Instead, fetch boxId for each open and count in memory
   const boxIds = boxes.map((b) => b.id);
-  const customerOpens = await db.mysteryBoxOpen.findMany({
+  const customerOpens = await prisma.mysteryBoxOpen.findMany({
     where: {
       customerId,
       boxId: { in: boxIds },
@@ -511,7 +511,7 @@ export async function getCustomerOpenHistory(
     where.boxId = options.boxId;
   }
 
-  const opens = await db.mysteryBoxOpen.findMany({
+  const opens = await prisma.mysteryBoxOpen.findMany({
     where,
     orderBy: { openedAt: "desc" },
     take: options?.limit || 20,
@@ -561,7 +561,7 @@ export async function getRecentWinners(
 > {
   console.log(`${LOG_PREFIX} getRecentWinners: box=${boxId}`);
 
-  const winners = await db.mysteryBoxWinner.findMany({
+  const winners = await prisma.mysteryBoxWinner.findMany({
     where: { boxId, shop },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -677,7 +677,7 @@ export async function openMysteryBoxEnhanced(input: {
   try {
     // 1. Get the box with rewards and customer
     const [box, customer] = await Promise.all([
-      db.mysteryBox.findFirst({
+      prisma.mysteryBox.findFirst({
         where: { id: boxId, shop },
         include: {
           rewards: {
@@ -685,7 +685,7 @@ export async function openMysteryBoxEnhanced(input: {
           },
         },
       }),
-      db.customer.findUnique({
+      prisma.customer.findUnique({
         where: { id: customerId },
         select: { id: true, firstName: true, lastName: true, email: true },
       }),
@@ -757,7 +757,7 @@ export async function openMysteryBoxEnhanced(input: {
     }
 
     // 3. Check customer hasn't exceeded max opens
-    const existingOpens = await db.mysteryBoxOpen.count({
+    const existingOpens = await prisma.mysteryBoxOpen.count({
       where: { boxId, customerId },
     });
 
@@ -889,7 +889,7 @@ export async function openMysteryBoxEnhanced(input: {
     // Same rationale as openMysteryBox: records first, points after.
     const isNewOpener = existingOpens === 0;
 
-    const { open, winner } = await db.$transaction(async (tx) => {
+    const { open, winner } = await prisma.$transaction(async (tx) => {
       const open = await tx.mysteryBoxOpen.create({
         data: {
           boxId,

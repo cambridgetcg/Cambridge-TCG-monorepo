@@ -5,7 +5,7 @@
  * Allows admins to manually assign customers to specific tiers.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 
 // ============================================
@@ -48,7 +48,7 @@ export async function assignCustomerToTier(
     console.log(`[ManualTierAssignment] Assigning customer ${customerId} to tier ${tierId}`);
     
     // Get current customer data with tier
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: { 
         id: customerId,
         shop: shop 
@@ -70,7 +70,7 @@ export async function assignCustomerToTier(
     // Get current tier details if exists
     let currentTier = null;
     if (customer.currentTierId) {
-      currentTier = await db.tier.findUnique({
+      currentTier = await prisma.tier.findUnique({
         where: { id: customer.currentTierId }
       });
     }
@@ -78,7 +78,7 @@ export async function assignCustomerToTier(
     // Get new tier details if provided
     let newTier = null;
     if (tierId) {
-      newTier = await db.tier.findFirst({
+      newTier = await prisma.tier.findFirst({
         where: { 
           id: tierId,
           shop: shop // Ensure tier belongs to same shop
@@ -119,7 +119,7 @@ export async function assignCustomerToTier(
     }
 
     // Update customer's tier
-    const updatedCustomer = await db.customer.update({
+    const updatedCustomer = await prisma.customer.update({
       where: { id: customerId },
       data: {
         currentTierId: tierId,
@@ -128,7 +128,7 @@ export async function assignCustomerToTier(
     });
 
     // Update or create CustomerTierState to store the manual override
-    await db.customerTierState.upsert({
+    await prisma.customerTierState.upsert({
       where: { customerId },
       create: {
         id: uuidv4(),
@@ -169,7 +169,7 @@ export async function assignCustomerToTier(
     );
 
     // Create tier change log entry
-    await db.tierChangeLog.create({
+    await prisma.tierChangeLog.create({
       data: {
         id: uuidv4(),
         customerId,
@@ -299,7 +299,7 @@ export async function getManualOverride(
           try {
             // Use non-transactional update since we're just cleaning up
             // and this is a best-effort operation
-            await db.customerTierState.update({
+            await prisma.customerTierState.update({
               where: { customerId },
               data: {
                 hasManualOverride: false,
@@ -450,7 +450,7 @@ export async function removeManualOverride(
 ): Promise<TierAssignmentResult> {
   try {
     // Get current customer data
-    const customer = await db.customer.findFirst({
+    const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
         shop: shop
@@ -472,18 +472,18 @@ export async function removeManualOverride(
     // Get current tier details
     let currentTier = null;
     if (customer.currentTierId) {
-      currentTier = await db.tier.findUnique({
+      currentTier = await prisma.tier.findUnique({
         where: { id: customer.currentTierId }
       });
     }
 
     // Clear the manual override in CustomerTierState
-    const tierState = await db.customerTierState.findUnique({
+    const tierState = await prisma.customerTierState.findUnique({
       where: { customerId }
     });
 
     if (tierState) {
-      await db.customerTierState.update({
+      await prisma.customerTierState.update({
         where: { customerId },
         data: {
           hasManualOverride: false,
@@ -499,7 +499,7 @@ export async function removeManualOverride(
     }
 
     // Log that override is being removed
-    await db.tierChangeLog.create({
+    await prisma.tierChangeLog.create({
       data: {
         id: uuidv4(),
         customerId,
@@ -553,7 +553,7 @@ export async function getTierHistory(
   limit: number = 10
 ): Promise<any[]> {
   try {
-    const history = await db.tierChangeLog.findMany({
+    const history = await prisma.tierChangeLog.findMany({
       where: { customerId },
       orderBy: { createdAt: 'desc' },
       take: limit
@@ -675,7 +675,7 @@ export async function cleanupExpiredManualOverrides(shop?: string): Promise<{
 
   try {
     // Find all customers with expired manual overrides
-    const expiredOverrides = await db.customerTierState.findMany({
+    const expiredOverrides = await prisma.customerTierState.findMany({
       where: {
         ...(shop ? { shop } : {}),
         hasManualOverride: true,
@@ -701,7 +701,7 @@ export async function cleanupExpiredManualOverrides(shop?: string): Promise<{
     for (const state of expiredOverrides) {
       try {
         // Clear the expired override
-        await db.customerTierState.update({
+        await prisma.customerTierState.update({
           where: { customerId: state.customerId },
           data: {
             hasManualOverride: false,
@@ -717,7 +717,7 @@ export async function cleanupExpiredManualOverrides(shop?: string): Promise<{
         });
 
         // Log the expiration in TierChangeLog
-        await db.tierChangeLog.create({
+        await prisma.tierChangeLog.create({
           data: {
             id: uuidv4(),
             customerId: state.customerId,

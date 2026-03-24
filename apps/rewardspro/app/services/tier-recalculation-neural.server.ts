@@ -63,7 +63,7 @@
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import type { Tier, Customer, TierSubscription, TierPurchase, TierSource as TierSourceEnum } from "@prisma/client";
 import { createLogger } from "./logger.server";
 import { v4 as uuidv4 } from "uuid";
@@ -184,13 +184,13 @@ async function loadAfferentStreams(shop: string): Promise<{
   // Parallel data retrieval - all streams fire simultaneously
   const [tiers, overrides, subscriptions, purchases] = await Promise.all([
     // Stream 1: Tier definitions
-    db.tier.findMany({
+    prisma.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'desc' },
     }),
 
     // Stream 2: Manual override signals
-    db.customerTierState.findMany({
+    prisma.customerTierState.findMany({
       where: {
         shop,
         tierSource: 'MANUAL_OVERRIDE',
@@ -208,13 +208,13 @@ async function loadAfferentStreams(shop: string): Promise<{
     }))),
 
     // Stream 3: Subscription signals
-    db.tierSubscription.findMany({
+    prisma.tierSubscription.findMany({
       where: { shop, status: 'ACTIVE' },
       include: { tier: true },
     }),
 
     // Stream 4: Purchase signals
-    db.tierPurchase.findMany({
+    prisma.tierPurchase.findMany({
       where: {
         shop,
         status: 'ACTIVE',
@@ -683,7 +683,7 @@ async function writeTierChangeBatch(
     const batch = changes.slice(i, i + BATCH_SIZE);
 
     try {
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         for (const change of batch) {
           // Update customer
           await tx.customer.update({
@@ -792,7 +792,7 @@ async function writeProgressUpdateBatch(
     const batch = changes.slice(i, i + BATCH_SIZE);
 
     try {
-      await db.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         for (const change of batch) {
           const progress = progressNucleus(
             change.netSpent,
@@ -913,7 +913,7 @@ export async function recalculateTiersNeural(
   let offset = 0;
 
   while (true) {
-    const customers = await db.customer.findMany({
+    const customers = await prisma.customer.findMany({
       where: { shop },
       include: { currentTier: true },
       skip: offset,

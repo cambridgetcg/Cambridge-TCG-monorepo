@@ -4,7 +4,7 @@
  * Avoids expensive full syncs by tracking sync state
  */
 
-import db from '../db.server';
+import prisma from '../db.server';
 import { v4 as uuidv4 } from 'uuid';
 import { updateCustomerToEffectiveTier } from './tier-resolution.server';
 
@@ -117,7 +117,7 @@ export class IncrementalOrderSync {
     syncFromDate.setDate(syncFromDate.getDate() - this.INITIAL_SYNC_DAYS);
 
     // Create sync status record
-    const syncStatus = await db.syncStatus.create({
+    const syncStatus = await prisma.syncStatus.create({
       data: {
         id: uuidv4(),
         shop,
@@ -137,7 +137,7 @@ export class IncrementalOrderSync {
    */
   private async catchUpSync(shop: string, admin: AdminClient, syncStatus: any): Promise<SyncResult> {
     // Update status to running
-    await db.syncStatus.update({
+    await prisma.syncStatus.update({
       where: { id: syncStatus.id },
       data: { status: 'RUNNING' }
     });
@@ -157,7 +157,7 @@ export class IncrementalOrderSync {
    */
   private async incrementalSync(shop: string, admin: AdminClient, syncStatus: any): Promise<SyncResult> {
     // Update status to running
-    await db.syncStatus.update({
+    await prisma.syncStatus.update({
       where: { id: syncStatus.id },
       data: { status: 'RUNNING' }
     });
@@ -223,7 +223,7 @@ export class IncrementalOrderSync {
 
             // Update sync cursor periodically (every 10 orders)
             if (totalProcessed % 10 === 0) {
-              await db.syncStatus.update({
+              await prisma.syncStatus.update({
                 where: { id: syncStatus.id },
                 data: {
                   syncCursor: edge.cursor,
@@ -249,7 +249,7 @@ export class IncrementalOrderSync {
       }
 
       // Update sync status on completion
-      await db.syncStatus.update({
+      await prisma.syncStatus.update({
         where: { id: syncStatus.id },
         data: {
           status: 'COMPLETED',
@@ -272,7 +272,7 @@ export class IncrementalOrderSync {
 
     } catch (error: any) {
       // Update sync status on failure
-      await db.syncStatus.update({
+      await prisma.syncStatus.update({
         where: { id: syncStatus.id },
         data: {
           status: 'FAILED',
@@ -295,7 +295,7 @@ export class IncrementalOrderSync {
     }
 
     // Check if order exists
-    const existingOrder = await db.order.findFirst({
+    const existingOrder = await prisma.order.findFirst({
       where: {
         shop,
         shopifyOrderId: orderId
@@ -312,7 +312,7 @@ export class IncrementalOrderSync {
       }
 
       // Update existing order
-      await db.order.update({
+      await prisma.order.update({
         where: { id: existingOrder.id },
         data: {
           shopifyOrderName: orderData.name,
@@ -342,12 +342,12 @@ export class IncrementalOrderSync {
       let resolvedCustomerId = existingOrder.customerId;
       if (existingOrder.customerId === 'unknown' && orderData.customer?.id) {
         const shopifyCustomerId = extractNumericId(orderData.customer.id) || orderData.customer.id;
-        const resolvedCustomer = await db.customer.findFirst({
+        const resolvedCustomer = await prisma.customer.findFirst({
           where: { shop, shopifyCustomerId },
           select: { id: true }
         });
         if (resolvedCustomer) {
-          await db.order.update({
+          await prisma.order.update({
             where: { id: existingOrder.id },
             data: { customerId: resolvedCustomer.id }
           });
@@ -359,7 +359,7 @@ export class IncrementalOrderSync {
       // Update customer spending totals after order update
       if (resolvedCustomerId && resolvedCustomerId !== 'unknown') {
         // Aggregate all-time spending
-        const orderStats = await db.order.aggregate({
+        const orderStats = await prisma.order.aggregate({
           where: {
             shop,
             customerId: resolvedCustomerId,
@@ -385,7 +385,7 @@ export class IncrementalOrderSync {
         console.log(`[IncrementalSync] 📅 Calculating annual spending from ${twelveMonthsAgo.toISOString()} to now`);
 
         // Get the list of orders included in annual calculation for logging
-        const annualOrders = await db.order.findMany({
+        const annualOrders = await prisma.order.findMany({
           where: {
             shop,
             customerId: resolvedCustomerId,
@@ -411,7 +411,7 @@ export class IncrementalOrderSync {
         });
 
         // Now do the aggregation
-        const annualOrderStats = await db.order.aggregate({
+        const annualOrderStats = await prisma.order.aggregate({
           where: {
             shop,
             customerId: resolvedCustomerId,
@@ -428,7 +428,7 @@ export class IncrementalOrderSync {
 
         console.log(`[IncrementalSync] 💰 Annual spending calculation: ${annualOrderStats._sum.totalPrice} - ${annualOrderStats._sum.totalRefunded} = ${annualSpent}`);
 
-        await db.customer.update({
+        await prisma.customer.update({
           where: { id: resolvedCustomerId },
           data: {
             totalSpent: orderStats._sum.totalPrice || 0,
@@ -452,7 +452,7 @@ export class IncrementalOrderSync {
       return { updated: true };
     } else {
       // Create new order in a transaction
-      return await db.$transaction(async (tx) => {
+      return await prisma.$transaction(async (tx) => {
         // Check if customer exists in database
         const customerId = await this.findCustomer(shop, orderData.customer, orderData.email);
 
@@ -636,7 +636,7 @@ export class IncrementalOrderSync {
       const isGiftCard = lineItem.product?.productType?.toLowerCase() === 'gift card' ||
                          lineItem.product?.productType?.toLowerCase() === 'gift_card';
 
-      await db.orderLineItem.upsert({
+      await prisma.orderLineItem.upsert({
         where: {
           orderId_shopifyLineItemId: {
             orderId,
@@ -693,7 +693,7 @@ export class IncrementalOrderSync {
     }
 
     // Check if customer exists in our database
-    const existingCustomer = await db.customer.findFirst({
+    const existingCustomer = await prisma.customer.findFirst({
       where: { shop, shopifyCustomerId: customerId }
     });
 
@@ -712,7 +712,7 @@ export class IncrementalOrderSync {
   private async getOrCreateCustomer(shop: string, customerData: any, orderEmail?: string): Promise<string> {
     // Handle guest customers
     if (!customerData) {
-      return await db.$transaction(async (tx) => {
+      return await prisma.$transaction(async (tx) => {
         // Try to find or create a guest customer based on email if provided
         if (orderEmail) {
           const existingGuest = await tx.customer.findFirst({
@@ -814,7 +814,7 @@ export class IncrementalOrderSync {
       return this.getOrCreateCustomer(shop, null, customerData.email);
     }
 
-    return await db.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       const existingCustomer = await tx.customer.findFirst({
         where: { shop, shopifyCustomerId: customerId }
       });
@@ -870,7 +870,7 @@ export class IncrementalOrderSync {
    * Get or create sync status
    */
   private async getSyncStatus(shop: string): Promise<any | null> {
-    return await db.syncStatus.findFirst({
+    return await prisma.syncStatus.findFirst({
       where: {
         shop,
         syncType: 'orders'

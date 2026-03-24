@@ -18,7 +18,7 @@ import {
 import { useState, useCallback } from "react";
 import { PlusIcon } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 
 interface Campaign {
@@ -48,7 +48,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   let campaigns: Campaign[] = [];
   try {
-    const dbCampaigns = await db.emailCampaign.findMany({
+    const dbCampaigns = await prisma.emailCampaign.findMany({
       where: { shop },
       orderBy: { createdAt: "desc" },
     });

@@ -5,7 +5,7 @@
  * This service provides the foundational operations for the raffles system.
  */
 
-import db from "../db.server";
+import prisma from "../db.server";
 
 const LOG_PREFIX = "[RaffleManagement]";
 
@@ -126,7 +126,7 @@ export async function getRaffles(
     where.status = { notIn: ["COMPLETED", "CANCELLED"] };
   }
 
-  const raffles = await db.raffle.findMany({
+  const raffles = await prisma.raffle.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: options?.limit || 50,
@@ -146,7 +146,7 @@ export async function getRaffle(
 ): Promise<any | null> {
   console.log(`${LOG_PREFIX} getRaffle: ${raffleId}`);
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
@@ -162,14 +162,14 @@ export async function getRaffleWithDetails(
 ): Promise<any | null> {
   console.log(`${LOG_PREFIX} getRaffleWithDetails: ${raffleId}`);
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
   if (!raffle) return null;
 
   // Get prizes
-  const prizes = await db.rafflePrize.findMany({
+  const prizes = await prisma.rafflePrize.findMany({
     where: { raffleId },
     orderBy: { displayOrder: "asc" },
   });
@@ -187,7 +187,7 @@ export async function getRaffleWithDetails(
 export async function createRaffle(input: CreateRaffleInput): Promise<any> {
   console.log(`${LOG_PREFIX} createRaffle: ${input.name}`);
 
-  const raffle = await db.raffle.create({
+  const raffle = await prisma.raffle.create({
     data: {
       shop: input.shop,
       name: input.name,
@@ -227,7 +227,7 @@ export async function updateRaffle(
   console.log(`${LOG_PREFIX} updateRaffle: ${raffleId}`);
 
   // Verify raffle belongs to shop
-  const existing = await db.raffle.findFirst({
+  const existing = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
@@ -254,7 +254,7 @@ export async function updateRaffle(
   if (input.tierRestrictions !== undefined) updateData.tierRestrictions = input.tierRestrictions;
   if (input.minimumTier !== undefined) updateData.minimumTier = input.minimumTier;
 
-  const raffle = await db.raffle.update({
+  const raffle = await prisma.raffle.update({
     where: { id: raffleId },
     data: updateData,
   });
@@ -272,7 +272,7 @@ export async function deleteRaffle(
 ): Promise<boolean> {
   console.log(`${LOG_PREFIX} deleteRaffle: ${raffleId}`);
 
-  const existing = await db.raffle.findFirst({
+  const existing = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
@@ -284,7 +284,7 @@ export async function deleteRaffle(
     throw new Error("Can only delete raffles in DRAFT status");
   }
 
-  await db.raffle.delete({
+  await prisma.raffle.delete({
     where: { id: raffleId },
   });
 
@@ -302,7 +302,7 @@ export async function deleteRaffle(
 export async function getRafflePrizes(raffleId: string): Promise<any[]> {
   console.log(`${LOG_PREFIX} getRafflePrizes for raffle: ${raffleId}`);
 
-  const prizes = await db.rafflePrize.findMany({
+  const prizes = await prisma.rafflePrize.findMany({
     where: { raffleId },
     orderBy: { displayOrder: "asc" },
   });
@@ -316,7 +316,7 @@ export async function getRafflePrizes(raffleId: string): Promise<any[]> {
 export async function createRafflePrize(input: CreateRafflePrizeInput): Promise<any> {
   console.log(`${LOG_PREFIX} createRafflePrize for raffle: ${input.raffleId}`);
 
-  const prize = await db.rafflePrize.create({
+  const prize = await prisma.rafflePrize.create({
     data: {
       raffleId: input.raffleId,
       name: input.name,
@@ -356,7 +356,7 @@ export async function updateRafflePrize(
   if (input.displayOrder !== undefined) updateData.displayOrder = input.displayOrder;
   if (input.weight !== undefined) updateData.weight = input.weight;
 
-  const prize = await db.rafflePrize.update({
+  const prize = await prisma.rafflePrize.update({
     where: { id: prizeId },
     data: updateData,
   });
@@ -371,7 +371,7 @@ export async function updateRafflePrize(
 export async function deleteRafflePrize(prizeId: string): Promise<boolean> {
   console.log(`${LOG_PREFIX} deleteRafflePrize: ${prizeId}`);
 
-  await db.rafflePrize.delete({
+  await prisma.rafflePrize.delete({
     where: { id: prizeId },
   });
 
@@ -393,7 +393,7 @@ export async function transitionRaffleStatus(
 ): Promise<any> {
   console.log(`${LOG_PREFIX} transitionRaffleStatus: ${raffleId} -> ${newStatus}`);
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
@@ -422,7 +422,7 @@ export async function transitionRaffleStatus(
   // Additional validation for specific transitions
   if (newStatus === "ACTIVE") {
     // Verify raffle has at least one prize
-    const prizeCount = await db.rafflePrize.count({
+    const prizeCount = await prisma.rafflePrize.count({
       where: { raffleId },
     });
     if (prizeCount === 0) {
@@ -440,7 +440,7 @@ export async function transitionRaffleStatus(
     updateData.drawnAt = new Date();
   }
 
-  const updated = await db.raffle.update({
+  const updated = await prisma.raffle.update({
     where: { id: raffleId },
     data: updateData,
   });
@@ -479,15 +479,15 @@ export async function getRaffleStats(shop: string): Promise<{
   console.log(`${LOG_PREFIX} getRaffleStats for shop: ${shop}`);
 
   // Get total raffles
-  const totalRaffles = await db.raffle.count({ where: { shop } });
+  const totalRaffles = await prisma.raffle.count({ where: { shop } });
 
   // Get active raffles
-  const activeRaffles = await db.raffle.count({
+  const activeRaffles = await prisma.raffle.count({
     where: { shop, status: "ACTIVE" },
   });
 
   // Get aggregate stats from all raffles
-  const raffles = await db.raffle.findMany({
+  const raffles = await prisma.raffle.findMany({
     where: { shop },
     select: { totalEntries: true, totalPrizePool: true },
   });
@@ -518,7 +518,7 @@ export async function checkRaffleEligibility(
 }> {
   console.log(`${LOG_PREFIX} checkRaffleEligibility: raffle=${raffleId}, customer=${customerId}`);
 
-  const raffle = await db.raffle.findFirst({
+  const raffle = await prisma.raffle.findFirst({
     where: { id: raffleId, shop },
   });
 
@@ -555,7 +555,7 @@ export async function checkRaffleEligibility(
   }
 
   // Check customer's current entries
-  const existingEntry = await db.raffleEntry.findFirst({
+  const existingEntry = await prisma.raffleEntry.findFirst({
     where: { raffleId, customerId },
   });
 
@@ -611,7 +611,7 @@ export async function checkRaffleEligibility(
     // Check minimumTier requirement
     if (raffle.minimumTier) {
       if (!tierResult.effectiveTierId) {
-        const minimumTier = await db.tier.findUnique({ where: { id: raffle.minimumTier } });
+        const minimumTier = await prisma.tier.findUnique({ where: { id: raffle.minimumTier } });
         return {
           eligible: false,
           reason: `Requires ${minimumTier?.name || 'a membership'} tier or above`,
@@ -623,8 +623,8 @@ export async function checkRaffleEligibility(
       if (tierResult.effectiveTierId !== raffle.minimumTier) {
         // Check tier hierarchy - compare minSpend values
         const [customerTier, minimumTier] = await Promise.all([
-          db.tier.findUnique({ where: { id: tierResult.effectiveTierId } }),
-          db.tier.findUnique({ where: { id: raffle.minimumTier } }),
+          prisma.tier.findUnique({ where: { id: tierResult.effectiveTierId } }),
+          prisma.tier.findUnique({ where: { id: raffle.minimumTier } }),
         ]);
 
         if (!customerTier || !minimumTier || customerTier.minSpend < minimumTier.minSpend) {

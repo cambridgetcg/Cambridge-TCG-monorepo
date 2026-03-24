@@ -3,7 +3,7 @@
  * Enforces order limits based on merchant subscription plans
  */
 
-import db from "~/db.server";
+import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { getOrderLimit } from "~/constants/plan-limits";
 
@@ -35,7 +35,7 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
 
   // Get or create current month's usage record
   // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
-  let usage = await db.monthlyOrderUsage.findFirst({
+  let usage = await prisma.monthlyOrderUsage.findFirst({
     where: {
       shop: shop,
       year: year,
@@ -47,7 +47,7 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
   if (!usage) {
     console.log(`[PlanAccess] No usage record for ${shop}, creating with Free plan defaults`);
 
-    usage = await db.monthlyOrderUsage.create({
+    usage = await prisma.monthlyOrderUsage.create({
       data: {
         id: uuidv4(),
         shop,
@@ -91,7 +91,7 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
     // Auto-lock the shop
     const lockReason = `Order limit reached (${usage.orderCount}/${usage.planLimit})`;
 
-    await db.monthlyOrderUsage.update({
+    await prisma.monthlyOrderUsage.update({
       where: { id: usage.id },
       data: {
         isLocked: true,
@@ -139,7 +139,7 @@ export async function unlockShop(shop: string): Promise<void> {
 
   console.log(`[PlanAccess] Unlocking shop ${shop} for ${year}-${month.toString().padStart(2, '0')}`);
 
-  await db.monthlyOrderUsage.updateMany({
+  await prisma.monthlyOrderUsage.updateMany({
     where: {
       shop,
       year,
@@ -173,7 +173,7 @@ export async function updatePlanLimit(
 
   // Get current usage
   // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
-  const usage = await db.monthlyOrderUsage.findFirst({
+  const usage = await prisma.monthlyOrderUsage.findFirst({
     where: {
       shop: shop,
       year: year,
@@ -190,7 +190,7 @@ export async function updatePlanLimit(
 
   if (usage) {
     // Update existing record and unlock if new limit exceeds current usage
-    await db.monthlyOrderUsage.update({
+    await prisma.monthlyOrderUsage.update({
       where: { id: usage.id },
       data: {
         planName: newPlanName,
@@ -205,7 +205,7 @@ export async function updatePlanLimit(
     });
   } else {
     // Create new record with updated plan
-    await db.monthlyOrderUsage.create({
+    await prisma.monthlyOrderUsage.create({
       data: {
         id: uuidv4(),
         shop,

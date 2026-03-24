@@ -10,7 +10,7 @@
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
-import db from "../db.server";
+import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
@@ -86,7 +86,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
             // Fallback: update directly (for edge cases where state machine rejects)
             const now = new Date();
-            await db.tierSubscription.update({
+            await prisma.tierSubscription.update({
               where: { id: dbSubscription.id },
               data: {
                 status: newStatus,
@@ -155,7 +155,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Log error
           try {
-            await db.webhookError.create({
+            await prisma.webhookError.create({
               data: {
                 id: uuidv4(),
                 shop,

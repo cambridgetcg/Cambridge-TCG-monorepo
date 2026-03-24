@@ -23,7 +23,7 @@ import {
   type FeatureKey,
   type LimitKey,
 } from "~/services/entitlements.server";
-import db from "~/db.server";
+import prisma from "~/db.server";
 
 // All feature keys for verification
 const ALL_FEATURES: FeatureKey[] = [
@@ -112,15 +112,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       activeRaffleCount,
       activeMysteryBoxCount,
     ] = await Promise.all([
-      db.tier.count({ where: { shop } }),
-      db.tierProduct.count({ where: { shop } }),
-      db.emailAutomation?.count({ where: { shop } }) ?? Promise.resolve(0),
+      prisma.tier.count({ where: { shop } }),
+      prisma.tierProduct.count({ where: { shop } }),
+      prisma.emailAutomation?.count({ where: { shop } }) ?? Promise.resolve(0),
       // Active raffles (ACTIVE or SCHEDULED status)
-      db.raffle?.count({
+      prisma.raffle?.count({
         where: { shop, status: { in: ['ACTIVE', 'SCHEDULED'] } },
       }) ?? Promise.resolve(0),
       // Active mystery boxes (isActive = true)
-      db.mysteryBox?.count({
+      prisma.mysteryBox?.count({
         where: { shop, isActive: true },
       }) ?? Promise.resolve(0),
     ]);
@@ -186,7 +186,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const issues: string[] = [];
 
         // Check for missing columns (would indicate migration not run)
-        const rawEntitlements = await db.shopEntitlements.findUnique({
+        const rawEntitlements = await prisma.shopEntitlements.findUnique({
           where: { shop },
         });
 
@@ -245,7 +245,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       case "audit": {
         // Audit all shops for entitlement issues
-        const allShops = await db.shopEntitlements.findMany({
+        const allShops = await prisma.shopEntitlements.findMany({
           select: {
             shop: true,
             effectivePlan: true,

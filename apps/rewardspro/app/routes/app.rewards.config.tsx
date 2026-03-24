@@ -34,7 +34,7 @@ import {
 } from "~/utils/polaris-icons";
 import { FeatureTogglesList } from "~/components/DesignSystem/FeatureToggleCard";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 import { getPointsConfig, updatePointsConfig } from "../services/points-config.server";
 import { syncPointsConfigMetafield } from "../services/points-metafield-sync.server";
 import type { PointsRoundingMode } from "@prisma/client";
@@ -98,12 +98,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
     // Verify db models exist
-    console.log(`${LOG_PREFIX} db exists: ${!!db}, db.tier exists: ${!!db?.tier}`);
+    console.log(`${LOG_PREFIX} db exists: ${!!db}, prisma.tier exists: ${!!db?.tier}`);
 
     console.log(`${LOG_PREFIX} Fetching config and tiers in parallel...`);
     const [config, tiers] = await Promise.all([
       getPointsConfig(shop),
-      db.tier.findMany({
+      prisma.tier.findMany({
         where: { shop },
         orderBy: { minSpend: "asc" },
         select: {
@@ -249,7 +249,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const pointsLuckBonus = parseFloat(formData.get("pointsLuckBonus") as string);
       const raffleEntryMultiplier = parseFloat(formData.get("raffleEntryMultiplier") as string);
 
-      await db.tier.update({
+      await prisma.tier.update({
         where: { id: tierId },
         data: {
           pointsMultiplier,

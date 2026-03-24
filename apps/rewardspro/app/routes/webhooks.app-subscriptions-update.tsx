@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import * as crypto from "crypto";
-import db from "../db.server";
+import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { refreshEntitlements } from "~/services/entitlements.server";
 import { markTrialUsed } from "~/services/billing/trial-eligibility.server";
@@ -170,7 +170,7 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     // 7. Update all subscription state in a transaction
-    await db.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // Update or create ShopSettings
       const existingShop = await tx.shopSettings.findUnique({
         where: { shop: shopDomain }
@@ -322,7 +322,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // 8. Handle trial tracking (non-critical, outside transaction)
     if (subscription.status === "ACTIVE" && subscription.trial_days > 0) {
       try {
-        const existingSubscription = await db.appSubscription.findUnique({
+        const existingSubscription = await prisma.appSubscription.findUnique({
           where: { shop: shopDomain },
           select: { hasUsedTrial: true }
         });
