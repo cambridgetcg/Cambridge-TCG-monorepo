@@ -21,11 +21,11 @@ const LOG_PREFIX = "[PointsConfig]";
 
 function logDbState(context: string) {
   console.log(`${LOG_PREFIX} [${context}] Checking db state...`);
-  console.log(`${LOG_PREFIX} [${context}] db exists: ${!!db}`);
-  console.log(`${LOG_PREFIX} [${context}] db type: ${typeof db}`);
+  console.log(`${LOG_PREFIX} [${context}] db exists: ${!!prisma}`);
+  console.log(`${LOG_PREFIX} [${context}] db type: ${typeof prisma}`);
 
-  if (db) {
-    const dbKeys = Object.keys(db);
+  if (prisma) {
+    const dbKeys = Object.keys(prisma);
     console.log(`${LOG_PREFIX} [${context}] db keys count: ${dbKeys.length}`);
     console.log(`${LOG_PREFIX} [${context}] db has pointsConfig: ${!!prisma.pointsConfig}`);
     console.log(`${LOG_PREFIX} [${context}] db has pointsLedger: ${!!prisma.pointsLedger}`);
@@ -162,14 +162,14 @@ export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
 
   try {
     // Defensive check before accessing prisma.pointsConfig
-    if (!db) {
+    if (!prisma) {
       console.error(`${LOG_PREFIX} CRITICAL: db is null/undefined in getPointsConfig`);
       throw new Error("Database client is not initialized");
     }
 
     if (!prisma.pointsConfig) {
       console.error(`${LOG_PREFIX} CRITICAL: prisma.pointsConfig is undefined`);
-      console.error(`${LOG_PREFIX} db object keys: ${Object.keys(db).join(', ')}`);
+      console.error(`${LOG_PREFIX} db object keys: ${Object.keys(prisma).join(', ')}`);
       throw new Error("pointsConfig model is not registered in database client");
     }
 
@@ -237,7 +237,7 @@ export async function isPointsEnabled(shop: string): Promise<boolean> {
   console.log(`${LOG_PREFIX} isPointsEnabled called for shop: ${shop}`);
 
   try {
-    if (!db?.pointsConfig) {
+    if (!prisma?.pointsConfig) {
       console.error(`${LOG_PREFIX} isPointsEnabled: prisma.pointsConfig is undefined`);
       return false;
     }
@@ -461,7 +461,7 @@ export async function getEnabledFeatures(shop: string): Promise<{
   console.log(`${LOG_PREFIX} getEnabledFeatures called for shop: ${shop}`);
 
   try {
-    if (!db?.pointsConfig) {
+    if (!prisma?.pointsConfig) {
       console.error(`${LOG_PREFIX} getEnabledFeatures: prisma.pointsConfig is undefined`);
       return {
         pointsSystem: false, raffles: false, mysteryBoxes: false, spinWheel: false,
@@ -579,7 +579,7 @@ export async function getPointsStats(shop: string): Promise<{
 
   try {
     // Validate db models exist
-    if (!db) {
+    if (!prisma) {
       console.error(`${LOG_PREFIX} getPointsStats: db is undefined`);
       throw new Error("Database client not initialized");
     }
