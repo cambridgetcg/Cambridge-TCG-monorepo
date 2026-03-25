@@ -209,7 +209,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       // OPTIMIZED: Single query for all tier products, then filter in memory
       // This reduces database round trips from 2 to 1
-      const allTierProducts = await (db as any).tierProduct.findMany({
+      const allTierProducts = await (prisma as any).tierProduct.findMany({
         where: { shop },
         include: { tier: true },
         orderBy: { deletedAt: 'desc' } // Deleted products first for sorting
@@ -379,7 +379,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               tagsDuration: duration,
               resolvedDuration,
               // DB lookup status
-              dbProductFound: !!dbProduct,
+              dbProductFound: !!prismaProduct,
               dbProductId: dbProduct?.shopifyProductId,
             });
           }
@@ -391,7 +391,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const resolvedId = dbProduct?.id || product.id;
           console.log(`[TierProducts:IDResolution] Product "${product.title}":`, {
             shopifyGID: product.id,
-            dbProductExists: !!dbProduct,
+            dbProductExists: !!prismaProduct,
             dbProductId: dbProduct?.id,
             dbProductShopifyId: dbProduct?.shopifyProductId,
             resolvedId,
@@ -728,7 +728,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Store in database
         if (product.id && variant?.id) {
           try {
-            await (db as any).tierProduct.create({
+            await (prisma as any).tierProduct.create({
               data: {
                 id: uuidv4(),
                 shop,
@@ -948,7 +948,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log('[TierProducts] Purchase Type:', tierProductData.purchaseType);
             console.log('[TierProducts] ========================================');
 
-            await (db as any).tierProduct.create({
+            await (prisma as any).tierProduct.create({
               data: tierProductData
             });
 
@@ -1597,7 +1597,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       try {
         // Find the tier product first
-        const tierProduct = await (db as any).tierProduct.findFirst({
+        const tierProduct = await (prisma as any).tierProduct.findFirst({
           where: {
             id: tierProductId,
             shop,
@@ -1609,25 +1609,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Guard: check for linked purchases before orphan cleanup delete
-        const linkedPurchases = await (db as any).tierPurchase.count({
+        const linkedPurchases = await (prisma as any).tierPurchase.count({
           where: { tierProductId },
         });
         if (linkedPurchases > 0) {
           // Delete linked purchases first to avoid FK constraint failure
-          await (db as any).tierPurchase.deleteMany({
+          await (prisma as any).tierPurchase.deleteMany({
             where: { tierProductId },
           });
           console.log(`[TierProducts] Cleaned up ${linkedPurchases} linked purchase(s) before record deletion`);
         }
 
         // Unlink any subscriptions referencing this product
-        await (db as any).tierSubscription.updateMany({
+        await (prisma as any).tierSubscription.updateMany({
           where: { tierProductId },
           data: { tierProductId: null },
         });
 
         // Delete the tier product record
-        await (db as any).tierProduct.delete({
+        await (prisma as any).tierProduct.delete({
           where: { id: tierProductId },
         });
 

@@ -234,7 +234,7 @@ export interface ManualOverrideInfo {
 }
 
 // Transaction client type for Prisma
-type TransactionClient = Omit<typeof db, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
+type TransactionClient = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 
 /**
  * Get manual override information for a customer
@@ -252,7 +252,7 @@ export async function getManualOverride(
   tx?: TransactionClient,
   options?: { clearIfExpired?: boolean }
 ): Promise<ManualOverrideInfo> {
-  const prisma = tx || db;
+  const prisma = tx || prisma;
   const noOverride: ManualOverrideInfo = {
     hasOverride: false,
     tierId: null,

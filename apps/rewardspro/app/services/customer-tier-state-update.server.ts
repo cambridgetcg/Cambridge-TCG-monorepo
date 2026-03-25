@@ -168,7 +168,7 @@ export async function updateCustomerTierState(
   customerId: string,
   options?: UpdateOptions
 ): Promise<CustomerTierStateUpdateResult> {
-  const prisma = options?.tx || db;
+  const prisma = options?.tx || prisma;
 
   // 1. Get customer with spending data
   const customer = await prisma.customer.findUnique({

@@ -98,7 +98,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
     // Verify db models exist
-    console.log(`${LOG_PREFIX} db exists: ${!!db}, prisma.tier exists: ${!!db?.tier}`);
+    console.log(`${LOG_PREFIX} db exists: ${!!prisma}, prisma.tier exists: ${!!prisma?.tier}`);
 
     console.log(`${LOG_PREFIX} Fetching config and tiers in parallel...`);
     const [config, tiers] = await Promise.all([

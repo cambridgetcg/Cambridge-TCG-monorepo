@@ -125,7 +125,7 @@ export async function resolveEffectiveTier(
 ): Promise<TierResolutionResult> {
   const sources: TierSourceInfo[] = [];
   // Use transaction client if provided, otherwise use default db client
-  const prisma = options?.tx || db;
+  const prisma = options?.tx || prisma;
 
   const resolutionLogger = logger.withContext({ shop, customerId });
   resolutionLogger.info('Resolving effective tier', { useTransaction: !!options?.tx });

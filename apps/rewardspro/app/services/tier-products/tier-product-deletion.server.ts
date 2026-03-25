@@ -851,7 +851,7 @@ export async function permanentlyDeleteTierProduct(
 
     // Wrap in transaction: purchase delete + product delete must be atomic.
     // If product delete fails, we don't want orphaned deleted purchases.
-    const purchasesDeleted = await (db as any).$transaction(async (tx: any) => {
+    const purchasesDeleted = await (prisma as any).$transaction(async (tx: any) => {
       // 1. Delete tier purchases (no onDelete cascade — must be explicit)
       const deleted = await tx.tierPurchase.deleteMany({
         where: { tierProductId: resolvedId }

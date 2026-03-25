@@ -434,7 +434,7 @@ export class PaymentMethodValidationService {
   ): Promise<void> {
     try {
       // Store in PaymentMethodValidation model (to be created)
-      await (db as any).$executeRawUnsafe(`
+      await (prisma as any).$executeRawUnsafe(`
         INSERT INTO "PaymentMethodValidation" (
           id, shop, "customerId", "paymentMethodId", "isValid", 
           errors, warnings, "validatedAt", "createdAt", "updatedAt"

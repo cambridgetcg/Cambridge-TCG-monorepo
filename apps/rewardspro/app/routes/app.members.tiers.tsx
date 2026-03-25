@@ -300,7 +300,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Check if tier products are linked to this tier
     let tierProductCount = 0;
     try {
-      tierProductCount = await (db as any).tierProduct.count({
+      tierProductCount = await (prisma as any).tierProduct.count({
         where: { shop, tierId: id },
       });
     } catch (e) {

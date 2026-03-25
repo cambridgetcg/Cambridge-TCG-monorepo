@@ -128,7 +128,7 @@ export async function atomicWithinLimit<T>(
   if (maxLimit >= 999999) {
     console.log(`${LOG_PREFIX} Unlimited - skipping transaction`);
     // Use db directly since we don't need atomicity for unlimited
-    return createFn(db as unknown as TransactionClient);
+    return createFn(prisma as unknown as TransactionClient);
   }
 
   // Use transaction for atomic check-and-create

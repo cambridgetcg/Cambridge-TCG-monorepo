@@ -112,19 +112,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Verify db models exist before querying
     console.log(`${LOG_PREFIX} Checking db models...`);
-    console.log(`${LOG_PREFIX} db exists: ${!!db}`);
-    console.log(`${LOG_PREFIX} prisma.pointsConfig exists: ${!!db?.pointsConfig}`);
-    console.log(`${LOG_PREFIX} prisma.pointsLedger exists: ${!!db?.pointsLedger}`);
-    console.log(`${LOG_PREFIX} prisma.customer exists: ${!!db?.customer}`);
+    console.log(`${LOG_PREFIX} db exists: ${!!prisma}`);
+    console.log(`${LOG_PREFIX} prisma.pointsConfig exists: ${!!prisma?.pointsConfig}`);
+    console.log(`${LOG_PREFIX} prisma.pointsLedger exists: ${!!prisma?.pointsLedger}`);
+    console.log(`${LOG_PREFIX} prisma.customer exists: ${!!prisma?.customer}`);
 
-    if (!db) {
+    if (!prisma) {
       console.error(`${LOG_PREFIX} CRITICAL: db is undefined!`);
       throw new Error("Database client not initialized");
     }
 
     if (!prisma.pointsConfig) {
       console.error(`${LOG_PREFIX} CRITICAL: prisma.pointsConfig is undefined!`);
-      console.error(`${LOG_PREFIX} Available db keys: ${Object.keys(db).join(', ')}`);
+      console.error(`${LOG_PREFIX} Available db keys: ${Object.keys(prisma).join(', ')}`);
       throw new Error("pointsConfig model not registered in database client");
     }
 

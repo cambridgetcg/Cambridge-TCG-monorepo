@@ -393,7 +393,7 @@ export async function processOrderBatch(
         }
 
         // Check if order exists
-        const existingOrder = await (db as any).order.findFirst({
+        const existingOrder = await (prisma as any).order.findFirst({
           where: {
             shop,
             shopifyOrderId
@@ -778,7 +778,7 @@ async function createNewOrder(
     console.log(`[Order Sync Job] Multi-currency order ${orderData.name}: ${presentmentCurrencyCode} ${presentmentAmount} → ${shopCurrencyCode} ${shopAmount} (rate: ${exchangeRate?.toFixed(4)})`);
   }
 
-  await (db as any).order.create({
+  await (prisma as any).order.create({
     data: {
       id: orderId,
       shop,
@@ -853,7 +853,7 @@ async function createNewOrder(
       const unitPrice = parseFloat(item.originalUnitPriceSet?.shopMoney?.amount || "0");
       const totalDiscount = parseFloat(item.totalDiscountSet?.shopMoney?.amount || "0");
 
-      await (db as any).orderLineItem.create({
+      await (prisma as any).orderLineItem.create({
         data: {
           id: uuidv4(),
           orderId,
@@ -884,14 +884,14 @@ async function createNewOrder(
     for (const refund of orderData.refunds) {
       const shopifyRefundId = refund.id.replace('gid://shopify/Refund/', '');
 
-      const existingRefund = await (db as any).orderRefund.findFirst({
+      const existingRefund = await (prisma as any).orderRefund.findFirst({
         where: { orderId, shopifyRefundId }
       });
 
       if (!existingRefund) {
         const refundId = uuidv4();
 
-        await (db as any).orderRefund.create({
+        await (prisma as any).orderRefund.create({
           data: {
             id: refundId,
             orderId,
@@ -916,7 +916,7 @@ async function createNewOrder(
             const shopifyLineItemId = item.lineItem?.id ?
               item.lineItem.id.replace('gid://shopify/LineItem/', '') : "";
 
-            await (db as any).orderRefundLineItem.create({
+            await (prisma as any).orderRefundLineItem.create({
               data: {
                 id: uuidv4(),
                 refundId,
@@ -934,7 +934,7 @@ async function createNewOrder(
 }
 
 async function updateExistingOrder(orderId: string, orderData: any): Promise<void> {
-  await (db as any).order.update({
+  await (prisma as any).order.update({
     where: { id: orderId },
     data: {
       totalRefunded: parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || "0"),
@@ -970,7 +970,7 @@ async function updateCustomerSpendingTotals(shop: string): Promise<void> {
   });
 
   for (const customer of customers) {
-    const orderStats = await (db as any).order.aggregate({
+    const orderStats = await (prisma as any).order.aggregate({
       where: {
         shop,
         customerId: customer.id,
