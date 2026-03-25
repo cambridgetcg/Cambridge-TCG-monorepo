@@ -2046,41 +2046,27 @@ export default function OrdersPage() {
         </BlockStack>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        <Text variant="bodyMd" as="span">
-          {formatCurrency(Number(order.totalPrice), shopSettings)}
-        </Text>
-      </IndexTable.Cell>
-      <IndexTable.Cell>
-        <BlockStack gap="100">
+        <BlockStack gap="050">
           <Text variant="bodyMd" as="span">
-            {order.cashbackAmount
-              ? formatCurrency(Number(order.cashbackAmount), shopSettings)
-              : "-"
-            }
+            {formatCurrency(Number(order.totalPrice), shopSettings)}
           </Text>
-          {order.cashbackPercent && (
+          {order.cashbackAmount && Number(order.cashbackAmount) > 0 && (
             <Text variant="bodySm" as="span" tone="subdued">
-              {order.cashbackPercent}%
+              {formatCurrency(Number(order.cashbackAmount), shopSettings)} back ({order.cashbackPercent}%)
             </Text>
           )}
         </BlockStack>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        {getFinancialStatusBadge(order.financialStatus)}
-      </IndexTable.Cell>
-      <IndexTable.Cell>
-        {getCashbackStatusBadge(order)}
-      </IndexTable.Cell>
-      <IndexTable.Cell>
-        <ButtonGroup>
-          <Button size="slim" onClick={() => handleViewOrder(order.id)}>
-            View
-          </Button>
+        <InlineStack gap="200" wrap>
+          {getFinancialStatusBadge(order.financialStatus)}
+          {getCashbackStatusBadge(order)}
           {order.cashbackAmount && !order.cashbackProcessed && (
             <Button
               size="slim"
               variant="primary"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 handleProcessCashback(order.id);
               }}
               loading={navigation.state === "submitting"}
@@ -2088,7 +2074,7 @@ export default function OrdersPage() {
               Process
             </Button>
           )}
-        </ButtonGroup>
+        </InlineStack>
       </IndexTable.Cell>
     </IndexTable.Row>
   ));
@@ -2255,10 +2241,7 @@ export default function OrdersPage() {
                       { title: "Date" },
                       { title: "Customer" },
                       { title: "Total" },
-                      { title: "Cashback" },
                       { title: "Status" },
-                      { title: "Cashback Status" },
-                      { title: "Actions" },
                     ]}
                     selectable={true}
                   >
