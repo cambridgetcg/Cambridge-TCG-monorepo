@@ -16,7 +16,7 @@ initDatadog();
 // Initialize Sentry for server-side error tracking with enhanced configuration
 if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'true') {
   Sentry.init({
-    dsn: process.env.SENTRY_DSN,
+    dsn: process.env.SENTRY_DSN?.trim(),
     environment: process.env.NODE_ENV || 'development',
 
     // Smart sampling: 100% for critical ops, 20% default

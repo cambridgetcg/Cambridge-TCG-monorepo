@@ -111,9 +111,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Google Analytics 4 Measurement ID (optional)
     ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || "",
     // Sentry configuration for client-side error tracking
-    sentryDsn: process.env.SENTRY_DSN || "",
-    nodeEnv: process.env.NODE_ENV || "development",
-    shopifyShop: process.env.SHOPIFY_SHOP_DOMAIN || "",
+    sentryDsn: (process.env.SENTRY_DSN || "").trim(),
+    nodeEnv: (process.env.NODE_ENV || "").trim(),
+    shopifyShop: (process.env.SHOPIFY_SHOP_DOMAIN || "").trim(),
   }, { headers });
 };
 
