@@ -36,7 +36,7 @@ import {
   Filler,
   type ChartOptions,
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import { TierBadge } from "../components/TierBadge";
 import { TierPerformanceChart } from "../components/analytics/TierPerformanceChart";
 import { sortTiersByPriority } from "../utils/tier-styles";
