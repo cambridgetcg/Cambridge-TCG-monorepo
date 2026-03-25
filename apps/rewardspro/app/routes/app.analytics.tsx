@@ -36,7 +36,7 @@ import {
   Filler,
   type ChartOptions,
 } from 'chart.js';
-import { Line, Bar, Doughnut, Radar } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 import { TierBadge } from "../components/TierBadge";
 import { TierPerformanceChart } from "../components/analytics/TierPerformanceChart";
 import { sortTiersByPriority } from "../utils/tier-styles";
@@ -1044,10 +1044,8 @@ export default function AnalyticsPage() {
 
     if (hasAdvancedAnalytics) {
       baseTabs.push(
-        { id: 'financial', content: 'Business Numbers' },
-        { id: 'actions', content: 'What To Do Next', badge: data.recommendations?.length.toString() || '0' },
-        { id: 'behaviour', content: 'Customer Insights' },
-        { id: 'cohorts', content: 'Retention Trends' },
+        { id: 'actions', content: 'Actions & Insights', badge: data.recommendations?.length.toString() || '0' },
+        { id: 'retention', content: 'Retention' },
       );
     }
 
@@ -1135,7 +1133,7 @@ export default function AnalyticsPage() {
               {selectedTab === 0 && (
                 <Box padding="400">
                   <BlockStack gap="500">
-                    {/* Quick Health Summary - Merchant-Friendly At-a-Glance */}
+                    {/* Quick Health Summary */}
                     <Banner
                       tone={quickHealth.tone}
                       title={quickHealth.message}
@@ -1167,56 +1165,54 @@ export default function AnalyticsPage() {
                       </BlockStack>
                     </Banner>
 
-                    {/* Executive Summary - Detailed breakdown */}
-                    <ExecutiveSummary
-                      summary={data.executiveSummary}
-                      healthScore={data.healthScore?.overall || 0}
-                    />
-
-                    {/* AI Insights & Health Score Row - NEW */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                      gap: '16px'
-                    }}>
-                      {/* Health Score Widget */}
-                      <HealthScoreWidget
-                        id="program-health"
-                        healthScore={data.healthScore}
-                        size="medium"
-                      />
-
-                      {/* Insights Widget */}
-                      <InsightWidget
-                        id="insights-feed"
-                        insights={data.aiInsights as any}
-                        maxItems={3}
-                        size="medium"
-                      />
+                    {/* 4 Key Metrics */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Revenue</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">{formatAmount(data.overviewMetrics.totalRevenue)}</Text>
+                            <Text variant="bodySm" tone={data.metricsChanges.revenueChange >= 0 ? 'success' : 'critical'} as="span">
+                              {data.metricsChanges.revenueChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.revenueChange).toFixed(1)}% vs last period
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Orders</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">{data.overviewMetrics.totalOrders.toLocaleString()}</Text>
+                            <Text variant="bodySm" tone={data.metricsChanges.ordersChange >= 0 ? 'success' : 'critical'} as="span">
+                              {data.metricsChanges.ordersChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.ordersChange).toFixed(1)}% vs last period
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Active Members</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">{data.overviewMetrics.activeCustomers.toLocaleString()}</Text>
+                            <Text variant="bodySm" tone={data.metricsChanges.activeCustomersChange >= 0 ? 'success' : 'critical'} as="span">
+                              {data.metricsChanges.activeCustomersChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.activeCustomersChange).toFixed(1)}% vs last period
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Avg Order Value</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">{formatAmount(data.overviewMetrics.avgOrderValue)}</Text>
+                            <Text variant="bodySm" tone={data.metricsChanges.avgOrderValueChange >= 0 ? 'success' : 'critical'} as="span">
+                              {data.metricsChanges.avgOrderValueChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.avgOrderValueChange).toFixed(1)}% vs last period
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
                     </div>
 
-                    {/* Key Metrics Comparison - NEW */}
-                    {data.keyComparisons.length > 0 && (
-                      <ComparisonWidget
-                        id="key-metrics-comparison"
-                        title="Key Metrics vs Last Month"
-                        data={data.keyComparisons.map((c) => ({
-                          metric: c.metric,
-                          label: c.metric.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-                          current: c.primary.value,
-                          previous: c.comparison.value,
-                          format: ['revenue', 'aov'].includes(c.metric) ? 'currency' :
-                                  ['redemption_rate'].includes(c.metric) ? 'percent' : 'number',
-                        } as ComparisonData))}
-                        size="full"
-                      />
-                    )}
-
-                    <Divider />
-
-                    {/* Store Performance metrics now consolidated in ComparisonWidget above */}
-
-                    {/* Tier Performance */}
                     <BlockStack gap="400">
                       <BlockStack gap="200">
                         <Text variant="headingMd" as="h2">
@@ -1495,538 +1491,10 @@ export default function AnalyticsPage() {
               )}
 
               {/* Charts Tab - HIDDEN */}
-              {false && selectedTab === 1 && (
-                <Box padding="400">
-                  <BlockStack gap="600">
-                    <BlockStack gap="200">
-                      <Text variant="headingMd" as="h2">
-                        Tier Performance Over Time
-                      </Text>
-                      <Text variant="bodyMd" tone="subdued" as="p">
-                        Track how each tier's metrics evolve month-over-month (last 6 months)
-                      </Text>
-                    </BlockStack>
 
-                    {/* Customer Distribution by Tier - Doughnut Chart */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <BlockStack gap="200">
-                            <InlineStack align="space-between" blockAlign="center">
-                              <Text variant="headingSm" as="h3">Customer Distribution by Tier</Text>
-                              <Badge tone="info">Doughnut Chart</Badge>
-                            </InlineStack>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Breakdown of customer base across loyalty tiers
-                            </Text>
-                          </BlockStack>
-
-                          {/* Chart.js Doughnut Chart */}
-                          <div style={{ height: '300px', padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
-                            <Doughnut
-                              data={{
-                                labels: sortTiersByPriority(data.tierPerformance).map(tier => tier.name),
-                                datasets: [{
-                                  label: 'Customers',
-                                  data: sortTiersByPriority(data.tierPerformance).map(tier => tier.customerCount),
-                                  backgroundColor: [
-                                    'rgba(92, 106, 196, 0.8)',
-                                    'rgba(0, 111, 187, 0.8)',
-                                    'rgba(0, 132, 142, 0.8)',
-                                    'rgba(71, 193, 191, 0.8)',
-                                  ],
-                                  borderColor: [
-                                    '#5C6AC4',
-                                    '#006FBB',
-                                    '#00848E',
-                                    '#47C1BF',
-                                  ],
-                                  borderWidth: 2,
-                                }],
-                              }}
-                              options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                  legend: {
-                                    display: true,
-                                    position: 'right',
-                                    labels: {
-                                      boxWidth: 12,
-                                      padding: 15,
-                                      font: { size: 12 }
-                                    }
-                                  },
-                                  tooltip: {
-                                    callbacks: {
-                                      label: function(context) {
-                                        const label = context.label || '';
-                                        const value = context.parsed;
-                                        const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                                        const percentage = ((value / total) * 100).toFixed(1);
-                                        return `${label}: ${value} customers (${percentage}%)`;
-                                      }
-                                    }
-                                  }
-                                },
-                                cutout: '60%',
-                              }}
-                            />
-                          </div>
-
-                          {/* Summary Stats */}
-                          <InlineStack gap="400" align="space-between">
-                            <Text variant="bodySm" tone="subdued" as="span">
-                              Total: {sortTiersByPriority(data.tierPerformance).reduce((sum, tier) => sum + tier.customerCount, 0)} customers
-                            </Text>
-                            <Text variant="bodySm" tone="subdued" as="span">
-                              {sortTiersByPriority(data.tierPerformance).length} active tiers
-                            </Text>
-                          </InlineStack>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
-                    {/* Revenue Composition Over Time - Stacked Area Chart */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <BlockStack gap="200">
-                            <InlineStack align="space-between" blockAlign="center">
-                              <Text variant="headingSm" as="h3">Revenue Composition by Tier</Text>
-                              <Badge tone="success">Stacked Area</Badge>
-                            </InlineStack>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Track how each tier contributes to total revenue over the last 12 months
-                            </Text>
-                          </BlockStack>
-
-                          {/* Chart.js Stacked Area Chart */}
-                          <div style={{ height: '300px', padding: '20px 0' }}>
-                            <Line
-                              data={{
-                                labels: data.monthlyTierTrends.map(m => m.month),
-                                datasets: data.tierPerformance.map((tier, tierIndex) => {
-                                  const colors = [
-                                    { border: '#5C6AC4', bg: 'rgba(92, 106, 196, 0.5)' },
-                                    { border: '#006FBB', bg: 'rgba(0, 111, 187, 0.5)' },
-                                    { border: '#00848E', bg: 'rgba(0, 132, 142, 0.5)' },
-                                    { border: '#47C1BF', bg: 'rgba(71, 193, 191, 0.5)' },
-                                  ];
-                                  const color = colors[tierIndex] || colors[0];
-
-                                  return {
-                                    label: tier.name,
-                                    data: data.monthlyTierTrends.map(month => {
-                                      const tierData = month.tiers.find(t => t.tierName === tier.name);
-                                      return tierData?.revenue || 0;
-                                    }),
-                                    borderColor: color.border,
-                                    backgroundColor: color.bg,
-                                    fill: true,
-                                    tension: 0.4,
-                                  };
-                                }),
-                              }}
-                              options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                interaction: {
-                                  mode: 'index',
-                                  intersect: false,
-                                },
-                                plugins: {
-                                  legend: {
-                                    display: true,
-                                    position: 'top',
-                                    labels: { boxWidth: 12, padding: 10 }
-                                  },
-                                  tooltip: {
-                                    callbacks: {
-                                      label: function(context) {
-                                        return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
-                                      }
-                                    }
-                                  }
-                                },
-                                scales: {
-                                  x: {
-                                    stacked: true,
-                                    grid: { display: false },
-                                  },
-                                  y: {
-                                    stacked: true,
-                                    beginAtZero: true,
-                                    ticks: {
-                                      callback: function(value) {
-                                        return '$' + value.toLocaleString();
-                                      }
-                                    }
-                                  }
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Legend */}
-                          <InlineStack gap="400" blockAlign="center" wrap={true}>
-                            {data.tierPerformance.map((tier, index) => {
-                              const colors = ['#5C6AC4', '#006FBB', '#00848E', '#47C1BF'];
-                              return (
-                                <InlineStack key={tier.id} gap="200" blockAlign="center">
-                                  <div style={{
-                                    width: '20px',
-                                    height: '12px',
-                                    backgroundColor: colors[index] || '#5C6AC4',
-                                    borderRadius: '2px'
-                                  }} />
-                                  <TierBadge
-                                    tierName={tier.name}
-                                    size="small"
-                                    showIcon={false}
-                                    cashbackPercent={tier.cashbackPercent}
-                                  />
-                                </InlineStack>
-                              );
-                            })}
-                          </InlineStack>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
-                    {/* Multi-Dimensional Tier Performance - Radar Chart */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <BlockStack gap="200">
-                            <InlineStack align="space-between" blockAlign="center">
-                              <Text variant="headingSm" as="h3">Multi-Dimensional Tier Performance</Text>
-                              <Badge tone="info">Radar Chart</Badge>
-                            </InlineStack>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Compare multiple performance dimensions across tiers simultaneously
-                            </Text>
-                          </BlockStack>
-
-                          {/* Chart.js Radar Chart */}
-                          <div style={{ height: '400px', padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
-                            <Radar
-                              data={{
-                                labels: [
-                                  'Order Frequency',
-                                  'Avg Order Value',
-                                  'Customer LTV',
-                                  'Retention Rate',
-                                  'Revenue/Order',
-                                  'Cashback Earned'
-                                ],
-                                datasets: data.tierPerformance.map((tier, tierIndex) => {
-                                  const colors = [
-                                    { border: '#5C6AC4', bg: 'rgba(92, 106, 196, 0.2)' },
-                                    { border: '#006FBB', bg: 'rgba(0, 111, 187, 0.2)' },
-                                    { border: '#00848E', bg: 'rgba(0, 132, 142, 0.2)' },
-                                    { border: '#47C1BF', bg: 'rgba(71, 193, 191, 0.2)' },
-                                  ];
-                                  const color = colors[tierIndex] || colors[0];
-
-                                  // Normalize values to 0-100 scale for radar chart
-                                  const normalizeValue = (value: number, max: number) => (value / max) * 100;
-
-                                  return {
-                                    label: tier.name,
-                                    data: [
-                                      normalizeValue(tier.monthlyOrderFrequency, 6), // Order Frequency (max 6)
-                                      normalizeValue(tier.averageOrderValue, 300), // AOV (max $300)
-                                      normalizeValue(tier.lifetimeValue, 5000), // LTV (max $5000)
-                                      tier.retentionRate, // Already percentage (0-100)
-                                      normalizeValue(tier.revenuePerOrder, 300), // Revenue/Order (max $300)
-                                      normalizeValue(tier.totalCashbackEarned, 1000), // Cashback (max $1000)
-                                    ],
-                                    borderColor: color.border,
-                                    backgroundColor: color.bg,
-                                    borderWidth: 2,
-                                    pointBackgroundColor: color.border,
-                                    pointBorderColor: '#fff',
-                                    pointHoverBackgroundColor: '#fff',
-                                    pointHoverBorderColor: color.border,
-                                  };
-                                }),
-                              }}
-                              options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                scales: {
-                                  r: {
-                                    angleLines: {
-                                      display: true,
-                                      color: 'rgba(0, 0, 0, 0.1)'
-                                    },
-                                    suggestedMin: 0,
-                                    suggestedMax: 100,
-                                    ticks: {
-                                      stepSize: 20,
-                                      callback: function(value) {
-                                        return value + '%';
-                                      }
-                                    },
-                                    pointLabels: {
-                                      font: { size: 11 }
-                                    }
-                                  }
-                                },
-                                plugins: {
-                                  legend: {
-                                    display: true,
-                                    position: 'top',
-                                    labels: { boxWidth: 12, padding: 10 }
-                                  },
-                                  tooltip: {
-                                    callbacks: {
-                                      label: function(context) {
-                                        return `${context.dataset.label}: ${context.parsed.r.toFixed(1)}%`;
-                                      }
-                                    }
-                                  }
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* Legend */}
-                          <InlineStack gap="400" blockAlign="center" wrap={true}>
-                            {data.tierPerformance.map((tier, index) => {
-                              const colors = ['#5C6AC4', '#006FBB', '#00848E', '#47C1BF'];
-                              return (
-                                <InlineStack key={tier.id} gap="200" blockAlign="center">
-                                  <div style={{
-                                    width: '12px',
-                                    height: '12px',
-                                    backgroundColor: colors[index] || '#5C6AC4',
-                                    borderRadius: '50%',
-                                    border: '2px solid white',
-                                    boxShadow: '0 0 0 1px ' + (colors[index] || '#5C6AC4')
-                                  }} />
-                                  <TierBadge
-                                    tierName={tier.name}
-                                    size="small"
-                                    showIcon={false}
-                                    cashbackPercent={tier.cashbackPercent}
-                                  />
-                                </InlineStack>
-                              );
-                            })}
-                          </InlineStack>
-
-                          <Text variant="bodySm" tone="subdued" as="p">
-                            Each axis normalized to 0-100% scale for comparison across different metrics
-                          </Text>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
-                    {/* Reward Usage Rate Over Time */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <BlockStack gap="200">
-                            <InlineStack align="space-between" blockAlign="center">
-                              <Text variant="headingSm" as="h3">Reward Usage Rate Over Time</Text>
-                              <Badge tone="info">Monthly Trends</Badge>
-                            </InlineStack>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Track monthly reward redemption rate over the last 12 months
-                            </Text>
-                          </BlockStack>
-
-                          {/* Chart.js Area Chart */}
-                          {data.monthlyImpactData.length > 0 ? (
-                            <div style={{ height: '300px', padding: '20px 0' }}>
-                              <Line
-                                data={{
-                                  labels: data.monthlyImpactData.map(m => m.month),
-                                  datasets: [{
-                                    label: 'Reward Usage Rate',
-                                    data: data.monthlyImpactData.map(m => m.usageRate),
-                                    borderColor: '#8B5CF6',
-                                    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                                    fill: true,
-                                    tension: 0.4,
-                                  }],
-                                }}
-                                options={getShopifyChartOptions({
-                                  max: 100,
-                                  callback: (value) => `${value}%`,
-                                })}
-                              />
-                            </div>
-                          ) : (
-                            <EmptyState
-                              heading="No usage data yet"
-                              image=""
-                            >
-                              <p>Reward usage rate data will appear once customers start redeeming rewards.</p>
-                            </EmptyState>
-                          )}
-
-                          <Text variant="bodySm" tone="subdued" as="p">
-                            Cumulative percentage of rewards redeemed by customers since program launch
-                          </Text>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
-                    {/* Sales Influenced by Rewards Pro Over Time */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <BlockStack gap="200">
-                            <InlineStack align="space-between" blockAlign="center">
-                              <Text variant="headingSm" as="h3">Sales Influenced by Rewards Pro Over Time</Text>
-                              <Badge tone="success">Cumulative Chart</Badge>
-                            </InlineStack>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Track cumulative revenue influenced by your loyalty program over the last 12 months
-                            </Text>
-                          </BlockStack>
-
-                          {/* Chart.js Area Chart */}
-                          {data.monthlyImpactData.length > 0 ? (
-                            <div style={{ height: '300px', padding: '20px 0' }}>
-                              <Line
-                                data={{
-                                  labels: data.monthlyImpactData.map(m => m.month),
-                                  datasets: [{
-                                    label: 'Sales Influenced',
-                                    data: data.monthlyImpactData.map(m => m.cumulativeSales),
-                                    borderColor: '#22c55e',
-                                    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                    fill: true,
-                                    tension: 0.1,
-                                  }],
-                                }}
-                                options={getShopifyChartOptions({
-                                  callback: (value) => `$${(Number(value) / 1000).toFixed(0)}k`,
-                                })}
-                              />
-                            </div>
-                          ) : (
-                            <EmptyState
-                              heading="No sales influence data yet"
-                              image=""
-                            >
-                              <p>Sales influenced by your loyalty program will appear once orders are placed by members.</p>
-                            </EmptyState>
-                          )}
-
-                          <Text variant="bodySm" tone="subdued" as="p">
-                            Cumulative revenue from orders influenced by loyalty program participation
-                          </Text>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
-                  </BlockStack>
-                </Box>
-              )}
-
-              {/* Financial Tab */}
               {selectedTab === 1 && (
                 <Box padding="400">
-                  <BlockStack gap="500">
-                    {/* Margin Recalibration Module */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <BlockStack gap="200">
-                            <Text variant="headingMd" as="h2">
-                              Your Business Numbers
-                            </Text>
-                            <Text variant="bodyMd" tone="subdued" as="p">
-                              Help us understand your business better by entering your profit margins and costs. This lets us show you more accurate ROI and profit calculations.
-                            </Text>
-                            {data.shopSettings?.metricsLastUpdatedDisplay && (
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Last updated: {data.shopSettings.metricsLastUpdatedDisplay}
-                              </Text>
-                            )}
-                          </BlockStack>
-
-                          <Divider />
-
-                          <MarginRecalibrationForm
-                            initialValues={{
-                              averageProfitMargin: data.shopSettings?.averageProfitMargin || '',
-                              averageShippingCost: data.shopSettings?.averageShippingCost || '',
-                              averageTransactionFee: data.shopSettings?.averageTransactionFee || '',
-                              averageReturnRate: data.shopSettings?.averageReturnRate || '',
-                            }}
-                            currentAOV={data.overviewMetrics.avgOrderValue}
-                            autoCalculatedMetrics={data.autoCalculatedMetrics}
-                            shopSettings={data.shopSettings}
-                          />
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
-                    {/* Help Card */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="300">
-                          <Text variant="headingSm" as="h3">
-                            How to Use These Metrics
-                          </Text>
-                          <Text variant="bodySm" as="p" tone="subdued">
-                            Configure these metrics to enable accurate ROI calculations and profit analysis for your loyalty program.
-                          </Text>
-
-                          <Divider />
-
-                          <BlockStack gap="300">
-                            <Text variant="headingSm" as="h4">Revenue & Costs (Manual Input)</Text>
-                            <BlockStack gap="200">
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Average Profit Margin (%):</strong> Your typical profit margin as a percentage (e.g., 45 for 45% profit margin). This helps calculate the actual profit generated from loyalty program sales.
-                              </Text>
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Average Shipping Cost:</strong> Average cost per order in your currency. Used to calculate true net profit after accounting for fulfillment costs.
-                              </Text>
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Average Transaction Fee (%):</strong> Payment processing fees (e.g., 2.9 for 2.9%). Shopify Payments standard rate is 2.9% + 30¢ per transaction.
-                              </Text>
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Average Return/Refund Rate (%):</strong> Percentage of orders that get returned or refunded. Helps calculate true profitability by accounting for lost revenue.
-                              </Text>
-                            </BlockStack>
-
-                            <Divider />
-
-                            <Text variant="headingSm" as="h4">Auto-Calculated Metrics (From Your Data)</Text>
-                            <BlockStack gap="200">
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Average Order Value:</strong> Automatically calculated from your actual order data. Updates in real-time as new orders come in.
-                              </Text>
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Customer Lifetime Value:</strong> Average total spending per customer across all their orders. Tracks long-term customer value.
-                              </Text>
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Repeat Purchase Rate (%):</strong> Percentage of customers who made more than one purchase. Key indicator of customer loyalty and program effectiveness.
-                              </Text>
-                              <Text variant="bodySm" as="p" tone="subdued">
-                                <strong>Actual Retention Rate (%):</strong> Month-over-month customer retention rate. Shows if customers keep coming back to your store.
-                              </Text>
-                            </BlockStack>
-                          </BlockStack>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-                  </BlockStack>
-                </Box>
-              )}
-
-              {/* Recommended Actions Tab */}
-              {selectedTab === 2 && (
-                <Box padding="400">
-                  <BlockStack gap="500">
+                  <BlockStack gap="600">
                     {/* Header Section */}
                     <BlockStack gap="300">
                       <InlineStack align="space-between" blockAlign="center">
@@ -2185,15 +1653,9 @@ export default function AnalyticsPage() {
                         ))}
                       </div>
                     )}
-                  </BlockStack>
-                </Box>
-              )}
 
+                    <Divider />
 
-              {/* Customer Behaviour Tab - Enhanced with RFM & Psychology */}
-              {selectedTab === 3 && (
-                <Box padding="400">
-                  <BlockStack gap="600">
                     {/* Header - Health Score is shown in Overview tab */}
                     <BlockStack gap="200">
                       <InlineStack align="space-between" blockAlign="center">
@@ -2671,7 +2133,7 @@ export default function AnalyticsPage() {
               {/* ============================================ */}
               {/* TAB 5: COHORT ANALYSIS */}
               {/* ============================================ */}
-              {selectedTab === 4 && (
+              {selectedTab === 2 && (
                 <Box padding="400">
                   <BlockStack gap="500">
                     {/* Header */}
@@ -3111,3 +2573,6 @@ export default function AnalyticsPage() {
     </Page>
   );
 }
+
+                    <Divider />
+
