@@ -23,26 +23,7 @@
 
 import prisma from "~/db.server";
 import * as sendgrid from "./sendgrid.server";
-
-/**
- * Strip dangerous HTML tags/attributes for email safety (XSS prevention)
- */
-function sanitizeEmailHtml(html: string): string {
-  let sanitized = html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
-    .replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, "")
-    .replace(/<embed\b[^>]*>[\s\S]*?<\/embed>/gi, "")
-    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, "")
-    .replace(/<input\b[^>]*\/?>/gi, "")
-    .replace(/<textarea\b[^>]*>[\s\S]*?<\/textarea>/gi, "")
-    .replace(/<select\b[^>]*>[\s\S]*?<\/select>/gi, "")
-    .replace(/<button\b[^>]*>[\s\S]*?<\/button>/gi, "");
-  sanitized = sanitized.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '$1=""');
-  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*')/gi, '$1=""');
-  return sanitized;
-}
+import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
 // TYPES

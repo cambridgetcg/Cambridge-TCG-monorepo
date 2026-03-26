@@ -34,7 +34,6 @@ export const KLAVIYO_EVENTS = {
 
   // Tier Events
   TIER_UPGRADED: "RewardsPro Tier Upgraded",
-  TIER_DOWNGRADED: "RewardsPro Tier Downgraded",
   TIER_UPGRADE_NEAR: "RewardsPro Tier Upgrade Near",
   VIP_ACHIEVED: "RewardsPro VIP Status Achieved",
 
@@ -66,26 +65,12 @@ export const KLAVIYO_EVENTS = {
   // Raffle Events
   RAFFLE_ENTERED: "RewardsPro Raffle Entry",
   RAFFLE_WON: "RewardsPro Raffle Won",
-  RAFFLE_ENDING_SOON: "RewardsPro Raffle Ending Soon",
-  RAFFLE_NEW_AVAILABLE: "RewardsPro New Raffle Available",
+
 
   // Mystery Box Events
   MYSTERY_BOX_OPENED: "RewardsPro Mystery Box Opened",
   MYSTERY_BOX_WON: "RewardsPro Mystery Box Prize Won",
-  MYSTERY_BOX_NEW_AVAILABLE: "RewardsPro New Mystery Box Available",
 
-  // Challenge Events (future)
-  CHALLENGE_STARTED: "RewardsPro Challenge Started",
-  CHALLENGE_COMPLETED: "RewardsPro Challenge Completed",
-  CHALLENGE_PROGRESS: "RewardsPro Challenge Progress Update",
-
-  // Bonus Events
-  BONUS_EVENT_STARTED: "RewardsPro Bonus Event Started",
-  BONUS_EVENT_ENDING: "RewardsPro Bonus Event Ending Soon",
-
-  // Engagement Triggers
-  REWARDS_DORMANT: "RewardsPro Rewards Engagement Needed",
-  HIGH_POINTS_NO_ACTIVITY: "RewardsPro High Balance No Activity",
 
   // ============================================
   // GIFT CARD & STORE CREDIT EVENTS (Marketing-Gift Cards Integration)
@@ -93,20 +78,9 @@ export const KLAVIYO_EVENTS = {
 
   // Gift Card Events
   GIFT_CARD_PURCHASED: "RewardsPro Gift Card Purchased",
-  GIFT_CARD_RECEIVED: "RewardsPro Gift Card Received",
-  GIFT_CARD_REDEEMED: "RewardsPro Gift Card Redeemed",
-  GIFT_CARD_BALANCE_LOW: "RewardsPro Gift Card Balance Low",
-  GIFT_CARD_EXPIRING: "RewardsPro Gift Card Expiring Soon",
 
   // Store Credit Events
-  STORE_CREDIT_EARNED: "RewardsPro Store Credit Earned",
-  STORE_CREDIT_SPENT: "RewardsPro Store Credit Spent",
   STORE_CREDIT_CONVERTED: "RewardsPro Store Credit Converted",
-  STORE_CREDIT_MILESTONE: "RewardsPro Store Credit Milestone",
-  STORE_CREDIT_BALANCE_REMINDER: "RewardsPro Store Credit Balance Reminder",
-
-  // Cashback Events (enhanced)
-  CASHBACK_MILESTONE: "RewardsPro Cashback Milestone Reached",
 } as const;
 
 export type KlaviyoEventName = (typeof KLAVIYO_EVENTS)[keyof typeof KLAVIYO_EVENTS];
@@ -280,7 +254,6 @@ function isEventEnabled(
     [KLAVIYO_EVENTS.CASHBACK_EARNED]: "sendCashbackEarned",
     [KLAVIYO_EVENTS.CASHBACK_REDEEMED]: "sendCashbackRedeemed",
     [KLAVIYO_EVENTS.TIER_UPGRADED]: "sendTierUpgraded",
-    [KLAVIYO_EVENTS.TIER_DOWNGRADED]: "sendTierDowngraded",
     [KLAVIYO_EVENTS.TIER_UPGRADE_NEAR]: "sendTierUpgradeNear",
     [KLAVIYO_EVENTS.VIP_ACHIEVED]: "sendVipAchieved",
     [KLAVIYO_EVENTS.POINTS_EXPIRING]: "sendPointsExpiring",
@@ -297,53 +270,22 @@ function isEventEnabled(
     [KLAVIYO_EVENTS.AT_RISK]: "sendWinBack",
     [KLAVIYO_EVENTS.REFERRAL_COMPLETED]: "sendCustomerEnrolled",
 
-    // Rewards Engagement Events - grouped by feature
     // Points events
-    [KLAVIYO_EVENTS.POINTS_EARNED]: "sendPointsEvents",
     [KLAVIYO_EVENTS.POINTS_SPENT]: "sendPointsEvents",
-    [KLAVIYO_EVENTS.POINTS_MILESTONE]: "sendPointsEvents",
-    [KLAVIYO_EVENTS.POINTS_BALANCE_LOW]: "sendPointsEvents",
 
     // Raffle events
     [KLAVIYO_EVENTS.RAFFLE_ENTERED]: "sendRaffleEvents",
     [KLAVIYO_EVENTS.RAFFLE_WON]: "sendRaffleEvents",
-    [KLAVIYO_EVENTS.RAFFLE_ENDING_SOON]: "sendRaffleEvents",
-    [KLAVIYO_EVENTS.RAFFLE_NEW_AVAILABLE]: "sendRaffleEvents",
 
     // Mystery box events
     [KLAVIYO_EVENTS.MYSTERY_BOX_OPENED]: "sendMysteryBoxEvents",
     [KLAVIYO_EVENTS.MYSTERY_BOX_WON]: "sendMysteryBoxEvents",
-    [KLAVIYO_EVENTS.MYSTERY_BOX_NEW_AVAILABLE]: "sendMysteryBoxEvents",
-
-    // Challenge events (use rewards engagement toggle)
-    [KLAVIYO_EVENTS.CHALLENGE_STARTED]: "sendRewardsEngagement",
-    [KLAVIYO_EVENTS.CHALLENGE_COMPLETED]: "sendRewardsEngagement",
-    [KLAVIYO_EVENTS.CHALLENGE_PROGRESS]: "sendRewardsEngagement",
-
-    // Bonus events (use rewards engagement toggle)
-    [KLAVIYO_EVENTS.BONUS_EVENT_STARTED]: "sendRewardsEngagement",
-    [KLAVIYO_EVENTS.BONUS_EVENT_ENDING]: "sendRewardsEngagement",
-
-    // Re-engagement triggers
-    [KLAVIYO_EVENTS.REWARDS_DORMANT]: "sendRewardsEngagement",
-    [KLAVIYO_EVENTS.HIGH_POINTS_NO_ACTIVITY]: "sendRewardsEngagement",
 
     // Gift card events
     [KLAVIYO_EVENTS.GIFT_CARD_PURCHASED]: "sendGiftCardEvents",
-    [KLAVIYO_EVENTS.GIFT_CARD_RECEIVED]: "sendGiftCardEvents",
-    [KLAVIYO_EVENTS.GIFT_CARD_REDEEMED]: "sendGiftCardEvents",
-    [KLAVIYO_EVENTS.GIFT_CARD_BALANCE_LOW]: "sendGiftCardEvents",
-    [KLAVIYO_EVENTS.GIFT_CARD_EXPIRING]: "sendGiftCardEvents",
 
     // Store credit events
-    [KLAVIYO_EVENTS.STORE_CREDIT_EARNED]: "sendStoreCreditEvents",
-    [KLAVIYO_EVENTS.STORE_CREDIT_SPENT]: "sendStoreCreditEvents",
     [KLAVIYO_EVENTS.STORE_CREDIT_CONVERTED]: "sendStoreCreditEvents",
-    [KLAVIYO_EVENTS.STORE_CREDIT_MILESTONE]: "sendStoreCreditEvents",
-    [KLAVIYO_EVENTS.STORE_CREDIT_BALANCE_REMINDER]: "sendStoreCreditEvents",
-
-    // Cashback milestone (uses cashback toggle)
-    [KLAVIYO_EVENTS.CASHBACK_MILESTONE]: "sendCashbackEarned",
   };
 
   const settingKey = mapping[eventType];

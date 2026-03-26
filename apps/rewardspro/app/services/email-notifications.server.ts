@@ -16,48 +16,7 @@
 import prisma from "~/db.server";
 import * as sendgrid from "./sendgrid.server";
 import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
-
-// ============================================
-// HTML SANITIZATION
-// ============================================
-
-/**
- * Sanitize HTML content for email sending.
- * Strips dangerous tags (script, iframe, object, embed, form, etc.) and
- * event handler attributes (onclick, onerror, onload, etc.) to prevent
- * XSS if an admin account is compromised.
- */
-function sanitizeEmailHtml(html: string): string {
-  // Remove dangerous tags and their contents
-  let sanitized = html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
-    .replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, "")
-    .replace(/<embed\b[^>]*>[\s\S]*?<\/embed>/gi, "")
-    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, "")
-    .replace(/<input\b[^>]*\/?>/gi, "")
-    .replace(/<textarea\b[^>]*>[\s\S]*?<\/textarea>/gi, "")
-    .replace(/<select\b[^>]*>[\s\S]*?<\/select>/gi, "")
-    .replace(/<button\b[^>]*>[\s\S]*?<\/button>/gi, "")
-    .replace(/<applet\b[^>]*>[\s\S]*?<\/applet>/gi, "")
-    .replace(/<base\b[^>]*\/?>/gi, "")
-    .replace(/<link\b[^>]*\/?>/gi, "")
-    .replace(/<meta\b[^>]*\/?>/gi, "");
-
-  // Remove self-closing dangerous tags
-  sanitized = sanitized
-    .replace(/<script\b[^>]*\/>/gi, "")
-    .replace(/<iframe\b[^>]*\/>/gi, "");
-
-  // Remove event handler attributes (on*)
-  sanitized = sanitized.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-
-  // Remove javascript: and data: protocol URLs in href/src attributes
-  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '$1=""');
-  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*')/gi, '$1=""');
-
-  return sanitized;
-}
+import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
 // TYPES
@@ -92,7 +51,7 @@ interface EmailNotificationResult {
 /**
  * Check if email notifications are enabled for a shop
  */
-async function isEmailEnabled(shop: string): Promise<boolean> {
+async function isEmailEnabled(_shop: string): Promise<boolean> {
   // Check if SendGrid API key is configured
   if (!process.env.SENDGRID_API_KEY) {
     console.log(`[EmailNotifications] SendGrid not configured, skipping email`);
@@ -102,22 +61,6 @@ async function isEmailEnabled(shop: string): Promise<boolean> {
   // Check if shop has email settings (optional - can be enhanced later)
   // For now, if SendGrid is configured, emails are enabled
   return true;
-}
-
-/**
- * Get customer display name
- */
-function getCustomerName(customer: CustomerInfo): string {
-  if (customer.firstName && customer.lastName) {
-    return `${customer.firstName} ${customer.lastName}`;
-  }
-  if (customer.firstName) {
-    return customer.firstName;
-  }
-  if (customer.lastName) {
-    return customer.lastName;
-  }
-  return "Valued Customer";
 }
 
 /**
@@ -172,9 +115,6 @@ export async function sendWelcomeEmailNotification(
   }
 
   try {
-    const storeName = await getShopName(shop);
-    const customerName = getCustomerName(customer);
-
     const result = await sendgrid.sendWelcomeEmail(
       shop,
       {
@@ -273,9 +213,6 @@ export async function sendTierUpgradeEmailNotification(
   }
 
   try {
-    const storeName = await getShopName(shop);
-    const customerName = getCustomerName(customer);
-
     const result = await sendgrid.sendTierUpgradeEmail(
       shop,
       {
