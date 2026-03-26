@@ -22,7 +22,7 @@
  */
 
 import prisma from "~/db.server";
-import * as sendgrid from "./sendgrid.server";
+import { sendTransactionalEmail } from "./email-provider.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
@@ -259,8 +259,8 @@ async function executeAutomationAction(
     .filter(Boolean)
     .join(" ") || undefined;
 
-  // Send via SendGrid
-  await sendgrid.sendEmail(event.shop, {
+  // Send via unified email provider (routes to SendGrid or Klaviyo based on shop config)
+  const result = await sendTransactionalEmail(event.shop, {
     to: { email: event.customer.email, name: recipientName },
     subject: template.subject || `Update from your store`,
     html: htmlContent,
@@ -271,6 +271,10 @@ async function executeAutomationAction(
       shop: event.shop,
     },
   });
+
+  if (!result.success) {
+    throw new Error(result.error || "Email send failed");
+  }
 
   // Update automation metrics
   try {
@@ -345,8 +349,8 @@ export async function processDelayedAutomations(): Promise<{
           .filter(Boolean)
           .join(" ") || undefined;
 
-        // Send via SendGrid
-        await sendgrid.sendEmail(item.shop, {
+        // Send via unified email provider
+        const sendResult = await sendTransactionalEmail(item.shop, {
           to: { email: item.recipientEmail, name: recipientName },
           subject: template.subject || "Update from your store",
           html: htmlContent,
@@ -357,6 +361,10 @@ export async function processDelayedAutomations(): Promise<{
             shop: item.shop,
           },
         });
+
+        if (!sendResult.success) {
+          throw new Error(sendResult.error || "Email send failed");
+        }
 
         // Mark as sent
         await prisma.pendingAutomation.update({

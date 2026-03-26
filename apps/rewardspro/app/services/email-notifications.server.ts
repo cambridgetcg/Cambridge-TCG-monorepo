@@ -2,12 +2,10 @@
  * Email Notifications Service
  *
  * Handles sending automated email notifications for:
- * - Welcome emails (new customers)
- * - Tier upgrade emails
- * - Campaign emails
- *
- * This service wraps the SendGrid service with proper error handling
- * to ensure email failures don't break webhook processing.
+ * - Welcome emails → routed through email-provider.server (SendGrid/Klaviyo)
+ * - Tier upgrade emails → routed through email-provider.server
+ * - Campaign emails → routed through email-provider.server
+ * - Points/streak/tier-expiration emails → direct SendGrid (TODO: route through email-provider)
  *
  * ENTITLEMENTS: Email sending is limited by plan (rate-based gating):
  * - Free: 50/month, Pro: 500/month, Max: 2000/month, Ultra: unlimited
@@ -15,6 +13,11 @@
 
 import prisma from "~/db.server";
 import * as sendgrid from "./sendgrid.server";
+import {
+  sendWelcomeEmailUnified,
+  sendTierUpgradeEmailUnified,
+  sendBatchMarketingEmails,
+} from "./email-provider.server";
 import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
@@ -115,24 +118,16 @@ export async function sendWelcomeEmailNotification(
   }
 
   try {
-    const result = await sendgrid.sendWelcomeEmail(
-      shop,
-      {
-        email: customer.email,
-        firstName: customer.firstName || undefined,
-        lastName: customer.lastName || undefined,
-      },
-      {
-        name: tier?.name || "Member",
-        cashbackPercent: tier?.cashbackPercent || 0,
-      }
-    );
+    // Route through unified email provider (handles SendGrid vs Klaviyo routing + usage tracking)
+    const success = await sendWelcomeEmailUnified(shop, {
+      customer: customer as any,
+      storeName: await getShopName(shop),
+      tierName: tier?.name || "Member",
+      cashbackPercent: tier?.cashbackPercent || 0,
+    });
 
-    if (result.success) {
+    if (success) {
       console.log(`[EmailNotifications] ✅ Welcome email sent to customer ${customer.id}`);
-
-      // Record email sent for usage tracking
-      await recordEmailSent(shop, 1, "transactional");
 
       // Log email event (optional - for analytics)
       try {
@@ -153,13 +148,8 @@ export async function sendWelcomeEmailNotification(
 
       return { success: true };
     } else {
-      // Check if this is a SendGrid credits issue (external service limit)
-      if (result.error?.includes("Maximum credits exceeded")) {
-        console.error(`[EmailNotifications] ⚠️ ALERT: SendGrid credits exhausted! Emails are failing.`);
-        console.error(`[EmailNotifications] ⚠️ Action required: Top up SendGrid credits or switch provider.`);
-      }
-      console.error(`[EmailNotifications] ❌ Failed to send welcome email: ${result.error}`);
-      return { success: false, error: result.error };
+      console.error(`[EmailNotifications] ❌ Failed to send welcome email`);
+      return { success: false, error: "Email provider returned failure" };
     }
   } catch (error: any) {
     console.error(`[EmailNotifications] ❌ Error sending welcome email:`, error);
@@ -213,24 +203,15 @@ export async function sendTierUpgradeEmailNotification(
   }
 
   try {
-    const result = await sendgrid.sendTierUpgradeEmail(
-      shop,
-      {
-        email: customer.email,
-        firstName: customer.firstName || undefined,
-      },
-      {
-        previousTier: previousTier?.name || "None",
-        newTier: newTier.name,
-        newCashbackPercent: newTier.cashbackPercent,
-      }
-    );
+    // Route through unified email provider (handles SendGrid vs Klaviyo routing + usage tracking)
+    const success = await sendTierUpgradeEmailUnified(shop, {
+      customer: customer as any,
+      previousTier: previousTier ? ({ name: previousTier.name } as any) : null,
+      newTier: { name: newTier.name, cashbackPercent: newTier.cashbackPercent } as any,
+    });
 
-    if (result.success) {
+    if (success) {
       console.log(`[EmailNotifications] ✅ Tier upgrade email sent to customer ${customer.id}`);
-
-      // Record email sent for usage tracking
-      await recordEmailSent(shop, 1, "transactional");
 
       // Log email event
       try {
@@ -256,13 +237,8 @@ export async function sendTierUpgradeEmailNotification(
 
       return { success: true };
     } else {
-      // Check if this is a SendGrid credits issue (external service limit)
-      if (result.error?.includes("Maximum credits exceeded")) {
-        console.error(`[EmailNotifications] ⚠️ ALERT: SendGrid credits exhausted! Emails are failing.`);
-        console.error(`[EmailNotifications] ⚠️ Action required: Top up SendGrid credits or switch provider.`);
-      }
-      console.error(`[EmailNotifications] ❌ Failed to send tier upgrade email: ${result.error}`);
-      return { success: false, error: result.error };
+      console.error(`[EmailNotifications] ❌ Failed to send tier upgrade email`);
+      return { success: false, error: "Email provider returned failure" };
     }
   } catch (error: any) {
     console.error(`[EmailNotifications] ❌ Error sending tier upgrade email:`, error);
@@ -325,20 +301,19 @@ export async function sendCampaignEmails(
     return { sent: 0, failed: 0, errors: ["No valid recipients"] };
   }
 
-  // Send batch emails with custom args for webhook tracking
-  const result = await sendgrid.sendBatchEmails(
-    shop,
-    validRecipients.map((r) => ({ email: r.email, name: r.name })),
-    {
-      subject: campaign.subject || "Update from us",
-      html: htmlContent,
-      categories: ["campaign", campaignId],
-      customArgs: {
-        campaign_id: campaignId,
-        shop: shop,
-      },
-    }
-  );
+  // Route through unified email provider (handles SendGrid vs Klaviyo routing)
+  const batchResult = await sendBatchMarketingEmails(shop, {
+    recipients: validRecipients.map((r) => ({ email: r.email, name: r.name })),
+    subject: campaign.subject || "Update from us",
+    html: htmlContent,
+    categories: ["campaign", campaignId],
+  });
+
+  const result = {
+    sent: batchResult.success ? validRecipients.length : 0,
+    failed: batchResult.success ? 0 : validRecipients.length,
+    errors: batchResult.error ? [batchResult.error] : [] as string[],
+  };
 
   // Log campaign send event
   try {
