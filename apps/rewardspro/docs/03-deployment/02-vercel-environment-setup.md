@@ -1,71 +1,71 @@
 # Vercel Environment Variables Setup
 
-## 🎯 Overview
+## Overview
 
 This guide explains how to configure environment variables in Vercel for optimal database connection management.
 
-## 📋 Environment Variables by Deployment Type
+## Environment Variables by Deployment Type
 
-### 🚀 Production Environment
+### Production Environment
 
 Add these in Vercel Dashboard → Settings → Environment Variables → Production:
 
 ```bash
 # Shopify Configuration
-SHOPIFY_API_KEY=f04b5854fb022d67ba9dd097767b465a
-SHOPIFY_API_SECRET=your-production-secret
+SHOPIFY_API_KEY=<from Shopify Partner Dashboard>
+SHOPIFY_API_SECRET=<from Shopify Partner Dashboard>
 SCOPES=read_orders,write_store_credit_account_transactions,read_store_credit_accounts
 SHOPIFY_APP_URL=https://your-app.vercel.app
 
 # Aurora Direct Connection (for Prisma migrations and production)
-DATABASE_URL=postgresql://postgres:gA8YHoh7YJ0%7CZe2sBi%5B%5BiA%5BXO%24Ce@rewardspro-dev.cluster-cj06ko4ko87d.eu-north-1.rds.amazonaws.com:5432/rewardspro
-DIRECT_URL=postgresql://postgres:gA8YHoh7YJ0%7CZe2sBi%5B%5BiA%5BXO%24Ce@rewardspro-dev.cluster-cj06ko4ko87d.eu-north-1.rds.amazonaws.com:5432/rewardspro
+DATABASE_URL=<Aurora connection string from AWS Console>
+DIRECT_URL=<same as DATABASE_URL>
 
 # RDS Proxy (when available - recommended)
 # DATABASE_URL_PROXY=postgresql://username:password@proxy-endpoint.proxy-xyz.eu-north-1.rds.amazonaws.com:5432/rewardspro
 
 # Aurora Data API (fallback)
-AURORA_RESOURCE_ARN=arn:aws:rds:eu-north-1:043509841549:cluster:rewardspro-dev
-AURORA_SECRET_ARN=arn:aws:secretsmanager:eu-north-1:043509841549:secret:rds!cluster-65ca2aee-0536-4745-b04d-0eec72e31363-yO7eLo
+AURORA_RESOURCE_ARN=<from AWS RDS Console>
+AURORA_SECRET_ARN=<from AWS Secrets Manager>
 AURORA_DATABASE_NAME=rewardspro
 
-# AWS Credentials
-AWS_ACCESS_KEY_ID=AKIAQUILDP2GQ7C3QZEG
-AWS_SECRET_ACCESS_KEY=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
+# AWS Credentials — get from: credentials.py get aws-access-key / aws-secret-key
+AWS_ACCESS_KEY_ID=<from credentials.py or AWS IAM>
+AWS_SECRET_ACCESS_KEY=<from credentials.py or AWS IAM>
 AWS_REGION=eu-north-1
 
 # Connection Strategy Override (optional)
 # FORCE_DATA_API=false  # Set to true to force Data API even in production
 ```
 
-### 🔍 Preview Environment
+### Preview Environment
 
 Add these in Vercel Dashboard → Settings → Environment Variables → Preview:
 
 ```bash
 # Shopify Configuration (same as production)
-SHOPIFY_API_KEY=f04b5854fb022d67ba9dd097767b465a
-SHOPIFY_API_SECRET=your-preview-secret
+SHOPIFY_API_KEY=<from Shopify Partner Dashboard>
+SHOPIFY_API_SECRET=<from Shopify Partner Dashboard>
 SCOPES=read_orders,write_store_credit_account_transactions,read_store_credit_accounts
 
 # NO DATABASE_URL for preview! This forces Data API usage
 # DATABASE_URL is intentionally omitted
 
 # Aurora Data API (required for preview)
-AURORA_RESOURCE_ARN=arn:aws:rds:eu-north-1:043509841549:cluster:rewardspro-dev
-AURORA_SECRET_ARN=arn:aws:secretsmanager:eu-north-1:043509841549:secret:rds!cluster-65ca2aee-0536-4745-b04d-0eec72e31363-yO7eLo
+AURORA_RESOURCE_ARN=<from AWS RDS Console>
+AURORA_SECRET_ARN=<from AWS Secrets Manager>
 AURORA_DATABASE_NAME=rewardspro
 
 # AWS Credentials (same as production)
-AWS_ACCESS_KEY_ID=AKIAQUILDP2GQ7C3QZEG
-AWS_SECRET_ACCESS_KEY=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
+AWS_ACCESS_KEY_ID=<from credentials.py or AWS IAM>
+AWS_SECRET_ACCESS_KEY=<from credentials.py or AWS IAM>
 AWS_REGION=eu-north-1
 
 # Force Data API for all preview deployments
 FORCE_DATA_API=true
 ```
 
-### 🛠️ Development Environment
+### Development Environment
 
 Add these in Vercel Dashboard → Settings → Environment Variables → Development:
 
@@ -74,7 +74,7 @@ Add these in Vercel Dashboard → Settings → Environment Variables → Develop
 # Uses Data API to prevent connection exhaustion
 ```
 
-## 🔧 Setting Up in Vercel Dashboard
+## Setting Up in Vercel Dashboard
 
 ### Step 1: Navigate to Environment Variables
 1. Go to your Vercel project
@@ -86,9 +86,9 @@ Add these in Vercel Dashboard → Settings → Environment Variables → Develop
 2. Enter variable name (e.g., `DATABASE_URL`)
 3. Enter value
 4. **IMPORTANT**: Select which environments should have this variable:
-   - ✅ Production only for `DATABASE_URL`
-   - ✅ All environments for Aurora Data API variables
-   - ✅ Preview only for `FORCE_DATA_API=true`
+   - Production only for `DATABASE_URL`
+   - All environments for Aurora Data API variables
+   - Preview only for `FORCE_DATA_API=true`
 
 ### Step 3: Verify Configuration
 ```bash
@@ -103,7 +103,7 @@ grep FORCE_DATA_API .env.preview  # Should show: FORCE_DATA_API=true
 grep DATABASE_URL .env.preview     # Should be empty or missing
 ```
 
-## 🎭 Environment Detection
+## Environment Detection
 
 The application automatically detects the environment using:
 
@@ -116,80 +116,29 @@ process.env.VERCEL_ENV  // "production" | "preview" | "development"
 - **Preview**: Data API (0 connections)
 - **Development**: Data API (0 connections)
 
-## 🔍 Debugging Connection Strategy
-
-Add this temporary variable to see which connection is being used:
-
-```bash
-DEBUG_CONNECTION=true
-```
-
-This will log:
-```
-🔌 Database Connection Strategy: {
-  environment: 'preview',
-  strategy: 'data-api',
-  description: 'Preview deployment using Data API',
-  maxConnections: 0,
-  useDataAPI: true,
-  deploymentId: 'dpl_abc123',
-  gitCommit: 'def456'
-}
-```
-
-## 🚨 Important Notes
+## Important Notes
 
 ### DO NOT:
-- ❌ Add `DATABASE_URL` to preview environments
-- ❌ Remove `FORCE_DATA_API` from preview environments
-- ❌ Share AWS credentials publicly
-- ❌ Use the same credentials for dev/prod
+- Add `DATABASE_URL` to preview environments
+- Remove `FORCE_DATA_API` from preview environments
+- Commit real credentials to this file or any file in git
+- Use the same credentials for dev/prod
 
 ### DO:
-- ✅ Keep production and preview variables separate
-- ✅ Use Data API for all non-production deployments
-- ✅ Monitor CloudWatch for connection metrics
-- ✅ Rotate AWS credentials regularly
+- Keep production and preview variables separate
+- Use Data API for all non-production deployments
+- Monitor CloudWatch for connection metrics
+- Rotate AWS credentials regularly
+- Store credentials in macOS Keychain via `credentials.py`
 
-## 📊 Monitoring
+## Monitoring
 
 ### CloudWatch Metrics to Track:
-1. **DatabaseConnections** - Should be ≤5 for production, 0 for preview
+1. **DatabaseConnections** - Should be <=5 for production, 0 for preview
 2. **DataAPIRequests** - Should be high for preview, low for production
 3. **ConnectionErrors** - Should be 0
 
-### Vercel Logs:
-```bash
-# View production logs
-vercel logs --environment=production
-
-# View preview logs
-vercel logs --environment=preview
-
-# Filter for connection logs
-vercel logs | grep "Database connection"
-```
-
-## 🔄 Rollback Plan
-
-If connection issues occur:
-
-### Quick Fix (All environments use Data API):
-```bash
-# Add to all environments
-FORCE_DATA_API=true
-```
-
-### Revert to Direct Connections (Emergency):
-```bash
-# Remove from preview
-FORCE_DATA_API=false
-
-# Add to preview (NOT RECOMMENDED)
-DATABASE_URL=postgresql://...
-```
-
-## ✅ Verification Checklist
+## Verification Checklist
 
 - [ ] Production has `DATABASE_URL`
 - [ ] Preview does NOT have `DATABASE_URL`
@@ -202,4 +151,5 @@ DATABASE_URL=postgresql://...
 
 ---
 
-*Last Updated: September 1, 2025*
+*Last Updated: 2026-03-31*
+*SECURITY: All credential values removed. Get values from Keychain via credentials.py.*
