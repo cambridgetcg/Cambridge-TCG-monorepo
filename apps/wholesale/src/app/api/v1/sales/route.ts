@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { stock } from "@/lib/stock";
 import { authenticateApiKey, unauthorized } from "../auth";
 
 interface SaleItem {
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const results: { sku: string; prev_stock: number; new_stock: number; delta: number }[] = [];
+    const results: { sku: string; prev_stock: number; new_stock: number; delta: number; deduplicated: boolean }[] = [];
     const errors: { sku: string; error: string }[] = [];
 
     for (const item of body.items) {
@@ -51,29 +52,40 @@ export async function POST(req: NextRequest) {
       }
 
       const prevStock = card.stock;
-      const delta = -Math.min(item.qty, prevStock); // Don't go below 0
-      const newStock = prevStock + delta;
 
-      // Update stock
-      await db
-        .update(cards)
-        .set({ stock: sql`greatest(${cards.stock} - ${item.qty}, 0)` })
-        .where(eq(cards.id, card.id));
+      // Record sale via stock service — idempotent by referenceId
+      const movement = await db.transaction(async (tx) => {
+        const m = await stock.writer.recordSale(tx, {
+          cardId: card.id,
+          quantity: item.qty,
+          channel: body.channel,
+          referenceId: `v1:${body.order_ref}:${item.sku}`,
+          note: body.order_ref,
+        });
 
-      // Record adjustment
-      await db.insert(stockAdjustments).values({
-        cardId: card.id,
-        delta,
-        reason: "count",
-        channel: body.channel,
-        note: body.order_ref,
+        // Dual-write to stock_adjustments for syncUkStock backward compat
+        if (m) {
+          await tx.insert(stockAdjustments).values({
+            cardId: card.id,
+            delta: -item.qty,
+            reason: "count",
+            channel: body.channel,
+            note: body.order_ref,
+          });
+        }
+
+        return m;
       });
+
+      const delta = movement ? -item.qty : 0;
+      const newStock = movement ? Math.max(0, prevStock - item.qty) : prevStock;
 
       results.push({
         sku: item.sku,
         prev_stock: prevStock,
         new_stock: newStock,
         delta,
+        deduplicated: movement === null,
       });
     }
 

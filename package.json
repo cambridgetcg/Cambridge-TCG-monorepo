@@ -5,7 +5,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev:wholesale": "pnpm --filter ./apps/wholesale dev",
-    "dev:storefront": "pnpm --filter ./apps/storefront dev",
+    "dev:storefront": "pnpm --filter ./apps/storefront dev -- --port 3001",
     "build:wholesale": "pnpm --filter ./apps/wholesale build",
     "build:storefront": "pnpm --filter ./apps/storefront build",
     "lint": "pnpm -r lint",

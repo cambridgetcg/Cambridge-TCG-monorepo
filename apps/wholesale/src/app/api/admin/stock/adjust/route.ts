@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { stock as stockService } from "@/lib/stock";
 import { auth } from "@/lib/auth";
 
 /** PATCH /api/admin/stock/adjust — Adjust stock for a card (persists through sync) */
@@ -30,37 +31,34 @@ export async function PATCH(req: NextRequest) {
 
   const desiredStock = Math.floor(stock);
 
-  // Get current stock to compute delta
-  const [current] = await db
-    .select({ stock: cards.stock })
-    .from(cards)
-    .where(eq(cards.id, cardId));
-
-  if (!current) {
-    return NextResponse.json({ error: "Card not found" }, { status: 404 });
-  }
-
-  const delta = desiredStock - current.stock;
-
-  if (delta === 0) {
-    return NextResponse.json({ id: cardId, stock: current.stock });
-  }
-
-  // Record adjustment and update stock in a transaction
+  // Set absolute stock via stock service (computes delta internally)
   const [updated] = await db.transaction(async (tx) => {
-    await tx.insert(stockAdjustments).values({
+    const movement = await stockService.writer.setAbsolute(tx, {
       cardId,
-      delta,
-      reason: safeReason,
-      note: safeNote,
+      desiredStock,
+      note: safeNote ?? `Admin set stock to ${desiredStock}`,
     });
 
+    // Dual-write to stock_adjustments for syncUkStock backward compat
+    if (movement) {
+      await tx.insert(stockAdjustments).values({
+        cardId,
+        delta: movement.delta,
+        reason: safeReason,
+        note: safeNote,
+      });
+    }
+
+    // Return the updated card
     return tx
-      .update(cards)
-      .set({ stock: desiredStock })
-      .where(eq(cards.id, cardId))
-      .returning({ id: cards.id, stock: cards.stock });
+      .select({ id: cards.id, stock: cards.stock })
+      .from(cards)
+      .where(eq(cards.id, cardId));
   });
+
+  if (!updated) {
+    return NextResponse.json({ error: "Card not found" }, { status: 404 });
+  }
 
   return NextResponse.json(updated);
 }

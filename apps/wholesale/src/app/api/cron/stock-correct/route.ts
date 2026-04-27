@@ -10,7 +10,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { stock } from "@/lib/stock";
 
 function authorizeCron(req: NextRequest): boolean {
   if (req.headers.get("x-vercel-cron") === "true") return true;
@@ -56,22 +57,33 @@ export async function POST(req: NextRequest) {
       }
 
       const prevStock = card.stock;
-      const newStock = Math.max(0, prevStock + adj.delta);
 
-      await db
-        .update(cards)
-        .set({ stock: sql`greatest(${cards.stock} + ${adj.delta}, 0)` })
-        .where(eq(cards.id, card.id));
+      // Record adjustment via stock service
+      const movement = await db.transaction(async (tx) => {
+        const m = await stock.writer.recordAdjustment(tx, {
+          cardId: card.id,
+          kind: "correction",
+          delta: adj.delta,
+          channel: "manual",
+          note,
+        });
 
-      await db.insert(stockAdjustments).values({
-        cardId: card.id,
-        delta: adj.delta,
-        reason: "correction",
-        channel: "manual",
-        note,
+        // Dual-write to stock_adjustments for syncUkStock backward compat
+        if (m) {
+          await tx.insert(stockAdjustments).values({
+            cardId: card.id,
+            delta: adj.delta,
+            reason: "correction",
+            channel: "manual",
+            note,
+          });
+        }
+
+        return m;
       });
 
-      results.push({ sku: adj.sku, cardId: card.id, prev: prevStock, new: newStock, delta: adj.delta });
+      const newStock = movement ? Math.max(0, prevStock + adj.delta) : prevStock;
+      results.push({ sku: adj.sku, cardId: card.id, prev: prevStock, new: newStock, delta: movement ? adj.delta : 0 });
     } catch (err) {
       errors.push({ sku: adj.sku, error: err instanceof Error ? err.message : String(err) });
     }

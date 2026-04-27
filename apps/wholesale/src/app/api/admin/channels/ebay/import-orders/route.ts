@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { stock } from "@/lib/stock";
 import { pullOrders, type EbayOrder } from "@/lib/channels/ebay";
 
 /**
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
 
   const ebayOrders = result.data;
   let adjusted = 0;
+  let deduplicated = 0;
   const errors: { ebayOrderId: string; sku: string; error: string }[] = [];
 
   for (const order of ebayOrders) {
@@ -61,27 +63,35 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        const newStock = Math.max(0, card.stock - li.quantity);
-        const delta = newStock - card.stock; // negative
-
-        if (delta === 0) continue;
-
-        await db.transaction(async (tx) => {
-          await tx.insert(stockAdjustments).values({
+        // Record sale via stock service — idempotent by referenceId
+        const movement = await db.transaction(async (tx) => {
+          const m = await stock.writer.recordSale(tx, {
             cardId: card.id,
-            delta,
-            reason: "count",
+            quantity: li.quantity,
+            channel: "ebay",
+            referenceId: `ebay:order:${order.ebayOrderId}:sku:${li.sku}`,
             note: `eBay sale: ${order.ebayOrderId}`,
-            channel: "ebay-sale",
           });
 
-          await tx
-            .update(cards)
-            .set({ stock: newStock })
-            .where(eq(cards.id, card.id));
+          // Dual-write to stock_adjustments for syncUkStock backward compat
+          if (m) {
+            await tx.insert(stockAdjustments).values({
+              cardId: card.id,
+              delta: -li.quantity,
+              reason: "count",
+              note: `eBay sale: ${order.ebayOrderId}`,
+              channel: "ebay-sale",
+            });
+          }
+
+          return m;
         });
 
-        adjusted++;
+        if (movement) {
+          adjusted++;
+        } else {
+          deduplicated++;
+        }
       } catch (err) {
         errors.push({
           ebayOrderId: order.ebayOrderId,
@@ -95,6 +105,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     orders_found: ebayOrders.length,
     stock_adjusted: adjusted,
+    deduplicated,
     errors,
   });
 }

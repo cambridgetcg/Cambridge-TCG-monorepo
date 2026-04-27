@@ -12,7 +12,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
-import { eq, sql, like } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { stock } from "@/lib/stock";
 import { ShopifyClient } from "@/lib/shopify-client";
 
 export async function POST(req: NextRequest) {
@@ -97,22 +98,33 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        const delta = -Math.min(item.quantity, card.stock);
+        // Record sale via stock service — idempotent by referenceId
+        // Uses same referenceId format as webhook + cron, so backfill
+        // naturally deduplicates against both
+        const movement = await db.transaction(async (tx) => {
+          const m = await stock.writer.recordSale(tx, {
+            cardId: card.id,
+            quantity: item.quantity,
+            channel: "shopify",
+            referenceId: `shopify:order:${order.id}:item:${item.id}`,
+            note: orderRef,
+          });
 
-        await db
-          .update(cards)
-          .set({ stock: sql`greatest(${cards.stock} - ${item.quantity}, 0)` })
-          .where(eq(cards.id, card.id));
+          // Dual-write to stock_adjustments for syncUkStock backward compat
+          if (m) {
+            await tx.insert(stockAdjustments).values({
+              cardId: card.id,
+              delta: -item.quantity,
+              reason: "count",
+              channel: "shopify-cambridge",
+              note: orderRef,
+            });
+          }
 
-        await db.insert(stockAdjustments).values({
-          cardId: card.id,
-          delta,
-          reason: "count",
-          channel: "shopify-cambridge",
-          note: orderRef,
+          return m;
         });
 
-        processed++;
+        if (movement) processed++;
       } catch {
         errored++;
       }

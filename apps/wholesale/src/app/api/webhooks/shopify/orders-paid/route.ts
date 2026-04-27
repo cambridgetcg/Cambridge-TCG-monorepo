@@ -12,7 +12,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { stock } from "@/lib/stock";
 import { createHmac } from "crypto";
 
 // Shopify sends the raw body, we need it for HMAC verification
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
     `[shopify-webhook] Processing order #${order.order_number} (${order.line_items.length} items, ${order.total_price} ${order.currency})`
   );
 
-  const results: { sku: string; prev_stock: number; new_stock: number; delta: number }[] = [];
+  const results: { sku: string; prev_stock: number; new_stock: number; delta: number; deduplicated: boolean }[] = [];
   const errors: { sku: string; error: string }[] = [];
 
   for (const item of order.line_items) {
@@ -97,25 +98,36 @@ export async function POST(req: NextRequest) {
       }
 
       const prevStock = card.stock;
-      const delta = -Math.min(item.quantity, prevStock);
-      const newStock = prevStock + delta;
 
-      // Decrement stock (floor at 0)
-      await db
-        .update(cards)
-        .set({ stock: sql`greatest(${cards.stock} - ${item.quantity}, 0)` })
-        .where(eq(cards.id, card.id));
+      // Record sale via stock service — idempotent by referenceId
+      // referenceId includes Shopify order ID + line item ID for exact dedup
+      const movement = await db.transaction(async (tx) => {
+        const m = await stock.writer.recordSale(tx, {
+          cardId: card.id,
+          quantity: item.quantity,
+          channel: "shopify",
+          referenceId: `shopify:order:${order.id}:item:${item.id}`,
+          note: orderRef,
+        });
 
-      // Log the adjustment
-      await db.insert(stockAdjustments).values({
-        cardId: card.id,
-        delta,
-        reason: "count",
-        channel: "shopify-cambridge",
-        note: orderRef,
+        // Dual-write to stock_adjustments for syncUkStock backward compat
+        if (m) {
+          await tx.insert(stockAdjustments).values({
+            cardId: card.id,
+            delta: -item.quantity,
+            reason: "count",
+            channel: "shopify-cambridge",
+            note: orderRef,
+          });
+        }
+
+        return m;
       });
 
-      results.push({ sku, prev_stock: prevStock, new_stock: newStock, delta });
+      const delta = movement ? -item.quantity : 0;
+      const newStock = movement ? Math.max(0, prevStock - item.quantity) : prevStock;
+
+      results.push({ sku, prev_stock: prevStock, new_stock: newStock, delta, deduplicated: movement === null });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push({ sku, error: msg });

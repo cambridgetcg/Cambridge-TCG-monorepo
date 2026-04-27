@@ -14,7 +14,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, clients, orders as ordersTable, orderItems, stockAdjustments } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { stock } from "@/lib/stock";
 import { ShopifyClient } from "@/lib/shopify-client";
 import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
@@ -185,23 +186,36 @@ export async function POST(req: NextRequest) {
           stockStatus: "in_stock",
         });
 
-        // Decrement stock
+        // Record sale via stock service — idempotent by referenceId
+        // Uses same referenceId format as the webhook, so cron and webhook
+        // naturally deduplicate against each other
         const prevStock = card.stock;
-        const delta = -Math.min(item.quantity, prevStock);
-        const newStock = prevStock + delta;
 
-        await db
-          .update(cards)
-          .set({ stock: sql`greatest(${cards.stock} - ${item.quantity}, 0)` })
-          .where(eq(cards.id, card.id));
+        const movement = await db.transaction(async (tx) => {
+          const m = await stock.writer.recordSale(tx, {
+            cardId: card.id,
+            quantity: item.quantity,
+            channel: "shopify",
+            referenceId: `shopify:order:${order.id}:item:${item.id}`,
+            note: orderRef,
+          });
 
-        await db.insert(stockAdjustments).values({
-          cardId: card.id,
-          delta,
-          reason: "count",
-          channel: "shopify-cambridge",
-          note: orderRef,
+          // Dual-write to stock_adjustments for syncUkStock backward compat
+          if (m) {
+            await tx.insert(stockAdjustments).values({
+              cardId: card.id,
+              delta: -item.quantity,
+              reason: "count",
+              channel: "shopify-cambridge",
+              note: orderRef,
+            });
+          }
+
+          return m;
         });
+
+        const delta = movement ? -item.quantity : 0;
+        const newStock = movement ? Math.max(0, prevStock - item.quantity) : prevStock;
 
         details.push({ sku, prev: prevStock, new: newStock, delta });
       } catch (err) {
