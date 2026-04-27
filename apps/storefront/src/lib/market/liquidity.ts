@@ -14,7 +14,7 @@
 // Runs from the minute cron; the UTC-day key on liquidity_rewards means
 // re-running within the same day is idempotent.
 
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 
 const MIN_SELLER_TRADES = 10;
 const MIN_REST_HOURS = 6;
@@ -97,23 +97,15 @@ export async function runLiquidityMining(): Promise<LiquidityMiningResult> {
   // Sequential txns per award — simpler reasoning; cron is a single worker
   // so no concurrency concern. Each award is its own transaction so one
   // failure doesn't block the batch.
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
+  for (const row of qualifying.rows) {
+    const currentCount = userCountToday.get(row.user_id) ?? 0;
+    if (currentCount >= MAX_ORDERS_PER_USER_PER_DAY) continue;
 
-  try {
-    for (const row of qualifying.rows) {
-      const currentCount = userCountToday.get(row.user_id) ?? 0;
-      if (currentCount >= MAX_ORDERS_PER_USER_PER_DAY) continue;
-
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
-
+    try {
+      const awarded = await transaction(async (q) => {
         // Try to claim — unique (order_id, awarded_for_date) makes this safe
         // under concurrent runs.
-        const claim = await client.query(
+        const claim = await q(
           `INSERT INTO liquidity_rewards
              (user_id, order_id, sku, ask_price, vwap_at_reward, amount_gbp, awarded_for_date)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -123,19 +115,18 @@ export async function runLiquidityMining(): Promise<LiquidityMiningResult> {
            REWARD_PER_ORDER_PER_DAY.toFixed(2), row.award_date]
         );
         if (claim.rows.length === 0) {
-          await client.query("ROLLBACK");
-          continue;
+          return false;
         }
 
         // Bump the balance and write a ledger entry referencing the reward row.
-        const balanceRes = await client.query(
+        const balanceRes = await q(
           `UPDATE users SET store_credit_balance = store_credit_balance + $2
             WHERE id = $1 RETURNING store_credit_balance::numeric AS balance`,
           [row.user_id, REWARD_PER_ORDER_PER_DAY.toFixed(2)]
         );
         const newBalance = balanceRes.rows[0]?.balance;
 
-        await client.query(
+        await q(
           `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
            VALUES ($1, $2, $3, 'liquidity_bonus',
                    'Resting ask within 5% of VWAP', $4)`,
@@ -143,20 +134,17 @@ export async function runLiquidityMining(): Promise<LiquidityMiningResult> {
            newBalance ?? "0", claim.rows[0].id]
         );
 
-        await client.query("COMMIT");
+        return true;
+      });
 
+      if (awarded) {
         awards++;
         totalGbp += REWARD_PER_ORDER_PER_DAY;
         userCountToday.set(row.user_id, currentCount + 1);
-      } catch (err) {
-        await client.query("ROLLBACK").catch(() => {});
-        console.error(`[liquidity] award failed for order ${row.order_id}:`, err);
-      } finally {
-        client.release();
       }
+    } catch (err) {
+      console.error(`[liquidity] award failed for order ${row.order_id}:`, err);
     }
-  } finally {
-    await pool.end();
   }
 
   return { awards, amountGbp: Math.round(totalGbp * 100) / 100, throttled };

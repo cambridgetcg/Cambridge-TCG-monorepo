@@ -7,7 +7,7 @@
  * (fire-and-forget with error logging).
  */
 
-import type { StockChangedEvent, LowStockEvent } from "./types.js";
+import type { StockChangedEvent, LowStockEvent } from "./types";
 
 export type StockChangedHandler = (event: StockChangedEvent) => Promise<void>;
 export type LowStockHandler = (event: LowStockEvent) => Promise<void>;

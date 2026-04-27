@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 
 export interface QuoteRequest {
   id: number;
@@ -80,26 +80,18 @@ export async function createQuoteRequest(data: {
     imageUrls?: { url: string; s3Key: string }[];
   }[];
 }): Promise<{ reference: string }> {
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
+  return transaction(async (q) => {
     const reference = await generateQuoteRef();
 
     // Resolve user_id from email so a registered customer's quote
     // automatically links for later credit/payout.
-    const u = await client.query(
+    const u = await q(
       `SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1`,
       [data.customerEmail]
     );
     const resolvedUserId = u.rows[0]?.id ?? null;
 
-    const reqResult = await client.query(
+    const reqResult = await q(
       `INSERT INTO quote_requests (reference, customer_name, customer_email, customer_phone, payment_method, delivery_method, notes, user_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [reference, data.customerName, data.customerEmail, data.customerPhone || null,
@@ -108,7 +100,7 @@ export async function createQuoteRequest(data: {
     const requestId = reqResult.rows[0].id;
 
     for (const item of data.items) {
-      const itemResult = await client.query(
+      const itemResult = await q(
         `INSERT INTO quote_items (request_id, description, game, set_name, condition, quantity, customer_notes)
          VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
         [requestId, item.description, item.game || null, item.set_name || null,
@@ -118,7 +110,7 @@ export async function createQuoteRequest(data: {
 
       if (item.imageUrls) {
         for (const img of item.imageUrls) {
-          await client.query(
+          await q(
             `INSERT INTO quote_images (item_id, url, s3_key) VALUES ($1,$2,$3)`,
             [itemId, img.url, img.s3Key]
           );
@@ -126,15 +118,8 @@ export async function createQuoteRequest(data: {
       }
     }
 
-    await client.query("COMMIT");
     return { reference };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
-  }
+  });
 }
 
 // ── Get quote by reference (customer view) ──
@@ -294,90 +279,70 @@ export async function issueQuoteCreditIfDue(reference: string): Promise<{
   issued?: { amount: number; bonus: number };
   reason?: string;
 }> {
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const r = await client.query(
-      `SELECT q.*, u.tier_id
-         FROM quote_requests q
-         LEFT JOIN users u ON u.id = q.user_id
-        WHERE q.reference = $1 FOR UPDATE OF q`,
+  return transaction(async (q) => {
+    const r = await q(
+      `SELECT qr.*, u.tier_id
+         FROM quote_requests qr
+         LEFT JOIN users u ON u.id = qr.user_id
+        WHERE qr.reference = $1 FOR UPDATE OF qr`,
       [reference]
     );
     if (r.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: "quote not found" };
+      return { ok: false as const, reason: "quote not found" };
     }
-    const q = r.rows[0];
-    if (q.status !== "paid") {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: `status is ${q.status}` };
+    const qr = r.rows[0];
+    if (qr.status !== "paid") {
+      return { ok: false as const, reason: `status is ${qr.status}` };
     }
-    if (!q.user_id) {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: "quote not linked to a user" };
+    if (!qr.user_id) {
+      return { ok: false as const, reason: "quote not linked to a user" };
     }
-    if (q.credit_issued_at) {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: "credit already issued" };
+    if (qr.credit_issued_at) {
+      return { ok: false as const, reason: "credit already issued" };
     }
 
-    const baseCredit = parseFloat(q.credit_amount ?? "0");
+    const baseCredit = parseFloat(qr.credit_amount ?? "0");
     if (!(baseCredit > 0)) {
-      await client.query(
+      await q(
         `UPDATE quote_requests SET credit_issued_at = NOW() WHERE reference = $1`,
         [reference]
       );
-      await client.query("COMMIT");
-      return { ok: true, reason: "no credit component" };
+      return { ok: true as const, reason: "no credit component" };
     }
 
     let bonusPct = 0;
-    if (q.tier_id) {
-      const t = await client.query(
+    if (qr.tier_id) {
+      const t = await q(
         `SELECT tradein_bonus_percent::numeric AS pct FROM tiers WHERE id = $1`,
-        [q.tier_id]
+        [qr.tier_id]
       );
       bonusPct = parseFloat(t.rows[0]?.pct ?? "0") || 0;
     }
     const bonus = Math.round(baseCredit * (bonusPct / 100) * 100) / 100;
     const total = baseCredit + bonus;
 
-    const balRes = await client.query(
+    const balRes = await q(
       `UPDATE users SET store_credit_balance = store_credit_balance + $2
         WHERE id = $1 RETURNING store_credit_balance::numeric AS balance`,
-      [q.user_id, total.toFixed(2)]
+      [qr.user_id, total.toFixed(2)]
     );
     const newBalance = balRes.rows[0]?.balance ?? "0";
 
-    await client.query(
+    await q(
       `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
        VALUES ($1, $2, $3, 'quote_paid', $4, $5)`,
-      [q.user_id, total.toFixed(2), newBalance,
+      [qr.user_id, total.toFixed(2), newBalance,
        bonus > 0 ? `Quote ${reference} (£${baseCredit.toFixed(2)} + £${bonus.toFixed(2)} tier bonus)` : `Quote ${reference}`,
        reference]
     );
 
-    await client.query(
+    await q(
       `UPDATE quote_requests SET credit_issued_at = NOW(), updated_at = NOW() WHERE reference = $1`,
       [reference]
     );
 
-    await client.query("COMMIT");
-    return { ok: true, issued: { amount: total, bonus } };
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
-  }
+    return { ok: true as const, issued: { amount: total, bonus } };
+  });
 }
 
 // ── Cash payout for quotes via Stripe Connect (mirrors payTradeinCashIfDue) ──

@@ -2,7 +2,7 @@
 // market_trades — same escrow/payout lifecycle, different matching model
 // (fixed-price listing, buy-whole-or-none).
 
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { commissionRateForScore } from "./types";
 import { logLotTransition } from "./lot-lifecycle-log";
 
@@ -54,15 +54,8 @@ export async function createLot(data: {
 }): Promise<MarketLot> {
   if (data.items.length === 0) throw new Error("Lot must contain at least one item");
 
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-    const lotRes = await client.query(
+  const lot = await transaction(async (q) => {
+    const lotRes = await q(
       `INSERT INTO market_lots (seller_user_id, title, description, price, image_url)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [data.sellerId, data.title, data.description || null, data.price.toFixed(2), data.imageUrl || null]
@@ -70,7 +63,7 @@ export async function createLot(data: {
     const lot = lotRes.rows[0] as MarketLot;
 
     for (const item of data.items) {
-      await client.query(
+      await q(
         `INSERT INTO market_lot_items (lot_id, sku, card_name, quantity)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (lot_id, sku) DO UPDATE SET quantity = EXCLUDED.quantity`,
@@ -78,25 +71,19 @@ export async function createLot(data: {
       );
     }
 
-    await client.query("COMMIT");
-
-    void logLotTransition({
-      lotId: lot.id,
-      action: "listed",
-      actorId: data.sellerId,
-      actorLabel: "seller",
-      reason: `Lot listed at £${data.price.toFixed(2)}`,
-      metadata: { item_count: data.items.length, price: data.price.toFixed(2) },
-    });
-
     return lot;
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
-  }
+  });
+
+  void logLotTransition({
+    lotId: lot.id,
+    action: "listed",
+    actorId: data.sellerId,
+    actorLabel: "seller",
+    reason: `Lot listed at £${data.price.toFixed(2)}`,
+    metadata: { item_count: data.items.length, price: data.price.toFixed(2) },
+  });
+
+  return lot;
 }
 
 export async function listLots(filters: {
@@ -185,35 +172,24 @@ export async function beginLotPurchase(data: {
   lotId: string;
   buyerId: string;
 }): Promise<{ ok: true; trade: LotTrade } | { ok: false; error: string }> {
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const lotRes = await client.query(
+  const result = await transaction(async (q) => {
+    const lotRes = await q(
       `SELECT * FROM market_lots WHERE id = $1 FOR UPDATE`,
       [data.lotId]
     );
     if (lotRes.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return { ok: false, error: "Lot not found" };
+      return { ok: false as const, error: "Lot not found" };
     }
     const lot = lotRes.rows[0];
     if (lot.status !== "active") {
-      await client.query("ROLLBACK");
-      return { ok: false, error: `Lot is ${lot.status}` };
+      return { ok: false as const, error: `Lot is ${lot.status}` };
     }
     if (lot.seller_user_id === data.buyerId) {
-      await client.query("ROLLBACK");
-      return { ok: false, error: "You can't buy your own lot" };
+      return { ok: false as const, error: "You can't buy your own lot" };
     }
 
     // Seller trust → commission rate (same flywheel as market_trades)
-    const sellerTrustRes = await client.query(
+    const sellerTrustRes = await q(
       `SELECT trust_score FROM users WHERE id = $1`,
       [lot.seller_user_id]
     );
@@ -224,7 +200,7 @@ export async function beginLotPurchase(data: {
     const sellerPayout = price - commission;
     const paymentExpiresAt = new Date(Date.now() + PAYMENT_WINDOW_MS).toISOString();
 
-    const tradeRes = await client.query(
+    const tradeRes = await q(
       `INSERT INTO market_lot_trades
          (lot_id, buyer_user_id, seller_user_id, price,
           commission_rate, commission_amount, seller_payout,
@@ -239,13 +215,17 @@ export async function beginLotPurchase(data: {
 
     // Flip lot to 'sold' immediately; if payment expires the sweep will
     // re-activate it. This prevents two buyers racing for the same lot.
-    await client.query(
+    await q(
       `UPDATE market_lots SET status = 'sold', updated_at = NOW() WHERE id = $1`,
       [data.lotId]
     );
 
-    await client.query("COMMIT");
-    const trade = tradeRes.rows[0] as LotTrade;
+    return { ok: true as const, trade: tradeRes.rows[0] as LotTrade };
+  });
+
+  if (result.ok) {
+    const trade = result.trade;
+    const price = parseFloat(trade.price);
 
     // Two lifecycle rows: lot listing → sold, and the trade itself
     // gets its "trade_created" anchor.
@@ -265,15 +245,9 @@ export async function beginLotPurchase(data: {
       reason: "Lot purchase created — awaiting payment",
       metadata: { lot_id: data.lotId, price: price.toFixed(2) },
     });
-
-    return { ok: true, trade };
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
   }
+
+  return result;
 }
 
 // Called from the Stripe webhook on checkout.session.completed when

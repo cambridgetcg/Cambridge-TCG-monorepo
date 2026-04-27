@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import type { MarketOrder, MarketTrade, OrderBookEntry, OrderBookSummary, CardOrderBook } from "./types";
 import { COMMISSION_RATE, commissionRateForScore } from "./types";
 import { postActivity, awardAchievement } from "@/lib/social/db";
@@ -203,19 +203,12 @@ export async function placeOrder(data: {
   // so this taker doesn't try to fill against stale rows.
   await sweepExpired();
 
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
   const trades: MarketTrade[] = [];
 
-  try {
-    await client.query("BEGIN");
-
+  const { order } = await transaction(async (q) => {
     // Insert the order with a default 30-day TTL
     const expiresAt = new Date(Date.now() + DEFAULT_ORDER_TTL_MS).toISOString();
-    const orderResult = await client.query(
+    const orderResult = await q(
       `INSERT INTO market_orders (user_id, side, sku, card_name, set_code, set_name, image_url, condition, price, quantity, notes, expires_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [data.userId, data.side, data.sku, data.cardName || null, data.setCode || null,
@@ -234,7 +227,7 @@ export async function placeOrder(data: {
 
     // JOIN trust + membership tier in one query so commission is resolvable
     // in-memory inside the match loop (no per-iteration round trip).
-    const matchResult = await client.query(
+    const matchResult = await q(
       `SELECT o.*,
               u.trust_score                          AS maker_trust,
               COALESCE(tp.is_flagged, false)         AS maker_flagged,
@@ -252,7 +245,7 @@ export async function placeOrder(data: {
     );
 
     // Taker's trust + tier (one lookup, reused per match)
-    const takerInfoRow = await client.query(
+    const takerInfoRow = await q(
       `SELECT u.trust_score,
               COALESCE(tp.is_flagged, false) AS is_flagged,
               t.p2p_commission_rate          AS p2p_rate
@@ -316,7 +309,7 @@ export async function placeOrder(data: {
 
       const paymentExpiresAt = new Date(Date.now() + PAYMENT_WINDOW_MS).toISOString();
 
-      const tradeResult = await client.query(
+      const tradeResult = await q(
         `INSERT INTO market_trades
            (bid_order_id, ask_order_id, buyer_id, seller_id, sku, price, quantity,
             commission_rate, commission_amount, seller_payout,
@@ -336,7 +329,7 @@ export async function placeOrder(data: {
       // Update matched order
       const newMatchFilled = match.filled_quantity + fillQty;
       const matchStatus = newMatchFilled >= match.quantity ? "filled" : "partially_filled";
-      await client.query(
+      await q(
         `UPDATE market_orders SET filled_quantity = $1, status = $2, updated_at = NOW() WHERE id = $3`,
         [newMatchFilled, matchStatus, match.id]
       );
@@ -347,124 +340,118 @@ export async function placeOrder(data: {
     // Update our order
     const newFilled = data.quantity - remainingQty;
     const newStatus = newFilled >= data.quantity ? "filled" : newFilled > 0 ? "partially_filled" : "open";
-    await client.query(
+    await q(
       `UPDATE market_orders SET filled_quantity = $1, status = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
       [newFilled, newStatus, order.id]
     );
     order = { ...order, filled_quantity: newFilled, status: newStatus };
 
-    await client.query("COMMIT");
+    return { order };
+  });
 
-    // Lifecycle row for each newly created trade. Anchors the audit
-    // chain — every later transition references trade_id back to this.
-    if (trades.length > 0) {
-      void import("./lifecycle-log").then(({ logTradeTransition }) => {
-        for (const t of trades) {
-          logTradeTransition({
-            tradeId: t.id,
-            action: "created",
-            actorId: data.userId,
-            actorLabel: "user:place-order",
-            reason: `Order matched at ${formatPrice(parseFloat(t.price))} × ${t.quantity}`,
-            metadata: {
-              sku: t.sku,
-              price: t.price,
-              quantity: t.quantity,
-              buyer_id: t.buyer_id,
-              seller_id: t.seller_id,
-              escrow_tier: t.escrow_tier,
-            },
-          });
+  // Lifecycle row for each newly created trade. Anchors the audit
+  // chain — every later transition references trade_id back to this.
+  if (trades.length > 0) {
+    void import("./lifecycle-log").then(({ logTradeTransition }) => {
+      for (const t of trades) {
+        logTradeTransition({
+          tradeId: t.id,
+          action: "created",
+          actorId: data.userId,
+          actorLabel: "user:place-order",
+          reason: `Order matched at ${formatPrice(parseFloat(t.price))} × ${t.quantity}`,
+          metadata: {
+            sku: t.sku,
+            price: t.price,
+            quantity: t.quantity,
+            buyer_id: t.buyer_id,
+            seller_id: t.seller_id,
+            escrow_tier: t.escrow_tier,
+          },
+        });
+      }
+    });
+  }
+
+  // Match notifications (fire-and-forget). One query for all participant emails.
+  if (trades.length > 0) {
+    const participantIds = Array.from(new Set(trades.flatMap((t) => [t.buyer_id, t.seller_id])));
+    query(
+      `SELECT id, email FROM users WHERE id = ANY($1)`,
+      [participantIds]
+    ).then((r) => {
+      const emailById = new Map<string, string>(r.rows.map((u: { id: string; email: string }) => [u.id, u.email]));
+      const cardName = data.cardName || data.sku;
+      for (const t of trades) {
+        const buyerEmail = emailById.get(t.buyer_id);
+        const sellerEmail = emailById.get(t.seller_id);
+        const total = parseFloat(t.price) * t.quantity;
+        if (buyerEmail) {
+          sendBuyerMatchEmail({
+            email: buyerEmail,
+            cardName,
+            price: formatPrice(total),
+            expiresAt: t.payment_expires_at || new Date().toISOString(),
+          }).catch((err) => console.error("[market] Buyer match email failed:", err));
         }
+        if (sellerEmail) {
+          sendSellerMatchEmail({
+            email: sellerEmail,
+            cardName,
+            price: formatPrice(total),
+          }).catch((err) => console.error("[market] Seller match email failed:", err));
+        }
+      }
+    }).catch(() => {});
+
+    // In-app notifications alongside the emails. Buyer sees an urgent
+    // "pay within 24h" item; seller sees a confirmation. Dedup key
+    // uses the trade id + role so both sides get distinct rows and
+    // neither gets a duplicate if placeOrder were somehow retried.
+    const matchCardName = data.cardName || data.sku;
+    for (const t of trades) {
+      const total = parseFloat(t.price) * t.quantity;
+      notify({
+        userId: t.buyer_id,
+        kind: "market.matched_buyer",
+        title: `Matched: ${matchCardName} for ${formatPrice(total)} — pay within 24h`,
+        body: "Complete payment now or the listing returns to the seller's order book.",
+        linkUrl: "/account/trades",
+        referenceType: "market_trade",
+        referenceId: `${t.id}:matched_buyer`,
+      });
+      notify({
+        userId: t.seller_id,
+        kind: "market.matched_seller",
+        title: `You have a match: ${matchCardName} sold for ${formatPrice(total)}`,
+        body: "Awaiting buyer payment. You'll be notified when payment lands.",
+        linkUrl: "/account/trades",
+        referenceType: "market_trade",
+        referenceId: `${t.id}:matched_seller`,
       });
     }
 
-    // Match notifications (fire-and-forget). One query for all participant emails.
-    if (trades.length > 0) {
-      const participantIds = Array.from(new Set(trades.flatMap((t) => [t.buyer_id, t.seller_id])));
-      query(
-        `SELECT id, email FROM users WHERE id = ANY($1)`,
-        [participantIds]
-      ).then((r) => {
-        const emailById = new Map<string, string>(r.rows.map((u: { id: string; email: string }) => [u.id, u.email]));
-        const cardName = data.cardName || data.sku;
-        for (const t of trades) {
-          const buyerEmail = emailById.get(t.buyer_id);
-          const sellerEmail = emailById.get(t.seller_id);
-          const total = parseFloat(t.price) * t.quantity;
-          if (buyerEmail) {
-            sendBuyerMatchEmail({
-              email: buyerEmail,
-              cardName,
-              price: formatPrice(total),
-              expiresAt: t.payment_expires_at || new Date().toISOString(),
-            }).catch((err) => console.error("[market] Buyer match email failed:", err));
-          }
-          if (sellerEmail) {
-            sendSellerMatchEmail({
-              email: sellerEmail,
-              cardName,
-              price: formatPrice(total),
-            }).catch((err) => console.error("[market] Seller match email failed:", err));
-          }
-        }
-      }).catch(() => {});
+    for (const trade of trades) {
+      postActivity(trade.buyer_id, "trade_completed", "Completed a P2P trade").catch(() => {});
+      postActivity(trade.seller_id, "trade_completed", "Completed a P2P trade").catch(() => {});
 
-      // In-app notifications alongside the emails. Buyer sees an urgent
-      // "pay within 24h" item; seller sees a confirmation. Dedup key
-      // uses the trade id + role so both sides get distinct rows and
-      // neither gets a duplicate if placeOrder were somehow retried.
-      const matchCardName = data.cardName || data.sku;
-      for (const t of trades) {
-        const total = parseFloat(t.price) * t.quantity;
-        notify({
-          userId: t.buyer_id,
-          kind: "market.matched_buyer",
-          title: `Matched: ${matchCardName} for ${formatPrice(total)} — pay within 24h`,
-          body: "Complete payment now or the listing returns to the seller's order book.",
-          linkUrl: "/account/trades",
-          referenceType: "market_trade",
-          referenceId: `${t.id}:matched_buyer`,
-        });
-        notify({
-          userId: t.seller_id,
-          kind: "market.matched_seller",
-          title: `You have a match: ${matchCardName} sold for ${formatPrice(total)}`,
-          body: "Awaiting buyer payment. You'll be notified when payment lands.",
-          linkUrl: "/account/trades",
-          referenceType: "market_trade",
-          referenceId: `${t.id}:matched_seller`,
-        });
-      }
-
-      for (const trade of trades) {
-        postActivity(trade.buyer_id, "trade_completed", "Completed a P2P trade").catch(() => {});
-        postActivity(trade.seller_id, "trade_completed", "Completed a P2P trade").catch(() => {});
-
-        // Check trade count milestones for buyer and seller
-        for (const tradeUserId of [trade.buyer_id, trade.seller_id]) {
-          query(
-            `SELECT COUNT(*) FROM market_trades WHERE buyer_id = $1 OR seller_id = $1`,
-            [tradeUserId]
-          ).then((res) => {
-            const count = parseInt(res.rows[0].count, 10);
-            if (count === 1) awardAchievement(tradeUserId, "first_trade").catch(() => {});
-            if (count === 10) awardAchievement(tradeUserId, "trades_10").catch(() => {});
-            if (count === 50) awardAchievement(tradeUserId, "trades_50").catch(() => {});
-            if (count === 100) awardAchievement(tradeUserId, "trades_100").catch(() => {});
-          }).catch(() => {});
-        }
+      // Check trade count milestones for buyer and seller
+      for (const tradeUserId of [trade.buyer_id, trade.seller_id]) {
+        query(
+          `SELECT COUNT(*) FROM market_trades WHERE buyer_id = $1 OR seller_id = $1`,
+          [tradeUserId]
+        ).then((res) => {
+          const count = parseInt(res.rows[0].count, 10);
+          if (count === 1) awardAchievement(tradeUserId, "first_trade").catch(() => {});
+          if (count === 10) awardAchievement(tradeUserId, "trades_10").catch(() => {});
+          if (count === 50) awardAchievement(tradeUserId, "trades_50").catch(() => {});
+          if (count === 100) awardAchievement(tradeUserId, "trades_100").catch(() => {});
+        }).catch(() => {});
       }
     }
-
-    return { order, trades };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
   }
+
+  return { order, trades };
 }
 
 // ── Cancel order ──

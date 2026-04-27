@@ -5,7 +5,7 @@
  */
 
 import { eq, sql, and, desc, inArray, gt, asc, lte } from "drizzle-orm";
-import { stockMovements, stockTargets } from "./schema.js";
+import { stockMovements, stockTargets } from "./schema";
 import type {
   CardId,
   StockLevel,
@@ -14,8 +14,8 @@ import type {
   GetMovementsOptions,
   ListReorderQueueOptions,
   ListOutOfStockOptions,
-} from "./types.js";
-import type { DbClient } from "./db.js";
+} from "./types";
+import type { DbClient } from "./db";
 
 function rowToMovement(row: typeof stockMovements.$inferSelect): StockMovement {
   return {

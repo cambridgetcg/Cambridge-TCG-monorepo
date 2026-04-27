@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { createEventEmitter } from "../events.js";
-import type { StockChangedEvent, LowStockEvent } from "../types.js";
+import { createEventEmitter } from "../events";
+import type { StockChangedEvent, LowStockEvent } from "../types";
 
 describe("createEventEmitter", () => {
   const sampleStockChanged: StockChangedEvent = {

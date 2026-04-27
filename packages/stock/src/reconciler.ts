@@ -10,13 +10,13 @@
  */
 
 import { eq, sql, inArray } from "drizzle-orm";
-import { stockMovements } from "./schema.js";
+import { stockMovements } from "./schema";
 import type {
   CardId,
   StockMovement,
   ReconciliationResult,
-} from "./types.js";
-import type { DbClient } from "./db.js";
+} from "./types";
+import type { DbClient } from "./db";
 
 export interface StockReconcilerDeps {
   cardsTable: any;

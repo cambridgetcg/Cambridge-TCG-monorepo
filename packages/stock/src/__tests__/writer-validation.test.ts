@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { createStockWriter } from "../writer.js";
+import { createStockWriter } from "../writer";
 
 describe("StockWriter validation", () => {
   const mockCardsTable = {} as any;

@@ -13,7 +13,7 @@
 // Discriminated-union returns mirror offers/returns/saved-searches/
 // messages: { ok: true, value } | { ok: false, reason, status }.
 
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { notify } from "@/lib/notifications/db";
 import { formatPrice } from "@/lib/format";
 import { CANCEL_REASONS, type CancelStatus, type CancelReason } from "./cancel-timeline";
@@ -185,16 +185,9 @@ export async function approveCancel(
   }
 
   // Restoration tx
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
+  const txResult = await transaction(async (q) => {
     // Mark cancel approved
-    await client.query(
+    await q(
       `UPDATE market_trade_cancellations
           SET status='approved', resolved_at=NOW(), updated_at=NOW()
         WHERE id = $1 AND status = 'requested'`,
@@ -203,7 +196,7 @@ export async function approveCancel(
 
     // Cancel the trade. Only flip if still in a cancellable state —
     // race-safe.
-    const tradeUpdate = await client.query(
+    const tradeUpdate = await q(
       `UPDATE market_trades
           SET escrow_status = 'cancelled', updated_at = NOW()
         WHERE id = $1 AND escrow_status::text = ANY($2::text[])
@@ -212,12 +205,9 @@ export async function approveCancel(
     );
     if (tradeUpdate.rows.length === 0) {
       // Trade moved on between load and approve; back out the cancel mark.
-      await client.query("ROLLBACK");
-      return {
-        ok: false,
-        reason: "Trade has already moved past cancellation. Open a dispute instead.",
-        status: 409,
-      };
+      // Returning a sentinel triggers rollback (transaction will be rolled
+      // back by throwing, so we throw a known error).
+      throw new Error("__TRADE_MOVED_PAST_CANCELLATION__");
     }
     const { bid_order_id, ask_order_id, quantity } = tradeUpdate.rows[0];
 
@@ -225,7 +215,7 @@ export async function approveCancel(
     // path — bid and ask both regain filled_quantity, and the status
     // flips back to 'open' or 'partially_filled' as appropriate.
     for (const orderId of [bid_order_id, ask_order_id]) {
-      await client.query(
+      await q(
         `UPDATE market_orders
             SET filled_quantity = GREATEST(filled_quantity - $1, 0),
                 status = CASE
@@ -239,13 +229,20 @@ export async function approveCancel(
       );
     }
 
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    return { committed: true };
+  }).catch((err) => {
+    if (err instanceof Error && err.message === "__TRADE_MOVED_PAST_CANCELLATION__") {
+      return { committed: false as const };
+    }
     throw err;
-  } finally {
-    client.release();
-    await pool.end();
+  });
+
+  if (!txResult.committed) {
+    return {
+      ok: false,
+      reason: "Trade has already moved past cancellation. Open a dispute instead.",
+      status: 409,
+    };
   }
 
   // Notify the requester. Money owed back wasn't paid yet (we're

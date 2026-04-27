@@ -7,7 +7,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
-import { stockMovements } from "./schema.js";
+import { stockMovements } from "./schema";
 import type {
   StockMovement,
   RecordSaleParams,
@@ -15,8 +15,8 @@ import type {
   RecordFulfillmentParams,
   RecordAdjustmentParams,
   SetAbsoluteParams,
-} from "./types.js";
-import type { DbClient } from "./db.js";
+} from "./types";
+import type { DbClient } from "./db";
 
 // ─── Internal helpers ───
 

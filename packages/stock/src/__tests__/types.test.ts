@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { MOVEMENT_KINDS } from "../types.js";
-import type { MovementKind, Channel, StockLevel, StockMovement } from "../types.js";
+import { MOVEMENT_KINDS } from "../types";
+import type { MovementKind, Channel, StockLevel, StockMovement } from "../types";
 
 describe("types", () => {
   it("MOVEMENT_KINDS contains all expected kinds", () => {

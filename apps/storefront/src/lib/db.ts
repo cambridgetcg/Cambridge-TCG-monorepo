@@ -1,18 +1,17 @@
-// Shared database query helper (same SSL fix as tradein/db.ts)
+/**
+ * Shared database query helper.
+ *
+ * Backed by a persistent postgres.js connection via @cambridge-tcg/db.
+ * This replaces the old per-query pg.Pool creation pattern — every call
+ * now reuses the same connection pool instead of opening a new TCP+TLS
+ * handshake to RDS.
+ *
+ * The `query(sql, params)` interface is unchanged from the old pg-based
+ * version — existing call sites don't need modification.
+ */
 
-function getConnectionConfig() {
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  return { connectionString: cleaned, ssl: { rejectUnauthorized: false } };
-}
+import { createCompatDb } from "@cambridge-tcg/db/compat";
 
-export async function query(sql: string, params: unknown[] = []) {
-  const { default: pg } = await import("pg");
-  const pool = new pg.Pool(getConnectionConfig());
-  try {
-    const result = await pool.query(sql, params);
-    return result;
-  } finally {
-    await pool.end();
-  }
-}
+const { query, transaction, db, close } = createCompatDb();
+
+export { query, transaction, db, close };

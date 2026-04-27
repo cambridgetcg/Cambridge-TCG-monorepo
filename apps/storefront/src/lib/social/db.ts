@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import type { PublicProfile, ShowcaseCard, WishlistItem, ActivityEvent, Achievement, TradeMatch } from "./types";
 
 // ══════════════════════════════════════════════════════════════
@@ -135,39 +135,24 @@ export async function removeFromWishlist(userId: string, itemId: string): Promis
 export async function toggleFollow(followerId: string, followingId: string): Promise<boolean> {
   if (followerId === followingId) return false;
 
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
-    const existing = await client.query(
+  return transaction(async (q) => {
+    const existing = await q(
       `SELECT 1 FROM follows WHERE follower_id=$1 AND following_id=$2`,
       [followerId, followingId]
     );
 
     if (existing.rows.length > 0) {
-      await client.query(`DELETE FROM follows WHERE follower_id=$1 AND following_id=$2`, [followerId, followingId]);
-      await client.query(`UPDATE users SET follower_count=GREATEST(0,follower_count-1) WHERE id=$1`, [followingId]);
-      await client.query(`UPDATE users SET following_count=GREATEST(0,following_count-1) WHERE id=$1`, [followerId]);
-      await client.query("COMMIT");
+      await q(`DELETE FROM follows WHERE follower_id=$1 AND following_id=$2`, [followerId, followingId]);
+      await q(`UPDATE users SET follower_count=GREATEST(0,follower_count-1) WHERE id=$1`, [followingId]);
+      await q(`UPDATE users SET following_count=GREATEST(0,following_count-1) WHERE id=$1`, [followerId]);
       return false;
     }
 
-    await client.query(`INSERT INTO follows (follower_id, following_id) VALUES ($1,$2)`, [followerId, followingId]);
-    await client.query(`UPDATE users SET follower_count=follower_count+1 WHERE id=$1`, [followingId]);
-    await client.query(`UPDATE users SET following_count=following_count+1 WHERE id=$1`, [followerId]);
-    await client.query("COMMIT");
+    await q(`INSERT INTO follows (follower_id, following_id) VALUES ($1,$2)`, [followerId, followingId]);
+    await q(`UPDATE users SET follower_count=follower_count+1 WHERE id=$1`, [followingId]);
+    await q(`UPDATE users SET following_count=following_count+1 WHERE id=$1`, [followerId]);
     return true;
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
-  }
+  });
 }
 
 export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {

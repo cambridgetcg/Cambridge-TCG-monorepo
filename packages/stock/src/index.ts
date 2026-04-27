@@ -27,16 +27,16 @@
  *   });
  */
 
-import { createStockWriter, type StockWriter } from "./writer.js";
-import { createStockReader, type StockReader } from "./reader.js";
-import { createStockReserver, type StockReserver } from "./reserver.js";
-import { createStockReconciler, type StockReconciler } from "./reconciler.js";
-import { createEventEmitter, type EventEmitter } from "./events.js";
+import { createStockWriter, type StockWriter } from "./writer";
+import { createStockReader, type StockReader } from "./reader";
+import { createStockReserver, type StockReserver } from "./reserver";
+import { createStockReconciler, type StockReconciler } from "./reconciler";
+import { createEventEmitter, type EventEmitter } from "./events";
 import type {
   StockServiceOptions,
   StockChangedEvent,
   LowStockEvent,
-} from "./types.js";
+} from "./types";
 
 // ─── Table Dependencies ───
 
@@ -133,9 +133,9 @@ export type {
   GetMovementsOptions,
   ListReorderQueueOptions,
   ListOutOfStockOptions,
-} from "./types.js";
+} from "./types";
 
-export { MOVEMENT_KINDS } from "./types.js";
+export { MOVEMENT_KINDS } from "./types";
 
 export {
   stockMovements,
@@ -145,6 +145,6 @@ export {
   type NewStockMovement,
   type StockReservationRow,
   type StockTargetRow,
-} from "./schema.js";
+} from "./schema";
 
-export type { DbClient } from "./db.js";
+export type { DbClient } from "./db";

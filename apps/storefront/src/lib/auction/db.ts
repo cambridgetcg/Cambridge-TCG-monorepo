@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import type { Auction, AuctionImage, AuctionSummary, AuctionDetail, Bid, CreateAuctionInput, BidResult } from "./types";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
@@ -209,30 +209,20 @@ export async function placeBid(auctionId: string, userId: string, amount: number
     }
   }
 
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const auctionResult = await client.query(
+  const txResult = await transaction(async (q) => {
+    const auctionResult = await q(
       `SELECT * FROM auctions WHERE id = $1 AND status = 'live' FOR UPDATE`,
       [auctionId]
     );
 
     if (auctionResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return { success: false, error: "Auction is not active." };
+      return { success: false, error: "Auction is not active." } as BidResult;
     }
 
     const auction = auctionResult.rows[0];
 
     if (new Date(auction.ends_at) <= new Date()) {
-      await client.query("ROLLBACK");
-      return { success: false, error: "Auction has ended." };
+      return { success: false, error: "Auction has ended." } as BidResult;
     }
 
     if (isBestOffer) {
@@ -240,17 +230,15 @@ export async function placeBid(auctionId: string, userId: string, amount: number
       // They don't touch current_price/bid_count and don't outbid anyone — they're
       // private proposals to the seller, who accepts or rejects later.
       if (auction.auction_type !== "buy_now" || !auction.allow_best_offer) {
-        await client.query("ROLLBACK");
-        return { success: false, error: "This auction does not accept offers." };
+        return { success: false, error: "This auction does not accept offers." } as BidResult;
       }
 
-      const offerResult = await client.query(
+      const offerResult = await q(
         `INSERT INTO auction_bids (auction_id, user_id, amount, is_best_offer, status)
          VALUES ($1, $2, $3, true, 'active') RETURNING *`,
         [auctionId, userId, amount.toFixed(2)]
       );
 
-      await client.query("COMMIT");
       return {
         success: true,
         bid: offerResult.rows[0] as Bid,
@@ -264,18 +252,17 @@ export async function placeBid(auctionId: string, userId: string, amount: number
     const minBid = auction.bid_count > 0 ? currentPrice + increment : parseFloat(auction.starting_price);
 
     if (amount < minBid) {
-      await client.query("ROLLBACK");
-      return { success: false, error: `Minimum bid is £${minBid.toFixed(2)}.` };
+      return { success: false, error: `Minimum bid is £${minBid.toFixed(2)}.` } as BidResult;
     }
 
-    const bidResult = await client.query(
+    const bidResult = await q(
       `INSERT INTO auction_bids (auction_id, user_id, amount, status)
        VALUES ($1, $2, $3, 'active') RETURNING *`,
       [auctionId, userId, amount.toFixed(2)]
     );
 
     // Outbid only previous regular bids; leave best offers alone
-    await client.query(
+    await q(
       `UPDATE auction_bids SET status = 'outbid'
        WHERE auction_id = $1 AND status = 'active' AND is_best_offer = false AND id != $2`,
       [auctionId, bidResult.rows[0].id]
@@ -299,7 +286,7 @@ export async function placeBid(auctionId: string, userId: string, amount: number
       // emails on the next read. We pre-emptively set actual_end_at and winner
       // so the next transition sweep picks it up correctly.
       const paymentExpiresAt = new Date(Date.now() + AUCTION_PAYMENT_WINDOW_MS).toISOString();
-      const r = await client.query(
+      const r = await q(
         `UPDATE auctions
             SET current_price = $1, bid_count = bid_count + 1,
                 status = 'ended', actual_end_at = NOW(),
@@ -309,7 +296,7 @@ export async function placeBid(auctionId: string, userId: string, amount: number
         [amount.toFixed(2), userId, paymentExpiresAt, auctionId]
       );
       // Mark the winning bid now so downstream queries see it consistently.
-      await client.query(
+      await q(
         `UPDATE auction_bids SET status = 'winning' WHERE id = $1`,
         [bidResult.rows[0].id]
       );
@@ -321,7 +308,7 @@ export async function placeBid(auctionId: string, userId: string, amount: number
 
       if (shouldExtend) {
         const newEndsAt = new Date(Date.now() + ANTI_SNIPE_WINDOW_MS).toISOString();
-        const r = await client.query(
+        const r = await q(
           `UPDATE auctions SET current_price = $1, bid_count = bid_count + 1,
                                 ends_at = $2, updated_at = NOW()
             WHERE id = $3 RETURNING *`,
@@ -330,7 +317,7 @@ export async function placeBid(auctionId: string, userId: string, amount: number
         updatedAuction = r.rows[0];
         extendedEndsAt = newEndsAt;
       } else {
-        const r = await client.query(
+        const r = await q(
           `UPDATE auctions SET current_price = $1, bid_count = bid_count + 1, updated_at = NOW()
             WHERE id = $2 RETURNING *`,
           [amount.toFixed(2), auctionId]
@@ -339,81 +326,84 @@ export async function placeBid(auctionId: string, userId: string, amount: number
       }
     }
 
-    await client.query("COMMIT");
-
-    // Fire the winner + admin emails for the immediate Buy Now end. The lazy
-    // sweep would catch this eventually, but the buyer expects an instant
-    // confirmation; firing here matches the ordinary end-of-auction emails.
-    if (endedNow) {
-      const winnerEmailRes = await query(`SELECT email FROM users WHERE id = $1`, [userId]).catch(() => ({ rows: [] }));
-      const winnerEmail = winnerEmailRes.rows[0]?.email;
-      if (winnerEmail) {
-        sendWinnerEmail({
-          email: winnerEmail,
-          auctionTitle: updatedAuction.title,
-          auctionId: updatedAuction.id,
-          winningPrice: formatPrice(amount),
-        }).catch((err) => console.error("[auction] BuyNow winner email failed:", err));
-      }
-      sendAuctionEndedAdminEmail({
-        auctionTitle: updatedAuction.title,
-        auctionId: updatedAuction.id,
-        winnerEmail: winnerEmail ?? null,
-        winningPrice: formatPrice(amount),
-        bidCount: updatedAuction.bid_count,
-      }).catch((err) => console.error("[auction] BuyNow admin email failed:", err));
-    }
-
-    // Lifecycle log — fire-and-forget. Captures the two interesting
-    // bid-side state changes (anti-snipe extension, buy-now fill).
-    // Plain bids on a still-open auction don't warrant a row; the
-    // bid table itself is the audit trail for those.
-    if (endedNow) {
-      void import("./lifecycle-log").then(({ logAuctionTransition }) =>
-        logAuctionTransition({
-          auctionId,
-          action: "buy_now_triggered",
-          actorId: userId,
-          reason: "Buy-now price met — auction ended immediately",
-          metadata: { winning_price: amount.toFixed(2) },
-        }),
-      );
-    } else if (extendedEndsAt) {
-      void import("./lifecycle-log").then(({ logAuctionTransition }) =>
-        logAuctionTransition({
-          auctionId,
-          action: "extended",
-          actorId: userId,
-          reason: "Anti-snipe — bid in final window extended end time",
-          metadata: { new_ends_at: extendedEndsAt, current_price: amount.toFixed(2) },
-        }),
-      );
-    }
-
-    // Fire-and-forget bid-sniping detection. A user who places ≥3 bids
-    // in the final 2 minutes across ≥2 distinct auctions in the last
-    // hour fits the anti-snipe-extension exploitation pattern (force
-    // auctions to extend, drive up other bidders' costs, withdraw
-    // attention right before the new end). The signal lands a flag for
-    // admin review; doesn't block bidding outright.
-    void detectBidSniping(userId).catch((err) =>
-      console.error("[auction/snipe] detection failed:", err),
-    );
-
     return {
       success: true,
       bid: bidResult.rows[0] as Bid,
       auction: extendedEndsAt
         ? { ...updatedAuction, current_price: amount.toFixed(2) }
         : updatedAuction,
+      _endedNow: endedNow,
+      _extendedEndsAt: extendedEndsAt,
+      _updatedAuction: updatedAuction,
     };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
+  });
+
+  // Early-exit failures from inside the transaction
+  if (!txResult.success) return txResult;
+
+  // Extract transient metadata then strip it from the return value
+  const { _endedNow: endedNow, _extendedEndsAt: extendedEndsAt, _updatedAuction: updatedAuction, ...result } = txResult as any;
+
+  // Fire the winner + admin emails for the immediate Buy Now end. The lazy
+  // sweep would catch this eventually, but the buyer expects an instant
+  // confirmation; firing here matches the ordinary end-of-auction emails.
+  if (endedNow) {
+    const winnerEmailRes = await query(`SELECT email FROM users WHERE id = $1`, [userId]).catch(() => ({ rows: [] }));
+    const winnerEmail = winnerEmailRes.rows[0]?.email;
+    if (winnerEmail) {
+      sendWinnerEmail({
+        email: winnerEmail,
+        auctionTitle: updatedAuction.title,
+        auctionId: updatedAuction.id,
+        winningPrice: formatPrice(amount),
+      }).catch((err) => console.error("[auction] BuyNow winner email failed:", err));
+    }
+    sendAuctionEndedAdminEmail({
+      auctionTitle: updatedAuction.title,
+      auctionId: updatedAuction.id,
+      winnerEmail: winnerEmail ?? null,
+      winningPrice: formatPrice(amount),
+      bidCount: updatedAuction.bid_count,
+    }).catch((err) => console.error("[auction] BuyNow admin email failed:", err));
   }
+
+  // Lifecycle log — fire-and-forget. Captures the two interesting
+  // bid-side state changes (anti-snipe extension, buy-now fill).
+  // Plain bids on a still-open auction don't warrant a row; the
+  // bid table itself is the audit trail for those.
+  if (endedNow) {
+    void import("./lifecycle-log").then(({ logAuctionTransition }) =>
+      logAuctionTransition({
+        auctionId,
+        action: "buy_now_triggered",
+        actorId: userId,
+        reason: "Buy-now price met — auction ended immediately",
+        metadata: { winning_price: amount.toFixed(2) },
+      }),
+    );
+  } else if (extendedEndsAt) {
+    void import("./lifecycle-log").then(({ logAuctionTransition }) =>
+      logAuctionTransition({
+        auctionId,
+        action: "extended",
+        actorId: userId,
+        reason: "Anti-snipe — bid in final window extended end time",
+        metadata: { new_ends_at: extendedEndsAt, current_price: amount.toFixed(2) },
+      }),
+    );
+  }
+
+  // Fire-and-forget bid-sniping detection. A user who places ≥3 bids
+  // in the final 2 minutes across ≥2 distinct auctions in the last
+  // hour fits the anti-snipe-extension exploitation pattern (force
+  // auctions to extend, drive up other bidders' costs, withdraw
+  // attention right before the new end). The signal lands a flag for
+  // admin review; doesn't block bidding outright.
+  void detectBidSniping(userId).catch((err) =>
+    console.error("[auction/snipe] detection failed:", err),
+  );
+
+  return result as BidResult;
 }
 
 /**
@@ -764,59 +754,46 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
   winningPrice?: string;
   auctionTitle?: string;
 }> {
-  const { default: pg } = await import("pg");
-  const raw = process.env.DATABASE_URL || "";
-  const cleaned = raw.replace(/[?&]sslmode=[^&]*/g, "").replace(/\?$/, "");
-  const pool = new pg.Pool({ connectionString: cleaned, ssl: { rejectUnauthorized: false } });
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const auctionRes = await client.query(
+  return transaction(async (q) => {
+    const auctionRes = await q(
       `SELECT * FROM auctions WHERE id = $1 FOR UPDATE`,
       [auctionId]
     );
     if (auctionRes.rows.length === 0) {
-      await client.query("ROLLBACK");
       return { ok: false, error: "Auction not found." };
     }
     const auction = auctionRes.rows[0];
 
     if (auction.status !== "live") {
-      await client.query("ROLLBACK");
       return { ok: false, error: "Auction is not live." };
     }
 
-    const bidRes = await client.query(
+    const bidRes = await q(
       `SELECT b.*, u.email FROM auction_bids b JOIN users u ON b.user_id = u.id
         WHERE b.id = $1 AND b.auction_id = $2 AND b.is_best_offer = true AND b.status = 'active'`,
       [bidId, auctionId]
     );
     if (bidRes.rows.length === 0) {
-      await client.query("ROLLBACK");
       return { ok: false, error: "Offer not found or already resolved." };
     }
     const bid = bidRes.rows[0];
 
     // End the auction at the offer price; mark this bid winning, others rejected
-    await client.query(
+    await q(
       `UPDATE auctions SET status = 'ended', actual_end_at = NOW(),
          winner_user_id = $1, current_price = $2, updated_at = NOW()
         WHERE id = $3`,
       [bid.user_id, bid.amount, auctionId]
     );
-    await client.query(
+    await q(
       `UPDATE auction_bids SET status = 'winning' WHERE id = $1`,
       [bidId]
     );
-    await client.query(
+    await q(
       `UPDATE auction_bids SET status = 'rejected'
         WHERE auction_id = $1 AND status = 'active' AND id != $2`,
       [auctionId, bidId]
     );
-
-    await client.query("COMMIT");
 
     return {
       ok: true,
@@ -824,13 +801,7 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
       winningPrice: bid.amount,
       auctionTitle: auction.title,
     };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
-  }
+  });
 }
 
 export async function rejectOffer(auctionId: string, bidId: string): Promise<boolean> {

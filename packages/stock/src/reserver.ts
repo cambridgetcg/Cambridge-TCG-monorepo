@@ -6,13 +6,13 @@
  */
 
 import { eq, sql, and, lte } from "drizzle-orm";
-import { stockMovements, stockReservations } from "./schema.js";
+import { stockMovements, stockReservations } from "./schema";
 import type {
   StockMovement,
   StockReservation,
   ReserveParams,
-} from "./types.js";
-import type { DbClient } from "./db.js";
+} from "./types";
+import type { DbClient } from "./db";
 
 export interface StockReserverDeps {
   defaultTtlMinutes: number;

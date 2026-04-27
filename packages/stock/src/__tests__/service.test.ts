@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createStockService } from "../index.js";
+import { createStockService } from "../index";
 
 describe("createStockService", () => {
   // We can't hit a real DB in these tests, but we can verify
