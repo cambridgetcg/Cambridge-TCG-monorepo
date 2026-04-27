@@ -1,40 +1,38 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+/**
+ * Trade photo uploads for marketplace verified/full-escrow tiers.
+ *
+ * Delegates to @cambridge-tcg/aws for the actual S3 client. Key is
+ * namespaced by trade ID so rotation/cleanup is straightforward.
+ */
+
+import {
+  getPresignedUploadUrl as awsPresign,
+  deleteObject,
+} from "@cambridge-tcg/aws/s3";
 import crypto from "crypto";
 
-// Trade photos for verified/full-escrow tiers (seller proof-of-card before
-// shipping). Reuses the same bucket convention as auctions; key is
-// namespaced by trade id so rotation/cleanup is straightforward.
 const BUCKET = (process.env.AUCTION_S3_BUCKET || "cambridgetcg-auction-images").trim();
-const REGION = (process.env.AWS_REGION || "us-east-1").trim();
 
-const s3 = new S3Client({
-  region: REGION,
-  credentials: {
-    accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-    secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-  },
-});
-
-export async function getTradePhotoUploadUrl(tradeId: string, contentType: string): Promise<{
-  uploadUrl: string;
-  imageUrl: string;
-  s3Key: string;
-}> {
+export async function getTradePhotoUploadUrl(
+  tradeId: string,
+  contentType: string,
+): Promise<{ uploadUrl: string; imageUrl: string; s3Key: string }> {
   const ext = (contentType.split("/")[1] || "jpg").replace(/[^a-z0-9]/gi, "") || "jpg";
   const key = `trade-photos/${tradeId}/${crypto.randomUUID()}.${ext}`;
 
-  const command = new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    ContentType: contentType,
+  const result = await awsPresign({
+    bucket: BUCKET,
+    key,
+    contentType,
   });
 
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 600 });
-  const imageUrl = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
-  return { uploadUrl, imageUrl, s3Key: key };
+  return {
+    uploadUrl: result.uploadUrl,
+    imageUrl: result.publicUrl,
+    s3Key: result.s3Key,
+  };
 }
 
 export async function deleteTradePhotoObject(key: string): Promise<void> {
-  await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+  await deleteObject(BUCKET, key);
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
+import { sesClient } from "@/lib/email/client";
+import { SendEmailCommand } from "@aws-sdk/client-ses";
 
 // POST — admin: send quotation for a trade-in submission
 export async function POST(request: Request) {
@@ -80,15 +82,6 @@ export async function POST(request: Request) {
 
   // Send email notification to customer
   try {
-    const { SESClient, SendEmailCommand } = await import("@aws-sdk/client-ses");
-    const ses = new SESClient({
-      region: (process.env.AWS_REGION || "us-east-1").trim(),
-      credentials: {
-        accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-        secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-      },
-    });
-
     const from = (process.env.TRADEIN_FROM_EMAIL || "tradein@cambridgetcg.com").trim();
     const payoutDesc = payoutType === "mixed"
       ? `£${totalCash.toFixed(2)} cash + £${totalCredit.toFixed(2)} credit`
@@ -96,7 +89,7 @@ export async function POST(request: Request) {
       ? `£${totalCash.toFixed(2)} cash`
       : `£${totalCredit.toFixed(2)} store credit`;
 
-    await ses.send(new SendEmailCommand({
+    await sesClient.send(new SendEmailCommand({
       Source: from,
       Destination: { ToAddresses: [submission.customer_email] },
       Message: {
@@ -172,15 +165,7 @@ export async function PATCH(request: Request) {
   // Notify store
   try {
     const storeEmail = (process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com").trim();
-    const { SESClient, SendEmailCommand } = await import("@aws-sdk/client-ses");
-    const ses = new SESClient({
-      region: (process.env.AWS_REGION || "us-east-1").trim(),
-      credentials: {
-        accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-        secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-      },
-    });
-    await ses.send(new SendEmailCommand({
+    await sesClient.send(new SendEmailCommand({
       Source: (process.env.TRADEIN_FROM_EMAIL || "tradein@cambridgetcg.com").trim(),
       Destination: { ToAddresses: [storeEmail] },
       Message: {

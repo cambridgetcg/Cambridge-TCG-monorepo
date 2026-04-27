@@ -1,38 +1,39 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+/**
+ * S3 presigned upload and delete for storefront.
+ *
+ * Delegates to @cambridge-tcg/aws for the actual S3 client. This module
+ * preserves the local API (getPresignedUploadUrl, deleteS3Object) so that
+ * consumers don't need to change their imports.
+ */
+
+import {
+  getPresignedUploadUrl as awsPresign,
+  deleteObject,
+} from "@cambridge-tcg/aws/s3";
 import crypto from "crypto";
 
 const BUCKET = (process.env.AUCTION_S3_BUCKET || "cambridgetcg-auction-images").trim();
-const REGION = (process.env.AWS_REGION || "us-east-1").trim();
 
-const s3 = new S3Client({
-  region: REGION,
-  credentials: {
-    accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-    secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-  },
-});
-
-export async function getPresignedUploadUrl(auctionId: string, contentType: string): Promise<{
-  uploadUrl: string;
-  imageUrl: string;
-  s3Key: string;
-}> {
+export async function getPresignedUploadUrl(
+  prefix: string,
+  contentType: string,
+): Promise<{ uploadUrl: string; imageUrl: string; s3Key: string }> {
   const ext = contentType.split("/")[1] || "jpg";
-  const key = `auctions/${auctionId}/${crypto.randomUUID()}.${ext}`;
+  const key = `${prefix}/${crypto.randomUUID()}.${ext}`;
 
-  const command = new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    ContentType: contentType,
+  const result = await awsPresign({
+    bucket: BUCKET,
+    key,
+    contentType,
   });
 
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 600 });
-  const imageUrl = `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
-
-  return { uploadUrl, imageUrl, s3Key: key };
+  return {
+    uploadUrl: result.uploadUrl,
+    imageUrl: result.publicUrl,
+    s3Key: result.s3Key,
+  };
 }
 
 export async function deleteS3Object(key: string): Promise<void> {
-  await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+  await deleteObject(BUCKET, key);
 }

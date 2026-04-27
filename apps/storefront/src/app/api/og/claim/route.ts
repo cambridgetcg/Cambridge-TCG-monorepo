@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
+import { sesClient } from "@/lib/email/client";
+import { SendEmailCommand } from "@aws-sdk/client-ses";
 
 // POST — submit OG claim (public) or approve/reject (admin)
 export async function POST(request: Request) {
@@ -43,15 +45,7 @@ export async function POST(request: Request) {
 
       // Send email notification
       try {
-        const { SESClient, SendEmailCommand } = await import("@aws-sdk/client-ses");
-        const ses = new SESClient({
-          region: (process.env.AWS_REGION || "us-east-1").trim(),
-          credentials: {
-            accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-            secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-          },
-        });
-        await ses.send(new SendEmailCommand({
+        await sesClient.send(new SendEmailCommand({
           Source: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
           Destination: { ToAddresses: [claim.rows[0].email] },
           Message: {
@@ -123,15 +117,7 @@ export async function POST(request: Request) {
   // Notify store
   try {
     const storeEmail = (process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com").trim();
-    const { SESClient, SendEmailCommand } = await import("@aws-sdk/client-ses");
-    const ses = new SESClient({
-      region: (process.env.AWS_REGION || "us-east-1").trim(),
-      credentials: {
-        accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-        secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-      },
-    });
-    await ses.send(new SendEmailCommand({
+    await sesClient.send(new SendEmailCommand({
       Source: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
       Destination: { ToAddresses: [storeEmail] },
       Message: {

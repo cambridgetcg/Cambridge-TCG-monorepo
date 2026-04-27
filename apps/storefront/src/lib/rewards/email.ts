@@ -2,16 +2,9 @@
 // notifications go here. Direct SES path (not the queue) since wins are
 // rare and the cron tolerates SES retry latency.
 
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SendEmailCommand } from "@aws-sdk/client-ses";
+import { sesClient as ses } from "@/lib/email/client";
 import { buildTrackingUrl, getCarrierTracker } from "@/lib/shipping/carriers";
-
-const ses = new SESClient({
-  region: (process.env.AWS_REGION || "us-east-1").trim(),
-  credentials: {
-    accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-    secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-  },
-});
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/+$/, "");

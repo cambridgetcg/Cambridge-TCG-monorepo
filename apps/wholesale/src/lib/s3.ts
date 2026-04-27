@@ -1,21 +1,22 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+/**
+ * S3 price feed download for wholesale.
+ *
+ * Delegates to @cambridge-tcg/aws for the actual S3 client.
+ * Wholesale defaults to eu-west-2 (matching the RDS region).
+ */
+
+import { getObject } from "@cambridge-tcg/aws/s3";
+import { createS3ClientOrThrow } from "@cambridge-tcg/aws/s3";
 import ExcelJS from "exceljs";
 
-const s3 = new S3Client({
-  region: process.env.AWS_REGION || "eu-west-2",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+// Force the S3 client to initialize with wholesale's default region
+createS3ClientOrThrow({ defaultRegion: "eu-west-2" });
 
 export async function fetchPriceFeed(): Promise<CardPriceRow[]> {
-  const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET || "pricedata-tcg",
-    Key: process.env.S3_PRICE_FEED_KEY || "pricefeed/onepiece_pricefeed.xlsx",
-  });
+  const bucket = process.env.S3_BUCKET || "pricedata-tcg";
+  const key = process.env.S3_PRICE_FEED_KEY || "pricefeed/onepiece_pricefeed.xlsx";
 
-  const response = await s3.send(command);
+  const response = await getObject(bucket, key);
   const bytes = await response.Body!.transformToByteArray();
 
   const workbook = new ExcelJS.Workbook();

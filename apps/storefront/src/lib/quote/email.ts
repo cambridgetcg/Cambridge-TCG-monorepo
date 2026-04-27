@@ -1,13 +1,6 @@
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SendEmailCommand } from "@aws-sdk/client-ses";
+import { sesClient as ses } from "@/lib/email/client";
 import { formatPrice } from "@/lib/format";
-
-const ses = new SESClient({
-  region: (process.env.AWS_REGION || "us-east-1").trim(),
-  credentials: {
-    accessKeyId: (process.env.AWS_ACCESS_KEY_ID || "").trim(),
-    secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || "").trim(),
-  },
-});
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 const STORE_EMAIL = (process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com").trim();
