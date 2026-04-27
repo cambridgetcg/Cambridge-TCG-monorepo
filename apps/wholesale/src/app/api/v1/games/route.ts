@@ -1,0 +1,40 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { games, cards } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { authenticateApiKey, unauthorized } from "../auth";
+
+export async function GET(req: NextRequest) {
+  try {
+    const apiKey = await authenticateApiKey(req);
+    if (!apiKey) return unauthorized();
+
+    const rows = await db
+      .select({
+        code: games.code,
+        name: games.name,
+        slug: games.slug,
+        imageUrl: games.imageUrl,
+        cardCount: sql<number>`cast(count(${cards.id}) as integer)`,
+      })
+      .from(games)
+      .leftJoin(cards, eq(cards.gameId, games.id))
+      .where(eq(games.active, true))
+      .groupBy(games.id)
+      .orderBy(games.sortOrder);
+
+    return NextResponse.json({
+      games: rows.map((r) => ({
+        code: r.code,
+        name: r.name,
+        slug: r.slug,
+        image_url: r.imageUrl,
+        card_count: r.cardCount,
+      })),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[/api/v1/games] Error:", message);
+    return NextResponse.json({ error: "Internal error", detail: message }, { status: 500 });
+  }
+}

@@ -1,0 +1,6 @@
+tools/
+e2e/
+test-results/
+tools/__pycache__/
+tools/fonts/
+*.py

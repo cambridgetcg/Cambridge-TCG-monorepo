@@ -1,0 +1,18 @@
+{
+  "name": "cambridge-tcg",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:wholesale": "pnpm --filter ./apps/wholesale dev",
+    "dev:storefront": "pnpm --filter ./apps/storefront dev",
+    "build:wholesale": "pnpm --filter ./apps/wholesale build",
+    "build:storefront": "pnpm --filter ./apps/storefront build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r exec tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

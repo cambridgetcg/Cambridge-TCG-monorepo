@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/monthly-rollover",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/price-snapshot",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/rebuild-buylist",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/shopify-sync",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/shopify-orders",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

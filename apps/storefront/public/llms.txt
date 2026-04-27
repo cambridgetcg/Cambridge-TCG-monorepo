@@ -1,0 +1,72 @@
+# Cambridge TCG
+> UK-based Japanese trading card marketplace. Buy, sell, trade, and collect One Piece, Pokémon, and Dragon Ball TCG cards. Based in Cambridge, United Kingdom.
+
+## What We Offer
+- E-commerce store with 3,000+ authentic Japanese TCG cards sourced direct from Japan
+- P2P marketplace with real-time bid/ask order book (like a stock exchange for cards)
+- Auctions — English and Buy Now, both admin and customer-created
+- Trade-in for instant store credit — we buy every card, always, unlimited quantity
+- Portfolio tracking with live market valuations and P&L
+- Membership tiers (Bronze, Silver, Gold, Platinum) with cashback, points, and rewards
+- Raffles and mystery boxes — spend points for a chance to win cards
+- Community profiles, wishlists, achievements, follow system, and trade matching
+- Full trust and safety: UK identity verification, escrow inspection, fraud detection, reviews
+
+## For Sellers
+- Sell any card for instant store credit (we buy unlimited at our trade-in price)
+- List on the P2P marketplace with bid/ask pricing (5-8% commission, tier-adjusted)
+- Create your own auctions (12% commission, reviewed and approved by CTCG)
+- Submit custom quote requests with photos for cards not on our buylist
+- Trust scores earned through completed trades, reviews, and verification
+
+## For Buyers
+- Buy from the store at retail price, or find better deals from P2P sellers
+- Every card shows the market price (cheapest available from store or P2P)
+- Authenticated cards — CTCG inspects high-value cards through escrow
+- Tiered escrow: direct ship (low value), photo-verified (mid), full inspection (high)
+- UK-verified traders only for P2P
+
+## Pricing Model
+- Cambridge TCG acts as market maker on every card
+- Retail price (ask): store inventory price
+- Trade-in credit (bid): guaranteed buy price in store credit
+- P2P bids and asks fill the spread between these two prices
+- Store credit can only be spent at Cambridge TCG
+
+## Membership Tiers
+- Bronze: free, base perks
+- Silver: £100+/year spend, 3% cashback, 1.5x points, reduced fees
+- Gold: £500+/year spend, 5% cashback, 2x points, further reduced fees
+- Platinum: £22/month, 0% fees on everything, 12% store discount, 3x points, 8% cashback
+
+## Games Available
+- One Piece Card Game (primary, 3,000+ cards, 30+ sets)
+- Pokémon TCG (expanding)
+- Dragon Ball Super Card Game (expanding)
+
+## Trust & Safety
+- UK identity verification (18+, address, postcode)
+- Trust scores 0-100 with 5 tiers (New, Starter, Trusted, Veteran, Elite)
+- Cross-platform reputation (link eBay, Cardmarket, TCGPlayer accounts)
+- Tiered escrow based on trade value and trust score
+- Provably fair raffle draws with cryptographic verification
+- 10 automated fraud detection signal types
+- Post-trade reviews with 4-point rating system
+
+## Location
+Cambridge, United Kingdom
+All P2P escrow inspections performed at our Cambridge facility
+UK-only P2P trading (for now)
+
+## URLs
+- Store: https://cambridgetcg.com/catalog
+- Market: https://cambridgetcg.com/market
+- Auctions: https://cambridgetcg.com/auctions
+- Trade-in: https://cambridgetcg.com/trade-in
+- Rewards: https://cambridgetcg.com/rewards
+- Community: https://cambridgetcg.com/community
+- About: https://cambridgetcg.com/about
+
+## Contact
+Website: https://cambridgetcg.com
+Email: contact@cambridgetcg.com
