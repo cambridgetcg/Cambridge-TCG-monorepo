@@ -27,6 +27,9 @@ export const authConfig: NextAuthConfig = {
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
+        // Role comes from the adapter's toAdapterUser which reads
+        // the role column from the users table.
+        session.user.role = (user as unknown as { role: string }).role ?? "user";
       }
       return session;
     },

@@ -1,26 +1,22 @@
 "use client";
 
-// Shared frame for every /admin/* page. Wraps the existing HMAC-cookie
-// auth — no server changes, the shell just owns the login form and the
-// nav so individual pages stop reimplementing it. Children render only
-// once authed.
+// Shared frame for every /admin/* page. Uses NextAuth session with role
+// check — admins authenticate via the standard magic-link flow and are
+// identified by role='admin' on their user record.
+//
+// The middleware already gates /admin/* paths, so this shell is UX
+// convenience (loading state, nav) rather than a security boundary.
 
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 interface AdminNavItem {
   href: string;
   label: string;
-  // Group pills into sections in the nav. "ops" = day-to-day fulfilment,
-  // "money" = payouts/disputes/fraud, "content" = catalog/rewards,
-  // "system" = meta (emails, verifications, og).
   group: "ops" | "money" | "content" | "system";
 }
 
-// Central registry. Update here → reflected in the top nav and admin
-// index page. Keep the order stable; it's also the display order on
-// /admin. Don't prune without checking the matching /admin/* route.
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin",                       label: "Overview",     group: "ops" },
   { href: "/admin/trade-ins",             label: "Trade-Ins",    group: "ops" },
@@ -45,9 +41,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
 interface AdminShellProps {
   title: string;
   subtitle?: string;
-  // Optional probe endpoint — we fire a HEAD/GET against it to detect
-  // whether the admin_token cookie is still valid. Defaults to the
-  // cheapest admin-guarded endpoint: /api/admin/overview.
+  /** @deprecated No longer used — middleware handles auth. Kept for backward compat. */
   authProbe?: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -56,69 +50,35 @@ interface AdminShellProps {
 export default function AdminShell({
   title,
   subtitle,
-  authProbe = "/api/admin/overview",
   actions,
   children,
 }: AdminShellProps) {
-  const [authed, setAuthed] = useState<boolean | null>(null);
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
+  // The middleware redirects non-admins before this component ever mounts.
+  // We still do a lightweight session check for the loading state UX.
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    fetch(authProbe, { cache: "no-store" })
-      .then((r) => setAuthed(r.ok))
-      .catch(() => setAuthed(false));
-  }, [authProbe]);
-
-  const handleLogin = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-    try {
-      const res = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+    // Probe an admin endpoint to confirm the session is valid.
+    // The middleware handles the actual auth — this is just for UX.
+    fetch("/api/admin/overview", { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) {
+          // Middleware should have caught this, but if the session expired
+          // between page load and this check, redirect to login.
+          window.location.href = "/login";
+          return;
+        }
+        setReady(true);
+      })
+      .catch(() => {
+        window.location.href = "/login";
       });
-      if (!res.ok) {
-        setLoginError("Wrong password.");
-        return;
-      }
-      setAuthed(true);
-      setPassword("");
-    } catch {
-      setLoginError("Network error.");
-    }
-  }, [password]);
+  }, []);
 
-  if (authed === null) {
+  if (!ready) {
     return (
       <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="text-neutral-600 text-sm">Checking…</div>
-      </main>
-    );
-  }
-
-  if (!authed) {
-    return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <form onSubmit={handleLogin} className="w-full max-w-sm px-4">
-          <h1 className="text-2xl font-bold text-white text-center mb-8">Admin</h1>
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoFocus
-            className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 mb-4"
-          />
-          {loginError && <p className="text-sm text-red-400 mb-4">{loginError}</p>}
-          <button
-            type="submit"
-            className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
-          >
-            Log In
-          </button>
-        </form>
+        <div className="text-neutral-600 text-sm">Loading…</div>
       </main>
     );
   }

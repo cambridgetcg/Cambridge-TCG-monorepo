@@ -88,7 +88,8 @@ export function PgAdapter(): Adapter {
     async getSessionAndUser(sessionToken) {
       const result = await query(
         `SELECT s.*, u.id as u_id, u.name as u_name, u.email as u_email,
-                u.email_verified as u_email_verified, u.image as u_image
+                u.email_verified as u_email_verified, u.image as u_image,
+                u.role as u_role
          FROM sessions s JOIN users u ON s.user_id = u.id
          WHERE s.session_token = $1 AND s.expires > NOW()`,
         [sessionToken]
@@ -100,6 +101,7 @@ export function PgAdapter(): Adapter {
         user: toAdapterUser({
           id: row.u_id, name: row.u_name, email: row.u_email,
           email_verified: row.u_email_verified, image: row.u_image,
+          role: row.u_role,
         }),
       };
     },
@@ -140,13 +142,14 @@ export function PgAdapter(): Adapter {
   };
 }
 
-function toAdapterUser(row: Record<string, unknown>): AdapterUser {
+function toAdapterUser(row: Record<string, unknown>): AdapterUser & { role: string } {
   return {
     id: row.id as string,
     name: (row.name as string) ?? null,
     email: row.email as string,
     emailVerified: row.email_verified ? new Date(row.email_verified as string) : null,
     image: (row.image as string) ?? null,
+    role: (row.role as string) ?? "user",
   };
 }
 

@@ -38,16 +38,19 @@ import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
 // accept the request only when CRON_SECRET is set and the Bearer token
 // matches — Vercel injects this header automatically for project crons.
 //
-// If CRON_SECRET is not configured (e.g. in local dev) we still allow the
-// route to run so it can be exercised manually; production deployments must
-// set CRON_SECRET to prevent open invocation.
+// IMPORTANT: Fails closed — if CRON_SECRET is not set, the route rejects
+// all requests. Local dev must set CRON_SECRET=dev (or any value) to test.
 export async function GET(request: Request) {
   const expected = process.env.CRON_SECRET?.trim();
-  if (expected) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${expected}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!expected) {
+    return NextResponse.json(
+      { error: "CRON_SECRET not configured" },
+      { status: 503 }
+    );
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${expected}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const start = Date.now();
