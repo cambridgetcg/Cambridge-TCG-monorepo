@@ -21,6 +21,12 @@ export default auth((req) => {
     if (req.auth.user.role !== "admin") {
       return NextResponse.redirect(new URL("/", req.url));
     }
+    // Forward x-pathname so the root layout can suppress the DevBanner on admin pages.
+    // We only do this for /admin/* (where the middleware already runs) — public pages
+    // don't trigger this middleware, so an absent x-pathname means "show the banner."
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-pathname", pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Admin API routes — require authenticated admin

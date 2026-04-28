@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+import { cookies, headers } from "next/headers";
 import "./globals.css";
 import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
+import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
@@ -34,7 +36,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Read the x-pathname header forwarded by proxy.ts for /admin/* requests.
+  // Non-admin pages don't trigger the proxy, so an absent header means "show banner."
+  const headerStore = await headers();
+  const pathname = headerStore.get("x-pathname") ?? "";
+  const isAdminPath = pathname.startsWith("/admin");
+
+  // Check if the visitor dismissed the banner this session.
+  const cookieStore = await cookies();
+  const bannerDismissed = cookieStore.get(BANNER_COOKIE)?.value === "hidden";
+
+  const showBanner = !isAdminPath && !bannerDismissed;
+
   return (
     <html lang="en">
       <head>
@@ -72,6 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </Script>
       <body className={inter.className}>
         <Providers>
+          {showBanner && <DevBanner />}
           <Nav />
           {children}
           <Footer />
