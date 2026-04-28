@@ -1,0 +1,10 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter @cambridge-tcg/admin build",
+  "installCommand": "pnpm install",
+  "outputDirectory": ".next",
+  "regions": ["lhr1"],
+  "env": {
+    "NEXTAUTH_URL": "https://admin.cambridgetcg.com"
+  }
+}
