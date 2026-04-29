@@ -18,7 +18,12 @@ export async function sendVerificationRequest(params: any) {
   // Dev-only transport — print the magic-link URL to the dev server log
   // instead of calling SES. Gated on NODE_ENV so production always sends
   // a real email. Useful when you're running locally without AWS creds.
-  if (process.env.NODE_ENV !== "production") {
+  //
+  // Set TRUE_SES_IN_DEV=1 in apps/admin/.env.local to override and exercise
+  // the real SES path locally (e.g. to verify DKIM/spam-folder behaviour
+  // end-to-end). Production ignores this flag and always sends.
+  const forceSes = process.env.TRUE_SES_IN_DEV === "1";
+  if (process.env.NODE_ENV !== "production" && !forceSes) {
     const bar = "─".repeat(72);
     // eslint-disable-next-line no-console
     console.log(
