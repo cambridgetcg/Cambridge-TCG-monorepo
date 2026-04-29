@@ -83,6 +83,8 @@ export const cards = pgTable("cards", {
   imageUrl: text("image_url"),
   stock: integer("stock").notNull().default(0), // UK warehouse on-hand: received - fulfilled
   pendingStock: integer("pending_stock").notNull().default(0), // ordered/shipped but not yet received
+  reservedStock: integer("reserved_stock").notNull().default(0), // held by carts / checkouts via @cambridge-tcg/stock
+  stockReconciledAt: timestamp("stock_reconciled_at", { withTimezone: true }), // last reconciliation between movement-ledger sum and `stock`
   shopifyProductId: text("shopify_product_id"),
   shopifyVariantId: text("shopify_variant_id"),
   shopifyInventoryItemId: text("shopify_inventory_item_id"),
@@ -362,3 +364,10 @@ export type StockTarget = typeof stockTargets.$inferSelect;
 export type StockAdjustment = typeof stockAdjustments.$inferSelect;
 export type ChannelApiKey = typeof channelApiKeys.$inferSelect;
 export type ChannelPricingRow = typeof channelPricing.$inferSelect;
+
+// ── @cambridge-tcg/stock package tables ──────────────────────────────
+// Re-exported so drizzle-kit picks them up when generating migrations
+// for the wholesale DB. The stockTargets table from the package is NOT
+// re-exported here — wholesale's existing stockTargets (defined above
+// since migration 0004) is the canonical one and stays.
+export { stockMovements, stockReservations } from "@cambridge-tcg/stock";
