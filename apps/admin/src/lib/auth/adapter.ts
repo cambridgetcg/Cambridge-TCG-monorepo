@@ -115,6 +115,16 @@ export function AdminDbAdapter(): Adapter {
     },
 
     async updateSession(session) {
+      // NextAuth's updateSession may be called with session.expires undefined
+      // — in that case we don't touch the column, just hit the row to refresh
+      // its updated_at via the existing trigger (or no-op).
+      if (!session.expires) {
+        const result = await sfQuery(
+          `SELECT * FROM sessions WHERE session_token = $1`,
+          [session.sessionToken],
+        );
+        return result.rows[0] ? toAdapterSession(result.rows[0]) : null;
+      }
       const result = await sfQuery(
         `UPDATE sessions SET expires = $1 WHERE session_token = $2 RETURNING *`,
         [session.expires.toISOString(), session.sessionToken],
