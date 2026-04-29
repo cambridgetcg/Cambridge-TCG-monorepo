@@ -15,6 +15,18 @@ export async function sendVerificationRequest(params: any) {
   const email = params.identifier as string;
   const url = params.url as string;
 
+  // Dev-only transport — print the magic-link URL to the dev server log
+  // instead of calling SES. Gated on NODE_ENV so production always sends
+  // a real email. Useful when you're running locally without AWS creds.
+  if (process.env.NODE_ENV !== "production") {
+    const bar = "─".repeat(72);
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n${bar}\n[admin/auth] dev console transport — magic link for ${email}:\n\n  ${url}\n\n${bar}\n`,
+    );
+    return;
+  }
+
   const ses = createSESClient();
   if (!ses) {
     throw new Error("SES client unavailable — check AWS_REGION and credentials");

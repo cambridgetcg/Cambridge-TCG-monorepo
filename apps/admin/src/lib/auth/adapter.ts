@@ -87,7 +87,8 @@ export function AdminDbAdapter(): Adapter {
       const result = await sfQuery(
         `INSERT INTO sessions (session_token, user_id, expires)
          VALUES ($1, $2, $3) RETURNING *`,
-        [session.sessionToken, session.userId, session.expires],
+        // postgres.js's unsafe() rejects Date — coerce timestamps to ISO strings.
+        [session.sessionToken, session.userId, session.expires.toISOString()],
       );
       return toAdapterSession(result.rows[0]);
     },
@@ -116,7 +117,7 @@ export function AdminDbAdapter(): Adapter {
     async updateSession(session) {
       const result = await sfQuery(
         `UPDATE sessions SET expires = $1 WHERE session_token = $2 RETURNING *`,
-        [session.expires, session.sessionToken],
+        [session.expires.toISOString(), session.sessionToken],
       );
       return result.rows[0] ? toAdapterSession(result.rows[0]) : null;
     },
@@ -133,7 +134,7 @@ export function AdminDbAdapter(): Adapter {
         `INSERT INTO verification_tokens (identifier, token, expires)
          VALUES ($1, $2, $3)
          ON CONFLICT (identifier, token) DO NOTHING`,
-        [token.identifier, token.token, token.expires],
+        [token.identifier, token.token, token.expires.toISOString()],
       );
       return token;
     },

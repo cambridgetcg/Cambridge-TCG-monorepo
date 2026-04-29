@@ -14,13 +14,17 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
 
   // Public paths — auth flow itself
   if (
     pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    // Dev-only sign-in shortcut — see app/api/dev-signin/route.ts. The route
+    // itself enforces NODE_ENV and localhost-host gates; this just lets it
+    // run before the auth check.
+    (process.env.NODE_ENV !== "production" && pathname.startsWith("/api/dev-signin"))
   ) {
     return NextResponse.next();
   }
