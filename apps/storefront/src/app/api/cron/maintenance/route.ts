@@ -33,6 +33,7 @@ import { expireReturnRequests } from "@/lib/market/returns";
 import { expireCancelRequests } from "@/lib/market/trade-cancels";
 import { runVacationSweep } from "@/lib/market/vacation";
 import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
+import { releaseExpiredReservations } from "@/lib/stock/reservations";
 
 // Vercel cron hits this route on the schedule defined in vercel.json. We
 // accept the request only when CRON_SECRET is set and the Bearer token
@@ -161,9 +162,23 @@ export async function GET(request: Request) {
     // disputes the webhook may have missed. Idempotent via the
     // chargebacks PK so re-discovery is a no-op.
     runChargebackReconciler(),
+    // Stock reservations: release any whose 30-min TTL has expired.
+    // See docs/architecture/storefront-checkout-flow.md. Appended at the
+    // end so the existing positional destructuring below stays aligned.
+    releaseExpiredReservations(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep] = results;
+  if (stockReservationSweep.status === "fulfilled") {
+    const r = stockReservationSweep.value;
+    if (r.ok && r.released > 0) {
+      console.log(`[cron] stock: released ${r.released} expired reservation(s)`);
+    } else if (!r.ok) {
+      console.error(`[cron] stock: reservation sweep failed: ${r.message}`);
+    }
+  } else {
+    console.error(`[cron] stock: reservation sweep rejected:`, stockReservationSweep.reason);
+  }
 
   const status = {
     market: market.status,

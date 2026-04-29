@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 import { getUserPerks } from "@/lib/membership/db";
 import { query } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import {
+  reserveCartItems,
+  holderForStripeSession,
+} from "@/lib/stock/reservations";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/+$/, "");
 
@@ -113,6 +117,39 @@ export async function POST(request: Request) {
         } : {}),
       },
     });
+
+    // Reserve stock for every cart item using the Stripe session id as
+    // holder. All-or-nothing — if any item is short, we expire the
+    // freshly-created Stripe session and return 409 to the client.
+    // See docs/architecture/storefront-checkout-flow.md.
+    const holder = holderForStripeSession(session.id);
+    const reservation = await reserveCartItems(
+      holder,
+      items.map((i) => ({ sku: i.sku, quantity: i.quantity })),
+    );
+    if (!reservation.ok) {
+      try {
+        await stripe.checkout.sessions.expire(session.id);
+      } catch (e) {
+        // Non-fatal — the session will time out on Stripe's side regardless.
+        console.warn(
+          `[checkout] failed to expire Stripe session after reservation failure (${session.id}):`,
+          e,
+        );
+      }
+      const status = reservation.reason === "out_of_stock" ? 409 : 500;
+      return NextResponse.json(
+        {
+          error:
+            reservation.reason === "out_of_stock"
+              ? "One or more items are out of stock"
+              : "Could not reserve stock for checkout",
+          reason: reservation.reason,
+          sku: reservation.sku ?? null,
+        },
+        { status },
+      );
+    }
 
     return NextResponse.json({
       url: session.url,

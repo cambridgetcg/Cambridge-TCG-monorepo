@@ -11,7 +11,9 @@
   "dependencies": {
     "@cambridge-tcg/aws": "workspace:^",
     "@cambridge-tcg/db": "workspace:^",
+    "@cambridge-tcg/stock": "workspace:^",
     "@aws-sdk/client-s3": "^3.1029.0",
+    "drizzle-orm": "^0.36.0",
     "@aws-sdk/client-ses": "^3.1017.0",
     "@aws-sdk/s3-request-presigner": "^3.1029.0",
     "@stripe/react-stripe-js": "^5.6.1",

@@ -5,6 +5,11 @@ import { query } from "@/lib/db";
 import { processOrderRewards } from "@/lib/membership/db";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { getStripe } from "@/lib/stripe";
+import {
+  commitCartToSale,
+  releaseHolder,
+  holderForStripeSession,
+} from "@/lib/stock/reservations";
 
 export async function POST(request: Request) {
   // Order matters: gate the request on configuration + signature
@@ -330,6 +335,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
+  // Released-by-Stripe abandonment. Stripe fires checkout.session.expired
+  // when a session times out without payment (default 24h, configurable).
+  // Release the matching reservation so the held stock returns to availability
+  // before the cron sweep would have caught it via TTL.
+  if (event.type === "checkout.session.expired") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    try {
+      const result = await releaseHolder(holderForStripeSession(session.id));
+      if (result.ok) {
+        console.log(
+          `[webhook] session expired ${session.id} — released ${result.released} reservation(s)`,
+        );
+      } else {
+        console.warn(
+          `[webhook] session expired ${session.id} — release failed: ${result.message}`,
+        );
+      }
+    } catch (e) {
+      console.error(`[webhook] release on session.expired threw for ${session.id}:`, e);
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
@@ -402,6 +430,29 @@ export async function POST(request: Request) {
       );
 
       console.log(`[webhook] Order ${session.id} recorded for ${email}`);
+
+      // Commit the stock reservation into a sale movement. Idempotent on
+      // Stripe redelivery via @cambridge-tcg/stock's (cardId, referenceId)
+      // UNIQUE — duplicate events become no-ops.
+      // See docs/architecture/storefront-checkout-flow.md.
+      try {
+        const commit = await commitCartToSale(
+          holderForStripeSession(session.id),
+          skus.map((s) => ({ sku: s.sku, quantity: s.qty })),
+          "cambridgetcg.com",
+        );
+        if (!commit.ok) {
+          console.error(
+            `[webhook] stock commit failed for ${session.id}: ${commit.message}`,
+          );
+        } else {
+          console.log(
+            `[webhook] stock committed for ${session.id}: ${commit.committed} movement(s)`,
+          );
+        }
+      } catch (e) {
+        console.error(`[webhook] stock commit threw for ${session.id}:`, e);
+      }
 
       // Social: activity feed + achievement
       if (userId) {
