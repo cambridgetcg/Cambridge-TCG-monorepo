@@ -14,11 +14,9 @@ import {
   BlockStack,
   Text,
   Badge,
-  EmptyState,
   Box,
   Modal,
   FormLayout,
-  Divider,
   Toast,
   Frame,
   Icon,
@@ -43,7 +41,7 @@ import { getTierStyle } from "../utils/tier-styles";
 import { getEntitlements } from "../services/entitlements.server";
 import { TierEmptyStateV1B } from "../components/TierEmptyStateVariations";
 import { checkLimitAccess } from "~/utils/require-feature.server";
-import { LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
+import { PageLimitStatus } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -517,7 +515,10 @@ export default function TiersPage() {
                                           <Badge tone="success" icon={PackageIcon}>
                                             {`${productCoverage.productCount} ${productCoverage.productCount === 1 ? "product" : "products"}`}
                                           </Badge>
-                                        ) : data.hasPurchasableTiers ? (
+                                        ) : data.hasPurchasableTiers && tier.minSpend > 0 ? (
+                                          // Entry-level tier (minSpend === 0) is the default
+                                          // catch-all — customers reach it by spending threshold,
+                                          // it doesn't need a purchasable product.
                                           <Badge tone="attention">No products</Badge>
                                         ) : null}
                                       </InlineStack>

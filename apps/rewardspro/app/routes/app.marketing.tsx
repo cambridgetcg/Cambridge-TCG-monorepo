@@ -5,7 +5,6 @@ import {
   EmailIcon,
   ThemeTemplateIcon,
   AutomationIcon,
-  AppsIcon,
 } from "@shopify/polaris-icons";
 
 /**
@@ -16,7 +15,6 @@ import {
  * - Campaigns (email campaigns)
  * - Templates (email templates)
  * - Automations (triggered email workflows)
- * - Klaviyo (integration with Klaviyo)
  *
  * Uses pathless layout pattern - this file renders the secondary nav
  * and an Outlet for child routes.
@@ -27,7 +25,6 @@ export default function MarketingLayout() {
     { label: "Campaigns", to: "/app/marketing/campaigns", icon: EmailIcon },
     { label: "Templates", to: "/app/marketing/templates", icon: ThemeTemplateIcon },
     { label: "Automations", to: "/app/marketing/automation/workflows", icon: AutomationIcon },
-    { label: "Klaviyo", to: "/app/marketing/klaviyo", icon: AppsIcon },
   ];
 
   return (

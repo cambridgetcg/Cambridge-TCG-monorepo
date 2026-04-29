@@ -72,13 +72,6 @@ import {
   createNarrativeGenerator,
   type ExecutiveSummary as ExecutiveSummaryType,
 } from "~/services/analytics/narrative-generator.server";
-import { ExecutiveSummary } from "~/components/analytics/ExecutiveSummary";
-import {
-  InsightWidget,
-  HealthScoreWidget,
-  ComparisonWidget,
-  type ComparisonData,
-} from "~/components/analytics/widgets";
 
 // Register Chart.js components
 ChartJS.register(
@@ -775,7 +768,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 // Chart.js Configuration for Shopify Analytics Style
-const getShopifyChartOptions = (yAxisConfig?: {
+const _getShopifyChartOptions = (yAxisConfig?: {
   max?: number;
   callback?: (value: any) => string;
 }): ChartOptions<'line'> => ({
@@ -868,7 +861,7 @@ interface MarginRecalibrationFormProps {
   shopSettings: any; // Shop settings for currency formatting
 }
 
-function MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetrics, shopSettings }: MarginRecalibrationFormProps) {
+function _MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetrics, shopSettings }: MarginRecalibrationFormProps) {
   const fetcher = useFetcher();
 
   // Format currency helper
@@ -1172,9 +1165,13 @@ export default function AnalyticsPage() {
                           <BlockStack gap="200">
                             <Text variant="bodySm" tone="subdued" as="span">Revenue</Text>
                             <Text variant="headingLg" as="p" fontWeight="bold">{formatAmount(data.overviewMetrics.totalRevenue)}</Text>
-                            <Text variant="bodySm" tone={data.metricsChanges.revenueChange >= 0 ? 'success' : 'critical'} as="span">
-                              {data.metricsChanges.revenueChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.revenueChange).toFixed(1)}% vs last period
-                            </Text>
+                            {data.overviewMetrics.totalRevenue > 0 && data.metricsChanges.revenueChange !== 0 ? (
+                              <Text variant="bodySm" tone={data.metricsChanges.revenueChange >= 0 ? 'success' : 'critical'} as="span">
+                                {data.metricsChanges.revenueChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.revenueChange).toFixed(1)}% vs last period
+                              </Text>
+                            ) : (
+                              <Text variant="bodySm" tone="subdued" as="span">No prior data</Text>
+                            )}
                           </BlockStack>
                         </Box>
                       </Card>
@@ -1183,9 +1180,13 @@ export default function AnalyticsPage() {
                           <BlockStack gap="200">
                             <Text variant="bodySm" tone="subdued" as="span">Orders</Text>
                             <Text variant="headingLg" as="p" fontWeight="bold">{data.overviewMetrics.totalOrders.toLocaleString()}</Text>
-                            <Text variant="bodySm" tone={data.metricsChanges.ordersChange >= 0 ? 'success' : 'critical'} as="span">
-                              {data.metricsChanges.ordersChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.ordersChange).toFixed(1)}% vs last period
-                            </Text>
+                            {data.overviewMetrics.totalOrders > 0 && data.metricsChanges.ordersChange !== 0 ? (
+                              <Text variant="bodySm" tone={data.metricsChanges.ordersChange >= 0 ? 'success' : 'critical'} as="span">
+                                {data.metricsChanges.ordersChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.ordersChange).toFixed(1)}% vs last period
+                              </Text>
+                            ) : (
+                              <Text variant="bodySm" tone="subdued" as="span">No prior data</Text>
+                            )}
                           </BlockStack>
                         </Box>
                       </Card>
@@ -1194,9 +1195,13 @@ export default function AnalyticsPage() {
                           <BlockStack gap="200">
                             <Text variant="bodySm" tone="subdued" as="span">Active Members</Text>
                             <Text variant="headingLg" as="p" fontWeight="bold">{data.overviewMetrics.activeCustomers.toLocaleString()}</Text>
-                            <Text variant="bodySm" tone={data.metricsChanges.activeCustomersChange >= 0 ? 'success' : 'critical'} as="span">
-                              {data.metricsChanges.activeCustomersChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.activeCustomersChange).toFixed(1)}% vs last period
-                            </Text>
+                            {data.overviewMetrics.activeCustomers > 0 && data.metricsChanges.activeCustomersChange !== 0 ? (
+                              <Text variant="bodySm" tone={data.metricsChanges.activeCustomersChange >= 0 ? 'success' : 'critical'} as="span">
+                                {data.metricsChanges.activeCustomersChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.activeCustomersChange).toFixed(1)}% vs last period
+                              </Text>
+                            ) : (
+                              <Text variant="bodySm" tone="subdued" as="span">No prior data</Text>
+                            )}
                           </BlockStack>
                         </Box>
                       </Card>
@@ -1205,9 +1210,13 @@ export default function AnalyticsPage() {
                           <BlockStack gap="200">
                             <Text variant="bodySm" tone="subdued" as="span">Avg Order Value</Text>
                             <Text variant="headingLg" as="p" fontWeight="bold">{formatAmount(data.overviewMetrics.avgOrderValue)}</Text>
-                            <Text variant="bodySm" tone={data.metricsChanges.avgOrderValueChange >= 0 ? 'success' : 'critical'} as="span">
-                              {data.metricsChanges.avgOrderValueChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.avgOrderValueChange).toFixed(1)}% vs last period
-                            </Text>
+                            {data.overviewMetrics.avgOrderValue > 0 && data.metricsChanges.avgOrderValueChange !== 0 ? (
+                              <Text variant="bodySm" tone={data.metricsChanges.avgOrderValueChange >= 0 ? 'success' : 'critical'} as="span">
+                                {data.metricsChanges.avgOrderValueChange >= 0 ? '↑' : '↓'} {Math.abs(data.metricsChanges.avgOrderValueChange).toFixed(1)}% vs last period
+                              </Text>
+                            ) : (
+                              <Text variant="bodySm" tone="subdued" as="span">No prior data</Text>
+                            )}
                           </BlockStack>
                         </Box>
                       </Card>
@@ -2269,7 +2278,7 @@ export default function AnalyticsPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {data.cohortAnalysis.retentionCohorts.map((cohort, cohortIndex) => (
+                                  {data.cohortAnalysis.retentionCohorts.map((cohort) => (
                                     <tr key={cohort.cohortMonth}>
                                       <td style={{
                                         padding: '8px 12px',

@@ -36,7 +36,11 @@ export interface SetModeResult {
 // ============================================
 
 /**
- * Get the current marketing hub mode for a shop
+ * Get the current marketing hub mode for a shop.
+ *
+ * Defaults to INHOUSE when unset. Klaviyo is being deprecated (Phase 1–4
+ * refactors removed dead Klaviyo code), so new shops go straight to the
+ * in-house SendGrid experience without a choice prompt.
  */
 export async function getMarketingHubMode(shop: string): Promise<MarketingHubMode> {
   const settings = await prisma.emailSettings.findUnique({
@@ -44,7 +48,7 @@ export async function getMarketingHubMode(shop: string): Promise<MarketingHubMod
     select: { marketingHubMode: true },
   });
 
-  return settings?.marketingHubMode || "UNCONFIGURED";
+  return settings?.marketingHubMode || "INHOUSE";
 }
 
 /**
@@ -64,7 +68,7 @@ export async function getMarketingModeInfo(shop: string): Promise<MarketingModeI
   });
 
   return {
-    mode: settings?.marketingHubMode || "UNCONFIGURED",
+    mode: settings?.marketingHubMode || "INHOUSE",
     modeSetAt: settings?.marketingModeSetAt || null,
     hasSeenChoice: settings?.hasSeenMarketingChoice || false,
     isKlaviyoConnected: settings?.klaviyoOAuthConnected || settings?.klaviyoEnabled || false,

@@ -100,10 +100,6 @@
       "schedule": "0 9 * * *"
     },
     {
-      "path": "/api/cron/klaviyo-events",
-      "schedule": "0 10 * * *"
-    },
-    {
       "path": "/api/cron/subscription-reconciliation",
       "schedule": "0 8 * * 0"
     },

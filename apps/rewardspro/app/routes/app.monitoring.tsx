@@ -10,7 +10,6 @@ import {
   Text,
   InlineStack,
   BlockStack,
-  Button,
   Divider,
 } from "@shopify/polaris";
 import { RefreshIcon, StatusActiveIcon, AlertTriangleIcon } from "@shopify/polaris-icons";
@@ -57,73 +56,71 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response("Unauthorized", { status: 401 });
   }
 
-  try {
-    // Get current system health and shop settings
-    const [healthResponse, shopSettings] = await Promise.all([
-      fetch(new URL('/api/health?detailed=true', request.url).href),
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  // Run each fetch independently — a single failure must not zero out the page.
+  const [healthResult, shopSettingsResult, recentErrorsResult, metricsResult, webhookActivityResult] =
+    await Promise.allSettled([
+      fetch(new URL('/api/health?detailed=true', request.url).href).then(r => r.json()),
       db.shopSettings.findUnique({
         where: { shop: session.shop },
         select: { storeCurrency: true, currencyDisplayType: true }
-      })
-    ]);
-    const health: HealthStatus = await healthResponse.json();
-
-    // Get recent error count
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentErrors = await db.$queryRaw`
-      SELECT COUNT(*) as count
-      FROM "StoreCreditLedger"
-      WHERE shop = ${session.shop}
-        AND "createdAt" > ${oneDayAgo}
-        AND "type" = 'ERROR_CORRECTION'
-    `;
-
-    // Get business metrics for this shop
-    const metrics = await MetricsService.reportDailyMetrics(session.shop);
-
-    // Get recent webhook activity
-    const webhookActivity = await db.$queryRaw`
-      SELECT
-        topic,
-        SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count,
-        SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failure_count
-      FROM (
-        SELECT
-          'orders.paid' as topic,
-          true as success
+      }),
+      db.$queryRaw`
+        SELECT COUNT(*) as count
         FROM "StoreCreditLedger"
         WHERE shop = ${session.shop}
           AND "createdAt" > ${oneDayAgo}
-          AND "type" = 'CASHBACK_EARNED'
-        LIMIT 100
-      ) as webhook_logs
-      GROUP BY topic
-    `;
+          AND "type" = 'ERROR_CORRECTION'
+      ` as Promise<{ count: bigint }[]>,
+      MetricsService.reportDailyMetrics(session.shop),
+      db.$queryRaw`
+        SELECT
+          topic,
+          SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count,
+          SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failure_count
+        FROM (
+          SELECT
+            'orders.paid' as topic,
+            true as success
+          FROM "StoreCreditLedger"
+          WHERE shop = ${session.shop}
+            AND "createdAt" > ${oneDayAgo}
+            AND "type" = 'CASHBACK_EARNED'
+          LIMIT 100
+        ) as webhook_logs
+        GROUP BY topic
+      ` as Promise<{ topic: string; success_count: bigint; failure_count: bigint }[]>,
+    ]);
 
-    return json({
-      shop: session.shop,
-      health,
-      metrics: metrics.metrics,
-      recentErrors: Number(recentErrors[0]?.count || 0),
-      webhookActivity,
-      shopSettings: shopSettings || { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' },
-    });
-  } catch (error) {
-    Logger.error('Failed to load monitoring dashboard', error as Error, {
-      shop: session.shop,
-    });
+  const failures: string[] = [];
+  const fail = (label: string, result: PromiseSettledResult<unknown>) => {
+    if (result.status === 'rejected') {
+      Logger.error(`Monitoring: ${label} failed`, result.reason as Error, { shop: session.shop });
+      failures.push(label);
+    }
+  };
+  fail('health', healthResult);
+  fail('shopSettings', shopSettingsResult);
+  fail('recentErrors', recentErrorsResult);
+  fail('metrics', metricsResult);
+  fail('webhookActivity', webhookActivityResult);
 
-    // Return partial data on error
-    return json({
-      shop: session.shop,
-      health: null,
-      metrics: null,
-      recentErrors: 0,
-      webhookActivity: [],
-      error: 'Failed to load some metrics',
-      shopSettings: { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' },
-    });
-  }
+  return json({
+    shop: session.shop,
+    health: healthResult.status === 'fulfilled' ? (healthResult.value as HealthStatus) : null,
+    metrics: metricsResult.status === 'fulfilled' ? metricsResult.value.metrics : null,
+    recentErrors:
+      recentErrorsResult.status === 'fulfilled'
+        ? Number(recentErrorsResult.value[0]?.count || 0)
+        : 0,
+    webhookActivity: webhookActivityResult.status === 'fulfilled' ? webhookActivityResult.value : [],
+    shopSettings:
+      shopSettingsResult.status === 'fulfilled' && shopSettingsResult.value
+        ? shopSettingsResult.value
+        : { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' },
+    error: failures.length > 0 ? `Failed to load: ${failures.join(', ')}` : null,
+  });
 }
 
 export default function MonitoringDashboard() {

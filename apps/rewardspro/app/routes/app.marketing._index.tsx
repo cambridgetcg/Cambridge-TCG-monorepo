@@ -1,6 +1,7 @@
-import { json, ActionFunctionArgs, LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, useFetcher } from "@remix-run/react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   Page,
   Layout,
@@ -21,15 +22,11 @@ import {
 } from "@shopify/polaris";
 import {
   EmailIcon,
-  ChartVerticalIcon,
   AutomationIcon,
   CheckCircleIcon,
-  ClockIcon,
   PersonIcon,
-  SendIcon,
   ViewIcon,
   ButtonIcon,
-  CashDollarIcon,
   AlertCircleIcon,
   PlusIcon,
   SettingsIcon,
@@ -44,7 +41,6 @@ import prisma from "~/db.server";
 import { getMarketingModeInfo, setMarketingHubMode, markChoiceModalSeen } from "~/services/marketing-mode.server";
 import { MarketingChoiceModal } from "~/components/MarketingChoiceModal";
 import { KlaviyoMarketingDashboard } from "~/components/KlaviyoMarketingDashboard";
-import { SubscriptionCard } from "~/components/Billing/UpgradePrompt";
 import type { MarketingHubMode } from "@prisma/client";
 import {
   checkLimitAccess,
@@ -147,10 +143,10 @@ interface LoaderData {
     clickRate: number;
     totalRevenue: number;
     totalOrders: number;
-    sentChange: number;
-    openRateChange: number;
-    clickRateChange: number;
-    revenueChange: number;
+    sentChange: number | undefined;
+    openRateChange: number | undefined;
+    clickRateChange: number | undefined;
+    revenueChange: number | undefined;
   };
   recentCampaigns: Campaign[];
   automations: Automation[];
@@ -447,11 +443,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       clickRate: parseFloat(clickRate.toFixed(1)),
       totalRevenue: 0, // Would come from order attribution
       totalOrders: 0,
-      // Mock changes for now
-      sentChange: 12,
-      openRateChange: 5.2,
-      clickRateChange: 8.1,
-      revenueChange: 15.3,
+      // Period-over-period deltas: not yet computed. Leave undefined so the
+      // MetricCard suppresses the badge rather than showing fabricated numbers.
+      sentChange: undefined,
+      openRateChange: undefined,
+      clickRateChange: undefined,
+      revenueChange: undefined,
     },
     recentCampaigns,
     automations,
@@ -823,7 +820,6 @@ export default function MarketingHub() {
               title="Emails Sent"
               value={data.metrics.totalSent}
               change={data.metrics.sentChange}
-              helpText={`${Math.round(data.metrics.totalSent * 0.88).toLocaleString()} last period`}
               progress={75}
             />
             <MetricCard
