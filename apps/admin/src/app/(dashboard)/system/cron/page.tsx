@@ -45,6 +45,8 @@ function describeSchedule(s: string): string {
     "0 4 * * *": "daily at 04:00 UTC",
     "0 6 * * *": "daily at 06:00 UTC",
     "0 0 * * 1": "weekly Mon 00:00 UTC",
+    "15 * * * *": "hourly at :15 UTC",
+    "5 * * * *":  "hourly at :05 UTC",
   };
   return map[s] ?? s;
 }
