@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import OrderDetails from "./OrderDetails";
 import GoogleAdsConversion from "./GoogleAdsConversion";
 import { getStripe } from "@/lib/stripe";
+import { recordOrderFromStripeSession } from "@/lib/orders/record";
 
 export default async function OrderConfirmationPage({
   searchParams,
@@ -23,6 +24,22 @@ export default async function OrderConfirmationPage({
   }
 
   if (session.payment_status !== "paid") redirect("/checkout");
+
+  // Defensive backup: also record the order here. The webhook is the
+  // primary writer (and the only path that commits stock + sends email
+  // + processes rewards), but the user can land here before the webhook
+  // arrives — or, in the worst case, the webhook can fail entirely and
+  // this is the only place the order gets persisted. Idempotent: if
+  // the webhook already wrote the row, this is a no-op via
+  // ON CONFLICT (stripe_session_id) DO NOTHING.
+  try {
+    await recordOrderFromStripeSession(session);
+  } catch (err) {
+    // Don't fail the page render — the user has already paid; logging
+    // the gap is enough. The hourly reconciliation cron is the third
+    // line of defence.
+    console.error("[order-confirmation] backup record failed:", err);
+  }
 
   const lineItems = session.line_items?.data || [];
   const shipping = session.collected_information?.shipping_details;

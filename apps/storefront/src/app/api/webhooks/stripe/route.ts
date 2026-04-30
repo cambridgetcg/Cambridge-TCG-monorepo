@@ -10,6 +10,7 @@ import {
   releaseHolder,
   holderForStripeSession,
 } from "@/lib/stock/reservations";
+import { recordOrderFromStripeSession } from "@/lib/orders/record";
 
 export async function POST(request: Request) {
   // Order matters: gate the request on configuration + signature
@@ -384,52 +385,13 @@ export async function POST(request: Request) {
         );
       }
 
-      // Record order in customer_orders
-      const email = session.customer_details?.email || session.customer_email || "";
-      const name = session.customer_details?.name || "";
-      const total = (session.amount_total || 0) / 100;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const shipping = (session as any).shipping_details;
-      const shippingAddr = shipping?.address
-        ? [shipping.address.line1, shipping.address.line2, shipping.address.city, shipping.address.postal_code, shipping.address.country]
-            .filter(Boolean)
-            .join(", ")
-        : null;
-
-      // Try to find matching user
-      let userId = null;
-      if (email) {
-        const userResult = await query(
-          `SELECT id FROM users WHERE email = $1`,
-          [email.toLowerCase()]
-        );
-        if (userResult.rows.length > 0) {
-          userId = userResult.rows[0].id;
-        }
-      }
-
-      await query(
-        `INSERT INTO customer_orders
-          (user_id, stripe_session_id, stripe_payment_intent, customer_email, customer_name,
-           status, total_gbp, currency, shipping_name, shipping_address, items)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-         ON CONFLICT (stripe_session_id) DO NOTHING`,
-        [
-          userId,
-          session.id,
-          typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null,
-          email.toLowerCase(),
-          name,
-          "completed",
-          total.toFixed(2),
-          session.currency || "gbp",
-          shipping?.name || name,
-          shippingAddr,
-          JSON.stringify(skus),
-        ]
-      );
-
-      console.log(`[webhook] Order ${session.id} recorded for ${email}`);
+      // Record order in customer_orders. Idempotent on stripe_session_id;
+      // /order-confirmation also calls this as a defensive backup, and the
+      // hourly reconciliation cron sweeps any that slipped past both. See
+      // apps/storefront/src/lib/orders/record.ts.
+      const recorded = await recordOrderFromStripeSession(session);
+      const { userId, email, totalGbp: total } = recorded;
+      console.log(`[webhook] Order ${session.id} ${recorded.created ? "recorded" : "already-existed"} for ${email}`);
 
       // Commit the stock reservation into a sale movement. Idempotent on
       // Stripe redelivery via @cambridge-tcg/stock's (cardId, referenceId)
