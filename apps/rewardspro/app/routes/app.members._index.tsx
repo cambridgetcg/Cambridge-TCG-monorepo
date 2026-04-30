@@ -635,17 +635,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const enhancedMetadataPromise = fetchEnhancedCustomerMetadata(customerIds, shop);
 
     // ============================================
-    // STATS: Defer (cached 5min via Vercel KV / memory fallback)
+    // STATS: Now synchronous (raw SQL + KV cache make it fast enough)
+    //
+    // Was previously deferred via defer(), but the embedded Shopify admin
+    // iframe sometimes terminates the streaming response before the deferred
+    // chunks arrive — the client Promise never resolves and the cards stay
+    // stuck on skeleton. Inlining trades ~10-50ms of first-paint latency for
+    // a guaranteed render.
     // ============================================
-    const statsDataPromise = getTierDistribution(shop).then(data => ({
+    const tierDistData = await getTierDistribution(shop);
+    const statsData = {
       totalTiers: tiers.length,
-      totalCustomers: data.totalCustomers,
-      tierDistribution: data.tierDistribution,
-    }));
+      totalCustomers: tierDistData.totalCustomers,
+      tierDistribution: tierDistData.tierDistribution,
+    };
 
-    // Return immediately - customers load instantly, metadata streams in
     return defer({
-      // IMMEDIATE: Shell + essential customer data (renders table instantly!)
+      // IMMEDIATE: Shell + essential customer data + stats (renders table + cards instantly!)
       tiers: serializedTiers,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
@@ -653,11 +659,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       } : null,
       currentPlan,
       hasAnnualEval,
-      customersData: essentialCustomersData, // Instant render!
+      customersData: essentialCustomersData,
+      statsData,
 
-      // DEFERRED: Enhanced metadata & stats (stream in progressively)
+      // DEFERRED: Per-customer enhanced metadata still streams (heavier)
       enhancedMetadata: enhancedMetadataPromise,
-      statsData: statsDataPromise,
     });
   } catch (error) {
     console.error("[Customers] Loader error:", error);
@@ -3155,11 +3161,18 @@ export default function Customers() {
     }
   }, [data.customersData?.customers, data.enhancedMetadata]);
 
-  // Resolve deferred stats data
+  // Resolve stats data — supports both Promise (legacy deferred) and
+  // synchronous object (current). Loader now returns sync; the Promise
+  // branch is kept defensively in case defer() is reintroduced later.
   useEffect(() => {
-    if (data.statsData && typeof (data.statsData as any).then === 'function') {
+    const sd = data.statsData as any;
+    if (!sd) {
+      setStatsLoaded(true);
+      return;
+    }
+    if (typeof sd.then === 'function') {
       setStatsLoaded(false);
-      (data.statsData as Promise<any>)
+      (sd as Promise<any>)
         .then((result) => {
           setStatsData(result);
           setStatsLoaded(true);
@@ -3168,6 +3181,9 @@ export default function Customers() {
           console.error('Failed to load stats data:', error);
           setStatsLoaded(true);
         });
+    } else {
+      setStatsData(sd);
+      setStatsLoaded(true);
     }
   }, [data.statsData]);
 
