@@ -1,23 +1,10 @@
 import { sfQuery, wsQuery } from "@/lib/db";
+import { safeCount } from "@/lib/queries";
+import { verb } from "@/lib/format";
 
 export const metadata = { title: "Overview" };
 
-// ── Queue count helpers ────────────────────────────────────────────────────
-
-async function safeCount(
-  queryfn: (sql: string) => Promise<{ rows: Record<string, unknown>[] }>,
-  sql: string,
-): Promise<number> {
-  try {
-    const r = await queryfn(sql);
-    return parseInt((r.rows[0]?.n as string) ?? "0", 10) || 0;
-  } catch {
-    return -1; // -1 = data unavailable (DB unreachable / schema drift)
-  }
-}
-
 async function getStorefrontQueues() {
-  const sf = (sql: string) => sfQuery<Record<string, unknown>>(sql);
   const [
     tradeinsPending,
     tradeinsAwaitingPay,
@@ -31,17 +18,19 @@ async function getStorefrontQueues() {
     fraudOpen,
     emailsDead,
   ] = await Promise.all([
-    safeCount(sf, `SELECT count(*)::int AS n FROM tradein_submissions WHERE status='submitted'`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM tradein_submissions WHERE status='approved'`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM tradein_submissions WHERE status IN ('accepted','received','grading')`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM quote_requests WHERE status IN ('pending','accepted','received')`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM vault_items WHERE redemption_order_id IS NOT NULL AND status='reserved'`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM auctions WHERE ends_at > NOW()`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM user_verifications WHERE status='pending'`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM payout_holds WHERE released = false AND cancelled = false`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM trade_disputes WHERE status IN ('open','escalated')`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM fraud_signals WHERE resolved = false`),
-    safeCount(sf, `SELECT count(*)::int AS n FROM email_queue WHERE status='dead'`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM tradein_submissions WHERE status='submitted'`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM tradein_submissions WHERE status='approved'`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM tradein_submissions WHERE status IN ('accepted','received','grading')`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM quote_requests WHERE status IN ('pending','accepted','received')`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM vault_items WHERE redemption_order_id IS NOT NULL AND status='reserved'`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM auctions WHERE ends_at > NOW()`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM user_verifications WHERE status='pending'`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM payout_holds WHERE released = false AND cancelled = false`),
+    // The dispute_status enum doesn't include 'escalated' in production —
+    // earlier query was throwing and silently rendering "—".
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM trade_disputes WHERE status = 'open'`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM fraud_signals WHERE resolved = false`),
+    safeCount(sfQuery, `SELECT count(*)::int AS n FROM email_queue WHERE status='dead'`),
   ]);
   return {
     tradeinsPending, tradeinsAwaitingPay, tradeinsInflight,
@@ -52,23 +41,25 @@ async function getStorefrontQueues() {
 }
 
 async function getWholesaleQueues() {
-  const ws = (sql: string) => wsQuery<Record<string, unknown>>(sql);
   const [
     ordersSubmitted,
     ordersQuoted,
     stockBelowTarget,
     purchasesPendingReview,
   ] = await Promise.all([
-    safeCount(ws, `SELECT count(*)::int AS n FROM orders WHERE status='submitted'`),
-    safeCount(ws, `SELECT count(*)::int AS n FROM orders WHERE status='quoted'`),
-    // Cards where current stock < target — need reorder
-    safeCount(ws, `
+    safeCount(wsQuery, `SELECT count(*)::int AS n FROM orders WHERE status='submitted'`),
+    safeCount(wsQuery, `SELECT count(*)::int AS n FROM orders WHERE status='quoted'`),
+    // Reorder count — price-band schema. There is no `stock_levels` table;
+    // current stock lives on `cards.stock` and targets are price-banded
+    // (see /ops/stock for the full page using this same join).
+    safeCount(wsQuery, `
       SELECT count(*)::int AS n
-      FROM stock_targets st
-      JOIN stock_levels sl ON sl.card_id = st.card_id
-      WHERE sl.quantity < st.min_quantity
+      FROM cards c
+      JOIN stock_targets st
+        ON c.price >= st.price_min AND c.price < st.price_max
+      WHERE st.target_qty - c.stock - COALESCE(c.pending_stock, 0) >= 1
     `),
-    safeCount(ws, `SELECT count(*)::int AS n FROM purchases WHERE status='pending_review'`),
+    safeCount(wsQuery, `SELECT count(*)::int AS n FROM purchases WHERE status='pending_review'`),
   ]);
   return { ordersSubmitted, ordersQuoted, stockBelowTarget, purchasesPendingReview };
 }
@@ -148,7 +139,7 @@ export default async function OverviewPage() {
           <p className="text-sm text-neutral-400 mt-1">
             {attention === 0
               ? "All queues clear."
-              : `${attention} queue${attention !== 1 ? "s" : ""} need attention.`}
+              : `${attention} ${attention === 1 ? "queue" : "queues"} ${verb(attention, "needs", "need")} attention.`}
           </p>
         </div>
       </div>

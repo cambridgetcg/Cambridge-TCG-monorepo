@@ -112,43 +112,70 @@ apps/admin/
 
 ## Module status
 
-### Live pages (queries real data)
+Three states per route:
+- **Live (Manager)** — owns the data; full CRUD, search, filter, paginate, server actions
+- **Live (Dashboard)** — read-only, KPIs + sub-tables; mutations live in legacy admin
+- **Stub** — `ComingSoon` placeholder linking to the legacy admin page
 
-| Route | Module | Data source | Notes |
-|-------|--------|-------------|-------|
-| `/overview` | Operations overview | Storefront + Wholesale | 15 live queue counts, graceful DB fallback |
-| `/commerce/trade-ins` | Trade-Ins + Quotes | Storefront | Queue breakdown, recent submissions, link to action pages |
-| `/commerce/auctions` | Auctions | Storefront | Live/ended/draft counts, recent auctions table |
-| `/commerce/market` | P2P Market | Storefront | Escrow status, trades needing intervention, seller payouts |
+### Live pages
 
-### Stub pages (ComingSoon — planned for future missions)
+| Route | Module | Archetype | Data source | Notes |
+|-------|--------|-----------|-------------|-------|
+| `/overview` | Operations overview | Dashboard | SF + WS | 15 queue counts, graceful DB fallback |
+| `/ops/stock` | Stock Management | Manager | WS | Levels, reorder queue, movements |
+| `/ops/orders` | B2C Orders | Manager | SF | Stripe-backed, paid + shipped lifecycle |
+| `/commerce/trade-ins` | Trade-Ins + Quotes | Dashboard | SF | Queue breakdown, recent submissions |
+| `/commerce/auctions` | Auctions | Dashboard | SF | Live/ended/draft + pending review |
+| `/commerce/market` | P2P Market | Dashboard | SF | Escrow status, trades at CTCG |
+| `/commerce/pricing` | Pricing | Manager | WS | KPIs + paginated cards + inline edit |
+| `/trust/disputes` | Disputes | Manager | SF | Filter + status transition action |
+| `/catalog/users` | User search | Manager | SF | Paginated, tier filter |
+| `/system/cron` | Cron health | Dashboard | SF | vercel.json crons + email queue |
 
-These pages exist in the routing structure and render a placeholder with a link to the existing admin page. They're real routes — not 404s — which means auth is enforced and navigation works end-to-end.
+### Stub pages — migration backlog
 
-| Route | Module | Existing admin page |
-|-------|--------|-------------------|
-| `/ops/stock` | Stock Management | `wholesale.cambridgetcg.com/admin/stock` |
-| `/ops/orders` | B2B Orders | `wholesale.cambridgetcg.com/admin` |
-| `/ops/fulfillment` | Fulfillment | (none — missing domain) |
-| `/ops/channels` | Channels (Shopify/eBay) | `wholesale.cambridgetcg.com/admin/pricing` |
-| `/commerce/pricing` | Pricing | `wholesale.cambridgetcg.com/admin/pricing` |
-| `/commerce/bounty` | Bounty/Gacha | `cambridgetcg.com/admin/bounty` |
-| `/money/payouts` | Payouts | `cambridgetcg.com/admin/payouts` |
-| `/money/chargebacks` | Chargebacks | `cambridgetcg.com/admin/chargebacks` |
-| `/money/rewards` | Rewards & Raffles | `cambridgetcg.com/admin/rewards` |
-| `/money/membership` | Membership/Loyalty | `cambridgetcg.com/admin/membership` |
-| `/trust/fraud` | Fraud & Trust | `cambridgetcg.com/admin/fraud` |
-| `/trust/disputes` | Disputes | `cambridgetcg.com/admin/disputes` |
-| `/trust/reviews` | Reviews | `cambridgetcg.com/admin/reviews` |
-| `/trust/kyc` | KYC / Verifications | `cambridgetcg.com/admin/verifications` |
-| `/catalog/users` | User management | (none — missing) |
-| `/catalog/cards` | Card catalog | (none — missing) |
-| `/catalog/games` | Games & Sets | `wholesale.cambridgetcg.com/admin/games` |
-| `/catalog/clients` | B2B Clients | `wholesale.cambridgetcg.com/admin/clients` |
-| `/system/cron` | Cron health | (none — missing) |
-| `/system/email` | Email queue | `cambridgetcg.com/admin/email-queue` |
-| `/system/audit` | Audit log | `cambridgetcg.com/admin/governance` |
-| `/system/admin` | Admin user management | (none — missing) |
+See [`docs/admin-migration-punchlist.md`](../../docs/admin-migration-punchlist.md) for effort estimates per route.
+
+| Route | Module | Legacy reference |
+|-------|--------|-----------------|
+| `/ops/fulfillment` | Fulfillment | (none — new design needed) |
+| `/ops/channels` | Channels (Shopify/eBay) | `wholesale/admin/channel-pricing` |
+| `/commerce/bounty` | Bounty/Gacha | `storefront/admin/bounty/{grants,pull-tiers,redemptions}` |
+| `/money/payouts` | Payouts | `storefront/admin/payouts` |
+| `/money/chargebacks` | Chargebacks | `storefront/admin/chargebacks` |
+| `/money/rewards` | Rewards & Raffles | `storefront/admin/{prizes,rewards}` |
+| `/money/membership` | Membership/Loyalty | `storefront/admin/tiers` |
+| `/trust/fraud` | Fraud & Trust | `storefront/admin/fraud` + `fraud-signals` |
+| `/trust/reviews` | Reviews | `storefront/admin/reviews` |
+| `/trust/kyc` | KYC / Verifications | `storefront/admin/verifications` |
+| `/catalog/cards` | Card catalog | (none — new design needed) |
+| `/catalog/games` | Games & Sets | `wholesale/admin/games` |
+| `/catalog/clients` | B2B Clients | `wholesale/admin/clients` |
+| `/system/email` | Email queue | `storefront/admin/emails` |
+| `/system/audit` | Audit log | `storefront/admin/governance` |
+| `/system/admin` | Admin user mgmt | (none — new design needed) |
+
+---
+
+---
+
+## Building a new module
+
+The shared infrastructure is in `src/lib/` and `src/lib/ui/`. **Read [`apps/admin/CLAUDE.md`](./CLAUDE.md) before starting a new module** — it documents the two page archetypes (Dashboard / Manager), the action wrapper pattern, and the file layout convention.
+
+In short:
+
+```
+src/app/(dashboard)/<group>/<module>/
+  page.tsx            ─ default export, Server Component
+  _actions.ts         ─ "use server"; mutations via adminAction()
+  _components.tsx     ─ "use client"; only when state is needed
+  [id]/page.tsx       ─ row drill-down (when applicable)
+```
+
+Compose from `@/lib/ui` (PageHeader, KpiCard, KpiGrid, DataTable, FilterPills, SearchForm, Pagination, StatusBadge, EmptyState, ErrorState, ExternalLink, ActionBanner, SectionHeading) — never hand-roll a `<table>` or define a per-page `KpiCard`.
+
+For mutations, wrap with `adminAction()` from `@/lib/actions` — it handles auth, governance audit, error formatting, and `revalidatePath`. See `app/(dashboard)/trust/disputes/_actions.ts` and `commerce/pricing/_actions.ts` for live examples.
 
 ---
 

@@ -11,7 +11,9 @@ import { sfQuery } from "@/lib/db";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const metadata = { title: "Cron Jobs — Cambridge TCG Admin" };
+// Root layout adds the "— Cambridge TCG Admin" suffix via the title template;
+// don't repeat it here or it ends up doubled.
+export const metadata = { title: "Cron Jobs" };
 
 interface CronEntry {
   app: "storefront" | "wholesale" | "admin";
