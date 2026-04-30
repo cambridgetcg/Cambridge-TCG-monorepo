@@ -2455,11 +2455,13 @@ function CustomersTableContent({
     </EmptyState>
   );
 
-  // Switch to vertical card list on small viewports — IndexTable's
-  // condensed mode still renders horizontally and feels cramped below
-  // ~640px. Cards give each customer the full row width.
+  // Switch to vertical card list on small + medium viewports — IndexTable's
+  // condensed mode still renders horizontally and feels cramped on phones
+  // and small tablets. Polaris breakpoints: sm = 490px, md = 768px.
+  // Use mdDown so cards render up to 767px (covers all phones + portrait
+  // tablets); IndexTable resumes at 768px+.
   const breakpoints = useBreakpoints();
-  const isMobile = breakpoints.smDown;
+  const isMobile = breakpoints.mdDown;
 
   return (
     <>
