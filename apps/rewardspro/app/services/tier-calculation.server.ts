@@ -6,17 +6,17 @@
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
+import prisma from "../db.server";
+import { v4 as uuidv4 } from "uuid";
+import { hasManualOverride } from "./manual-tier-assignment.server";
+import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
+import { createLogger } from "./logger.server";
 
 type AdminApiContextWithRest = AdminApiContext & {
   rest?: any;
 };
 
 type AdminApiContextType = AdminApiContext | AdminApiContextWithRest;
-import prisma from "../db.server";
-import { v4 as uuidv4 } from "uuid";
-import { hasManualOverride } from "./manual-tier-assignment.server";
-import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
-import { createLogger } from "./logger.server";
 
 const logger = createLogger('TierCalculation');
 
@@ -149,13 +149,13 @@ export async function calculateCustomerTierFromDB(
       orderBy: { minSpend: 'asc' } // Order by lowest spend first (correct order)
     });
 
-    console.log(`[TierCalc-DB] Found ${tiers.length} tiers for shop ${shop}`);
+    logger.debug(`Found ${tiers.length} tiers for shop ${shop}`);
     tiers.forEach(tier => {
-      console.log(`[TierCalc-DB]   - ${tier.name}: minSpend=$${tier.minSpend}, cashback=${tier.cashbackPercent}%, period=${tier.evaluationPeriod}`);
+      logger.debug(`  - ${tier.name}: minSpend=$${tier.minSpend}, cashback=${tier.cashbackPercent}%, period=${tier.evaluationPeriod}`);
     });
 
     if (tiers.length === 0) {
-      console.log(`[TierCalc-DB] WARNING: No tiers configured for shop ${shop}`);
+      logger.debug(`WARNING: No tiers configured for shop ${shop}`);
       return {
         customerId,
         previousTierId: customer.currentTierId,
@@ -185,25 +185,25 @@ export async function calculateCustomerTierFromDB(
         // Calculate spending from LOCAL DATABASE for THIS tier's evaluation period
         spending = await getCustomerSpendingFromDB(shop, customerId, period);
         spendingCache.set(period, spending);
-        console.log(`[TierCalc] Calculated spending for period ${period}: $${spending.totalSpending} (cached)`);
+        logger.debug(`Calculated spending for period ${period}: $${spending.totalSpending} (cached)`);
       }
 
-      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${period}, customerSpending=${spending.totalSpending}`);
+      logger.debug(`Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${period}, customerSpending=${spending.totalSpending}`);
 
       // Check if customer qualifies for this tier
       if (spending.totalSpending >= tier.minSpend) {
-        console.log(`[TierCalc] Customer qualifies for ${tier.name}`);
+        logger.debug(`Customer qualifies for ${tier.name}`);
 
         // Track the highest tier they qualify for
         if (!qualifyingTier || tier.minSpend > qualifyingTier.minSpend) {
           qualifyingTier = tier;
           highestQualifyingSpend = spending.totalSpending;
-          console.log(`[TierCalc] New best tier: ${tier.name}`);
+          logger.debug(`New best tier: ${tier.name}`);
         }
       }
     }
 
-    console.log(`[TierCalc] Final result - Customer ${customerId} qualifies for tier: ${qualifyingTier?.name || 'None'} with spending: ${highestQualifyingSpend}`);
+    logger.debug(`Final result - Customer ${customerId} qualifies for tier: ${qualifyingTier?.name || 'None'} with spending: ${highestQualifyingSpend}`);
 
     // Check if tier needs to change
     const tierChanged = qualifyingTier?.id !== customer.currentTierId;
@@ -211,7 +211,7 @@ export async function calculateCustomerTierFromDB(
     // If skipUpdate is true, return the result without making DB changes
     // This is used by tier resolution to get spending-based tier info without side effects
     if (context?.skipUpdate) {
-      console.log(`[TierCalc-DB] skipUpdate=true - returning calculation result without DB changes`);
+      logger.debug(`skipUpdate=true - returning calculation result without DB changes`);
       return {
         customerId,
         previousTierId: customer.currentTierId,
@@ -243,7 +243,7 @@ export async function calculateCustomerTierFromDB(
           fromTierName: currentTier?.name || null,
           toTierId: qualifyingTier?.id || null,
           toTierName: qualifyingTier?.name || null,
-          changeType: determineTierChangeType(customer.currentTierId, qualifyingTier?.id),
+          changeType: await determineTierChangeType(customer.currentTierId, qualifyingTier?.id),
           triggerType: context?.triggerType || 'SPENDING_MILESTONE',
           totalSpending: highestQualifyingSpend,
           periodSpending: highestQualifyingSpend,
@@ -258,7 +258,7 @@ export async function calculateCustomerTierFromDB(
         }
       });
 
-      console.log(`[TierCalc] Customer ${customerId} tier changed from ${currentTier?.name || 'None'} to ${qualifyingTier?.name || 'None'}`);
+      logger.debug(`Customer ${customerId} tier changed from ${currentTier?.name || 'None'} to ${qualifyingTier?.name || 'None'}`);
     }
 
     return {
@@ -271,7 +271,7 @@ export async function calculateCustomerTierFromDB(
       changed: tierChanged
     };
   } catch (error) {
-    console.error(`[TierCalc] Error calculating tier from DB for customer ${customerId}:`, error);
+    logger.error(`Error calculating tier from DB for customer ${customerId}`, error);
     return {
       customerId,
       previousTierId: null,
@@ -285,221 +285,6 @@ export async function calculateCustomerTierFromDB(
   }
 }
 
-/**
- * Calculate and update tier for a single customer using SHOPIFY API
- * Used by admin UI for accurate, real-time calculation
- *
- * IMPORTANT: This function should ONLY be called with skipUpdate: true.
- * Direct tier updates from this function bypass the Tier Resolution System,
- * which can cause purchased/subscription tiers to be incorrectly overwritten.
- *
- * For tier updates, always use `updateCustomerToEffectiveTier()` from
- * tier-resolution.server.ts which respects tier priority:
- * 1. Manual Override > 2. Subscription > 3. Purchase > 4. Spending-based
- *
- * @see updateCustomerToEffectiveTier in tier-resolution.server.ts
- */
-export async function calculateCustomerTier(
-  shop: string,
-  customerId: string,
-  admin: AdminApiContextType,
-  context?: {
-    orderId?: string;
-    triggerType?: string;
-    skipUpdate?: boolean;  // Skip DB updates - return calculation result only (for tier resolution)
-  }
-): Promise<TierCalculationResult> {
-  try {
-    console.log(`[TierCalc] Calculating tier for customer ${customerId}`);
-    
-    // Check if customer has a manual override
-    const hasOverride = await hasManualOverride(customerId);
-    if (hasOverride) {
-      console.log(`[TierCalc] Customer ${customerId} has manual override - skipping calculation`);
-      
-      // Get customer data to return current state
-      const customer = await prisma.customer.findFirst({
-        where: { 
-          id: customerId,
-          shop: shop 
-        }
-      });
-      
-      let currentTier = null;
-      if (customer?.currentTierId) {
-        currentTier = await prisma.tier.findUnique({
-          where: { id: customer.currentTierId }
-        });
-      }
-      
-      return {
-        customerId,
-        previousTierId: customer?.currentTierId || null,
-        previousTierName: currentTier?.name || null,
-        newTierId: customer?.currentTierId || null,
-        newTierName: currentTier?.name || null,
-        totalSpending: 0,
-        changed: false,
-        error: "Customer has manual tier override - calculation skipped"
-      };
-    }
-    
-    // Get customer data
-    const customer = await prisma.customer.findFirst({
-      where: { 
-        id: customerId,
-        shop: shop 
-      }
-    });
-    
-    // Get current tier separately if exists
-    let currentTier = null;
-    if (customer?.currentTierId) {
-      currentTier = await prisma.tier.findUnique({
-        where: { id: customer.currentTierId }
-      });
-    }
-
-    if (!customer) {
-      throw new Error(`Customer ${customerId} not found`);
-    }
-
-    // Get all tiers for the shop
-    const tiers = await prisma.tier.findMany({
-      where: { shop },
-      orderBy: { minSpend: 'asc' } // Order by lowest spend first (correct order)
-    });
-
-    if (tiers.length === 0) {
-      console.log(`[TierCalc] No tiers configured for shop ${shop}`);
-      return {
-        customerId,
-        previousTierId: customer.currentTierId,
-        previousTierName: currentTier?.name || null,
-        newTierId: null,
-        newTierName: null,
-        totalSpending: 0,
-        changed: false
-      };
-    }
-
-    // Find the highest tier the customer qualifies for
-    // Each tier needs to be evaluated with its own evaluation period
-    let qualifyingTier = null;
-    let highestQualifyingSpend = 0;
-
-    // Cache spending calculations by evaluation period to avoid redundant Shopify API calls
-    // This is critical for performance - shops with 4+ tiers using the same period
-    // would otherwise make identical API calls multiple times
-    const spendingCache = new Map<string, CustomerSpending>();
-
-    for (const tier of tiers) {
-      const period = tier.evaluationPeriod || 'LIFETIME';
-
-      // Check cache first - reuse if same evaluation period already calculated
-      let spending = spendingCache.get(period);
-      if (!spending) {
-        // Calculate spending based on THIS tier's evaluation period
-        spending = await getCustomerSpending(shop, customer.shopifyCustomerId, admin, period);
-        spendingCache.set(period, spending);
-        console.log(`[TierCalc] Calculated spending for period ${period}: $${spending.totalSpending} (cached)`);
-      }
-
-      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${period}, customerSpending=${spending.totalSpending}`);
-
-      // Check if customer qualifies for this tier
-      if (spending.totalSpending >= tier.minSpend) {
-        console.log(`[TierCalc] Customer qualifies for ${tier.name}`);
-
-        // Track the highest tier they qualify for
-        if (!qualifyingTier || tier.minSpend > qualifyingTier.minSpend) {
-          qualifyingTier = tier;
-          highestQualifyingSpend = spending.totalSpending;
-          console.log(`[TierCalc] New best tier: ${tier.name}`);
-        }
-      }
-    }
-
-    console.log(`[TierCalc] Final result - Customer ${customerId} qualifies for tier: ${qualifyingTier?.name || 'None'} with spending: ${highestQualifyingSpend}`);
-
-    // Check if tier needs to change
-    const tierChanged = qualifyingTier?.id !== customer.currentTierId;
-
-    // If skipUpdate is true, return the result without making DB changes
-    // This is used by tier resolution to get spending-based tier info without side effects
-    if (context?.skipUpdate) {
-      console.log(`[TierCalc] skipUpdate=true - returning calculation result without DB changes`);
-      return {
-        customerId,
-        previousTierId: customer.currentTierId,
-        previousTierName: currentTier?.name || null,
-        newTierId: qualifyingTier?.id || null,
-        newTierName: qualifyingTier?.name || null,
-        totalSpending: highestQualifyingSpend,
-        changed: tierChanged
-      };
-    }
-
-    if (tierChanged) {
-      // Update customer's tier
-      await prisma.customer.update({
-        where: { id: customerId },
-        data: {
-          currentTierId: qualifyingTier?.id || null,
-          updatedAt: new Date()
-        }
-      });
-
-      // Log the tier change
-      await prisma.tierChangeLog.create({
-        data: {
-          id: uuidv4(),
-          customerId,
-          shop,
-          fromTierId: customer.currentTierId,
-          fromTierName: currentTier?.name || null,
-          toTierId: qualifyingTier?.id || null,
-          toTierName: qualifyingTier?.name || null,
-          changeType: determineTierChangeType(customer.currentTierId, qualifyingTier?.id),
-          triggerType: context?.triggerType || 'SPENDING_MILESTONE',
-          totalSpending: highestQualifyingSpend,
-          periodSpending: highestQualifyingSpend,
-          orderId: context?.orderId || null,
-          metadata: {
-            evaluationPeriod: qualifyingTier?.evaluationPeriod || 'LIFETIME',
-            calculatedAt: new Date().toISOString(),
-            source: context?.orderId ? 'webhook' : 'manual'
-          },
-          createdAt: new Date()
-        }
-      });
-
-      console.log(`[TierCalc] Customer ${customerId} tier changed from ${currentTier?.name || 'None'} to ${qualifyingTier?.name || 'None'}`);
-    }
-
-    return {
-      customerId,
-      previousTierId: customer.currentTierId,
-      previousTierName: currentTier?.name || null,
-      newTierId: qualifyingTier?.id || null,
-      newTierName: qualifyingTier?.name || null,
-      totalSpending: highestQualifyingSpend,
-      changed: tierChanged
-    };
-  } catch (error) {
-    console.error(`[TierCalc] Error calculating tier for customer ${customerId}:`, error);
-    return {
-      customerId,
-      previousTierId: null,
-      previousTierName: null,
-      newTierId: null,
-      newTierName: null,
-      totalSpending: 0,
-      changed: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-}
 
 /**
  * Calculate tiers for multiple customers using the Tier Resolution System
@@ -513,9 +298,9 @@ export async function calculateCustomerTier(
 export async function calculateTiersForCustomers(
   shop: string,
   customerIds: string[],
-  admin: AdminApiContextType
+  _admin: AdminApiContextType
 ): Promise<TierCalculationResult[]> {
-  console.log(`[TierCalc] Calculating tiers for ${customerIds.length} customers via Tier Resolution System`);
+  logger.debug(`Calculating tiers for ${customerIds.length} customers via Tier Resolution System`);
 
   const results: TierCalculationResult[] = [];
 
@@ -586,7 +371,7 @@ export async function calculateAllCustomerTiers(
   errors: number;
   results: TierCalculationResult[];
 }> {
-  console.log(`[TierCalc] Starting tier calculation for all customers in shop ${shop} via Tier Resolution System`);
+  logger.debug(`Starting tier calculation for all customers in shop ${shop} via Tier Resolution System`);
   
   // Get all customers for the shop
   const customers = await prisma.customer.findMany({
@@ -604,7 +389,7 @@ export async function calculateAllCustomerTiers(
     results
   };
   
-  console.log(`[TierCalc] Completed: ${summary.total} processed, ${summary.changed} changed, ${summary.errors} errors`);
+  logger.debug(`Completed: ${summary.total} processed, ${summary.changed} changed, ${summary.errors} errors`);
   
   return summary;
 }
@@ -623,7 +408,7 @@ async function getCustomerSpendingFromDB(
   evaluationPeriod: 'ANNUAL' | 'LIFETIME'
 ): Promise<CustomerSpending> {
   try {
-    console.log(`[TierCalc] Getting spending from local DB for customer ${customerId}, period: ${evaluationPeriod}`);
+    logger.debug(`Getting spending from local DB for customer ${customerId}, period: ${evaluationPeriod}`);
 
     // Get customer to ensure we have the right one
     const customer = await prisma.customer.findFirst({
@@ -634,7 +419,7 @@ async function getCustomerSpendingFromDB(
     });
 
     if (!customer) {
-      console.log(`[TierCalc] Customer ${customerId} not found in local DB`);
+      logger.debug(`Customer ${customerId} not found in local DB`);
       return {
         customerId,
         shopifyCustomerId: '',
@@ -656,10 +441,10 @@ async function getCustomerSpendingFromDB(
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       whereClause.shopifyCreatedAt = { gte: oneYearAgo };
-      console.log(`[TierCalc] ANNUAL filter: orders after ${oneYearAgo.toISOString()}`);
+      logger.debug(`ANNUAL filter: orders after ${oneYearAgo.toISOString()}`);
     }
 
-    console.log(`[TierCalc] Query where clause:`, JSON.stringify(whereClause, null, 2));
+    logger.debug('Query where clause', whereClause);
 
     // Fetch only eligible orders using DB-level filters (not all orders)
     const eligibleOrders = await prisma.order.findMany({
@@ -673,7 +458,7 @@ async function getCustomerSpendingFromDB(
       }
     });
 
-    console.log(`[TierCalc] Found ${eligibleOrders.length} eligible orders for customer`);
+    logger.debug(`Found ${eligibleOrders.length} eligible orders for customer`);
 
     // Calculate spending from pre-filtered results
     let totalSpent = 0;
@@ -697,12 +482,13 @@ async function getCustomerSpendingFromDB(
 
     const netSpending = totalSpent - totalRefunded;
 
-    console.log(`[TierCalc] Calculation results:`);
-    console.log(`[TierCalc]   - Eligible orders: ${eligibleOrders.length}`);
-    console.log(`[TierCalc]   - Total spent: $${totalSpent.toFixed(2)}`);
-    console.log(`[TierCalc]   - Total refunded: $${totalRefunded.toFixed(2)}`);
-    console.log(`[TierCalc]   - Net spending: $${netSpending.toFixed(2)}`);
-    console.log(`[TierCalc]   - Evaluation period: ${evaluationPeriod}`);
+    logger.debug('Spending calculation result', {
+      eligibleOrders: eligibleOrders.length,
+      totalSpent: Number(totalSpent.toFixed(2)),
+      totalRefunded: Number(totalRefunded.toFixed(2)),
+      netSpending: Number(netSpending.toFixed(2)),
+      evaluationPeriod,
+    });
 
     return {
       customerId,
@@ -712,7 +498,7 @@ async function getCustomerSpendingFromDB(
       lastOrderDate: lastOrderDate
     };
   } catch (error) {
-    console.error(`[TierCalc] Error fetching spending from DB for customer ${customerId}:`, error);
+    logger.error(`Error fetching spending from DB for customer ${customerId}`, error);
 
     // Return zero spending on error (keeps customer in current tier)
     return {
@@ -726,177 +512,33 @@ async function getCustomerSpendingFromDB(
 }
 
 /**
- * Get customer spending from Shopify orders
+ * Determine the type of tier change by comparing minSpend.
+ *
+ * Higher minSpend = higher tier. A change to a tier with higher minSpend
+ * is an UPGRADE; lower is a DOWNGRADE; equal (e.g. tier renamed but same
+ * threshold) is treated as REASSIGNMENT-style and we keep UPGRADE since
+ * TierChangeType doesn't include REASSIGNMENT here.
  */
-async function getCustomerSpending(
-  shop: string,
-  shopifyCustomerId: string,
-  admin: AdminApiContextType,
-  evaluationPeriod: 'ANNUAL' | 'LIFETIME'
-): Promise<CustomerSpending> {
-  try {
-    // Calculate date filter for annual evaluation
-    const dateFilter = evaluationPeriod === 'ANNUAL' 
-      ? `created_at:>${new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()}` 
-      : '';
-
-    // Query Shopify for customer orders
-    const query = `
-      query GetCustomerOrders($customerId: ID!, $first: Int!) {
-        customer(id: $customerId) {
-          orders(first: $first, query: "financial_status:paid ${dateFilter}") {
-            edges {
-              node {
-                id
-                totalPriceSet {
-                  shopMoney {
-                    amount
-                  }
-                }
-                refunds {
-                  refundLineItems(first: 100) {
-                    edges {
-                      node {
-                        priceSet {
-                          shopMoney {
-                            amount
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-                createdAt
-              }
-            }
-          }
-        }
-      }
-    `;
-
-    const response = await admin.graphql(query, {
-      variables: {
-        customerId: `gid://shopify/Customer/${shopifyCustomerId}`,
-        first: 250 // Get up to 250 orders
-      }
-    });
-
-    const data = await response.json();
-    
-    if ('errors' in data && data.errors) {
-      console.error('[TierCalc] GraphQL errors:', data.errors);
-      throw new Error('Failed to fetch customer orders');
-    }
-
-    const orders = data.data?.customer?.orders?.edges || [];
-    
-    // Calculate total spending (orders minus refunds)
-    let totalSpending = 0;
-    let lastOrderDate = null;
-    
-    for (const edge of orders) {
-      const order = edge.node;
-      const orderAmount = parseFloat(order.totalPriceSet.shopMoney.amount);
-      
-      // Subtract refunds
-      let refundAmount = 0;
-      if (order.refunds && order.refunds.length > 0) {
-        for (const refund of order.refunds) {
-          for (const refundEdge of refund.refundLineItems.edges) {
-            refundAmount += parseFloat(refundEdge.node.priceSet.shopMoney.amount);
-          }
-        }
-      }
-      
-      totalSpending += (orderAmount - refundAmount);
-      
-      if (!lastOrderDate || new Date(order.createdAt) > lastOrderDate) {
-        lastOrderDate = new Date(order.createdAt);
-      }
-    }
-
-    return {
-      customerId: shopifyCustomerId,
-      shopifyCustomerId,
-      totalSpending: Math.max(0, totalSpending), // Ensure non-negative
-      orderCount: orders.length,
-      lastOrderDate
-    };
-  } catch (error) {
-    console.error(`[TierCalc] Error fetching spending for customer ${shopifyCustomerId}:`, error);
-    
-    // Return zero spending on error (keeps customer in current tier)
-    return {
-      customerId: shopifyCustomerId,
-      shopifyCustomerId,
-      totalSpending: 0,
-      orderCount: 0,
-      lastOrderDate: null
-    };
-  }
-}
-
-/**
- * Determine the type of tier change
- */
-function determineTierChangeType(
+async function determineTierChangeType(
   fromTierId: string | null,
   toTierId: string | null
-): 'INITIAL_ASSIGNMENT' | 'UPGRADE' | 'DOWNGRADE' {
+): Promise<'INITIAL_ASSIGNMENT' | 'UPGRADE' | 'DOWNGRADE'> {
   if (!fromTierId && toTierId) {
     return 'INITIAL_ASSIGNMENT';
   }
-  
+
   if (!toTierId) {
     return 'DOWNGRADE'; // Removed from all tiers
   }
-  
-  // For upgrade/downgrade, we'd need to compare tier levels
-  // Since we don't have explicit levels, we'll consider any change as an upgrade
-  // In a real scenario, you might compare minSpend values
-  return 'UPGRADE';
-}
 
-/**
- * @deprecated This function is no longer used and bypasses the Tier Resolution System.
- * Use `updateCustomerToEffectiveTier()` from tier-resolution.server.ts instead.
- *
- * This function directly calls calculateCustomerTier without skipUpdate: true,
- * which can incorrectly overwrite purchased/subscription tiers with spending-based tiers.
- *
- * For order-triggered tier recalculation, use:
- * ```
- * await updateCustomerToEffectiveTier(shop, customerId, {
- *   triggeredBy: 'order_webhook'
- * });
- * ```
- *
- * @see updateCustomerToEffectiveTier in tier-resolution.server.ts
- */
-export async function calculateTierAfterOrder(
-  shop: string,
-  shopifyCustomerId: string,
-  orderAmount: number,
-  admin: AdminApiContextType
-): Promise<TierCalculationResult | null> {
-  try {
-    // Find the customer
-    const customer = await prisma.customer.findFirst({
-      where: {
-        shop,
-        shopifyCustomerId
-      }
-    });
+  // Compare minSpend to decide direction
+  const [fromTier, toTier] = await Promise.all([
+    fromTierId ? prisma.tier.findUnique({ where: { id: fromTierId }, select: { minSpend: true } }) : null,
+    prisma.tier.findUnique({ where: { id: toTierId }, select: { minSpend: true } }),
+  ]);
 
-    if (!customer) {
-      console.log(`[TierCalc] Customer ${shopifyCustomerId} not found, skipping tier calculation`);
-      return null;
-    }
+  const fromSpend = Number(fromTier?.minSpend ?? 0);
+  const toSpend = Number(toTier?.minSpend ?? 0);
 
-    // Calculate tier for this customer
-    return await calculateCustomerTier(shop, customer.id, admin);
-  } catch (error) {
-    console.error(`[TierCalc] Error calculating tier after order:`, error);
-    return null;
-  }
+  return toSpend < fromSpend ? 'DOWNGRADE' : 'UPGRADE';
 }

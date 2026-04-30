@@ -254,6 +254,104 @@ export async function sendTierUpgradeEmailNotification(
   }
 }
 
+/**
+ * Send a tier downgrade email notification.
+ *
+ * Triggered when a customer drops to a lower tier — refund causing spending to
+ * fall below threshold, subscription cancellation/expiry, manual override end.
+ * Uses the existing buildTierExpiredEmail template (closest fit) and sends
+ * directly via SendGrid.
+ *
+ * @param shop - Shop domain
+ * @param customer - Customer info
+ * @param previousTier - Tier they were on
+ * @param newTier - Tier they were demoted to (null if dropped to no tier)
+ */
+export async function sendTierDowngradeEmailNotification(
+  shop: string,
+  customer: CustomerInfo,
+  previousTier: TierInfo,
+  newTier: TierInfo | null
+): Promise<EmailNotificationResult> {
+  if (!customer.email) {
+    return { success: true, skipped: true, reason: "No email address" };
+  }
+
+  if (!(await isEmailEnabled(shop))) {
+    return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  // Skip if it's not actually a downgrade (no change or upgrade)
+  if (newTier && previousTier.id === newTier.id) {
+    return { success: true, skipped: true, reason: "No tier change" };
+  }
+
+  const usageCheck = await checkEmailLimit(shop, 1);
+  if (!usageCheck.allowed) {
+    return { success: true, skipped: true, reason: usageCheck.message };
+  }
+
+  try {
+    // Get shop name for the template
+    const settings = await prisma.shopSettings.findUnique({
+      where: { shop },
+      select: { storeName: true },
+    });
+    const storeName = settings?.storeName || shop.replace(/\.myshopify\.com$/, "");
+
+    const customerName =
+      [customer.firstName, customer.lastName].filter(Boolean).join(" ") || "there";
+
+    const newTierText = newTier
+      ? `You've been moved to the ${newTier.name} tier (${newTier.cashbackPercent}% cashback).`
+      : `You no longer have an active membership tier.`;
+
+    const { subject, html } = buildTierExpiredEmail({
+      customerName,
+      storeName,
+      expiredTierName: previousTier.name,
+      newTierText,
+    });
+
+    const result = await sendgrid.sendEmail(shop, {
+      to: { email: customer.email },
+      subject,
+      html: sanitizeEmailHtml(html),
+    });
+
+    if (result.success) {
+      await recordEmailSent(shop, 1, "transactional");
+
+      try {
+        await prisma.emailEvent.create({
+          data: {
+            id: crypto.randomUUID(),
+            shop,
+            eventType: "TIER_DOWNGRADE",
+            customerEmail: customer.email,
+            metadata: {
+              customerId: customer.id,
+              previousTierName: previousTier.name,
+              newTierName: newTier?.name ?? null,
+              status: "SENT",
+            },
+            createdAt: new Date(),
+          },
+        });
+      } catch {
+        // Event logging is optional
+      }
+
+      return { success: true };
+    }
+
+    return { success: false, error: result.error || "SendGrid returned failure" };
+  } catch (error: any) {
+    console.error(`[EmailNotifications] ❌ Error sending tier downgrade email:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 // ============================================
 // CAMPAIGN EMAILS
 // ============================================

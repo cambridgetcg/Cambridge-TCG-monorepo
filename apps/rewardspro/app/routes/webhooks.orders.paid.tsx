@@ -9,7 +9,7 @@ import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
-import { sendTierUpgradeEmailNotification } from "../services/email-notifications.server";
+import { sendTierUpgradeEmailNotification, sendTierDowngradeEmailNotification } from "../services/email-notifications.server";
 import { processAutomationTrigger } from "../services/automation-trigger.server";
 import { withRetry } from "../utils/retry";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
@@ -38,7 +38,7 @@ const webhookLogger = createLogger('OrderPaid');
 const uuidv4 = () => crypto.randomUUID();
 
 // HMAC Verification
-function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
+function _verifyWebhookHMAC(request: Request, rawBody: string): boolean {
   const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
   const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
   
@@ -1561,6 +1561,7 @@ async function checkTierProgression(_dbOrTx: any, params: {
         if (customer && newTier) {
           // Only send if it's an upgrade (new tier has higher minSpend or first tier)
           const isUpgrade = !previousTier || (newTier.minSpend > previousTier.minSpend);
+          const isDowngrade = previousTier && newTier.minSpend < previousTier.minSpend;
 
           if (isUpgrade) {
             console.log(`[OrderPaid] Sending tier upgrade email to customer ${customer.id}`);
@@ -1584,6 +1585,31 @@ async function checkTierProgression(_dbOrTx: any, params: {
                 cashbackPercent: newTier.cashbackPercent,
               }
             );
+          } else if (isDowngrade && previousTier) {
+            console.log(`[OrderPaid] Sending tier downgrade email to customer ${customer.id}`);
+            await sendTierDowngradeEmailNotification(
+              shop,
+              {
+                id: customer.id,
+                email: customer.email,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                shop: shop,
+              },
+              {
+                id: previousTier.id,
+                name: previousTier.name,
+                cashbackPercent: previousTier.cashbackPercent,
+              },
+              {
+                id: newTier.id,
+                name: newTier.name,
+                cashbackPercent: newTier.cashbackPercent,
+              }
+            );
+          }
+
+          if (isUpgrade) {
 
             // Process automation triggers for tier upgrade (non-blocking)
             try {

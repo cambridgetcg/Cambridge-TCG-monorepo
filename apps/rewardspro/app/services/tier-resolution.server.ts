@@ -16,13 +16,14 @@
  */
 
 import prisma from "~/db.server";
-import type { Prisma, PrismaClient, TierSource as TierSourceEnum } from "@prisma/client";
+import type { PrismaClient, TierSource as TierSourceEnum } from "@prisma/client";
 import { getManualOverride } from "./manual-tier-assignment.server";
 import { calculateCustomerTierFromDB } from "./tier-calculation.server";
 import { getBaseTier, getBaseTierConfig } from "./base-tier.server";
 import { calculateProgress } from "./customer-tier-state-update.server";
 import { createLogger } from "~/services/logger.server";
 import { SentryService } from "~/services/monitoring/sentry.service";
+import { snsEventPublisher } from "./sns-event-publisher.server";
 
 const logger = createLogger('TierResolution');
 
@@ -124,14 +125,16 @@ export async function resolveEffectiveTier(
   }
 ): Promise<TierResolutionResult> {
   const sources: TierSourceInfo[] = [];
-  // Use transaction client if provided, otherwise use default db client
-  const prisma = options?.tx || prisma;
+  // Use transaction client if provided, otherwise the module-level prisma client.
+  // Avoid shadowing the imported `prisma` — that hits TDZ ReferenceError when
+  // options.tx is undefined.
+  const db = options?.tx ?? prisma;
 
   const resolutionLogger = logger.withContext({ shop, customerId });
   resolutionLogger.info('Resolving effective tier', { useTransaction: !!options?.tx });
 
   // Get customer data
-  const customer = await prisma.customer.findFirst({
+  const customer = await db.customer.findFirst({
     where: { id: customerId, shop },
     include: { currentTier: true }
   });
@@ -156,7 +159,7 @@ export async function resolveEffectiveTier(
     // FIX: Pass transaction client to getManualOverride for proper isolation
     // FIX: Use the stored override tier ID, not customer.currentTierId
     // FIX: Clear expired overrides from database to prevent stale data
-    const overrideInfo = await getManualOverride(customerId, prisma as any, { clearIfExpired: true });
+    const overrideInfo = await getManualOverride(customerId, db as any, { clearIfExpired: true });
 
     if (overrideInfo.hasOverride && overrideInfo.tierId) {
       resolutionLogger.debug('Manual override detected', { tierName: overrideInfo.tierName, tierId: overrideInfo.tierId });
@@ -164,7 +167,7 @@ export async function resolveEffectiveTier(
       // Get tier details if not already included
       let tierMinSpend = 0;
       if (overrideInfo.tierId) {
-        const tier = await prisma.tier.findFirst({
+        const tier = await db.tier.findFirst({
           where: { id: overrideInfo.tierId, shop }
         });
         tierMinSpend = tier?.minSpend || 0;
@@ -193,7 +196,7 @@ export async function resolveEffectiveTier(
   // ============================================
 
   // Get all active tier subscriptions (can't use relation orderBy with Aurora Data API)
-  const activeTierSubscriptions = await prisma.tierSubscription.findMany({
+  const activeTierSubscriptions = await db.tierSubscription.findMany({
     where: {
       customerId,
       shop,
@@ -246,7 +249,7 @@ export async function resolveEffectiveTier(
   // FIX: Removed unnecessary OR clause - status: 'ACTIVE' already filters correctly
   // Lifetime purchases (endDate=null) with status=ACTIVE are included
   // Lifetime purchases with status=EXPIRED are correctly excluded by the status filter
-  const activeTierPurchases = await prisma.tierPurchase.findMany({
+  const activeTierPurchases = await db.tierPurchase.findMany({
     where: {
       customerId,
       shop,
@@ -326,7 +329,7 @@ export async function resolveEffectiveTier(
         resolutionLogger.debug('Spending-based tier calculated', { tierName: spendingTierResult.newTierName });
 
         // Get tier details for minSpend (with shop validation for cross-shop isolation)
-        const tier = await prisma.tier.findFirst({
+        const tier = await db.tier.findFirst({
           where: {
             id: spendingTierResult.newTierId,
             shop  // FIX: Add shop filter to prevent cross-shop data leakage
@@ -601,14 +604,20 @@ export async function updateCustomerToEffectiveTier(
 
       updateLogger.info('Customer tier updated', { previousTier: previousTierName || 'none', newTier: newTierName || 'none' });
 
-      // Log tier change within the same transaction
+      // Log tier change within the same transaction.
+      //
+      // For UPGRADE/DOWNGRADE, compare minSpend of from/to tiers directly.
+      // We can't rely on allSources.find() for the previous tier because the
+      // previous tier may no longer be a qualifying source (e.g. expired
+      // override, cancelled subscription) — find() would return undefined,
+      // default to 0, and mislabel real downgrades as UPGRADE.
+      const previousTierMinSpend = Number(customer.currentTier?.minSpend ?? 0);
+      const newTierMinSpend = resolution.allSources.find(s => s.tierId === newTierId)?.tierMinSpend ?? 0;
+
       const changeType = !previousTierId && newTierId ? 'INITIAL_ASSIGNMENT'
         : previousTierId && !newTierId ? 'REVOKED'
         : newTierId && previousTierId ? (
-          (resolution.allSources.find(s => s.tierId === newTierId)?.tierMinSpend || 0) >
-          (resolution.allSources.find(s => s.tierId === previousTierId)?.tierMinSpend || 0)
-            ? 'UPGRADE'
-            : 'DOWNGRADE'
+          newTierMinSpend > previousTierMinSpend ? 'UPGRADE' : 'DOWNGRADE'
         )
         : 'REASSIGNMENT';
 
@@ -730,6 +739,13 @@ export async function updateCustomerToEffectiveTier(
         source: result.source,
         triggered_by: context?.triggeredBy || 'unknown',
       });
+
+      // Best-effort SNS publish so external systems (Klaviyo flows, dashboards,
+      // Slack notifiers etc.) can react to tier changes. Failures are logged
+      // but do not fail the tier update — the DB is already committed.
+      void publishTierChangeToSNS(shop, customerId, result, context).catch(err =>
+        updateLogger.warn('SNS tier-change publish failed (non-fatal)', err)
+      );
     }
 
     sentryTier.finish('ok');
@@ -818,4 +834,84 @@ export async function getTierSourceBreakdown(
     sources: resolution.allSources,
     hasConflict: resolution.conflictResolved
   };
+}
+
+/**
+ * Publish a TIER_UPGRADE or TIER_DOWNGRADE event to the SNS tier-changed topic.
+ *
+ * Runs after the tier-update transaction commits, so external subscribers see
+ * a consistent post-commit view. Best-effort — caller wraps in catch.
+ */
+async function publishTierChangeToSNS(
+  shop: string,
+  customerId: string,
+  result: { previousTierId: string | null; newTierId: string | null },
+  context: { triggeredBy?: string } | undefined
+): Promise<void> {
+  if (!result.newTierId) {
+    // No SNS event for transitions to no-tier (REVOKED) — schema requires newTier.
+    return;
+  }
+
+  const [previousTier, newTier, customerData] = await Promise.all([
+    result.previousTierId
+      ? prisma.tier.findUnique({ where: { id: result.previousTierId } })
+      : null,
+    prisma.tier.findUnique({ where: { id: result.newTierId } }),
+    prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, email: true, firstName: true, lastName: true, lifetimeSpent: true },
+    }),
+  ]);
+
+  if (!newTier || !customerData) return;
+
+  const eventCustomer = {
+    id: customerData.id,
+    email: customerData.email,
+    firstName: customerData.firstName,
+    lastName: customerData.lastName,
+  };
+
+  const previousTierEvent = previousTier
+    ? {
+        id: previousTier.id,
+        name: previousTier.name,
+        cashbackPercent: Number(previousTier.cashbackPercent),
+      }
+    : null;
+
+  const newTierEvent = {
+    id: newTier.id,
+    name: newTier.name,
+    cashbackPercent: Number(newTier.cashbackPercent),
+  };
+
+  const isDowngrade =
+    previousTier && Number(newTier.minSpend) < Number(previousTier.minSpend);
+
+  const trigger: 'order' | 'manual' | 'recalculation' =
+    context?.triggeredBy === 'manual_assignment'
+      ? 'manual'
+      : context?.triggeredBy === 'tier_recalculation'
+        ? 'recalculation'
+        : 'order';
+
+  const params = {
+    shop,
+    customer: eventCustomer,
+    previousTier: previousTierEvent,
+    newTier: newTierEvent,
+    trigger,
+    stats: {
+      lifetimeSpend: Number(customerData.lifetimeSpent ?? 0),
+      spendToNextTier: null,
+    },
+  };
+
+  if (isDowngrade) {
+    await snsEventPublisher.publishTierDowngrade(params);
+  } else {
+    await snsEventPublisher.publishTierUpgrade(params);
+  }
 }

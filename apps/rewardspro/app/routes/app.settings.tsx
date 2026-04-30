@@ -981,7 +981,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           await billing.cancel({
             subscriptionId: activeSubscription.id,
             prorate: true
-          }).catch((err: any) => {
+          }).catch((_err: any) => {
             console.log("[Settings Action] No active subscription to cancel or already on free plan");
           });
         }
@@ -1042,9 +1042,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(`[Settings Action] Recalculation completed: ${result.processed} customers processed using ${result.engine} engine in ${result.timing?.totalMs || 'N/A'}ms`);
 
         // Build detailed message with engine info
-        const engineLabel = result.engine === 'NEURAL_V3' ? 'Neural v3' :
-                           result.engine === 'NEURAL_V2' ? 'Neural v2' :
-                           result.engine === 'OPTIMIZED' ? 'Optimized' : 'Standard';
+        const engineLabel = result.engine === 'OPTIMIZED' ? 'Optimized' : 'Standard';
         const timingInfo = result.timing?.totalMs ? ` (${(result.timing.totalMs / 1000).toFixed(1)}s)` : '';
 
         return json({
