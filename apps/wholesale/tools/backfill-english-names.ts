@@ -13,6 +13,21 @@ if (existsSync(".env.local")) {
 
 import postgres from "postgres";
 
+// Source JSON files were scraped from HTML pages where `&` was entity-
+// encoded as `&amp;`. Decode common HTML entities before writing — last
+// time this ran without decoding it left 28 rows with literal `&amp;`
+// in card names that surfaced in the storefront UI.
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
 async function main() {
   // Load English names
   const names = new Map<string, string>();
@@ -51,7 +66,7 @@ async function main() {
       for (const card of batch) {
         const en = names.get(card.card_number);
         if (en) {
-          pairs.push({ id: card.id, name_en: en });
+          pairs.push({ id: card.id, name_en: decodeHtmlEntities(en) });
         } else {
           missing++;
         }

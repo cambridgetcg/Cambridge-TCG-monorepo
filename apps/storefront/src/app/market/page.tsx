@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { formatPrice } from "@/lib/format";
 import { useToast } from "@/components/ui/Toast";
@@ -536,14 +537,20 @@ export default function MarketPage() {
                           onClick={() => (window.location.href = `/market/${card.sku}`)}
                           className="bg-neutral-900 hover:bg-neutral-800/80 transition cursor-pointer"
                         >
-                          {/* Thumb */}
+                          {/* Thumb — Next/Image so the full card art (~200KB
+                              per source) gets resized server-side to a 56-wide
+                              thumb. Plain <img loading="lazy"> downloaded each
+                              full image and made the table look unloaded until
+                              you scrolled into every row. */}
                           <td className="px-3 py-2">
                             {card.image_url ? (
-                              <img
+                              <Image
                                 src={card.image_url}
                                 alt={card.name}
+                                width={40}
+                                height={56}
                                 className="w-10 h-14 object-cover rounded"
-                                loading="lazy"
+                                unoptimized={false}
                               />
                             ) : (
                               <div className="w-10 h-14 bg-neutral-800 rounded flex items-center justify-center">
@@ -665,11 +672,13 @@ export default function MarketPage() {
                     >
                       {/* Image */}
                       {card.image_url ? (
-                        <img
+                        <Image
                           src={card.image_url}
                           alt={card.name}
+                          width={240}
+                          height={336}
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
                           className="aspect-[2.5/3.5] w-full object-cover rounded-lg mb-3 group-hover:scale-[1.02] transition"
-                          loading="lazy"
                         />
                       ) : (
                         <div className="aspect-[2.5/3.5] w-full bg-neutral-800 rounded-lg mb-3 flex items-center justify-center">

@@ -8,8 +8,12 @@ import {
 
 export async function GET() {
   const session = await auth();
+  // Anonymous = no watches. Return 200 with [] instead of 401 so the
+  // page-level fetch in /market/[sku] (which runs unconditionally to
+  // derive the watch indicator) doesn't log a 401 to the browser
+  // console on every anonymous visit. POST/DELETE remain auth-gated.
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+    return NextResponse.json({ watches: [] });
   }
   const watches = await listWatches(session.user.id);
   return NextResponse.json({ watches });
