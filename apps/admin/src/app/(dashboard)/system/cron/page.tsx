@@ -70,6 +70,7 @@ export default async function Page() {
   // Update both files when these change — they aren't auto-synced.
   const storefrontCrons: CronEntry[] = [
     { app: "storefront", path: "/api/cron/maintenance", schedule: "* * * * *" },
+    { app: "storefront", path: "/api/cron/reconcile-stripe", schedule: "15 * * * *" },
   ];
   const wholesaleCrons: CronEntry[] = [
     { app: "wholesale", path: "/api/cron/monthly-rollover", schedule: "0 0 * * *" },

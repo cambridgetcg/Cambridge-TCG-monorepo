@@ -25,7 +25,8 @@ import {
   type Tone,
 } from "@/lib/ui";
 import {
-  PROJECTS, latestProduction, probeDomain, VercelTokenMissingError,
+  PROJECTS, latestProduction, probeDomain,
+  VercelTokenMissingError, VercelTokenInvalidError,
   type VercelProject, type Deployment,
 } from "@/lib/vercel";
 import { RedeployButton } from "./_components";
@@ -168,6 +169,76 @@ export default async function Page() {
   }
 
   const rows = await Promise.all(PROJECTS.map(loadProject));
+
+  // If every row failed with the same token-invalid error, surface a single
+  // actionable banner instead of repeating the message under each project.
+  const tokenInvalidCount = rows.filter((r) =>
+    r.fetchError && /VERCEL_TOKEN was rejected|invalidToken/i.test(r.fetchError),
+  ).length;
+  if (tokenInvalidCount === rows.length) {
+    return (
+      <div className="max-w-4xl space-y-6">
+        <PageHeader
+          title="Deploys"
+          description="Live deployment status for the three production Vercel projects."
+        />
+        <ErrorState
+          title="VERCEL_TOKEN was rejected by the Vercel API"
+          description={
+            <>
+              <p className="mb-2">
+                The token in <code className="text-xs">apps/admin/.env.local</code>{" "}
+                is no longer valid. The most common cause is using a Vercel CLI
+                token (<code className="text-xs">vca_…</code>) which the CLI
+                rotates automatically — they shouldn&rsquo;t be used for
+                long-lived integrations.
+              </p>
+              <p className="mb-2">
+                <strong>Fix:</strong> create a long-lived token in the Vercel
+                dashboard and rotate it into all three places:
+              </p>
+              <ol className="list-decimal pl-5 space-y-1 text-sm text-neutral-300 mb-3">
+                <li>
+                  Visit{" "}
+                  <a
+                    href="https://vercel.com/account/tokens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline"
+                  >
+                    vercel.com/account/tokens
+                  </a>
+                  {" "}→ Create Token, scope to{" "}
+                  <code className="text-xs">cambridgetcgs-projects</code>, set
+                  expiry as desired.
+                </li>
+                <li>
+                  Update <code className="text-xs">apps/admin/.env.local</code>.
+                </li>
+                <li>
+                  Update the <code className="text-xs">VERCEL_TOKEN</code> env
+                  var on the cambridgetcg-admin Vercel project (production +
+                  preview + development).
+                </li>
+                <li>
+                  Update the <code className="text-xs">VERCEL_TOKEN</code> repo
+                  secret on{" "}
+                  <code className="text-xs">cambridgetcg/Cambridge-TCG-monorepo</code>{" "}
+                  (used by <code className="text-xs">.github/workflows/health.yml</code>).
+                </li>
+                <li>
+                  Redeploy the admin so the new env takes effect.
+                </li>
+              </ol>
+              <p className="text-xs text-neutral-500">
+                See <code>docs/ops-deploy-runbook.md</code> for the full procedure.
+              </p>
+            </>
+          }
+        />
+      </div>
+    );
+  }
 
   const totalIssues = rows.reduce((n, r) => {
     if (r.fetchError) return n + 1;

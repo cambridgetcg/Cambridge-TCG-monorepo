@@ -74,8 +74,25 @@ export class VercelTokenMissingError extends Error {
   }
 }
 
+/**
+ * Thrown when Vercel rejects the token — typically because the value
+ * stored in env was a Vercel CLI auth token (`vca_…`) which the CLI
+ * rotates automatically. The admin page catches this and renders a
+ * specific banner pointing at the runbook.
+ */
+export class VercelTokenInvalidError extends Error {
+  constructor() {
+    super(
+      "VERCEL_TOKEN was rejected by the API (likely rotated). Generate a " +
+      "long-lived token at https://vercel.com/account/tokens and update " +
+      "the value in apps/admin/.env.local AND the cambridgetcg-admin " +
+      "Vercel project env AND the GitHub repo secret.",
+    );
+  }
+}
+
 function token(): string {
-  const t = process.env.VERCEL_TOKEN;
+  const t = process.env.VERCEL_TOKEN?.trim();
   if (!t) throw new VercelTokenMissingError();
   return t;
 }
@@ -95,6 +112,13 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    // Vercel returns 403 with `invalidToken: true` when the token has
+    // been rotated/revoked — extremely common with CLI tokens (vca_…)
+    // which the CLI rotates automatically. Detect specifically so the
+    // caller can render an actionable error.
+    if (res.status === 403 && /invalidToken/i.test(body)) {
+      throw new VercelTokenInvalidError();
+    }
     throw new Error(`Vercel API ${res.status} on ${path}: ${body.slice(0, 300)}`);
   }
   return (await res.json()) as T;

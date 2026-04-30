@@ -50,6 +50,40 @@ As a temporary measure, the three projects have `gitForkProtection:
 false` set via the Vercel API, which loosens the check. Re-enable once
 all committer emails on the team are verified.
 
+## VERCEL_TOKEN — use a long-lived token, not the CLI's auto-rotated one
+
+The Vercel CLI (`vercel login`) creates a token at
+`~/Library/Application Support/com.vercel.cli/auth.json` that's
+automatically rotated by Vercel — typically within hours of issue.
+Don't use this token for any long-lived integration: it will start
+returning `403 invalidToken` mid-request without warning.
+
+For each integration that needs Vercel API access, generate a
+**dedicated long-lived token** in the dashboard:
+
+1. Visit <https://vercel.com/account/tokens>
+2. Click **Create Token**
+3. Name it after the consumer (e.g. `cambridge-tcg-admin-deploys`,
+   `cambridge-tcg-health-workflow`) so each integration's audit trail
+   is distinct
+4. Scope to **team `cambridgetcgs-projects`**
+5. Set expiry as long as your security policy allows (no expiry is
+   acceptable for low-risk read-only consumers; rotate manually
+   otherwise)
+6. Copy the token (shown only once)
+
+Places that need a `VERCEL_TOKEN`:
+
+| Location | Used by | Update via |
+|---|---|---|
+| `apps/admin/.env.local` | local admin dev `/system/deploys` | edit file |
+| `cambridgetcg-admin` Vercel project env | prod admin `/system/deploys` server actions | dashboard or `vercel env add VERCEL_TOKEN` |
+| GitHub repo secret on `Cambridge-TCG-monorepo` | `.github/workflows/health.yml` hourly check | `gh secret set VERCEL_TOKEN -R cambridgetcg/Cambridge-TCG-monorepo` |
+
+The `/system/deploys` page now detects `invalidToken` errors and
+renders an explicit "create a long-lived token" banner with these
+instructions, so future rotation breakage is self-documenting.
+
 ## Required CI/secrets
 
 The two GitHub Actions workflows under `.github/workflows/`:
