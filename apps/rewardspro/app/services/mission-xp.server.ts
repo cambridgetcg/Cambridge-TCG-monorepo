@@ -185,8 +185,12 @@ export async function getOrCreateMissionStats(
     const config = await getXpConfig(shop);
     const xpToNextLevelValue = calculateXpForLevel(2, config.xpPerLevel, config.xpLevelScaling);
 
+    // The Aurora Data API adapter doesn't honor Prisma's @default(uuid())
+    // — explicitly generate the id, matching the pattern used elsewhere
+    // (tier-resolution, tier-calculation, etc).
     const created = await prisma.customerMissionStats.create({
       data: {
+        id: crypto.randomUUID(),
         shop,
         customerId,
         totalXp: 0,

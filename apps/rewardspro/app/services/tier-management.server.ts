@@ -339,6 +339,28 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
  * write-back). The neural V2/V3 variants were decorative metaphors over the
  * same logic and have been removed.
  *
+ * ─────────────────────────────────────────────────────────────────────────
+ * FUTURE — Step Functions migration (defer until shop scale demands it)
+ * ─────────────────────────────────────────────────────────────────────────
+ * Trigger: when a single shop has > ~50K customers, OPTIMIZED's in-memory
+ * model exceeds Vercel function timeout (60s Pro / 300s Enterprise) or
+ * memory cap (1GB Pro / 3GB Enterprise).
+ *
+ * Design (when needed):
+ *   EventBridge (daily 02:00 UTC)
+ *   └─→ Step Functions state machine `rewardspro-tier-recalc`
+ *       1. PreloadLambda — read tiers, subs, purchases, overrides → S3 staging
+ *       2. Map (parallel, MaxConcurrency=10) — chunk customers, resolve in memory
+ *       3. WriteBackLambda — batched UPDATE via Data API
+ *       4. EmitSNSLambda — publish to rewardspro-prod-tier-changed
+ *   Retries: 3 attempts, exponential backoff (2s/8s/30s); failures → SNS alarm
+ *
+ * Cost vs. benefit at current scale (Cambridge: 209 customers):
+ *   • OPTIMIZED runs in ~3s for 10K customers — ~10x headroom for now
+ *   • Step Functions adds: 1 SFN execution/day ($0.025), 4 Lambda runs ($0.001)
+ *   • Operational cost: new failure mode (SFN provisioning, Lambda packaging)
+ *   → Defer until any single shop crosses 50K customers.
+ *
  * @param shop - Shop domain
  * @param options.forceLegacy - Use the per-customer legacy path (debugging only)
  */

@@ -13,10 +13,8 @@ import {
   sendWelcomeEmail as sendGridWelcomeEmail,
   sendTierUpgradeEmail as sendGridTierUpgradeEmail,
 } from "./sendgrid.server";
-import {
-  getKlaviyoService,
-  isKlaviyoEnabled,
-} from "./klaviyo.server";
+import { sendEmail as sesSendEmail } from "./ses.server";
+import { isKlaviyoEnabled } from "./klaviyo.server";
 import {
   trackCustomerEnrolled,
   trackTierUpgraded,
@@ -27,7 +25,6 @@ import {
 import {
   checkEmailLimit,
   recordEmailSent,
-  type EmailType,
 } from "./email-usage-control.server";
 
 // ============================================
@@ -171,23 +168,38 @@ export async function sendTransactionalEmail(
     case "HYBRID":
     case "SENDGRID":
     default:
-      // Use SendGrid for transactional emails
+      // Default backend is SendGrid; opt-in to SES with EMAIL_PROVIDER=ses
+      // (SES needs prod access first — see app/services/ses.server.ts header).
+      const useSES = (process.env.EMAIL_PROVIDER || "").toLowerCase() === "ses";
       try {
-        const result = await sendGridSendEmail(shop, {
-          to: { email: params.to.email, name: params.to.name },
-          subject: params.subject,
-          html: params.html,
-          text: params.text,
-          from: params.from ? { email: params.from.email, name: params.from.name } : undefined,
-          replyTo: params.replyTo ? { email: params.replyTo } : undefined,
-          categories: params.categories,
-          customArgs: params.customArgs,
-        });
+        const result = useSES
+          ? await sesSendEmail(shop, {
+              to: { email: params.to.email, name: params.to.name },
+              subject: params.subject,
+              html: params.html,
+              text: params.text,
+              from: params.from ? { email: params.from.email, name: params.from.name } : undefined,
+              replyTo: params.replyTo ? { email: params.replyTo } : undefined,
+            })
+          : await sendGridSendEmail(shop, {
+              to: { email: params.to.email, name: params.to.name },
+              subject: params.subject,
+              html: params.html,
+              text: params.text,
+              from: params.from ? { email: params.from.email, name: params.from.name } : undefined,
+              replyTo: params.replyTo ? { email: params.replyTo } : undefined,
+              categories: params.categories,
+              customArgs: params.customArgs,
+            });
         if (result.success) {
           // Record successful email send
           await recordEmailSent(shop, 1, "transactional");
         }
-        return { success: result.success, messageId: result.success ? "sent" : undefined };
+        return {
+          success: result.success,
+          messageId: result.success ? (useSES ? (result as any).messageId : "sent") : undefined,
+          error: result.success ? undefined : (result as any).error,
+        };
       } catch (error) {
         return {
           success: false,
@@ -211,7 +223,7 @@ export async function sendWelcomeEmailUnified(
     return false;
   }
 
-  const { customer, storeName, tierName, cashbackPercent } = params;
+  const { customer, tierName, cashbackPercent } = params;
   const providerType = await getEmailProviderType(shop);
 
   // Always sync to Klaviyo if enabled (for both KLAVIYO and HYBRID modes)
@@ -324,11 +336,6 @@ export async function sendTierUpgradeEmailUnified(
     if (!settings) {
       return false;
     }
-
-    const store = await prisma.shopSettings.findUnique({
-      where: { shop },
-      select: { storeName: true },
-    });
 
     await sendGridTierUpgradeEmail(shop, {
       email: customer.email,

@@ -1,38 +1,39 @@
 /**
- * Anthropic Claude API Service
+ * Bedrock-backed Claude Service
  *
- * Provides AI-powered content generation for email templates.
+ * Provides AI-powered content generation for email templates via AWS Bedrock.
+ * Uses the same Messages API surface as the direct Anthropic SDK, just routed
+ * through Bedrock — credentials come from the existing AWS_ACCESS_KEY_ID env
+ * (no separate ANTHROPIC_API_KEY needed) and billing flows through AWS.
+ *
  * Supports streaming responses for real-time content preview.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
 import { buildSystemPrompt, buildUserPrompt } from "./anthropic-prompts.server";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+// Bedrock inference profile id. Sonnet 4.6 (latest in 4.x family) in eu-north-1
+// requires the EU cross-region inference profile (the bare model id only works
+// for older provisioned-throughput setups).
+const BEDROCK_MODEL = "eu.anthropic.claude-sonnet-4-6";
 const MAX_TOKENS = 1024;
+const AWS_REGION = (process.env.AWS_REGION || "eu-north-1").trim();
 
-function getAnthropicApiKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) {
-    throw new Error("ANTHROPIC_API_KEY environment variable is not set");
-  }
-  return key;
-}
+// Lazy-initialized client. Credentials picked up from the AWS default chain
+// (env vars on Vercel, or local profile in dev).
+let bedrockClient: AnthropicBedrock | null = null;
 
-// Lazy-initialized client
-let anthropicClient: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({
-      apiKey: getAnthropicApiKey(),
+function getClient(): AnthropicBedrock {
+  if (!bedrockClient) {
+    bedrockClient = new AnthropicBedrock({
+      awsRegion: AWS_REGION,
     });
   }
-  return anthropicClient;
+  return bedrockClient;
 }
 
 // ============================================================================
@@ -74,8 +75,8 @@ export interface StreamChunk {
 // ============================================================================
 
 /**
- * Stream content generation from Claude API
- * Yields chunks as they arrive for real-time display
+ * Stream content generation from Claude via Bedrock.
+ * Yields chunks as they arrive for real-time display.
  */
 export async function* streamGeneration(
   request: AIGenerationRequest
@@ -86,12 +87,12 @@ export async function* streamGeneration(
   const userPrompt = buildUserPrompt(request.action, request.prompt, request.context);
 
   console.log(
-    `[Anthropic] Starting stream generation for ${request.shop}, action: ${request.action}`
+    `[Bedrock] Starting stream generation for ${request.shop}, action: ${request.action}`
   );
 
   try {
     const stream = await client.messages.stream({
-      model: ANTHROPIC_MODEL,
+      model: BEDROCK_MODEL,
       max_tokens: MAX_TOKENS,
       system: systemPrompt,
       messages: [
@@ -119,10 +120,10 @@ export async function* streamGeneration(
     // Log usage for tracking
     const finalMessage = await stream.finalMessage();
     console.log(
-      `[Anthropic] Stream complete. Input tokens: ${finalMessage.usage.input_tokens}, Output tokens: ${finalMessage.usage.output_tokens}`
+      `[Bedrock] Stream complete. Input tokens: ${finalMessage.usage.input_tokens}, Output tokens: ${finalMessage.usage.output_tokens}`
     );
   } catch (error) {
-    console.error("[Anthropic] Stream error:", error);
+    console.error("[Bedrock] Stream error:", error);
     yield {
       type: "error",
       error: error instanceof Error ? error.message : "Unknown error",
@@ -135,7 +136,7 @@ export async function* streamGeneration(
 // ============================================================================
 
 /**
- * Generate content without streaming (for quick operations)
+ * Generate content without streaming (for quick operations).
  */
 export async function generateContent(
   request: AIGenerationRequest
@@ -146,12 +147,12 @@ export async function generateContent(
   const userPrompt = buildUserPrompt(request.action, request.prompt, request.context);
 
   console.log(
-    `[Anthropic] Non-streaming generation for ${request.shop}, action: ${request.action}`
+    `[Bedrock] Non-streaming generation for ${request.shop}, action: ${request.action}`
   );
 
   try {
     const response = await client.messages.create({
-      model: ANTHROPIC_MODEL,
+      model: BEDROCK_MODEL,
       max_tokens: MAX_TOKENS,
       system: systemPrompt,
       messages: [
@@ -166,7 +167,7 @@ export async function generateContent(
     const content = textContent?.type === "text" ? textContent.text : "";
 
     console.log(
-      `[Anthropic] Generation complete. Input: ${response.usage.input_tokens}, Output: ${response.usage.output_tokens}`
+      `[Bedrock] Generation complete. Input: ${response.usage.input_tokens}, Output: ${response.usage.output_tokens}`
     );
 
     return {
@@ -177,7 +178,7 @@ export async function generateContent(
       },
     };
   } catch (error) {
-    console.error("[Anthropic] Generation error:", error);
+    console.error("[Bedrock] Generation error:", error);
     throw error;
   }
 }
@@ -187,8 +188,7 @@ export async function generateContent(
 // ============================================================================
 
 /**
- * Generate multiple subject line variations
- * Returns an array of subject line options
+ * Generate multiple subject line variations.
  */
 export async function generateSubjectLines(
   request: AIGenerationRequest
@@ -219,7 +219,7 @@ export async function generateSubjectLines(
 // ============================================================================
 
 /**
- * Enhance existing content based on instruction
+ * Enhance existing content based on instruction.
  */
 export async function enhanceContent(
   shop: string,

@@ -9,7 +9,6 @@ import {
   Box,
   BlockStack,
   InlineStack,
-  Button,
   Banner,
   Divider,
 } from "@shopify/polaris";
@@ -722,12 +721,13 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const shop = session.shop;
 
-  // Test basic DB connectivity
+  // Test basic DB connectivity. Aurora Data API adapter requires aliased
+  // columns to materialise scalar results — bare `SELECT 1` fails silently.
   let dbConnected = false;
   let dbResponseMs = 0;
   const dbStart = performance.now();
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await prisma.$queryRaw`SELECT 1 as test`;
     dbConnected = true;
     dbResponseMs = Math.round(performance.now() - dbStart);
   } catch {
