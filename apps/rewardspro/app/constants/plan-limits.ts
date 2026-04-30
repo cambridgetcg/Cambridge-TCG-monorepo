@@ -175,7 +175,8 @@ export function normalizePlanName(planName: string | null | undefined): PlanName
     'pro': 'RewardsPro Pro',
     'rewardspro pro': 'RewardsPro Pro',
     'rewards pro pro': 'RewardsPro Pro',
-    'starter': 'RewardsPro Pro', // Legacy name
+    'starter': 'RewardsPro Pro',          // Legacy bare name
+    'rewardspro starter': 'RewardsPro Pro', // Legacy prefixed name
     'pro annual': 'RewardsPro Pro',
     'pro-annual': 'RewardsPro Pro',
     'rewardspro pro annual': 'RewardsPro Pro',
@@ -184,7 +185,8 @@ export function normalizePlanName(planName: string | null | undefined): PlanName
     'max': 'RewardsPro Max',
     'rewardspro max': 'RewardsPro Max',
     'rewards pro max': 'RewardsPro Max',
-    'growth': 'RewardsPro Max', // Legacy name
+    'growth': 'RewardsPro Max',          // Legacy bare name
+    'rewardspro growth': 'RewardsPro Max', // Legacy prefixed name
     'max annual': 'RewardsPro Max',
     'max-annual': 'RewardsPro Max',
     'rewardspro max annual': 'RewardsPro Max',
@@ -193,8 +195,9 @@ export function normalizePlanName(planName: string | null | undefined): PlanName
     'ultra': 'RewardsPro Ultra',
     'rewardspro ultra': 'RewardsPro Ultra',
     'rewards pro ultra': 'RewardsPro Ultra',
-    'enterprise': 'RewardsPro Ultra', // Legacy name
-    'unlimited': 'RewardsPro Ultra', // Legacy name
+    'enterprise': 'RewardsPro Ultra',          // Legacy bare name
+    'rewardspro enterprise': 'RewardsPro Ultra', // Legacy prefixed name
+    'unlimited': 'RewardsPro Ultra',             // Legacy name
     'ultra annual': 'RewardsPro Ultra',
     'ultra-annual': 'RewardsPro Ultra',
     'rewardspro ultra annual': 'RewardsPro Ultra',
