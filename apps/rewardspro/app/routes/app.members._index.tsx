@@ -635,20 +635,31 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const enhancedMetadataPromise = fetchEnhancedCustomerMetadata(customerIds, shop);
 
     // ============================================
-    // STATS: Now synchronous (raw SQL + KV cache make it fast enough)
+    // STATS: Synchronous, with defensive try/catch.
     //
-    // Was previously deferred via defer(), but the embedded Shopify admin
-    // iframe sometimes terminates the streaming response before the deferred
-    // chunks arrive — the client Promise never resolves and the cards stay
-    // stuck on skeleton. Inlining trades ~10-50ms of first-paint latency for
-    // a guaranteed render.
+    // Was deferred via defer() but the embedded Shopify admin iframe
+    // sometimes terminates the streaming response before the deferred
+    // chunks arrive — cards stayed stuck on skeleton. Inlining gives
+    // ~10-50ms slower first-paint but reliable render.
+    //
+    // Wrapped in try/catch so a getTierDistribution failure doesn't 500
+    // the whole page — falls back to empty distribution.
     // ============================================
-    const tierDistData = await getTierDistribution(shop);
-    const statsData = {
+    let statsData: { totalTiers: number; totalCustomers: number; tierDistribution: Record<string, number> } = {
       totalTiers: tiers.length,
-      totalCustomers: tierDistData.totalCustomers,
-      tierDistribution: tierDistData.tierDistribution,
+      totalCustomers: 0,
+      tierDistribution: {},
     };
+    try {
+      const tierDistData = await getTierDistribution(shop);
+      statsData = {
+        totalTiers: tiers.length,
+        totalCustomers: tierDistData.totalCustomers,
+        tierDistribution: tierDistData.tierDistribution,
+      };
+    } catch (err) {
+      console.error('[Customers Loader] getTierDistribution failed (rendering with empty stats):', err);
+    }
 
     return defer({
       // IMMEDIATE: Shell + essential customer data + stats (renders table + cards instantly!)
