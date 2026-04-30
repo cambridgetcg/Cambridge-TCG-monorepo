@@ -32,50 +32,75 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_TEAM_ID: team_HR4tb4WB0KZsKxqroSCTQrof
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Don't fail the step on the script's non-zero exit; we need to
+        # capture its report to GITHUB_OUTPUT so the next step can use it.
+        # Re-export the script's exit code as `outcome` for the next step
+        # to decide whether to open or close an issue.
         run: |
-          set -uo pipefail
+          set -u
           if [ -z "${VERCEL_TOKEN:-}" ]; then
             echo "::error::VERCEL_TOKEN secret is not set on this repo. Add at Settings → Secrets → Actions."
             exit 1
           fi
-          python3 .github/scripts/deploy-health.py | tee health-report.txt
-          echo "report<<EOF" >> "$GITHUB_OUTPUT"
-          cat health-report.txt >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          python3 .github/scripts/deploy-health.py > health-report.txt
+          status=$?
+          cat health-report.txt
+          {
+            echo "report<<EOF"
+            cat health-report.txt
+            echo "EOF"
+            echo "outcome=$status"
+          } >> "$GITHUB_OUTPUT"
+          # Don't exit 1 here — we want the next step to fire either way.
+          exit 0
 
       - name: Open / update / close issue
-        if: always()
+        if: always() && steps.check.outputs.outcome != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPORT: ${{ steps.check.outputs.report }}
-          STATUS: ${{ steps.check.outcome }}
+          # outcome is the script exit code (0 healthy, 1 regression)
+          OUTCOME: ${{ steps.check.outputs.outcome }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -uo pipefail
-          # Find an existing open issue with our label
-          NUM=$(gh issue list --label deploy-health --state open --json number --jq '.[0].number')
-          if [ "$STATUS" = "success" ]; then
+          set -u
+          # Ensure the label exists (idempotent — `gh label create` errors if
+          # it's already there, which we ignore).
+          gh label create deploy-health \
+            --description "Open issue tracked by .github/workflows/health.yml" \
+            --color B60205 \
+            -R "$REPO" 2>/dev/null || true
+
+          NUM=$(gh issue list --label deploy-health --state open --json number --jq '.[0].number' -R "$REPO")
+
+          if [ "$OUTCOME" = "0" ]; then
             if [ -n "$NUM" ]; then
-              gh issue close "$NUM" --comment "✅ Health restored at $(date -u +%FT%TZ).\n\n$REPORT"
+              gh issue close "$NUM" --comment "✅ Health restored at $(date -u +%FT%TZ)" -R "$REPO"
               echo "Closed issue #$NUM"
             else
               echo "All green — nothing to update."
             fi
           else
-            BODY="🔴 Deploy/domain health regression detected at $(date -u +%FT%TZ).
+            BODY=$(cat <<EOF
+          🔴 Deploy/domain health regression detected at $(date -u +%FT%TZ).
 
-            \`\`\`
-            ${REPORT:-(no report — see job logs)}
-            \`\`\`
+          \`\`\`
+          ${REPORT:-(no report — see job logs)}
+          \`\`\`
 
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          Run: $RUN_URL
+          EOF
+          )
             if [ -n "$NUM" ]; then
-              gh issue comment "$NUM" --body "$BODY"
+              gh issue comment "$NUM" --body "$BODY" -R "$REPO"
               echo "Updated existing issue #$NUM"
             else
               gh issue create \
                 --title "Deploy health regression" \
                 --label deploy-health \
-                --body "$BODY"
+                --body "$BODY" \
+                -R "$REPO"
               echo "Opened new issue"
             fi
           fi
