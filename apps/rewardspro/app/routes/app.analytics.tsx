@@ -571,39 +571,41 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         () => getCachedOrCompute(
           `analytics:retention:${shop}`,
           async () => {
-            // Single CTE: count distinct customers who paid last month, and
-            // intersect with those who paid this month. Replaces the prior
-            // findMany pair (which scaled with order volume).
+            // Two findMany calls via the model proxy (Prisma's $queryRaw is
+            // broken in the Data API adapter — joins template literals with
+            // `?` instead of `:named`). Cached for 5 min so the O(N) cost
+            // amortises.
             const now = new Date();
             const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
             const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-            const rows = await prisma.$queryRaw`
-              WITH last_month AS (
-                SELECT DISTINCT "customerId"
-                FROM "Order"
-                WHERE shop = ${shop}
-                  AND "shopifyCreatedAt" >= ${lastMonthStart}
-                  AND "shopifyCreatedAt" <= ${lastMonthEnd}
-                  AND "financialStatus" IN ('PAID', 'PARTIALLY_PAID')
-              ),
-              retained AS (
-                SELECT DISTINCT o."customerId"
-                FROM "Order" o
-                INNER JOIN last_month lm ON lm."customerId" = o."customerId"
-                WHERE o.shop = ${shop}
-                  AND o."shopifyCreatedAt" >= ${currentMonthStart}
-                  AND o."financialStatus" IN ('PAID', 'PARTIALLY_PAID')
-              )
-              SELECT
-                (SELECT COUNT(*)::int FROM last_month) AS last_month_count,
-                (SELECT COUNT(*)::int FROM retained) AS retained_count
-            ` as Array<{ last_month_count: number; retained_count: number }>;
+            const lastMonthCustomers = await prisma.order.findMany({
+              where: {
+                shop,
+                shopifyCreatedAt: { gte: lastMonthStart, lte: lastMonthEnd },
+                financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+              },
+              distinct: ['customerId'],
+              select: { customerId: true },
+            });
 
-            const { last_month_count, retained_count } = rows[0] || { last_month_count: 0, retained_count: 0 };
-            if (last_month_count === 0) return 0;
-            return (retained_count / last_month_count) * 100;
+            if (lastMonthCustomers.length === 0) return 0;
+
+            const lastMonthIds = new Set(lastMonthCustomers.map(o => o.customerId));
+
+            const thisMonthRetained = await prisma.order.findMany({
+              where: {
+                shop,
+                customerId: { in: Array.from(lastMonthIds) },
+                shopifyCreatedAt: { gte: currentMonthStart },
+                financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+              },
+              distinct: ['customerId'],
+              select: { customerId: true },
+            });
+
+            return (thisMonthRetained.length / lastMonthCustomers.length) * 100;
           },
           5 * 60_000,
         ),
