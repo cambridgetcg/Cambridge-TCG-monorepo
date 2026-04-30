@@ -124,14 +124,24 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
   const skuParts = sku.split("-");
   const setCode = skuParts.length >= 2 ? skuParts[1] : undefined;
 
+  // Every leg below has a catch — the unified view should always render
+  // something. A failure in any one source falls back to a sensible empty
+  // value rather than 500'ing the whole page (the page is the user's
+  // primary view; degrading is much better than failing).
   const [card, orderBook, tradeinCreditRes, tradeinCashRes, pressure] = await Promise.all([
     fetchCard(sku).catch(() => null),
-    getCardOrderBook(sku),
+    getCardOrderBook(sku).catch((err): CardOrderBook => {
+      console.error("[market/unified] getCardOrderBook failed:", err);
+      return { sku, card_name: null, image_url: null, bids: [], asks: [], recent_trades: [], best_bid: null, best_ask: null };
+    }),
     // Use batch fetchPrices instead of fetchCard for trade-in channels
     // (individual SKU lookup may not support trade-in channels)
     setCode ? fetchPrices({ game: "one-piece", set: setCode, channel: "tradein-credit", limit: 500 }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
     setCode ? fetchPrices({ game: "one-piece", set: setCode, channel: "tradein-cash", limit: 500 }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
-    computeDemandPressure(sku),
+    computeDemandPressure(sku).catch((err): DemandPressure => {
+      console.error("[market/unified] computeDemandPressure failed:", err);
+      return { watchCount: 0, alertCount: 0, askDepth: 0, bidDepth: 0, pressure: 0 };
+    }),
   ]);
 
   // Actual tightening percentage used for THIS view. Capped at MAX_TIGHTEN_PCT.

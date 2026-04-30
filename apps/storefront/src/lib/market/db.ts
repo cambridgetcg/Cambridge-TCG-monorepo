@@ -17,6 +17,12 @@ const PAYMENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 // Cheap idempotent maintenance fired from any market read. Marks orders past
 // their TTL as expired, and cancels trades whose buyer never paid in time
 // (restoring the maker's filled_quantity so the order can match again).
+//
+// Behavior policy:
+//   - The cron entry point (runMarketMaintenance) calls this directly and
+//     surfaces any error to Vercel Cron's status (red = needs attention).
+//   - Read paths (getCardOrderBook, etc.) call sweepExpiredBestEffort below,
+//     which swallows errors so a sweep blip doesn't 500 user-facing reads.
 let lastSweepAt = 0;
 async function sweepExpired(force = false): Promise<void> {
   // Throttle: at most once per minute per process. Reads are frequent;
@@ -201,7 +207,7 @@ export async function placeOrder(data: {
 
   // Maintenance: opportunistically clear expired orders/trades before matching
   // so this taker doesn't try to fill against stale rows.
-  await sweepExpired();
+  await sweepExpiredBestEffort();
 
   const trades: MarketTrade[] = [];
 
@@ -468,7 +474,7 @@ export async function cancelOrder(orderId: string, userId: string): Promise<bool
 // ── Order book for a single card ──
 
 export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
-  await sweepExpired();
+  await sweepExpiredBestEffort();
   // Aggregate bids (descending price)
   const bidsResult = await query(
     `SELECT price, SUM(quantity - filled_quantity) as total_quantity, COUNT(*) as order_count
@@ -534,7 +540,7 @@ export async function getMarketSummaries(filters: {
   limit?: number;
   offset?: number;
 }): Promise<{ cards: OrderBookSummary[]; total: number }> {
-  await sweepExpired();
+  await sweepExpiredBestEffort();
   const limit = filters.limit || 24;
   const offset = filters.offset || 0;
 
@@ -628,7 +634,7 @@ export async function getMarketSummaries(filters: {
 // ── User's orders ──
 
 export async function getUserOrders(userId: string, status?: string): Promise<MarketOrder[]> {
-  await sweepExpired();
+  await sweepExpiredBestEffort();
   const params: unknown[] = [userId];
   let where = "WHERE user_id = $1";
   if (status === "open") {
@@ -647,7 +653,7 @@ export async function getUserOrders(userId: string, status?: string): Promise<Ma
 // ── User's trades ──
 
 export async function getUserTrades(userId: string): Promise<MarketTrade[]> {
-  await sweepExpired();
+  await sweepExpiredBestEffort();
   const result = await query(
     `SELECT t.*,
        bu.name as buyer_name, bu.email as buyer_email,
@@ -1130,6 +1136,16 @@ export async function recordTradePayout(data: {
   });
 
   return { ok: true, transferId };
+}
+
+// Best-effort sweep wrapper used by read paths. Logs and swallows errors
+// so a partial sweep failure never 500s a market detail page.
+async function sweepExpiredBestEffort(force = false): Promise<void> {
+  try {
+    await sweepExpired(force);
+  } catch (err) {
+    console.error("[market/sweep] swallowed in read path:", err);
+  }
 }
 
 // ── Cron entry point ──
