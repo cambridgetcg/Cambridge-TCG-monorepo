@@ -8,7 +8,8 @@
 import { sfQuery } from "@/lib/db";
 import Link from "next/link";
 
-export const metadata = { title: "Users — Cambridge TCG Admin" };
+// Root layout's title template appends "— Cambridge TCG Admin"; don't double it.
+export const metadata = { title: "Users" };
 
 interface UserRow {
   id: string;

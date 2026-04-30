@@ -24,3 +24,8 @@ tsconfig.tsbuildinfo
 coverage/
 playwright-report/
 test-results/
+.playwright-mcp/
+
+# Loose screenshots written by ad-hoc Playwright sessions at the repo root
+*.png
+.vercel
