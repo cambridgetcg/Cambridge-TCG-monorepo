@@ -10,7 +10,7 @@
  */
 
 import { db } from "~/db.server";
-import { analyticsCache } from "./cache.service";
+import { getCached, setCache } from "~/utils/analytics-cache.server";
 
 // Cache TTL constants
 const COMPARISON_CACHE_TTL = 60_000; // 60 seconds
@@ -183,9 +183,9 @@ export class ComparisonService {
     current: MetricValue;
     benchmarks: Array<BenchmarkData & { comparison: 'above' | 'below' | 'at' }>;
   }> {
-    // Check cache first
+    // Check cache first (KV-backed, survives cold starts)
     const cacheKey = benchmarkCacheKey(this.shop, metric);
-    const cached = analyticsCache.get<{
+    const cached = await getCached<{
       current: MetricValue;
       benchmarks: Array<BenchmarkData & { comparison: 'above' | 'below' | 'at' }>;
     }>(cacheKey);
@@ -233,8 +233,8 @@ export class ComparisonService {
 
     const result = { current, benchmarks };
 
-    // Cache the result
-    analyticsCache.set(cacheKey, result, BENCHMARK_CACHE_TTL);
+    // Cache the result (fire-and-forget)
+    void setCache(cacheKey, result, BENCHMARK_CACHE_TTL);
 
     return result;
   }
@@ -284,9 +284,9 @@ export class ComparisonService {
   // ============================================================================
 
   private async getMetricValue(metric: string, period: DateRange): Promise<MetricValue> {
-    // Check cache first
+    // Check cache first (KV-backed)
     const cacheKey = comparisonCacheKey(this.shop, metric, period.start, period.end);
-    const cached = analyticsCache.get<MetricValue>(cacheKey);
+    const cached = await getCached<MetricValue>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -354,8 +354,8 @@ export class ComparisonService {
         result = { value: 0, formatted: '0' };
     }
 
-    // Cache the result
-    analyticsCache.set(cacheKey, result, COMPARISON_CACHE_TTL);
+    // Cache the result (fire-and-forget)
+    void setCache(cacheKey, result, COMPARISON_CACHE_TTL);
 
     return result;
   }
@@ -483,9 +483,9 @@ export class ComparisonService {
   }
 
   private async getBestPeriodValue(metric: string, lookbackDays: number): Promise<number> {
-    // Check cache first - best period values change slowly
+    // Check cache first - best period values change slowly (KV-backed)
     const cacheKey = `bestPeriod:${this.shop}:${metric}:${lookbackDays}`;
-    const cached = analyticsCache.get<number>(cacheKey);
+    const cached = await getCached<number>(cacheKey);
     if (cached !== null) {
       return cached;
     }
@@ -502,7 +502,7 @@ export class ComparisonService {
     const best = Math.max(0, ...values.map(v => v.value));
 
     // Cache for 5 minutes (best period changes slowly)
-    analyticsCache.set(cacheKey, best, 300_000);
+    void setCache(cacheKey, best, 300_000);
 
     return best;
   }
@@ -545,7 +545,7 @@ export class ComparisonService {
     return 'at';
   }
 
-  private generateInsight(metric: string, change: ChangeResult, current: number, previous: number): string {
+  private generateInsight(metric: string, change: ChangeResult, _current: number, _previous: number): string {
     const metricLabels: Record<string, string> = {
       revenue: 'Revenue',
       orders: 'Order count',

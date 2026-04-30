@@ -45,6 +45,7 @@ import prisma from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
+import { getCachedOrCompute } from "~/utils/analytics-cache.server";
 import {
   getOverviewMetricsWithComparison,
   type OverviewMetrics,
@@ -398,11 +399,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Fetch REAL overview metrics, tier performance, program impact, and customer behaviour with caching
     // RESILIENT: Each query is wrapped so a single Data API failure doesn't crash the entire page.
     // Aurora Data API can throttle when too many concurrent requests fire at once.
+    const SLOW_QUERY_MS = 1000;
     const safeQuery = async <T,>(fn: () => Promise<T>, fallback: T, label: string): Promise<T> => {
+      const start = Date.now();
       try {
-        return await fn();
+        const result = await fn();
+        const ms = Date.now() - start;
+        if (ms >= SLOW_QUERY_MS) {
+          console.warn(`[Analytics] ${label} slow: ${ms}ms`);
+        } else {
+          console.log(`[Analytics] ${label} ok: ${ms}ms`);
+        }
+        return result;
       } catch (error) {
-        console.error(`[Analytics] ${label} failed (using fallback):`, error);
+        const ms = Date.now() - start;
+        console.error(`[Analytics] ${label} failed after ${ms}ms (using fallback):`, error);
         return fallback;
       }
     };
@@ -448,6 +459,55 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
     };
 
+    // Bundled insights computation — runs in parallel with the other queries
+    // below. Internally still does 2 round-trips (insights+health, then
+    // comparisons), but those are no longer sequential with the metrics batch.
+    const generateInsightsBlock = async (): Promise<{
+      insights: AnalyticsInsight[];
+      healthScore: HealthScore | null;
+      executiveSummary: ExecutiveSummaryType | null;
+      keyComparisons: ComparisonResult[];
+    }> => {
+      const insightEngine = createInsightEngine(shop);
+      const comparisonService = createComparisonService(shop);
+      const narrativeGenerator = createNarrativeGenerator();
+
+      const [generatedInsights, generatedHealthScore] = await Promise.all([
+        insightEngine.generateInsights(),
+        insightEngine.calculateHealthScore(),
+      ]);
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+      const keyComparisons = await comparisonService.compareMultipleMetrics(
+        ['revenue', 'orders', 'new_members', 'redemption_rate'],
+        { start: thirtyDaysAgo, end: new Date() },
+        { start: sixtyDaysAgo, end: thirtyDaysAgo }
+      );
+
+      const executiveSummary = narrativeGenerator.generateExecutiveSummary(
+        generatedHealthScore,
+        generatedInsights,
+        keyComparisons,
+        'this month'
+      );
+
+      return {
+        insights: generatedInsights,
+        healthScore: generatedHealthScore,
+        executiveSummary,
+        keyComparisons,
+      };
+    };
+
+    const emptyInsightsBlock = {
+      insights: [] as AnalyticsInsight[],
+      healthScore: null as HealthScore | null,
+      executiveSummary: null as ExecutiveSummaryType | null,
+      keyComparisons: [] as ComparisonResult[],
+    };
+
     const [
       metricsComparison,
       tierPerformance,
@@ -456,6 +516,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       customerBehaviourData,
       cohortAnalysis,
       monthlyTierRevenue,
+      insightsBlock,
     ] = await Promise.all([
       safeQuery(() => getOverviewMetricsWithComparison(shop, dateRange), emptyComparison, 'OverviewMetrics'),
       safeQuery(() => getTierPerformanceMetrics(shop), [], 'TierPerformance'),
@@ -464,108 +525,91 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       safeQuery(() => getCustomerBehaviourData(shop), emptyCustomerBehaviour, 'CustomerBehaviour'),
       safeQuery(() => getCohortAnalysis(shop), emptyCohort, 'CohortAnalysis'),
       safeQuery(() => getMonthlyTierRevenue(shop), [], 'MonthlyTierRevenue'),
+      safeQuery(generateInsightsBlock, emptyInsightsBlock, 'InsightsBlock'),
     ]);
 
-    // Generate insights using the new InsightEngine
-    let insights: AnalyticsInsight[] = [];
-    let healthScore: HealthScore | null = null;
-    let executiveSummary: ExecutiveSummaryType | null = null;
-    let keyComparisons: ComparisonResult[] = [];
+    const { insights, healthScore, executiveSummary, keyComparisons } = insightsBlock;
 
-    try {
-      const insightEngine = createInsightEngine(shop);
-      const comparisonService = createComparisonService(shop);
-      const narrativeGenerator = createNarrativeGenerator();
-
-      // Fetch insights and health score in parallel
-      const [generatedInsights, generatedHealthScore] = await Promise.all([
-        insightEngine.generateInsights(),
-        insightEngine.calculateHealthScore(),
-      ]);
-
-      insights = generatedInsights;
-      healthScore = generatedHealthScore;
-
-      // Generate key metric comparisons
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
-      const primaryPeriod = { start: thirtyDaysAgo, end: new Date() };
-      const comparisonPeriod = { start: sixtyDaysAgo, end: thirtyDaysAgo };
-
-      keyComparisons = await comparisonService.compareMultipleMetrics(
-        ['revenue', 'orders', 'new_members', 'redemption_rate'],
-        primaryPeriod,
-        comparisonPeriod
-      );
-
-      // Generate executive summary
-      executiveSummary = narrativeGenerator.generateExecutiveSummary(
-        generatedHealthScore,
-        generatedInsights,
-        keyComparisons,
-        'this month'
-      );
-
-      console.log('[Analytics] InsightEngine generated:', {
-        insightsCount: insights.length,
-        healthScore: healthScore?.overall,
-        comparisonsCount: keyComparisons.length,
-      });
-    } catch (error) {
-      console.error('[Analytics] Error generating insights:', error);
-      // Continue without insights if there's an error
-    }
+    console.log('[Analytics] InsightEngine generated:', {
+      insightsCount: insights.length,
+      healthScore: healthScore?.overall,
+      comparisonsCount: keyComparisons.length,
+    });
 
     // Calculate auto-metrics for business metrics configuration
     // OPTIMIZED: Reuse totalCustomers from metricsComparison instead of duplicate query
     const totalCustomersCount = metricsComparison.current.totalCustomers;
 
-    // OPTIMIZED: Use SQL COUNT instead of fetching all orders into memory
-    // Wrapped with safeQuery for Data API resilience
+    // ============================================
+    // OPTIMIZED: Cached + raw-SQL retention (Tier-1 perf pass)
+    // ----------------------------------------------------------------
+    // Previously these 3 queries fired uncached on every page load and
+    // the retention block did 2 unbounded findMany calls. Now wrapped
+    // in 5-min KV cache (survives cold starts) and retention computes
+    // in a single round-trip via CTE.
+    // ============================================
     const [ltv, repeatCustomersCount, retention] = await Promise.all([
       safeQuery(
-        () => prisma.customer.aggregate({ where: { shop }, _avg: { totalSpent: true } }),
+        () => getCachedOrCompute(
+          `analytics:ltv:${shop}`,
+          () => prisma.customer.aggregate({ where: { shop }, _avg: { totalSpent: true } }),
+          5 * 60_000,
+        ),
         { _avg: { totalSpent: null } } as any,
         'CustomerLTV'
       ),
       safeQuery(
-        () => prisma.customer.count({ where: { shop, orderCount: { gt: 1 } } }),
+        () => getCachedOrCompute(
+          `analytics:repeatCustomers:${shop}`,
+          () => prisma.customer.count({ where: { shop, orderCount: { gt: 1 } } }),
+          5 * 60_000,
+        ),
         0,
         'RepeatCustomers'
       ),
-      safeQuery(async () => {
-        const now = new Date();
-        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      safeQuery(
+        () => getCachedOrCompute(
+          `analytics:retention:${shop}`,
+          async () => {
+            // Single CTE: count distinct customers who paid last month, and
+            // intersect with those who paid this month. Replaces the prior
+            // findMany pair (which scaled with order volume).
+            const now = new Date();
+            const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-        const lastMonthCustomers = await prisma.order.findMany({
-          where: {
-            shop,
-            shopifyCreatedAt: { gte: lastMonthStart, lte: lastMonthEnd },
-            financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+            const rows = await prisma.$queryRaw`
+              WITH last_month AS (
+                SELECT DISTINCT "customerId"
+                FROM "Order"
+                WHERE shop = ${shop}
+                  AND "shopifyCreatedAt" >= ${lastMonthStart}
+                  AND "shopifyCreatedAt" <= ${lastMonthEnd}
+                  AND "financialStatus" IN ('PAID', 'PARTIALLY_PAID')
+              ),
+              retained AS (
+                SELECT DISTINCT o."customerId"
+                FROM "Order" o
+                INNER JOIN last_month lm ON lm."customerId" = o."customerId"
+                WHERE o.shop = ${shop}
+                  AND o."shopifyCreatedAt" >= ${currentMonthStart}
+                  AND o."financialStatus" IN ('PAID', 'PARTIALLY_PAID')
+              )
+              SELECT
+                (SELECT COUNT(*)::int FROM last_month) AS last_month_count,
+                (SELECT COUNT(*)::int FROM retained) AS retained_count
+            ` as Array<{ last_month_count: number; retained_count: number }>;
+
+            const { last_month_count, retained_count } = rows[0] || { last_month_count: 0, retained_count: 0 };
+            if (last_month_count === 0) return 0;
+            return (retained_count / last_month_count) * 100;
           },
-          distinct: ['customerId'],
-          select: { customerId: true },
-        });
-
-        if (lastMonthCustomers.length === 0) return 0;
-
-        const lastMonthIds = new Set(lastMonthCustomers.map(o => o.customerId));
-
-        const thisMonthRetained = await prisma.order.findMany({
-          where: {
-            shop,
-            customerId: { in: Array.from(lastMonthIds) },
-            shopifyCreatedAt: { gte: currentMonthStart },
-            financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
-          },
-          distinct: ['customerId'],
-          select: { customerId: true },
-        });
-
-        return (thisMonthRetained.length / lastMonthCustomers.length) * 100;
-      }, 0, 'RetentionRate')
+          5 * 60_000,
+        ),
+        0,
+        'RetentionRate'
+      )
     ]);
 
     const customerLifetimeValue = Number(ltv._avg.totalSpent || 0);

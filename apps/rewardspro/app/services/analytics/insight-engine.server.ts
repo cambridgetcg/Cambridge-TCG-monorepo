@@ -9,8 +9,7 @@
  */
 
 import { db } from "~/db.server";
-import { analytics } from "./aggregator.service";
-import { analyticsCache } from "./cache.service";
+import { getCached, setCache } from "~/utils/analytics-cache.server";
 
 // Cache TTL constants
 const INSIGHTS_CACHE_TTL = 60_000; // 60 seconds
@@ -130,9 +129,9 @@ export class InsightEngine {
    * Results are cached for 60 seconds to reduce DB load
    */
   async generateInsights(): Promise<AnalyticsInsight[]> {
-    // Check cache first
+    // Check cache first (KV-backed, survives cold starts)
     const cacheKey = insightCacheKey(this.shop, 'all');
-    const cached = analyticsCache.get<AnalyticsInsight[]>(cacheKey);
+    const cached = await getCached<AnalyticsInsight[]>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -169,8 +168,8 @@ export class InsightEngine {
       // Sort by severity and confidence
       const result = this.prioritizeInsights(insights);
 
-      // Cache the result
-      analyticsCache.set(cacheKey, result, INSIGHTS_CACHE_TTL);
+      // Cache the result (fire-and-forget; cache write shouldn't block return)
+      void setCache(cacheKey, result, INSIGHTS_CACHE_TTL);
 
       return result;
     } catch (error) {
@@ -184,9 +183,9 @@ export class InsightEngine {
    * Results are cached for 60 seconds to reduce DB load
    */
   async calculateHealthScore(): Promise<HealthScore> {
-    // Check cache first
+    // Check cache first (KV-backed, survives cold starts)
     const cacheKey = insightCacheKey(this.shop, 'healthScore');
-    const cached = analyticsCache.get<HealthScore>(cacheKey);
+    const cached = await getCached<HealthScore>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -222,8 +221,8 @@ export class InsightEngine {
         ],
       };
 
-      // Cache the result
-      analyticsCache.set(cacheKey, result, HEALTH_SCORE_CACHE_TTL);
+      // Cache the result (fire-and-forget)
+      void setCache(cacheKey, result, HEALTH_SCORE_CACHE_TTL);
 
       return result;
     } catch (error) {
@@ -1140,7 +1139,6 @@ export class InsightEngine {
 
   private async getRetentionStats(): Promise<{ vipRetention: number; overallRetention: number }> {
     // Simplified retention calculation
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const [totalPrevious, returnedCustomers] = await Promise.all([
