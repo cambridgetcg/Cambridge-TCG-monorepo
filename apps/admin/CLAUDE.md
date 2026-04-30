@@ -240,6 +240,19 @@ Files prefixed with `_` are kept out of the route table by Next.js.
 - Don't use the Drizzle query builder for admin pages — raw SQL via
   `sfQuery`/`wsQuery` only
 
+## Optional env vars
+
+- `VERCEL_TOKEN` — required by `/system/deploys` to read deploy state
+  and trigger redeploys. Team-scoped to `cambridgetcgs-projects`. Without
+  it the page renders an actionable error banner.
+- `GITHUB_TOKEN` — required by `/system/deploys` to detect SHA drift
+  between deployed code and `main` HEAD, and by `redeployFromMain` to
+  resolve current `main` HEAD. Fine-scoped PAT with `repo` read access
+  to `cambridgetcg/Cambridge-TCG-monorepo`.
+
+Without either, the page degrades gracefully (banners + disabled actions)
+but doesn't crash. They're optional for non-system features.
+
 ## Local dev shortcuts
 
 - `GET /api/dev-signin` — bypasses magic-link in dev. Localhost-only,

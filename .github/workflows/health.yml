@@ -1,0 +1,81 @@
+name: Deploy & domain health
+
+# Hourly check that the three production domains are alive AND that each
+# Vercel project's latest production deploy is in READY state. Opens (or
+# updates) a GitHub issue tagged `deploy-health` when something regresses;
+# closes the issue automatically when the next clean run passes.
+#
+# Required secret: VERCEL_TOKEN — a Vercel API token with read access to
+# the cambridgetcgs-projects team. Create at vercel.com/account/tokens.
+
+on:
+  schedule:
+    - cron: "5 * * * *"   # hourly at :05
+  workflow_dispatch:       # manual trigger from Actions UI
+  push:
+    paths:
+      - ".github/workflows/health.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health check
+        id: check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: team_HR4tb4WB0KZsKxqroSCTQrof
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN secret is not set on this repo. Add at Settings → Secrets → Actions."
+            exit 1
+          fi
+          python3 .github/scripts/deploy-health.py | tee health-report.txt
+          echo "report<<EOF" >> "$GITHUB_OUTPUT"
+          cat health-report.txt >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Open / update / close issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORT: ${{ steps.check.outputs.report }}
+          STATUS: ${{ steps.check.outcome }}
+        run: |
+          set -uo pipefail
+          # Find an existing open issue with our label
+          NUM=$(gh issue list --label deploy-health --state open --json number --jq '.[0].number')
+          if [ "$STATUS" = "success" ]; then
+            if [ -n "$NUM" ]; then
+              gh issue close "$NUM" --comment "✅ Health restored at $(date -u +%FT%TZ).\n\n$REPORT"
+              echo "Closed issue #$NUM"
+            else
+              echo "All green — nothing to update."
+            fi
+          else
+            BODY="🔴 Deploy/domain health regression detected at $(date -u +%FT%TZ).
+
+            \`\`\`
+            ${REPORT:-(no report — see job logs)}
+            \`\`\`
+
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            if [ -n "$NUM" ]; then
+              gh issue comment "$NUM" --body "$BODY"
+              echo "Updated existing issue #$NUM"
+            else
+              gh issue create \
+                --title "Deploy health regression" \
+                --label deploy-health \
+                --body "$BODY"
+              echo "Opened new issue"
+            fi
+          fi

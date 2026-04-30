@@ -42,6 +42,7 @@ import {
   Mail,
   ScrollText,
   Settings,
+  Rocket,
 } from "lucide-react";
 
 interface NavItem {
@@ -111,10 +112,11 @@ const NAV: NavGroup[] = [
   {
     label: "System",
     items: [
-      { href: "/system/cron",   label: "Cron",   icon: Clock },
-      { href: "/system/email",  label: "Email",  icon: Mail },
-      { href: "/system/audit",  label: "Audit",  icon: ScrollText },
-      { href: "/system/admin",  label: "Admin",  icon: Settings },
+      { href: "/system/deploys", label: "Deploys", icon: Rocket },
+      { href: "/system/cron",    label: "Cron",    icon: Clock },
+      { href: "/system/email",   label: "Email",   icon: Mail },
+      { href: "/system/audit",   label: "Audit",   icon: ScrollText },
+      { href: "/system/admin",   label: "Admin",   icon: Settings },
     ],
   },
 ];

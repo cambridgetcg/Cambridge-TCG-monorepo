@@ -70,10 +70,11 @@ const NAV_GROUPS = [
   {
     label: "System",
     items: [
-      { href: "/system/cron",  label: "Cron" },
-      { href: "/system/email", label: "Email" },
-      { href: "/system/audit", label: "Audit" },
-      { href: "/system/admin", label: "Admin" },
+      { href: "/system/deploys", label: "Deploys" },
+      { href: "/system/cron",    label: "Cron" },
+      { href: "/system/email",   label: "Email" },
+      { href: "/system/audit",   label: "Audit" },
+      { href: "/system/admin",   label: "Admin" },
     ],
   },
 ];
@@ -85,9 +86,9 @@ describe("Admin dashboard navigation", () => {
     expect(NAV_GROUPS).toHaveLength(7);
   });
 
-  it("has 26 navigation items total", () => {
-    // 1 overview + 4 ops + 5 commerce + 4 money + 4 trust + 4 catalog + 4 system
-    expect(allItems).toHaveLength(26);
+  it("has 27 navigation items total", () => {
+    // 1 overview + 4 ops + 5 commerce + 4 money + 4 trust + 4 catalog + 5 system
+    expect(allItems).toHaveLength(27);
   });
 
   it("has no duplicate hrefs", () => {
