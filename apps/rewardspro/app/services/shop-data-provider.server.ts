@@ -197,10 +197,10 @@ export async function getBillingSubscription(shop: string): Promise<BillingSubsc
 /**
  * Get tier distribution + total customer count for a shop, cached.
  *
- * Uses raw SQL GROUP BY (now safe after fixing the Data API adapter's
- * template-literal placeholder bug — it correctly emits `:paramN` instead
- * of `?`). Returns one row per tier, never per customer, so the underlying
- * cost is O(N_tiers) not O(N_customers).
+ * Uses findMany via the model proxy (the GROUP BY raw SQL path returns
+ * empty data even after the Data API adapter's template-literal fix —
+ * something else in the raw-query plumbing is still wrong; needs deeper
+ * investigation). The 5-min KV cache amortises the O(N_customers) cost.
  *
  * TTL: 5 minutes. Invalidate via invalidateTierDistribution on tier change.
  */
@@ -208,20 +208,18 @@ export async function getTierDistribution(shop: string): Promise<TierDistributio
   return kvGetOrCompute(
     CACHE_KEYS.tierDistribution(shop),
     async () => {
-      const [totalCustomers, distributionRows] = await Promise.all([
+      const [totalCustomers, customersWithTiers] = await Promise.all([
         db.customer.count({ where: { shop } }),
-        db.$queryRaw`
-          SELECT "currentTierId", COUNT(*)::bigint AS count
-          FROM "Customer"
-          WHERE shop = ${shop}
-          GROUP BY "currentTierId"
-        ` as Promise<Array<{ currentTierId: string | null; count: number | bigint }>>,
+        db.customer.findMany({
+          where: { shop },
+          select: { currentTierId: true },
+        }),
       ]);
 
       const tierDistribution: Record<string, number> = {};
-      for (const row of distributionRows) {
-        if (row.currentTierId) {
-          tierDistribution[row.currentTierId] = Number(row.count);
+      for (const c of customersWithTiers) {
+        if (c.currentTierId) {
+          tierDistribution[c.currentTierId] = (tierDistribution[c.currentTierId] || 0) + 1;
         }
       }
 
