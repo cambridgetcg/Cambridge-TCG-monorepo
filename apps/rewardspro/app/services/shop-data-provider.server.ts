@@ -197,31 +197,29 @@ export async function getBillingSubscription(shop: string): Promise<BillingSubsc
 /**
  * Get tier distribution + total customer count for a shop, cached.
  *
- * Uses raw SQL GROUP BY (Aurora Data API supports it; Prisma's groupBy()
- * does not). Returns one row per tier instead of one per customer, so the
- * underlying query stays fast even at 100K+ customers.
+ * Aurora Data API adapter has a bug with prisma.$queryRaw template-literal
+ * parameters (joins with `?` instead of `:named`), so we use findMany via
+ * the model proxy and count in memory. The KV cache (5-min TTL) amortises
+ * the O(N) cost across requests — typical hit rate ~90%.
  *
- * TTL: 5 minutes — eventual consistency is fine for the members-page
- * stats card. Invalidate on tier change via invalidateTierDistribution.
+ * TTL: 5 minutes. Invalidate via invalidateTierDistribution on tier change.
  */
 export async function getTierDistribution(shop: string): Promise<TierDistribution> {
   return kvGetOrCompute(
     CACHE_KEYS.tierDistribution(shop),
     async () => {
-      const [totalCustomers, distributionRows] = await Promise.all([
+      const [totalCustomers, customersWithTiers] = await Promise.all([
         db.customer.count({ where: { shop } }),
-        db.$queryRaw`
-          SELECT "currentTierId", COUNT(*)::bigint AS count
-          FROM "Customer"
-          WHERE shop = ${shop}
-          GROUP BY "currentTierId"
-        ` as Promise<Array<{ currentTierId: string | null; count: bigint }>>,
+        db.customer.findMany({
+          where: { shop },
+          select: { currentTierId: true },
+        }),
       ]);
 
       const tierDistribution: Record<string, number> = {};
-      for (const row of distributionRows) {
-        if (row.currentTierId) {
-          tierDistribution[row.currentTierId] = Number(row.count);
+      for (const c of customersWithTiers) {
+        if (c.currentTierId) {
+          tierDistribution[c.currentTierId] = (tierDistribution[c.currentTierId] || 0) + 1;
         }
       }
 
