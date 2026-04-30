@@ -3248,9 +3248,10 @@ export default function Customers() {
                 />
               </InlineStack>
 
-              {/* Search and Filters */}
-              <InlineStack gap="300" align="start" blockAlign="center" wrap={false}>
-                <Box minWidth="300px" maxWidth="400px">
+              {/* Search and Filters — wraps on narrow viewports so the
+                  tier select + filter button don't push off-screen. */}
+              <InlineStack gap="300" align="start" blockAlign="center" wrap>
+                <div style={{ flex: '1 1 240px', maxWidth: '400px', minWidth: 0 }}>
                   <TextField
                     label=""
                     placeholder="Search by name, email, or ID"
@@ -3261,7 +3262,7 @@ export default function Customers() {
                     prefix={<Icon source={SearchIcon} />}
                     autoComplete="off"
                   />
-                </Box>
+                </div>
                 <Select
                   label=""
                   options={[

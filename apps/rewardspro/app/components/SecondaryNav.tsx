@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@remix-run/react";
-import { Box, InlineStack, Text, Icon } from "@shopify/polaris";
+import { Box, Text, Icon } from "@shopify/polaris";
 import type { IconSource } from "@shopify/polaris";
 
 interface NavItem {
@@ -39,17 +39,29 @@ export function SecondaryNav({ items }: SecondaryNavProps) {
 
   return (
     <Box paddingBlockEnd="400" paddingBlockStart="200">
+      {/* Horizontally scrollable on narrow viewports so tabs never get
+          truncated. Hides scrollbar for visual cleanliness. */}
       <div
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px',
-          padding: '4px',
-          backgroundColor: 'var(--p-color-bg-surface-secondary)',
-          borderRadius: '10px',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          maxWidth: '100%',
         }}
       >
-        {items.map((item) => {
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '4px',
+            backgroundColor: 'var(--p-color-bg-surface-secondary)',
+            borderRadius: '10px',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {items.map((item) => {
           const active = isActive(item.to);
           return (
             <Link
@@ -97,6 +109,7 @@ export function SecondaryNav({ items }: SecondaryNavProps) {
             </Link>
           );
         })}
+        </div>
       </div>
     </Box>
   );
