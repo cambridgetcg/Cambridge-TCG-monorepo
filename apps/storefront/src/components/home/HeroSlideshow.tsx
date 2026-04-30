@@ -39,39 +39,49 @@ export default function HeroSlideshow() {
 
   return (
     <section className="relative h-[480px] md:h-[580px] w-full overflow-hidden bg-neutral-950">
-      {slides.map((slide, i) => (
-        <div
-          key={i}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-            i === current ? "opacity-100 z-10" : "opacity-0 z-0"
-          }`}
-        >
-          <Image
-            src={slide.src}
-            alt={slide.headline}
-            fill
-            className="object-cover"
-            priority={i === 0}
-            sizes="100vw"
-          />
-          {/* Dark gradient overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight drop-shadow-lg">
-              {slide.headline}
-            </h1>
-            <p className="mt-4 text-base md:text-lg text-white/80 max-w-xl drop-shadow">
-              {slide.sub}
-            </p>
-            <a
-              href="/catalog"
-              className="mt-8 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors"
-            >
-              Shop Now
-            </a>
+      {slides.map((slide, i) => {
+        const isActive = i === current;
+        return (
+          <div
+            key={i}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              isActive ? "opacity-100 z-10" : "opacity-0 z-0"
+            }`}
+            aria-hidden={!isActive}
+          >
+            <Image
+              src={slide.src}
+              alt={slide.headline}
+              fill
+              className="object-cover"
+              priority={i === 0}
+              sizes="100vw"
+            />
+            {/* Dark gradient overlay for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight drop-shadow-lg">
+                {slide.headline}
+              </h1>
+              <p className="mt-4 text-base md:text-lg text-white/80 max-w-xl drop-shadow">
+                {slide.sub}
+              </p>
+              {/* Each slide renders its own CTA, but only the active one is
+                  reachable: tabIndex=-1 + aria-hidden on the wrapper keeps
+                  inactive slides out of the keyboard order and out of strict
+                  selectors that previously matched 3 'Shop Now' links at once. */}
+              <a
+                href="/catalog"
+                tabIndex={isActive ? 0 : -1}
+                aria-hidden={!isActive}
+                className="mt-8 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors"
+              >
+                Shop Now
+              </a>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Navigation dots */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">

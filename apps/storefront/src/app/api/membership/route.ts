@@ -13,10 +13,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ tiers });
   }
 
-  // Authenticated: full member profile
+  // Authenticated: full member profile.
+  // Anonymous: return null profile (200) instead of 401. Every page that
+  // displays credit/points/tier already handles `d?.profile == null`
+  // (see /checkout, /rewards/*, /account/membership). The previous 401
+  // logged a noisy error in the browser console on every anonymous
+  // checkout / rewards page load.
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+    return NextResponse.json({ profile: null, expiringSoon: [] });
   }
 
   const [profile, expiringSoon] = await Promise.all([
