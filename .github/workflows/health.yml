@@ -42,8 +42,11 @@ jobs:
             echo "::error::VERCEL_TOKEN secret is not set on this repo. Add at Settings → Secrets → Actions."
             exit 1
           fi
-          python3 .github/scripts/deploy-health.py > health-report.txt
-          status=$?
+          # GitHub Actions runs every step with `bash -e`. The script exits 1
+          # on regression — disable errexit for that command so we can capture
+          # the exit code without short-circuiting the rest of the step.
+          status=0
+          python3 .github/scripts/deploy-health.py > health-report.txt || status=$?
           cat health-report.txt
           {
             echo "report<<EOF"
@@ -51,8 +54,6 @@ jobs:
             echo "EOF"
             echo "outcome=$status"
           } >> "$GITHUB_OUTPUT"
-          # Don't exit 1 here — we want the next step to fire either way.
-          exit 0
 
       - name: Open / update / close issue
         if: always() && steps.check.outputs.outcome != ''
