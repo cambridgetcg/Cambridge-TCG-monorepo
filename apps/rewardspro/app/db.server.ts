@@ -13,6 +13,8 @@
  * after cut-over per the replacement plan).
  */
 import { createDataAPIPrismaClient } from "./utils/prisma-data-api-adapter";
+import { PrismaClient } from "@prisma/client";
+import { PrismaRdsDataApiAdapter } from "./utils/prisma-rds-data-api-adapter.server";
 
 const LOG_PREFIX = "[db.server]";
 const USE_DRIVER_ADAPTER = process.env.USE_PRISMA_DRIVER_ADAPTER === "true";
@@ -50,15 +52,10 @@ if (process.env.NODE_ENV !== "production") {
 
 /**
  * Build a real PrismaClient instance bound to our RDS Data API driver adapter.
- * Lazy-required so that bundlers don't pull in the new adapter when the legacy
- * path is in use.
+ * Both adapters are statically imported (Vite bundles everything regardless);
+ * the env flag controls which is instantiated at runtime.
  */
 function createDriverAdapterClient() {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { PrismaClient } = require("@prisma/client");
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { PrismaRdsDataApiAdapter } = require("./utils/prisma-rds-data-api-adapter.server");
-
   const resourceArn = process.env.AURORA_RESOURCE_ARN?.trim();
   const secretArn = process.env.AURORA_SECRET_ARN?.trim();
   const database = process.env.AURORA_DATABASE_NAME?.trim() || "rewardspro";

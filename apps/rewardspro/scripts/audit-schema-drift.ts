@@ -14,7 +14,7 @@ import { readFileSync } from "fs";
 import { config as loadEnv } from "dotenv";
 import { RDSDataClient, ExecuteStatementCommand } from "@aws-sdk/client-rds-data";
 
-loadEnv({ path: ".env.local" });
+loadEnv({ path: ".env.local", override: true });
 
 const client = new RDSDataClient({
   region: (process.env.AWS_REGION || "eu-north-1").trim(),
