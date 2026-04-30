@@ -63,7 +63,7 @@ import {
   getTierStyle,
 } from "../utils/tier-styles";
 import { getEntitlements } from "../services/entitlements.server";
-import { getShopSettings, getShopTiers } from "../services/shop-data-provider.server";
+import { getShopSettings, getShopTiers, getTierDistribution } from "../services/shop-data-provider.server";
 import { trackCashbackAdjusted } from "../services/klaviyo-events.server";
 import {
   getCustomerOrderSummariesBatch,
@@ -531,37 +531,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return { enhancedData };
   }
 
-  /**
-   * OPTIMIZED: Calculate tier distribution using database groupBy aggregation
-   * Replaces N+1 pattern (1 + N count queries) with single groupBy query
-   * For a shop with 10 tiers, reduces from 11 queries to 2 queries
-   */
-  async function calculateTierDistributionData(shop: string) {
-    // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
-    // Instead, fetch all customer tier IDs and count in memory
-    const [totalCustomers, customersWithTiers] = await Promise.all([
-      prisma.customer.count({ where: { shop } }),
-      // Fetch only the tierId field for all customers to count distribution
-      prisma.customer.findMany({
-        where: { shop },
-        select: { currentTierId: true }
-      })
-    ]);
-
-    // Count tier distribution in memory
-    const tierDistribution: Record<string, number> = {};
-    for (const customer of customersWithTiers) {
-      if (customer.currentTierId) {
-        tierDistribution[customer.currentTierId] = (tierDistribution[customer.currentTierId] || 0) + 1;
-      }
-    }
-
-    return {
-      tierDistribution,
-      totalCustomers,
-    };
-  }
-
   // ============================================
   // INPUT VALIDATION CONSTANTS
   // ============================================
@@ -665,9 +634,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const enhancedMetadataPromise = fetchEnhancedCustomerMetadata(customerIds, shop);
 
     // ============================================
-    // STATS: Defer for non-critical data (uses optimized COUNT queries)
+    // STATS: Defer (cached 5min via Vercel KV / memory fallback)
     // ============================================
-    const statsDataPromise = calculateTierDistributionData(shop).then(data => ({
+    const statsDataPromise = getTierDistribution(shop).then(data => ({
       totalTiers: tiers.length,
       totalCustomers: data.totalCustomers,
       tierDistribution: data.tierDistribution,

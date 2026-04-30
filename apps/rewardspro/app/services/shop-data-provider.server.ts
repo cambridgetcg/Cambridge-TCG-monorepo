@@ -55,6 +55,7 @@ const CACHE_KEYS = {
   tiers: (shop: string) => `shop:${shop}:tiers`,
   entitlements: (shop: string) => `shop:${shop}:entitlements`,
   billing: (shop: string) => `shop:${shop}:billing`,
+  tierDistribution: (shop: string) => `shop:${shop}:tier-distribution`,
 };
 
 const CACHE_TTL = {
@@ -62,7 +63,13 @@ const CACHE_TTL = {
   tiers: 10 * 60 * 1000,        // 10 minutes
   entitlements: 30 * 60 * 1000, // 30 minutes
   billing: 30 * 60 * 1000,      // 30 minutes
+  tierDistribution: 5 * 60 * 1000, // 5 minutes — stats card, eventually consistent OK
 };
+
+export interface TierDistribution {
+  tierDistribution: Record<string, number>;
+  totalCustomers: number;
+}
 
 // ============================================
 // SERIALIZATION HELPERS
@@ -188,6 +195,43 @@ export async function getBillingSubscription(shop: string): Promise<BillingSubsc
 }
 
 /**
+ * Get tier distribution + total customer count for a shop, cached.
+ *
+ * Uses raw SQL GROUP BY (Aurora Data API supports it; Prisma's groupBy()
+ * does not). Returns one row per tier instead of one per customer, so the
+ * underlying query stays fast even at 100K+ customers.
+ *
+ * TTL: 5 minutes — eventual consistency is fine for the members-page
+ * stats card. Invalidate on tier change via invalidateTierDistribution.
+ */
+export async function getTierDistribution(shop: string): Promise<TierDistribution> {
+  return kvGetOrCompute(
+    CACHE_KEYS.tierDistribution(shop),
+    async () => {
+      const [totalCustomers, distributionRows] = await Promise.all([
+        db.customer.count({ where: { shop } }),
+        db.$queryRaw`
+          SELECT "currentTierId", COUNT(*)::bigint AS count
+          FROM "Customer"
+          WHERE shop = ${shop}
+          GROUP BY "currentTierId"
+        ` as Promise<Array<{ currentTierId: string | null; count: bigint }>>,
+      ]);
+
+      const tierDistribution: Record<string, number> = {};
+      for (const row of distributionRows) {
+        if (row.currentTierId) {
+          tierDistribution[row.currentTierId] = Number(row.count);
+        }
+      }
+
+      return { tierDistribution, totalCustomers };
+    },
+    CACHE_TTL.tierDistribution
+  );
+}
+
+/**
  * Get multiple shop data in parallel
  * Use this in route loaders for efficient data fetching
  */
@@ -245,6 +289,14 @@ export async function invalidateShopEntitlements(shop: string): Promise<void> {
 export async function invalidateShopBilling(shop: string): Promise<void> {
   await kvDelete(CACHE_KEYS.billing(shop));
   console.log(`[ShopData] Invalidated billing cache for ${shop}`);
+}
+
+/**
+ * Invalidate tier distribution cache.
+ * Call after any tier change (resolver, manual assignment, recalc cron).
+ */
+export async function invalidateTierDistribution(shop: string): Promise<void> {
+  await kvDelete(CACHE_KEYS.tierDistribution(shop));
 }
 
 /**

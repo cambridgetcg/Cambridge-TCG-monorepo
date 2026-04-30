@@ -512,6 +512,7 @@ model Customer {
   @@index([shop]) // Speed up queries by shop
   @@index([email]) // Speed up queries by email
   @@index([shop, shopifyCustomerMetafieldId]) // Speed up storefront widget queries
+  @@index([shop, createdAt(sort: Desc)]) // Default-sort members pagination (no tier filter)
   @@index([shop, currentTierId, createdAt(sort: Desc)]) // Optimize paginated tier-filtered queries
   @@index([shop, storeCredit]) // Optimize credit range filter queries on members page
   @@index([shop, createdAt, orderCount]) // Analytics: cohort queries (customers created in time range with orders)

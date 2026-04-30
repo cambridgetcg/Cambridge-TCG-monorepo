@@ -24,6 +24,7 @@ import { calculateProgress } from "./customer-tier-state-update.server";
 import { createLogger } from "~/services/logger.server";
 import { SentryService } from "~/services/monitoring/sentry.service";
 import { snsEventPublisher } from "./sns-event-publisher.server";
+import { invalidateTierDistribution } from "./shop-data-provider.server";
 
 const logger = createLogger('TierResolution');
 
@@ -745,6 +746,12 @@ export async function updateCustomerToEffectiveTier(
       // but do not fail the tier update — the DB is already committed.
       void publishTierChangeToSNS(shop, customerId, result, context).catch(err =>
         updateLogger.warn('SNS tier-change publish failed (non-fatal)', err)
+      );
+
+      // Tier-distribution stats card on /app/members is cached per-shop;
+      // invalidate so the new state is reflected on the next loader hit.
+      void invalidateTierDistribution(shop).catch(err =>
+        updateLogger.warn('Tier-distribution cache invalidation failed', err)
       );
     }
 
