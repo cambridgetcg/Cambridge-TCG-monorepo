@@ -9,10 +9,18 @@ import { getObject } from "@cambridge-tcg/aws/s3";
 import { createS3ClientOrThrow } from "@cambridge-tcg/aws/s3";
 import ExcelJS from "exceljs";
 
-// Force the S3 client to initialize with wholesale's default region
-createS3ClientOrThrow({ defaultRegion: "eu-west-2" });
+// Lazily initialize the S3 client. Previously called at module load, which
+// broke `next build`: collecting page data imports this module without AWS
+// credentials in the build environment, and createS3ClientOrThrow throws.
+let _s3Initialized = false;
+function ensureS3Initialized(): void {
+  if (_s3Initialized) return;
+  createS3ClientOrThrow({ defaultRegion: "eu-west-2" });
+  _s3Initialized = true;
+}
 
 export async function fetchPriceFeed(): Promise<CardPriceRow[]> {
+  ensureS3Initialized();
   const bucket = process.env.S3_BUCKET || "pricedata-tcg";
   const key = process.env.S3_PRICE_FEED_KEY || "pricefeed/onepiece_pricefeed.xlsx";
 

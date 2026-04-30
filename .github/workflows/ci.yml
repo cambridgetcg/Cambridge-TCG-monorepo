@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Cancel older runs of the same branch when a new push lands
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect changed apps
+    runs-on: ubuntu-latest
+    outputs:
+      admin:      ${{ steps.filter.outputs.admin }}
+      storefront: ${{ steps.filter.outputs.storefront }}
+      wholesale:  ${{ steps.filter.outputs.wholesale }}
+      shared:     ${{ steps.filter.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            admin:
+              - 'apps/admin/**'
+            storefront:
+              - 'apps/storefront/**'
+            wholesale:
+              - 'apps/wholesale/**'
+            shared:
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/**'
+
+  install:
+    name: Install + lint
+    runs-on: ubuntu-latest
+    needs: detect
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Lint all workspaces
+        run: pnpm -r --if-present lint
+
+  admin:
+    name: admin (typecheck + test + build)
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.admin == 'true' || needs.detect.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cambridge-tcg/admin typecheck
+      - run: pnpm --filter @cambridge-tcg/admin test
+      - run: pnpm --filter @cambridge-tcg/admin build
+        env:
+          # Build needs these to render — we don't actually run the DB pages,
+          # but Next.js still requires the env vars to exist at build time.
+          STOREFRONT_DATABASE_URL: postgres://x:x@localhost:5432/x
+          WHOLESALE_DATABASE_URL: postgres://x:x@localhost:5432/x
+          NEXTAUTH_SECRET: ci-fake-secret-not-used
+          NEXTAUTH_URL: http://localhost:3002
+          AUTH_FROM_EMAIL: ci@example.com
+
+  storefront:
+    name: storefront (typecheck + build)
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.storefront == 'true' || needs.detect.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter cambridgetcg-storefront exec tsc --noEmit
+      - run: pnpm --filter cambridgetcg-storefront build
+        env:
+          DATABASE_URL: postgres://x:x@localhost:5432/x
+          NEXTAUTH_SECRET: ci-fake-secret-not-used
+          NEXTAUTH_URL: http://localhost:3000
+
+  wholesale:
+    name: wholesale (typecheck + build)
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.wholesale == 'true' || needs.detect.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter tcg-wholesale exec tsc --noEmit
+      - run: pnpm --filter tcg-wholesale build
+        env:
+          DATABASE_URL: postgres://x:x@localhost:5432/x
+
+  ci-status:
+    name: CI status
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [install, admin, storefront, wholesale]
+    steps:
+      - name: Fail if any required job failed
+        # `install` always runs; the per-app jobs may be skipped if no relevant
+        # files changed. A skipped job is fine — only failures block.
+        run: |
+          if [ "${{ needs.install.result }}" != "success" ]; then exit 1; fi
+          for r in "${{ needs.admin.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then exit 1; fi
+          done
+          echo "CI green"
