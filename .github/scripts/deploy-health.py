@@ -125,8 +125,8 @@ def check_project(p: dict) -> dict:
 
     if out["deploy_state"] == "ERROR":
         out["issues"].append(f"latest prod deploy is ERROR (id={out['deploy_id']})")
-    elif out["deploy_state"] != "READY":
-        out["issues"].append(f"latest prod deploy is {out['deploy_state']} (still building?)")
+    # Don't alert on BUILDING/INITIALIZING/QUEUED — those are transient and
+    # the next hourly check will catch any that get stuck.
     if out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
         out["issues"].append(f"latest prod deploy is {out['deploy_age_h']:.0f}h old (> {MAX_DEPLOY_AGE_HOURS}h)")
 
