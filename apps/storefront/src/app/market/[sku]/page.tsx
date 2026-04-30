@@ -516,6 +516,16 @@ export default function CardMarketPage() {
     return () => clearInterval(pollRef.current);
   }, [fetchBook]);
 
+  // Tab title — once book loads, swap the generic site title for the card
+  // name. /product/[sku] sets a real <title> server-side; this page is a
+  // client component, so we update document.title once we have the data.
+  useEffect(() => {
+    if (!book?.card_name) return;
+    const prev = document.title;
+    document.title = `${book.card_name} ${book.card_number ?? sku} — Cambridge TCG`;
+    return () => { document.title = prev; };
+  }, [book?.card_name, book?.card_number, sku]);
+
   // Analytics fetched once per SKU — trades are infrequent, no need to poll.
   useEffect(() => {
     fetch(`/api/market/${sku}/candles?interval=1d&limit=30`)
@@ -917,9 +927,12 @@ export default function CardMarketPage() {
                     <h3 className="text-sm font-black text-white uppercase tracking-wide">Cambridge TCG Buys This Card</h3>
                   </div>
 
-                  <div className="flex gap-4 items-start">
-                    {/* Left: price + quantity + button */}
-                    <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-4 min-w-[180px]">
+                  {/* Stacked vertical: side-by-side caused word-by-word wrapping
+                      because the parent column is fixed at 320px on md+ and the
+                      description ended up with ~68px of width. */}
+                  <div className="flex flex-col gap-3">
+                    {/* Top: price + quantity + button */}
+                    <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-4">
                       <p className="text-2xl font-bold text-purple-400 mb-0.5">
                         {formatPrice(book.tradein_credit)}
                         <span className="text-sm ml-1.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-semibold">
@@ -993,8 +1006,8 @@ export default function CardMarketPage() {
                       )}
                     </div>
 
-                    {/* Right: messaging */}
-                    <div className="flex-1 space-y-1.5 pt-1">
+                    {/* Bottom: messaging */}
+                    <div className="space-y-1.5">
                       <p className="text-sm text-neutral-300">Always available. Unlimited quantity.</p>
                       <p className="text-sm text-neutral-300">Submit, ship within 7 days, we&rsquo;ll inspect &amp; confirm.</p>
                       <p className="text-sm text-neutral-300">Credit issued after we receive &amp; verify your cards.</p>
