@@ -33,6 +33,7 @@ import {
   InlineGrid,
   Popover,
   Tag,
+  useBreakpoints,
 } from "@shopify/polaris";
 import {
   SearchIcon,
@@ -2105,6 +2106,125 @@ function _CustomerAvatar({ email }: { email: string }) {
   );
 }
 
+/**
+ * Mobile-optimised vertical card row for the member list.
+ * Used in place of IndexTable when the viewport is below the `sm` breakpoint
+ * (~640px). Stacks customer info, tier/activity badges, store credit, and
+ * action buttons on separate lines so nothing gets squeezed.
+ */
+function CustomerMobileCard({
+  customer,
+  shopSettings,
+  onView,
+  onViewOrders,
+  onAssignTier,
+}: {
+  customer: Customer;
+  shopSettings: any;
+  onView: () => void;
+  onViewOrders: () => void;
+  onAssignTier: () => void;
+}) {
+  const initials = (customer.email || '?').substring(0, 2).toUpperCase();
+  const summary = customer.orderSummary;
+  const activityLabel =
+    summary?.activityStatus === 'active' ? 'Active' :
+    summary?.activityStatus === 'at_risk' ? 'At Risk' :
+    summary?.activityStatus === 'dormant' ? 'Dormant' :
+    summary?.activityStatus === 'new' ? 'New' :
+    summary ? 'No Orders' : null;
+  const activityTone =
+    summary?.activityStatus === 'active' ? 'success' :
+    summary?.activityStatus === 'at_risk' ? 'warning' :
+    summary?.activityStatus === 'dormant' ? 'critical' :
+    summary?.activityStatus === 'new' ? 'info' :
+    'attention';
+
+  return (
+    <Card padding="0">
+      <Box padding="300">
+        <BlockStack gap="300">
+          {/* Header: avatar + email + ID — taps to open detail */}
+          <button
+            type="button"
+            onClick={onView}
+            style={{
+              all: 'unset',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              width: '100%',
+            }}
+          >
+            <Avatar customer size="md" initials={initials} />
+            <BlockStack gap="050">
+              <Text variant="bodyMd" fontWeight="semibold" as="span">
+                {customer.email}
+              </Text>
+              <Text variant="bodySm" tone="subdued" as="span">
+                ID: {customer.shopifyCustomerId}
+              </Text>
+            </BlockStack>
+          </button>
+
+          {/* Badges row */}
+          <InlineStack gap="200" wrap>
+            {customer.currentTier ? (
+              <Badge tone={customer.membershipStatus?.isPurchased ? 'info' : 'success'}>
+                {customer.currentTier.name}
+              </Badge>
+            ) : (
+              <Badge tone="attention">No tier</Badge>
+            )}
+            {activityLabel && (
+              <Badge tone={activityTone as any}>{activityLabel}</Badge>
+            )}
+            {customer.hasManualOverride && (
+              <Badge tone="info">Manual</Badge>
+            )}
+            {customer.membershipStatus?.needsRenewal && (
+              <Badge tone="warning">{`Expires ${customer.membershipStatus.daysRemaining}d`}</Badge>
+            )}
+          </InlineStack>
+
+          {/* Metrics row: store credit + order count */}
+          <InlineStack align="space-between" blockAlign="center">
+            <BlockStack gap="050">
+              <Text variant="bodySm" tone="subdued" as="span">Store credit</Text>
+              <StoreCreditDisplay
+                amount={customer.storeCredit}
+                shopSettings={shopSettings}
+                size="small"
+              />
+            </BlockStack>
+            {summary && (
+              <BlockStack gap="050" align="end">
+                <Text variant="bodySm" tone="subdued" as="span">Orders</Text>
+                <Text variant="bodyMd" fontWeight="semibold" as="span">
+                  {summary.orderCount}
+                </Text>
+              </BlockStack>
+            )}
+          </InlineStack>
+
+          {/* Action buttons — full width, primary action prominent */}
+          <InlineStack gap="200">
+            <div style={{ flex: 1 }}>
+              <Button onClick={onViewOrders} fullWidth>Orders</Button>
+            </div>
+            <div style={{ flex: 1 }}>
+              <Button onClick={onAssignTier} variant="primary" fullWidth>
+                Assign Tier
+              </Button>
+            </div>
+          </InlineStack>
+        </BlockStack>
+      </Box>
+    </Card>
+  );
+}
+
 // ============================================
 // SKELETON LOADING STATE
 // ============================================
@@ -2140,6 +2260,7 @@ function CustomersTableContent({
   onBulkTierAssignment,
   onBulkCreditAdjustment,
   onExportSelected,
+  density = 'comfortable',
 }: {
   customers: Customer[];
   pagination: any;
@@ -2155,6 +2276,7 @@ function CustomersTableContent({
   onBulkTierAssignment: () => void;
   onBulkCreditAdjustment: () => void;
   onExportSelected: () => void;
+  density?: 'compact' | 'comfortable';
 }) {
   const navigation = useNavigation();
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
@@ -2333,14 +2455,44 @@ function CustomersTableContent({
     </EmptyState>
   );
 
+  // Switch to vertical card list on small viewports — IndexTable's
+  // condensed mode still renders horizontally and feels cramped below
+  // ~640px. Cards give each customer the full row width.
+  const breakpoints = useBreakpoints();
+  const isMobile = breakpoints.smDown;
+
   return (
     <>
       <Divider />
+      {/* Density-mode CSS: compact tightens IndexTable cell padding ~40%. */}
+      <style>{`
+        .members-density-compact .Polaris-IndexTable__TableCell {
+          padding-block: 8px !important;
+          padding-inline: 12px !important;
+        }
+        .members-density-compact .Polaris-IndexTable__TableHeading {
+          padding-block: 8px !important;
+        }
+      `}</style>
       <Box>
+        <div className={density === 'compact' ? 'members-density-compact' : ''}>
         {customers.length === 0 ? (
           <Box padding="400">
             {emptyStateMarkup}
           </Box>
+        ) : isMobile ? (
+          <BlockStack gap="200">
+            {customers.map((customer) => (
+              <CustomerMobileCard
+                key={customer.id}
+                customer={customer}
+                shopSettings={shopSettings}
+                onView={() => handleViewCustomer(customer.id)}
+                onViewOrders={() => handleViewCustomer(customer.id, 2)}
+                onAssignTier={() => handleManualTierAssignment(customer)}
+              />
+            ))}
+          </BlockStack>
         ) : (
           <IndexTable
             resourceName={resourceName}
@@ -2376,6 +2528,7 @@ function CustomersTableContent({
             {rowMarkup}
           </IndexTable>
         )}
+        </div>
       </Box>
 
       {/* Bottom pagination */}
@@ -2426,6 +2579,14 @@ export default function Customers() {
   const [tierFilter, setTierFilter] = useState(searchParams.get("tier") || "all");
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
   const [pageSize, setPageSize] = useState(parseInt(searchParams.get("pageSize") || "25"));
+  const [density, setDensity] = useState<'compact' | 'comfortable'>(() => {
+    if (typeof window === 'undefined') return 'comfortable';
+    return (window.localStorage.getItem('rewardspro:members:density') as 'compact' | 'comfortable') || 'comfortable';
+  });
+  const handleDensityChange = useCallback((next: 'compact' | 'comfortable') => {
+    setDensity(next);
+    try { window.localStorage.setItem('rewardspro:members:density', next); } catch { /* private browsing */ }
+  }, []);
   const [isCalculating, _setIsCalculating] = useState(false);
   const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -3223,8 +3384,8 @@ export default function Customers() {
         <Card padding="0">
           <Box padding="400">
             <BlockStack gap="400">
-              {/* Header with count and page size selector */}
-              <InlineStack align="space-between" blockAlign="center">
+              {/* Header with count, density toggle, page size selector — wraps on narrow viewports */}
+              <InlineStack align="space-between" blockAlign="center" wrap>
                 <InlineStack gap="200" align="start" blockAlign="center">
                   <Text variant="headingMd" as="h3">
                     Customers
@@ -3234,18 +3395,30 @@ export default function Customers() {
                   </Badge>
                 </InlineStack>
 
-                <Select
-                  label="Items per page"
-                  labelHidden
-                  options={[
-                    { label: '25 per page', value: '25' },
-                    { label: '50 per page', value: '50' },
-                    { label: '100 per page', value: '100' },
-                    { label: '200 per page', value: '200' },
-                  ]}
-                  value={String(pageSize)}
-                  onChange={handlePageSizeChange}
-                />
+                <InlineStack gap="200" blockAlign="center" wrap>
+                  {/* Density toggle — local-only preference, persists in localStorage */}
+                  <Tooltip content={density === 'compact' ? 'Switch to comfortable rows' : 'Switch to compact rows'}>
+                    <Button
+                      onClick={() => handleDensityChange(density === 'compact' ? 'comfortable' : 'compact')}
+                      size="slim"
+                      variant={density === 'compact' ? 'primary' : 'tertiary'}
+                    >
+                      {density === 'compact' ? 'Compact' : 'Comfortable'}
+                    </Button>
+                  </Tooltip>
+                  <Select
+                    label="Items per page"
+                    labelHidden
+                    options={[
+                      { label: '25 per page', value: '25' },
+                      { label: '50 per page', value: '50' },
+                      { label: '100 per page', value: '100' },
+                      { label: '200 per page', value: '200' },
+                    ]}
+                    value={String(pageSize)}
+                    onChange={handlePageSizeChange}
+                  />
+                </InlineStack>
               </InlineStack>
 
               {/* Search and Filters — wraps on narrow viewports so the
@@ -3442,6 +3615,7 @@ export default function Customers() {
           onBulkTierAssignment={handleBulkTierAssignment}
           onBulkCreditAdjustment={handleBulkCreditAdjustment}
           onExportSelected={handleExportSelected}
+          density={density}
         />
       </Card>
 
