@@ -33,6 +33,7 @@ model Session {
   locale        String?
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
+  isActive      Boolean?  @default(true)
 
   @@index([shop]) // Add index for faster lookups by shop
 }
@@ -52,40 +53,28 @@ model ShopSettings {
   // Localization
   timezone String @default("America/New_York") // Time zone
 
-  // White Label Email Settings (Max & Ultra plans only)
-  emailEnabled      Boolean @default(false) // Email notifications enabled
-  emailProvider     String? // Email provider (sendgrid, mailgun, ses, smtp)
-  emailFromName     String? // From name for emails
-  emailFromAddress  String? // From email address
-  emailReplyTo      String? // Reply-to email address
-  emailLogo         String? // URL to custom logo for emails
-  emailPrimaryColor String? // Primary brand color for emails (hex)
-  emailFooterText   String? // Custom footer text for emails
-  emailDomain       String? // Custom email domain (for white label)
+  // White-label email settings — narrowed during Phase 2.5 to only fields
+  // the application actually references. SMTP block + provider creds + monthly
+  // counters were trimmed.
+  emailProvider        String?
+  emailLogo            String?
+  emailPrimaryColor    String?
+  emailSecondaryColor  String?
+  emailBackgroundColor String? @default("#f4f4f4")
+  emailContentBgColor  String? @default("#ffffff")
+  emailLinkColor       String?
+  emailFontFamily      String? @default("Arial, sans-serif")
+  brandKitEnabled      Boolean @default(false)
 
-  // Email Brand Kit (for template builder)
-  emailSecondaryColor  String? // Secondary brand color for emails (hex)
-  emailBackgroundColor String? @default("#f4f4f4") // Email outer background color
-  emailContentBgColor  String? @default("#ffffff") // Email content area background
-  emailLinkColor       String? // Link color in emails (hex)
-  emailFontFamily      String? @default("Arial, sans-serif") // Font family for emails
-  brandKitEnabled      Boolean @default(false) // Use brand kit for new templates
-
-  // Email API Configuration (encrypted in production)
-  emailApiKey       String? // API key for email provider (encrypted)
-  emailApiSecret    String? // API secret if needed (encrypted)
-  emailSmtpHost     String? // SMTP host for custom SMTP
-  emailSmtpPort     Int? // SMTP port
-  emailSmtpUsername String? // SMTP username
-  emailSmtpPassword String? // SMTP password (encrypted)
-
-  // Email Usage Tracking
-  emailsSentThisMonth Int       @default(0) // Count of emails sent this month
-  emailQuotaLimit     Int       @default(0) // Monthly email quota based on plan
-  lastEmailResetDate  DateTime? // Last date email count was reset
-
-  // Email Templates (JSON)
-  emailTemplates Json? // Custom email templates configuration
+  // Onboarding state (preserved from DB during Phase 2.5 reconciliation —
+  // these were "in DB, not in schema" but track real merchant flow state).
+  onboardingSyncedOrders       Boolean @default(false)
+  onboardingCreatedTiers       Boolean @default(false)
+  onboardingSyncedCustomers    Boolean @default(false)
+  onboardingConfiguredSettings Boolean @default(false)
+  onboardingCompleted          Boolean @default(false)
+  onboardingDismissed          Boolean @default(false)
+  widgetLastHeartbeat          DateTime?
 
   // Billing (simplified - using billing.check() as source of truth)
   billingStatus String? @default("INACTIVE") // ACTIVE, INACTIVE, TRIAL (legacy)
@@ -112,7 +101,6 @@ model ShopSettings {
 
   // Customer Account Block Detection (Cache-based)
   customerAccountBlockDismissed Boolean @default(false) // Has merchant clicked "Enable customer account block" button
-  customerAccountBlockIsActive  Boolean @default(false) // Cache of last known block status
 
   currencySelected Boolean @default(false) // Has merchant selected cashback currency
 
@@ -264,6 +252,14 @@ enum EntitlementSource {
   LEGACY // Grandfathered from old billing system
 }
 
+// Mirrors Shopify's customer.state enum.
+enum CustomerState {
+  ENABLED
+  DISABLED
+  INVITED
+  DECLINED
+}
+
 model Tier {
   id               String           @id
   shop             String
@@ -295,10 +291,9 @@ model Tier {
   updatedAt DateTime @updatedAt
 
   // Relations
-  customers      Customer[] // Customers currently in this tier
-  subscriptions  TierSubscription[] // Subscriptions for this tier
-  pricingHistory SubscriptionPricingHistory[] // Pricing change history
-  tierProducts   TierProduct[] // Products for purchasing this tier
+  customers     Customer[] // Customers currently in this tier
+  subscriptions TierSubscription[] // Subscriptions for this tier
+  tierProducts  TierProduct[] // Products for purchasing this tier
   tierPurchases  TierPurchase[] // One-time purchases of this tier
 
   // CustomerTierState relations
@@ -460,6 +455,30 @@ model Customer {
   totalTierTrialDaysUsed  Int       @default(0) // Accumulated trial days across all tiers
   lastTierTrialTierId     String? // Last tier that granted a trial
   tierTrialHistory        Json? // Array of {tierId, tierName, daysUsed, startedAt}
+
+  // Shopify customer metadata (from sync) — re-added to schema during Phase 2.5
+  // reconciliation. These live in the DB with safe defaults; reflecting them
+  // here gives type safety and unblocks Prisma's INSERT path.
+  state                     CustomerState? @default(ENABLED)
+  marketingConsentUpdatedAt DateTime?
+  verifiedEmail             Boolean?       @default(false)
+  note                      String?        @db.Text
+  ordersCount               Int?           @default(0) // Shopify-reported orders_count (separate from our orderCount)
+  metadata                  Json?
+  isGuest                   Boolean?       @default(false)
+  hasAccount                Boolean?       @default(true)
+  fingerprint               String?
+
+  // GDPR / customer-redaction fields — required for compliance.
+  companyId       String?
+  previousEmails  Json?
+  emailChangedAt  DateTime?
+  mergedFromIds   Json?
+  mergedIntoId    String?
+  isDeleted       Boolean?  @default(false)
+  deletedAt       DateTime?
+  isRedacted      Boolean?  @default(false)
+  redactedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -774,6 +793,11 @@ model StoreCreditLedger {
   // Point expiration (for storefront widgets)
   expiresAt DateTime? // When points expire (null = never expires)
 
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  isExpired   Boolean? @default(false)
+  currency    String?  @default("USD")
+  description String?  @db.Text
+
   createdAt DateTime @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id])
@@ -998,6 +1022,14 @@ model BillingSubscription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  planName         String?
+  status           String?  @default("PENDING")
+  isTest           Boolean? @default(false)
+  cappedAmount     Decimal? @db.Decimal(10, 2)
+  balanceUsed      Decimal? @default(0) @db.Decimal(10, 2)
+  balanceRemaining Decimal? @db.Decimal(10, 2)
+
   @@index([shop])
   @@index([subscriptionStatus])
 }
@@ -1179,6 +1211,9 @@ model UsageRecord {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Legacy DB-side field preserved during Phase 2.5 reconciliation.
+  billingPlanId String?
+
   // Indexes for queries
   @@index([shop, processedAt(sort: Desc)]) // Recent usage by shop
   @@index([shop, idempotencyKey]) // For idempotency checks
@@ -1222,6 +1257,9 @@ model BillingHistory {
   // Metadata
   metadata  Json? // Additional event data
   createdAt DateTime @default(now())
+
+  // Legacy DB-side field preserved during Phase 2.5 reconciliation.
+  billingPlanId String?
 
   @@index([shop, createdAt(sort: Desc)])
   @@index([eventType])
@@ -1273,36 +1311,6 @@ model BillingAuditLog {
 // ============================================
 // USAGE CAP ALERT MODEL (Phase 1)
 // ============================================
-
-model UsageCapAlert {
-  id   String @id @default(uuid())
-  shop String
-
-  // Subscription details
-  subscriptionId   String // Shopify AppSubscription GID
-  subscriptionName String // Plan name (e.g., "RewardsPro Pro")
-
-  // Usage details
-  cappedAmount     Decimal @db.Decimal(10, 2) // Maximum allowed usage
-  balanceUsed      Decimal @db.Decimal(10, 2) // Current usage
-  balanceRemaining Decimal @db.Decimal(10, 2) // Remaining before cap
-  usagePercentage  Decimal @db.Decimal(5, 2) // Percentage of cap used
-
-  // Alert level
-  alertLevel String // WARNING (>80%), CRITICAL (>95%)
-
-  // Notification tracking
-  notificationSent Boolean   @default(false)
-  notifiedAt       DateTime?
-
-  // Metadata
-  metadata  Json? // Additional webhook data
-  createdAt DateTime @default(now())
-
-  @@index([shop, createdAt(sort: Desc)]) // Recent alerts by shop
-  @@index([shop, usagePercentage]) // Query by usage level
-  @@index([alertLevel, notificationSent]) // Find unsent critical alerts
-}
 
 // ============================================
 // APP-LEVEL SUBSCRIPTION MODELS
@@ -1455,39 +1463,6 @@ model MonthlyOrderUsage {
 }
 
 // Monthly email usage tracking (rate-based gating)
-model MonthlyEmailUsage {
-  id   String @id @default(uuid())
-  shop String
-
-  // Period tracking
-  year  Int // e.g., 2025
-  month Int // 1-12
-
-  // Usage tracking
-  emailCount Int    @default(0)
-  planLimit  Int // 50 for free, 500 for pro, 2000 for max, unlimited for ultra
-  planName   String // Current plan name
-
-  // Breakdown by type
-  campaignEmails      Int @default(0) // Marketing campaigns
-  automationEmails    Int @default(0) // Triggered automations
-  transactionalEmails Int @default(0) // Order confirmations, etc.
-
-  // Lock state (for plan enforcement - soft limit)
-  isLocked   Boolean   @default(false)
-  lockedAt   DateTime? // When sending was blocked
-  lockReason String? // Why emails were blocked
-
-  // Metadata
-  lastEmailDate DateTime? // Last email sent
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@unique([shop, year, month])
-  @@index([shop, year, month])
-  @@index([shop, isLocked])
-}
-
 // ============================================
 // SUBSCRIPTION MODELS
 // ============================================
@@ -1559,6 +1534,20 @@ model TierSubscription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  // monthlyPrice is NOT NULL in DB without a default — must stay required to
+  // satisfy INSERTs.
+  monthlyPrice       Decimal   @db.Decimal(10, 2)
+  lastBillingAmount  Decimal?  @db.Decimal(10, 2)
+  activatedAt        DateTime?
+  failureCount       Int       @default(0)
+  lastFailureReason  String?
+  shopifyContractId  String?
+  shopifyOrderId     String?
+  startDate          DateTime?
+  endDate            DateTime?
+  currentPrice       Decimal?  @db.Decimal(10, 2)
+
   @@index([shop, customerId])
   @@index([shop, status])
   @@index([subscriptionContractId])
@@ -1599,6 +1588,15 @@ model SubscriptionBillingAttempt {
 
   createdAt DateTime @default(now())
 
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  // billingDate + updatedAt are NOT NULL in DB without defaults.
+  billingDate      DateTime
+  shopifyChargeId  String?
+  shopifyInvoiceId String?
+  processedAt      DateTime?
+  metadata         Json?
+  updatedAt        DateTime @updatedAt
+
   @@index([subscriptionId, status])
   @@index([scheduledFor])
   @@index([idempotencyKey])
@@ -1623,6 +1621,11 @@ model SellingPlanGroup {
   metadata  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  summary  String?  @db.Text
+  active   Boolean  @default(true)
+  position Int?
 
   @@index([shop])
   @@index([shopifySellingPlanGroupId])
@@ -1659,8 +1662,14 @@ model SellingPlan {
   currentDiscount Decimal?  @db.Decimal(5, 2)
   lastPriceUpdate DateTime?
 
-  // Relations
-  pricingHistory SubscriptionPricingHistory[] // Pricing change history
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  // sellingPlanGroupId, shopifySellingPlanId, updatedAt are NOT NULL in DB
+  // without defaults — must stay required so Prisma's INSERT supplies them.
+  sellingPlanGroupId   String
+  shopifySellingPlanId String
+  description          String?  @db.Text
+  active               Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
 
   @@index([groupId])
   @@index([shopifyPlanId])
@@ -1669,32 +1678,6 @@ model SellingPlan {
 // ============================================
 // PRICING MANAGEMENT MODELS
 // ============================================
-
-model SubscriptionPricingHistory {
-  id               String          @id @default(uuid())
-  shop             String
-  sellingPlanId    String?
-  sellingPlan      SellingPlan?    @relation(fields: [sellingPlanId], references: [id], onDelete: SetNull)
-  tierId           String?
-  tier             Tier?           @relation(fields: [tierId], references: [id], onDelete: SetNull)
-  billingInterval  BillingInterval
-  previousPrice    Decimal         @db.Decimal(10, 2)
-  newPrice         Decimal         @db.Decimal(10, 2)
-  previousDiscount Decimal         @db.Decimal(5, 2)
-  newDiscount      Decimal         @db.Decimal(5, 2)
-  changedBy        String // Admin user ID
-  changeReason     String?
-  effectiveDate    DateTime
-  appliedToActive  Boolean         @default(false) // Whether applied to active subscriptions
-  affectedCount    Int             @default(0) // Number of affected subscriptions
-  revenueImpact    Decimal?        @db.Decimal(10, 2) // Estimated revenue impact
-  metadata         Json?
-  createdAt        DateTime        @default(now())
-
-  @@index([shop, sellingPlanId])
-  @@index([shop, tierId])
-  @@index([shop, effectiveDate])
-}
 
 model SubscriptionPricingConfig {
   id                  String   @id @default(uuid())
@@ -1830,18 +1813,6 @@ model SubscriptionEvent {
 }
 
 // Distributed lock for webhook deduplication
-model SubscriptionProcessingLock {
-  id         String   @id @default(uuid())
-  lockKey    String   @unique // Unique identifier for the operation being locked
-  operation  String // Type of operation (e.g., "webhook:CONTRACT_CREATE")
-  acquiredAt DateTime @default(now())
-  expiresAt  DateTime // When the lock should auto-expire
-  metadata   Json? // Additional context about the lock
-
-  @@index([expiresAt]) // For cleanup queries
-  @@index([operation, acquiredAt]) // For monitoring
-}
-
 // ============================================
 // ORDER TRACKING MODELS
 // ============================================
@@ -2232,16 +2203,6 @@ model WebhookProcessed {
 // Distributed lock for cron jobs to prevent concurrent execution
 // When a cron job starts, it tries to create a lock with unique jobName
 // If creation fails (unique constraint), another instance is running
-model CronLock {
-  id         String   @id @default(uuid())
-  jobName    String   @unique // Only one lock per job type
-  lockedAt   DateTime @default(now())
-  expiresAt  DateTime // Auto-release if instance crashes
-  instanceId String? // Vercel deployment ID or similar
-
-  @@index([expiresAt]) // For cleanup queries
-}
-
 model DeadLetterQueue {
   id        String   @id @default(uuid())
   webhookId String?
@@ -2851,41 +2812,8 @@ model KlaviyoAutomationSettings {
   winBackCooldownDays         Int @default(30)
   tierNudgeCooldownDays       Int @default(14)
 
-  // ============================================
-  // Rewards Engagement Event Toggles
-  // ============================================
-
-  // Points events
-  sendPointsEvents Boolean @default(true) // Points earned/spent/milestone
-
-  // Raffle events
-  sendRaffleEvents Boolean @default(true) // Raffle entry/win/ending soon
-
-  // Mystery box events
-  sendMysteryBoxEvents Boolean @default(true) // Mystery box open/win
-
-  // General rewards engagement
-  sendRewardsEngagement Boolean @default(true) // Challenges, bonus events, dormancy
-
-  // Rewards engagement timing
-  rewardsDormancyDays    Int @default(30) // Days without rewards activity
-  raffleReminderHours    Int @default(24) // Hours before raffle ends
-  highPointsThreshold    Int @default(500) // Points balance to trigger reminder
-  highPointsDormancyDays Int @default(14) // Days without spend
-
-  // ============================================
-  // Gift Card & Store Credit Event Toggles
-  // ============================================
-
-  // Gift card events
-  sendGiftCardEvents Boolean @default(true) // Gift card purchased/received/redeemed/expiring
-
-  // Store credit events
-  sendStoreCreditEvents Boolean @default(true) // Credit earned/spent/converted/milestone/reminder
-
-  // Gift card/store credit timing
-  giftCardExpiryWarningDays Int @default(7) // Days before gift card expires
-  storeCreditReminderDays   Int @default(30) // Days of unused store credit
+  // Rewards engagement, gift-card, and store-credit event toggles were
+  // scaffolded but never wired into the application; trimmed during Phase 2.5.
 
   // Scheduling
   scheduledJobTime String @default("06:00") // HH:MM in shop timezone
