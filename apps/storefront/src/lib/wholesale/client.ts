@@ -1,5 +1,10 @@
-const WHOLESALE_URL = process.env.WHOLESALE_API_URL || 'https://wholesaletcgdirect.com';
-const WHOLESALE_KEY = process.env.WHOLESALE_API_KEY || '';
+// .trim() is required: Vercel env vars sometimes carry a trailing newline,
+// and an Authorization header value with a newline at the end produces a
+// 401 because the wholesale API SHA256s the raw bytes against a hash of
+// the trimmed key. See storefront/CLAUDE.md "All env vars must be .trim()'d
+// when used as API keys (Vercel whitespace issue)".
+const WHOLESALE_URL = (process.env.WHOLESALE_API_URL || 'https://wholesaletcgdirect.com').trim();
+const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 
 // Per-call timeout for the wholesale API. Without this, a hung connection
 // would hold the request thread indefinitely (Node's fetch has no default
