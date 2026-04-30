@@ -10,6 +10,37 @@ import type { SqlParameter } from "@aws-sdk/client-rds-data";
 import * as crypto from "crypto";
 
 /**
+ * Convert a Prisma TemplateStringsArray-shaped sql object into a Data API
+ * compatible (SQL string with `:paramN` placeholders, SqlParameter[] array)
+ * pair.
+ *
+ * Aurora Data API only supports `:named` parameters — NOT `?` positional
+ * MySQL-style placeholders. Earlier versions of this adapter joined
+ * `sql.strings` with `?`, which silently failed every parameterised raw
+ * query in production (errors hidden inside safeQuery wrappers).
+ *
+ * Example:
+ *   strings = ['SELECT * WHERE shop = ', ' AND created > ', '']
+ *   values  = ['foo.myshopify.com', new Date(...)]
+ *   →
+ *   query   = 'SELECT * WHERE shop = :param0 AND created > :param1'
+ *   params  = [{name: 'param0', value: {stringValue: 'foo...'}}, ...]
+ */
+function buildRawQuery(
+  strings: readonly string[],
+  values: readonly any[]
+): { query: string; parameters: SqlParameter[] } {
+  let query = strings[0] ?? "";
+  for (let i = 0; i < values.length; i++) {
+    query += `:param${i}` + (strings[i + 1] ?? "");
+  }
+  const parameters = values.map((value, index) =>
+    AuroraDataAPI.buildParameter(`param${index}`, value)
+  );
+  return { query, parameters };
+}
+
+/**
  * Base model proxy that provides Prisma-like methods using Data API
  */
 export class DataAPIModelProxy<T = any> {
@@ -2155,50 +2186,24 @@ export function createDataAPIPrismaClient() {
 
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
-            // Handle Prisma template literal syntax
             if (typeof sql === 'object' && sql.strings) {
-              const query = sql.strings.join('?');
-              const result = await execute(query, []);
+              const { query, parameters } = buildRawQuery(sql.strings, sql.values || []);
+              const result = await execute(query, parameters);
               return result.numberOfRecordsUpdated || 0;
             }
             const result = await execute(sql, params);
             return result.numberOfRecordsUpdated || 0;
           },
           $queryRaw: async (sql: any, ...params: any[]) => {
-            // Handle Prisma template literal syntax
             if (typeof sql === 'object' && sql.strings) {
-              const query = sql.strings.join('?');
-              const values = sql.values || [];
-
-              // Debug logging for search queries
-              console.log('[Data API Adapter] $queryRaw (transaction) - Template literal detected');
-              console.log('[Data API Adapter] SQL template strings:', sql.strings);
-              console.log('[Data API Adapter] SQL values:', values);
-              console.log('[Data API Adapter] Constructed query:', query);
-              console.log('[Data API Adapter] Values count:', values.length);
-
-              // Convert plain values to SqlParameter format
-              const sqlParameters = values.map((value: any, index: number) =>
-                AuroraDataAPI.buildParameter(`param${index}`, value)
-              );
-
-              console.log('[Data API Adapter] Formatted SQL parameters:', sqlParameters);
-
+              const { query, parameters } = buildRawQuery(sql.strings, sql.values || []);
               try {
-                const result = await execute(query, sqlParameters);
-
-                console.log('[Data API Adapter] Query executed successfully');
-                console.log('[Data API Adapter] Records returned:', result.records?.length ?? 0);
-
+                const result = await execute(query, parameters);
                 return result.records;
               } catch (error: any) {
-                console.error('[Data API Adapter] Transaction query execution FAILED');
-                console.error('[Data API Adapter] Error name:', error.name);
-                console.error('[Data API Adapter] Error message:', error.message);
-                console.error('[Data API Adapter] Query that failed:', query);
-                console.error('[Data API Adapter] Values that failed:', values);
-                console.error('[Data API Adapter] Formatted parameters:', sqlParameters);
-                console.error('[Data API Adapter] Full error:', error);
+                console.error('[Data API Adapter] Transaction $queryRaw failed:', error.message);
+                console.error('[Data API Adapter] Query:', query);
+                console.error('[Data API Adapter] Parameters:', parameters);
                 throw error;
               }
             }
@@ -2212,30 +2217,29 @@ export function createDataAPIPrismaClient() {
 
     // Raw query support
     $executeRaw: async (sql: any, ...params: any[]) => {
-      console.log("$executeRaw called with:", { sql, params, type: typeof sql });
-      
       // Handle Prisma template literal syntax
       if (typeof sql === 'object' && sql !== null) {
-        console.log("SQL object keys:", Object.keys(sql));
-        console.log("SQL object:", JSON.stringify(sql, null, 2));
-        
-        // Check for Prisma's raw query format
+        // Prisma's text/sql + values format (rare; from $executeRawUnsafe-style internal callers)
         if (sql.text || sql.sql) {
           const query = sql.text || sql.sql;
-          const result = await client.executeStatement(query, sql.values || []);
+          const values = sql.values || [];
+          const parameters = values.map((value: any, index: number) =>
+            AuroraDataAPI.buildParameter(`param${index}`, value)
+          );
+          const result = await client.executeStatement(query, parameters);
           return result.numberOfRecordsUpdated || 0;
         }
-        
-        // Check for template literal format
+
+        // Template literal format (the common path, from `prisma.$executeRaw`)
         if (sql.strings) {
-          const query = sql.strings.join('?');
-          const result = await client.executeStatement(query, sql.values || []);
+          const { query, parameters } = buildRawQuery(sql.strings, sql.values || []);
+          const result = await client.executeStatement(query, parameters);
           return result.numberOfRecordsUpdated || 0;
         }
-        
+
         throw new Error("Unsupported SQL format for $executeRaw");
       }
-      
+
       // Regular string query
       const result = await client.executeStatement(sql, params);
       return result.numberOfRecordsUpdated || 0;
@@ -2244,38 +2248,14 @@ export function createDataAPIPrismaClient() {
     $queryRaw: async (sql: any, ...params: any[]) => {
       // Handle Prisma template literal syntax
       if (typeof sql === 'object' && sql.strings) {
-        const query = sql.strings.join('?');
-        const values = sql.values || [];
-
-        // Debug logging for search queries
-        console.log('[Data API Adapter] $queryRaw (main) - Template literal detected');
-        console.log('[Data API Adapter] SQL template strings:', sql.strings);
-        console.log('[Data API Adapter] SQL values:', values);
-        console.log('[Data API Adapter] Constructed query:', query);
-        console.log('[Data API Adapter] Values count:', values.length);
-
-        // Convert plain values to SqlParameter format
-        const sqlParameters = values.map((value: any, index: number) =>
-          AuroraDataAPI.buildParameter(`param${index}`, value)
-        );
-
-        console.log('[Data API Adapter] Formatted SQL parameters:', sqlParameters);
-
+        const { query, parameters } = buildRawQuery(sql.strings, sql.values || []);
         try {
-          const result = await client.executeStatement(query, sqlParameters);
-
-          console.log('[Data API Adapter] Query executed successfully');
-          console.log('[Data API Adapter] Records returned:', result.records?.length ?? 0);
-
+          const result = await client.executeStatement(query, parameters);
           return result.records;
         } catch (error: any) {
-          console.error('[Data API Adapter] Query execution FAILED');
-          console.error('[Data API Adapter] Error name:', error.name);
-          console.error('[Data API Adapter] Error message:', error.message);
-          console.error('[Data API Adapter] Query that failed:', query);
-          console.error('[Data API Adapter] Values that failed:', values);
-          console.error('[Data API Adapter] Formatted parameters:', sqlParameters);
-          console.error('[Data API Adapter] Full error:', error);
+          console.error('[Data API Adapter] $queryRaw failed:', error.message);
+          console.error('[Data API Adapter] Query:', query);
+          console.error('[Data API Adapter] Parameters:', parameters);
           throw error;
         }
       }

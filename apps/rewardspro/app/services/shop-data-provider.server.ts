@@ -197,10 +197,10 @@ export async function getBillingSubscription(shop: string): Promise<BillingSubsc
 /**
  * Get tier distribution + total customer count for a shop, cached.
  *
- * Aurora Data API adapter has a bug with prisma.$queryRaw template-literal
- * parameters (joins with `?` instead of `:named`), so we use findMany via
- * the model proxy and count in memory. The KV cache (5-min TTL) amortises
- * the O(N) cost across requests — typical hit rate ~90%.
+ * Uses raw SQL GROUP BY (now safe after fixing the Data API adapter's
+ * template-literal placeholder bug — it correctly emits `:paramN` instead
+ * of `?`). Returns one row per tier, never per customer, so the underlying
+ * cost is O(N_tiers) not O(N_customers).
  *
  * TTL: 5 minutes. Invalidate via invalidateTierDistribution on tier change.
  */
@@ -208,18 +208,20 @@ export async function getTierDistribution(shop: string): Promise<TierDistributio
   return kvGetOrCompute(
     CACHE_KEYS.tierDistribution(shop),
     async () => {
-      const [totalCustomers, customersWithTiers] = await Promise.all([
+      const [totalCustomers, distributionRows] = await Promise.all([
         db.customer.count({ where: { shop } }),
-        db.customer.findMany({
-          where: { shop },
-          select: { currentTierId: true },
-        }),
+        db.$queryRaw`
+          SELECT "currentTierId", COUNT(*)::bigint AS count
+          FROM "Customer"
+          WHERE shop = ${shop}
+          GROUP BY "currentTierId"
+        ` as Promise<Array<{ currentTierId: string | null; count: number | bigint }>>,
       ]);
 
       const tierDistribution: Record<string, number> = {};
-      for (const c of customersWithTiers) {
-        if (c.currentTierId) {
-          tierDistribution[c.currentTierId] = (tierDistribution[c.currentTierId] || 0) + 1;
+      for (const row of distributionRows) {
+        if (row.currentTierId) {
+          tierDistribution[row.currentTierId] = Number(row.count);
         }
       }
 
