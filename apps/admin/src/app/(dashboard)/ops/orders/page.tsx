@@ -8,6 +8,7 @@
  * Filters via URL params: ?q=<email-substring>&status=<one>&page=<n>
  */
 import { sfQuery } from "@/lib/db";
+import { fmtDateTime } from "@/lib/format";
 import Link from "next/link";
 
 // Root layout's title template appends "— Cambridge TCG Admin"; don't double it.
@@ -184,7 +185,6 @@ export default async function Page({
                 const itemCount = Array.isArray(items)
                   ? items.reduce((s, it) => s + (it.qty ?? 1), 0)
                   : 0;
-                const date = new Date(r.created_at);
                 return (
                   <tr key={r.id} className="hover:bg-neutral-900/50">
                     <td className="px-3 py-2">
@@ -215,8 +215,8 @@ export default async function Page({
                         <span className="text-neutral-600">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs text-neutral-400">
-                      {date.toLocaleDateString()} {date.toLocaleTimeString().slice(0, 5)}
+                    <td className="px-3 py-2 text-xs text-neutral-400 whitespace-nowrap">
+                      {fmtDateTime(r.created_at)}
                     </td>
                   </tr>
                 );

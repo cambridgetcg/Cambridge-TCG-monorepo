@@ -4,6 +4,16 @@ This is `@cambridge-tcg/admin`, the unified admin console at `localhost:3002` /
 `admin.cambridgetcg.com`. Built on Next.js 16, React 19, NextAuth v5, raw
 SQL via `postgres.js`. No ORM, no shadcn/ui, no zod.
 
+## Module review playbook (READ THIS BEFORE BUILDING)
+
+Whenever you start, finish, or audit a page, follow
+[`docs/review-playbook.md`](docs/review-playbook.md). Six named categories:
+**A** Inventory, **B** Reconnaissance, **C** Live verification (Playwright MCP
+walk after `/api/dev-signin`), **D** Bug fix in-session, **E** Root-cause
+investigation, **F** Mission authoring (writes to
+`~/Love/memory/dev-state.json`). The playbook is the loom for every TCG admin
+mission — pre-build, post-build, and routine drift checks all run through it.
+
 ## Stack quickreference
 - Next.js 16 (App Router, Turbopack), React 19, TypeScript 5
 - NextAuth v5, magic-link only (`src/lib/auth/`)
@@ -234,11 +244,63 @@ Files prefixed with `_` are kept out of the route table by Next.js.
 
 ## Testing
 
-- `pnpm --filter @cambridge-tcg/admin test` — Vitest
-- `pnpm --filter @cambridge-tcg/admin typecheck`
-- For navigation/route tests, append to `src/tests/nav.test.ts`
-- Don't use the Drizzle query builder for admin pages — raw SQL via
-  `sfQuery`/`wsQuery` only
+### Vitest (unit + integration)
+- `pnpm --filter @cambridge-tcg/admin test` — run all Vitest tests
+- `pnpm --filter @cambridge-tcg/admin typecheck` — TypeScript check
+- Navigation/route tests live in `src/tests/nav.test.ts`
+
+### Smoke runner (fast, no browser)
+Run this **before claiming acceptance** on any module:
+
+```bash
+# Start the dev server first
+pnpm --filter @cambridge-tcg/admin dev
+
+# In another terminal:
+pnpm --filter @cambridge-tcg/admin smoke
+```
+
+Discovers all 26 dashboard routes from the filesystem, signs in via
+`/api/dev-signin`, fetches each route, and outputs a markdown report.
+Exits 1 on any non-200 or error boundary. Runs in <60s.
+
+### Playwright E2E (browser, full verification)
+```bash
+pnpm --filter @cambridge-tcg/admin test:e2e        # run all specs
+pnpm --filter @cambridge-tcg/admin test:e2e:ui     # interactive UI mode
+pnpm --filter @cambridge-tcg/admin test:e2e --grep "/trust/disputes"  # single route
+```
+
+Three spec templates in `apps/admin/tests/`:
+- `smoke.spec.ts` — auto-generated from filesystem, asserts 200 + no error boundary on all routes
+- `manager.template.spec.ts` — copy for Manager-archetype pages (search, table, state transition)
+- `dashboard.template.spec.ts` — copy for Dashboard-archetype pages (KPI counts, deep links)
+
+**When you build a new admin page:**
+1. Copy the matching template spec (`manager.template.spec.ts` or `dashboard.template.spec.ts`)
+2. Rename to `<group>-<module>.spec.ts` in `apps/admin/tests/`
+3. Fill in the route, title pattern, and assertions for your module
+4. Run `pnpm --filter @cambridge-tcg/admin smoke` — verify 200 + no error boundary
+5. Run `pnpm --filter @cambridge-tcg/admin test:e2e` — verify all assertions pass
+6. Include test results in your PR / mission completion notes
+
+### Playwright MCP (interactive — for Gamma/review sessions)
+The `.mcp.json` at the repo root registers the Playwright MCP server.
+Any Claude Code session opened in this repo can use it:
+
+```
+Playwright MCP: navigate http://localhost:3002/api/dev-signin
+Playwright MCP: navigate http://localhost:3002/<route>
+Playwright MCP: browser_snapshot target=main
+Playwright MCP: browser_console_messages level=error
+```
+
+Follow the Category C workflow in `docs/review-playbook.md`.
+
+### Rules
+- Don't use the Drizzle query builder — raw SQL via `sfQuery`/`wsQuery` only
+- Keep smoke passing: every new route added to the filesystem is covered automatically
+- Don't mark a mission `review` or `done` until `smoke` exits 0
 
 ## Optional env vars
 

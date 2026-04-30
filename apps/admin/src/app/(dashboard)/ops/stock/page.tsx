@@ -65,8 +65,14 @@ interface ReorderRow {
   toOrder: number;
 }
 
+interface ReorderResult {
+  rows: ReorderRow[];
+  total: number;
+}
+
 interface MovementRow {
-  id: number;
+  /** Prefixed key — "m-<id>" for stock_movements, "a-<id>" for stock_adjustments */
+  id: string;
   card_id: number;
   card_name: string | null;
   kind: string;
@@ -136,7 +142,7 @@ async function fetchLevels(
   return { rows, total, hasReservedColumn };
 }
 
-async function fetchReorderQueue(): Promise<ReorderRow[]> {
+async function fetchReorderQueue(): Promise<ReorderResult> {
   // Use packages/stock's listReorderQueue — it handles the price-band join
   const { db } = wholesaleDb();
 
@@ -152,71 +158,105 @@ async function fetchReorderQueue(): Promise<ReorderRow[]> {
   // If this approach causes issues in a future mission, the fix is to expose
   // listReorderQueue as a standalone function that only needs a DbClient.
   try {
-    // Fallback to direct SQL — more reliable in the prototype context
-    const { rows } = await wsQuery<{
-      card_id: number;
-      sku: string;
-      name: string;
-      current_stock: number;
-      pending_stock: number;
-      target_qty: number;
-      to_order: number;
-    }>(
-      `SELECT
-         c.id as card_id,
-         c.sku,
-         COALESCE(c.name, c.sku) as name,
-         c.stock as current_stock,
-         COALESCE(c.pending_stock, 0) as pending_stock,
-         st.target_qty,
-         GREATEST(st.target_qty - c.stock - COALESCE(c.pending_stock, 0), 0) as to_order
-       FROM cards c
-       JOIN stock_targets st
-         ON c.price >= st.price_min AND c.price < st.price_max
-       WHERE st.target_qty - c.stock - COALESCE(c.pending_stock, 0) >= 1
-       ORDER BY (st.target_qty - c.stock - COALESCE(c.pending_stock, 0)) DESC
-       LIMIT $1`,
-      [LOW_STOCK_LIMIT]
-    );
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      wsQuery<{
+        card_id: number;
+        sku: string;
+        name: string;
+        current_stock: number;
+        pending_stock: number;
+        target_qty: number;
+        to_order: number;
+      }>(
+        `SELECT
+           c.id as card_id,
+           c.sku,
+           COALESCE(c.name, c.sku) as name,
+           c.stock as current_stock,
+           COALESCE(c.pending_stock, 0) as pending_stock,
+           st.target_qty,
+           GREATEST(st.target_qty - c.stock - COALESCE(c.pending_stock, 0), 0) as to_order
+         FROM cards c
+         JOIN stock_targets st
+           ON c.price >= st.price_min AND c.price < st.price_max
+         WHERE st.target_qty - c.stock - COALESCE(c.pending_stock, 0) >= 1
+         ORDER BY (st.target_qty - c.stock - COALESCE(c.pending_stock, 0)) DESC
+         LIMIT $1`,
+        [LOW_STOCK_LIMIT]
+      ),
+      wsQuery<{ n: string }>(
+        `SELECT COUNT(*)::text AS n
+         FROM cards c
+         JOIN stock_targets st
+           ON c.price >= st.price_min AND c.price < st.price_max
+         WHERE st.target_qty - c.stock - COALESCE(c.pending_stock, 0) >= 1`,
+        []
+      ),
+    ]);
 
-    return rows.map((r) => ({
-      cardId: r.card_id,
-      sku: r.sku,
-      name: r.name,
-      currentStock: Number(r.current_stock),
-      pendingStock: Number(r.pending_stock),
-      targetQty: Number(r.target_qty),
-      toOrder: Number(r.to_order),
-    }));
+    return {
+      total: parseInt(countRows[0]?.n ?? "0", 10),
+      rows: rows.map((r) => ({
+        cardId: r.card_id,
+        sku: r.sku,
+        name: r.name,
+        currentStock: Number(r.current_stock),
+        pendingStock: Number(r.pending_stock),
+        targetQty: Number(r.target_qty),
+        toOrder: Number(r.to_order),
+      })),
+    };
   } catch (err) {
     // stock_targets table may not exist yet
     console.error("[stock-page] reorder queue error:", err);
-    return [];
+    return { rows: [], total: 0 };
   }
 }
 
 async function fetchRecentMovements(): Promise<MovementRow[]> {
-  // Direct SQL — StockReader.getMovements requires a cardId (Gap #2)
+  // Two parallel ledgers exist during the migration to @cambridge-tcg/stock:
+  //   - stock_movements: new package ledger (Shopify sales, fulfillment, etc.)
+  //     written via stock.writer.recordSale/recordPurchase/recordAdjustment.
+  //   - stock_adjustments: legacy table; manual corrections from
+  //     /admin/stock-adjustments still write here (and dual-write to
+  //     stock_movements after 2026-04-27, but historical rows are
+  //     adjustment-only). All 677 existing rows predate the new ledger.
+  // Union them so the feed reflects every stock change while migration is
+  // in progress. See packages/stock/src/schema.ts and the comment in
+  // apps/wholesale/drizzle/0008_stock_package_tables.sql for context.
   try {
     const { rows } = await wsQuery<MovementRow>(
-      `SELECT
-         sm.id,
-         sm.card_id,
-         COALESCE(c.name, c.sku, sm.card_id::text) as card_name,
-         sm.kind,
-         sm.delta,
-         sm.reference_id,
-         sm.channel,
-         sm.created_at
-       FROM stock_movements sm
-       LEFT JOIN cards c ON c.id = sm.card_id
-       ORDER BY sm.created_at DESC
+      `SELECT * FROM (
+         SELECT
+           ('m-' || sm.id::text) AS id,
+           sm.card_id,
+           COALESCE(c.name, c.sku, sm.card_id::text) AS card_name,
+           sm.kind,
+           sm.delta,
+           sm.reference_id,
+           sm.channel,
+           sm.created_at
+         FROM stock_movements sm
+         LEFT JOIN cards c ON c.id = sm.card_id
+         UNION ALL
+         SELECT
+           ('a-' || sa.id::text) AS id,
+           sa.card_id,
+           COALESCE(c.name, c.sku, sa.card_id::text) AS card_name,
+           sa.reason AS kind,
+           sa.delta,
+           NULL AS reference_id,
+           'manual_legacy' AS channel,
+           sa.created_at
+         FROM stock_adjustments sa
+         LEFT JOIN cards c ON c.id = sa.card_id
+       ) m
+       ORDER BY m.created_at DESC
        LIMIT $1`,
       [MOVEMENTS_LIMIT]
     );
     return rows;
   } catch (err) {
-    // stock_movements table may not exist yet
     console.error("[stock-page] movements error:", err);
     return [];
   }
@@ -308,6 +348,8 @@ function KindBadge({ kind }: { kind: string }) {
     damage: "bg-neutral-500/10 text-neutral-400",
     loss: "bg-neutral-500/10 text-neutral-400",
     found: "bg-teal-500/10 text-teal-400",
+    count: "bg-indigo-500/10 text-indigo-400",
+    other: "bg-neutral-500/10 text-neutral-400",
   };
   const cls = colours[kind] ?? "bg-neutral-500/10 text-neutral-400";
   return (
@@ -418,17 +460,26 @@ async function LevelsSection({
 // ─── Section: Low-Stock / Reorder Queue ──────────────────────────────────────
 
 async function ReorderSection() {
-  const rows = await fetchReorderQueue();
+  const { rows, total } = await fetchReorderQueue();
+  const capped = total > rows.length;
 
   return (
     <section data-testid="stock-reorder" className="mb-10">
       <SectionHeader
         title="Reorder Queue"
-        count={rows.length}
+        count={total}
       />
       <p className="text-sm text-neutral-500 mb-3">
         Cards where current stock + pending is below the price-band target.
         Sorted by deficit (largest first).
+        {capped && (
+          <>
+            {" "}
+            <span className="text-amber-400">
+              Showing top {rows.length} of {total.toLocaleString()}.
+            </span>
+          </>
+        )}
       </p>
 
       <TableWrapper>
@@ -489,6 +540,10 @@ async function MovementsSection() {
       />
       <p className="text-sm text-neutral-500 mb-3">
         Last {MOVEMENTS_LIMIT} stock movements across all cards, newest first.
+        Includes the new movement ledger and legacy adjustments
+        (channel{" "}
+        <code className="text-neutral-400 font-mono text-xs">manual_legacy</code>
+        ) until full migration to <code className="text-neutral-400 font-mono text-xs">@cambridge-tcg/stock</code>.
       </p>
 
       <TableWrapper>
