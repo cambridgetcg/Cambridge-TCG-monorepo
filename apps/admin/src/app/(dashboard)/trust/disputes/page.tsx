@@ -11,6 +11,7 @@
  *              resolved_buyer, resolved_seller, resolved_split, closed.
  */
 
+import Link from "next/link";
 import { sfQuery } from "@/lib/db";
 import { fmtDate, fmtGBP } from "@/lib/format";
 import {
@@ -47,6 +48,8 @@ interface DisputeRow {
   id: string;
   trade_id: string;
   raised_by: string;
+  raised_by_email: string | null;
+  raised_by_name: string | null;
   reason: string;
   description: string | null;
   status: string;
@@ -73,17 +76,22 @@ export default async function Page({
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
+  // WHERE columns are qualified with `d.` so the JOIN-bearing rows query
+  // and the alias-less COUNT(*) query share the same fragment.
   const where: string[] = [];
   const params: unknown[] = [];
   let i = 1;
   if (q) {
-    // Search reason text or dispute UUID prefix
-    where.push(`(reason ILIKE $${i} OR description ILIKE $${i} OR id::text ILIKE $${i})`);
+    // Search reason text, dispute UUID, or raised_by user (email/name)
+    where.push(
+      `(d.reason ILIKE $${i} OR d.description ILIKE $${i} OR d.id::text ILIKE $${i}` +
+      ` OR u.email ILIKE $${i} OR u.name ILIKE $${i})`,
+    );
     params.push(`%${q}%`);
     i += 1;
   }
   if (status) {
-    where.push(`status = $${i}`);
+    where.push(`d.status = $${i}`);
     params.push(status);
     i += 1;
   }
@@ -91,16 +99,23 @@ export default async function Page({
 
   const [rowsResult, totalResult, byStatusResult, kpiResult] = await Promise.all([
     sfQuery<DisputeRow>(
-      `SELECT id::text, trade_id::text, raised_by::text, reason, description, status::text,
-              resolution_type, refund_amount::text, resolved_by_admin, resolved_at, created_at
-         FROM trade_disputes
+      `SELECT d.id::text, d.trade_id::text, d.raised_by::text,
+              u.email AS raised_by_email, u.name AS raised_by_name,
+              d.reason, d.description, d.status::text,
+              d.resolution_type, d.refund_amount::text, d.resolved_by_admin,
+              d.resolved_at, d.created_at
+         FROM trade_disputes d
+         LEFT JOIN users u ON u.id = d.raised_by
          ${whereSql}
-         ORDER BY created_at DESC
+         ORDER BY d.created_at DESC
          LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
       params,
     ),
     sfQuery<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM trade_disputes ${whereSql}`,
+      `SELECT COUNT(*)::text AS count
+         FROM trade_disputes d
+         LEFT JOIN users u ON u.id = d.raised_by
+         ${whereSql}`,
       params,
     ),
     sfQuery<CountByStatus>(
@@ -160,6 +175,25 @@ export default async function Page({
           )}
         </>
       ),
+    },
+    {
+      key: "raised_by",
+      header: "Raised by",
+      render: (r) => {
+        const label = r.raised_by_name ?? r.raised_by_email ?? null;
+        return label ? (
+          <Link
+            href={`/catalog/users/${r.raised_by}`}
+            className="text-xs text-amber-400 hover:text-amber-300 hover:underline truncate inline-block max-w-[180px]"
+            title={label}
+          >
+            {label}
+          </Link>
+        ) : (
+          <span className="text-xs text-neutral-600">—</span>
+        );
+      },
+      hideOnMobile: true,
     },
     {
       key: "status",
@@ -233,7 +267,7 @@ export default async function Page({
       <SearchForm
         action="/trust/disputes"
         value={q}
-        placeholder="Search reason, description, or dispute id"
+        placeholder="Search reason, description, dispute id, or user email/name"
         clearHref={buildHref({ q: "", page: "1" })}
         preserve={{ status }}
       />
