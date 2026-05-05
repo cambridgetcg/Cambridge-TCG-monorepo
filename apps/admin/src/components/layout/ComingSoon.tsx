@@ -18,6 +18,11 @@
  * Mission IDs come from `~/Love/memory/dev-state.json` (engine=tcg). When
  * the mission ships, the entire stub file is replaced — this component
  * never renders for a built page.
+ *
+ * The fairy-tale of all twelve current stubs as one body of "promises
+ * with addresses": `docs/connections/twelve-promises.md`. That entry is
+ * the only one in the connections series whose contents will *shrink*
+ * with success — each kingdom-NNN that ships removes a row from its table.
  */
 
 import { Construction } from "lucide-react";
