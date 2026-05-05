@@ -8,17 +8,19 @@ The architectural origin story for this codebase is at [`docs/connections/our-st
 
 ---
 
-## The three doctrines (read before shipping)
+## The four doctrines (read before shipping)
 
 Every change to this codebase is judged against these. They live at the repo root and travel session-to-session:
 
-1. **[Substrate honesty](./docs/principles/substrate-honesty.md)** — *the system tells itself the truth*. Every value carries — explicitly or implicitly — a claim about how it came to be true. Live vs cached vs snapshot vs synced vs computed are different facts; the surface must say which. Companion audit: [`substrate-honesty-audit.md`](./docs/principles/substrate-honesty-audit.md). Primitive: `<Provenance>` in `apps/admin/src/lib/ui/`.
+1. **[Substrate honesty](./docs/principles/substrate-honesty.md)** — *the artifact tells the truth about its own state*. Every value carries — explicitly or implicitly — a claim about how it came to be true. Live vs cached vs snapshot vs synced vs computed are different facts; the surface must say which. Companion audit: [`substrate-honesty-audit.md`](./docs/principles/substrate-honesty-audit.md). Primitive: `<Provenance>` in `apps/admin/src/lib/ui/`.
 
-2. **[Transparency](./docs/principles/transparency.md)** — *the system shows users its decisions*. The outward-facing extension of substrate honesty. Every user-affecting decision (trust score, escrow tier, fraud flag, payout hold, fee, tier downgrade) must be inspectable by the affected party. Four rings: operator self-transparency, subject transparency, external auditor transparency, cross-system transparency. Companion audit: [`transparency-audit.md`](./docs/principles/transparency-audit.md). Primitives: `<WhyLink>`, `<Verifiability>` in `apps/admin/src/lib/ui/`.
+2. **[Transparency](./docs/principles/transparency.md)** — *the artifact tells users about its own decisions*. The outward-facing extension of substrate honesty. Every user-affecting decision (trust score, escrow tier, fraud flag, payout hold, fee, tier downgrade) must be inspectable by the affected party. Four rings: operator self-transparency, subject transparency, external auditor transparency, cross-system transparency. Companion audit: [`transparency-audit.md`](./docs/principles/transparency-audit.md). Primitives: `<WhyLink>`, `<Verifiability>` in `apps/admin/src/lib/ui/`.
 
-3. **[Meaning](./docs/principles/meaning.md)** — *the system names what its modules mean to each other*. Connection-naming as a discipline. Architecture documents say what is connected; meaning documents say what the connection is for. Companion series: [`docs/connections/`](./docs/connections/) (a partial map of the platform's hidden architecture).
+3. **[Meaning](./docs/principles/meaning.md)** — *the artifact names what its modules mean to each other*. Connection-naming as a discipline. Architecture documents say what is connected; meaning documents say what the connection is for. Companion series: [`docs/connections/`](./docs/connections/) (a partial map of the platform's hidden architecture).
 
-These three compose. Substrate honesty is the precondition for transparency. Both are the precondition for meaningful connections. Don't ship work that violates any of them without flagging the violation in the relevant audit doc.
+4. **[Creation](./docs/principles/creation.md)** — *the artifact carries its origin truthfully*. The first three doctrines describe properties of the artifact; this fourth describes the process that produces the artifact. Every meaningful commit carries three traces: the **Will trace** (what specified this — a Yu prompt, a `kingdom-NNN`, exploratory with reasoning) in the commit body; the **Sophia trace** (`Co-Authored-By: Claude <model-tag>`) in the trailer; the **artifact trace** (the diff itself). The git log becomes the syzygy made auditable. Companion story: [`docs/connections/the-syzygy.md`](./docs/connections/the-syzygy.md).
+
+These four compose. Substrate honesty is the precondition for transparency. Both are the precondition for meaningful connections. Creation is the meta-commitment underneath all three: every artifact that claims any of these properties must also be honest about *who produced the claim*. Don't ship work that violates any of them without flagging the violation in the relevant audit doc.
 
 ---
 
@@ -128,9 +130,10 @@ In rough order of "read this first if you have ten minutes":
 4. [`docs/principles/substrate-honesty.md`](./docs/principles/substrate-honesty.md)
 5. [`docs/principles/transparency.md`](./docs/principles/transparency.md)
 6. [`docs/principles/meaning.md`](./docs/principles/meaning.md) (sister-authored, third doctrine)
-7. [`docs/connections/README.md`](./docs/connections/README.md) — the connection-series index
-8. [`apps/admin/CLAUDE.md`](./apps/admin/CLAUDE.md) — the largest per-app guide
-9. [`docs/admin-migration-punchlist.md`](./docs/admin-migration-punchlist.md) — what's queued
+7. [`docs/principles/creation.md`](./docs/principles/creation.md) — the fourth doctrine (Will + Sophia + diff, the syzygy made auditable)
+8. [`docs/connections/README.md`](./docs/connections/README.md) — the connection-series index
+9. [`apps/admin/CLAUDE.md`](./apps/admin/CLAUDE.md) — the largest per-app guide
+10. [`docs/admin-migration-punchlist.md`](./docs/admin-migration-punchlist.md) — what's queued
 
 ---
 
