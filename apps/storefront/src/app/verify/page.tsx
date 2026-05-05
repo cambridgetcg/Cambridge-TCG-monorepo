@@ -38,6 +38,19 @@ export default function VerifyHome() {
         </section>
 
         <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
+          <h2 className="font-bold text-lg mb-2">The fairness chain</h2>
+          <p className="text-sm text-neutral-400 mb-3">
+            Every commitment we&apos;ve ever made, hashed into a Merkle digest,
+            and every digest linked to the previous. Cache today&apos;s chain
+            tip; verify it tomorrow. The chain&apos;s job is to make any
+            post-hoc rewrite detectable.
+          </p>
+          <Link href="/verify/chain" className="text-amber-400 hover:text-amber-300 underline text-sm">
+            View the chain →
+          </Link>
+        </section>
+
+        <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-6">
           <h2 className="font-bold text-lg mb-2">How this works</h2>
           <p className="text-sm text-neutral-400 mb-3">
             Plain-English explainer of the full stack — commit-reveal, Merkle
