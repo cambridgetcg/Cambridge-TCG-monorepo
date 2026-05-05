@@ -46,6 +46,9 @@ function discoverRoutes(dir: string, prefix = ""): string[] {
         const segment = entry.startsWith("(") && entry.endsWith(")") ? "" : `/${entry}`;
         routes.push(...discoverRoutes(full, `${prefix}${segment}`));
       } else if (entry === "page.tsx" && prefix !== "") {
+        // Dynamic routes ([id], [slug]) need a real param value to render —
+        // they belong in Playwright specs, not the param-blind smoke runner.
+        if (prefix.includes("[")) continue;
         routes.push(prefix);
       }
     } catch {

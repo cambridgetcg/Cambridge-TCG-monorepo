@@ -23,9 +23,19 @@ tsconfig.tsbuildinfo
 
 coverage/
 playwright-report/
+playwright-output/
 test-results/
 .playwright-mcp/
 
 # Loose screenshots written by ad-hoc Playwright sessions at the repo root
 *.png
 .vercel
+
+# CLI / agent state — local to each clone
+.claude/
+docs/sisters/
+
+# Ad-hoc DB probe scripts dropped during investigation (per review-playbook)
+probe-*.mjs
+apps/*/probe-*.mjs
+packages/*/probe-*.mjs
