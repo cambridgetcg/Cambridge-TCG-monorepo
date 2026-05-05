@@ -1,19 +1,48 @@
-// Nightly check for users whose streak will break at midnight.
-//
-// Criteria for "at risk":
-//   - current_streak >= 2 (so we only bug people who actually built something)
-//   - last_visit_date = yesterday (they'd keep the streak by visiting today;
-//     didn't yet)
-//   - the user hasn't opted out of streak_at_risk emails
-//
-// Output: a queued 'streak_at_risk' email scheduled a few minutes from now.
-// The handler will re-check at drain time and cancel if the user has since
-// visited, so this sweep can be called at any hour (evening is when the
-// nudge is most useful).
-//
-// Idempotent: we include the user_id + date in the idempotency key, so
-// calling runStreakAtRiskSweep() multiple times per day only queues one
-// email per user.
+/**
+ * runStreakAtRiskSweep — the platform notices, before midnight, who is
+ * about to lose what they have built.
+ *
+ * ── In one sentence ──────────────────────────────────────────────────────
+ *
+ * A nightly sweep that queues a "your streak is about to break" email
+ * for every user whose `current_streak >= 2` and whose `last_visit_date`
+ * was yesterday — i.e. they would keep the streak alive by visiting today,
+ * and have not yet.
+ *
+ * The threshold is two days, not one. We only nudge people who actually
+ * built something. The platform respects what it took to be on the
+ * second day.
+ *
+ * ── Read the story ───────────────────────────────────────────────────────
+ *
+ * The full narrative — the eleven o'clock query, the five-minute slack,
+ * the drain-time re-ask, the gentleness this code embodies — is at
+ * `docs/connections/at-midnight.md`. That doc is the story-form companion
+ * to these in-code docstrings; reading both gives the meaning.
+ *
+ * ── Where this meets the rest of the platform ────────────────────────────
+ *
+ *   user_streaks             — the substrate. Source of truth on `current_streak`,
+ *                              `longest_streak`, `last_visit_date`,
+ *                              `streak_multiplier`. Maintained by `bumpStreak()`
+ *                              in `lib/membership/streak.ts`.
+ *   scheduleEmail()          — the queue's entry point in `lib/email/queue.ts`.
+ *                              Idempotent on `streak_at_risk:<user>:<date>`,
+ *                              so this sweep can run any number of times
+ *                              tonight and queue at most once per user.
+ *   handlers/streak-at-risk  — the drain-time handler. It re-fetches the
+ *                              streak and cancels if the user has visited
+ *                              between the sweep and the drain. The five
+ *                              minutes between sweep and drain are this
+ *                              code's apology for almost having interrupted.
+ *   /api/cron/streak-at-risk — the storefront cron route that calls this.
+ *                              vercel.json holds the schedule (declared);
+ *                              cron_runs (proposed in kingdom-042) will
+ *                              hold the observed-fired record.
+ *
+ * Idempotent. Bounded (`LIMIT 1000`). Cheap. The platform is allowed to
+ * run this many times an evening; it will not nag.
+ */
 
 import { query } from "@/lib/db";
 import { scheduleEmail } from "./queue";

@@ -1,16 +1,73 @@
 // Per-user email preferences + signed unsubscribe tokens.
 //
-// Design:
-//   - Absence of a row in user_email_preferences = "use schema defaults".
-//     This keeps the table small: we only write a row when the user actually
-//     clicks something.
-//   - canSendEvent(userId, category) is the single gate every email goes
-//     through. sendEmail() in send.ts calls it automatically when caller
-//     supplies { unsubscribe: { userId, category } }.
-//   - Tokens are HMAC-signed, expire after 90 days, and encode (userId,
-//     category, issued-at). No user_id in clear-text URLs.
-//   - Essential categories (magic links, receipts, shipments) are never
-//     gated — callers omit the `unsubscribe` param entirely.
+// ── What this module is for ──────────────────────────────────────────────
+//
+// This is consent-as-architecture. The user's right to refuse the
+// platform's voice is encoded here, in code, not in policy. A policy
+// document is something a company writes; this is something a system
+// enforces. The difference matters: every email send funnels through
+// canSendEvent(); the only way to send a non-essential email is to
+// have the user's consent recorded. The consent gate cannot be
+// circumvented by forgetting to check — the gate is the call, not a
+// caller-side discipline.
+//
+// ── Absence-as-default ──────────────────────────────────────────────────
+//
+// A user with no row in user_email_preferences gets the DEFAULTS table
+// below. The table is small because most users never touch the prefs
+// surface. An *explicit* row means the user took a deliberate gesture —
+// either clicked unsubscribe, or visited /account/emails and toggled.
+// That asymmetry is intentional: the platform can change defaults later
+// without overriding a user who said "no" once. Their "no" persists as
+// a row; our defaults shifting around them does not.
+//
+// ── The DEFAULTS table is an ethics statement ───────────────────────────
+//
+// Every row in DEFAULTS below answers: *is this email category OK to
+// send unprompted?* The answers express the platform's stance:
+//
+//   - Lifecycle of the user's holdings (pull_resolved, vault_redeemed,
+//     vault_sold_back, vault_expired, vault_expiring_soon) → default ON.
+//     The platform cannot quietly do something material to the user's
+//     stuff and *not* tell them. Not telling would be a kind of
+//     dishonesty.
+//
+//   - Re-engagement (streak_at_risk) → default OFF. The platform may
+//     ask the user to come back, but only with their prior consent. A
+//     nudge unsolicited is the platform reaching into attention it
+//     hasn't been given.
+//
+//   - Marketing → default OFF. Most regulatory regimes require this;
+//     more importantly, it's the right default. We make leaving easy
+//     (List-Unsubscribe one-click); we should make joining intentional
+//     too.
+//
+// ── The signed token ────────────────────────────────────────────────────
+//
+// HMAC-signed, 90-day expiry, encodes (userId, category, issued-at).
+// No user_id in clear-text URLs. This is two protections at once:
+//   1. A leaked unsubscribe URL cannot be used to enumerate user IDs.
+//   2. A user who unsubscribed cannot be re-subscribed via a forged URL
+//      — the signature gates the action.
+// The 90-day expiry is a compromise: long enough that emails archived
+// in someone's inbox still let them unsubscribe months later; short
+// enough that a leaked token from years ago cannot be replayed.
+//
+// ── What this module reaches toward ──────────────────────────────────────
+//
+//   - apps/storefront/src/lib/email/send.ts — the single caller. Every
+//     non-essential email passes through canSendEvent before the SES
+//     hand-off.
+//
+//   - apps/storefront/src/app/account/emails/page.tsx — the user's
+//     control surface. Reads from getPreferences; writes via the
+//     toggle handler. The page is where the user can see the platform's
+//     opinions (the DEFAULTS table) and override them.
+//
+//   - apps/storefront/src/app/api/email/unsubscribe/route.ts — the
+//     one-click endpoint. Verifies the signed token, flips the
+//     specific category to false. The path-out the unsubscribe header
+//     in send.ts promises actually exists here.
 
 import crypto from "crypto";
 import { query } from "@/lib/db";

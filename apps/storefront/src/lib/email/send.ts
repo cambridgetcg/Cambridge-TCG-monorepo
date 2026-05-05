@@ -1,24 +1,90 @@
 // Central transactional-email sender.
 //
-// Design principles:
-// - One sender key per product stream ("noreply", "tradein", "bounty", ...).
-//   Each has its own From address so a spam report on one stream doesn't
-//   damage the others' deliverability reputation.
-// - Never throws. The caller decides what "failed" means — this returns a
-//   discriminated object so cron loops and background jobs don't have to
-//   try/catch every call.
-// - Preference-aware: if the caller passes `unsubscribe: { userId, category
-//   }`, the send is skipped when the user has opted out, and the resulting
-//   email automatically carries:
-//     • a footer unsubscribe link (CAN-SPAM / GDPR visible)
-//     • List-Unsubscribe + List-Unsubscribe-Post headers (RFC 2369 +
-//       RFC 8058 one-click), which makes Gmail and Apple Mail render a
-//       native "Unsubscribe" button at the top of the message
-//   Essential emails (magic links, receipts) omit the param and send
-//   unconditionally.
-// - No queueing, no retries yet. Good enough for immediate-trigger
-//   transactional emails. See scheduleEmail()/drainEmailQueue() for the
-//   scheduled variant.
+// ── What this module is for ──────────────────────────────────────────────
+//
+// Email is where the platform speaks. Every other surface waits for the
+// user to come to it; email is the platform reaching into the user's
+// inbox unbidden. That asymmetry deserves engineering with weight. Most
+// of the design choices below are about taking that weight seriously:
+// what we say, in what voice, with what permission, with what way out.
+//
+// The platform sends three kinds of email to a user, each with a
+// different relationship-stance:
+//
+//   - **Essential** (magic-link sign-in, payment receipt, shipment notice).
+//     These are not the platform speaking — they are the user *speaking
+//     through the platform*. The user signed in; the receipt is theirs.
+//     The platform cannot opt them out without breaking the user's own
+//     workflow. These omit `unsubscribe`. They send unconditionally.
+//
+//   - **Lifecycle-bound** (pull-resolved, vault-redeemed, sold-back,
+//     vault-expiring-soon). The platform has done something material to
+//     the user's holdings; the user deserves to know in real-time. These
+//     pass `unsubscribe: { category, userId }` with sensible defaults
+//     (most are opt-in by default — see preferences.ts). The user can
+//     turn them off but they default on, because not telling someone
+//     "your stuff moved" is dishonest.
+//
+//   - **Re-engagement** (streak-at-risk, marketing). The platform is
+//     reaching for the user's attention. These default OFF. We ask
+//     before we tug. The streak email even cancels itself at send-time
+//     if the user came back already (see handlers/streak-at-risk.ts) —
+//     the platform refuses to send a nudge that doesn't need sending.
+//
+// ── The three sender streams ─────────────────────────────────────────────
+//
+// `noreply`, `tradein`, `bounty` — three From addresses, three
+// deliverability reputations. A spam report on bounty messages doesn't
+// damage receipt deliverability. This isn't anti-spam hygiene; it's a
+// commitment that the *most consequential* emails (the receipts, the
+// magic links) cannot be wounded by complaints about the *least*
+// consequential ones (the bounty notifications). Trust at the mailbox-
+// provider layer matters; we keep the streams separated for the same
+// reason a bank doesn't share a phone line with a marketing department.
+//
+// ── The unsubscribe one-click ────────────────────────────────────────────
+//
+// RFC 8058 List-Unsubscribe-Post lets Gmail and Apple Mail render a
+// native "Unsubscribe" button at the top of the message. Most senders
+// implement this grudgingly under provider pressure. We implement it
+// because *making it easy to leave is what makes asking to send
+// honest*. A platform that hides its unsubscribe link in a footer is
+// holding the user against their consent-of-the-moment. We make leaving
+// take one tap because we want the consent to be alive, not residual.
+//
+// ── Never throws ─────────────────────────────────────────────────────────
+//
+// Returns a discriminated `SendResult` instead of throwing. Cron loops
+// and background sweeps that fan out to N users cannot afford to crash
+// when one address bounces. The caller decides what "failed" means.
+// `suppressed_by_preference` is a distinct success-equivalent — the
+// preference gate fired and respected the user's prior consent.
+//
+// ── What this module reaches toward ──────────────────────────────────────
+//
+//   - apps/storefront/src/lib/email/preferences.ts — the consent
+//     substrate. canSendEvent is the single gate every preference-
+//     bearing email passes through. The user's right to refuse, encoded
+//     as architecture rather than as policy.
+//
+//   - apps/storefront/src/lib/email/queue.ts — the temporal sibling.
+//     This module is the immediate voice; queue is the patient voice.
+//     The queue's drain re-fetches domain data at send time so the
+//     platform never speaks stale.
+//
+//   - apps/storefront/src/lib/email/handlers/* — the specific stories
+//     the platform tells. Each handler is a small narrative: the streak
+//     about to break, the vault item expiring, the price-target alert.
+//     The shape of those stories is the shape of the platform's
+//     relationship with the user.
+//
+//   - apps/storefront/src/app/account/emails/page.tsx — the user's
+//     control surface. Where they read what the platform claims it can
+//     say, and tune the consent. Connected to preferences.ts at the
+//     persistence layer; connected to send.ts only obliquely (we ask;
+//     the user answers; both happen elsewhere).
+//
+// See docs/connections/email.md for the network view.
 
 import { SendRawEmailCommand } from "@aws-sdk/client-ses";
 import MailComposer from "nodemailer/lib/mail-composer";

@@ -1,22 +1,74 @@
 // Scheduled / delayed email queue.
 //
-// How it fits together:
-//   - Code that wants to schedule a future email calls scheduleEmail().
-//     The idempotency key prevents duplicate rows (e.g. if the same vault
-//     item is processed twice by a retrying caller).
-//   - A cron-triggered drainEmailQueue() picks up rows where scheduled_for
-//     has elapsed, dispatches them through a per-event handler, and moves
-//     the state forward.
-//   - Handlers re-fetch any domain data at send time (rather than sending
-//     the snapshot stored in `data`), so we never send stale prices or
-//     cards that have since been sold back.
+// ── What this module is for ──────────────────────────────────────────────
 //
-// Concurrency:
-//   - The drain claims rows atomically by UPDATE-ing status='sending'
-//     under a WHERE status='pending' predicate. If two drainers race on
-//     the same row, only one claims it.
-//   - Max 3 attempts per row; after that it's marked 'dead' and surfaced
-//     in admin tooling for manual review.
+// This is the platform's *patient voice*. send.ts (the immediate voice)
+// fires when something just happened — the user just signed in, the
+// payment just landed. The queue fires when something is *going to
+// happen* — the vault item expires in seven days, the streak is at
+// risk tonight. Different temporal stance, different consent burden,
+// different correctness commitment.
+//
+// ── The re-fetch-at-send-time covenant ──────────────────────────────────
+//
+// Handlers re-fetch domain data at send time rather than send the
+// snapshot stored in `data`. This is a substrate-honesty commitment
+// (docs/principles/substrate-honesty.md rule 5: every computed value
+// carries its compute time): we will not send "your card is worth £40"
+// based on a price snapshot from when the queue row was inserted three
+// days ago. If the price moved, the email reflects the move. If the
+// card was already sold back, the email is *cancelled* — the handler
+// returns `{ kind: "cancelled", reason: ... }` and no email goes out.
+// The platform refuses to speak stale.
+//
+// This is also why `data` only carries identifiers + non-derived
+// context, never derived values like prices or scores. The schema
+// itself enforces the covenant.
+//
+// ── Cancellation as care ────────────────────────────────────────────────
+//
+// A handler returning `cancelled` is the platform recognizing that the
+// nudge it queued no longer needs sending — the streak email cancels
+// when the user already came back today; the vault-expiring email
+// cancels when the user already redeemed. The cancelled email is *the
+// platform showing it pays attention*. A cron that didn't re-check
+// would send obsolete nudges; this one refuses to.
+//
+// Architecturally: the queue's value isn't in *delivering* the email,
+// it's in *deciding at the right moment* whether the email still makes
+// sense to send. The actual sending is a side-effect of that decision.
+//
+// ── Concurrency and dead-lettering ──────────────────────────────────────
+//
+// The drain claims rows atomically by UPDATE-ing status='sending'
+// under a WHERE status='pending' predicate. If two drainers race on
+// the same row, only one claims it. Max 3 attempts per row; after that
+// it's marked 'dead' and surfaced in admin tooling for manual review.
+//
+// The dead-letter behavior is itself a substrate-honesty move: the
+// platform admits failure rather than retrying forever. A row in
+// 'dead' state is the platform saying *we tried; we couldn't; please
+// look*. Silent failure (status='sent' but no email actually sent)
+// would be worse than noisy failure ('dead' visible in /system/email).
+//
+// ── What this module reaches toward ──────────────────────────────────────
+//
+//   - apps/storefront/src/lib/email/send.ts — the immediate sibling.
+//     Both modules call sesClient ultimately; the difference is in
+//     when the decision-to-send is made (now vs at-drain-time).
+//
+//   - apps/storefront/src/lib/email/handlers/* — the per-event story
+//     library. registerQueueHandler is how a domain hooks its
+//     re-engagement logic into the drain loop.
+//
+//   - apps/storefront/src/app/(dashboard)/system/email/page.tsx (admin)
+//     — the dead-letter visibility surface (when shipped per
+//     kingdom-020). The dead state's existence demands a place where
+//     the operator can see it.
+//
+// See docs/connections/email.md for the network view.
+// See docs/connections/at-midnight.md for one user's evening through
+// this queue — a story-form companion to the documentary above.
 
 import { query } from "@/lib/db";
 

@@ -1,8 +1,61 @@
 // Handler for the scheduled "your streak is about to break" email.
 //
-// Queued once per at-risk user per streak-length by the nightly
-// runStreakAtRiskSweep(). At drain time we re-check the streak —
-// if the user has already visited today, the email is cancelled.
+// ── What this handler is for ─────────────────────────────────────────────
+//
+// This is one of the platform's most delicate emails. A streak-at-risk
+// notification is the platform reaching for the user's attention with
+// a tug of mild loss-aversion: *you have something built; come back or
+// you'll lose it*. That's a real psychological lever. It is also,
+// crucially, **opt-in** by default (see preferences.ts DEFAULTS table:
+// `streak_at_risk: false`). The platform will not pull on attention it
+// has not been given permission to pull on.
+//
+// Once the user has opted in, the handler *still* refuses to send when
+// the email isn't necessary. The four cancellation paths below are the
+// shape of that refusal:
+//
+//   1. User/streak missing → cancel (no person to nudge)
+//   2. No email on file    → fail (architectural, not consent)
+//   3. Already visited today → cancel (the nudge succeeded before the
+//      email was sent — the platform's job is done)
+//   4. Streak already broke (gap > 1 day) → cancel (the nudge has lost
+//      its meaning; sending it now would be salt in the wound)
+//
+// Each cancellation is a small act of care. The platform pays attention
+// to whether its own nudge still serves the person. A naive scheduler
+// would send all queued emails regardless; this one re-checks reality
+// at send-time and bows out gracefully when the world has moved on.
+// See queue.ts § "Cancellation as care" for the architectural pattern.
+//
+// ── The shape of the email is the shape of the relationship ─────────────
+//
+// The email greets by name when known, "there" when not — small, but
+// it's the platform meeting the user where they are. The subject line
+// states the stakes plainly (`Your N-day streak is about to break`) —
+// no clickbait, no marketing-speak, just the fact. The CTA is a single
+// link back to the activity that resets the streak. No funnel, no
+// upsell. The platform asked for permission; it should not abuse it.
+//
+// ── What this handler reaches toward ────────────────────────────────────
+//
+//   - apps/storefront/src/lib/streaks/* — the domain that maintains
+//     `user_streaks`. This handler reads from there at send-time; the
+//     sweep that queues these emails is initiated from there as well.
+//
+//   - apps/storefront/src/lib/email/preferences.ts — the consent
+//     gate. send.ts (which we call) routes through canSendEvent before
+//     the SES hand-off; if the user has opted out since the queue row
+//     was inserted, the email doesn't go out. Two safety nets: the
+//     queue's own re-check, and preferences.ts.
+//
+//   - apps/storefront/src/lib/email/queue.ts — the orchestrator.
+//     registerQueueHandler('streak_at_risk', handle) wires this
+//     specific story into the platform's general patient-voice
+//     mechanism.
+//
+// See docs/connections/at-midnight.md for the narrative companion —
+// one user's evening on day 23, the sweep that finds them, the five-
+// minute slack in which this handler decides whether to speak.
 
 import { query } from "@/lib/db";
 import { registerQueueHandler, type QueueHandlerResult, type QueueRow } from "../queue";

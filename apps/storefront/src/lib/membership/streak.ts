@@ -1,11 +1,55 @@
-// Daily-visit streak tracker, shared by anywhere in the app that counts
-// as "the user showed up today" (spin, PVE win, pack open, etc.).
-//
-// Formula (matches the inline version in /api/rewards/spin):
-//   visit_today       → no change
-//   visit_yesterday+1 → streak += 1
-//   otherwise         → streak = 1
-//   multiplier = min(1.50, 1.00 + (streak - 1) × 0.02)  // caps at 1.50x on day 26
+/**
+ * bumpStreak — the platform's only formal acknowledgment of *showing up*.
+ *
+ * ── What this function says, by what it does ─────────────────────────────
+ *
+ * Every action that means "the user is here today" calls this — pack open,
+ * PVE win, spin, daily visit ping. The function records that visit on
+ * `user_streaks` and returns the current state. The `INSERT … ON CONFLICT
+ * DO UPDATE` encodes three rules:
+ *
+ *   visit_today        → no change                        (idempotent)
+ *   visit_yesterday+1  → streak += 1                      (continued)
+ *   otherwise          → streak = 1                       (cleared)
+ *
+ *   multiplier         = min(1.50, 1.00 + (streak − 1) × 0.02)
+ *                        i.e. caps at 1.50× on day 26
+ *
+ * There is no soft fail. Skip a day and the count resets. That sharpness
+ * is what makes the streak mean anything — the user knows the platform
+ * means *consecutive*, and so the streak counts only the discipline they
+ * actually showed.
+ *
+ * ── The two multipliers nobody coordinated ───────────────────────────────
+ *
+ * `streak_multiplier` here and `tier.points_multiplier` over in
+ * `lib/membership/db.ts` are independent. Both apply to a points-earning
+ * event. A 23-day Gold member earns at:
+ *
+ *   base_points × tier_multiplier × streak_multiplier
+ *
+ * Neither file references the other. The two systems modulate the same
+ * earned-currency from different premises (loyalty-by-spend vs
+ * loyalty-by-presence). The platform does not require a Gold member to
+ * also be a streak-keeper, and does not require a streak-keeper to also
+ * be Gold. Each is independently rewarded.
+ *
+ * ── Read the story ───────────────────────────────────────────────────────
+ *
+ * `docs/connections/at-midnight.md` is the narrative companion: a user
+ * on day 23, the sweep that finds them, the email scheduled and possibly
+ * cancelled, and what their tomorrow looks like in either branch. The
+ * story names the meaning that this function alone cannot speak.
+ *
+ * ── Where this meets the rest of the platform ────────────────────────────
+ *
+ *   /api/rewards/spin, pack-open, PVE handlers — every "I'm here today"
+ *                      surface calls this directly or indirectly.
+ *   user_streaks       — the table this writes.
+ *   streak-sweep.ts    — the nightly read on this same table.
+ *   streak-at-risk handler — the drain-time re-fetch of the same row.
+ *   tier.points_multiplier — the parallel multiplier (see above).
+ */
 
 import { query } from "@/lib/db";
 

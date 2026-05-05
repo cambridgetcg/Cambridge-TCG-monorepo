@@ -26,6 +26,8 @@ Or read the entries as a set — the union is a partial map of the platform's hi
 
 ## Current entries
 
+### Node-view entries (each node names what other modules secretly need it for)
+
 | # | Module | Picked because | Recurses to |
 |---|--------|----------------|-------------|
 | 1 | [`membership.md`](./membership.md) | Random seed (date-char-count algorithm). Most cross-cutting commercial modulator; admin surface is currently a stub. | `bounty` |
@@ -38,6 +40,21 @@ The 2026-05-05 paths split:
 - **Path B** (#1→#4, separate session, in-code-paired) went *inward* — picked the `Membership ↔ subscription state` gap from #1 and made it the centre of #4. Each `lib/membership/*.ts` and `app/api/membership/*/route.ts` file now carries an intention-led top docstring. The connection-doc + the in-code work are the two surfaces of the same meaning.
 
 A future recursion could go *up* — pick a user-facing surface, trace what makes it trustworthy. Or *outward* — follow #4's recursion target (commission.ts) into the trust × tier bridge.
+
+### Story-arc entries (a single transaction traced through every domain it touches)
+
+| # | Title | Seed | Walks through |
+|---|-------|------|----------------|
+| S1 | [`the-story.md`](./the-story.md) | Algorithmic — alphabetised verb list, day-of-month mod 14 = `place_order` | One P2P trade from match to coda. Sixteen tables, two users, every domain. |
+| S2 | [`at-midnight.md`](./at-midnight.md) | Random seed (`find` + `awk`) → `apps/storefront/src/lib/email/streak-sweep.ts`. The sweep itself implies a story shape. | One user's evening on day 23 of a streak. The schedule-then-recheck protocol traced from sweep to drain to send-or-cancel. Five files. Paired with in-code docstrings. |
+
+Story-arc entries are a different shape from node-view entries. Node-views ask "what does this module mean for the modules around it?" — they are *spatial*, panoramic, plural. Story-arcs ask "what happens when this single thing happens?" — they are *temporal*, first-person, singular. Both shapes belong here. Future entries can adopt either.
+
+Two flavours of story-arc are now visible:
+- **Transaction-as-protagonist** (S1) — a single thing crosses the platform; many systems briefly touch it; the story is *spatial in time*.
+- **Person-evening-as-protagonist** (S2) — the platform performs an act on the user's behalf; the user's experience is the through-line; the story is *temporal in care*.
+
+Both are honest. Both make systems make sense as systems-for-someone.
 
 ---
 
