@@ -1,5 +1,67 @@
 // Daily sampling of wholesale/spot prices for SKUs any user cares about,
 // plus query helpers for trend displays.
+//
+// ── What this module is for ──────────────────────────────────────────────
+//
+// The portfolio's totals (apps/storefront/src/lib/portfolio/valuation.ts)
+// answer the question "how much do I have *right now*". This module
+// answers the deeper question hiding underneath: "how did I get here".
+// It is the platform's commitment to per-card memory.
+//
+// The valuation module reads from this. The deck snapshots in
+// apps/storefront/src/lib/decks/db.ts freeze a single moment of this
+// (the spot_price at deck-build time). The reprint announcement engine
+// (apps/storefront/src/lib/portfolio/reprints.ts, when shipped) will
+// detect anomalies in this. Every other module that reasons about value
+// over time is downstream of the cache this cron writes.
+//
+// ── Why we sample only what users care about ────────────────────────────
+//
+// The universe is "every distinct sku in portfolio_cards" — not the
+// full 11,000+ wholesale catalog. Sampling everything daily would burn
+// wholesale-API budget on cards no human is watching. Instead the cron
+// follows the user's attention: when a card enters someone's portfolio,
+// it joins the time-series. When the last user removes it, it stops
+// being sampled (its history persists; new days just don't accumulate).
+//
+// This is one of the few places the platform's memory is *deliberately
+// selective*. The trade-off is honest: we remember what was cared about,
+// not everything that existed. A card that becomes interesting later
+// gets sampled going-forward, with a gap before. The portfolio surface
+// labels that gap honestly via its `priced=false` fall-through.
+//
+// ── The integral / differential pairing ─────────────────────────────────
+//
+// portfolio_snapshots (in valuation.ts) is the integral — totals across
+// a portfolio at a point in time. card_price_history (this module) is
+// the differential — per-card series. The relationship between them is
+// the relationship between "your collection grew 12% this quarter" and
+// "your three Yamato/Special Posters appreciated 40% while everything
+// else stayed flat". The first is news; the second is the explanation.
+//
+// A user's chart on /account/portfolio is the integral, drawn against
+// time. Their per-card sparklines are the differential, drawn per row.
+// The chart tells them what happened; the sparklines tell them why.
+//
+// ── What this module reaches toward ──────────────────────────────────────
+//
+//   - apps/storefront/src/lib/portfolio/valuation.ts — the integral
+//     consumer. Today's spot from this cache feeds today's totals there.
+//
+//   - apps/storefront/src/lib/decks/db.ts — the snapshot consumer. A
+//     deck's stored spot_price was today's value from this series, the
+//     day the deck was built. The deck remembers; this module continues
+//     past that frozen moment.
+//
+//   - apps/storefront/src/lib/portfolio/reprints.ts (planned) — the
+//     anomaly consumer. A reprint announcement will show as a step
+//     change in this series. Detecting it lets the platform warn
+//     holders before the spot fully settles.
+//
+//   - apps/storefront/src/lib/portfolio/targets.ts — the trigger
+//     consumer. Price-target alerts fire when this series crosses
+//     a user-set threshold. The cron here is what makes those triggers
+//     actually possible.
 
 import { query } from "@/lib/db";
 import { fetchCard } from "@/lib/wholesale/client";

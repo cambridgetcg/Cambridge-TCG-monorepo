@@ -2,16 +2,80 @@
 // internal caller (e.g. the admin deck browser, future "decks using this
 // leader" features) can share.
 //
-// Deck storage shape:
-//   - leader_sku is a string, not an object — the full card snapshot lives
-//     inside entries[] keyed by sku for the leader too. This keeps the JSON
-//     payload small and the row searchable by leader.
-//   - entries JSONB is the full { sku, quantity, card } array; storing the
-//     card snapshot means the deck renders even if the wholesale catalog
-//     drops a SKU next year.
+// ── What this module is for ──────────────────────────────────────────────
 //
-// Slug generation: name → kebab-case + random 6-char suffix. Per-user
-// uniqueness enforced at the DB layer; we retry on conflict.
+// A deck is the moment a card stops being commodity and becomes play.
+// The catalog (wholesale) treats cards as fungible inventory; the market
+// treats them as transactable units; the trade-in pipeline treats them
+// as cash-equivalents. A deck refuses all three framings. A deck says:
+// these forty-or-so cards belong together because *I built them this way*.
+// The arrangement is the meaning. That's the artifact this module stores.
+//
+// ── The snapshot covenant ────────────────────────────────────────────────
+//
+// We store the full card snapshot inside `entries[]` rather than holding
+// foreign keys to the live catalog. This is a covenant with the user:
+// **your deck outlives the catalog**. A deck assembled in 2024 still
+// renders in 2027 even if the wholesale platform delists its leader,
+// even if the rarity classification changes, even if our pricing engine
+// reshapes how spot_price is computed. The artifact is durable. The
+// substrate is allowed to drift underneath it.
+//
+// This is the same architectural commitment the bounty pull pages make
+// at /verify/pull/[id] (the proof outlives the inventory) and the same
+// commitment customer_orders make (the receipt outlives the SKU). The
+// platform owes its users *their own labor's permanence*.
+//
+// ── The leader column ────────────────────────────────────────────────────
+//
+// `leader_sku` is the only column lifted out of the entries JSONB. This
+// is not a search-optimization choice (other lifts would be more useful
+// for that). It is a deference to game design: in the One Piece TCG,
+// the Leader IS the deck's identity. Every other card is supporting cast.
+// The schema agrees with the game.
+//
+// ── The going-public moment ──────────────────────────────────────────────
+//
+// `is_public`, `view_count`, and the user-readable `slug` together
+// encode the moment a deck transforms from private craft into community
+// content. A deck flipped to public is the user saying: *this arrangement
+// is worth seeing*. The view_count counts the times other people agreed
+// enough to look. The slug is the deck's name in the world. See
+// apps/storefront/src/app/decks/[slug]/page.tsx — that's where this
+// transformation actually lands on a URL.
+//
+// ── What this module reaches toward ──────────────────────────────────────
+//
+// Three modules carry the deck's meaning sideways into the rest of the
+// platform:
+//
+//   - apps/storefront/src/lib/portfolio/valuation.ts — the *sibling
+//     lens*. A portfolio asks "how much do I have"; a deck asks "how do
+//     I play". Same cards, opposite intentions. A deck's `spot_price`
+//     snapshots are the same number a portfolio reads live; the deck
+//     freezes it at moment-of-assembly so the player can see what the
+//     deck "cost" them at build time.
+//
+//   - apps/storefront/src/lib/tradein/db.ts — the *opposite direction*.
+//     Deck-building gathers cards into meaning; trade-in disperses cards
+//     into credit. The `tradein_credit` field we snapshot in the entry
+//     is the literal value of breaking the deck. Storing it makes the
+//     trade-off visible: every day the deck is held is an ongoing choice
+//     against liquidation. The user can always see what they're saying
+//     no to.
+//
+//   - apps/storefront/src/app/decks/[slug]/page.tsx — the *community
+//     surface*. When `is_public` flips true, the deck steps out of the
+//     user's private craft and into a social graph it doesn't know
+//     about. Strangers may study it, imitate it, diverge from it. The
+//     deck becomes a node it cannot see.
+//
+// ── Slug generation ──────────────────────────────────────────────────────
+//
+// Name → kebab-case + random 6-char suffix. Per-user uniqueness enforced
+// at the DB layer; we retry on conflict. The suffix ensures shareable
+// URLs like /decks/red-zoro-aggro-a1b2c3 without global name collisions
+// — every user can name their deck "Aggro" and get a unique path.
 
 import { query } from "@/lib/db";
 import crypto from "crypto";

@@ -1,3 +1,58 @@
+// Trade-in persistence — submissions, items, status transitions.
+//
+// ── What this module is for ──────────────────────────────────────────────
+//
+// Trade-in is the *diaspora direction* of card-ownership. Every other
+// module on this platform exists to gather: the catalog gathers SKUs
+// into browse-ability; the deck gathers cards into play (see
+// apps/storefront/src/lib/decks/db.ts); the portfolio gathers values
+// into a story (see apps/storefront/src/lib/portfolio/valuation.ts).
+// This module is the only one whose intention is to *disperse*. Cards
+// arrive in a parcel and leave the system as cash or store credit.
+//
+// Every card that gets traded in was once part of someone's potential
+// deck. The DeckCardSnapshot.tradein_credit field stored over in the
+// decks module is the literal preview of this dispersal: *if you
+// decided to break this deck, here is what you'd get*. Storing that
+// number inside the deck is itself a transparency move — the trade-off
+// the user is implicitly making (keeping the deck assembled) becomes
+// visible. The trade-in module is what executes the alternative.
+//
+// ── The grading step ─────────────────────────────────────────────────────
+//
+// `quoted_*_price` is the machine's offer; `final_unit_price` is what
+// the human grader actually paid out. The gap between them is where
+// machine-economy meets human-judgment. The grader looks at the actual
+// physical card — wear, edge whitening, surface — and decides whether
+// the machine's spot-based quote applies, needs adjustment, or the card
+// belongs in a lower condition bucket entirely. That judgment is the
+// platform's most durable trust mechanism. The customer's `accepted_qty`
+// vs submitted quantity is the rejection rate; the gap between
+// `quoted_cash_price` and `final_unit_price` is the grading delta.
+// Both are visible in the customer's `/account/trade-ins/[id]`
+// timeline, by intention — opacity here would erode the trust the
+// pipeline depends on.
+//
+// ── The realization bridge to portfolio ──────────────────────────────────
+//
+// A portfolio's `unrealized_gain` (apps/storefront/src/lib/portfolio/
+// valuation.ts) is hypothetical until something realizes it. Trade-in
+// is one of two paths to realization (the other is P2P market sale via
+// market_trades). When a submission is finalized, the affected SKUs
+// stop contributing to the portfolio's unrealized total and start
+// contributing to a realized P&L stream. realized_positions
+// (drizzle/0085) is the schema that captures this, once it's deployed.
+//
+// ── Why every column lives here, not on customer_orders ─────────────────
+//
+// Trade-ins are not orders, despite the symmetry of "money changes
+// hands". Orders are the platform selling outwards; trade-ins are
+// individuals selling to the platform. The lifecycle is different
+// (submission → quote → grading → payout, vs cart → pay → ship). The
+// disputes are different (over-grading vs under-shipping). The
+// regulatory posture is different (we are the buyer, not the seller).
+// They share nothing usefully; the schema reflects that.
+
 import { query, transaction } from "@/lib/db";
 
 export interface SubmissionRow {

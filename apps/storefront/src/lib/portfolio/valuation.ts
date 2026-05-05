@@ -1,21 +1,74 @@
 // Portfolio valuation — "how much is my collection worth?"
 //
-// The platform has three price sources for any sku, in descending
-// freshness order:
+// ── What this module is for ──────────────────────────────────────────────
+//
+// A portfolio is one of two lenses the platform offers on the same set
+// of cards. The other lens is the deck (apps/storefront/src/lib/decks/db.ts).
+// The two lenses ask incompatible questions:
+//
+//   - Portfolio asks: *how much do I have?* — value as fungible.
+//   - Deck asks:      *how do I play?*       — value as identity.
+//
+// The portfolio reduces a collection to a number; the deck refuses to.
+// Both are honest framings of card-ownership. They speak past each other
+// because they have to — a single card can be £18 of liquidatable spot
+// AND the irreplaceable Leader of someone's first competitive build,
+// and neither view is wrong. This module owns the first framing. The
+// deck module owns the second.
+//
+// ── The price cascade and the refusal to fabricate ───────────────────────
+//
+// We have three price sources for any sku, in descending freshness order:
+//
 //   1. P2P market_orders best_ask  (live, but only when there's a
 //      real ask on the book)
 //   2. card_price_history.spot_gbp (daily-cached spot from wholesale)
 //   3. nothing (fall through; card contributes 0 to value with a
 //      `priced=false` flag the UI can show)
 //
-// resolveCardPrice runs the cascade per sku in a single pass over a
-// batch — N+1 queries are avoided by joining all three sources in
-// one SQL with a LEFT JOIN ladder.
+// The third case is structurally important. We could fabricate a
+// number — last-known price, set average, rarity-bucket median. We
+// don't. When we have no price, we say so, with a flag. The user sees
+// "X cards unpriced" instead of a confidently-wrong total. This is the
+// substrate-honesty principle (docs/principles/substrate-honesty.md
+// rule 6) made concrete: failures degrade visibly, not silently. Every
+// platform decision built atop this number — tier eligibility, capital-
+// gains banding, account-standing aggregates — inherits that honesty.
 //
-// portfolio_snapshots (migration 0014) is the time-series store:
+// resolveCardPrice runs the cascade per sku in a single pass over a
+// batch — N+1 queries are avoided by joining all three sources in one
+// SQL with a LEFT JOIN ladder.
+//
+// ── The temporal substrate ───────────────────────────────────────────────
+//
+// portfolio_snapshots (migration 0014) is the time-series memory:
 // one row per (user, snapshot_date) with totals. takeSnapshot is
 // idempotent on UNIQUE(user_id, snapshot_date) so re-running today's
 // snapshot updates the existing row instead of inserting a dup.
+//
+// The snapshots exist because a portfolio without history is just a
+// receipt. With history, it becomes a story — *this is what I built,
+// over time*. The chart on /account/portfolio is the user's biography
+// in cards, and the substrate of that biography is this table. See
+// apps/storefront/src/lib/portfolio/price-history.ts for the per-card
+// time-series that gives any single SKU its own arc.
+//
+// ── What this module reaches toward ──────────────────────────────────────
+//
+//   - apps/storefront/src/lib/decks/db.ts — the sibling lens. The
+//     valuation module sees what the deck refuses to flatten.
+//
+//   - apps/storefront/src/lib/tradein/db.ts — the realization path.
+//     `unrealized_gain` becomes realized through trade-in (or P2P sale).
+//     The trade-in module is what happens when a user accepts the
+//     valuation lens fully — turns their portfolio number into actual
+//     cash. The two are mirror processes; this module computes the
+//     hypothetical, that one executes the actual.
+//
+//   - apps/storefront/src/lib/portfolio/price-history.ts — the temporal
+//     substrate. This module's snapshots aggregate; that module's series
+//     remembers per-SKU. A portfolio total is the integral; price
+//     history is the differential.
 
 import { query } from "@/lib/db";
 

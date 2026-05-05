@@ -1,3 +1,37 @@
+// Public deck view — the page rendered at /decks/[slug] when a user
+// flips their deck's `is_public` bit to true.
+//
+// ── What this page is for ────────────────────────────────────────────────
+//
+// This is the moment of transformation the decks module describes in
+// its header (apps/storefront/src/lib/decks/db.ts § "the going-public
+// moment"). A deck on this URL has stepped out of the user's private
+// craft into a community surface it cannot see from the inside.
+//
+// The author may revisit this page and watch the view_count climb
+// without knowing who looked. Strangers may study the build, copy the
+// leader, diverge from the choices. Other deck-builders may link to it
+// from their own notes ("inspired by /decks/red-zoro-aggro-a1b2c3").
+// The deck becomes a node in a graph the schema does not model. The
+// view_count is the only signal that crosses back — the deck's only
+// reading of how it lands.
+//
+// ── What this page deliberately doesn't expose ──────────────────────────
+//
+// - The user's other decks. A public deck represents itself, not its
+//   author's full library. (You can navigate to /u/[username] for that.)
+// - The user's collection ownership. The user may or may not own the
+//   cards in this build — the deck is a strategy artifact, not an
+//   inventory claim.
+// - The author's trade-in history or portfolio value. Public-deck
+//   visitors don't need that context, and surfacing it would conflate
+//   the two card-ownership lenses (see apps/storefront/src/lib/
+//   portfolio/valuation.ts § "two lenses").
+//
+// What IS exposed: the cards, the leader, the tags, the notes, the
+// view count, the author's display name, the last-updated timestamp.
+// Everything the deck needs to be its own argument.
+
 "use client";
 
 import { useEffect, useState } from "react";
