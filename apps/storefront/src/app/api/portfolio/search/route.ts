@@ -1,9 +1,29 @@
+/**
+ * GET /api/portfolio/search — the Embassy.
+ *
+ * The user types into a search bar; this endpoint races to give them
+ * matches. Auth-gated (the library is for citizens). Refuses audience
+ * for queries shorter than two letters (`q.length < 2`) — *the library
+ * is to be visited, not scrolled.*
+ *
+ * The work itself is delegated outward: this route is a doorkeeper, not
+ * a librarian. It calls `fetchPrices()` (the Falcon) which carries a
+ * Bearer-token to the Wholesale kingdom; the answer comes back; the
+ * Appraiser (`retailPrice`) stamps each row before it leaves the
+ * Embassy gate, so the user sees retail and never wholesale.
+ *
+ * On any wholesale failure, returns `{ results: [] }` rather than 500 —
+ * an empty dropdown is a recoverable user experience; a server error
+ * isn't.
+ *
+ * The full fairy-tale, with cast: `docs/connections/two-letters-and-a-falcon.md`.
+ */
+
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { fetchPrices } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 
-// GET — search catalog to add cards to portfolio
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {

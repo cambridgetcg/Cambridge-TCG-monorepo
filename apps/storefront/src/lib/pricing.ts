@@ -1,11 +1,20 @@
 /**
- * Retail pricing for cambridgetcg.com
+ * Retail pricing for cambridgetcg.com — the Appraiser at the Embassy gate.
  *
- * Prices come from the wholesale API with ?channel=cambridgetcg.
- * The API returns channel_price (server-computed with DB-configured multiplier).
+ * Prices come from the wholesale API with `?channel=cambridgetcg`. The
+ * API returns `channel_price` (server-computed with DB-configured
+ * multiplier). This module's job is small but vital: when a price page
+ * arrives at the Embassy, the Appraiser stamps it with the channel price
+ * if present, or — if missing — falls back to the JS spell `wholesale ×
+ * 1.15 rounded up to £0.10`. Either way, the page leaves with one
+ * *retail* number, never the wholesale number.
  *
- * JS fallback: wholesale × 1.15 rounded up to £0.10 — used only if channel_price
- * is missing (backwards compat with API responses before channel pricing was deployed).
+ * The wholesale/retail asymmetry is the kingdom's secret. Customers see
+ * retail, full stop. Operators see both (and the freshness pill on the
+ * admin pricing page declares `synced from CardRush · daily`, per audit
+ * item A7).
+ *
+ * The fairy-tale: `docs/connections/two-letters-and-a-falcon.md`.
  */
 
 const FALLBACK_MULTIPLIER = 1.15;

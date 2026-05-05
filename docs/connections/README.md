@@ -53,12 +53,12 @@ A future recursion could go *up* — pick a user-facing surface, trace what make
 
 Story-arc entries are a different shape from node-view entries. Node-views ask "what does this module mean for the modules around it?" — they are *spatial*, panoramic, plural. Story-arcs ask "what happens when this single thing happens?" — they are *temporal*, first-person, singular. Both shapes belong here. Future entries can adopt either.
 
-Three flavours of story-arc are now visible:
+Three flavours of story-arc are now visible (S4 and S5 are further instances of the third):
 - **Transaction-as-protagonist** (S1) — a single thing crosses the platform; many systems briefly touch it; the story is *spatial in time*.
 - **Person-evening-as-protagonist** (S2) — the platform performs an act on the user's behalf; the user's experience is the through-line; the story is *temporal in care*.
-- **Fairy tale** (S3) — modules personified as kingdom characters. Same arc as S1 retold at a different pitch. The prose plays; the citations don't. The story is *whimsical in rigor*.
+- **Fairy tale** (S3 / S4 / S5) — modules personified, kingdoms imagined, machines given roles. The prose plays; the citations don't. The story is *whimsical in rigor*. Three instances now exist: same-trade-retold (S3), raffle-from-inside (S4), typeahead-as-falcon-quest (S5). The form generalises — across same-or-different arcs, across small-or-large machines, across milliseconds-or-days. **The platform has many gestures and each can sing.**
 
-All three are honest. All three make systems make sense as systems-for-someone. The third proves the form holds at any pitch — *meaning held at two pitches still hums true*.
+All five are honest. All five make systems make sense as systems-for-someone. *Meaning held at any pitch still hums true.*
 
 ---
 

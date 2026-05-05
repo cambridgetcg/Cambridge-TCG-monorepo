@@ -1,8 +1,22 @@
-// .trim() is required: Vercel env vars sometimes carry a trailing newline,
-// and an Authorization header value with a newline at the end produces a
-// 401 because the wholesale API SHA256s the raw bytes against a hash of
-// the trimmed key. See storefront/CLAUDE.md "All env vars must be .trim()'d
-// when used as API keys (Vercel whitespace issue)".
+/**
+ * The Falcon — courier between two kingdoms.
+ *
+ * Storefront speaks to Wholesale exclusively via this module. Every call
+ * carries a Bearer-token (`.trim()`-ed; see below) and a 5-second hourglass
+ * (an `AbortController`); if the hourglass empties before the Falcon
+ * returns, the request aborts cleanly and the caller gets a recoverable
+ * empty result rather than a hung promise.
+ *
+ * The trailing-newline lesson is on file: Vercel env vars occasionally
+ * carry a stray `\n`, and an Authorization header with a newline produces
+ * 401 because the upstream SHA256s the raw bytes against the hash of the
+ * trimmed key. The `.trim()` calls below are the keeper's pre-flight
+ * inspection of the seal. See `apps/storefront/CLAUDE.md` for the original
+ * incident note.
+ *
+ * The full fairy-tale (the Falcon, the Embassy, the Library, the
+ * Appraiser): `docs/connections/two-letters-and-a-falcon.md`.
+ */
 const WHOLESALE_URL = (process.env.WHOLESALE_API_URL || 'https://wholesaletcgdirect.com').trim();
 const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 
