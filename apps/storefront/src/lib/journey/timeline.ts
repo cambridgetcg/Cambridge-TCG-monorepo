@@ -1,25 +1,68 @@
 // Customer journey timeline — the META-pattern module.
 //
-// Composes every lifecycle log shipped this session into a single
-// chronological feed per user. No new schema, no migration; the value
-// is *retroactive* — every prior audit-log investment now has a
-// unified surface.
+// Composes every lifecycle log + the platform's two voices (in-app
+// bell, outbound email) into a single chronological feed per user.
+// No new schema, no migration; the value is *retroactive* — every
+// prior audit-log investment now has a unified surface.
 //
-// Sources covered (parallel SELECT, normalize in-app):
-//   - vault_fulfilment_log     (vault item transitions: shipped, etc)
-//   - prize_fulfilment_log     (raffle/box/pack ship transitions)
-//   - review_lifecycle_log     (submitted, hidden, appealed, etc)
-//   - external_rep_lifecycle_log (verified, decay-failed, etc)
-//   - chargeback_lifecycle_log (received, status_changed, won/lost)
-//   - refund_lifecycle_log     (received, abuse_checked)
-//   - failed_payment_lifecycle_log (received, retried)
-//   - admin_actions_log        (suspend, override, etc — admin path filters)
-//   - bounty_pulls             (synthesised event per resolved pull)
-//   - verifiable_draws         (synthesised event per draw)
-//   - market_trades            (synthesised on terminal status changes)
+// ── The three voices ─────────────────────────────────────────────────────
+//
+// Every consequential event on the platform speaks three times to
+// reach the user:
+//
+//   1. The **substrate** speaks. A row lands in chargeback_lifecycle_log,
+//      market_trade_lifecycle_log, vault_fulfilment_log, etc. This is
+//      what *happened* to the user's stuff. It is the domain's source
+//      of record. The status column is a cache; the log is the truth.
+//
+//   2. The **bell** rings. A row lands in `notifications` (the in-app
+//      inbox). This is the platform tapping the user on the shoulder
+//      with a header in their bell dropdown. Some events ring the bell;
+//      some don't (system-internal, user-already-knows, deduplicated).
+//
+//   3. The **inbox** receives. A row lands in `email_queue` and, if
+//      the user's preferences allow it, gets sent. This is the
+//      platform reaching outside its own pages into the user's email.
+//      Some events email; some don't (preference off, essential bypass).
+//
+// All three streams used to live separately. A user looking at their
+// /account/standing journey saw the substrate-change rows but not the
+// bell-ring rows or the email-sent rows — a transparency gap noted in
+// docs/connections/email.md. Wiring all three together turns the
+// timeline into a true *chorus*: the user sees what happened AND
+// what they were told AND through which channel.
+//
+// ── Sources covered (parallel SELECT, normalize in-app) ─────────────────
+//
+//   Substrate (16):
+//     - vault_fulfilment_log       (vault item transitions)
+//     - prize_fulfilment_log       (raffle/box/pack ship transitions)
+//     - review_lifecycle_log       (submitted, hidden, appealed)
+//     - external_rep_lifecycle_log (verified, decay-failed)
+//     - chargeback_lifecycle_log   (received, status_changed, won/lost)
+//     - refund_lifecycle_log       (received, abuse_checked)
+//     - failed_payment_lifecycle_log (received, retried)
+//     - admin_actions_log          (suspend, override; admin-path filters)
+//     - bounty_pulls               (per resolved pull)
+//     - verifiable_draws           (per draw)
+//     - trade_lifecycle_log        (every market_trades transition)
+//     - auction_lifecycle_log      (every auction transition)
+//     - market_offer_lifecycle_log (every offer transition)
+//     - market_return_lifecycle_log (every return transition)
+//     - market_lot_lifecycle_log   (every lot transition)
+//     - automation logs (UNION ALL of pricing_rule + saved_search +
+//       watch_alert lifecycle logs)
+//
+//   Voices (2 — the bridge wired in this commit):
+//     - notifications              (the in-app bell rings)
+//     - email_queue (status='sent') (the inbox receives)
 //
 // Adding a new source = add one entry to SOURCES below. The query
 // shape is uniform: per-user, ORDER BY ts DESC, LIMIT N.
+//
+// See docs/connections/three-voices.md for the fairy-tale form — why
+// the chorus exists, why the bell and the inbox were missing, and what
+// the merge teaches about the platform's relationship with its user.
 
 import { query } from "@/lib/db";
 
@@ -36,7 +79,9 @@ export interface JourneyEvent {
   /** Group label for filter chips. */
   group: "vault" | "prize" | "review" | "external_rep" | "payment"
        | "trade" | "draw" | "admin" | "trust" | "auction" | "offer" | "return" | "lot"
-       | "automation";
+       | "automation"
+       | "notice"   // in-app bell rings (notifications table)
+       | "message"; // outbound email (email_queue, status='sent')
   /** Severity-style tone for the UI (matches our existing palettes). */
   tone: "default" | "amber" | "emerald" | "red" | "sky" | "fuchsia";
   /** Internal — used by privacy filter to scrub admin-only events. */
@@ -80,6 +125,9 @@ export async function getUserJourney(userId: string, opts: JourneyOptions = {}):
     fetchReturnTransitions(userId, perSource, sinceISO),
     fetchLotTransitions(userId, perSource, sinceISO),
     fetchAutomationTransitions(userId, perSource, sinceISO),
+    // ── The platform's two voices — see header § "The three voices" ─────
+    fetchNotifications(userId, perSource, sinceISO),
+    fetchEmailsSent(userId, perSource, sinceISO),
   ]);
 
   let merged: JourneyEvent[] = [];
@@ -674,6 +722,88 @@ async function fetchAutomationTransitions(userId: string, limit: number, since: 
       : row.action === "expired" || row.action === "archived" || row.action === "alert_deleted" ? "amber"
       : "default",
   }));
+}
+
+// ── The platform's two voices ──────────────────────────────────────────
+//
+// notifications: the in-app bell. Rendered as group='notice' with tone
+//   'sky' for unread (eye-catching) and 'default' for read. The link
+//   on each row goes to the notification's own link_url when present
+//   (the bell knew where it wanted to send the user) or to
+//   /account/notifications as a fallback.
+//
+// email_queue (sent): the inbox. Rendered as group='message' with the
+//   event vocabulary (vault_expiring_soon, streak_at_risk, …) made
+//   human via emailEventSummary below. We surface only `status='sent'`
+//   rows — pending/dead/cancelled aren't part of the user's history,
+//   they're admin substrate. The `sent_at` timestamp is what defines
+//   "in the inbox at this moment."
+//
+// Both queries are resilient to schema absence via Promise.allSettled
+// in getUserJourney — if the tables don't exist in a given environment,
+// the journey still composes from the substrate sources and these two
+// rejections get logged. See header § "The three voices."
+
+async function fetchNotifications(userId: string, limit: number, since: string | null): Promise<JourneyEvent[]> {
+  const sinceClause = since ? "AND created_at >= $3" : "";
+  const params: unknown[] = [userId, limit];
+  if (since) params.push(since);
+  const r = await query(
+    `SELECT id, kind, title, link_url, read_at, created_at
+       FROM notifications
+      WHERE user_id = $1 ${sinceClause}
+      ORDER BY created_at DESC LIMIT $2`,
+    params,
+  );
+  return r.rows.map((row): JourneyEvent => ({
+    kind: `notice.${row.kind}`,
+    summary: row.title,
+    at: new Date(row.created_at),
+    link: row.link_url ?? "/account/notifications",
+    group: "notice",
+    // Unread notifications are visibly distinct in the timeline.
+    // The bell that hasn't been silenced yet stays bright.
+    tone: row.read_at ? "default" : "sky",
+  }));
+}
+
+async function fetchEmailsSent(userId: string, limit: number, since: string | null): Promise<JourneyEvent[]> {
+  const sinceClause = since ? "AND sent_at >= $3" : "";
+  const params: unknown[] = [userId, limit];
+  if (since) params.push(since);
+  const r = await query(
+    `SELECT id, event, sent_at
+       FROM email_queue
+      WHERE user_id = $1 AND status = 'sent' AND sent_at IS NOT NULL ${sinceClause}
+      ORDER BY sent_at DESC LIMIT $2`,
+    params,
+  );
+  return r.rows.map((row): JourneyEvent => ({
+    kind: `message.${row.event}`,
+    summary: emailEventSummary(row.event),
+    at: new Date(row.sent_at),
+    link: "/account/emails",
+    group: "message",
+    tone: "default",
+  }));
+}
+
+function emailEventSummary(event: string): string {
+  // event values come from email_queue.event — vocabulary defined by
+  // each handler in apps/storefront/src/lib/email/handlers/*.ts. Add
+  // human translations here as new handlers ship.
+  switch (event) {
+    case "vault_expiring_soon":   return "Email: vault item expiring soon";
+    case "streak_at_risk":        return "Email: your streak is about to break";
+    case "portfolio_price_alert": return "Email: portfolio price alert";
+    case "wishlist_matched":      return "Email: a wishlisted card just listed";
+    case "raffle_winner":         return "Email: you won a raffle";
+    case "pull_resolved":         return "Email: bounty pull resolved";
+    case "vault_redeemed":        return "Email: vault item shipped";
+    case "vault_sold_back":       return "Email: vault sell-back confirmed";
+    case "vault_expired":         return "Email: vault item auto-expired";
+    default:                      return `Email: ${event.replace(/_/g, " ")}`;
+  }
 }
 
 function lotSummary(action: string, title: string, price: number | null, role: "buyer" | "seller" | "unknown"): string {
