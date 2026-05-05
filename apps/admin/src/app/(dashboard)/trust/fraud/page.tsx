@@ -20,7 +20,8 @@ import { sfQuery } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, StatusBadge, SectionHeading, type Column, type Tone,
+  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance,
+  type Column, type Tone,
 } from "@/lib/ui";
 import { FraudActions } from "./_components";
 
@@ -323,6 +324,7 @@ export default async function Page({
     <div className="max-w-6xl space-y-6">
       <PageHeader
         title="Fraud Signals"
+        provenance={<Provenance kind="live" />}
         description="Triage queue from the fraud detection passes. Critical + auto_action=suspend signals already auto-suspended the user; resolve to clear, escalate to bump severity, or escalate to suspend if the auto-gate didn't fire. Trust score recomputes on the next sweep cron."
         action={
           <Link
@@ -333,6 +335,8 @@ export default async function Page({
           </Link>
         }
       />
+
+      <SectionHeading trailing={<Provenance kind="live" />}>At a glance</SectionHeading>
 
       <KpiGrid cols={5}>
         <KpiCard

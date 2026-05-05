@@ -18,7 +18,7 @@ import { sfQuery } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
 import {
   PageHeader, SearchForm, DataTable, FilterPills,
-  KpiGrid, KpiCard, SectionHeading, type Column,
+  KpiGrid, KpiCard, SectionHeading, Provenance, type Column,
 } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { AdminRowActions, GrantAdminForm } from "./_components";
@@ -205,6 +205,8 @@ export default async function Page({
           </Link>
         }
       />
+
+      <SectionHeading trailing={<Provenance kind="live" />}>At a glance</SectionHeading>
 
       <KpiGrid cols={3}>
         <KpiCard label="Current Admins" value={kpi.admins} urgency="ok" />
