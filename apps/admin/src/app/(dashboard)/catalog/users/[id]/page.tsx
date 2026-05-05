@@ -22,7 +22,7 @@ import { fmtDate, fmtDateTime, fmtGBP, fmtNumber, fmtRelative } from "@/lib/form
 import { safe, safeCount, isUnavailable } from "@/lib/queries";
 import {
   PageHeader, KpiGrid, KpiCard, SectionHeading, StatusBadge, ExternalLink,
-  EmptyState, Provenance, type Tone,
+  EmptyState, Provenance, WhyLink, Verifiability, type Tone,
 } from "@/lib/ui";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -408,19 +408,19 @@ export default async function Page({
             label="Open chargebacks"
             value={issues.chargebacks_open}
             urgency={parseInt(issues.chargebacks_open || "0", 10) > 0 ? "critical" : "neutral"}
-            href={`/money/chargebacks?status=open&q=${encodeURIComponent(user.email)}`}
+            href={`/money/chargebacks?status=open&userId=${user.id}`}
           />
           <KpiCard
             label="Open disputes raised"
             value={issues.disputes_open}
             urgency={parseInt(issues.disputes_open || "0", 10) > 0 ? "warning" : "neutral"}
-            href={`/trust/disputes?status=open`}
+            href={`/trust/disputes?status=open&userId=${user.id}`}
           />
           <KpiCard
             label="Fraud signals (unresolved)"
             value={issues.fraud_unresolved}
             urgency={parseInt(issues.fraud_unresolved || "0", 10) > 0 ? "critical" : "neutral"}
-            href={`/trust/fraud`}
+            href={`/trust/fraud?userId=${user.id}`}
           />
           <KpiCard
             label="Disputed trades"
@@ -450,11 +450,17 @@ export default async function Page({
           <FactCard
             title="Trust profile"
             provenance={
-              <Provenance
-                kind="computed"
-                at={trust.updated_at}
-                by="storefront /api/cron/maintenance"
-              />
+              <>
+                <Provenance
+                  kind="computed"
+                  at={trust.updated_at}
+                  by="storefront /api/cron/maintenance"
+                />
+                <WhyLink
+                  href="https://cambridgetcg.com/methodology/trust-score"
+                  tooltip="How is the trust score computed?"
+                />
+              </>
             }
           >
             <Fact
@@ -591,7 +597,7 @@ export default async function Page({
         )}
         <div className="mt-2 text-right">
           <Link
-            href={`/ops/orders?q=${encodeURIComponent(user.email)}`}
+            href={`/ops/orders?userId=${user.id}`}
             className="text-xs text-amber-400 hover:text-amber-300 underline"
           >
             All orders →
@@ -616,6 +622,11 @@ export default async function Page({
                       {c.stripe_reason && (
                         <span className="text-xs text-neutral-500 italic">{c.stripe_reason}</span>
                       )}
+                      <Verifiability
+                        source="Stripe"
+                        id={c.stripe_dispute_id}
+                        href={`https://dashboard.stripe.com/disputes/${c.stripe_dispute_id}`}
+                      />
                     </div>
                     {c.evidence_due_at && dueDays != null && (
                       <p className={`text-xs mt-1 ${dueDays <= 3 ? "text-red-400 font-bold" : "text-neutral-500"}`}>
@@ -631,7 +642,7 @@ export default async function Page({
           </div>
           <div className="mt-2 text-right">
             <Link
-              href={`/money/chargebacks?q=${encodeURIComponent(user.email)}`}
+              href={`/money/chargebacks?userId=${user.id}`}
               className="text-xs text-amber-400 hover:text-amber-300 underline"
             >
               All chargebacks →

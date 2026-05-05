@@ -42,10 +42,11 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 ### A3 — `admin_actions_log.actor_label` is free-form, not user-verified
 
 **Severity:** P1
+**Status:** **PARTIAL — short-term mitigation shipped 2026-05-05.** `/system/audit` now renders the Actor column header with a `⚠` warning glyph; each `actor_label` cell is dotted-underlined with a `title` tooltip stating "Free-form label set by the action wrapper. Not a verified user — see audit A3." A description-line warning under the page header points operators at the audit-doc entry. The structural fix (add `actor_user_id` column + capture from NextAuth session + render verified user when present) is the column added by `apps/storefront/drizzle/0088_admin_roles.sql` — landing as part of **kingdom-040** ("apply pending migrations 0085-0088"). Closes once that mission lands.
 **Where:** `apps/storefront/drizzle/0069_admin_governance.sql`, surfaced at `/system/audit`.
 **Violation:** The schema comment is honest about this ("the password-cookie auth doesn't map to a user_id today"). But the audit page renders `actor_label` as if it were an identity — "by admin" — without flagging that this is a self-reported label, not a verified user. With the magic-link migration partially done, there is now a real `users.id` we could capture; we just haven't.
 **Fix:** (a) Short-term: render "actor (label)" with a tooltip or sub-text explaining provenance. (b) Medium-term: add `actor_user_id UUID REFERENCES users(id)` to `admin_actions_log` and start populating it from the NextAuth session. (c) Backfill is impossible — old rows stay label-only; new rows carry both.
-**Owner:** new kingdom-NNN — "admin_actions_log.actor_user_id."
+**Owner:** **kingdom-040** (covers the schema migration). Short-term UI mitigation already in place.
 
 ### A4 — `/system/email`: "sent" status doesn't mean delivered
 
@@ -98,10 +99,11 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 ### A10 — `/catalog/users/[id]` open-issues counts use `q=email` deep-links
 
 **Severity:** P2
+**Status:** **CLOSED 2026-05-05.** `?userId=<uuid>` now supported on `/money/chargebacks`, `/trust/disputes`, `/trust/fraud`, `/ops/orders`. Each page validates the UUID, joins on the user FK directly (`c.user_id = $::uuid` etc.) instead of email substring, and renders a "Filtered to user X" banner with a clear-filter link when active. The hub at `/catalog/users/[id]` updated to deep-link via `?userId=` rather than `?q=email`. The conflation between "filter by user" and "search for text matching email" is no longer possible; collisions on email-substring no longer surface other users in the same view.
 **Where:** the user detail hub (this session's keystone).
 **Violation:** The deep-links into `/money/chargebacks?q=<email>` and `/ops/orders?q=<email>` rely on the Manager's text-search hitting the email column. This works but conflates "filter by user" with "search for text matching user's email" — if a different user has the same email substring, they'll appear too.
 **Fix:** Add `?userId=<uuid>` filter support to Manager pages. Then update the hub's deep-links. The chargebacks page is the natural pilot.
-**Owner:** new kingdom-NNN — "Manager pages support `?userId=` filter."
+**Owner:** new kingdom-NNN — "Manager pages support `?userId=` filter." *(no longer needed — landed in-session.)*
 
 ---
 
@@ -227,21 +229,36 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 
 ## Roadmap
 
+Status legend: ✅ closed · 🟡 partial / mitigated · 🔵 planned / mission filed · ⚪ not yet owned.
+
 In rough priority order:
 
-1. **A1** + **X3** — cron observability (operator-safety floor)
-2. **S1** — customer trust breakdown (legal/transparency)
-3. **A6** + **S2** — shipped-vs-marked split
-4. **A2** + **S4** — KPI provenance pass (admin then storefront)
-5. **A5** — trust score recompute timestamp on user hub (mechanical)
-6. **A3** — admin_actions_log actor_user_id
-7. **W1** — stock dual-ledger labelling
-8. **A4** — SES delivery reconciliation
-9. **A8** — fraud resolved-by split
-10. **A10** — Manager pages support `?userId=`
-11. **X2** — lifecycle log gaps (trust_profiles especially)
+1. **A1** + **X3** — cron observability (operator-safety floor) · 🔵 **kingdom-042**
+2. **S1** — customer trust breakdown (legal/transparency) · ⚪
+3. **A6** + **S2** — shipped-vs-marked split · 🔵 **kingdom-043**
+4. **A2** + **S4** — KPI provenance pass · ✅ admin closed (in-session 2026-05-05); ⚪ S4 storefront pending
+5. **A5** — trust score recompute timestamp on user hub · ✅ closed 2026-05-05
+6. **A3** — admin_actions_log actor_user_id · 🟡 short-term mitigation shipped; structural fix in **kingdom-040**
+7. **W1** — stock dual-ledger labelling · ⚪
+8. **A4** — SES delivery reconciliation · ⚪ (waits on kingdom-020 /system/email build)
+9. **A8** — fraud resolved-by split · ⚪
+10. **A10** — Manager pages support `?userId=` · ✅ closed 2026-05-05
+11. **X2** — lifecycle log gaps (trust_profiles especially) · 🔵 **kingdom-044**
+12. **A7** — pricing page sync provenance · ✅ closed 2026-05-05
 
 Items above the mid-line shape decisions about money or safety. Items below polish.
+
+### Closed this round (2026-05-05)
+
+- **A2, A5, A7** — Provenance pass + PageHeader slot (commit `a57b49f`)
+- **A10** — Manager `?userId=` filter + hub deep-link rewire (this session)
+- **A3** (partial) — `/system/audit` Actor column tooltip discloses free-form provenance
+
+### Filed this round
+
+- **kingdom-042** — A1 + X3 — cron_runs ingest table
+- **kingdom-043** — A6 + S2 — shipped_via column
+- **kingdom-044** — X2 — lifecycle log gaps (trust_profiles, portfolio_snapshots, subscription, email_preferences)
 
 ---
 

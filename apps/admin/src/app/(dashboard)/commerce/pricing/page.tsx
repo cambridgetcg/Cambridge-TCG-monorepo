@@ -20,6 +20,7 @@ import { fmtGBP, fmtJPY, fmtDateTime, fmtRelative } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
   KpiGrid, KpiCard, SectionHeading, ExternalLink, ActionBanner, Provenance,
+  WhyLink,
   type Column,
 } from "@/lib/ui";
 import { PriceCell } from "./_components";
@@ -242,12 +243,18 @@ export default async function Page({
       <PageHeader
         title="Pricing"
         provenance={
-          <Provenance
-            kind="synced"
-            source="CardRush"
-            at={kpi.last_sync}
-            cadence="daily"
-          />
+          <>
+            <Provenance
+              kind="synced"
+              source="CardRush"
+              at={kpi.last_sync}
+              cadence="daily"
+            />
+            <WhyLink
+              href="https://cambridgetcg.com/methodology/pricing"
+              tooltip="How is the price computed? (margin, fee, VAT)"
+            />
+          </>
         }
         description={<>{parseInt(kpi.total, 10).toLocaleString()} cards in catalog.</>}
         action={

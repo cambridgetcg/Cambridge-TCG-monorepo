@@ -38,15 +38,19 @@ interface CountByStatus {
 }
 
 const PAGE_SIZE = 50;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; userId?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const status = sp.status ?? "";
+  // ?userId= filters on customer_orders.user_id directly (audit A10).
+  const userId = (sp.userId ?? "").trim();
+  const userIdValid = userId && UUID_RE.test(userId);
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
@@ -58,12 +62,24 @@ export default async function Page({
     params.push(`%${q}%`, q);
     i += 2;
   }
+  if (userIdValid) {
+    where.push(`user_id = $${i}::uuid`);
+    params.push(userId);
+    i += 1;
+  }
   if (status) {
     where.push(`status = $${i}`);
     params.push(status);
     i += 1;
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const filterUser = userIdValid
+    ? (await sfQuery<{ email: string; name: string | null }>(
+        `SELECT email, name FROM users WHERE id = $1::uuid`,
+        [userId],
+      )).rows[0]
+    : null;
 
   const [rowsResult, totalResult, byStatusResult] = await Promise.all([
     sfQuery<CustomerOrderRow>(
@@ -93,6 +109,8 @@ export default async function Page({
     if (q && overrides.q !== "") next.set("q", overrides.q ?? q);
     const newStatus = overrides.status !== undefined ? overrides.status : status;
     if (newStatus) next.set("status", newStatus);
+    const newUserId = overrides.userId !== undefined ? overrides.userId : userId;
+    if (newUserId) next.set("userId", newUserId);
     const newPage = overrides.page ?? String(page);
     if (newPage !== "1") next.set("page", newPage);
     const qs = next.toString();
@@ -112,6 +130,24 @@ export default async function Page({
           or admin-marked; provenance split is filed as audit item A6.
         </p>
       </header>
+
+      {filterUser && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-2 text-sm flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-blue-300">
+            Filtered to user{" "}
+            <Link href={`/catalog/users/${userId}`} className="font-medium underline">
+              {filterUser.name ?? filterUser.email}
+            </Link>
+            <span className="text-neutral-500"> ({filterUser.email})</span>
+          </span>
+          <Link
+            href={buildHref({ userId: "", page: "1" })}
+            className="text-xs text-neutral-400 hover:text-white"
+          >
+            Clear filter ✕
+          </Link>
+        </div>
+      )}
 
       {/* Status pills */}
       <nav className="flex flex-wrap gap-2 text-sm">
@@ -143,6 +179,7 @@ export default async function Page({
       {/* Search */}
       <form className="flex gap-2" action="/ops/orders">
         {status && <input type="hidden" name="status" value={status} />}
+        {userId && <input type="hidden" name="userId" value={userId} />}
         <input
           name="q"
           defaultValue={q}

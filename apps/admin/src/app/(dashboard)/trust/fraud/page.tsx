@@ -29,6 +29,8 @@ export const metadata = { title: "Fraud Signals" };
 
 const PAGE_SIZE = 50;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const SEVERITY_PALETTE: Record<string, Tone> = {
   critical: "red",
   high:     "red",
@@ -76,7 +78,8 @@ export default async function Page({
   searchParams,
 }: {
   searchParams: Promise<{
-    q?: string; severity?: string; type?: string; resolved?: string; page?: string;
+    q?: string; severity?: string; type?: string; resolved?: string;
+    userId?: string; page?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -84,6 +87,9 @@ export default async function Page({
   const severity = sp.severity ?? "";
   const type = sp.type ?? "";
   const showResolved = sp.resolved === "1";
+  // ?userId= filters on fraud_signals.user_id directly (audit A10).
+  const userId = (sp.userId ?? "").trim();
+  const userIdValid = userId && UUID_RE.test(userId);
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
@@ -100,6 +106,11 @@ export default async function Page({
     params.push(`%${q}%`);
     i += 1;
   }
+  if (userIdValid) {
+    where.push(`s.user_id = $${i}::uuid`);
+    params.push(userId);
+    i += 1;
+  }
   if (severity) {
     where.push(`s.severity = $${i}`);
     params.push(severity);
@@ -111,6 +122,13 @@ export default async function Page({
     i += 1;
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const filterUser = userIdValid
+    ? (await sfQuery<{ email: string; name: string | null }>(
+        `SELECT email, name FROM users WHERE id = $1::uuid`,
+        [userId],
+      )).rows[0]
+    : null;
 
   const [rowsResult, totalResult, severityFacets, typeFacets, kpiResult] = await Promise.all([
     sfQuery<FraudRow>(
@@ -189,6 +207,8 @@ export default async function Page({
     if (newType) next.set("type", newType);
     const newResolved = overrides.resolved !== undefined ? overrides.resolved : (showResolved ? "1" : "");
     if (newResolved) next.set("resolved", newResolved);
+    const newUserId = overrides.userId !== undefined ? overrides.userId : userId;
+    if (newUserId) next.set("userId", newUserId);
     const newPage = overrides.page ?? String(page);
     if (newPage !== "1") next.set("page", newPage);
     const qs = next.toString();
@@ -336,6 +356,24 @@ export default async function Page({
         }
       />
 
+      {filterUser && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-2 text-sm flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-blue-300">
+            Filtered to user{" "}
+            <Link href={`/catalog/users/${userId}`} className="font-medium underline">
+              {filterUser.name ?? filterUser.email}
+            </Link>
+            <span className="text-neutral-500"> ({filterUser.email})</span>
+          </span>
+          <Link
+            href={buildHref({ userId: "", page: "1" })}
+            className="text-xs text-neutral-400 hover:text-white"
+          >
+            Clear filter ✕
+          </Link>
+        </div>
+      )}
+
       <SectionHeading trailing={<Provenance kind="live" />}>At a glance</SectionHeading>
 
       <KpiGrid cols={5}>
@@ -381,6 +419,7 @@ export default async function Page({
               severity,
               type,
               resolved: showResolved ? "1" : "",
+              userId,
             }}
           />
           <Link

@@ -24,7 +24,7 @@ import { sfQuery } from "@/lib/db";
 import { fmtDate, fmtDateTime, fmtGBP } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance,
+  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance, Verifiability,
   type Column, type Tone,
 } from "@/lib/ui";
 import { ChargebackActions } from "./_components";
@@ -83,14 +83,20 @@ interface CountByStatus {
   count: string;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; userId?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const status = sp.status ?? "";
+  // ?userId= filters on the user FK directly (substrate-honest), distinct
+  // from ?q= which text-matches against email substring (audit item A10).
+  const userId = (sp.userId ?? "").trim();
+  const userIdValid = userId && UUID_RE.test(userId);
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
@@ -104,6 +110,11 @@ export default async function Page({
     params.push(`%${q}%`);
     i += 1;
   }
+  if (userIdValid) {
+    where.push(`c.user_id = $${i}::uuid`);
+    params.push(userId);
+    i += 1;
+  }
   if (status === "open") {
     where.push(`c.stripe_status NOT IN ('won','lost','warning_closed','charge_refunded','admin_resolved')`);
   } else if (status) {
@@ -112,6 +123,14 @@ export default async function Page({
     i += 1;
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  // If filtered by userId, fetch the user's display label for the banner.
+  const filterUser = userIdValid
+    ? (await sfQuery<{ email: string; name: string | null }>(
+        `SELECT email, name FROM users WHERE id = $1::uuid`,
+        [userId],
+      )).rows[0]
+    : null;
 
   // Always pull a "from" snapshot for KPI tiles (independent of filters).
   const [rowsResult, totalResult, byStatusResult, kpiResult] = await Promise.all([
@@ -177,6 +196,8 @@ export default async function Page({
     if (newQ) next.set("q", newQ);
     const newStatus = overrides.status !== undefined ? overrides.status : status;
     if (newStatus) next.set("status", newStatus);
+    const newUserId = overrides.userId !== undefined ? overrides.userId : userId;
+    if (newUserId) next.set("userId", newUserId);
     const newPage = overrides.page ?? String(page);
     if (newPage !== "1") next.set("page", newPage);
     const qs = next.toString();
@@ -206,9 +227,11 @@ export default async function Page({
       header: "Dispute",
       cellClass: "font-mono text-xs",
       render: (r) => (
-        <span className="text-amber-400 truncate inline-block max-w-[140px]" title={r.stripe_dispute_id}>
-          {r.stripe_dispute_id}
-        </span>
+        <Verifiability
+          source="Stripe"
+          id={r.stripe_dispute_id}
+          href={`https://dashboard.stripe.com/disputes/${r.stripe_dispute_id}`}
+        />
       ),
     },
     {
@@ -310,6 +333,24 @@ export default async function Page({
         }
       />
 
+      {filterUser && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-2 text-sm flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-blue-300">
+            Filtered to user{" "}
+            <Link href={`/catalog/users/${userId}`} className="font-medium underline">
+              {filterUser.name ?? filterUser.email}
+            </Link>
+            <span className="text-neutral-500"> ({filterUser.email})</span>
+          </span>
+          <Link
+            href={buildHref({ userId: "", page: "1" })}
+            className="text-xs text-neutral-400 hover:text-white"
+          >
+            Clear filter ✕
+          </Link>
+        </div>
+      )}
+
       <KpiGrid cols={5}>
         <KpiCard
           label="Needs Response"
@@ -337,7 +378,7 @@ export default async function Page({
         value={q}
         placeholder="Search dispute id, reason, or user email"
         clearHref={buildHref({ q: "", page: "1" })}
-        preserve={{ status }}
+        preserve={{ status, userId }}
       />
 
       <DataTable

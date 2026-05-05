@@ -30,6 +30,33 @@ The four-question checklist when shipping a new field:
 
 If any answer is "I don't know," surface that — "Source: unknown" beats a confident lie.
 
+## Transparency (READ THIS BEFORE SHIPPING USER-AFFECTING DECISIONS)
+
+Substrate honesty is the precondition; transparency is its outward face. The
+platform doesn't hide its decisions from the people they affect. Every score,
+routing decision, suspension, fee, or status the platform decides about a
+user must be inspectable by that user.
+
+Doctrine + audit at the repo root:
+
+- [`docs/principles/transparency.md`](../../docs/principles/transparency.md) — the four rings (operator / subject / auditor / cross-system), eight rules
+- [`docs/principles/transparency-audit.md`](../../docs/principles/transparency-audit.md) — violations + roadmap
+
+Concrete primitives:
+
+- **`<WhyLink>`** in `@/lib/ui` — "?" affordance pointing at a methodology page (`https://cambridgetcg.com/methodology/<topic>`). Drop next to any displayed score or derived value.
+- **`<Verifiability>`** in `@/lib/ui` — Ring 4 primitive. Carries a foreign system's identifier (Stripe / SES / CardRush / etc.) onto the page so viewers can verify against the authoritative source. Our row is reconciled; theirs is authoritative; the asymmetry is UI-visible.
+- **`docs/methodology/*`** at the repo root — public methodology documents that `<WhyLink>` targets. First entry: `trust-score.md`. New methodology pages must cite source code paths.
+
+The four-question checklist when shipping a user-affecting decision:
+
+1. What did we decide? (Suspend, route, flag, score, deny, hold, downgrade.)
+2. What were the inputs and methodology? (Cite the code path.)
+3. Where can the affected user see this decision and its inputs?
+4. Is the methodology itself documented at `/methodology/<topic>`?
+
+If 3 or 4 is "nowhere," the feature isn't ready to ship — file the methodology + receipt as part of the same mission.
+
 ## Module review playbook (READ THIS BEFORE BUILDING)
 
 Whenever you start, finish, or audit a page, follow

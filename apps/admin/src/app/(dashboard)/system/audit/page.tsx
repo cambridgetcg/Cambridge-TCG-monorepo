@@ -193,10 +193,19 @@ export default async function Page({
     },
     {
       key: "actor",
-      header: "Actor",
+      header: (
+        <span title="actor_label is a free-form string the action wrapper sets at write time. It is NOT a verified user identity. See docs/principles/substrate-honesty-audit.md item A3.">
+          Actor <span className="text-amber-500/70">⚠</span>
+        </span>
+      ),
       render: (r) =>
         r.actor_label ? (
-          <span className="text-white text-sm">{r.actor_label}</span>
+          <span
+            className="text-white text-sm border-b border-dotted border-neutral-600 cursor-help"
+            title="Free-form label set by the action wrapper. Not a verified user — see audit A3."
+          >
+            {r.actor_label}
+          </span>
         ) : (
           <span className="text-neutral-500 italic text-sm">system</span>
         ),
@@ -299,7 +308,17 @@ export default async function Page({
       <PageHeader
         title="Audit Log"
         provenance={<Provenance kind="live" />}
-        description="Append-only governance trail. Every consequential admin action — suspension, trust override, dispute resolution, fraud signal review — is recorded here. The log is the substrate; status columns elsewhere are caches over this."
+        description={
+          <>
+            Append-only governance trail. Every consequential admin action — suspension,
+            trust override, dispute resolution, fraud signal review — is recorded here.
+            The log is the substrate; status columns elsewhere are caches over this.
+            {" "}
+            <span className="text-amber-400" title="Substrate-honesty audit item A3">
+              ⚠ The Actor column is a free-form label, not a verified user identity (see audit A3).
+            </span>
+          </>
+        }
       />
 
       <KpiGrid cols={3}>
