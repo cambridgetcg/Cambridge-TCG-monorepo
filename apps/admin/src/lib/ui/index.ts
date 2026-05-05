@@ -16,3 +16,4 @@ export { Pagination } from "./Pagination";
 export { SearchForm } from "./SearchForm";
 export { FilterPills, type FilterPill } from "./FilterPills";
 export { ActionBanner } from "./ActionBanner";
+export { Provenance, type ProvenanceKind } from "./Provenance";

@@ -19,7 +19,7 @@ import { wsQuery } from "@/lib/db";
 import { fmtGBP, fmtJPY, fmtDateTime, fmtRelative } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, SectionHeading, ExternalLink, ActionBanner,
+  KpiGrid, KpiCard, SectionHeading, ExternalLink, ActionBanner, Provenance,
   type Column,
 } from "@/lib/ui";
 import { PriceCell } from "./_components";
@@ -283,7 +283,15 @@ export default async function Page({
       )}
 
       <section className="space-y-3">
-        <SectionHeading count={gameCoverage.length}>Sync coverage by game</SectionHeading>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <SectionHeading count={gameCoverage.length}>Sync coverage by game</SectionHeading>
+          <Provenance
+            kind="synced"
+            source="CardRush"
+            at={kpi.last_sync}
+            cadence="daily"
+          />
+        </div>
         <KpiGrid cols={(gameCoverage.length === 1 ? 2 : gameCoverage.length === 2 ? 2 : gameCoverage.length >= 4 ? 4 : 3) as 2 | 3 | 4}>
           {gameCoverage.map((g) => (
             <KpiCard

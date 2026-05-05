@@ -4,6 +4,32 @@ This is `@cambridge-tcg/admin`, the unified admin console at `localhost:3002` /
 `admin.cambridgetcg.com`. Built on Next.js 16, React 19, NextAuth v5, raw
 SQL via `postgres.js`. No ORM, no shadcn/ui, no zod.
 
+## Substrate honesty (READ THIS BEFORE SHIPPING)
+
+The platform tells the truth about its own state. Every value carries — explicitly
+or implicitly — a claim about how it came to be true. Live vs cached vs snapshot
+vs synced vs computed are different, and the surface must say which.
+
+The doctrine and audit live at the repo root:
+
+- [`docs/principles/substrate-honesty.md`](../../docs/principles/substrate-honesty.md) — the rule, with worked examples
+- [`docs/principles/substrate-honesty-audit.md`](../../docs/principles/substrate-honesty-audit.md) — current violations + roadmap
+
+Concrete primitives:
+
+- **`<Provenance>`** in `@/lib/ui` — compact source/freshness/cadence label. Use it on KPI grids that read snapshot or synced data, on section headers that read from a cron output, and on derived-score panels.
+- **`safe()` / `safeCount()`** in `@/lib/queries` — degrade visibly to "—" rather than fabricate zero on failure.
+- **`*_lifecycle_log` tables** are the substrate; status columns are caches. Mutations append to logs; surfaces should distinguish.
+
+The four-question checklist when shipping a new field:
+
+1. Where did this come from? (live / cached / snapshot / synced / computed)
+2. When was it last true?
+3. Could a human have set this without a system process producing it?
+4. Does the surface answer 1–3 visibly?
+
+If any answer is "I don't know," surface that — "Source: unknown" beats a confident lie.
+
 ## Module review playbook (READ THIS BEFORE BUILDING)
 
 Whenever you start, finish, or audit a page, follow

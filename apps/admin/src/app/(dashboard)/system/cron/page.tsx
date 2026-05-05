@@ -10,6 +10,7 @@
 import { sfQuery } from "@/lib/db";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ActionBanner, Provenance } from "@/lib/ui";
 
 // Root layout adds the "— Cambridge TCG Admin" suffix via the title template;
 // don't repeat it here or it ends up doubled.
@@ -113,11 +114,20 @@ export default async function Page() {
         </p>
       </header>
 
+      <ActionBanner tone="warning" title="This page reflects schedule, not run history">
+        Cron entries below are read from each app&apos;s <code className="text-xs">vercel.json</code>{" "}
+        — they describe what we <em>intend</em> to run. We do not yet have a
+        <code className="text-xs"> cron_runs</code> table to record what actually fired.
+        Vercel runs are authoritative; this page is reconciled.
+        For per-invocation logs, see Vercel → Project → Logs → filter by &quot;Cron.&quot;
+      </ActionBanner>
+
       {/* Email queue health */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-white">
-          Email queue
-          <span className="ml-2 text-xs text-neutral-500 font-normal">
+        <h2 className="text-sm font-semibold text-white flex items-center gap-3">
+          <span>Email queue</span>
+          <Provenance kind="live" />
+          <span className="text-xs text-neutral-500 font-normal">
             (storefront, drained by /api/cron/maintenance every minute)
           </span>
         </h2>
@@ -156,7 +166,10 @@ export default async function Page() {
 
       {/* Cron inventory */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-white">Scheduled crons</h2>
+        <h2 className="text-sm font-semibold text-white flex items-center gap-3">
+          <span>Scheduled crons</span>
+          <Provenance kind="scheduled" />
+        </h2>
         <div className="rounded-lg border border-neutral-800 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wide">
@@ -189,11 +202,6 @@ export default async function Page() {
         </div>
       </section>
 
-      <p className="text-xs text-neutral-500 italic">
-        For run history and per-invocation logs, see Vercel → Project → Logs →
-        filter by &quot;Cron&quot;. Persisted run-status would require a
-        dedicated cron_runs table; not yet implemented.
-      </p>
     </div>
   );
 }

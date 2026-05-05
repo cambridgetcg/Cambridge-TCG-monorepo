@@ -22,7 +22,7 @@ import { fmtDate, fmtDateTime, fmtGBP, fmtNumber, fmtRelative } from "@/lib/form
 import { safe, safeCount, isUnavailable } from "@/lib/queries";
 import {
   PageHeader, KpiGrid, KpiCard, SectionHeading, StatusBadge, ExternalLink,
-  EmptyState, type Tone,
+  EmptyState, Provenance, type Tone,
 } from "@/lib/ui";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -81,6 +81,7 @@ interface TrustRow {
   is_suspended: boolean;
   suspended_reason: string | null;
   suspended_until: string | null;
+  updated_at: string | null;
 }
 
 interface KycRow {
@@ -206,7 +207,8 @@ export default async function Page({
                 avg_rating::text, total_reviews,
                 total_volume::text, largest_trade::text,
                 trade_limit::text, daily_limit::text,
-                is_flagged, flag_reason, is_suspended, suspended_reason, suspended_until
+                is_flagged, flag_reason, is_suspended, suspended_reason, suspended_until,
+                updated_at::text AS updated_at
            FROM trust_profiles WHERE user_id = $1::uuid`,
         [id],
       ),
@@ -444,7 +446,16 @@ export default async function Page({
         </FactCard>
 
         {trust && (
-          <FactCard title="Trust profile">
+          <FactCard
+            title="Trust profile"
+            provenance={
+              <Provenance
+                kind="computed"
+                at={trust.updated_at}
+                by="storefront /api/cron/maintenance"
+              />
+            }
+          >
             <Fact
               label="Score breakdown"
               value={`Buyer ${trust.buyer_score} · Seller ${trust.seller_score}`}
@@ -695,10 +706,22 @@ export default async function Page({
 // ── Local helpers (not promoted to @/lib/ui yet — re-evaluate after a
 //    second user-detail-style page lands). ────────────────────────────
 
-function FactCard({ title, children }: { title: string; children: React.ReactNode }) {
+function FactCard({
+  title,
+  provenance,
+  children,
+}: {
+  title: string;
+  /** Optional provenance pill rendered next to the title — substrate-honesty rule. */
+  provenance?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">{title}</h3>
+      <div className="flex items-baseline gap-3 mb-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{title}</h3>
+        {provenance}
+      </div>
       <dl className="space-y-2">{children}</dl>
     </div>
   );
