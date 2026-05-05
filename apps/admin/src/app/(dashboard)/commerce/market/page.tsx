@@ -17,6 +17,7 @@
  */
 
 import { sfQuery } from "@/lib/db";
+import { Provenance } from "@/lib/ui";
 
 const STOREFRONT_ADMIN = process.env.STOREFRONT_URL ?? "https://cambridgetcg.com";
 
@@ -465,7 +466,10 @@ export default async function MarketPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">P2P Market</h1>
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <h1 className="text-xl font-semibold text-white">P2P Market</h1>
+            <Provenance kind="live" />
+          </div>
           <p className="text-sm text-neutral-400 mt-1">
             {d.total} total trades · {fmtGBP(d.totalVolume)} volume ·{" "}
             {fmtGBP(d.totalCommission)} commission earned

@@ -11,6 +11,7 @@ import { sfQuery } from "@/lib/db";
 import { fmtGBP, fmtDate } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
+  Provenance,
   type Column,
 } from "@/lib/ui";
 
@@ -224,6 +225,7 @@ export default async function Page({
     <div className="space-y-6">
       <PageHeader
         title="Users"
+        provenance={<Provenance kind="live" />}
         description="Storefront users — registered customers with auth sessions, tier, credit, points, and trust. Click a row to drill into the full cross-module picture."
       />
 

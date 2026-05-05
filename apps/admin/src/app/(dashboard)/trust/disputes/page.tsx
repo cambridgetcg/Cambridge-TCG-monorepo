@@ -16,7 +16,8 @@ import { sfQuery } from "@/lib/db";
 import { fmtDate, fmtGBP } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, StatusBadge, SectionHeading, type Column, type Tone,
+  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance,
+  type Column, type Tone,
 } from "@/lib/ui";
 import { TransitionButton } from "./_components";
 
@@ -246,6 +247,7 @@ export default async function Page({
     <div className="max-w-6xl space-y-6">
       <PageHeader
         title="Disputes"
+        provenance={<Provenance kind="live" />}
         description="Trade disputes raised by buyers or sellers. Transition status to drive resolution. Messaging and evidence remain in the storefront admin."
       />
 

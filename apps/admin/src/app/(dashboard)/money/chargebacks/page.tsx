@@ -24,7 +24,8 @@ import { sfQuery } from "@/lib/db";
 import { fmtDate, fmtDateTime, fmtGBP } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, StatusBadge, SectionHeading, type Column, type Tone,
+  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance,
+  type Column, type Tone,
 } from "@/lib/ui";
 import { ChargebackActions } from "./_components";
 
@@ -297,7 +298,8 @@ export default async function Page({
     <div className="max-w-6xl space-y-6">
       <PageHeader
         title="Chargebacks"
-        description="Stripe disputes. Critical-severity auto-suspends the user via the fraud pipeline. Webhook handler in storefront; this is the triage queue."
+        provenance={<Provenance kind="synced" source="Stripe" />}
+        description="Stripe disputes. Critical-severity auto-suspends the user via the fraud pipeline. Webhook handler in storefront; this is the triage queue. Stripe is authoritative; this view is reconciled — admin actions update our row, not Stripe."
         action={
           <Link
             href="/trust/fraud"

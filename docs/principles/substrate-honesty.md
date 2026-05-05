@@ -112,13 +112,15 @@ Patterns that look helpful but are substrate-dishonest:
 
 ## How the principle shows up in code
 
-Three primitives carry most of the weight.
+Three primitives carry most of the weight, plus one structural commitment.
 
 **`safe()` and `safeCount()`** (`apps/admin/src/lib/queries.ts`) — degrade visibly when a query fails. Already adopted across admin pages. Generalise to other apps.
 
-**`<Provenance>`** (`apps/admin/src/lib/ui/Provenance.tsx`) — a compact UI primitive that renders source / freshness / cadence labels next to a value. New as of this commit; see audit doc for adoption plan.
+**`<Provenance>`** (`apps/admin/src/lib/ui/Provenance.tsx`) — a compact UI primitive that renders source / freshness / cadence labels next to a value. Adopted across all live admin pages 2026-05-05; see audit doc for the propagation history.
 
 **`*_lifecycle_log` tables** — append-only audit trails per domain. The schema commitment: status columns are caches; logs are the substrate. Whenever you find yourself reading status alone, ask whether the timeline matters; if it does, read the log too.
+
+**`<PageHeader provenance={…}>` slot** — the structural commitment. Every admin page renders a `<PageHeader>` with an optional `provenance` slot that sits inline next to the title. The slot exists so that "no provenance declared" becomes a visible omission in code review, not a default. When opening a Manager or Dashboard page, the next maintainer sees what the page is claiming to represent at a glance — and if a slot is missing, that absence is the question to answer first.
 
 ---
 

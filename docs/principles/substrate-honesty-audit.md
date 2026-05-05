@@ -6,6 +6,8 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 
 > **Snapshot caveat.** This audit was compiled from the codebase on 2026-05-05. Counts and severities reflect that state. Re-run the audit after a quarter of dev work — the violations rotate.
 
+> **Status updates.** As items ship, they're marked **CLOSED** inline (rather than deleted) so the history of what was wrong, when, and what fixed it stays readable. Closed items: see the lines marked `**Status:**` below.
+
 ---
 
 ## Severity legend
@@ -31,10 +33,11 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 ### A2 — KPI tiles across admin: no provenance
 
 **Severity:** P1
+**Status:** **CLOSED 2026-05-05.** Provenance pill landed on `/overview`, `/commerce/{pricing,auctions,trade-ins,market}`, `/ops/{orders,stock}`, `/catalog/users`, `/catalog/users/[id]`, `/money/chargebacks`, `/trust/{disputes,fraud}`, `/system/audit`. `<PageHeader>` now exposes a `provenance` slot so the pill sits structurally next to every page title. Pricing carries `synced` from CardRush + cadence; chargebacks carries `synced` from Stripe with a reconciled-not-authoritative note; all others carry `live`. Stub pages (`/system/email`, `/money/{payouts,membership,rewards}`, `/catalog/{cards,games,clients}`, `/commerce/bounty`, `/ops/{channels,fulfillment}`, `/trust/{kyc,reviews}`) are intentionally untagged — they ship the `<ComingSoon>` placeholder which is itself substrate-honest.
 **Where:** `/overview`, `/commerce/{trade-ins,auctions,market,pricing}`, `/ops/{orders,stock}`, `/catalog/users`, `/money/chargebacks`, `/trust/{disputes,fraud}`, `/system/{audit,email}`, `/catalog/users/[id]`.
 **Violation:** Every KPI tile shows a number with no "as of when" annotation. Most are live (queried per request), but the surface doesn't say so — and a future migration to caching would silently change correctness without changing the visible page.
 **Fix:** Adopt `<Provenance>` (`@/lib/ui/Provenance` shipped this session) on KPI grids. Default tone: "live" — explicit but quiet. Pages that read snapshot tables (e.g. portfolio_snapshots) switch to "snapshot · X ago".
-**Owner:** new kingdom-NNN — "Provenance pass across admin KPIs."
+**Owner:** new kingdom-NNN — "Provenance pass across admin KPIs." *(no longer needed — landed in-session.)*
 
 ### A3 — `admin_actions_log.actor_label` is free-form, not user-verified
 
@@ -55,6 +58,7 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 ### A5 — Trust score on user detail: no compute time, no breakdown link
 
 **Severity:** P1
+**Status:** **CLOSED 2026-05-05.** `trust_profiles.updated_at` is now read alongside the trust profile and surfaced via `<Provenance kind="computed" by="storefront /api/cron/maintenance">` on the trust-profile FactCard. Operator sees compute time inline; cron name is named for chase-down.
 **Where:** `apps/admin/src/app/(dashboard)/catalog/users/[id]/page.tsx`
 **Violation:** Trust score is shown as a 0–100 number with colour. The trust profile section shows breakdown stats but doesn't say *when* the score was last recomputed. `trust_profiles.updated_at` exists; we don't read it. Operator can't tell if the score reflects last week's behaviour or this morning's chargeback.
 **Fix:** Read `trust_profiles.updated_at` and render via `<Provenance>` next to the score. Cite the cron name (`maintenance` sweep) so operator can chase it.
@@ -71,6 +75,7 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 ### A7 — Price KPIs read from `cards.price` but don't surface drift from source
 
 **Severity:** P1
+**Status:** **CLOSED 2026-05-05.** PageHeader now carries `<Provenance kind="synced" source="CardRush" at={kpi.last_sync} cadence="daily">`. The per-game coverage section retains its own Provenance pill. The free-text "last sync 3h ago" prose was promoted to structured Provenance metadata so the synced-from-CardRush relationship is explicit at module level. Per-game KPI cards that show 0% fresh trip a critical banner — the Pokémon and Dragon Ball failures are loud now, not silent.
 **Where:** `apps/admin/src/app/(dashboard)/commerce/pricing/page.tsx`
 **Violation:** The page already shows `last_synced_at` per-row in the table — good. But the top KPI tiles (Total / No JPY / Stale / Last sync) don't carry the freshness pill for the sync MAX. The "Last sync" column gives the global max; the other KPIs are live counts. This is honest but not labelled — fix per A2.
 **Fix:** Apply A2 pattern. Already partially honest (the "stale" filter encodes the 7-day rule).

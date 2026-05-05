@@ -241,12 +241,15 @@ export default async function Page({
     <div className="max-w-6xl space-y-6">
       <PageHeader
         title="Pricing"
-        description={
-          <>
-            {parseInt(kpi.total, 10).toLocaleString()} cards · last sync{" "}
-            {kpi.last_sync ? fmtRelative(kpi.last_sync) : "never"}.
-          </>
+        provenance={
+          <Provenance
+            kind="synced"
+            source="CardRush"
+            at={kpi.last_sync}
+            cadence="daily"
+          />
         }
+        description={<>{parseInt(kpi.total, 10).toLocaleString()} cards in catalog.</>}
         action={
           <ExternalLink href={`${WHOLESALE_ADMIN}/admin/prices`} variant="primary">
             Open legacy

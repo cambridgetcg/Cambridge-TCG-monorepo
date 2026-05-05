@@ -10,6 +10,7 @@
 import { sfQuery } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
 import Link from "next/link";
+import { Provenance } from "@/lib/ui";
 
 // Root layout's title template appends "— Cambridge TCG Admin"; don't double it.
 export const metadata = { title: "Orders (B2C)" };
@@ -101,9 +102,14 @@ export default async function Page({
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-white">Orders (B2C)</h1>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <h1 className="text-xl font-semibold text-white">Orders (B2C)</h1>
+          <Provenance kind="live" />
+        </div>
         <p className="text-sm text-neutral-400 mt-1">
           Customer orders from cambridgetcg.com — Stripe-backed, paid + shipped lifecycle.
+          Note: <code className="text-xs">status=&apos;shipped&apos;</code> may be carrier-confirmed
+          or admin-marked; provenance split is filed as audit item A6.
         </p>
       </header>
 

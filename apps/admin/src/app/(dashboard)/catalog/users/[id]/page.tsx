@@ -329,6 +329,7 @@ export default async function Page({
     <div className="max-w-5xl space-y-8">
       <PageHeader
         title={displayName}
+        provenance={<Provenance kind="live" />}
         description={
           <span className="space-x-3">
             <span>{user.email}</span>

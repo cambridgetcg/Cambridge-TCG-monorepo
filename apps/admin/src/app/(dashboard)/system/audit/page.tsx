@@ -19,7 +19,8 @@ import { sfQuery } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, SectionHeading, type Column,
+  KpiGrid, KpiCard, SectionHeading, Provenance,
+  type Column,
 } from "@/lib/ui";
 
 export const metadata = { title: "Audit Log" };
@@ -297,7 +298,8 @@ export default async function Page({
     <div className="max-w-6xl space-y-6">
       <PageHeader
         title="Audit Log"
-        description="Append-only governance trail. Every consequential admin action — suspension, trust override, dispute resolution, fraud signal review — is recorded here."
+        provenance={<Provenance kind="live" />}
+        description="Append-only governance trail. Every consequential admin action — suspension, trust override, dispute resolution, fraud signal review — is recorded here. The log is the substrate; status columns elsewhere are caches over this."
       />
 
       <KpiGrid cols={3}>

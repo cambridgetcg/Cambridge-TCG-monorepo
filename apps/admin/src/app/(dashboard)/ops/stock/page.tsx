@@ -28,6 +28,7 @@ import {
   stockTargets,
 } from "@cambridge-tcg/stock/schema";
 import { SearchBox, Pagination } from "./StockTable";
+import { Provenance } from "@/lib/ui";
 
 export const metadata = { title: "Stock Management" };
 
@@ -616,10 +617,17 @@ export default async function StockPage({ searchParams }: PageProps) {
   return (
     <div className="max-w-6xl">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-white">Stock Management</h1>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <h1 className="text-xl font-semibold text-white">Stock Management</h1>
+          <Provenance kind="live" />
+        </div>
         <p className="text-sm text-neutral-400 mt-1">
           Wholesale inventory — levels, reorder queue, and movement history.
-          Read-only view backed by the wholesale database.
+          Read-only view backed by the wholesale database. Dual-ledger:
+          <code className="text-xs"> stock_movements</code> (new, append-only) +
+          <code className="text-xs"> stock_adjustments</code> (legacy). Per audit item W1,
+          this page reads both unioned; on-card stock totals are the
+          fast-path cache on <code className="text-xs">cards.stock</code>.
         </p>
       </div>
 

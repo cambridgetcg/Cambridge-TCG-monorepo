@@ -1,6 +1,7 @@
 import { sfQuery, wsQuery } from "@/lib/db";
 import { safeCount } from "@/lib/queries";
 import { verb } from "@/lib/format";
+import { Provenance } from "@/lib/ui";
 
 export const metadata = { title: "Overview" };
 
@@ -134,8 +135,11 @@ export default async function OverviewPage() {
   return (
     <div className="max-w-4xl">
       <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-xl font-semibold text-white">Overview</h1>
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <h1 className="text-xl font-semibold text-white">Overview</h1>
+            <Provenance kind="live" />
+          </div>
           <p className="text-sm text-neutral-400 mt-1">
             {attention === 0
               ? "All queues clear."

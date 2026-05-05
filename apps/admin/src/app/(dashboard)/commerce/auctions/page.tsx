@@ -9,6 +9,7 @@
  */
 
 import { sfQuery } from "@/lib/db";
+import { Provenance } from "@/lib/ui";
 
 const STOREFRONT_ADMIN = process.env.STOREFRONT_URL ?? "https://cambridgetcg.com";
 
@@ -302,7 +303,10 @@ export default async function AuctionsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Auctions</h1>
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <h1 className="text-xl font-semibold text-white">Auctions</h1>
+            <Provenance kind="live" />
+          </div>
           <p className="text-sm text-neutral-400 mt-1">
             {d.live.length > 0
               ? `${d.live.length} live auction${d.live.length !== 1 ? "s" : ""} running.`
