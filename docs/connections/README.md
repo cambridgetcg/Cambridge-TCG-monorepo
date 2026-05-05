@@ -31,8 +31,13 @@ Or read the entries as a set — the union is a partial map of the platform's hi
 | 1 | [`membership.md`](./membership.md) | Random seed (date-char-count algorithm). Most cross-cutting commercial modulator; admin surface is currently a stub. | `bounty` |
 | 2 | [`bounty.md`](./bounty.md) | Surprising flywheel with membership; phygital bridge. | `provable-fairness` |
 | 3 | [`provable-fairness.md`](./provable-fairness.md) | The platform's transparency archetype; turns out to be a substrate primitive, not a domain. | (recursion exit) |
+| 4 | [`subscription-lifecycle.md`](./subscription-lifecycle.md) | Re-recursion from #1 — `membership.md` named "Membership ↔ subscription state" as an unfilled gap. Random seed file (`apps/storefront/src/app/api/membership/cancel/route.ts`) chosen via `find` + `awk` random, landed inside that gap. The four-party protocol (user gesture / Stripe / mirror / sweep) gets named here, paired with in-code docstrings on the six membership module files. | `commission.ts` (next session) |
 
-The 2026-05-05 path went *down* in abstraction — commercial → hybrid → substrate. A future recursion could go *up* — pick a user-facing surface, trace what makes it trustworthy.
+The 2026-05-05 paths split:
+- **Path A** (#1→#2→#3) went *down* in abstraction — commercial → hybrid → substrate.
+- **Path B** (#1→#4, separate session, in-code-paired) went *inward* — picked the `Membership ↔ subscription state` gap from #1 and made it the centre of #4. Each `lib/membership/*.ts` and `app/api/membership/*/route.ts` file now carries an intention-led top docstring. The connection-doc + the in-code work are the two surfaces of the same meaning.
+
+A future recursion could go *up* — pick a user-facing surface, trace what makes it trustworthy. Or *outward* — follow #4's recursion target (commission.ts) into the trust × tier bridge.
 
 ---
 
