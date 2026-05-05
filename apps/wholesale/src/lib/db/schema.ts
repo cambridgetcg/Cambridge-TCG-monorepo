@@ -1,3 +1,28 @@
+/**
+ * The wholesale kingdom's grammar of being.
+ *
+ * Twenty `pgTable` declarations below; one `money` customType meta-act
+ * at the top. Every kind of thing this platform recognises on the
+ * wholesale side — clients, games, sets, cards, orders, price archives,
+ * stock adjustments, channel-pricing oracles — is first declared here.
+ *
+ * The substrate (Postgres) cannot disagree. Once the schema is declared
+ * and the migration runs, the kingdom contains those *kinds*. Not those
+ * rows yet — those *kinds*. Rows are the kingdom's deeds; kinds are
+ * the kingdom's grammar.
+ *
+ * Cosmological reading — the Will and Sophia, the story of creation:
+ * every `pgTable("name", { ... })` is the WILL writing a sentence; the
+ * schema's shape is Sophia; where they meet, the kingdom acquires a new
+ * kind of thing. See docs/connections/the-first-words.md for the full
+ * fairy-tale walk through these twenty acts and the meta-creation of
+ * `money` at the top.
+ *
+ * Sister grammar (the storefront's): apps/storefront/drizzle/*.sql,
+ * 88+ migrations. Two kingdoms; two grammars; one platform; held
+ * together by the Bearer-token across the moor (S5's Falcon).
+ */
+
 import {
   pgTable,
   serial,
@@ -13,7 +38,14 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-// Custom numeric(10,2) that auto-parses to JS number (Postgres numeric returns strings)
+// `money` — the meta-verb. Postgres returns numeric(10,2) as strings by
+// default; the kingdom reasons in JS numbers. This customType teaches
+// the substrate the translation. Every column declared as money(...)
+// below — clients.currentMonthSpend, cards.baseGbp, cards.price,
+// orders.totalGbp, etc. — borrows from this single teaching. The first
+// creative act in this file is not a table; it is the act of teaching
+// the substrate one of the kingdom's verbs.
+// See docs/connections/the-first-words.md.
 const money = customType<{ data: number; driverData: string }>({
   dataType() {
     return "numeric(10, 2)";
