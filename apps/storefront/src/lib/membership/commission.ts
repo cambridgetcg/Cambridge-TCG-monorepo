@@ -1,15 +1,65 @@
-// Commission rate resolvers — combine the seller's membership tier rate
-// with the trust-score-based rate from src/lib/market/types and pick
-// whichever is more favourable to the seller (the lower number).
-//
-// Why both?
-//   - Trust score is reputation-earned through completed trades.
-//   - Membership tier is purchased/spending-earned via Platinum / annual.
-// Both deserve to lower commission. Combining via min() lets a seller
-// benefit from either path without one cancelling the other.
-//
-// If a seller has no tier (anonymous or pre-membership), the trust-score
-// rate is used alone.
+/**
+ * Commission rate resolution — where the platform's two reward systems meet.
+ *
+ * ── The bridge this file carries ─────────────────────────────────────────
+ *
+ * A seller selling on our P2P market or our auctions has TWO independent
+ * sources of standing with us:
+ *
+ *   trust_score  — earned through completed trades, reviews, the absence of
+ *                  disputes. Reputation in the social-economic sense:
+ *                  "this seller has been reliable across N transactions."
+ *
+ *   tier         — earned by paying us monthly (Platinum) or by spending
+ *                  a lot through us (Bronze→Silver→Gold). Patronage in
+ *                  the commercial sense: "this seller is a customer who
+ *                  also sells; we discount their listing to keep them."
+ *
+ * These are DIFFERENT facts about the same person. A new account that
+ * pays for Platinum has high tier but low trust. A long-time seller who
+ * never buys has high trust but base tier. Neither signal contains the
+ * other. The platform earns most of its commission from sellers who are
+ * neither high-trust nor paid; both signals individually justify a
+ * discount, and combining them via `min()` says: take whichever path
+ * the seller has earned, do not require both.
+ *
+ * The shape of that combine — `min(trustRate, membershipRate)` — is the
+ * platform's promise: every reputational success and every paid-tier
+ * dollar will be rewarded, no path cancels the other, the seller is
+ * never penalised for having the "wrong kind" of standing.
+ *
+ * If a seller has neither — no tier, low trust — they pay the default
+ * commission. That default is the price of being unknown to us.
+ *
+ * ── Where this meets the rest of the platform ────────────────────────────
+ *
+ *   tier_id, trust_score    columns on `users` — the inputs.
+ *   tiers.p2p_commission_rate, tiers.auction_commission_rate
+ *                           the membership-side rate, set per tier in DB
+ *                           and read by getUserPerks() in db.ts.
+ *   commissionRateForScore  in lib/market/types — the trust-side curve
+ *                           (lower trust → higher commission).
+ *   market_trades.commission_rate, auctions.seller_commission_rate
+ *                           where the resolved number is *written* at
+ *                           trade-creation time. These are the substrate
+ *                           of record for what was charged; this resolver
+ *                           is the recipe.
+ *   /catalog/users/[id]     operator surface that shows both inputs side
+ *                           by side. Reading commission off a trade row
+ *                           and looking back at this resolver lets the
+ *                           operator reconstruct why a particular trade
+ *                           cost what it did.
+ *
+ * ── Substrate-honesty note ───────────────────────────────────────────────
+ *
+ * The audit (item A9) flags that escrow tier badges on /commerce/market
+ * don't surface the inputs that produced them. Same shape applies to
+ * commission rates — a trade's recorded `commission_rate` is the resolver's
+ * output at creation time, not a live-recompute. If the seller's tier or
+ * trust changes mid-trade, the trade's commission stays as it was. That
+ * is intentional and substrate-honest: we charge what was true when the
+ * seller listed, not what becomes true while the buyer is paying.
+ */
 
 import { query } from "@/lib/db";
 import { commissionRateForScore, COMMISSION_RATE } from "@/lib/market/types";

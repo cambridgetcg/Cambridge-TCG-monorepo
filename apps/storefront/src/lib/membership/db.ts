@@ -1,3 +1,112 @@
+/**
+ * Membership — the economic spine of the storefront.
+ *
+ * ── What a tier actually does ────────────────────────────────────────────
+ *
+ * A user's tier is not cosmetic. It is read at every consequential moment
+ * the user transacts with us:
+ *
+ *   - Order checkout — `cashback_percent` writes a credit ledger entry,
+ *                       `points_multiplier` boosts the points earned.
+ *   - Trade-in submission — `tradein_bonus_percent` adds to the credit
+ *                       offer (a Platinum trade-in is more valuable to
+ *                       the user than a Bronze one for identical cards).
+ *   - P2P market trade — `p2p_commission_rate` is what we keep from the
+ *                       seller's payout. A lower rate at higher tiers is
+ *                       the seller-side reward for staying in the platform.
+ *   - Auction listing — `auction_commission_rate` and
+ *                       `auction_priority_approval` similarly.
+ *   - Catalog browse — `store_discount_percent` is applied to display
+ *                       prices for the logged-in user.
+ *
+ * So the question "what tier is this user?" is the question we ask at
+ * every cash-money moment. The answer must be precise, current, and
+ * honestly derived. This module is the answer.
+ *
+ * ── The priority chain (recalculateTier) ─────────────────────────────────
+ *
+ * Three sources can name a user's tier. They are evaluated in strict
+ * priority order — higher always wins:
+ *
+ *   Priority 0 — MANUAL (`tier_source = 'manual'`)
+ *     Set by an admin (OG members, special grants, customer-service
+ *     concessions). Never overridden by spend or paid status. The trust
+ *     gesture: "we know who this person is to us; the algorithm doesn't
+ *     get to demote them."
+ *
+ *   Priority 1 — PAID (`paid_tier_id` + `subscription_status='active'`)
+ *     The user is paying us monthly for Platinum. Active for as long as
+ *     Stripe says so. Cancellation flips this off at the period boundary
+ *     (see lib/membership/subscription.ts). While active, this floor
+ *     hides any spend-based tier they'd otherwise qualify for.
+ *
+ *   Priority 2 — SPEND (annual_spend ≥ tier.min_annual_spend)
+ *     The default. Bronze / Silver / Gold (or whatever the configured
+ *     ladder is) qualified by the rolling 12-month spend total. Updated
+ *     by `processOrderRewards` on every paid order; a separate sweep
+ *     decays the rolling total (see spend-sweep.ts).
+ *
+ * The user's `tier_source` column records which path won. Operators
+ * reading `/catalog/users/[id]` see this — it's the difference between
+ * "they're Gold because they spend Gold" and "they're Gold because we
+ * granted it" — and the difference matters for trust score, dispute
+ * handling, and what we can ethically take from them.
+ *
+ * ── The cancel/resume gesture's path through here ────────────────────────
+ *
+ * When the user POSTs /api/membership/cancel:
+ *   1. cancelSubscription() flips subscription_cancel_at_period_end = true.
+ *   2. Their tier_id stays Platinum until the period ends. They keep all
+ *      perks. recalculateTier still finds an active paid tier on Priority 1.
+ *   3. At the period boundary, Stripe webhooks clear subscription_status.
+ *   4. Next recalculateTier (next order, next sweep, next page load that
+ *      calls getMemberProfile) — Priority 1 fails its active check, falls
+ *      through to Priority 2. They land where their annual_spend says.
+ *   5. activity_feed posts "Reached <tier> tier!" — even on a downgrade,
+ *      because the social cue keeps users honest about their position.
+ *
+ * The substrate-honest part: we don't backdate the demotion. While the
+ * subscription is paid through, Platinum is real, not aspirational.
+ *
+ * ── Where this meets the rest of the platform ────────────────────────────
+ *
+ *   commission.ts          reads tier perks for P2P + auction pricing
+ *   spend-sweep.ts         decays rolling annual_spend nightly
+ *   subscription-sweep.ts  reconciles Stripe subscription state nightly
+ *                          (catches webhooks that didn't deliver)
+ *   points-expiry.ts       expires unused Berries on a TTL
+ *   /api/membership/*      route handlers for all gestures
+ *   /catalog/users/[id]    operator-facing read of tier + tier_source
+ *
+ * ── Substrate-honesty note ───────────────────────────────────────────────
+ *
+ * Per audit item S7 in docs/principles/substrate-honesty-audit.md, the
+ * customer-facing membership page should surface the tier_calculated_at
+ * timestamp and the next-recompute boundary. Today we render "Gold"
+ * without saying "as of yesterday" — when /account/membership rebuilds
+ * for that, the data it needs is here (`tier_calculated_at`, plus the
+ * derived "amount to next" already computed in getMemberProfile).
+ *
+ * Per kingdom-044, every tier change should append to a
+ * subscription_lifecycle_log so the operator can reconstruct the user's
+ * tier history without inferring from order timestamps. Today we post to
+ * activity_feed (user-facing) but have no internal audit substrate.
+ *
+ * ── Connections (the meaning that runs through this file) ────────────────
+ *
+ * recalculateTier() is the function that closes the platform's most
+ * important unspoken loop: bounty-token spend → annual_spend → tier
+ * upgrade → cheaper marketplace commission → more marketplace volume →
+ * more annual_spend. The flywheel is real but unnamed in either domain's
+ * docstrings until 2026-05-05. Read docs/connections/membership.md for
+ * the threads outward from here, and docs/connections/bounty.md for the
+ * gacha-side view of the same loop.
+ *
+ * Touching this function without first reading those docs risks breaking
+ * a connection the codebase doesn't enforce structurally — the loop
+ * lives in the *integration*, not in any one call site.
+ */
+
 import { query } from "@/lib/db";
 import type { Tier, PointsEntry, CreditEntry, MemberProfile, TierPerks } from "./types";
 import { DEFAULT_PERKS } from "./types";

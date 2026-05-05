@@ -4,6 +4,17 @@
 -- "Reservation" is implicit: a count of vault_items.status='reserved' for a
 -- SKU is subtracted from the live wholesale stock before new pulls roll that
 -- SKU in. No local products table, no stored reservation counter.
+--
+-- Connections (see docs/connections/bounty.md for the full map):
+--   ↔ wholesale stock — the implicit reservation; substrate-honest by
+--     construction (the substrate is the truth, the surface is recomputed)
+--   ↔ membership — bounty token purchases feed annual_spend → tier upgrade.
+--     The flywheel turns gacha variance into commercial loyalty.
+--   ↔ provable-fairness — pulls compose @/lib/bounty/rng under the
+--     commit-reveal protocol; the public surfaces at /verify/pull/[id].
+--   ↔ trust/kyc — phone verification gates pulls (user_bounty_eligibility).
+--   ↔ trade-ins — sell-back issues store credit indistinguishable in
+--     ledger from trade-in credit (one wallet, two upstreams).
 
 -- ── Pull tokens earned by the player, not yet resolved ──
 CREATE TABLE IF NOT EXISTS bounty_pull_tokens (

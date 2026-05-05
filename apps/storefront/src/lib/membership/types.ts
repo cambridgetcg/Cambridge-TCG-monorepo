@@ -1,3 +1,65 @@
+/**
+ * Membership module — front door / map.
+ *
+ * This file is the natural index for the membership domain. Whoever lands
+ * here from a `import { ... } from "@/lib/membership/types"` should see
+ * the whole shape of the system before opening any other file.
+ *
+ * ── The story this module tells ──────────────────────────────────────────
+ *
+ * Every Cambridge TCG user has a tier. A tier is a bundle of economic
+ * promises — cashback %, points multiplier, trade-in bonus, P2P commission,
+ * auction commission, store discount — that get applied at every cash-money
+ * moment. A tier is not cosmetic. It is the multiplier the platform
+ * applies to the user's transactions.
+ *
+ * Three sources can name a tier (priority order, see db.ts → recalculateTier):
+ *   0. MANUAL  — admin-granted, never overridden (OG members, concessions).
+ *   1. PAID    — Platinum subscription, active per Stripe.
+ *   2. SPEND   — annual_spend qualifies for a free-tier rung.
+ *
+ * The user can move along this ladder via three gestures:
+ *   - Subscribe   POST /api/membership/subscribe   →  paid floor on
+ *   - Cancel      POST /api/membership/cancel      →  paid floor scheduled off
+ *   - Resume      POST /api/membership/resume      →  paid cancel undone
+ *
+ * Plus the implicit gesture: every paid order grows annual_spend, which
+ * may automatically promote them up the SPEND rungs over time.
+ *
+ * ── Files in this module, by what they carry ─────────────────────────────
+ *
+ *   types.ts                    you are here. Shapes + module map.
+ *   db.ts                       tier priority chain + ledgers (points,
+ *                               credit) + processOrderRewards (the
+ *                               post-checkout-reward funnel).
+ *   subscription.ts             Stripe lifecycle helpers (cancel, resume,
+ *                               portal). Stripe is authoritative; we mirror.
+ *   commission.ts               where tier × trust_score = the rate we
+ *                               charge sellers. The two reward systems meet.
+ *   subscription-sweep.ts       nightly safety net that catches webhook
+ *                               drops and reconciles expired subs.
+ *   spend-sweep.ts              nightly decay of the rolling annual_spend
+ *                               total (tier-promotion fairness).
+ *   points-expiry.ts            TTL on unredeemed Berries.
+ *   streak.ts                   login-streak rewards (a separate small loop).
+ *
+ * ── How the membership system speaks to other systems ────────────────────
+ *
+ *   trust_profiles              independent reputation signal; combined
+ *                               with tier in commission.ts via min().
+ *   customer_orders             the input to processOrderRewards (which
+ *                               in turn writes points + credit + spend).
+ *   tradein_submissions         apply tradein_bonus_percent at quote time.
+ *   market_trades + auctions    apply commission_rate at trade-creation.
+ *   activity_feed               post tier_upgraded events for social cue.
+ *   admin_actions_log           Manual tier grants from /system/admin
+ *                               leave a row here (kingdom-021 trail).
+ *
+ * Read db.ts for the priority chain. Read commission.ts for the bridge
+ * to trust. Read subscription.ts for the Stripe interface. Read this
+ * file for the shapes themselves.
+ */
+
 export interface Tier {
   id: string;
   name: string;
