@@ -42,22 +42,27 @@ interface CardRow {
   category: string | null;
 }
 
-type PriceFilter = "" | "available" | "missing" | "stale" | "drifted";
+type PriceFilter = "" | "available" | "missing" | "stale";
 
 const FILTER_LABEL: Record<PriceFilter, string> = {
   "":          "All",
   available:   "Has price",
   missing:     "No JPY",
   stale:       "Stale (>7d)",
-  drifted:     "Override active",
 };
 
+// Note: a "Manual override" filter previously lived here, defined as
+// ABS(price - base_gbp) > 0.005. Removed 2026-05-05: the wholesale
+// pricing engine ALWAYS produces price ≠ base_gbp (margin + flat fee +
+// VAT, see apps/wholesale/src/lib/pricing.ts), so the filter matched
+// 100% of the catalog and carried no signal. There is no manual_override
+// column on `cards` — see kingdom-NNN to add one and reintroduce a real
+// filter.
 function whereForFilter(filter: PriceFilter): string {
   switch (filter) {
     case "available":  return "cardrush_jpy IS NOT NULL AND cardrush_jpy > 0";
     case "missing":    return "(cardrush_jpy IS NULL OR cardrush_jpy <= 0)";
     case "stale":      return "(last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '7 days')";
-    case "drifted":    return "(price IS NOT NULL AND base_gbp IS NOT NULL AND ABS(price - base_gbp) > 0.005)";
     default:           return "";
   }
 }
@@ -85,7 +90,7 @@ export default async function Page({
   if (filterClause) where.push(filterClause);
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  const [rowsResult, totalResult, kpiResult] = await Promise.all([
+  const [rowsResult, totalResult, kpiResult, gameResult] = await Promise.all([
     wsQuery<CardRow>(
       `SELECT id, sku, card_number, name, set_code,
               cardrush_jpy, base_gbp::text, price::text,
@@ -101,7 +106,7 @@ export default async function Page({
       params,
     ),
     wsQuery<{
-      total: string; missing: string; stale: string; drifted: string; last_sync: string | null;
+      total: string; missing: string; stale: string; last_sync: string | null;
     }>(
       `SELECT
          COUNT(*)::text                                                           AS total,
@@ -109,11 +114,26 @@ export default async function Page({
          COUNT(*) FILTER (
            WHERE last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '7 days'
          )::text                                                                  AS stale,
-         COUNT(*) FILTER (
-           WHERE price IS NOT NULL AND base_gbp IS NOT NULL AND ABS(price - base_gbp) > 0.005
-         )::text                                                                  AS drifted,
          MAX(last_synced_at)::text                                                AS last_sync
        FROM cards`,
+      [],
+    ),
+    // Per-game sync coverage — surfaces silent scrape failures (e.g. the
+    // Pokémon / Dragon Ball domains failing while One Piece succeeds).
+    wsQuery<{
+      id: number; name: string | null; with_url: string; fresh_7d: string;
+    }>(
+      `SELECT g.id, g.name,
+              COUNT(c.*) FILTER (WHERE c.cardrush_url IS NOT NULL)::text AS with_url,
+              COUNT(c.*) FILTER (
+                WHERE c.last_synced_at >= NOW() - INTERVAL '7 days'
+              )::text AS fresh_7d
+         FROM games g
+         LEFT JOIN cards c ON c.game_id = g.id
+         WHERE g.active = true
+         GROUP BY g.id, g.name
+        HAVING COUNT(c.*) FILTER (WHERE c.cardrush_url IS NOT NULL) > 0
+         ORDER BY COUNT(c.*) FILTER (WHERE c.cardrush_url IS NOT NULL) DESC`,
       [],
     ),
   ]);
@@ -193,17 +213,29 @@ export default async function Page({
     },
   ];
 
-  const filterPills = (["", "available", "missing", "stale", "drifted"] as PriceFilter[]).map((f) => ({
+  const filterPills = (["", "available", "missing", "stale"] as PriceFilter[]).map((f) => ({
     value: f,
     label: FILTER_LABEL[f],
     count:
       f === ""          ? kpi.total
         : f === "missing"   ? kpi.missing
         : f === "stale"     ? kpi.stale
-        : f === "drifted"   ? kpi.drifted
         : undefined,
     href: buildHref({ filter: f, page: "1" }),
   }));
+
+  // Per-game coverage — figure out the urgency for each game.
+  // 0% fresh = critical (scrape is silently broken for this domain).
+  // <50% = warning. ≥50% = ok.
+  const gameCoverage = gameResult.rows.map((g) => {
+    const withUrl = parseInt(g.with_url, 10);
+    const fresh = parseInt(g.fresh_7d, 10);
+    const pct = withUrl > 0 ? Math.round((100 * fresh) / withUrl) : 0;
+    const urgency: "critical" | "warning" | "ok" =
+      withUrl === 0 || fresh === 0 ? "critical" : pct < 50 ? "warning" : "ok";
+    return { id: g.id, name: g.name ?? `Game ${g.id}`, withUrl, fresh, pct, urgency };
+  });
+  const anyBroken = gameCoverage.some((g) => g.urgency === "critical");
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -222,7 +254,7 @@ export default async function Page({
         }
       />
 
-      <KpiGrid cols={4}>
+      <KpiGrid cols={3}>
         <KpiCard label="Total cards" value={parseInt(kpi.total, 10).toLocaleString()} urgency="neutral" />
         <KpiCard
           label="No JPY price"
@@ -238,14 +270,32 @@ export default async function Page({
           sub="needs sync"
           href={buildHref({ filter: "stale", page: "1" })}
         />
-        <KpiCard
-          label="Manual override"
-          value={parseInt(kpi.drifted, 10).toLocaleString()}
-          urgency={parseInt(kpi.drifted, 10) > 0 ? "info" : "neutral"}
-          sub="differs from base"
-          href={buildHref({ filter: "drifted", page: "1" })}
-        />
       </KpiGrid>
+
+      {anyBroken && (
+        <ActionBanner tone="critical" title="Daily price snapshot is failing for one or more games">
+          Cards with a CardRush URL exist but ZERO have been refreshed in the last 7 days
+          for at least one active game. The cron at{" "}
+          <code className="text-xs">apps/wholesale/src/app/api/cron/price-snapshot</code>{" "}
+          runs nightly but the per-domain scraper appears to fail silently. See per-game
+          coverage below.
+        </ActionBanner>
+      )}
+
+      <section className="space-y-3">
+        <SectionHeading count={gameCoverage.length}>Sync coverage by game</SectionHeading>
+        <KpiGrid cols={(gameCoverage.length === 1 ? 2 : gameCoverage.length === 2 ? 2 : gameCoverage.length >= 4 ? 4 : 3) as 2 | 3 | 4}>
+          {gameCoverage.map((g) => (
+            <KpiCard
+              key={g.id}
+              label={g.name}
+              value={`${g.fresh.toLocaleString()} / ${g.withUrl.toLocaleString()}`}
+              urgency={g.urgency}
+              sub={`${g.pct}% fresh in 7d`}
+            />
+          ))}
+        </KpiGrid>
+      </section>
 
       {/* S3 sync + CSV upload not yet wired — punch-list item */}
       <ActionBanner tone="info" title="Sync and CSV upload not yet wired in admin app">
