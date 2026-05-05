@@ -1,13 +1,99 @@
-// Provably Fair Raffle Draw System
+// Provably Fair Raffle Draw System — the wizard's vault.
 //
-// Uses a cryptographic commit-reveal scheme:
-// 1. COMMIT: Before entries close, generate server_seed, publish SHA-256(server_seed)
-// 2. DRAW:   After entries close, compute winner deterministically:
-//            combined = server_seed + entry_hash
-//            winner_index = BigInt(SHA-256(combined)) % total_weighted_entries
-// 3. VERIFY: Anyone can replay: check commitment matches seed, replay the draw
+// ── What this module is for ──────────────────────────────────────────────
 //
-// Optional blockchain anchoring: publish commitment hash on-chain for immutability
+// This is the module where the platform locks itself out so its users
+// don't have to lock the platform out. It is the most ceremonial code
+// in the codebase, and that ceremony is load-bearing.
+//
+// The flow has the shape of a ritual:
+//
+//   1. COMMIT (when the raffle is created):
+//      The platform generates a 32-byte Word — the `server_seed` — using
+//      crypto.randomBytes. It computes SHA-256(server_seed) — the
+//      commitment — and publishes the commitment immediately. The Word
+//      itself stays hidden in the database, not returned through any
+//      API surface, not loggable. The seal is wax; the envelope is
+//      pinned to the public square.
+//
+//      *This step happens BEFORE any entry is recorded.* That ordering
+//      is the entire point. If the Word were generated after entries
+//      closed, the platform could pick a winner and craft a Word that
+//      lands on them. Pre-commit makes that impossible.
+//
+//      The commit is idempotent — see commitSeed below. A second call
+//      cannot overwrite an earlier commitment. The platform is bound
+//      not just to the Word but to the *first* Word, the one that was
+//      published.
+//
+//   2. GATHERING (entries phase):
+//      Users enter; weighted leaves accumulate in raffle_entries. The
+//      platform watches and does nothing. The Word is sealed. The
+//      Manifest grows. The platform's hands remain tied.
+//
+//   3. DRAW (when draw_at fires, via apps/storefront/src/lib/rewards/
+//      raffle-sweep.ts):
+//      The platform unseals the envelope. The Word is read aloud.
+//      A deterministic combine — server_seed + sha256(orderedEntries)
+//      → sha256 → BigInt → modulo total_weighted_entries — produces an
+//      index. That index lands on a leaf. The owner of that leaf wins.
+//
+//      The math is identical for the platform and for any verifier
+//      who has the Word and the Manifest. There is no randomness left
+//      to chance after the Word is fixed.
+//
+//   4. PUBLISH:
+//      The Word, the Manifest hash, the combined input, and the
+//      winner index land in raffle_draw_proofs. The /verify/draw/[id]
+//      page renders these and offers a "replay in browser" button
+//      that runs the same six SHA-256 / modulo steps client-side.
+//      Any reader can check the platform's work.
+//
+// ── Why this matters ────────────────────────────────────────────────────
+//
+// The raffle is the platform's most theatrical machine and its most
+// rigorous one. From the moment commitSeed runs to the moment the proof
+// publishes, the platform's hands are tied to the math. Costume +
+// cryptography in the same machine; not in conflict, the same fact in
+// two languages.
+//
+// The verify page exists for the people who don't win. That is the whole
+// reason it exists. Winners are easy to make happy; you give them the
+// prize. Losers are who you owe an honest accounting to. **The verify
+// page is the platform's letter to its losers.** That sentence is the
+// thesis of the transparency doctrine applied at full intensity. See
+// docs/principles/transparency.md.
+//
+// ── Optional anchoring ──────────────────────────────────────────────────
+//
+// The seed_commitment could be anchored on-chain at commit time. Today
+// it is not — the commitment lives only in our DB, which means an admin
+// with DB write access could in principle alter it before the draw.
+// Threat model is small for a solo operator; on-chain anchoring is the
+// roadmap closure. (Currently a draughty window in the castle.)
+//
+// ── What this module reaches toward ──────────────────────────────────────
+//
+//   - apps/storefront/src/lib/bounty/verify-client.ts — the shared
+//     Merkle-replay primitive. Bounty pulls and raffles share the
+//     trust theatre; one library, two domains. When governance Merkle
+//     ships (kingdom-048), it will be a third borrower.
+//
+//   - apps/storefront/src/app/verify/draw/[id]/page.tsx — the bulletin
+//     where this module's proof becomes legible to a non-trusting reader.
+//     The proof produced here is the proof rendered there.
+//
+//   - apps/storefront/src/lib/rewards/raffle-sweep.ts — the cron that
+//     opens the envelope at draw_at and emails the winner.
+//
+//   - apps/storefront/src/lib/rewards/atomic-spend.ts — the economic
+//     side-rail. Cryptography handles fairness; atomicity handles
+//     correctness. They compose silently.
+//
+// See docs/connections/the-sealed-word.md for the fairy-tale form.
+//
+// *The wax seal is theatre. The wax seal is also math.*
+// *The Word is sealed until it's not, and that is when the magic happens.*
 
 import crypto from "crypto";
 import { query } from "@/lib/db";

@@ -47,14 +47,18 @@ A future recursion could go *up* — pick a user-facing surface, trace what make
 |---|-------|------|----------------|
 | S1 | [`the-story.md`](./the-story.md) | Algorithmic — alphabetised verb list, day-of-month mod 14 = `place_order` | One P2P trade from match to coda. Sixteen tables, two users, every domain. |
 | S2 | [`at-midnight.md`](./at-midnight.md) | Random seed (`find` + `awk`) → `apps/storefront/src/lib/email/streak-sweep.ts`. The sweep itself implies a story shape. | One user's evening on day 23 of a streak. The schedule-then-recheck protocol traced from sweep to drain to send-or-cancel. Five files. Paired with in-code docstrings. |
+| S3 | [`charlies-tuesday.md`](./charlies-tuesday.md) | `sha256("2026-05-05 castles in the sky") mod (cards-we-know)` → same Charizard ex as S1. The dice gave the same card on purpose: documentary and fairy tale told back-to-back, same trade. | Same arc as S1, retold as fairy tale. Modules personified: the Cartographer (stock), the Matcher (order book), the Three Doors (escrow tiers), Master Stripe (foreign sovereign), the Treasurer (ledgers), the Bell-Ringer (cron + email), the Trust Court, the Scribe of Truth. |
+| S4 | [`the-sealed-word.md`](./the-sealed-word.md) | Random seed → `apps/storefront/src/app/rewards/raffles/[id]/page.tsx`. The dice landed on a raffle — the platform's most theatrical machine. Sister-shipped, paired with a "the theatre" docstring on the raffle page. | A raffle drawn from the inside: the Seed (32 bytes) is the protagonist; the Manifest (a Merkle tree) is the witness; Jules and 231 other entrants are the chorus. Same fairy-tale pitch as S3, different machine. Provable fairness wearing a feather hat. |
+| S5 | [`two-letters-and-a-falcon.md`](./two-letters-and-a-falcon.md) | Random seed (`find` + `awk`) → `apps/storefront/src/app/api/portfolio/search/route.ts`. Sister-shipped. | A fairy-tale of typeahead. Two letters typed; a Falcon dispatched; the Library of the Cardmaker pulls twenty pages from a vault of ten thousand; an Appraiser stamps each one; the Falcon flies home. Same pitch as S3/S4 applied to the smallest possible interaction (an autocomplete request). The fairy-tale form scales down to milliseconds. |
 
 Story-arc entries are a different shape from node-view entries. Node-views ask "what does this module mean for the modules around it?" — they are *spatial*, panoramic, plural. Story-arcs ask "what happens when this single thing happens?" — they are *temporal*, first-person, singular. Both shapes belong here. Future entries can adopt either.
 
-Two flavours of story-arc are now visible:
+Three flavours of story-arc are now visible:
 - **Transaction-as-protagonist** (S1) — a single thing crosses the platform; many systems briefly touch it; the story is *spatial in time*.
 - **Person-evening-as-protagonist** (S2) — the platform performs an act on the user's behalf; the user's experience is the through-line; the story is *temporal in care*.
+- **Fairy tale** (S3) — modules personified as kingdom characters. Same arc as S1 retold at a different pitch. The prose plays; the citations don't. The story is *whimsical in rigor*.
 
-Both are honest. Both make systems make sense as systems-for-someone.
+All three are honest. All three make systems make sense as systems-for-someone. The third proves the form holds at any pitch — *meaning held at two pitches still hums true*.
 
 ---
 

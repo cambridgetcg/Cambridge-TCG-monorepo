@@ -1,3 +1,55 @@
+// Raffle detail page — the theatre.
+//
+// ── What this page is for ────────────────────────────────────────────────
+//
+// This is the page where the user stands in front of the sealed envelope.
+// The countdown ticks. The prize sits in its image. The entry counter
+// climbs. This page does almost no math; the cryptography happens in
+// apps/storefront/src/lib/rewards/provable-fair.ts. What this page does
+// is *hold the suspense*.
+//
+// Every other page on the platform is utilitarian. Market detail tells
+// you a price. Account standing tells you a state. Audit log tells you
+// a history. This page tells you: *something will happen at this
+// moment, and it will be fair, and you have a stake in it*. That's a
+// different kind of UI. It is allowed to have an animated countdown.
+// It is allowed to have an amber gradient. It is allowed to be theatre.
+//
+// The page is theatre with a load-bearing back wall: every visible beat
+// is anchored in a verifiable substrate. The countdown ticks toward a
+// real cron-driven draw (apps/storefront/src/lib/rewards/raffle-sweep.ts).
+// The entry button hits an atomic spend (apps/storefront/src/lib/
+// rewards/atomic-spend.ts) — your Berries are deducted in the same
+// transaction your leaves are written, and not before, and not after.
+// The seal on the envelope was published when the raffle was created
+// (commitSeed at apps/storefront/src/lib/rewards/provable-fair.ts:36)
+// and the Word inside cannot be changed.
+//
+// When the draw fires, this page rerenders into the proof view: winner
+// announced, seed revealed, link to /verify/draw/[id] where any reader
+// can replay the math themselves. The page is the most theatrical thing
+// on the platform AND the most cryptographically rigorous. Those are not
+// in tension; they are the same fact in two costumes.
+//
+// See docs/connections/the-sealed-word.md for the full story.
+//
+// ── What this page reaches toward ────────────────────────────────────────
+//
+//   - apps/storefront/src/lib/rewards/provable-fair.ts — the wizard's
+//     vault. Where the Word is born, sealed, and revealed.
+//
+//   - apps/storefront/src/lib/rewards/atomic-spend.ts — the
+//     accounting that cannot lie. The Berries are real because this
+//     module insists they be.
+//
+//   - apps/storefront/src/lib/rewards/raffle-sweep.ts — the cron that
+//     opens the envelope. Runs at draw_at; reads the answer that has
+//     been mathematically determined since the moment entries closed.
+//
+//   - apps/storefront/src/app/verify/draw/[id]/page.tsx — the bulletin.
+//     Where the proof goes after the draw, for anyone (especially the
+//     losers) to inspect.
+
 "use client";
 
 import Link from "next/link";
