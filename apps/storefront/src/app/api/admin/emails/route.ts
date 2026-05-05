@@ -1,9 +1,33 @@
+/**
+ * GET /api/admin/emails — the Cemetery's roll.
+ *
+ * Three sections in one response:
+ *
+ *   `dead`       — up to 200 rows where status='dead', most-recent first
+ *                  (ordered by last_attempt_at DESC NULLS LAST). Each
+ *                  carries its `last_error` headstone.
+ *   `stats7d`    — status histogram across the last 7 days (sent,
+ *                  cancelled, dead, failed, pending). The shape of the
+ *                  symphony, not just the cemetery.
+ *   `byEvent7d`  — per-event volume across 7 days. Lets the operator
+ *                  spot whether one Mourner is grieving louder than
+ *                  the others — e.g., a sudden spike in
+ *                  `streak_at_risk` may mean the underlying SES weather,
+ *                  not the streak module itself.
+ *
+ * The breadth of this single response is intentional: the operator
+ * does not page through three screens. They open the Cemetery and see
+ * trends + corpses + roll-up at once. From here, sister endpoint
+ * PATCH /api/admin/emails/[id] (the Resurrectionist) handles each
+ * decision case-by-case.
+ *
+ * The full fairy-tale: docs/connections/the-cemetery-and-the-resurrectionist.md.
+ */
+
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
 
-// GET — list dead rows (unresolvable failures) + recent activity.
-// Intentionally broad so the admin can spot trends from the same page.
 export async function GET() {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
