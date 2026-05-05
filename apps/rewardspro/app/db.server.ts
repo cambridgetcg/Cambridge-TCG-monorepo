@@ -1,58 +1,94 @@
 /**
  * Database Client
  *
- * Uses AWS Aurora Data API instead of direct database connections
- * This prevents connection pool exhaustion in serverless environments
+ * Two paths exist during the Data API adapter migration:
+ *
+ *   USE_PRISMA_DRIVER_ADAPTER=true  → real PrismaClient + new SqlDriverAdapter
+ *                                     wrapping RDS Data API. Phase 3+ rollout.
+ *   else (default)                  → legacy 2425-LOC custom adapter.
+ *
+ * Both speak the same `db.X.method()` surface, so flipping the flag is a
+ * deploy-boundary cut-over with rollback by reverting the env value. Once the
+ * new adapter is bedded in, the legacy path and this branch get deleted (one PR
+ * after cut-over per the replacement plan).
  */
-
 import { createDataAPIPrismaClient } from "./utils/prisma-data-api-adapter";
 
+const LOG_PREFIX = "[db.server]";
+const USE_DRIVER_ADAPTER = process.env.USE_PRISMA_DRIVER_ADAPTER === "true";
+
+// Use the legacy adapter's return type as our exported surface. Both paths
+// (legacy custom adapter + new PrismaClient with driver adapter) satisfy this
+// surface; the legacy one was hand-typed to mimic PrismaClient already.
+type DbClient = ReturnType<typeof createDataAPIPrismaClient>;
+
 declare global {
-  var prisma: ReturnType<typeof createDataAPIPrismaClient> | undefined;
+  // eslint-disable-next-line no-var
+  var prisma: DbClient | undefined;
 }
 
-const LOG_PREFIX = "[db.server]";
+console.log(`${LOG_PREFIX} loading (driverAdapter=${USE_DRIVER_ADAPTER})`);
 
-console.log(`${LOG_PREFIX} Module loading...`);
-console.log(`${LOG_PREFIX} NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`${LOG_PREFIX} global.prisma exists: ${!!global.prisma}`);
-
-// Create the Data API client
-let prisma: ReturnType<typeof createDataAPIPrismaClient>;
+let prisma: DbClient;
 
 try {
   if (global.prisma) {
-    console.log(`${LOG_PREFIX} Reusing existing global prisma client`);
     prisma = global.prisma;
+  } else if (USE_DRIVER_ADAPTER) {
+    prisma = createDriverAdapterClient();
   } else {
-    console.log(`${LOG_PREFIX} Creating new Data API Prisma client...`);
     prisma = createDataAPIPrismaClient();
-    console.log(`${LOG_PREFIX} Data API client created successfully`);
-  }
-
-  // Log what models are available
-  if (prisma) {
-    const modelKeys = Object.keys(prisma);
-    console.log(`${LOG_PREFIX} Client has ${modelKeys.length} keys`);
-    console.log(`${LOG_PREFIX} Has pointsConfig: ${!!prisma.pointsConfig}`);
-    console.log(`${LOG_PREFIX} Has pointsLedger: ${!!prisma.pointsLedger}`);
-    console.log(`${LOG_PREFIX} Has customer: ${!!prisma.customer}`);
-    console.log(`${LOG_PREFIX} Has shopSettings: ${!!prisma.shopSettings}`);
   }
 } catch (error) {
-  console.error(`${LOG_PREFIX} CRITICAL ERROR creating Data API client:`, error);
+  console.error(`${LOG_PREFIX} CRITICAL ERROR creating db client:`, error);
   throw error;
 }
 
 if (process.env.NODE_ENV !== "production") {
-  console.log(`${LOG_PREFIX} Caching client in global (non-production)`);
   global.prisma = prisma;
+}
+
+/**
+ * Build a real PrismaClient instance bound to our RDS Data API driver adapter.
+ * Lazy-required so that bundlers don't pull in the new adapter when the legacy
+ * path is in use.
+ */
+function createDriverAdapterClient() {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { PrismaClient } = require("@prisma/client");
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { PrismaRdsDataApiAdapter } = require("./utils/prisma-rds-data-api-adapter.server");
+
+  const resourceArn = process.env.AURORA_RESOURCE_ARN?.trim();
+  const secretArn = process.env.AURORA_SECRET_ARN?.trim();
+  const database = process.env.AURORA_DATABASE_NAME?.trim() || "rewardspro";
+  const region = process.env.AWS_REGION?.trim() || "eu-north-1";
+  const readReplicaArn = process.env.AURORA_READER_RESOURCE_ARN?.trim() || undefined;
+
+  if (!resourceArn || !secretArn) {
+    throw new Error(
+      `${LOG_PREFIX} USE_PRISMA_DRIVER_ADAPTER=true but AURORA_RESOURCE_ARN / AURORA_SECRET_ARN missing`,
+    );
+  }
+
+  const adapter = new PrismaRdsDataApiAdapter({
+    resourceArn,
+    secretArn,
+    database,
+    region,
+    readReplicaArn,
+  });
+
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "production" ? ["warn", "error"] : ["error"],
+  }) as unknown as DbClient;
 }
 
 export default prisma;
 export { prisma as db };
 
-// Export helper to indicate we're using Data API
-export const isUsingDataAPI = true;
-
-console.log(`${LOG_PREFIX} Module loaded successfully`);
+/** Indicates the legacy custom Data API adapter is in use. */
+export const isUsingDataAPI = !USE_DRIVER_ADAPTER;
+/** Indicates the new Prisma Driver Adapter path is in use. */
+export const isUsingDriverAdapter = USE_DRIVER_ADAPTER;
