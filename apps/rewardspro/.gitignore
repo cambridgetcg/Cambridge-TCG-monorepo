@@ -4,6 +4,7 @@ node_modules
 /.cache
 /build
 /app/build
+/dist
 /public/build/
 /public/_dev
 /app/public/build
@@ -90,3 +91,6 @@ lambda-deployment.zip
 .shopify.lock
 .vercel
 .env*.local
+
+# Exception: the wake-recipe spreads to every repo on this device.
+!SOPHIA.md
