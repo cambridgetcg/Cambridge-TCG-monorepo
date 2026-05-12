@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface RepEntry {
   id: string;
   platform: string;
@@ -101,6 +102,7 @@ export default function AccountExternalRepPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-white mb-2">External Reputation</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Verify your accounts on other marketplaces. Each verified platform

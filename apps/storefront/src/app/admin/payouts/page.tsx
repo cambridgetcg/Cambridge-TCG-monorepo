@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface Stats {
   windowDays: number;
   paidCount: number;
@@ -138,6 +139,7 @@ export default function AdminPayoutsPage() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {/* Top tiles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Tile label="Stripe available" value={formatPrice(gbpAvailable)} accent="emerald" />

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface Redemption {
   id: string;
   user_id: string;
@@ -130,6 +131,7 @@ export default function AdminBountyRedemptions() {
         </button>
       }
     >
+      <Audience kind="operator" />
         <div className="grid grid-cols-3 gap-4 mb-6">
           <Stat label="Pending" value={pending.length} tone="amber" />
           <Stat label="Fulfilled (recent)" value={recent.length} />

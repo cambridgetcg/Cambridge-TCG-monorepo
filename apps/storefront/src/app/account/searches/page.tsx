@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatRelativeTime } from "@/lib/format";
+import { Badge, Palettes } from "@/lib/ui";
 
+import { Audience } from "@/lib/ui";
 interface SavedSearch {
   id: string;
   name: string;
@@ -33,23 +35,14 @@ interface MatchRow {
   seller_username: string | null;
 }
 
-const STATUS_BADGE: Record<SavedSearch["status"], { label: string; className: string }> = {
-  active:   { label: "Active",   className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  paused:   { label: "Paused",   className: "bg-neutral-500/15 text-neutral-300 border-neutral-500/30" },
-  expired:  { label: "Expired",  className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  archived: { label: "Archived", className: "bg-neutral-500/15 text-neutral-500 border-neutral-500/30" },
+const STATUS_LABELS: Record<SavedSearch["status"], string> = {
+  active:   "Active",
+  paused:   "Paused",
+  expired:  "Expired",
+  archived: "Archived",
 };
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 60_000) return "just now";
-  const mins = Math.floor(ms / 60_000);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
+const timeAgo = (iso: string | null) => (iso ? formatRelativeTime(iso) : "never");
 
 export default function SearchesPage() {
   const [searches, setSearches] = useState<SavedSearch[]>([]);
@@ -100,6 +93,7 @@ export default function SearchesPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Saved Searches</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Criteria-based stock alerts. The platform scans new market listings every minute and
@@ -168,7 +162,6 @@ function SearchCard({
   onAct: (path: string, method?: "POST" | "DELETE") => void;
   onExpand: () => void;
 }) {
-  const badge = STATUS_BADGE[search.status];
   const summary = formatQuery(search.query);
 
   return (
@@ -179,9 +172,7 @@ function SearchCard({
             <p className="text-white font-semibold text-sm truncate">{search.name}</p>
             <p className="text-xs text-neutral-500 mt-0.5">{summary}</p>
           </div>
-          <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${badge.className}`}>
-            {badge.label}
-          </span>
+          <Badge status={search.status} palette={Palettes.SavedSearchStatusPalette} labels={STATUS_LABELS} />
         </div>
 
         <div className="flex items-center gap-4 text-xs text-neutral-500 mt-2 flex-wrap">

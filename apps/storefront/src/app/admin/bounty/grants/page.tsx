@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface Grant {
   id: number;
   user_id: string;
@@ -81,6 +82,7 @@ export default function AdminBountyGrants() {
         </button>
       }
     >
+      <Audience kind="operator" />
       {/* Last-7-day summary */}
       <section className="mb-6">
         <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-2">

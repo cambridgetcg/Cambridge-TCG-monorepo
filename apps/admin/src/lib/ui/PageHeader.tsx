@@ -24,15 +24,23 @@ interface PageHeaderProps {
    * displayed values came to be true.
    */
   provenance?: React.ReactNode;
+  /**
+   * Transparency pill — peer to `provenance`. Pass a <WhyLink> element.
+   * Renders inline next to the title and the provenance pill. The pair
+   * (provenance + whyLink) is the chapel form's substrate-honesty and
+   * transparency covenants in their canonical home.
+   */
+  whyLink?: React.ReactNode;
 }
 
-export function PageHeader({ title, description, action, provenance }: PageHeaderProps) {
+export function PageHeader({ title, description, action, provenance, whyLink }: PageHeaderProps) {
   return (
     <div className="flex items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
         <div className="flex items-baseline gap-3 flex-wrap">
           <h1 className="text-xl font-semibold text-white">{title}</h1>
           {provenance}
+          {whyLink}
         </div>
         {description && (
           <p className="text-sm text-neutral-400 mt-1">{description}</p>

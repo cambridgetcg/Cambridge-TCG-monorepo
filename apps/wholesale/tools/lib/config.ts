@@ -1,5 +1,13 @@
 // CardRush scraper configuration
 // Product-group IDs verified by scraping cardrush-*.jp homepages
+//
+// SKU assembly uses `buildSku()` from `@/lib/sku` (the wholesale compat
+// module) — emits legacy form today, canonical after migration 0015 +
+// SKU_FORM flip. See `docs/connections/the-drift-reconciliation.md`
+// (kingdom-070) and `apps/wholesale/src/lib/sku.ts`.
+
+import { buildSku } from "@/lib/sku";
+import { parseCardNumber } from "@cambridge-tcg/sku";
 
 export interface GameParseConfig {
   cardNumberRegex: RegExp;
@@ -39,9 +47,42 @@ const ONEPIECE_PARSE: GameParseConfig = {
 
 const ONEPIECE_MAP: GameMapConfig = {
   generateBaseSku: (cardNumber) => {
-    if (cardNumber === "DON" || cardNumber === "P") return `${cardNumber}-JP`;
-    const prefix = cardNumber.match(/^(OP|ST|EB|PRB|P|E)/)?.[1] ?? "OP";
-    return `${prefix}-${cardNumber}-JP`;
+    // Special promo symbols. The set-format registry handles
+    // `P-NNN` / `E-NNN` / `P-2ANNY-NNN` patterns, but the bare DON / {P}
+    // glyphs come through as un-numbered strings; keep the explicit
+    // override for those.
+    if (cardNumber === "DON" || cardNumber === "P") {
+      return buildSku({
+        game: "op",
+        set: "promo",
+        number: cardNumber.toLowerCase(),
+        lang: "ja",
+      });
+    }
+
+    // Delegate to the typed set-format registry in @cambridge-tcg/sku.
+    // Recognises OP01..15, ST01..28, EB01..N, PRB01..N, PCC04..N, plus
+    // promo forms (P-NNN, P-2ANNY-NNN, etc.) without hand-editing this
+    // file. New publisher prefixes appear in `pnpm audit:set-discovery`
+    // as `confirmed: false` matches that the operator can promote when
+    // ready.
+    const parts = parseCardNumber("op", cardNumber);
+    if (!parts) {
+      // Unparseable — emit set:"unknown"; the audit will surface this
+      // row so the operator can extend the registry.
+      return buildSku({
+        game: "op",
+        set: "unknown",
+        number: cardNumber.toLowerCase(),
+        lang: "ja",
+      });
+    }
+    return buildSku({
+      game: "op",
+      set: parts.set,
+      number: parts.number,
+      lang: "ja",
+    });
   },
 };
 
@@ -54,8 +95,21 @@ const DRAGONBALL_PARSE: GameParseConfig = {
 
 const DRAGONBALL_MAP: GameMapConfig = {
   generateBaseSku: (cardNumber) => {
-    const prefix = cardNumber.match(/^(FB|FS|SB)/)?.[1] ?? "FB";
-    return `${prefix}-${cardNumber}-JP`;
+    const parts = parseCardNumber("dbf", cardNumber);
+    if (!parts) {
+      return buildSku({
+        game: "dbf",
+        set: "unknown",
+        number: cardNumber.toLowerCase(),
+        lang: "ja",
+      });
+    }
+    return buildSku({
+      game: "dbf",
+      set: parts.set,
+      number: parts.number,
+      lang: "ja",
+    });
   },
 };
 
@@ -68,8 +122,9 @@ const POKEMON_PARSE: GameParseConfig = {
 
 const POKEMON_MAP: GameMapConfig = {
   generateBaseSku: (cardNumber, setCode) => {
+    // CardNumber is like "025/202"; take the number-before-slash.
     const num = cardNumber.split("/")[0];
-    return `PK-${setCode.toUpperCase()}-${num}-JP`;
+    return buildSku({ game: "pkm", set: setCode, number: num, lang: "ja" });
   },
   cleanNameExtra: (name) => name.replace(/\[[^\]]+\]/g, ""),
 };

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface TierRow {
   id: string;
   name: string;
@@ -63,6 +64,7 @@ export default function AdminTiersPage() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {loading ? (
           <p className="text-sm text-neutral-500">Loading...</p>
         ) : (

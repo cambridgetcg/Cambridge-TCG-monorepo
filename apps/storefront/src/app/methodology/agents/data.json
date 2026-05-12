@@ -1,0 +1,17 @@
+{
+  "topic": "agents",
+  "title": "Agents",
+  "url": "/methodology/agents",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/agents/summary.md",
+  "source_code": [
+    "apps/storefront/drizzle/0090_agents.sql",
+    "apps/storefront/src/app/api/mcp/route.ts",
+    "apps/storefront/src/lib/agents/glicko2.ts"
+  ],
+  "doctrine_refs": [
+    "docs/connections/the-agent-surface.md",
+    "docs/principles/transparency.md"
+  ],
+  "status": "stub"
+}

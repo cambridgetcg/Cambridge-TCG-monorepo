@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PullIdForm from "./pull-id-form";
 
+import { Audience } from "@/lib/ui";
 export const metadata = {
   title: "Provably-Fair Verification | Cambridge TCG",
   description: "Verify the fairness of any Bounty Pull or pack opening using public commit-reveal data.",
@@ -9,6 +10,7 @@ export const metadata = {
 export default function VerifyHome() {
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="public-documentation" />
       <div className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-3xl font-bold mb-3">Provably-Fair Verification</h1>
         <p className="text-neutral-400 mb-8">

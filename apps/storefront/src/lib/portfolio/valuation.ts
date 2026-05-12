@@ -22,7 +22,7 @@
 //
 //   1. P2P market_orders best_ask  (live, but only when there's a
 //      real ask on the book)
-//   2. card_price_history.spot_gbp (daily-cached spot from wholesale)
+//   2. retail_price_observation.spot_gbp (daily-cached spot from wholesale)
 //   3. nothing (fall through; card contributes 0 to value with a
 //      `priced=false` flag the UI can show)
 //
@@ -137,7 +137,7 @@ async function resolvePricesForSkus(
      ),
      latest_history AS (
        SELECT DISTINCT ON (sku) sku, spot_gbp::numeric AS price
-         FROM card_price_history
+         FROM retail_price_observation
         WHERE sku = ANY($1::text[])
         ORDER BY sku, captured_on DESC
      )
@@ -165,11 +165,18 @@ async function resolvePricesForSkus(
 // ── Collection value: current snapshot ──
 
 export async function getCollectionValue(userId: string): Promise<CollectionValue> {
+  // Sacred rows (the-unseen passage #8) are held outside the accounting
+  // frame — excluded from valuation. They're still real cards (the
+  // holder's collection includes them) but they have no price for the
+  // platform's purposes. `is_sacred` was added in migration 0096; the
+  // COALESCE guards pre-migration deploys so an un-migrated database
+  // still produces a sensible answer.
   const cards = await query(
     `SELECT sku, card_name, card_number, set_code, set_name, rarity,
             condition, quantity, acquisition_price, acquired_at
        FROM portfolio_cards
       WHERE user_id = $1
+        AND COALESCE(is_sacred, false) = false
       ORDER BY set_code, card_number`,
     [userId],
   );

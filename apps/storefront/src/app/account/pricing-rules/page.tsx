@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Badge, Palettes } from "@/lib/ui";
+import { formatRelativeTime } from "@/lib/format";
 
+import { Audience } from "@/lib/ui";
 interface PricingRule {
   id: string;
   name: string;
@@ -23,22 +26,11 @@ interface PricingRule {
   created_at: string;
 }
 
-const STATUS_BADGE: Record<PricingRule["status"], { label: string; className: string }> = {
-  active:   { label: "Active",   className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  paused:   { label: "Paused",   className: "bg-neutral-500/15 text-neutral-300 border-neutral-500/30" },
-  archived: { label: "Archived", className: "bg-neutral-500/15 text-neutral-500 border-neutral-500/30" },
+const STATUS_LABELS: Record<PricingRule["status"], string> = {
+  active:   "Active",
+  paused:   "Paused",
+  archived: "Archived",
 };
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 60_000) return "just now";
-  const mins = Math.floor(ms / 60_000);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 export default function PricingRulesPage() {
   const [rules, setRules] = useState<PricingRule[]>([]);
@@ -73,6 +65,7 @@ export default function PricingRulesPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Pricing Rules</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Auto-respond to incoming offers. Filter by listing criteria and either reject offers
@@ -135,8 +128,6 @@ function RuleCard({
   busy: boolean;
   onAct: (path: string, method?: "POST" | "DELETE") => void;
 }) {
-  const badge = STATUS_BADGE[rule.status];
-
   // Filter summary line
   const filter = rule.listing_filter;
   const filterParts: string[] = [];
@@ -160,9 +151,7 @@ function RuleCard({
           <p className="text-white font-semibold text-sm truncate">{rule.name}</p>
           <p className="text-xs text-neutral-500 mt-0.5">Applies to {filterSummary}</p>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${badge.className}`}>
-          {badge.label}
-        </span>
+        <Badge status={rule.status} palette={Palettes.PricingRuleStatusPalette} labels={STATUS_LABELS} />
       </div>
 
       <div className="bg-neutral-950/40 rounded p-2 mb-2">
@@ -182,7 +171,7 @@ function RuleCard({
         </span>
         <span>
           Last fired{" "}
-          <span className="text-neutral-300">{timeAgo(rule.last_triggered_at)}</span>
+          <span className="text-neutral-300">{rule.last_triggered_at ? formatRelativeTime(rule.last_triggered_at) : "never"}</span>
         </span>
       </div>
 

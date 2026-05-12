@@ -5,6 +5,7 @@ import { use } from "react";
 import Link from "next/link";
 import { sha256Hex, rollFloat, pickWeighted, computeLeaf, merkleRoot } from "@/lib/bounty/verify-client";
 
+import { Audience } from "@/lib/ui";
 interface SlotOutcome { picked: string; roll: number; extra?: unknown }
 type Outcome =
   | { picked: string; roll: number }
@@ -153,6 +154,7 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
 
   return (
     <Shell>
+      <Audience kind="public-documentation" />
       <header className="mb-8">
         <Link href="/verify" className="text-xs text-neutral-500 hover:text-neutral-300">← All proofs</Link>
         <h1 className="text-2xl font-bold mt-2 mb-1">{kindLabel} Verification</h1>

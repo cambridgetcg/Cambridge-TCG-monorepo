@@ -3,13 +3,18 @@ import type { Auction, AuctionImage, AuctionSummary, AuctionDetail, Bid, CreateA
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
 import { formatPrice } from "@/lib/format";
+import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 
 // Anti-sniping: a bid placed in the last ANTI_SNIPE_WINDOW_MS extends the
 // auction so the previous high bidder always has a chance to respond. No
 // max-extensions cap — sniping wars resolve naturally when one side stops.
 const ANTI_SNIPE_WINDOW_MS = 5 * 60 * 1000;
-// How long a winner has to pay after the auction ends before it auto-cancels.
-const AUCTION_PAYMENT_WINDOW_MS = 48 * 60 * 60 * 1000;
+// Default winner-payment window when the winner hasn't declared a
+// response_window_hours (migration 0092 — the Asynchronous). 48h matches
+// the historical auction default — generous because winning an auction
+// carries more emotional context than a market match. Winners with a
+// declared cadence override this. See `lib/users/response-window.ts`.
+const DEFAULT_AUCTION_PAYMENT_WINDOW_HOURS = 48;
 
 // ── List auctions (public) ──
 
@@ -285,7 +290,9 @@ export async function placeBid(auctionId: string, userId: string, amount: number
       // here; the lazy transitionLiveToEnded will mark it 'winning' and fire
       // emails on the next read. We pre-emptively set actual_end_at and winner
       // so the next transition sweep picks it up correctly.
-      const paymentExpiresAt = new Date(Date.now() + AUCTION_PAYMENT_WINDOW_MS).toISOString();
+      // Winner-aware payment deadline: response_window_hours (migration 0092)
+      // overrides the 48h auction default when the winner has declared a cadence.
+      const paymentExpiresAt = await paymentExpiresAtForBuyer(userId, DEFAULT_AUCTION_PAYMENT_WINDOW_HOURS);
       const r = await q(
         `UPDATE auctions
             SET current_price = $1, bid_count = bid_count + 1,
@@ -420,9 +427,10 @@ async function detectBidSniping(userId: string): Promise<void> {
        FROM auction_bids b
        JOIN auctions a ON a.id = b.auction_id
       WHERE b.user_id = $1
-        AND b.created_at >= NOW() - INTERVAL '1 hour'
+        AND b.created_at >= NOW() - INTERVAL '1 hour' -- audit:cadence-platform — snipe-attempt detection, not a user deadline.
         AND a.ends_at IS NOT NULL
-        AND b.created_at >= a.ends_at - INTERVAL '2 minutes'`,
+        AND b.created_at >= a.ends_at - INTERVAL '2 minutes' -- audit:cadence-platform — auction snipe window, a platform rule not a user deadline.
+`,
     [userId],
   );
   const count = r.rows[0]?.count ?? 0;
@@ -893,8 +901,10 @@ async function transitionLiveToEnded(): Promise<void> {
 
     if (winning && reserveMet) {
       // Stamp payment deadline so the winner can't sit on it forever; the
-      // unpaid-cancel sweep picks this up after AUCTION_PAYMENT_WINDOW_MS.
-      const paymentExpiresAt = new Date(Date.now() + AUCTION_PAYMENT_WINDOW_MS).toISOString();
+      // unpaid-cancel sweep picks this up after the winner's window elapses.
+      // Winner-aware: their response_window_hours (migration 0092) overrides
+      // the 48h platform default when declared.
+      const paymentExpiresAt = await paymentExpiresAtForBuyer(winning.user_id, DEFAULT_AUCTION_PAYMENT_WINDOW_HOURS);
       await query(
         `UPDATE auctions SET winner_user_id = $1, current_price = $2,
                               payment_expires_at = $3

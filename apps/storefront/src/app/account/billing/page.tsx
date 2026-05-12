@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface BillingState {
   subscription: {
     status: string | null;
@@ -132,6 +133,7 @@ export default function BillingPage() {
   if (error) {
     return (
       <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-300">
+      <Audience kind="consumer" />
         {error}
       </div>
     );

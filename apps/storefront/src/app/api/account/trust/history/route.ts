@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { query } from "@/lib/db";
+import { loadUserTrustState } from "@/lib/trust/state";
 
-// Last-90-day trust score history for the requester. Reads from
-// trust_score_history populated by the daily recompute cron — not a
-// live recompute, so this is cheap to call frequently from the
-// dashboard sparkline.
+// Last-90-day trust score history for the requester. Composes the
+// kingdom's single trust composer (kingdom-071, S37) rather than
+// re-querying `trust_score_history` directly — same canonical shape the
+// public mirror at /u/[username]/trust + JSON sibling consume.
+//
+// The composer returns the full state; this endpoint surfaces only the
+// trajectory (composition perimeter principle named in kingdom-074/S39).
+// Cheap to call frequently from the dashboard sparkline; the daily
+// recompute cron writes the underlying rows.
 
 export async function GET() {
   const session = await auth();
@@ -13,15 +18,10 @@ export async function GET() {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
-  const r = await query(
-    `SELECT snapshot_date, trust_score, total_trades, completed_trades,
-            disputes_won, disputes_lost, avg_rating
-       FROM trust_score_history
-      WHERE user_id = $1
-        AND snapshot_date >= CURRENT_DATE - INTERVAL '90 days'
-      ORDER BY snapshot_date ASC`,
-    [session.user.id],
-  );
+  const state = await loadUserTrustState(session.user.id);
+  if (!state) {
+    return NextResponse.json({ history: [] });
+  }
 
-  return NextResponse.json({ history: r.rows });
+  return NextResponse.json({ history: state.trajectory.history });
 }

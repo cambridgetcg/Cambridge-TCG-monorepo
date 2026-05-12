@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/format";
+import { WhyLink } from "@/lib/ui";
 import { TRUST_TIERS } from "@/lib/escrow/types";
 import type { TrustProfile, TradeReview, ExternalRep } from "@/lib/escrow/types";
 
+import { Audience } from "@/lib/ui";
 type TrustTier = (typeof TRUST_TIERS)[number];
 
 function scoreColor(score: number): string {
@@ -55,6 +57,7 @@ function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) 
   const cls = size === "md" ? "text-lg" : "text-sm";
   return (
     <span className={`${cls} inline-flex gap-0.5`}>
+      <Audience kind="consumer" />
       {[1, 2, 3, 4, 5].map((i) => (
         <span key={i} className={i <= Math.round(rating) ? "text-amber-400" : "text-neutral-700"}>
           ★
@@ -379,7 +382,10 @@ export default function TrustProfilePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">Trust Score</h1>
+      <h1 className="text-2xl font-bold text-white mb-6">
+        Trust Score
+        <WhyLink href="/methodology/trust-score" tooltip="How is the trust score computed?" />
+      </h1>
 
       {/* Trust Score Card */}
       <div className="bg-neutral-900 rounded-xl p-6 mb-6">

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { cards, games, sets, priceHistory, priceArchive } from "@/lib/db/schema";
+import { cards, games, sets, priceArchive } from "@/lib/db/schema";
 import { fetchPriceFeed, parseSkuGame } from "@/lib/s3";
 import { calculatePrice } from "@/lib/pricing";
 import { eq, and, count } from "drizzle-orm";
@@ -77,29 +77,11 @@ export async function POST() {
           },
         });
 
-      // Get the card ID for price history
-      const [card] = await db
-        .select({ id: cards.id })
-        .from(cards)
-        .where(eq(cards.sku, row.sku))
-        .limit(1);
-
-      if (card) {
-        await db.insert(priceHistory)
-          .values({
-            cardId: card.id,
-            date: today,
-            cardrushJpy: row.cardrushJpy,
-            gbpJpyRate: row.gbpToJpy,
-          })
-          .onConflictDoUpdate({
-            target: [priceHistory.cardId, priceHistory.date],
-            set: {
-              cardrushJpy: row.cardrushJpy,
-              gbpJpyRate: row.gbpToJpy,
-            },
-          });
-      }
+      // Phase 4 of kingdom-049: per-row priceHistory inserts removed.
+      // The post-sync `runDailySnapshot` call below populates `priceArchive`
+      // (the canonical history) for every card in the synced game. The
+      // dropped `priceHistory` table carried only JPY + rate; the archive
+      // carries those plus baseGbp + price, so nothing is lost.
 
       synced++;
     }

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { WhyLink } from "@/lib/ui";
 
+import { Audience } from "@/lib/ui";
 interface Standing {
   trust_score: number;
   is_suspended: boolean;
@@ -74,7 +76,11 @@ export default function AccountStandingPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-2">Account Standing</h1>
+      <Audience kind="consumer" />
+      <h1 className="text-2xl font-bold text-white mb-2">
+        Account Standing
+        <WhyLink href="/methodology/fraud-flag" tooltip="How does the platform flag accounts?" />
+      </h1>
       <p className="text-sm text-neutral-400 mb-6">
         Your active flags, suspension status, and how to clear them. See your{" "}
         <Link href="/account/trust" className="text-amber-400 underline">trust score</Link>{" "}

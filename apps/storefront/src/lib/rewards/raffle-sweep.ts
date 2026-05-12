@@ -96,7 +96,7 @@ export async function retryWinnerNotifications(): Promise<{ retried: number }> {
       WHERE status = 'completed'
         AND winner_user_id IS NOT NULL
         AND winner_notified = false
-        AND winner_drawn_at < NOW() - INTERVAL '1 hour'`
+        AND winner_drawn_at < NOW() - INTERVAL '1 hour'` // audit:cadence-platform — retry cadence for unnotified winners, not a user deadline.
   );
   let retried = 0;
   for (const r of overdue.rows) {

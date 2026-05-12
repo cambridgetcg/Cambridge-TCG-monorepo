@@ -9,6 +9,7 @@ export async function getPublicProfile(identifier: string): Promise<PublicProfil
   // Look up by username or user ID
   const result = await query(
     `SELECT u.id as user_id, u.username, u.name, u.bio, u.avatar_url, u.is_public,
+       u.pronouns, u.preferred_address,
        t.name as tier_name, t.icon as tier_icon, t.color as tier_color,
        u.trust_score, u.trade_count, u.follower_count, u.following_count,
        u.created_at as member_since,

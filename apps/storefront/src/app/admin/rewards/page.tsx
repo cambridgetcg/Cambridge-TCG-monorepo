@@ -12,6 +12,7 @@ import type {
 import { REWARD_TYPES, RARITY_COLORS } from "@/lib/rewards/types";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 // ── Status colors ──
 
 const RAFFLE_STATUS_COLORS: Record<RaffleStatus, string> = {
@@ -317,6 +318,7 @@ export default function AdminRewardsPage() {
       title="Rewards Management"
       authProbe="/api/rewards/raffles?admin=true"
     >
+      <Audience kind="operator" />
         {/* Tabs */}
         <div className="flex items-center gap-1 mb-8 bg-neutral-900 rounded-xl p-1 w-fit">
           <button

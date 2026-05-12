@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { fetchCard, fetchPrices } from "@/lib/wholesale/client";
+import { fetchCard, fetchPrices, cardAltText } from "@/lib/wholesale/client";
 import { formatRetailPrice, retailPrice } from "@/lib/pricing";
 import { getUnifiedMarketView } from "@/lib/market/unified";
 import { formatPrice } from "@/lib/format";
@@ -32,6 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 }
 import SellForCreditButton from "@/components/product/SellForCreditButton";
 import CardGrid from "@/components/catalog/CardGrid";
+import { Provenance, WhyLink, Audience } from "@/lib/ui";
 
 function rarityBadgeClasses(rarity: string | null): string | null {
   if (!rarity) return null;
@@ -91,6 +92,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
   return (
     <>
     <Script id="product-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+    <Audience kind="consumer" contexts={["product-detail"]} />
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-8">
@@ -118,7 +120,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
           {card.image_url && (
             <Image
               src={card.image_url}
-              alt={card.name_en || card.name || card.card_number}
+              alt={cardAltText(card)}
               fill
               className="object-contain"
               priority
@@ -141,7 +143,13 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             <p className="text-neutral-400 mt-1">{card.card_number}</p>
           </div>
 
-          <div className="text-4xl font-bold text-emerald-400">{formatRetailPrice(card.price_gbp, card.channel_price)}</div>
+          <div className="flex flex-col gap-1">
+            <div className="text-4xl font-bold text-emerald-400">{formatRetailPrice(card.price_gbp, card.channel_price)}</div>
+            <div className="flex items-center gap-3">
+              <Provenance kind="synced" source="wholesale" at={card.updated_at} cadence="daily" />
+              <WhyLink href="/methodology/pricing" />
+            </div>
+          </div>
 
           {/* Stock indicator */}
           <div className="text-sm">

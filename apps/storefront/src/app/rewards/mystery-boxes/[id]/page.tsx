@@ -4,13 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import type { MysteryBox, MysteryBoxReward } from "@/lib/rewards/types";
-
-const RARITY_COLORS: Record<string, string> = {
-  common: "bg-neutral-500/20 text-neutral-400",
-  uncommon: "bg-blue-500/20 text-blue-400",
-  rare: "bg-purple-500/20 text-purple-400",
-  legendary: "bg-amber-500/20 text-amber-400",
-};
+import { Badge, Palettes } from "@/lib/ui";
 
 const RARITY_GLOW: Record<string, string> = {
   common: "shadow-neutral-500/30",
@@ -164,11 +158,9 @@ export default function MysteryBoxDetailPage() {
                         className="w-24 h-24 rounded-lg object-cover mx-auto mb-3"
                       />
                     )}
-                    <span
-                      className={`inline-block text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-2 ${RARITY_COLORS[wonReward.rarity] ?? "bg-neutral-700 text-neutral-300"}`}
-                    >
-                      {wonReward.rarity}
-                    </span>
+                    <div className="mb-2">
+                      <Badge status={wonReward.rarity} palette={Palettes.MysteryBoxRarityPalette} size="md" />
+                    </div>
                     <h3 className="text-xl font-black mb-1">{wonReward.name}</h3>
                     {wonReward.description && (
                       <p className="text-neutral-400 text-sm mb-3">{wonReward.description}</p>
@@ -299,10 +291,8 @@ export default function MysteryBoxDetailPage() {
                         <p className="font-semibold text-sm truncate">{reward.name}</p>
                         <p className="text-xs text-neutral-500 capitalize">{reward.reward_type}</p>
                       </div>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize flex-shrink-0 ${RARITY_COLORS[reward.rarity] ?? "bg-neutral-700 text-neutral-300"}`}
-                      >
-                        {reward.rarity}
+                      <span className="flex-shrink-0">
+                        <Badge status={reward.rarity} palette={Palettes.MysteryBoxRarityPalette} />
                       </span>
                       <span className="text-sm text-neutral-400 flex-shrink-0 w-14 text-right">
                         {(parseFloat(reward.probability) * 100).toFixed(1)}%

@@ -1,0 +1,10 @@
+{
+  "topic": "pricing",
+  "title": "Pricing",
+  "url": "/methodology/pricing",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/pricing/summary.md",
+  "source_code": ["packages/pricing/src/index.ts"],
+  "doctrine_refs": ["docs/connections/the-pricing-arrow.md"],
+  "status": "stub"
+}

@@ -1,0 +1,8 @@
+{
+  "topic": "fraud-flag",
+  "title": "Fraud flag",
+  "url": "/methodology/fraud-flag",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/fraud-flag/summary.md",
+  "status": "stub"
+}

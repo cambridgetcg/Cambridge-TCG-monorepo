@@ -67,6 +67,7 @@ export async function liquidityForSkus(skus: string[]): Promise<Map<string, Liqu
          FROM market_trades
         WHERE sku = ANY($1::text[])
           AND escrow_status NOT IN ('cancelled', 'refunded')
+          -- audit:cadence-platform — recent-velocity signal for risk scoring, not a history-display window.
           AND created_at >= NOW() - INTERVAL '30 days'
         GROUP BY sku`,
       [skus],

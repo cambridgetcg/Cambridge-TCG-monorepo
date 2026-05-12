@@ -3,6 +3,7 @@ import Link from "next/link";
 import { fetchPrices, fetchSets } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { formatPrice } from "@/lib/format";
+import { Provenance, WhyLink, Audience } from "@/lib/ui";
 
 export const metadata: Metadata = {
   title: "One Piece TCG Price Guide UK — Updated Daily",
@@ -77,6 +78,14 @@ export default async function OnePiecePriceGuidePage() {
     tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
 
+  // Freshest synced timestamp across the top-cards fetch — used by the
+  // Provenance pill to declare retail-price provenance per the consolidation
+  // plan in docs/pricing-current-state.md.
+  const freshestUpdate = topCardsData.items.reduce<string | null>(
+    (max, item) => (item.updated_at && (max === null || item.updated_at > max) ? item.updated_at : max),
+    null,
+  );
+
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -110,6 +119,7 @@ export default async function OnePiecePriceGuidePage() {
       />
 
       <main className="max-w-6xl mx-auto px-4 py-12">
+        <Audience kind="public-documentation" contexts={["prices", "one-piece"]} />
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
           <ol className="flex items-center gap-1.5">
@@ -135,6 +145,16 @@ export default async function OnePiecePriceGuidePage() {
         <h1 className="text-3xl font-bold text-white mb-4">
           One Piece TCG Price Guide UK — Updated Daily
         </h1>
+
+        <div className="mb-4 flex items-center gap-3">
+          <Provenance
+            kind="synced"
+            source="wholesale"
+            at={freshestUpdate}
+            cadence="daily"
+          />
+          <WhyLink href="/methodology/pricing" label="how prices work" />
+        </div>
 
         <p className="text-neutral-300 leading-relaxed max-w-3xl mb-10">
           This is a complete, daily-updated price guide for every One Piece

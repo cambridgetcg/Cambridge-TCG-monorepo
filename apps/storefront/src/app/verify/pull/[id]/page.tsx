@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { verifyPull, type VerificationResult, computeLeaf, merkleRoot } from "@/lib/bounty/verify-client";
 
+import { Audience } from "@/lib/ui";
 interface PullData {
   pull_id: string;
   tier: string;
@@ -107,6 +108,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
   if (error) {
     return (
       <Page>
+      <Audience kind="public-documentation" />
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
           <p className="text-red-400 font-bold">{error}</p>
           <p className="text-xs text-neutral-500 mt-2">Pull ID: <code className="font-mono">{id}</code></p>

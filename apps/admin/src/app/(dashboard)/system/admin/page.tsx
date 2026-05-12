@@ -101,9 +101,11 @@ export default async function Page({
       `SELECT
          (SELECT COUNT(*)::text FROM users WHERE role = 'admin')                 AS admins,
          (SELECT COUNT(DISTINCT actor_label)::text FROM admin_actions_log
+            -- audit:cadence-platform — KPI carries its 30d window in its column name.
             WHERE created_at >= NOW() - INTERVAL '30 days' AND actor_label IS NOT NULL) AS admins_active_30d,
          (SELECT COUNT(*)::text FROM admin_actions_log
             WHERE action IN ('admin.grant', 'admin.revoke')
+              -- audit:cadence-platform — KPI carries its 30d window in its column name.
               AND created_at >= NOW() - INTERVAL '30 days')                       AS recent_grants`,
       [],
     ),

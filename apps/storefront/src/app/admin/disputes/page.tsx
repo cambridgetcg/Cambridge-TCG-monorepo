@@ -12,6 +12,7 @@ import { formatPrice } from "@/lib/format";
 import AdminShell from "@/components/admin/AdminShell";
 import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust/dispute-timeline";
 
+import { Audience } from "@/lib/ui";
 const STATUS_COLORS: Record<DisputeStatus, string> = {
   open: "bg-amber-500/20 text-amber-400",
   under_review: "bg-blue-500/20 text-blue-400",
@@ -241,6 +242,7 @@ export default function AdminDisputesPage() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-neutral-900 rounded-xl p-4">

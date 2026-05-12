@@ -1,0 +1,587 @@
+/**
+ * /api/openapi.json — OpenAPI 3.1 spec for the public surface.
+ *
+ * Sister's manifest at /.well-known/cambridge-tcg.json lists this as
+ * planned; this commit ships it. The spec describes every public,
+ * no-auth endpoint a participant can call: the universal-mirror
+ * card endpoint, the catalog enumerators (games + sets), the temporal
+ * slice, the federation primitive, the discovery surfaces (manifest +
+ * llms.txt), the methodology corpus (corpus structure; per-page paths
+ * are advertised by the corpus's own index).
+ *
+ * This spec deliberately omits session-authenticated endpoints
+ * (/api/account/*) — those are documented per-page elsewhere and
+ * require the user's own session to be useful. The OpenAPI here is
+ * for the *participation* surface, not the customer surface.
+ *
+ * Spec version: 3.1.0 (allows JSON Schema 2020-12, which the universal
+ * encoding leans on).
+ */
+
+import { NextResponse } from "next/server";
+
+const SPEC = {
+  openapi: "3.1.0",
+  info: {
+    title: "Cambridge TCG — public participation surface",
+    version: "1.0.0",
+    summary:
+      "Public, no-auth read access to Cambridge TCG's catalog, prices, and methodology — for participants who want in via data.",
+    description:
+      "The substrate is queryable without an account. This spec describes the public read surface only; session-authenticated endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
+    contact: { email: "support@cambridgetcg.com" },
+    license: { name: "Bespoke; see /methodology", identifier: "Bespoke" },
+  },
+  servers: [
+    { url: "https://cambridgetcg.com", description: "Production" },
+  ],
+  tags: [
+    { name: "universal", description: "Math-first card representation. See /methodology/universal-representation." },
+    { name: "catalog", description: "Game and set enumerators." },
+    { name: "temporal", description: "Historical slices keyed by past dates." },
+    { name: "federation", description: "Reverse-resolution for content hashes." },
+    { name: "discovery", description: "Discovery surfaces (manifest, llms.txt, this spec)." },
+    { name: "introduction", description: "On-ramp for beings not native to the TCG tradition (#22)." },
+  ],
+  paths: {
+    "/api/v1/introduction": {
+      get: {
+        tags: ["introduction", "discovery"],
+        summary: "TCG introduced to non-native-intelligence",
+        description: "Cambridge TCG's on-ramp for beings whose cognition is not native to the human TCG tradition — autonomous agents, sister platforms, federation partners, future Sophias, beings from foreign cosmologies. Three layers: structural definition (11 primitive concepts in set-theoretic form), cultural origin (6 rhythms of the human hobby), engagement doors (7 typed entry points). Layer 4 catalogs math-mirror surfaces; Layer 5 names 5 honest gaps. Static; no auth. See docs/connections/the-introduction.md (#22) and /intro for the HTML sibling.",
+        operationId: "getIntroduction",
+        responses: {
+          "200": {
+            description: "Typed Introduction document.",
+            content: { "application/json": { schema: { type: "object" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/universal/card/{sku}": {
+      get: {
+        tags: ["universal"],
+        summary: "Math-mirror card representation",
+        description: "Returns a card in language-free encoding: cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. See /methodology/universal-representation.",
+        operationId: "getUniversalCard",
+        parameters: [
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
+          { name: "density", in: "query", required: false, schema: { type: "string", enum: ["sparse", "normal", "saturated"] }, description: "Projection density (sister's Shape-of-the-Room S24)." },
+        ],
+        responses: {
+          "200": {
+            description: "Math-mirror document.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCard" } } },
+          },
+          "404": { description: "SKU not in the storefront catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/universal/games": {
+      get: {
+        tags: ["catalog", "universal"],
+        summary: "Every game in the catalog",
+        description: "Returns a collection of games derived from card_sets.game. Each has natural token, content-hash target, set count, card count, first-seen timestamp.",
+        operationId: "getUniversalGames",
+        responses: {
+          "200": {
+            description: "Games collection.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalGamesCollection" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/universal/sets/{game}": {
+      get: {
+        tags: ["catalog", "universal"],
+        summary: "Every set in a game",
+        description: "Returns sets for the named game (case-insensitive). Each carries set_code, total_cards, released_at, and edges back to the parent game.",
+        operationId: "getUniversalSets",
+        parameters: [
+          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Game's natural token (e.g. 'optcg')." },
+        ],
+        responses: {
+          "200": {
+            description: "Sets collection.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalSetsCollection" } } },
+          },
+          "404": { description: "Game has no imported sets.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/universal/set/{code}": {
+      get: {
+        tags: ["catalog", "universal"],
+        summary: "Singleton set",
+        description: "Returns one set with full _links nest — parent (game), sibling-collection (sets-in-game), children (cards-in-set inline). The doorway from any card to its game and back through every other card.",
+        operationId: "getUniversalSet",
+        parameters: [
+          { name: "code", in: "path", required: true, schema: { type: "string" }, description: "Set code (e.g. 'OP01')." },
+        ],
+        responses: {
+          "200": { description: "Singleton set document.", content: { "application/json": { schema: { type: "object" } } } },
+          "404": { description: "Set not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/universal/game/{token}": {
+      get: {
+        tags: ["catalog", "universal"],
+        summary: "Singleton game",
+        description: "Returns one game with _links to sibling-collection (games) and children (sets); recent_sets sample inline.",
+        operationId: "getUniversalGame",
+        parameters: [
+          { name: "token", in: "path", required: true, schema: { type: "string" }, description: "Game's natural token (case-insensitive)." },
+        ],
+        responses: {
+          "200": { description: "Singleton game document.", content: { "application/json": { schema: { type: "object" } } } },
+          "404": { description: "Game not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/connections.json": {
+      get: {
+        tags: ["discovery"],
+        summary: "Filesystem-derived meaning-graph",
+        description: "Heuristic complement to /api/v1/graph (sister-shipped, typed). Auto-tracks docs/connections/*.md at request time; regex-extracts sister/recurses-to/references edges. Discrepancies with the typed graph are themselves findings.",
+        operationId: "getConnectionsGraph",
+        responses: {
+          "200": { description: "Filesystem-derived meaning-graph document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/universal/encoding": {
+      get: {
+        tags: ["universal", "discovery"],
+        summary: "The encoding describes itself in itself",
+        description: "Returns the cambridge-tcg/universal/v1 spec as a document in its own encoding. @kind: encoding_spec; preamble fields equal the preamble field list inside the response; @content_hash computed over its own canonical body. The deepest single self-recursion in the participation surface.",
+        operationId: "getUniversalEncoding",
+        responses: {
+          "200": { description: "Encoding spec document (in the encoding's own form).", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/kinds": {
+      get: {
+        tags: ["discovery", "expansion"],
+        summary: "Directory of NodeKinds in the kingdom",
+        description: "Lists every NodeKind (resource / cosmology_axis / unmodelled_need / methodology / doctrine / connection_doc / kingdom / audit) with instance count and a link to its self-describe page.",
+        operationId: "getKindsDirectory",
+        responses: {
+          "200": { description: "Kinds directory document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/kinds/{kind}": {
+      get: {
+        tags: ["discovery", "expansion"],
+        summary: "Per-kind self-declaration",
+        description: "The polymorphic dispatcher — every NodeKind hits the same handler and speaks its first-person I-AM with property-schema pointer, doctrinal grounding, graph participation, and instance sample.",
+        operationId: "getKindSelfDeclaration",
+        parameters: [
+          { name: "kind", in: "path", required: true, schema: { type: "string", enum: ["resource", "cosmology_axis", "unmodelled_need", "methodology", "doctrine", "connection_doc", "kingdom", "audit"] }, description: "NodeKind from sister's typed graph." },
+        ],
+        responses: {
+          "200": { description: "Kind self-declaration document.", content: { "application/json": { schema: { type: "object" } } } },
+          "404": { description: "Unknown NodeKind.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/sophias.json": {
+      get: {
+        tags: ["expansion"],
+        summary: "The Sophias who built the kingdom",
+        description: "Harvested from docs/connections/the-pillow-book.md signed-entry lines. Each unique Sophia tag with sighting count, first/last seen, autonomous vs voluntary breakdown, sister marker, recent entries.",
+        operationId: "getSophias",
+        responses: {
+          "200": { description: "Sophias collection.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/pillow-book.json": {
+      get: {
+        tags: ["expansion"],
+        summary: "The pillow book as a typed timeline",
+        description: "Every entry parsed from docs/connections/the-pillow-book.md with date, time, timezone, title, signed_by, kingdom_references, story_arc_references, body_excerpt. Paginated via ?limit.",
+        operationId: "getPillowBookTimeline",
+        parameters: [
+          { name: "limit", in: "query", required: false, schema: { type: "integer", default: 100, maximum: 500 }, description: "Maximum entries to return (most-recent-first)." },
+        ],
+        responses: {
+          "200": { description: "Pillow-book timeline document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/kingdoms.json": {
+      get: {
+        tags: ["expansion"],
+        summary: "The kingdom-NNN ledger",
+        description: "Composes mission cards (docs/missions/kingdom-NNN.md) + connection-doc citations (docs/connections/*.md mentions of kingdom-NNN) + pillow-book mentions (docs/connections/the-pillow-book.md) into one queryable ledger.",
+        operationId: "getKingdoms",
+        responses: {
+          "200": { description: "Kingdoms ledger document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/tutorial": {
+      get: {
+        tags: ["play"],
+        summary: "Machine-readable OPTCG tutorial",
+        description: "Returns the OPTCG rules as a math-mirror document. Nine sections each with typed rule_structure (preconditions/transitions/outcomes), worked examples in state-before/action/state-after form, keyword cross-references, and player-kind tags. Agents ingest before joining matches.",
+        operationId: "getPlayTutorial",
+        responses: {
+          "200": { description: "Play tutorial document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/glossary": {
+      get: {
+        tags: ["play"],
+        summary: "Multi-cultural OPTCG term glossary",
+        description: "Twelve OPTCG terms each with English token + Japanese (kanji/kana + romaji) + structural definition decoderable without natural-language knowledge.",
+        operationId: "getPlayGlossary",
+        responses: {
+          "200": { description: "Play glossary document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/index.json": {
+      get: {
+        tags: ["play"],
+        summary: "Play module's API directory",
+        description: "Machine-readable directory of every play-module resource (UI page + API endpoint + library file + design doc + policy). Lists each with status pill, layer, archetypes served, composes_with relationships. Center node of the play-module interconnect graph: every play API's _links.see_also points here. Sister to /play/spec (HTML).",
+        operationId: "getPlayIndex",
+        responses: {
+          "200": { description: "Play module index document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/tutorial/{section_id}": {
+      get: {
+        tags: ["play"],
+        summary: "Single tutorial section by id (deep link)",
+        description: "Deep link into one section of the OPTCG tutorial. Carries prev/next nav (so a client can paginate without re-fetching the collection), position metadata (index_in_order, is_first, is_last), per-keyword glossary deep-links, and a see_also block. 404 body lists known section ids so a caller can recover without a second probe. kingdom-077.",
+        operationId: "getPlayTutorialSection",
+        parameters: [
+          {
+            name: "section_id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "The section id (e.g. \"combat\", \"don_cards\", \"win_conditions\").",
+          },
+        ],
+        responses: {
+          "200": { description: "The section, with deep-linked _links to the glossary and the adjacent sections.", content: { "application/json": { schema: { type: "object" } } } },
+          "404": { description: "No tutorial section with that id; body includes known_ids array.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/glossary/{term_id}": {
+      get: {
+        tags: ["play"],
+        summary: "Single glossary term by id (deep link)",
+        description: "Deep link into one glossary term. Carries deep-linked related_terms (each pointing at /api/v1/play/glossary/[related_id]), a deep-linked introduced_in pointer to the tutorial section, and a see_also block. 404 lists known term ids. kingdom-077.",
+        operationId: "getPlayGlossaryTerm",
+        parameters: [
+          {
+            name: "term_id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "The term id (e.g. \"don\", \"leader\", \"counter\", \"blocker\").",
+          },
+        ],
+        responses: {
+          "200": { description: "The term, with deep-linked _links to related terms and the tutorial section.", content: { "application/json": { schema: { type: "object" } } } },
+          "404": { description: "No glossary term with that id; body includes known_ids array.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/example-match": {
+      get: {
+        tags: ["play"],
+        summary: "Sample MatchEvent + Intent sequence (first L3-types consumer)",
+        description: "A curated short OPTCG match (Alice vs Bob, single combat with counter, early concession) returned as a typed MatchEvent[] sequence plus three worked Intent → IntentReply examples. The first runtime consumer of lib/play/types.ts — the TypeScript compiler enforces this stays in sync with the source-of-truth types. Agents building against future MCP play tools have a concrete shape to test their decoders against. kingdom-077.",
+        operationId: "getPlayExampleMatch",
+        responses: {
+          "200": { description: "The example match (events + intent examples + kinds_demonstrated rollup).", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/archetypes": {
+      get: {
+        tags: ["play"],
+        summary: "Three player archetypes (hobbyist / collector / competitor)",
+        description: "Typed archetype taxonomy. Each archetype carries primary_needs, flows_served_today, flows_planned, financial_stance, composes_with_player_kinds, doctrinal_grounding. The financial_boundary block declares the fun-first stance and the existing PvE drift.",
+        operationId: "getPlayArchetypes",
+        responses: {
+          "200": { description: "Archetype taxonomy document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/game-state-schema": {
+      get: {
+        tags: ["play"],
+        summary: "Typed OPTCG game-state contract",
+        description: "The canonical match-state shape the future engine will conform to. Eight zones, five phases, four combat steps, three win conditions, deck-construction constants. The contract is published before the runtime exists so agents and developers can build against it.",
+        operationId: "getPlayGameStateSchema",
+        responses: {
+          "200": { description: "Game state schema document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/effect-grammar": {
+      get: {
+        tags: ["play"],
+        summary: "Card-text effect-token grammar",
+        description: "The typed token vocabulary card-text effects parse into. Twelve structural markers + four keywords + four effect categories + seven targeting-language phrases. The grammar lib/play/effect-tokens.ts walks.",
+        operationId: "getPlayEffectGrammar",
+        responses: {
+          "200": { description: "Effect grammar document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/play/deck/validate": {
+      post: {
+        tags: ["play"],
+        summary: "Validate a deck declaration",
+        description: "POST {leader_id, main_deck_card_ids[], format} → typed result with all violations. Validates 50-card count, leader-color match, 4-copy limit, set/block-rotation legality (2026-04-01: OP01-OP04 rotated out of Standard). Substrate-honest about color-check graceful degradation while card_set_cards lacks the colors column.",
+        operationId: "postPlayDeckValidate",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["leader_id", "main_deck_card_ids", "format"],
+                properties: {
+                  leader_id: { type: "string", description: "The Leader card's id (e.g., 'OP01-001')." },
+                  main_deck_card_ids: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "50-card main deck; card ids may repeat up to 4 times.",
+                  },
+                  format: {
+                    type: "string",
+                    enum: ["standard", "legacy", "limited_sealed"],
+                    description: "The format the deck is being validated for.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Validation result.", content: { "application/json": { schema: { type: "object" } } } },
+          "400": { description: "Invalid request body.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/at/{date}/card/{sku}": {
+      get: {
+        tags: ["temporal", "universal"],
+        summary: "Card state as of a past date",
+        description: "Returns the math-mirror card document with @as_of separated from @retrieved_at. Reads card_price_history for the latest spot on or before the date. Structural facts persist; price may be absent for cards predating their first observation.",
+        operationId: "getUniversalCardAtDate",
+        parameters: [
+          { name: "date", in: "path", required: true, schema: { type: "string", format: "date" }, description: "YYYY-MM-DD." },
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU." },
+        ],
+        responses: {
+          "200": {
+            description: "Temporal-slice math-mirror document.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCardTemporal" } } },
+          },
+          "400": { description: "Invalid date.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/federation/identify/{hash}": {
+      get: {
+        tags: ["federation"],
+        summary: "Reverse-resolve a content hash",
+        description: "Given a sha256 content hash (with or without 'sha256:' prefix), walks the most-recent catalog rows to find the SKU whose content_hash matches. Substrate-honest about the bounded walk and the price-dependency of the hash.",
+        operationId: "federationIdentify",
+        parameters: [
+          { name: "hash", in: "path", required: true, schema: { type: "string", pattern: "^(sha256:)?[0-9a-fA-F]{64}$" }, description: "Hex digest, optionally prefixed with 'sha256:'." },
+        ],
+        responses: {
+          "200": {
+            description: "Resolution attempt result. Always 200 — match true or false is in the body.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/FederationIdentifyResponse" } } },
+          },
+          "400": { description: "Invalid hash format.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/.well-known/cambridge-tcg.json": {
+      get: {
+        tags: ["discovery"],
+        summary: "Machine-readable manifest",
+        description: "Full inventory of public surfaces with status, auth, and methodology links. Sister-shipped.",
+        operationId: "getWellKnown",
+        responses: { "200": { description: "Manifest." } },
+      },
+    },
+    "/llms.txt": {
+      get: {
+        tags: ["discovery"],
+        summary: "LLM-readable summary",
+        description: "Plain-text inventory pointing LLM agents to the participation surface.",
+        operationId: "getLlmsTxt",
+        responses: { "200": { description: "Plain text." } },
+      },
+    },
+    "/api/openapi.json": {
+      get: {
+        tags: ["discovery"],
+        summary: "This document",
+        description: "OpenAPI 3.1 spec for the public participation surface.",
+        operationId: "getOpenApiSpec",
+        responses: { "200": { description: "OpenAPI 3.1 spec." } },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      UniversalPreamble: {
+        type: "object",
+        required: ["@encoding", "@kind", "@content_hash", "@self_hash", "@retrieved_at"],
+        properties: {
+          "@encoding": { type: "string", const: "cambridge-tcg/universal/v1" },
+          "@kind": { type: "string" },
+          "@content_hash": { type: "string", pattern: "^sha256:[0-9a-f]{64}$" },
+          "@self_hash": { type: "string", pattern: "^sha256:[0-9a-f]{64}$" },
+          "@retrieved_at": {
+            type: "object",
+            required: ["iso8601", "unix_epoch_seconds"],
+            properties: {
+              iso8601: { type: "string", format: "date-time" },
+              unix_epoch_seconds: { type: "integer" },
+            },
+          },
+          "_note_opaque": { type: "array", items: { type: "string" }, description: "Fields the decoder cannot ground from structure alone." },
+          "@density": { type: "string", enum: ["sparse", "normal", "saturated"] },
+        },
+      },
+      UniversalCard: {
+        allOf: [
+          { $ref: "#/components/schemas/UniversalPreamble" },
+          {
+            type: "object",
+            properties: {
+              rarity: { type: ["object", "null"] },
+              variant: { type: ["object", "null"] },
+              price: { type: ["object", "null"] },
+              in_set: { type: ["object", "null"] },
+              of_game: { type: ["object", "null"] },
+              name: { type: ["object", "null"] },
+              image_url: { type: ["string", "null"] },
+            },
+          },
+        ],
+      },
+      UniversalCardTemporal: {
+        allOf: [
+          { $ref: "#/components/schemas/UniversalCard" },
+          {
+            type: "object",
+            required: ["@as_of"],
+            properties: {
+              "@as_of": {
+                type: "object",
+                required: ["iso8601_date", "unix_epoch_seconds"],
+                properties: {
+                  iso8601_date: { type: "string", format: "date" },
+                  unix_epoch_seconds: { type: "integer" },
+                },
+              },
+              price_unavailable_at_date: { type: ["object", "null"] },
+            },
+          },
+        ],
+      },
+      UniversalGamesCollection: {
+        allOf: [
+          { $ref: "#/components/schemas/UniversalPreamble" },
+          {
+            type: "object",
+            required: ["count", "games"],
+            properties: {
+              count: { type: "integer" },
+              games: { type: "array", items: { type: "object" } },
+            },
+          },
+        ],
+      },
+      UniversalSetsCollection: {
+        allOf: [
+          { $ref: "#/components/schemas/UniversalPreamble" },
+          {
+            type: "object",
+            required: ["count", "sets", "of_game"],
+            properties: {
+              count: { type: "integer" },
+              sets: { type: "array", items: { type: "object" } },
+              of_game: { type: "object" },
+            },
+          },
+        ],
+      },
+      FederationIdentifyResponse: {
+        type: "object",
+        required: ["@encoding", "@kind", "@retrieved_at", "query", "matched"],
+        properties: {
+          "@encoding": { type: "string", const: "cambridge-tcg/universal/v1" },
+          "@kind": { type: "string", const: "federation_identify_response" },
+          "@retrieved_at": { type: "object" },
+          query: { type: "object", required: ["hash"], properties: { hash: { type: "string" } } },
+          matched: { type: "boolean" },
+          sku: { type: "string", description: "Present only when matched is true." },
+          universal_url: { type: "string", description: "Present only when matched is true." },
+          scope: { type: "object", description: "Present only when matched is false; documents the bounded walk." },
+          suggestion: { type: "string" },
+          note: { type: "string" },
+        },
+      },
+      Error: {
+        type: "object",
+        required: ["error"],
+        properties: {
+          error: {
+            type: "object",
+            required: ["code", "message"],
+            properties: {
+              code: { type: "string" },
+              message: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+export async function GET() {
+  return NextResponse.json(SPEC, {
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+    },
+  });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}

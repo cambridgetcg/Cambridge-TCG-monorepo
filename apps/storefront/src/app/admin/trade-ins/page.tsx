@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { formatPrice } from "@/lib/format";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface ItemRow {
   id: number;
   sku: string;
@@ -278,6 +279,7 @@ function QuotationForm({
 
   return (
     <div className="space-y-5 mt-4">
+      <Audience kind="operator" />
       {/* Per-item pricing */}
       <div>
         <h4 className="text-sm font-bold text-amber-400 mb-3">Item Pricing</h4>

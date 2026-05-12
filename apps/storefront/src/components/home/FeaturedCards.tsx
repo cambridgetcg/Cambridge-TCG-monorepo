@@ -1,7 +1,7 @@
 import { formatRetailPrice } from "@/lib/pricing";
 import Link from "next/link";
 import Image from "next/image";
-import type { PriceItem } from "@/lib/wholesale/client";
+import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
 
 export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
   return (
@@ -13,7 +13,7 @@ export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
             className="group bg-neutral-900 rounded-xl overflow-hidden hover:ring-2 ring-emerald-500 transition">
             <div className="relative aspect-[3/4] bg-neutral-800">
               {card.image_url && (
-                <Image src={card.image_url} alt={card.name_en || card.name || card.card_number}
+                <Image src={card.image_url} alt={cardAltText(card)}
                   fill className="object-cover group-hover:scale-105 transition duration-300" />
               )}
             </div>

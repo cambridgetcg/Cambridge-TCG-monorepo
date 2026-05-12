@@ -9,6 +9,7 @@
 import { RawProduct, isGraded } from "./cardrush-parser";
 import { MIN_PRICE_JPY, type GameMapConfig } from "./config";
 import { calculatePrice, calculateSealedPrice, type PriceBreakdown } from "../../src/lib/pricing";
+import { appendSkuVariant } from "../../src/lib/sku";
 
 export interface WholesaleCard {
   cardNumber: string;
@@ -144,7 +145,7 @@ export function mapToWholesale(
     // Embed product ID so every SKU links back to its CardRush listing
     const productId = extractProductId(p.productUrl);
     if (!productId) continue; // skip if no URL — can't guarantee traceability
-    const sku = `${base}-V${encodeProductId(Number(productId))}`;
+    const sku = appendSkuVariant(base, `v${encodeProductId(Number(productId))}`);
 
     const pricing = calculatePrice(p.priceJpy, gbpJpyRate);
     if (p.productUrl) seenUrls.add(p.productUrl);
@@ -185,7 +186,7 @@ export function mapToWholesale(
       // Derive SKU from product URL — permanently ties SKU to the listing
       const productId = extractProductId(p.productUrl);
       if (!productId) continue; // skip parallels without a URL
-      const sku = `${base}-V${encodeProductId(Number(productId))}`;
+      const sku = appendSkuVariant(base, `v${encodeProductId(Number(productId))}`);
 
       const pricing = calculatePrice(p.priceJpy, gbpJpyRate);
       if (p.productUrl) seenUrls.add(p.productUrl);

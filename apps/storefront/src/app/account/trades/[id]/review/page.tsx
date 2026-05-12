@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 
+import { Audience } from "@/lib/ui";
 function ClickableStars({
   value,
   onChange,
@@ -18,6 +19,7 @@ function ClickableStars({
 
   return (
     <div>
+      <Audience kind="consumer" />
       <label className="block text-sm text-neutral-400 mb-1">{label}</label>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((i) => (

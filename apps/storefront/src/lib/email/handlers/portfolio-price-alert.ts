@@ -42,7 +42,7 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
 
   // Refresh spot — the queued value may be stale.
   const latest = await query(
-    `SELECT spot_gbp FROM card_price_history
+    `SELECT spot_gbp FROM retail_price_observation
      WHERE sku = $1 ORDER BY captured_on DESC LIMIT 1`,
     [d.sku],
   );

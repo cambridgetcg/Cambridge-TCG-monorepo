@@ -6,6 +6,7 @@ import type { MarketTrade, EscrowStatus } from "@/lib/market/types";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 // ── Escrow status config ──
 
 const ESCROW_COLORS: Record<EscrowStatus, string> = {
@@ -347,6 +348,7 @@ export default function AdminMarketPage() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <div className="bg-neutral-900 rounded-xl p-4">

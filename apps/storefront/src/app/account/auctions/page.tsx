@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { Badge, Palettes } from "@/lib/ui";
 
+import { Audience } from "@/lib/ui";
 interface SellerAuction {
   id: string;
   title: string;
@@ -22,19 +24,10 @@ interface SellerAuction {
   image_url: string | null;
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  draft: "bg-neutral-700 text-neutral-300",
-  scheduled: "bg-blue-500/20 text-blue-400",
-  live: "bg-emerald-500/20 text-emerald-400",
-  ended: "bg-neutral-600/20 text-neutral-400",
-  paid: "bg-emerald-500/20 text-emerald-400",
-  cancelled: "bg-red-500/20 text-red-400",
-};
-
-const APPROVAL_BADGE: Record<string, { className: string; label: string }> = {
-  pending_review: { className: "bg-amber-500/20 text-amber-400", label: "Pending Review" },
-  approved: { className: "bg-emerald-500/20 text-emerald-400", label: "Approved" },
-  rejected: { className: "bg-red-500/20 text-red-400", label: "Rejected" },
+const APPROVAL_LABELS: Record<string, string> = {
+  pending_review: "Pending Review",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 interface Offer {
@@ -110,6 +103,7 @@ export default function MyAuctionsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
+      <Audience kind="consumer" />
         <p className="text-neutral-500">Loading...</p>
       </div>
     );
@@ -200,9 +194,6 @@ export default function MyAuctionsPage() {
         <div className="space-y-3">
           {auctions.map((auction) => {
             const expanded = expandedId === auction.id;
-            const approvalInfo = auction.approval_status
-              ? APPROVAL_BADGE[auction.approval_status]
-              : null;
 
             return (
               <div key={auction.id} className="bg-neutral-900 rounded-xl overflow-hidden">
@@ -227,13 +218,9 @@ export default function MyAuctionsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="text-sm font-bold text-white truncate">{auction.title}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[auction.status] || STATUS_BADGE.draft}`}>
-                          {auction.status}
-                        </span>
-                        {approvalInfo && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${approvalInfo.className}`}>
-                            {approvalInfo.label}
-                          </span>
+                        <Badge status={auction.status} palette={Palettes.AuctionStatusPalette} labels={Palettes.AuctionStatusLabels} />
+                        {auction.approval_status && (
+                          <Badge status={auction.approval_status} palette={Palettes.AuctionApprovalPalette} labels={APPROVAL_LABELS} />
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-xs text-neutral-500">

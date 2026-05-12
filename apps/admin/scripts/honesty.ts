@@ -1,6 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * honesty.ts — substrate-honesty drift detector
+ * honesty.ts — substrate-honesty drift detector.
+ *
+ * Audits the doctrine declared in `docs/principles/substrate-honesty.md`
+ * (companion: `docs/principles/substrate-honesty-audit.md`). The doctrine
+ * says: every value carries — explicitly or implicitly — a claim about
+ * how it became true. This script checks two places where that claim
+ * could be a lie.
  *
  * Two checks, exits non-zero if any drift is found:
  *

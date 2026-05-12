@@ -107,7 +107,7 @@ export async function runPriceAlertSweep(): Promise<AlertSweepResult> {
   const rows = await query(
     `WITH latest AS (
        SELECT DISTINCT ON (sku) sku, captured_on, spot_gbp
-       FROM card_price_history
+       FROM retail_price_observation
        ORDER BY sku, captured_on DESC
      )
      SELECT

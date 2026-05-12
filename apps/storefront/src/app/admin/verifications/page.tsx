@@ -14,6 +14,7 @@ import {
 } from "@/lib/trust/verification-timeline";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 const STATUS_COLORS: Record<VerificationStatus, string> = {
   pending: "bg-amber-500/20 text-amber-400",
   verified: "bg-emerald-500/20 text-emerald-400",
@@ -172,6 +173,7 @@ export default function AdminVerificationsPage() {
           disabled={loading}
           className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
+      <Audience kind="operator" />
           {loading ? "Loading..." : "Refresh"}
         </button>
       }

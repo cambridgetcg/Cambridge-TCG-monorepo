@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface FailedPayment {
   amount_gbp: string;
   currency: string;
@@ -36,6 +37,7 @@ export default function AccountPaymentIssuesPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-white mb-2">Payment Issues</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Stripe payment attempts that didn&apos;t go through. Most resolve by

@@ -1,108 +1,62 @@
 /**
- * CardRush scraper — fetches a product page and extracts the A- condition price.
+ * CardRush scraper — *adapter* over the protocol-aligned scraper.
  *
- * Supported domains:
- *   https://www.cardrush-op.jp/product/{id}       — One Piece
- *   https://www.cardrush-pokemon.jp/product/{id}   — Pokémon
- *   https://www.cardrush-db.jp/product/{id}        — Dragon Ball
+ * The canonical implementation now lives at `packages/data-ingest/src/cardrush/`
+ * (kingdom-060, the source-protocol). This file remains as a thin adapter so
+ * existing wholesale callers (`apps/wholesale/src/lib/price-snapshot.ts`)
+ * don't need to change in this commit. The eventual goal is for
+ * `price-snapshot.ts` to call `scrapeCardRush()` directly from
+ * `@cambridge-tcg/data-ingest/cardrush`; this adapter is the migration path.
  *
- * Price extraction:
- *   1. Look for the 状態A- (A-minus condition) row and return its price.
- *   2. Fallback: return the first ¥ price visible on the page.
- *   3. If nothing found, return { priceJpy: null, source: null }.
+ * See `docs/connections/the-consolidation.md` for the migration record.
  */
+
+import { cardrush, scrapeCardRush as packageScrape } from "@cambridge-tcg/data-ingest/cardrush";
 
 export interface ScraperResult {
   priceJpy: number | null;
   source: "a-minus" | "base" | null;
+  /**
+   * Reason a scrape returned `priceJpy: null`. Surfaced by the protocol
+   * (`packages/data-ingest/src/cardrush/`) so the wholesale snapshot
+   * pipeline can record *why* a failure happened instead of just counting
+   * `cardsFailed++`. See `docs/connections/the-archive.md` Part B §1 for
+   * the leakage this closes.
+   *
+   *   "http_404"               — page doesn't exist
+   *   "http_<NNN>"             — other non-2xx response
+   *   "fetch_error: <msg>"     — network / DNS / TLS / timeout
+   *   "no_price_in_html"       — page loaded but no ¥ found
+   *   "subdomain_unknown"      — URL doesn't match a known subdomain
+   *   "subdomain_unconfirmed"  — speculative subdomain; first row to confirm
+   */
+  errorReason?: string;
+  /** Inferred game from the URL subdomain, when matched. */
+  inferredGame?: string | null;
 }
 
 /**
- * Fetch the CardRush product page at `url` and return the A- condition price.
- * Uses a browser-like User-Agent to avoid simple bot blocks.
+ * Adapter — wraps `packages/data-ingest/cardrush`'s `scrapeCardRush()` and
+ * unwraps the `RawRow<CardRushRaw>` to the legacy `ScraperResult` shape.
+ * The `errorReason` + `inferredGame` fields are additions; existing callers
+ * ignore them; new code can use them for substrate-honest reporting.
  */
 export async function scrapeCardrushPrice(url: string): Promise<ScraperResult> {
-  let html: string;
-
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "ja,en;q=0.5",
-      },
-      signal: AbortSignal.timeout(15_000),
-    });
-
-    if (!res.ok) {
-      return { priceJpy: null, source: null };
-    }
-
-    html = await res.text();
-  } catch {
-    return { priceJpy: null, source: null };
-  }
-
-  // ── 1. Try to find A- condition price ──────────────────────────────────────
-  // CardRush renders condition rows in a table or list. Look for the text
-  // "状態A-" (or "A-" near a price) followed by a ¥ amount.
-  //
-  // Patterns seen in the wild:
-  //   <td>状態A-</td><td>¥1,200</td>
-  //   <span class="condition">A-</span>...¥1,200
-  //   data-condition="A-" ... ¥1,200
-  //   "A-" within a few hundred chars of a ¥ figure
-
-  const aMinusPrice = extractConditionPrice(html, "状態A-") ?? extractConditionPrice(html, "A-");
-  if (aMinusPrice !== null) {
-    return { priceJpy: aMinusPrice, source: "a-minus" };
-  }
-
-  // ── 2. Fallback: first visible ¥ price ─────────────────────────────────────
-  const basePrice = extractFirstPrice(html);
-  if (basePrice !== null) {
-    return { priceJpy: basePrice, source: "base" };
-  }
-
-  return { priceJpy: null, source: null };
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Find the ¥ price that appears within ~400 characters after `conditionText`.
- */
-function extractConditionPrice(html: string, conditionText: string): number | null {
-  const idx = html.indexOf(conditionText);
-  if (idx === -1) return null;
-
-  // Search forward up to 400 chars for a ¥ price
-  const window = html.slice(idx, idx + 400);
-  return extractFirstPrice(window);
-}
-
-/**
- * Extract the first ¥ price (integer yen) from an HTML fragment.
- * Handles: ¥1,200  ¥1200  &yen;1,200  ￥1,200
- */
-function extractFirstPrice(fragment: string): number | null {
-  // Match ¥ / ￥ / &yen; followed by digits (with optional commas)
-  const match = fragment.match(/[¥￥][\s]*([0-9][0-9,]*)|&yen;[\s]*([0-9][0-9,]*)/);
-  if (!match) return null;
-
-  const raw = (match[1] ?? match[2]).replace(/,/g, "");
-  const n = parseInt(raw, 10);
-  return isNaN(n) ? null : n;
+  const row = await packageScrape(url);
+  return {
+    priceJpy: row.raw.price_jpy,
+    source: row.raw.source,
+    errorReason: row.raw.error_reason,
+    inferredGame: row.raw.inferred_game,
+  };
 }
 
 /**
  * Decode a CardRush product ID from a SKU suffix.
  * product_id = CONSTANT - parseInt(suffix, 36)
  *
- * Not needed when using cardrush_url directly, but exposed for reference / testing.
+ * Kept here (not in the package) because it's wholesale-internal SKU
+ * obfuscation, not part of the upstream protocol.
  */
 export const CARDRUSH_CONSTANTS = [
   1495215, 1495247, 1495727, 1495759,
@@ -119,3 +73,6 @@ export function decodeProductId(skuSuffix: string): number | null {
   }
   return null;
 }
+
+// Re-export the SourceModule for callers that want the typed contract.
+export { cardrush };

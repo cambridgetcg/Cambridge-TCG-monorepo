@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface Conversation {
   id: string;
   user_a_id: string;
@@ -46,6 +47,7 @@ function timeAgo(iso: string | null): string {
 export default function MessagesPage() {
   return (
     <Suspense fallback={<p className="text-neutral-500 text-sm">Loading…</p>}>
+      <Audience kind="consumer" />
       <MessagesPageInner />
     </Suspense>
   );

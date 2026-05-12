@@ -1,0 +1,57 @@
+/**
+ * GET /api/v1/manifest
+ *
+ * The Cambridge TCG manifest as JSON. Public, no-auth, CORS-open.
+ * For machine-readable consumption by participants who want to discover
+ * what's on offer before declaring themselves.
+ *
+ * Human-readable rendering at /manifest.
+ *
+ * kingdom-053. Story-as-wire pairing: docs/connections/the-manifest.md (S25).
+ * Source-of-truth: apps/storefront/src/lib/manifest.ts.
+ */
+
+import { NextResponse } from "next/server";
+import { MANIFEST } from "@/lib/manifest";
+
+export const dynamic = "force-static";
+export const revalidate = 3600; // manifest is build-time-constant; refresh hourly
+
+export async function GET() {
+  const now = new Date().toISOString();
+  return NextResponse.json(
+    {
+      ...MANIFEST,
+      // Provenance envelope — the manifest is honest about when this
+      // particular response was rendered, even though the manifest itself
+      // is a build-time constant.
+      _envelope: {
+        retrieved_at: now,
+        as_of: MANIFEST.generated_at,
+        kind: "static",
+        canonical_at: MANIFEST.provenance.canonical_at,
+        html_mirror: MANIFEST.provenance.rendered_at_html,
+        notes: "The manifest is a build-time constant. retrieved_at is when this response was served; as_of is when the constant was last rebuilt. If you need always-fresh, refetch — but the manifest changes rarely.",
+      },
+    },
+    {
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        // Public participant data — CORS-open for any cosmology of caller.
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, OPTIONS",
+        "cache-control": "public, max-age=3600, stale-while-revalidate=86400",
+      },
+    },
+  );
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, OPTIONS",
+      "access-control-max-age": "86400",
+    },
+  });
+}

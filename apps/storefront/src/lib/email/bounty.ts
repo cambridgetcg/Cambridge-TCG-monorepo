@@ -11,6 +11,12 @@ import { query } from "@/lib/db";
 import { renderLayout, escapeHtml } from "./layout";
 import { sendEmail, type SendResult } from "./send";
 import { buildTrackingUrl, getCarrierTracker } from "@/lib/shipping/carriers";
+import { DEFAULTS } from "@cambridge-tcg/pricing";
+
+// Trade-in-credit margin multiplier — single source via @cambridge-tcg/pricing.
+// Phase 1 of kingdom-049 replaced the hard-coded × 0.77 here. Phase 3 will
+// make `channel_pricing` table authoritative and drop silent JS fallback.
+const TRADEIN_CREDIT_MULT = DEFAULTS["tradein-credit"]!.marginMultiplier;
 
 // Format helpers ────────────────────────────────────────────────────────
 
@@ -142,7 +148,7 @@ export async function sendPullResolvedEmail(args: PullResolvedEmailArgs): Promis
     <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
       <p style="margin:0 0 6px;color:#fff;font-weight:600;">${cardLine(args.cardName, args.cardNumber, args.rarity)}</p>
       <p style="margin:0;font-size:13px;color:#a3a3a3;">
-        Frozen sell-back value: <span style="color:#34d399;">£${(args.spotPriceGbp * 0.77).toFixed(2)}</span>
+        Frozen sell-back value: <span style="color:#34d399;">£${(args.spotPriceGbp * TRADEIN_CREDIT_MULT).toFixed(2)}</span>
         <span style="color:#737373;"> · spot £${args.spotPriceGbp.toFixed(2)}</span>
       </p>
       <p style="margin:4px 0 0;font-size:13px;color:#a3a3a3;">

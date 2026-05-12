@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Badge, Palettes } from "@/lib/ui";
 
 interface QuoteImage {
   url: string;
@@ -31,15 +32,6 @@ interface QuoteData {
   items: QuoteItem[];
   total?: number;
 }
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-amber-500/20 text-amber-400",
-  quoted: "bg-blue-500/20 text-blue-400",
-  accepted: "bg-emerald-500/20 text-emerald-400",
-  declined: "bg-red-500/20 text-red-400",
-  expired: "bg-neutral-500/20 text-neutral-400",
-  cancelled: "bg-neutral-500/20 text-neutral-400",
-};
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending Review",
@@ -153,11 +145,7 @@ export default function QuoteStatusPage() {
               Submitted {submittedDate}
             </p>
           </div>
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[data.status] || STATUS_STYLES.pending}`}
-          >
-            {STATUS_LABELS[data.status] || data.status}
-          </span>
+          <Badge status={data.status} palette={Palettes.QuoteStatusPalette} labels={STATUS_LABELS} size="md" />
         </div>
 
         {/* Status message */}

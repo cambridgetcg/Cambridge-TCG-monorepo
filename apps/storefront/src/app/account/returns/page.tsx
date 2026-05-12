@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatTimeUntil } from "@/lib/format";
+import { Badge, Palettes } from "@/lib/ui";
 import {
   RETURN_STEPS,
   getReturnStep,
@@ -12,6 +13,18 @@ import {
   type ReturnStatus,
 } from "@/lib/market/return-timeline";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
+
+import { Audience } from "@/lib/ui";
+const STATUS_LABELS: Record<ReturnStatus, string> = {
+  requested: "Awaiting seller",
+  accepted:  "Awaiting your shipment",
+  shipping:  "In transit",
+  received:  "Awaiting refund",
+  refunded:  "Refunded",
+  declined:  "Declined",
+  cancelled: "Cancelled",
+  expired:   "Expired",
+};
 
 interface ReturnRow {
   id: string;
@@ -38,26 +51,6 @@ interface ReturnRow {
   buyer_name: string | null;
   seller_username: string | null;
   seller_name: string | null;
-}
-
-const STATUS_BADGE: Record<ReturnStatus, { label: string; className: string }> = {
-  requested:  { label: "Awaiting seller", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  accepted:   { label: "Awaiting your shipment", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  shipping:   { label: "In transit", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  received:   { label: "Awaiting refund", className: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  refunded:   { label: "Refunded", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  declined:   { label: "Declined", className: "bg-neutral-500/15 text-neutral-300 border-neutral-500/30" },
-  cancelled:  { label: "Cancelled", className: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
-  expired:    { label: "Expired", className: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
-};
-
-function timeUntil(iso: string) {
-  const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return "expired";
-  const hours = Math.floor(ms / (60 * 60 * 1000));
-  if (hours < 1) return "<1h left";
-  if (hours < 24) return `${hours}h left`;
-  return `${Math.floor(hours / 24)}d left`;
 }
 
 export default function ReturnsPage() {
@@ -100,6 +93,7 @@ export default function ReturnsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Returns</h1>
       <p className="text-sm text-neutral-400 mb-6">
         No-fault returns on completed trades. Different from disputes — for cases where the
@@ -180,7 +174,6 @@ function ReturnCard({
   busy: boolean;
   onAct: (path: string, body?: object) => void;
 }) {
-  const badge = STATUS_BADGE[row.status];
   const closedCopy = getReturnClosedCopy(row.status);
   const stepKey = getReturnStep(row.status);
   const stepIdx = stepKey ? RETURN_STEPS.indexOf(stepKey) : -1;
@@ -218,9 +211,7 @@ function ReturnCard({
             Opened {new Date(row.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
           </p>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${badge.className}`}>
-          {badge.label}
-        </span>
+        <Badge status={row.status} palette={Palettes.ReturnStatusPalette} labels={STATUS_LABELS} />
       </div>
 
       {/* Buyer's reason + message */}
@@ -312,7 +303,7 @@ function ReturnCard({
       {/* Action row + TTL */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         {row.status === "requested" ? (
-          <span className="text-[10px] text-neutral-500 font-mono">{timeUntil(row.expires_at)}</span>
+          <span className="text-[10px] text-neutral-500 font-mono">{formatTimeUntil(row.expires_at)} left</span>
         ) : (
           <span className="text-[10px] text-neutral-500">
             {row.resolved_at && `Resolved ${new Date(row.resolved_at).toLocaleDateString("en-GB", {

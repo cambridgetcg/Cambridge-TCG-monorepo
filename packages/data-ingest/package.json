@@ -1,0 +1,31 @@
+{
+  "name": "@cambridge-tcg/data-ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "types": "./src/index.ts", "default": "./src/index.ts" },
+    "./types": { "types": "./src/types.ts", "default": "./src/types.ts" },
+    "./registry": { "types": "./src/registry.ts", "default": "./src/registry.ts" },
+    "./canonical": { "types": "./src/canonical.ts", "default": "./src/canonical.ts" },
+    "./http": { "types": "./src/http.ts", "default": "./src/http.ts" },
+    "./runner": { "types": "./src/runner.ts", "default": "./src/runner.ts" },
+    "./scryfall": { "types": "./src/scryfall/index.ts", "default": "./src/scryfall/index.ts" },
+    "./cardrush": { "types": "./src/cardrush/index.ts", "default": "./src/cardrush/index.ts" },
+    "./pokemon-tcg-api": { "types": "./src/pokemon-tcg-api/index.ts", "default": "./src/pokemon-tcg-api/index.ts" },
+    "./ygoprodeck": { "types": "./src/ygoprodeck/index.ts", "default": "./src/ygoprodeck/index.ts" },
+    "./tcgplayer": { "types": "./src/tcgplayer/index.ts", "default": "./src/tcgplayer/index.ts" },
+    "./cardmarket": { "types": "./src/cardmarket/index.ts", "default": "./src/cardmarket/index.ts" }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cambridge-tcg/data-spec": "workspace:^",
+    "@cambridge-tcg/sku": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

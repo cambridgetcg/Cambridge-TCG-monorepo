@@ -207,6 +207,47 @@ The character motivates the abstraction. The abstraction enforces the character.
 
 ---
 
+## Postscript — the migration walks up to the shelf (2026-05-11)
+
+Six days after the bookshelf was built, the journey timeline walked up to it.
+
+The 826-LOC monolith — sixteen hand-coded fetchers, each mixing substrate-SQL with surface-rendering — became three thin layers, each doing one job:
+
+- **`apps/storefront/src/lib/lifecycle/registry.ts`** — sixteen slots, every `LifecycleDomain` populated. The slot is the substrate authority; nothing else queries a `*_lifecycle_log` table by name.
+- **`apps/storefront/src/lib/journey/render.ts`** — sixteen pure renderers. `(LifecycleEntry) => JourneyEvent | null`. Zero DB. Customer/admin filtering lives here (the `admin_action` renderer returns null for non-whitelisted actions; the `refund` renderer marks `abuse_checked` as admin-only).
+- **`apps/storefront/src/lib/journey/timeline.ts`** — the composer. Calls `readUserLifecycle()` for the bookshelf; keeps four non-lifecycle fetchers (`bounty_pulls`, `verifiable_draws`, `notifications`, `email_queue`) because those aren't append-only books.
+- **`apps/storefront/src/lib/journey/types.ts`** — `JourneyEvent` and `JourneyOptions`, extracted so substrate, surface, and composer share without circular imports.
+
+The two API consumers (`/api/account/journey` and `/api/admin/users/[id]/journey`) didn't change at all — their import path `@/lib/journey/timeline` still resolves; only the implementation underneath did. `getUserJourney(userId, opts)` keeps its signature.
+
+What the migration teaches that the original story couldn't:
+
+- **The LOC savings on *this* reader were not the point.** The composer is 250 LOC instead of 826 — meaningful, but the registry grew (167 → 733 to populate the thirteen new slots). Total new code is ~1500 LOC across three files. The win is *separation*, not subtraction.
+- **The real leverage compounds at the next consumer.** The admin app's `catalog/users/[id]` page still has its own per-domain SQL. When it migrates to `readUserLifecycle()` (via a `packages/lifecycle/` extraction for cross-RDS reach), *that's* where ~500 LOC of duplication leaves the codebase. The bookshelf was built for many readers; today there are two.
+- **The seventeenth book is already arriving.** A sister daemon has shipped `apps/wholesale/drizzle/0009_card_price_change_log.sql` in this same working tree — wholesale-side, so it doesn't enter the storefront's bookshelf, but it confirms the pattern's pull on parallel work. The cross-app `packages/lifecycle/` extraction the original recursion target named is now load-bearing instead of speculative.
+
+What's still NOT done after this:
+
+- **Runtime parity verification.** The cutover compiles; only `typecheck` was run. The substrate-honest companion ships in the same commit: `apps/storefront/scripts/journey-snapshot.mts`. The operator captures a baseline snapshot from `main` (legacy code, production data), captures a second from this branch, diffs the two. Stable ordering by (at desc, kind, summary) makes line-level diffs meaningful. The script also serves as a general-purpose inspection tool — "show me what user X sees on their journey, right now."
+- **Storefront smoke runner.** Mentioned in the dev-pipeline doc's §13. The lack of one is why this PR can't be auto-verified end-to-end.
+
+## Postscript II — the kingdom reads itself twice (2026-05-11)
+
+The lift the original postscript called "the next mission" landed the same day. Three things became true:
+
+1. **The slot SQL moved into `@cambridge-tcg/lifecycle`** as sixteen factory functions (`createTradeSlot(query)`, `createChargebackSlot(query)`, …). The kingdom's lifecycle-log SQL now lives in one file (`packages/lifecycle/src/slots.ts`) — read once, used twice.
+2. **Storefront's `lib/lifecycle/registry.ts` collapsed from 733 LOC to 19 LOC.** All the SQL it used to own now lives in the package; it binds the factories to its raw-pg `query` and exports the resulting registry.
+3. **Admin gained `apps/admin/src/lib/lifecycle/`** — types shim, registry (factories bound to `sfQuery` via `@cambridge-tcg/db`), thin reader wrapper, public API. The CLAUDE.md rule "don't import storefront/wholesale internals from admin" stays honored; both apps share the contract through the workspace package, not through each other.
+
+What's still NOT done:
+
+- **Admin's `catalog/users/[id]/page.tsx` migration.** It still has its own per-domain SQL. The bookshelf is now wired up and waiting; the page-side migration is its own future mission (and now genuinely small — it imports `readUserLifecycle` and renders entries in a forensic table).
+- **Wholesale-side slots.** A sister has shipped `apps/wholesale/drizzle/0009_card_price_change_log.sql`, but the bookshelf today is user-keyed and the wholesale price-change log isn't. A different reader shape — `forSubject(skuOrCardId)` — would be the natural extension. Out of scope for the user-journey work; a separate future arc.
+
+What the lift makes structurally true: **adding a seventeenth user-keyed lifecycle log** is now one factory function in `packages/lifecycle/src/slots.ts`, added to `createAllSlots()`. Both registries pick it up automatically; every reader on the platform gains the new domain in the same commit that adds the slot. The Scribe asked for bookshelves and now there is a single shelf serving two readers from one set of books.
+
+---
+
 ## Recursion target
 
 The next story could be **the migration story** — what happens when journey/timeline.ts walks up to the bookshelf for the first time and asks for everything. That story would be in the future tense (until it ships). Or — more interestingly — **the Watcher in the Tower** (fraud_signals): a substrate that doesn't yet exist in unified form, but should. A "fraud signals registry" with the same shape as the Scribe's bookshelf. Same pattern, different domain. *If the form holds, the form generalises.*
@@ -217,6 +258,6 @@ Or — and this is the most fun option — a story about a **new builder's first
 
 *The Scribe is pleased.*
 *The bookshelf is small.*
-*The seventeenth book, when it comes, will fit.*
+*The seventeenth book has begun arriving, and it fits.*
 
 🐍❤️

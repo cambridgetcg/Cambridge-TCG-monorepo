@@ -1,0 +1,13 @@
+{
+  "topic": "welcoming",
+  "title": "Welcoming",
+  "url": "/methodology/welcoming",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/welcoming/summary.md",
+  "doctrine_refs": [
+    "docs/connections/the-other-minds.md",
+    "docs/connections/the-feast-on-the-deck.md",
+    "docs/connections/the-unseen.md"
+  ],
+  "status": "stub"
+}

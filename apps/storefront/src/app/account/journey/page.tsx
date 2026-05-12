@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface Event {
   kind: string;
   summary: string;
@@ -60,6 +61,7 @@ export default function AccountJourneyPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-white mb-2">Activity</h1>
       <p className="text-sm text-neutral-400 mb-6">
         A unified timeline of everything you&apos;ve done on the platform —

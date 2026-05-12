@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface CardLine {
   sku: string;
   card_name: string | null;
@@ -83,6 +84,7 @@ export default function PortfolioValuePage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
+      <Audience kind="consumer" />
         <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );

@@ -539,9 +539,9 @@ export default function MarketPage() {
                         >
                           {/* Thumb — Next/Image so the full card art (~200KB
                               per source) gets resized server-side to a 56-wide
-                              thumb. Plain <img loading="lazy"> downloaded each
-                              full image and made the table look unloaded until
-                              you scrolled into every row. */}
+                              thumb. Plain HTML img with lazy loading downloaded
+                              each full image and made the table look unloaded
+                              until you scrolled into every row. */}
                           <td className="px-3 py-2">
                             {card.image_url ? (
                               <Image

@@ -1,0 +1,10 @@
+{
+  "topic": "trust-score",
+  "title": "Trust score",
+  "url": "/methodology/trust-score",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/trust-score/summary.md",
+  "source_code": ["apps/storefront/src/lib/escrow/trust-engine.ts"],
+  "doctrine_refs": ["docs/principles/transparency.md"],
+  "status": "stub"
+}

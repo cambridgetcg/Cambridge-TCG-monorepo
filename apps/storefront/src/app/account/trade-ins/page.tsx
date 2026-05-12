@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { Badge, Palettes } from "@/lib/ui";
 
+import { Audience } from "@/lib/ui";
 interface ItemRow {
   name: string | null;
   card_number: string | null;
@@ -30,16 +32,6 @@ interface TimelineStep {
   label: string;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  submitted: "bg-amber-500/20 text-amber-400",
-  received: "bg-blue-500/20 text-blue-400",
-  grading: "bg-purple-500/20 text-purple-400",
-  approved: "bg-emerald-500/20 text-emerald-400",
-  paid: "bg-green-500/20 text-green-400",
-  rejected: "bg-red-500/20 text-red-400",
-  cancelled: "bg-neutral-500/20 text-neutral-400",
-};
-
 export default function TradeInsPage() {
   const router = useRouter();
   const [submissions, setSubmissions] = useState<{ submission: Submission; items: ItemRow[]; timeline: TimelineStep[] }[]>([]);
@@ -62,6 +54,7 @@ export default function TradeInsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
+      <Audience kind="consumer" />
         <p className="text-neutral-500">Loading...</p>
       </div>
     );
@@ -93,9 +86,7 @@ export default function TradeInsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="text-sm font-mono font-bold text-amber-400">{s.reference}</span>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[s.status] || "bg-neutral-700 text-neutral-300"}`}>
-                        {s.status}
-                      </span>
+                      <Badge status={s.status} palette={Palettes.TradeInStatusPalette} />
                     </div>
                     <p className="text-xs text-neutral-500 mt-1">
                       {s.payment_method === "cash" ? "Cash" : "Credit"} · {s.delivery_method === "mail" ? "Mail-in" : "In-store"} ·{" "}

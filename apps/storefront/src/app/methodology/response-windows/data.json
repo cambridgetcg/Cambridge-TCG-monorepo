@@ -1,0 +1,13 @@
+{
+  "topic": "response-windows",
+  "title": "Response windows",
+  "url": "/methodology/response-windows",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/response-windows/summary.md",
+  "source_code": [
+    "apps/storefront/drizzle/0092_response_window_hours.sql",
+    "apps/storefront/src/lib/users/response-window.ts"
+  ],
+  "doctrine_refs": ["docs/connections/the-other-minds.md"],
+  "status": "stub"
+}

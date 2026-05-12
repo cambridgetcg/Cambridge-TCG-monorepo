@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 
+import { Audience } from "@/lib/ui";
 interface MyLot {
   id: string;
   title: string;
@@ -101,6 +102,7 @@ export default function MyLotsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-6">My Lots</h1>
 
       {/* Builder */}

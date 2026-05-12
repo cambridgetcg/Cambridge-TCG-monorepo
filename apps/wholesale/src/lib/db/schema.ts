@@ -26,8 +26,10 @@
 import {
   pgTable,
   serial,
+  bigserial,
   text,
   integer,
+  bigint,
   boolean,
   real,
   timestamp,
@@ -121,6 +123,15 @@ export const cards = pgTable("cards", {
   shopifyVariantId: text("shopify_variant_id"),
   shopifyInventoryItemId: text("shopify_inventory_item_id"),
   shopifySyncedAt: timestamp("shopify_synced_at"),
+  // Phase 2 of kingdom-051: alt-text discipline for sensory-different
+  // and machine consumers. Migration: drizzle/0012_cards_art_description.sql.
+  // Nullable; consumers fall back to ${name} ${card_number} when NULL.
+  artDescription: text("art_description"),
+  // Phase 6 of kingdom-051: multi-language card names for culturally
+  // different consumers. Migration: drizzle/0013_cards_name_translations.sql.
+  // Sparse JSONB: { "zh": "...", "ko": "...", "es": "...", "jp_romaji": "..." }.
+  // Nullable; consumers fall back to name_en, then name, then card_number.
+  nameTranslations: jsonb("name_translations"),
 }, (table) => ({
   nameIdx: index("cards_name_idx").on(table.name),
   cardNumberIdx: index("cards_card_number_idx").on(table.cardNumber),
@@ -169,15 +180,11 @@ export const orderItems = pgTable("order_items", {
   orderIdIdx: index("order_items_order_id_idx").on(table.orderId),
 }));
 
-export const priceHistory = pgTable("price_history", {
-  id: serial("id").primaryKey(),
-  cardId: integer("card_id").notNull().references(() => cards.id),
-  date: text("date").notNull(),
-  cardrushJpy: integer("cardrush_jpy").notNull(),
-  gbpJpyRate: real("gbp_jpy_rate").notNull(),
-}, (table) => ({
-  cardDateUnique: uniqueIndex("price_history_card_date_idx").on(table.cardId, table.date),
-}));
+// `priceHistory` was dropped in Phase 4 of kingdom-049 (migration
+// drizzle/0011_drop_price_history.sql). It was a strict subset of
+// `priceArchive` shape-wise — same key (card_id + date), JPY inputs only.
+// `priceArchive` is now the single canonical price-history source.
+// See docs/connections/the-pricing-arrow.md (S17) Act 4.
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
@@ -202,11 +209,89 @@ export const priceArchive = pgTable("price_archive", {
   gbpJpyRate: real("gbp_jpy_rate").notNull(),
   baseGbp: money("base_gbp").notNull(),
   price: money("price").notNull(),
+  // ── Provenance columns added by drizzle/0014_price_archive_provenance.sql ──
+  // (kingdom-066; see docs/connections/the-cardrush-alignment.md). All
+  // additive with defaults so legacy rows stay valid; v1 snapshot still
+  // works writing rows with default source='cardrush'.
+  source: text("source").notNull().default("cardrush"),
+  sourceUrl: text("source_url"),
+  ingestRunId: bigint("ingest_run_id", { mode: "number" }),
+  errorReason: text("error_reason"),
+  sourceCurrency: text("source_currency").notNull().default("JPY"),
+  sourceRedistribute: boolean("source_redistribute").notNull().default(false),
 }, (table) => ({
-  cardDateUnique: uniqueIndex("price_archive_card_date_idx").on(table.cardId, table.snapshotDate),
+  // Widened unique index includes source so multi-source rows for the same
+  // (card, date) can coexist (TCGplayer USD + Cardmarket EUR + CardRush JPY
+  // for the same card on the same day are now distinguishable).
+  cardDateSourceUnique: uniqueIndex("price_archive_card_date_source_idx")
+    .on(table.cardId, table.snapshotDate, table.source),
   dateIdx: index("price_archive_date_idx").on(table.snapshotDate),
   skuIdx: index("price_archive_sku_idx").on(table.sku),
 }));
+
+// ── ingestRun ────────────────────────────────────────────────────────
+//
+// Stage 7 of the pipeline (the-pipeline.md §9). Every ingest job emits
+// one row here at start, updates at finish. Lets an operator answer
+// "did snapshot run today?" without grepping logs.
+//
+// kingdom-066. Migration: drizzle/0014_price_archive_provenance.sql.
+export const ingestRun = pgTable("ingest_run", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  sourceId: text("source_id").notNull(),
+  specVersion: text("spec_version").notNull(),
+  triggeredBy: text("triggered_by").notNull(),
+  triggeredAt: timestamp("triggered_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  status: text("status").notNull().default("running"),
+  rowsRead: integer("rows_read").notNull().default(0),
+  rowsNormalized: integer("rows_normalized").notNull().default(0),
+  rowsWritten: integer("rows_written").notNull().default(0),
+  rowsQuarantined: integer("rows_quarantined").notNull().default(0),
+  errors: integer("errors").notNull().default(0),
+  events: jsonb("events"),
+  notes: text("notes"),
+}, (table) => ({
+  sourceRecentIdx: index("ingest_run_source_recent_idx")
+    .on(table.sourceId, table.triggeredAt),
+  statusIdx: index("ingest_run_status_idx")
+    .on(table.status, table.triggeredAt),
+}));
+
+export type IngestRunRow = typeof ingestRun.$inferSelect;
+export type NewIngestRunRow = typeof ingestRun.$inferInsert;
+
+// ── ingestQuarantine ─────────────────────────────────────────────────
+//
+// Stage 4 of the pipeline (the-pipeline.md §6). Failed normalizations
+// land here with the raw upstream payload preserved for replay/forensics.
+// Admin review surface (planned) lets operators reprocess / discard /
+// flag upstream-bugs.
+//
+// kingdom-066.
+export const ingestQuarantine = pgTable("ingest_quarantine", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  ingestRunId: bigint("ingest_run_id", { mode: "number" })
+    .notNull()
+    .references(() => ingestRun.id),
+  sourceId: text("source_id").notNull(),
+  upstreamId: text("upstream_id"),
+  rawPayload: jsonb("raw_payload").notNull(),
+  reason: text("reason").notNull(),
+  asOf: timestamp("as_of", { withTimezone: true }).notNull(),
+  retrievedAt: timestamp("retrieved_at", { withTimezone: true }).notNull(),
+  quarantinedAt: timestamp("quarantined_at", { withTimezone: true }).notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: text("reviewed_by"),
+  resolution: text("resolution"),
+}, (table) => ({
+  unresolvedIdx: index("ingest_quarantine_unresolved_idx")
+    .on(table.sourceId, table.quarantinedAt),
+  runIdx: index("ingest_quarantine_run_idx").on(table.ingestRunId),
+}));
+
+export type IngestQuarantineRow = typeof ingestQuarantine.$inferSelect;
+export type NewIngestQuarantineRow = typeof ingestQuarantine.$inferInsert;
 
 export const orderStatusHistory = pgTable("order_status_history", {
   id: serial("id").primaryKey(),
@@ -310,7 +395,8 @@ export type GameSet = typeof sets.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
-export type PriceHistory = typeof priceHistory.$inferSelect;
+// PriceHistory type removed in Phase 4 of kingdom-049 — see comment above
+// where priceHistory used to be declared, and migration 0011.
 export type PriceArchiveRow = typeof priceArchive.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type OrderStatusHistoryRow = typeof orderStatusHistory.$inferSelect;
@@ -396,6 +482,29 @@ export type StockTarget = typeof stockTargets.$inferSelect;
 export type StockAdjustment = typeof stockAdjustments.$inferSelect;
 export type ChannelApiKey = typeof channelApiKeys.$inferSelect;
 export type ChannelPricingRow = typeof channelPricing.$inferSelect;
+
+// Append-only audit log for cards.price / cards.baseGbp mutations.
+// See docs/connections/the-pricing-arrow.md (S17) — this is the log the
+// Archive (priceArchive) was missing. Joins the Scribe's bookshelf (S8).
+// Migration: drizzle/0009_card_price_change_log.sql.
+export const cardPriceChangeLog = pgTable("card_price_change_log", {
+  id: serial("id").primaryKey(),
+  cardId: integer("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  source: text("source"),
+  actorLabel: text("actor_label"),
+  beforeValue: jsonb("before_value"),
+  afterValue: jsonb("after_value"),
+  reason: text("reason"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  subjectIdx: index("idx_card_price_log_subject").on(table.cardId, table.createdAt),
+  actionIdx: index("idx_card_price_log_action").on(table.action, table.createdAt),
+  recentIdx: index("idx_card_price_log_recent").on(table.createdAt),
+}));
+
+export type CardPriceChangeLogRow = typeof cardPriceChangeLog.$inferSelect;
 
 // ── @cambridge-tcg/stock package tables ──────────────────────────────
 // Re-exported so drizzle-kit picks them up when generating migrations

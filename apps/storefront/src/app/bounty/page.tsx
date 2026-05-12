@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { DEFAULTS } from "@cambridge-tcg/pricing";
 
 // Mirrors MERGE_COST + MERGE_CHAIN from src/lib/bounty/merge.ts. Duplicated
 // here as a pure UI constant so the page doesn't need to import server code.
@@ -14,6 +15,10 @@ const MERGE_CHAIN: Record<string, string | null> = {
   super_rare: null,
   legendary: null,
 };
+
+// Trade-in-credit margin multiplier — single source via @cambridge-tcg/pricing.
+// Phase 1 of kingdom-049 replaced the hard-coded × 0.77 here.
+const TRADEIN_CREDIT_MULT = DEFAULTS["tradein-credit"]!.marginMultiplier;
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -563,7 +568,7 @@ function VaultCard({
   onRedeem: () => void;
 }) {
   const spot = parseFloat(item.spot_price_gbp);
-  const sellBack = spot * 0.77;
+  const sellBack = spot * TRADEIN_CREDIT_MULT;
   const holdUntil = new Date(item.p2p_hold_until).getTime();
   const expires = new Date(item.expires_at).getTime();
 

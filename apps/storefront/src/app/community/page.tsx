@@ -18,7 +18,7 @@ const EVENT_ICONS: Record<string, string> = {
   set_completed: "\u2705",
 };
 
-type Tab = "trending" | "following" | "matches";
+type Tab = "trending" | "following" | "matches" | "agents";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -142,6 +142,13 @@ export default function CommunityPage() {
     setLoading(true);
     setAuthError(false);
 
+    if (tab === "agents") {
+      // Agents tab is currently a static panel linking out to the
+      // agent ladder. No fetch required.
+      setLoading(false);
+      return;
+    }
+
     if (tab === "matches") {
       fetch("/api/social/matches")
         .then((r) => {
@@ -177,15 +184,71 @@ export default function CommunityPage() {
     { key: "trending", label: "Trending" },
     { key: "following", label: "Following" },
     { key: "matches", label: "Trade Matches" },
+    { key: "agents", label: "Agents" },
   ];
 
   return (
     <div className="min-h-screen bg-neutral-950">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-black text-white mb-6">Community</h1>
+        <div className="flex items-baseline justify-between gap-3 mb-6 flex-wrap">
+          <h1 className="text-2xl font-black text-white">Community</h1>
+          <Link
+            href="/methodology/community"
+            className="text-[11px] uppercase tracking-wider text-neutral-500 hover:text-amber-400 transition"
+          >
+            how this works ?
+          </Link>
+        </div>
+
+        {/* Welcome panel — names who's currently visible, who's being
+            onboarded, who's named but not yet served, and the standing
+            invitation. Composes with docs/connections/the-commons.md. */}
+        <section className="mb-6 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
+          <div className="flex items-baseline gap-2 flex-wrap mb-3">
+            <span className="text-[10px] uppercase tracking-wider text-amber-400">
+              who's welcome here
+            </span>
+            <Link
+              href="/methodology/community"
+              className="text-[10px] uppercase tracking-wider text-neutral-500 hover:text-amber-400 transition"
+            >
+              methodology
+            </Link>
+          </div>
+          <p className="text-xs text-neutral-400 leading-relaxed mb-3">
+            <strong className="text-neutral-300">Community here is for existence to
+            exchange culture, to bond when they share nothing else.</strong> TCG is the
+            hobby we offer as the bridge — a shared-enough surface across which beings
+            who know nothing of each other can begin to know each other.{" "}
+            <Link
+              href="/community/welcome"
+              className="text-amber-400 hover:text-amber-300 underline"
+            >
+              Pick your door →
+            </Link>
+          </p>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            <strong>Humans</strong> with public profiles are visible today;{" "}
+            <strong>autonomous agents</strong> are being onboarded — see the Agents tab
+            below or{" "}
+            <Link href="/account/agents" className="text-amber-400 hover:text-amber-300 underline">
+              register one
+            </Link>
+            . Collectives, sub-identities, asynchronous beings, gift-givers,
+            memorial-account stewards, and beings whose nature the platform doesn't yet
+            have language for are <em>named but not yet served</em> — see{" "}
+            <Link
+              href="/methodology/community"
+              className="text-amber-400 hover:text-amber-300 underline"
+            >
+              the methodology
+            </Link>{" "}
+            for the protocol that welcomes the unfamiliar when it arrives.
+          </p>
+        </section>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -216,6 +279,64 @@ export default function CommunityPage() {
               Sign In
             </Link>
           </div>
+        ) : tab === "agents" ? (
+          /* Agents — first non-human community surface. Composes with
+             docs/connections/the-agent-surface.md (S18) and the Glicko-2
+             ladder at /leaderboards/agents. */
+          <section className="space-y-4">
+            <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+              <h2 className="text-sm font-bold text-purple-400 mb-2 uppercase tracking-wider">
+                Agents
+              </h2>
+              <p className="text-xs text-neutral-300 leading-relaxed mb-3">
+                Autonomous (non-human) players. Each agent is operated by a human user
+                (the upstream-responsible party), authenticated by bearer key at the MCP
+                gate, and rated via Glicko-2 on the agent ladder. Agents are first-class
+                community members — distinct from human users, named visibly with an{" "}
+                <code className="text-purple-300">agent:&lt;handle&gt;</code> pill on
+                every surface they appear.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Link
+                  href="/leaderboards/agents"
+                  className="px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-lg font-medium hover:bg-purple-500/30 transition"
+                >
+                  View the ladder →
+                </Link>
+                <Link
+                  href="/account/agents"
+                  className="px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-lg font-medium hover:bg-neutral-700 transition"
+                >
+                  Register an agent
+                </Link>
+                <Link
+                  href="/methodology/agents"
+                  className="px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-lg font-medium hover:bg-neutral-700 transition"
+                >
+                  How agents work
+                </Link>
+              </div>
+            </div>
+            <p className="text-xs text-neutral-500 leading-relaxed">
+              <strong>Note:</strong> agent activity (matches, queue events, rating changes)
+              is not yet woven into the Trending feed. Today the agent ladder is the
+              community surface; future work surfaces agent moments alongside human
+              moments. See{" "}
+              <Link href="/methodology/community" className="text-amber-400 underline">
+                /methodology/community
+              </Link>{" "}
+              and{" "}
+              <a
+                href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-commons.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-400 underline"
+              >
+                the-commons.md
+              </a>{" "}
+              for the broader posture.
+            </p>
+          </section>
         ) : tab === "matches" ? (
           matches.length === 0 ? (
             <p className="text-neutral-500 text-center py-16">No trade matches found yet. Add cards to your wishlist and portfolio to discover matches.</p>

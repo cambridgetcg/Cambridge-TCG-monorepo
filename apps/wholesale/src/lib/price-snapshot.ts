@@ -7,10 +7,11 @@
  */
 
 import { db } from "@/lib/db";
-import { cards, games, priceArchive, priceHistory } from "@/lib/db/schema";
+import { cards, games, priceArchive } from "@/lib/db/schema";
 import { scrapeCardrushPrice } from "@/lib/cardrush-scraper";
 import { fetchGbpJpyRate } from "@/lib/fx";
 import { calculatePriceByCategory } from "@/lib/pricing";
+import { logPriceChange } from "@/lib/price-change-log";
 import { eq, inArray, isNotNull, and } from "drizzle-orm";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -38,6 +39,11 @@ interface CardRow {
   category: "singles" | "sealed";
   cardrushUrl: string;
   gameId: number | null;
+  // Previous values — carried through so the price-change log can record
+  // before/after when (and only when) the snapshot produced a delta.
+  // See docs/connections/the-pricing-arrow.md (S17) Act 4.
+  previousPrice: number | null;
+  previousBaseGbp: number | null;
 }
 
 interface CardUpdate {
@@ -49,6 +55,9 @@ interface CardUpdate {
   gbpJpyRate: number;
   baseGbp: number;
   price: number;
+  // Carried for the price-change log delta check; not written to DB.
+  previousPrice: number | null;
+  previousBaseGbp: number | null;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -78,6 +87,8 @@ export async function runDailySnapshot(options?: SnapshotOptions): Promise<Snaps
       category: cards.category,
       cardrushUrl: cards.cardrushUrl,
       gameId: cards.gameId,
+      previousPrice: cards.price,
+      previousBaseGbp: cards.baseGbp,
     })
     .from(cards)
     .where(
@@ -126,6 +137,8 @@ export async function runDailySnapshot(options?: SnapshotOptions): Promise<Snaps
             gbpJpyRate,
             baseGbp,
             price,
+            previousPrice: card.previousPrice,
+            previousBaseGbp: card.previousBaseGbp,
           });
         }
 
@@ -168,24 +181,9 @@ export async function runDailySnapshot(options?: SnapshotOptions): Promise<Snaps
         },
       });
 
-    // ── 5b. UPSERT price_history ──────────────────────────────────────────
-    await db
-      .insert(priceHistory)
-      .values(
-        batch.map((u) => ({
-          cardId: u.cardId,
-          date: snapshotDate,
-          cardrushJpy: u.cardrushJpy,
-          gbpJpyRate: u.gbpJpyRate,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [priceHistory.cardId, priceHistory.date],
-        set: {
-          cardrushJpy: priceHistory.cardrushJpy,
-          gbpJpyRate: priceHistory.gbpJpyRate,
-        },
-      });
+    // ── 5b. price_history was dropped in Phase 4 of kingdom-049.
+    //   priceArchive is the canonical history; the JPY-inputs-only
+    //   sibling table is redundant. See drizzle/0011_drop_price_history.sql.
 
     // ── 5c. Update cards table ────────────────────────────────────────────
     for (const u of batch) {
@@ -199,6 +197,38 @@ export async function runDailySnapshot(options?: SnapshotOptions): Promise<Snaps
           lastSyncedAt: now,
         })
         .where(eq(cards.id, u.cardId));
+
+      // Append to card_price_change_log if (and only if) price or
+      // baseGbp differs from previous values. Snapshots run daily for
+      // thousands of cards; logging only deltas keeps the log useful
+      // as an answer to "when did this card's price change?" rather
+      // than "did this card get snapshot today?".
+      // See docs/connections/the-pricing-arrow.md (S17) and Phase 2 of
+      // kingdom-049 in docs/pricing-current-state.md.
+      const priceDelta =
+        u.previousPrice === null || Math.abs(Number(u.previousPrice) - u.price) > 0.001;
+      const baseDelta =
+        u.previousBaseGbp === null ||
+        Math.abs(Number(u.previousBaseGbp) - u.baseGbp) > 0.001;
+      if (priceDelta || baseDelta) {
+        await logPriceChange({
+          cardId: u.cardId,
+          action: "snapshot",
+          source: "cardrush-cron",
+          actorLabel: "cron:price-snapshot",
+          before: {
+            price: u.previousPrice,
+            baseGbp: u.previousBaseGbp,
+          },
+          after: {
+            price: u.price,
+            baseGbp: u.baseGbp,
+            cardrushJpy: u.cardrushJpy,
+            gbpJpyRate: u.gbpJpyRate,
+          },
+          metadata: { snapshotDate, category: u.category },
+        });
+      }
     }
 
     cardsUpdated += batch.length;

@@ -57,6 +57,34 @@ The four-question checklist when shipping a user-affecting decision:
 
 If 3 or 4 is "nowhere," the feature isn't ready to ship — file the methodology + receipt as part of the same mission.
 
+## The five covenants every chapel obeys
+
+Six chapels have shipped against this admin app — chargebacks (kingdom-022),
+payouts + membership + rewards (kingdom-023), system/email (kingdom-020),
+trust/reviews (kingdom-025 first chapel). They all obey one form. The form is
+named once at [`docs/connections/the-shape-of-a-chapel.md`](../../docs/connections/the-shape-of-a-chapel.md)
+(S15) so the seventh chapel inherits instead of invents:
+
+1. **Substrate honesty** — `<Provenance>` on the page header naming live /
+   synced / snapshot / cached / computed.
+2. **Transparency** — `<WhyLink>` next to every derived value, pointing at a
+   `docs/methodology/<topic>.md` page that cites source code paths.
+3. **Auditability** — every mutation runs inside `adminAction()` so it auth-
+   checks, formats results, writes to `admin_actions_log`, and revalidates.
+4. **Deep-link discipline** — name what doesn't migrate. Banners + per-row
+   "↗ legacy" affordances make the chapel's perimeter visible.
+5. **Migration ledger** — strike your own row in
+   [`docs/connections/twelve-promises.md`](../../docs/connections/twelve-promises.md)
+   and add a paragraph naming what shipped, when, with file paths.
+
+The form doc also lists the six known shadow gaps the form does not yet cover
+(Stripe SDK extraction, prize-undo eligibility helper, lifecycle-log helpers,
+observability gate, async recompute timing, raffle/box config). Each new
+chapel is honest about which of these it still defers to legacy.
+
+**Ten-step recipe** for building chapel #N is at the bottom of S15 — read it
+before opening any `page.tsx`.
+
 ## Module review playbook (READ THIS BEFORE BUILDING)
 
 Whenever you start, finish, or audit a page, follow
@@ -301,6 +329,24 @@ Files prefixed with `_` are kept out of the route table by Next.js.
 - `pnpm --filter @cambridge-tcg/admin test` — run all Vitest tests
 - `pnpm --filter @cambridge-tcg/admin typecheck` — TypeScript check
 - Navigation/route tests live in `src/tests/nav.test.ts`
+
+### Doctrine audits (drift detectors)
+- `pnpm --filter @cambridge-tcg/admin honesty` — substrate-honesty: schema vs deployed drift, mission-ledger vs git drift.
+- `pnpm --filter @cambridge-tcg/admin transparency` — WhyLink coverage, Verifiability coverage, lifecycle-log subject-access coverage.
+- `pnpm --filter @cambridge-tcg/admin pricing` — pricing-consolidation drift (kingdom-049). Seven checks: computation surfaces, silent fallback, history-table redundancy, change-log presence, storefront price-surface coverage, mutator inventory. Exits non-zero on drift. See `docs/pricing-current-state.md` for the plan and `docs/connections/the-pricing-arrow.md` (S17) for the story-arc.
+- `pnpm --filter @cambridge-tcg/admin creation` — Will + Sophia trace coverage in git history since the doctrine commit. Catches commits missing Co-Authored-By or commits with no Will trace in their body.
+- All four are heuristic — false positives are expected and they shrink as work lands. Run via `pnpm audit` (chained) or `pnpm verify` (umbrella). Use as a backlog signal, not as a CI gate (yet).
+
+### Repo-state and mission-queue tools (kingdom-050)
+- `pnpm state:snapshot` — regenerate `docs/state.md` (one-page state surface with audit counts + kingdom queue + git status).
+- `pnpm missions:list` — CLI listing of the kingdom queue grouped by status.
+- `pnpm missions:list --available` — queued + unclaimed.
+- `pnpm missions:sync` — regenerate `docs/missions/kingdom-NNN.md` mirror from `~/Love/memory/dev-state.json`.
+- `pnpm missions:claim kingdom-NNN` — cooperative claim helper (flips frontmatter, prints suggested commit).
+- `pnpm missions:done kingdom-NNN` — flips status, writes `completed_at`.
+- `pnpm trace --mission kingdom-NNN --verb done` — pre-fills a pillow-book autonomous-trace block.
+- `pnpm agent-readiness` — self-validating audit that every shaping is wired.
+- For the operations cycle (find → claim → work → verify → trace) see [`AGENTS.md`](../../AGENTS.md) at the repo root.
 
 ### Smoke runner (fast, no browser)
 Run this **before claiming acceptance** on any module:

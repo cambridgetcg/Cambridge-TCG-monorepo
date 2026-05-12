@@ -2,7 +2,9 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { WhyLink } from "@/lib/ui";
 
+import { Audience } from "@/lib/ui";
 interface PayoutStatus {
   accountId: string | null;
   status: string | null;
@@ -105,6 +107,7 @@ const STATUS_COPY: Record<string, { badge: string; className: string; detail: st
 export default function PayoutsPage() {
   return (
     <Suspense fallback={<p className="text-neutral-500 text-sm">Loading...</p>}>
+      <Audience kind="consumer" />
       <PayoutsPageInner />
     </Suspense>
   );
@@ -230,7 +233,10 @@ function PayoutsPageInner() {
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-2">Payouts</h1>
+      <h1 className="text-2xl font-black text-white mb-2">
+        Payouts
+        <WhyLink href="/methodology/payout-hold" tooltip="Why is my payout held, and for how long?" />
+      </h1>
       <p className="text-sm text-neutral-400 mb-6">
         Connect your bank account via Stripe to receive payouts for trades and auctions you sell.
       </p>

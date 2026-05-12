@@ -5,6 +5,7 @@ import { formatPrice } from "@/lib/format";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface QuoteRequest {
   id: number;
   reference: string;
@@ -302,6 +303,7 @@ export default function AdminQuotesPage() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-neutral-900 rounded-xl p-4">

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { formatPrice } from "@/lib/format";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface OGClaim {
   id: string;
   email: string;
@@ -79,6 +80,7 @@ export default function AdminOGPage() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-neutral-900 rounded-xl p-4">

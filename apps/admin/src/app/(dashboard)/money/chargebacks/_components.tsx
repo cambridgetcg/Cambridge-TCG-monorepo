@@ -10,8 +10,38 @@
 
 import { useState, useTransition } from "react";
 import { annotateChargeback, forceResolveChargeback } from "./_actions";
+import { Consequences } from "@/lib/ui";
 
 const TERMINAL = ["won", "lost", "warning_closed", "charge_refunded", "admin_resolved"];
+
+// The Heptapod's primitive applied to force-resolve. The operator sees
+// what the action will do *before* committing, not after — substrate-
+// honest about the local-truth / Stripe-authoritative asymmetry.
+// First adoption of <Consequences>; closes the audit's Heptapod check.
+// See docs/connections/the-other-minds.md.
+const FORCE_RESOLVE_CONSEQUENCES = [
+  {
+    label: "Local status",
+    delta: "→ admin_resolved",
+    tone: "red" as const,
+    methodology: "/methodology/chargebacks",
+  },
+  {
+    label: "Stripe-side",
+    delta: "unchanged (we don't push back to Stripe)",
+    tone: "amber" as const,
+  },
+  {
+    label: "Audit",
+    delta: "+1 chargeback_lifecycle_log, +1 admin_actions_log",
+    tone: "neutral" as const,
+  },
+  {
+    label: "Reversibility",
+    delta: "manual SQL only",
+    tone: "red" as const,
+  },
+];
 
 interface ChargebackActionsProps {
   chargeback: { id: string; status: string };
@@ -70,13 +100,21 @@ export function ChargebackActions({ chargeback }: ChargebackActionsProps) {
             Annotate
           </button>
           {!isTerminal && (
-            <button
-              type="button"
-              onClick={forceResolve}
-              className="block w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
-            >
-              Force resolve
-            </button>
+            <>
+              <div className="px-3 py-2">
+                <Consequences
+                  title="Force resolve will do"
+                  items={FORCE_RESOLVE_CONSEQUENCES}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={forceResolve}
+                className="block w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
+              >
+                Force resolve
+              </button>
+            </>
           )}
           {isTerminal && (
             <span className="block px-3 py-1.5 text-xs text-neutral-600 italic">

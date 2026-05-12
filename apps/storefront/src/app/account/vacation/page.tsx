@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Badge, Palettes } from "@/lib/ui";
+import { formatDateTime } from "@/lib/format";
 
+import { Audience } from "@/lib/ui";
 interface Vacation {
   id: string;
   starts_at: string;
@@ -13,19 +16,12 @@ interface Vacation {
   created_at: string;
 }
 
-const STATUS_BADGE: Record<Vacation["status"], { label: string; className: string }> = {
-  scheduled: { label: "Scheduled", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  active:    { label: "Active",    className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  ended:     { label: "Ended",     className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  cancelled: { label: "Cancelled", className: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
+const STATUS_LABELS: Record<Vacation["status"], string> = {
+  scheduled: "Scheduled",
+  active:    "Active",
+  ended:     "Ended",
+  cancelled: "Cancelled",
 };
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString("en-GB", {
-    day: "numeric", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
 
 function durationLabel(starts: string, ends: string): string {
   const ms = new Date(ends).getTime() - new Date(starts).getTime();
@@ -75,6 +71,7 @@ export default function VacationPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Vacation Mode</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Step away without breaking your response-window contracts. While active, your asks
@@ -109,32 +106,27 @@ export default function VacationPage() {
         <p className="text-xs text-neutral-500">No vacations on record yet.</p>
       ) : (
         <div className="space-y-2">
-          {vacations.map((v) => {
-            const badge = STATUS_BADGE[v.status];
-            return (
-              <div key={v.id} className="bg-neutral-900 rounded-xl p-3 border border-neutral-800">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <p className="text-white text-sm font-semibold">
-                      {fmtDate(v.starts_at)} → {fmtDate(v.ends_at)}
-                    </p>
-                    <p className="text-xs text-neutral-500 mt-0.5">
-                      Duration {durationLabel(v.starts_at, v.ends_at)}
-                      {v.message && (
-                        <>
-                          <span className="mx-1.5">·</span>
-                          <span className="italic">“{v.message}”</span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${badge.className}`}>
-                    {badge.label}
-                  </span>
+          {vacations.map((v) => (
+            <div key={v.id} className="bg-neutral-900 rounded-xl p-3 border border-neutral-800">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <p className="text-white text-sm font-semibold">
+                    {formatDateTime(v.starts_at)} → {formatDateTime(v.ends_at)}
+                  </p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Duration {durationLabel(v.starts_at, v.ends_at)}
+                    {v.message && (
+                      <>
+                        <span className="mx-1.5">·</span>
+                        <span className="italic">“{v.message}”</span>
+                      </>
+                    )}
+                  </p>
                 </div>
+                <Badge status={v.status} palette={Palettes.VacationStatusPalette} labels={STATUS_LABELS} />
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -166,13 +158,13 @@ function ActiveBanner({
           {isActive ? "On vacation now" : "Vacation scheduled"}
         </h2>
         <span className="text-xs text-neutral-400">
-          {fmtDate(current.starts_at)} → {fmtDate(current.ends_at)}
+          {formatDateTime(current.starts_at)} → {formatDateTime(current.ends_at)}
         </span>
       </div>
       <p className="text-sm text-neutral-300 mb-3">
         {isActive
           ? "Your asks are paused and won't match new bids. Offer/return/cancel response windows on in-flight items have been extended by your vacation duration."
-          : `Starting ${fmtDate(current.starts_at)}. Until then, everything operates normally.`}
+          : `Starting ${formatDateTime(current.starts_at)}. Until then, everything operates normally.`}
       </p>
       {current.message && (
         <p className="text-xs text-neutral-300 italic mb-3 bg-neutral-950/40 rounded p-2">

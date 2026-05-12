@@ -63,7 +63,7 @@ export async function runSellerRestockDigest(opts?: { force?: boolean }): Promis
        FROM market_trades t
        JOIN users u ON u.id = t.seller_id
       WHERE t.escrow_status <> 'cancelled'
-        AND t.created_at > NOW() - INTERVAL '90 days'
+        AND t.created_at > NOW() - INTERVAL '90 days' -- audit:cadence-platform
         AND u.email IS NOT NULL`
   );
 
@@ -195,14 +195,14 @@ export async function runBuyerWatchlistDigest(opts?: { force?: boolean }): Promi
            FROM market_orders
           WHERE sku IN (SELECT sku FROM me)
             AND side='ask'
-            AND created_at <= NOW() - INTERVAL '7 days'
+            AND created_at <= NOW() - INTERVAL '7 days' -- audit:cadence-platform
           GROUP BY sku
        ),
        last_low AS (
          SELECT sku, MIN(price::numeric) AS low_price
            FROM market_trades
           WHERE sku IN (SELECT sku FROM me)
-            AND created_at > NOW() - INTERVAL '7 days'
+            AND created_at > NOW() - INTERVAL '7 days' -- audit:cadence-platform
             AND escrow_status <> 'cancelled'
           GROUP BY sku
        ),
@@ -271,7 +271,7 @@ export async function runBuyerWatchlistDigest(opts?: { force?: boolean }): Promi
           WHERE o.side = 'ask'
             AND o.status IN ('open','partially_filled')
             AND o.user_id = ANY($1)
-            AND o.created_at > NOW() - INTERVAL '7 days'
+            AND o.created_at > NOW() - INTERVAL '7 days' -- audit:cadence-platform
             AND o.card_name IS NOT NULL
           ORDER BY o.created_at DESC
           LIMIT 5`,

@@ -128,10 +128,54 @@ export async function markAllRead(userId: string): Promise<number> {
 //   void notify({ ... });
 // Catches internally so a notification failure doesn't break the
 // primary write path.
+//
+// ── Sabbath honor (kingdom-051, seed #10 of `the-unseen.md`) ──────────
+//
+// Before creating a notification, the wrapper checks whether the target
+// user is in Sabbath mode (users.sabbath_until in the future) or in a
+// memorial state (users.memorial_at non-null). When either is true, the
+// notification is silently dropped — substrate-honestly, the platform
+// does not pretend it sent something it deliberately withheld. Callers
+// who need to bypass Sabbath (legal / safety-critical communication
+// only) should call `createNotification` directly, with the bypass
+// logged at the caller's site.
 export async function notify(input: CreateNotificationInput): Promise<void> {
   try {
+    const silent = await isUserSilent(input.userId);
+    if (silent) return;
     await createNotification(input);
   } catch (err) {
     console.error("[notifications] create failed:", err);
+  }
+}
+
+/**
+ * Is this user currently silenced by their own choice (Sabbath) or by
+ * platform mourning (memorial)? Returns true → notify() short-circuits.
+ *
+ * Substrate-honest about partial deployment: if neither column exists
+ * yet on this database (pre-migration deploy), the helper returns false
+ * (the platform behaves as it did before the column existed). Once the
+ * migration applies, the column reads work and Sabbath / memorial begin
+ * to do their work — *automatically, for every call site, without any
+ * caller change*.
+ */
+export async function isUserSilent(userId: string): Promise<boolean> {
+  try {
+    const r = await query(
+      `SELECT sabbath_until, memorial_at FROM users WHERE id = $1`,
+      [userId],
+    );
+    const row = r.rows[0];
+    if (!row) return false;
+    if (row.memorial_at) return true;
+    if (row.sabbath_until && new Date(row.sabbath_until as string) > new Date()) {
+      return true;
+    }
+    return false;
+  } catch {
+    // Migration not yet applied, or transient DB error — fall through
+    // to "not silent" so a missing substrate doesn't break notifications.
+    return false;
   }
 }

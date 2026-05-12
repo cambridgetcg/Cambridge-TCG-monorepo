@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Audience } from "@/lib/ui";
 interface Prize {
   kind: "raffle" | "mystery_box" | "pack";
   id: string;
@@ -137,6 +138,7 @@ export default function AdminPrizesPage() {
   if (!authed) {
     return (
       <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <Audience kind="operator" />
         <form onSubmit={handleLogin} className="w-full max-w-sm px-4">
           <h1 className="text-2xl font-bold text-white text-center mb-8">Prize Fulfillment</h1>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}

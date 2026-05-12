@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface DigestTip {
   id: number;
   root: string;
@@ -64,6 +65,7 @@ export default function HealthPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="public-documentation" />
       <div className="max-w-4xl mx-auto px-4 py-10">
         <Link href="/verify" className="text-xs text-neutral-500 hover:text-neutral-300">← Verification home</Link>
         <h1 className="text-3xl font-bold mt-2 mb-2">Transparency Health</h1>

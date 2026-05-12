@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { cards, games } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateApiKey, unauthorized } from "../../auth";
+import { priceForChannel } from "@/lib/channel-pricing";
 
 export async function GET(
   req: NextRequest,
@@ -13,6 +14,7 @@ export async function GET(
     if (!apiKey) return unauthorized();
 
     const { sku } = await params;
+    const channel = req.nextUrl.searchParams.get("channel") || "wholesale";
 
     const rows = await db
       .select({
@@ -21,6 +23,8 @@ export async function GET(
         name: cards.name,
         nameEn: cards.nameEn,
         priceGbp: cards.price,
+        cardrushJpy: cards.cardrushJpy,
+        gbpJpyRate: cards.gbpJpyRate,
         stock: cards.stock,
         pendingStock: cards.pendingStock,
         imageUrl: cards.imageUrl,
@@ -41,12 +45,33 @@ export async function GET(
     }
 
     const r = rows[0];
+
+    // Mirror the list endpoint's channel-aware path so a single-SKU read
+    // and a list read agree on `channel_price` for the same card + channel.
+    // Without this, the storefront product page (which always sends
+    // ?channel=cambridgetcg) silently falls back to its local Appraiser —
+    // a different formula than the server's, with measurable drift.
+    // See docs/connections/the-pricing-arrow.md (S17) Act 5.
+    const needsChannelPrice = channel !== "wholesale";
+    let channelPrice: number | null = null;
+    if (needsChannelPrice && r.cardrushJpy && r.gbpJpyRate) {
+      const breakdown = await priceForChannel(
+        r.cardrushJpy,
+        r.gbpJpyRate,
+        channel,
+        r.category,
+      );
+      channelPrice = breakdown.price;
+    }
+
     return NextResponse.json({
       sku: r.sku,
       card_number: r.cardNumber,
       name: r.nameEn || r.name,
       name_en: r.nameEn,
       price_gbp: r.priceGbp,
+      ...(needsChannelPrice && { channel_price: channelPrice ?? r.priceGbp }),
+      ...(needsChannelPrice && { channel }),
       stock: r.stock,
       pending_stock: r.pendingStock,
       image_url: r.imageUrl,

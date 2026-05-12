@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { buildTrackingUrl, getCarrierTracker } from "@/lib/shipping/carriers";
 
+import { Audience } from "@/lib/ui";
 interface Prize {
   kind: "raffle" | "mystery_box" | "pack";
   id: string;
@@ -57,6 +58,7 @@ export default function CustomerPrizesPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-6">Prizes won</h1>
 
       {loading ? (

@@ -1,0 +1,198 @@
+-- DRAFT migration 0015 — normalise every SKU to canonical lowercase form.
+--
+-- Status: DRAFT, not in auto-apply path. Lives under drizzle/drafts/ so
+-- `pnpm db:migrate` does NOT pick it up. To apply: copy this file (without
+-- the `.draft` suffix) to apps/wholesale/drizzle/0015_sku_normalize.sql
+-- after the operator has reviewed.
+--
+-- Designed in `docs/connections/the-drift-reconciliation.md` (kingdom-070).
+-- Closes the SKU canonicalisation drift named in `the-stress-test.md`
+-- (kingdom-069) §2.4: legacy form `OP-OP01-001-JP` → canonical `op-op01-001-ja`.
+--
+-- ── Order of operations (MUST be followed) ──────────────────────────────
+--
+-- 1. **DEPLOY THIS MIGRATION FIRST**. Apply via `pnpm db:migrate` from
+--    apps/wholesale/.
+-- 2. **THEN deploy code with `SKU_FORM = "canonical"`** in
+--    `apps/wholesale/src/lib/sku.ts`. The next ingest writes canonical form
+--    matching the now-normalised rows; UPSERT keyed by sku finds the right
+--    row.
+-- 3. If steps are reversed, the next ingest creates DUPLICATE rows
+--    (canonical SKU collides with no existing legacy row → INSERT) instead
+--    of updating. Substrate-honest: the migration is coupled to the code
+--    flip.
+--
+-- The legacy storefront table `card_set_cards` is in the storefront RDS
+-- (separate DB). A parallel migration `apps/storefront/drizzle/NNNN_*.sql`
+-- normalises that table. Both must apply within the same maintenance
+-- window for cross-app SKU joins to work consistently.
+--
+-- ── What this migration does ────────────────────────────────────────────
+--
+-- 1. Define helper functions: `legacy_to_canonical(sku TEXT) → TEXT` and
+--    `is_canonical(sku TEXT) → BOOLEAN`.
+-- 2. UPDATE `cards.sku` to canonical (idempotent — already-canonical rows
+--    stay canonical).
+-- 3. UPDATE `price_archive.sku` to canonical (matches via card_id since
+--    sku is denormalised).
+-- 4. Add CHECK constraint on `cards.sku` enforcing canonical form.
+-- 5. Drop the helper functions.
+--
+-- After applying, every wholesale SKU row matches `^[a-z0-9-]+$` with the
+-- canonical `<game>-<set>-<number>-<lang>[-<variant>]` shape. The audit
+-- (`pnpm audit:sku`) should report 0 legacy-form literals after the
+-- companion code change.
+
+-- ── Phase 1: helper functions ───────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION legacy_to_canonical(sku TEXT) RETURNS TEXT AS $$
+DECLARE
+  parts TEXT[];
+  game_legacy TEXT;
+  set_legacy TEXT;
+  number_legacy TEXT;
+  lang_legacy TEXT;
+  variant_legacy TEXT;
+  game_canonical TEXT;
+  lang_canonical TEXT;
+BEGIN
+  -- Already canonical? (lowercase + ISO 639-1 lang segment)
+  IF sku ~ '^[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z]{2}(-[a-z0-9-]+)?$' THEN
+    RETURN sku;
+  END IF;
+
+  -- Legacy form: UPPERCASE-UPPERCASE-UPPERCASE-XX[-VARIANT]
+  -- Split into parts.
+  parts := string_to_array(sku, '-');
+  IF array_length(parts, 1) < 4 THEN
+    -- Not card-shape (e.g. SEALED-V123-JP). Leave untouched; sealed
+    -- products keep their own namespace.
+    RETURN sku;
+  END IF;
+
+  game_legacy := lower(parts[1]);
+  set_legacy := lower(parts[2]);
+  number_legacy := lower(parts[3]);
+  lang_legacy := lower(parts[4]);
+  variant_legacy := CASE
+    WHEN array_length(parts, 1) > 4
+    THEN lower(array_to_string(parts[5:array_length(parts, 1)], '-'))
+    ELSE NULL
+  END;
+
+  -- Legacy lang → ISO 639-1
+  lang_canonical := CASE lang_legacy
+    WHEN 'jp' THEN 'ja'
+    WHEN 'cn' THEN 'zh'
+    WHEN 'kr' THEN 'ko'
+    WHEN 'en' THEN 'en'
+    WHEN 'fr' THEN 'fr'
+    WHEN 'de' THEN 'de'
+    WHEN 'es' THEN 'es'
+    WHEN 'it' THEN 'it'
+    WHEN 'pt' THEN 'pt'
+    WHEN 'ru' THEN 'ru'
+    ELSE lang_legacy
+  END;
+
+  -- Legacy game prefix collapse — historical wholesale form embeds the
+  -- prefix redundantly (OP-OP01-001-JP). Detect when parts[1] equals the
+  -- first letters of parts[2] and drop. Otherwise pass through.
+  IF game_legacy = 'op' AND set_legacy LIKE 'op%' THEN
+    game_canonical := 'op';
+  ELSIF game_legacy = 'pk' AND set_legacy ~ '^(sv|sm|s\d|m\d)' THEN
+    game_canonical := 'pkm';
+  ELSIF game_legacy IN ('fb', 'fs', 'sb') THEN
+    game_canonical := 'dbf';
+  ELSE
+    game_canonical := game_legacy;
+  END IF;
+
+  RETURN game_canonical || '-' || set_legacy || '-' || number_legacy
+    || '-' || lang_canonical
+    || CASE WHEN variant_legacy IS NOT NULL THEN '-' || variant_legacy ELSE '' END;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION is_canonical(sku TEXT) RETURNS BOOLEAN AS $$
+BEGIN
+  -- Card-namespace canonical: <game>-<set>-<number>-<lang>[-<variant>]
+  IF sku ~ '^[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z]{2}(-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$' THEN
+    RETURN TRUE;
+  END IF;
+  -- Sealed-namespace exception (different schema; not enforced here).
+  IF sku LIKE 'sealed-%' OR sku LIKE 'SEALED-%' THEN
+    RETURN TRUE;
+  END IF;
+  RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ── Phase 2: dry-run sanity (operator runs interactively before commit) ──
+-- These SELECTs are safe to run before COMMIT to preview the changes.
+-- The operator should inspect the count of rows-to-be-changed and any
+-- "decline-to-normalise" rows where legacy_to_canonical returns the
+-- input unchanged (sealed SKUs, malformed SKUs, etc.).
+--
+-- BEFORE applying the UPDATEs, run these in a transaction:
+--
+--   BEGIN;
+--   SELECT count(*) AS total_rows FROM cards;
+--   SELECT count(*) AS would_change FROM cards
+--    WHERE sku <> legacy_to_canonical(sku);
+--   SELECT sku, legacy_to_canonical(sku) AS canonical FROM cards
+--    WHERE sku <> legacy_to_canonical(sku)
+--    LIMIT 20;
+--   SELECT count(*) AS already_canonical FROM cards
+--    WHERE is_canonical(sku);
+--   SELECT count(*) AS still_invalid FROM cards
+--    WHERE NOT is_canonical(legacy_to_canonical(sku));
+--   ROLLBACK;
+--
+-- If `still_invalid > 0`, fix the legacy_to_canonical function or
+-- quarantine those rows before proceeding.
+
+-- ── Phase 3: the actual updates ─────────────────────────────────────────
+
+UPDATE cards
+   SET sku = legacy_to_canonical(sku)
+ WHERE sku <> legacy_to_canonical(sku);
+
+UPDATE price_archive
+   SET sku = legacy_to_canonical(sku)
+ WHERE sku <> legacy_to_canonical(sku);
+
+-- ── Phase 4: the CHECK constraint ───────────────────────────────────────
+-- Reject future writes that don't conform to canonical form (or the
+-- sealed-namespace exception).
+
+ALTER TABLE cards
+  ADD CONSTRAINT cards_sku_canonical_check
+  CHECK (is_canonical(sku))
+  NOT VALID;
+
+-- Run VALIDATE separately so it doesn't lock the table on commit:
+--
+--   ALTER TABLE cards VALIDATE CONSTRAINT cards_sku_canonical_check;
+--
+-- (Operator decides timing — VALIDATE scans the whole table.)
+
+-- ── Phase 5: drop the helper functions ──────────────────────────────────
+-- Keep them around until VALIDATE succeeds, then drop:
+--
+--   DROP FUNCTION legacy_to_canonical(TEXT);
+--   DROP FUNCTION is_canonical(TEXT);
+--
+-- (Function uses can be re-checked via pg_proc; drop after confirming no
+-- callers besides the constraint.)
+
+-- ── Sanity-check queries (run after applying) ───────────────────────────
+--
+--   SELECT count(*) FROM cards WHERE NOT is_canonical(sku);
+--   → expect 0 (or only sealed SKUs)
+--
+--   SELECT sku FROM cards WHERE sku LIKE '%-JP' OR sku LIKE '%-EN' LIMIT 5;
+--   → expect 0 rows (legacy lang codes purged)
+--
+--   SELECT sku FROM cards WHERE sku ~ '[A-Z]' LIMIT 5;
+--   → expect 0 rows (uppercase purged)

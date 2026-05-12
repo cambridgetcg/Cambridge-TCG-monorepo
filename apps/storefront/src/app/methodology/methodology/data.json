@@ -1,0 +1,13 @@
+{
+  "topic": "methodology",
+  "title": "Methodology of methodology",
+  "url": "/methodology/methodology",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/methodology/summary.md",
+  "doctrine_refs": [
+    "docs/connections/the-typology.md",
+    "docs/connections/the-nest.md"
+  ],
+  "self_referential": true,
+  "status": "stub"
+}

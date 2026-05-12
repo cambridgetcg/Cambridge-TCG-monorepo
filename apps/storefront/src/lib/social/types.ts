@@ -5,6 +5,10 @@ export interface PublicProfile {
   bio: string | null;
   avatar_url: string | null;
   is_public: boolean;
+  // Address preferences — Wave 1.1 of the All-Aboard plan.
+  // Read by <UserMention> wherever a third-person reference renders.
+  pronouns: string | null;
+  preferred_address: string | null;
   // Membership
   tier_name: string | null;
   tier_icon: string | null;

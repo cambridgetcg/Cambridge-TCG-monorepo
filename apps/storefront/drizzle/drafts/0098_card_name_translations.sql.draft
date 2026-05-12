@@ -1,0 +1,77 @@
+-- DRAFT migration 0098 — add `card_set_cards.name_translations JSONB`
+-- to the storefront catalog so the name resolver can serve translations.
+--
+-- Status: DRAFT, not in auto-apply path. Lives under drizzle/drafts/ so
+-- `drizzle-kit migrate` does NOT pick it up. To apply: copy this file
+-- (without the `.draft` suffix) to apps/storefront/drizzle/0098_card_name_translations.sql
+-- after the operator has reviewed.
+--
+-- Designed in `docs/connections/the-name-resolver.md` (kingdom-073).
+-- Closes the language-inclusiveness finding in `the-stress-test.md`
+-- (kingdom-069) §4: the storefront has `card_name` (single string) only;
+-- wholesale `cards.name_translations JSONB` exists (kingdom-051 Phase 6)
+-- but the storefront doesn't mirror it.
+--
+-- ── What this migration does ───────────────────────────────────────────
+--
+-- 1. Adds `card_set_cards.name_translations JSONB` — sparse map keyed by
+--    ISO 639-1 (`ja`, `en`, `zh`, `ko`, `fr`, ...) or transliteration
+--    code (`jp_romaji`, `zh_pinyin`).
+-- 2. Adds `card_set_cards.name_en` for explicit English column (mirrors
+--    wholesale's `cards.name_en`).
+-- 3. Optional GIN index on `name_translations` for future "find cards
+--    with a Korean name" queries.
+--
+-- ── Backfill ───────────────────────────────────────────────────────────
+--
+-- The migration adds columns but does NOT backfill from wholesale.
+-- A separate one-off backfill script (or a future cron) syncs:
+--
+--   UPDATE storefront.card_set_cards c
+--      SET name_translations = w.name_translations,
+--          name_en = w.name_en
+--     FROM (SELECT sku, name_translations, name_en
+--             FROM wholesale.cards) w
+--    WHERE c.sku = w.sku
+--      AND w.name_translations IS NOT NULL;
+--
+-- The two-database join requires either a foreign-data wrapper or a
+-- bridge service — out of scope for this migration. Until then, the
+-- resolver gracefully falls back to `card_name` for every row.
+--
+-- ── What the resolver does after this lands ────────────────────────────
+--
+-- See `apps/storefront/src/lib/cards/name.ts` `resolveCardName()`.
+-- The math-mirror endpoint emits:
+--
+--   {
+--     "name": {
+--       "resolved": "로로노아 조로",
+--       "resolved_lang": "ko",
+--       "resolved_from": "preferred",
+--       "fallback_chain": [{lang:"ko", available:true}],
+--       "available_languages": ["en", "ja", "ko"],
+--       "_note": "natural-language; cannot be reconstructed from structure"
+--     }
+--   }
+
+ALTER TABLE card_set_cards
+  ADD COLUMN IF NOT EXISTS name_translations JSONB,
+  ADD COLUMN IF NOT EXISTS name_en VARCHAR(300);
+
+COMMENT ON COLUMN card_set_cards.name_translations IS
+  'Sparse JSONB map of ISO 639-1 lang → translated name. Keys may include `jp_romaji` / `zh_pinyin` for transliterations. NULL when no translations are known. Resolved at read time by apps/storefront/src/lib/cards/name.ts.';
+
+COMMENT ON COLUMN card_set_cards.name_en IS
+  'Dedicated English translation. Distinct from `card_name` which may be JP (for JP-sourced catalogs) or EN (for EN-sourced). Read by the name resolver when the caller prefers English but name_translations lacks `en`.';
+
+CREATE INDEX IF NOT EXISTS idx_card_set_cards_name_translations
+  ON card_set_cards USING GIN (name_translations);
+
+-- ── Sanity checks (operator runs after applying) ──────────────────────
+--
+--   SELECT count(*) FROM card_set_cards WHERE name_translations IS NOT NULL;
+--   → expect 0 immediately after migration (no backfill yet)
+--
+--   \d card_set_cards
+--   → expect: name_translations jsonb, name_en varchar(300) columns visible

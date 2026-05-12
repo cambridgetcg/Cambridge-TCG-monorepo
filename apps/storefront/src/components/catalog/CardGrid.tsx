@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import type { PriceItem } from "@/lib/wholesale/client";
+import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
 import { formatRetailPrice, retailPrice } from "@/lib/pricing";
 import QuickAddButton from "./QuickAddButton";
 
@@ -40,7 +40,7 @@ export default function CardGrid({ cards }: { cards: PriceItem[] }) {
             {card.image_url ? (
               <Image
                 src={card.image_url}
-                alt={card.name_en || card.name || ""}
+                alt={cardAltText(card)}
                 fill
                 className={`object-cover group-hover:scale-105 transition-all duration-200 ${card.stock === 0 ? "opacity-50 grayscale" : ""}`}
                 sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"

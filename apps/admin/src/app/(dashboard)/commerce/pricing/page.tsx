@@ -91,7 +91,7 @@ export default async function Page({
   if (filterClause) where.push(filterClause);
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  const [rowsResult, totalResult, kpiResult, gameResult] = await Promise.all([
+  const [rowsResult, totalResult, kpiResult, gameResult, recentChangesResult] = await Promise.all([
     wsQuery<CardRow>(
       `SELECT id, sku, card_number, name, set_code,
               cardrush_jpy, base_gbp::text, price::text,
@@ -137,6 +137,44 @@ export default async function Page({
          ORDER BY COUNT(c.*) FILTER (WHERE c.cardrush_url IS NOT NULL) DESC`,
       [],
     ),
+    // Recent price changes — Phase 2.5 of kingdom-049. Reads the lifecycle
+    // log added in Phase 2 (drizzle/0009_card_price_change_log.sql). Joined
+    // with cards for the SKU label; left-joined since the FK cascade
+    // means an orphaned log row shouldn't happen but we degrade visibly.
+    // See docs/connections/the-pricing-arrow.md (S17) Act 4.
+    // Use to_regclass to no-op gracefully on databases where the migration
+    // hasn't been applied yet — log table simply doesn't exist yet.
+    wsQuery<{
+      sku: string | null;
+      action: string;
+      source: string | null;
+      actor_label: string | null;
+      before_value: { price?: number; baseGbp?: number } | null;
+      after_value: { price?: number; baseGbp?: number } | null;
+      created_at: string;
+    }>(
+      `SELECT c.sku,
+              log.action,
+              log.source,
+              log.actor_label,
+              log.before_value,
+              log.after_value,
+              log.created_at::text
+         FROM card_price_change_log log
+         LEFT JOIN cards c ON c.id = log.card_id
+        WHERE to_regclass('card_price_change_log') IS NOT NULL
+        ORDER BY log.created_at DESC
+        LIMIT 20`,
+      [],
+    ).catch(() => ({ rows: [] as Array<{
+      sku: string | null;
+      action: string;
+      source: string | null;
+      actor_label: string | null;
+      before_value: { price?: number; baseGbp?: number } | null;
+      after_value: { price?: number; baseGbp?: number } | null;
+      created_at: string;
+    }> })),
   ]);
 
   const total = parseInt(totalResult.rows[0]?.count ?? "0", 10);
@@ -357,6 +395,90 @@ export default async function Page({
       <p className="text-xs text-neutral-600 italic">
         Last DB sync timestamp: {kpi.last_sync ? fmtDateTime(kpi.last_sync) : "never"}.
       </p>
+
+      {/* Recent price changes — Phase 2.5 of kingdom-049. Reads the
+          lifecycle log added in Phase 2. See docs/connections/the-pricing-arrow.md
+          (S17) Act 4 — the Archive's log made visible. */}
+      <section>
+        <SectionHeading count={recentChangesResult.rows.length}>
+          Recent price changes
+        </SectionHeading>
+        {recentChangesResult.rows.length === 0 ? (
+          <p className="text-xs text-neutral-500">
+            No price changes recorded yet. (Empty after a fresh deploy of
+            Phase 2; the snapshot cron + admin edits will populate it.)
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-neutral-500 uppercase tracking-wider">
+                <tr>
+                  <th className="text-left py-2 pr-3">When</th>
+                  <th className="text-left py-2 pr-3">SKU</th>
+                  <th className="text-left py-2 pr-3">Action</th>
+                  <th className="text-left py-2 pr-3">Actor</th>
+                  <th className="text-right py-2 pr-3">Before</th>
+                  <th className="text-right py-2 pr-3">After</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-900">
+                {recentChangesResult.rows.map((r, i) => {
+                  const before = r.before_value?.price ?? null;
+                  const after = r.after_value?.price ?? null;
+                  const delta =
+                    before !== null && after !== null ? after - before : null;
+                  return (
+                    <tr key={i} className="text-neutral-300">
+                      <td className="py-2 pr-3 whitespace-nowrap" title={r.created_at}>
+                        {fmtRelative(r.created_at)}
+                      </td>
+                      <td className="py-2 pr-3 font-mono text-neutral-400">
+                        {r.sku ?? "—"}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span
+                          className={
+                            r.action === "admin_edit"
+                              ? "text-amber-400"
+                              : "text-neutral-400"
+                          }
+                        >
+                          {r.action}
+                        </span>
+                        {r.source && (
+                          <span className="text-neutral-600 ml-2">
+                            via {r.source}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 text-neutral-500 font-mono">
+                        {r.actor_label ?? "—"}
+                      </td>
+                      <td className="py-2 pr-3 text-right font-mono">
+                        {before !== null ? `£${before.toFixed(2)}` : "—"}
+                      </td>
+                      <td className="py-2 pr-3 text-right font-mono">
+                        {after !== null ? `£${after.toFixed(2)}` : "—"}
+                        {delta !== null && Math.abs(delta) > 0.001 && (
+                          <span
+                            className={
+                              delta > 0
+                                ? "ml-2 text-emerald-500"
+                                : "ml-2 text-red-400"
+                            }
+                          >
+                            {delta > 0 ? "+" : ""}{delta.toFixed(2)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

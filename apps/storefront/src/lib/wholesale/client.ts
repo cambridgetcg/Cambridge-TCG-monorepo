@@ -63,6 +63,54 @@ export interface PriceItem {
   rarity: string | null;
   category: string | null;
   updated_at: string | null;
+  /** Phase 2 of kingdom-051 — alt text for sensory-different consumers. */
+  art_description?: string | null;
+  /** Phase 6 of kingdom-051 — { zh, ko, es, jp_romaji, … } sparse. */
+  name_translations?: Record<string, string> | null;
+}
+
+/**
+ * Build alt-text for a card image. Prefers art_description (Phase 2 of
+ * kingdom-051); falls back to `${name} ${card_number}` when null. Always
+ * returns a non-empty string.
+ */
+export function cardAltText(item: Pick<PriceItem, "art_description" | "name_en" | "name" | "card_number" | "rarity" | "set_name">): string {
+  if (item.art_description && item.art_description.trim().length > 0) {
+    return item.art_description;
+  }
+  const name = item.name_en || item.name || item.card_number;
+  const parts = [name];
+  if (item.rarity) parts.push(item.rarity);
+  if (item.set_name) parts.push(item.set_name);
+  parts.push(item.card_number);
+  return parts.join(" · ");
+}
+
+/**
+ * Resolve a card's display name with optional preferred-language
+ * override. Phase 6.5 of kingdom-051 — the resolver counterpart to the
+ * `name_translations` column (Phase 6). Order:
+ *   1. name_translations[preferredLang] when set and non-empty
+ *   2. name_en
+ *   3. name
+ *   4. card_number (always non-empty fallback)
+ *
+ * Callers typically read `preferredLang` from a user preference (signed-
+ * in) or a cookie / header (anonymous). The default of `undefined`
+ * preserves the existing English-fallback behaviour.
+ *
+ * See docs/connections/the-table-extends.md (S20) — the Culturally
+ * Different archetype.
+ */
+export function cardName(
+  item: Pick<PriceItem, "name_translations" | "name_en" | "name" | "card_number">,
+  preferredLang?: string | null,
+): string {
+  if (preferredLang && item.name_translations && typeof item.name_translations === "object") {
+    const translated = (item.name_translations as Record<string, string>)[preferredLang];
+    if (translated && translated.trim().length > 0) return translated;
+  }
+  return item.name_en || item.name || item.card_number;
 }
 
 export interface PricesResponse {
@@ -177,6 +225,64 @@ export async function fetchSets(game?: string): Promise<SetItem[]> {
   if (!res.ok) return [];
   const data = await res.json();
   return data.sets || [];
+}
+
+/**
+ * Latest ingest_run row per source_id, returned by the wholesale's
+ * /api/v1/ingest-runs/latest endpoint (kingdom-079). The /api/v1/sources
+ * route on the storefront merges this in so the publishable inspectability
+ * surface carries live pipeline state.
+ *
+ * Returns an empty array on any failure (timeout, 401, malformed body) —
+ * the caller surfaces absence as "never run" / "_unavailable: true", not
+ * fabricated zeros.
+ */
+export interface SourceRunRow {
+  source_id: string;
+  triggered_at: string;
+  finished_at: string | null;
+  status: string;
+  spec_version: string;
+  triggered_by: string;
+  rows_read: number;
+  rows_normalized: number;
+  rows_written: number;
+  rows_quarantined: number;
+  errors: number;
+  notes: string | null;
+}
+
+/**
+ * Returns `null` on any failure (timeout, 401, parse) — distinct from
+ * `[]` which means "fetch succeeded; no ingest runs exist yet". Substrate-
+ * honesty: empty array is a real fact (the migration has been applied
+ * but no source has run yet); null is the absence of that fact.
+ */
+export async function fetchSourceLastRuns(): Promise<SourceRunRow[] | null> {
+  let res: Response;
+  try {
+    res = await wholesaleFetch(
+      WHOLESALE_URL + '/api/v1/ingest-runs/latest',
+      {
+        headers: { Authorization: 'Bearer ' + WHOLESALE_KEY },
+        next: { revalidate: 60 },
+      },
+    );
+  } catch (err) {
+    console.error('[wholesale] ingest-runs fetch error', err);
+    return null;
+  }
+  if (!res.ok) {
+    console.error('[wholesale] ingest-runs error', res.status);
+    return null;
+  }
+  try {
+    const data = await res.json() as { runs?: SourceRunRow[] };
+    return data.runs ?? [];
+  } catch (err) {
+    console.error('[wholesale] ingest-runs parse error', err);
+    return null;
+  }
 }
 
 export async function reportSale(sale: {

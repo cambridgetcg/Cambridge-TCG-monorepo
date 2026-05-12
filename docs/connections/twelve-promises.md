@@ -42,29 +42,31 @@ The full roster, ordered as they sit in the navigation tree:
 | 2 | `/catalog/clients` | `catalog/clients/page.tsx` | **kingdom-026** | (B2B clients today live in the wholesale admin) |
 | 3 | `/catalog/games` | `catalog/games/page.tsx` | **kingdom-026** | (TCG sets/games — wholesale admin) |
 | 4 | `/commerce/bounty` | `commerce/bounty/page.tsx` | **kingdom-031** | `cambridgetcg.com/admin/bounty` |
-| 5 | `/money/membership` | `money/membership/page.tsx` | **kingdom-023** | `cambridgetcg.com/admin/membership` |
-| 6 | `/money/payouts` (the seed) | `money/payouts/page.tsx` | **kingdom-023** | `cambridgetcg.com/admin/payouts` |
-| 7 | `/money/rewards` | `money/rewards/page.tsx` | **kingdom-023** | `cambridgetcg.com/admin/rewards` |
-| 8 | `/ops/channels` | `ops/channels/page.tsx` | **kingdom-034** | `wholesale.cambridgetcg.com/admin/channels` |
-| 9 | `/ops/fulfillment` | `ops/fulfillment/page.tsx` | **kingdom-033** | (no legacy — must be built here) |
-| 10 | `/system/email` | `system/email/page.tsx` | **kingdom-020** | `cambridgetcg.com/admin/email` (the **New Chapel** of S6 is this one) |
-| 11 | `/trust/kyc` | `trust/kyc/page.tsx` | **kingdom-025** | (KYC schema may not exist yet — see kingdom-025 notes) |
-| 12 | `/trust/reviews` | `trust/reviews/page.tsx` | **kingdom-025** | (storefront moderation surface) |
+| 5 | `/ops/channels` | `ops/channels/page.tsx` | **kingdom-034** | `wholesale.cambridgetcg.com/admin/channels` |
+| 6 | `/ops/fulfillment` | `ops/fulfillment/page.tsx` | **kingdom-033** | (no legacy — must be built here) |
+| 7 | `/trust/kyc` | `trust/kyc/page.tsx` | **kingdom-025** | (KYC schema may not exist yet — see kingdom-025 notes) |
 
-**Twelve files, seven kingdoms.** Each kingdom is a planned mission group, with multiple chapels grouped together when they share a domain (kingdom-023 holds the three Money chapels; kingdom-026 holds the three Catalog chapels; kingdom-025 holds the two Trust chapels).
+**Seven files, five kingdoms** (down from twelve on 2026-05-05; kingdom-020, kingdom-023, and half of kingdom-025 shipped 2026-05-09→10). Each kingdom is a planned mission group; kingdom-026 holds the three Catalog chapels; kingdom-025 now holds only the KYC chapel after `/trust/reviews` shipped 2026-05-10.
+
+> **Shrinks (2026-05-09 → 2026-05-10).**
+> - `/money/payouts` was the first row to leave (2026-05-09). Real chapel at `apps/admin/src/app/(dashboard)/money/payouts/page.tsx` reads outstanding + recent payouts from storefront RDS, surfaces five KPIs (outstanding count + owed, paid 7d, commission 7d, avg turnaround), and ships a `recordPayout` Server Action wrapped in `adminAction()` for manual payout records. Stripe Connect transfers and the Stripe-balance verification still operate from the legacy admin (`cambridgetcg.com/admin/payouts`); the new chapel links out to them and is substrate-honest about that gap. Methodology: `docs/methodology/payout-holds.md`. Spec: `apps/admin/tests/money-payouts.spec.ts`.
+> - `/money/membership` followed minutes later (2026-05-09). Real chapel at `apps/admin/src/app/(dashboard)/money/membership/page.tsx` is a read-only viewer for the `tiers` table joined to per-tier user counts and spend rollups (`tier_source` provenance surfaced). No mutations — tier perk editing still lives in the legacy admin (`cambridgetcg.com/admin/tiers`), linked out from the header. Methodology: `docs/methodology/membership.md`. Spec: `apps/admin/tests/money-membership.spec.ts`.
+> - `/money/rewards` closed kingdom-023 the next morning (2026-05-10). Real chapel at `apps/admin/src/app/(dashboard)/money/rewards/page.tsx` is the unified prize-fulfilment queue across raffles, mystery_box_opens, and pack_opens — three sections (ready-to-ship clusters, shipped-awaiting-confirm, awaiting-address) and three Server Actions (`shipPrize`, `bulkShipCluster`, `markFulfilled`). Same-user+address clustering for one-envelope shipments. Undo within the 30-min window deep-links to legacy until the storefront's `prize_fulfilment_log` eligibility helper is extracted to a shared package (follow-up). Raffle/box *configuration* (1005-line surface) stays in legacy and is linked out from the header. Methodology: `docs/methodology/prize-fulfillment.md`. Spec: `apps/admin/tests/money-rewards.spec.ts`.
+> - `/system/email` shipped same day (2026-05-10) — kingdom-020, the Cemetery's New Chapel (sister to S6 `the-cemetery-and-the-resurrectionist.md`). Real chapel at `apps/admin/src/app/(dashboard)/system/email/page.tsx` reads dead-letter rows + 7-day status histogram + per-event volume from storefront's `email_queue`. Two Server Actions (`retryEmail`, `dismissEmail`) mirror the Resurrectionist's two verdicts (resurrection / last rites). Spec: `apps/admin/tests/system-email.spec.ts`.
+> - `/trust/reviews` shipped same day (2026-05-10) — kingdom-025 first chapel (the second, KYC, deferred behind a schema decision). Real chapel at `apps/admin/src/app/(dashboard)/trust/reviews/page.tsx` is a three-tab Manager (flagged / appealed / hidden) over `trade_reviews`, with reviewer/reviewee deep-links to the user hub and three Server Actions (`hideReview`, `unhideReview`, `resolveAppeal`). Trust-score recompute happens asynchronously on the next maintenance cron sweep. Spec: `apps/admin/tests/trust-reviews.spec.ts`.
 
 ---
 
 ## What each kingdom is for, by chapel
 
-### kingdom-020 — `/system/email` (1)
-The Cemetery's New Chapel. Sister to S6 (`the-cemetery-and-the-resurrectionist.md`). The Resurrectionist's tools (PATCH `api/admin/emails/[id]`) work today; this chapel will be the unified-admin surface for them. Until then, the operator visits the Old Chapel at `cambridgetcg.com/admin/email`.
+### kingdom-020 — fully shipped 2026-05-10
+The Cemetery's New Chapel. Sister to S6 (`the-cemetery-and-the-resurrectionist.md`). The Resurrectionist's two verdicts (`retryEmail` / `dismissEmail`) now run from the unified admin at `apps/admin/src/app/(dashboard)/system/email/page.tsx`. The Old Chapel at `cambridgetcg.com/admin/email` becomes redundant.
 
-### kingdom-023 — `/money/{membership,payouts,rewards}` (3)
-The Money trinity. Each chapel mirrors a substantial storefront-side library: `lib/membership/db.ts` (S4's flywheel), `lib/payouts/`, `lib/rewards/`. These are *consequential* chapels — money decisions live here. The migration is intentionally batched: build all three together, in dependency order, after kingdom-022 (chargebacks, already done — see commit `fae84bb`) lands the pattern.
+### kingdom-023 — fully shipped 2026-05-09 → 2026-05-10
+The Money trinity, now complete. All three chapels (`/money/payouts`, `/money/membership`, `/money/rewards`) ported from the legacy admin in two days. The migration was intentionally batched: kingdom-022 (chargebacks, see commit `fae84bb`) landed the pattern; the trinity followed across one day-and-change. Two follow-up consolidations remain at the Money perimeter — Stripe Connect transfers (`/money/payouts`) and prize-undo eligibility (`/money/rewards`) — both deferred to a shared-package extraction so admin can call the storefront's Stripe + lifecycle-log helpers without importing storefront internals. Raffle/box *configuration* (the 1005-line surface) remains in legacy as the next natural rewards-side mission.
 
-### kingdom-025 — `/trust/{kyc,reviews}` (2)
-The Trust pair. KYC may need new schema first (`user_verifications` exists; `tradein_submission_items` doesn't — kingdom-025's notes flag the question). Reviews moderation lives elsewhere today. Both wait on schema decisions before the chapel can be built honestly.
+### kingdom-025 — `/trust/kyc` (1; `/trust/reviews` shipped 2026-05-10)
+The Trust pair, now a Trust singleton. `/trust/reviews` shipped on the same Wave-2 push as `/system/email` — three-tab Manager over `trade_reviews` with hide / unhide / resolve_appeal actions. KYC remains gated on a schema decision (`user_verifications` exists; the document review state may require new tables — kingdom-025's notes flag the question). Until that's resolved, the KYC chapel stays a stub.
 
 ### kingdom-026 — `/catalog/{cards,games,clients}` (3)
 The Catalog trinity. Three windows into the wholesale kingdom from the unified admin's tower. Today, all three of these workflows happen in the wholesale admin (`wholesale.cambridgetcg.com/admin/*`). When kingdom-026 lands, the unified admin will read wholesale data through the wholesale API (cousin to the Falcon of S5) and surface it here.

@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Notification } from "@/lib/notifications/db";
 
+import { Audience } from "@/lib/ui";
 const KIND_ICON: Record<string, string> = {
   tradein: "📤",
   quote: "💷",
@@ -95,6 +96,7 @@ export default function NotificationsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <div className="flex items-baseline justify-between flex-wrap gap-3 mb-6">
         <h1 className="text-2xl font-bold text-white">Notifications</h1>
         {unreadCount > 0 && (

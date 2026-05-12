@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatTimeUntil } from "@/lib/format";
+import { Badge, Palettes } from "@/lib/ui";
+import { Audience } from "@/lib/ui";
 import {
   CANCEL_STEPS,
   getCancelStep,
@@ -11,6 +13,14 @@ import {
   CANCEL_REASONS,
   type CancelStatus,
 } from "@/lib/market/cancel-timeline";
+
+const STATUS_LABELS: Record<CancelStatus, string> = {
+  requested: "Awaiting decision",
+  approved:  "Approved",
+  declined:  "Declined",
+  expired:   "Expired",
+  withdrawn: "Withdrawn",
+};
 
 interface CancelRow {
   id: string;
@@ -30,22 +40,6 @@ interface CancelRow {
   trade_quantity: number;
   buyer_id: string;
   seller_id: string;
-}
-
-const STATUS_BADGE: Record<CancelStatus, { label: string; className: string }> = {
-  requested: { label: "Awaiting decision", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  approved:  { label: "Approved",          className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  declined:  { label: "Declined",          className: "bg-neutral-500/15 text-neutral-300 border-neutral-500/30" },
-  expired:   { label: "Expired",           className: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
-  withdrawn: { label: "Withdrawn",         className: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
-};
-
-function timeUntil(iso: string) {
-  const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return "expired";
-  const hours = Math.floor(ms / (60 * 60 * 1000));
-  if (hours < 1) return "<1h left";
-  return `${hours}h left`;
 }
 
 export default function TradeCancelsPage() {
@@ -99,6 +93,7 @@ export default function TradeCancelsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Trade Cancellations</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Pre-payment cancel handshake. Either side can request a cancellation; the other approves or
@@ -185,7 +180,6 @@ function CancelCard({
   busy: boolean;
   onAct: (path: string, body?: object) => void;
 }) {
-  const badge = STATUS_BADGE[row.status];
   const closedCopy = getCancelClosedCopy(row.status);
   const stepKey = getCancelStep(row.status);
   const stepIdx = stepKey ? CANCEL_STEPS.indexOf(stepKey) : -1;
@@ -212,9 +206,7 @@ function CancelCard({
             })}
           </p>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${badge.className}`}>
-          {badge.label}
-        </span>
+        <Badge status={row.status} palette={Palettes.CancelStatusPalette} labels={STATUS_LABELS} />
       </div>
 
       <div className="bg-neutral-950/40 rounded p-2 mb-2">
@@ -267,7 +259,7 @@ function CancelCard({
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
         {row.status === "requested" ? (
-          <span className="text-[10px] text-neutral-500 font-mono">{timeUntil(row.expires_at)}</span>
+          <span className="text-[10px] text-neutral-500 font-mono">{formatTimeUntil(row.expires_at)} left</span>
         ) : (
           <span className="text-[10px] text-neutral-500">
             {row.resolved_at && `Resolved ${new Date(row.resolved_at).toLocaleDateString("en-GB", {

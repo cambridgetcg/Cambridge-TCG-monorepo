@@ -5,6 +5,7 @@ import CardGrid from "@/components/catalog/CardGrid";
 import CatalogFilters from "@/components/catalog/CatalogFilters";
 import SetSidebar from "@/components/catalog/SetSidebar";
 import Pagination from "@/components/catalog/Pagination";
+import { Provenance, WhyLink, Audience } from "@/lib/ui";
 import Link from "next/link";
 
 interface CatalogParams {
@@ -81,6 +82,7 @@ export default async function CatalogPage({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <Audience kind="consumer" contexts={["catalog", "browse"]} />
       {/* Level 1: Game tabs */}
       <CatalogFilters
         games={allGames}
@@ -183,10 +185,23 @@ export default async function CatalogPage({
             )}
 
             {/* Results count */}
-            <p className="text-sm text-neutral-500 mb-2">
-              Showing {Math.min(prices.count, PER_PAGE)} of{" "}
-              {prices.total.toLocaleString()} {prices.total === 1 ? "card" : "cards"}
-            </p>
+            <div className="flex items-baseline gap-3 mb-2">
+              <p className="text-sm text-neutral-500">
+                Showing {Math.min(prices.count, PER_PAGE)} of{" "}
+                {prices.total.toLocaleString()} {prices.total === 1 ? "card" : "cards"}
+              </p>
+              {prices.items.length > 0 && (
+                <>
+                  <Provenance
+                    kind="synced"
+                    source="wholesale"
+                    at={freshestUpdatedAt(prices.items)}
+                    cadence="daily"
+                  />
+                  <WhyLink href="/methodology/pricing" />
+                </>
+              )}
+            </div>
 
             <CardGrid cards={prices.items} />
             <Pagination
@@ -200,6 +215,14 @@ export default async function CatalogPage({
       )}
     </div>
   );
+}
+
+function freshestUpdatedAt(items: PriceItem[]): string | null {
+  let max: string | null = null;
+  for (const it of items) {
+    if (it.updated_at && (max === null || it.updated_at > max)) max = it.updated_at;
+  }
+  return max;
 }
 
 function buildShowAllHref(params: CatalogParams): string {

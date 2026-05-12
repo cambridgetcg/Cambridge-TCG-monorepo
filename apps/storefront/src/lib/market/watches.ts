@@ -204,7 +204,7 @@ export async function runAlertSweep(): Promise<AlertSweepResult> {
          FROM price_alerts a
          JOIN users u ON u.id = a.user_id
         WHERE a.active = true
-          AND (a.last_fired_at IS NULL OR a.last_fired_at < NOW() - INTERVAL '24 hours')
+          AND (a.last_fired_at IS NULL OR a.last_fired_at < NOW() - INTERVAL '24 hours') -- audit:cadence-platform — alert throttling, not a user deadline.
      )
      SELECT * FROM live
       WHERE (direction = 'below' AND COALESCE(best_ask, last_trade_price) IS NOT NULL

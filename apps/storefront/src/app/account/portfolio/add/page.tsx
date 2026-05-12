@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatPrice } from "@/lib/format";
 
+import { Audience } from "@/lib/ui";
 interface SearchResult {
   sku: string;
   card_name: string;
@@ -118,6 +119,7 @@ export default function AddToPortfolioPage() {
   if (!authed) {
     return (
       <div className="flex items-center justify-center py-12">
+      <Audience kind="consumer" />
         <p className="text-neutral-500">Loading...</p>
       </div>
     );

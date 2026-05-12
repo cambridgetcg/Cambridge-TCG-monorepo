@@ -1,17 +1,22 @@
 import { query, transaction } from "@/lib/db";
 import type { MarketOrder, MarketTrade, OrderBookEntry, OrderBookSummary, CardOrderBook } from "./types";
 import { COMMISSION_RATE, commissionRateForScore } from "./types";
+import { resolveCommission } from "@cambridge-tcg/pricing";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { routeTrade } from "@/lib/escrow/service-tiers";
 import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
+import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
 const DEFAULT_ORDER_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-// How long a buyer has to pay after a match before the trade auto-cancels.
-const PAYMENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Default payment window for buyers without a declared response_window_hours
+// (migration 0092 — the Asynchronous). 24h matches the historical platform
+// constant; buyers who declare a different cadence have their window apply
+// instead. See `paymentExpiresAtForBuyer` below and `lib/users/response-window.ts`.
+const DEFAULT_PAYMENT_WINDOW_HOURS = 24;
 
 // ── Lazy expiry sweep ──
 // Cheap idempotent maintenance fired from any market read. Marks orders past
@@ -292,14 +297,20 @@ export async function placeOrder(data: {
       // whichever is more favourable to the seller. Reputation earned via
       // trades AND membership earned via Platinum/spending both lower the
       // rate without one cancelling the other.
+      //
+      // Phase 6 of kingdom-049: the min(tier, trust) combine now lives in
+      // packages/pricing as `resolveCommission`. Same formula, one source.
+      // Sister site at apps/storefront/src/lib/market/lots.ts uses it too,
+      // closing a previous inconsistency where lots ignored the tier path.
       const sellerIsTaker = sellerId === data.userId;
       const sellerTierRate = sellerIsTaker ? takerTierP2pRate
         : (match.maker_p2p_rate ? parseFloat(match.maker_p2p_rate) : null);
-      const trustRate = commissionRateForScore(sellerTrust);
-      const sellerCommissionRate =
-        sellerTierRate !== null && sellerTierRate < trustRate
-          ? sellerTierRate
-          : trustRate;
+      const { rate: sellerCommissionRate, trustRate } = resolveCommission({
+        trustScore: sellerTrust,
+        tierRate: sellerTierRate,
+        kind: "p2p",
+      });
+      void trustRate; // surface for future logging; preserves naming
       const commission = Math.round(tradeValue * sellerCommissionRate * 100) / 100;
       const sellerPayout = tradeValue - commission;
 
@@ -313,7 +324,11 @@ export async function placeOrder(data: {
         condition: data.condition,
       });
 
-      const paymentExpiresAt = new Date(Date.now() + PAYMENT_WINDOW_MS).toISOString();
+      // Buyer-aware payment deadline. A buyer with a declared cadence
+      // (response_window_hours, migration 0092) gets their window;
+      // everyone else gets the platform default of 24h. See
+      // `lib/users/response-window.ts` and `docs/methodology/response-windows.md`.
+      const paymentExpiresAt = await paymentExpiresAtForBuyer(buyerId, DEFAULT_PAYMENT_WINDOW_HOURS);
 
       const tradeResult = await q(
         `INSERT INTO market_trades
@@ -588,6 +603,7 @@ export async function getMarketSummaries(filters: {
         const r = await query(
           `SELECT sku,
                   MAX(price) FILTER (WHERE rn = 1)             AS last_price,
+                  -- audit:cadence-platform — analytics window for price-chart, not a user deadline.
                   COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') AS count_24h
              FROM (
                SELECT sku, price, created_at,

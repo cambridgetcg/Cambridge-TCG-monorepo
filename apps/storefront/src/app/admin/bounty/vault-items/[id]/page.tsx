@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface LifecycleEntry {
   id: number;
   action: string;
@@ -101,6 +102,7 @@ export default function AdminVaultItemPage({ params }: { params: Promise<{ id: s
         </div>
       }
     >
+      <Audience kind="operator" />
       {!data ? (
         <p className="text-neutral-500">{loading ? "Loading..." : "Item not found."}</p>
       ) : (

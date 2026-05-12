@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
+import { Audience } from "@/lib/ui";
 type AuctionType = "english" | "dutch" | "buy_now";
 
 interface UploadedImage {
@@ -206,6 +207,7 @@ export default function NewAuctionPage() {
   if (!authed) {
     return (
       <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <Audience kind="operator" />
         <form onSubmit={handleLogin} className="w-full max-w-sm px-4">
           <h1 className="text-2xl font-bold text-white text-center mb-8">Admin</h1>
           <input

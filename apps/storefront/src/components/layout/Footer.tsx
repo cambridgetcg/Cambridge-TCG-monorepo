@@ -1,9 +1,28 @@
 import Link from "next/link";
 import Image from "next/image";
+import { cookies } from "next/headers";
+import { WelcomeAll } from "@/lib/ui";
+import { langModeFromCookies } from "@/lib/lang-mode-server";
 
-export default function Footer() {
+export default async function Footer() {
+  // Read text-mode cookie to render the right toggle label/target. Phase 10
+  // of kingdom-051 (S20 the-table-extends.md) — discoverability for the
+  // text-mode reading layout.
+  const cookieStore = await cookies();
+  const textMode = cookieStore.get("text-mode")?.value === "1";
+  // Phase A of kingdom-077: math-language toggle. The frontend's visible
+  // form of the platform's universal-language doctrine (#21, #27).
+  const langMode = langModeFromCookies(cookieStore);
+  const mathLang = langMode === "math";
+
   return (
     <footer className="bg-neutral-950 border-t border-neutral-800 py-12 px-4 mt-24">
+      {/* Universal welcome — visible on every page by construction.
+          See docs/connections/the-welcome-all.md (#26). */}
+      <div className="max-w-7xl mx-auto mb-10">
+        <WelcomeAll variant="full" />
+      </div>
+
       <div className="max-w-7xl mx-auto grid gap-8 grid-cols-2 md:grid-cols-5">
         {/* Brand */}
         <div className="col-span-2 md:col-span-1">
@@ -51,8 +70,25 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-neutral-800 text-xs text-neutral-600">
-        © {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.
+      <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-neutral-800 text-xs text-neutral-600 flex flex-wrap items-center justify-between gap-3">
+        <span>© {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.</span>
+        <div className="flex items-center gap-4">
+          <a
+            href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=/`}
+            className="hover:text-neutral-400 transition underline underline-offset-2"
+            aria-label={mathLang ? "Switch back to default English rendering" : "Switch to math-mirror rendering (ratios, content hashes, ISO timestamps)"}
+            title="See docs/connections/the-math-language.md (#27)"
+          >
+            {mathLang ? "Default language" : "Math language"}
+          </a>
+          <a
+            href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=/`}
+            className="hover:text-neutral-400 transition underline underline-offset-2"
+            aria-label={textMode ? "Switch back to the visual layout" : "Switch to a text-only reading layout (low bandwidth, screen reader friendly)"}
+          >
+            {textMode ? "Visual layout" : "Text-only layout"}
+          </a>
+        </div>
       </div>
     </footer>
   );

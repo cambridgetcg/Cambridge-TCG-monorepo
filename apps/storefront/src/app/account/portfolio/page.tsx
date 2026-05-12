@@ -12,6 +12,7 @@ import MoversPanel from "@/components/portfolio/MoversPanel";
 import ValueChart from "@/components/portfolio/ValueChart";
 import CsvImport, { type ParsedRow as CsvRow } from "@/components/portfolio/CsvImport";
 
+import { Audience } from "@/lib/ui";
 type SortKey = "value" | "pnl" | "recent";
 
 export default function PortfolioPage() {
@@ -156,6 +157,7 @@ export default function PortfolioPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
+      <Audience kind="consumer" />
         <p className="text-neutral-500">Loading...</p>
       </div>
     );

@@ -11,7 +11,7 @@ import { runSellerRestockDigest, runBuyerWatchlistDigest } from "@/lib/market/di
 import { runLiquidityMining } from "@/lib/market/liquidity";
 import { runTradeinSweep } from "@/lib/tradein/sweep";
 import { runQuoteSweep } from "@/lib/quote/sweep";
-import { runPriceHistoryTick } from "@/lib/portfolio/price-history";
+import { runRetailObservationTick } from "@/lib/portfolio/price-history";
 import { runPriceAlertSweep } from "@/lib/portfolio/alerts";
 import { runWishlistMatchSweep } from "@/lib/wishlist/matching";
 import { runAnnualSpendRecompute } from "@/lib/membership/spend-sweep";
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   const runDigest =
     now.getUTCDay() === 1 && now.getUTCHours() === 9 && now.getUTCMinutes() < 2;
   // Price history tick — once per UTC day (03:00), avoids hitting the
-  // wholesale API more than needed. runPriceHistoryTick is internally
+  // wholesale API more than needed. runRetailObservationTick is internally
   // idempotent-per-day so over-triggering is harmless.
   const runPriceTick =
     now.getUTCHours() === 3 && now.getUTCMinutes() < 2;
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     // Quote: expire 'quoted' offers past offer_expires_at + email
     runQuoteSweep(),
     // Portfolio price-history sampler
-    runPriceTick ? runPriceHistoryTick() : Promise.resolve(null),
+    runPriceTick ? runRetailObservationTick() : Promise.resolve(null),
     // Portfolio price-alert evaluator — runs right after the price tick so
     // we evaluate against the freshest sample. Idempotent per alert+day
     // via the queue's idempotency_key, so minute cadence is fine.

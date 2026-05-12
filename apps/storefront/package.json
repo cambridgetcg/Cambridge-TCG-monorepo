@@ -6,11 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@cambridge-tcg/aws": "workspace:^",
+    "@cambridge-tcg/data-ingest": "workspace:^",
+    "@cambridge-tcg/data-spec": "workspace:^",
     "@cambridge-tcg/db": "workspace:^",
+    "@cambridge-tcg/lifecycle": "workspace:^",
+    "@cambridge-tcg/pricing": "workspace:^",
     "@cambridge-tcg/stock": "workspace:^",
     "@aws-sdk/client-s3": "^3.1029.0",
     "drizzle-orm": "^0.36.0",
@@ -18,7 +23,6 @@
     "@aws-sdk/s3-request-presigner": "^3.1029.0",
     "@stripe/react-stripe-js": "^5.6.1",
     "@stripe/stripe-js": "^8.11.0",
-    "mangopay2-nodejs-sdk": "^1.62.2",
     "next": "16.2.1",
     "next-auth": "^5.0.0-beta.30",
     "nodemailer": "^8.0.5",

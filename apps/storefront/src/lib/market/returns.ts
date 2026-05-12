@@ -547,7 +547,7 @@ async function detectReturnAbuse(buyerId: string): Promise<void> {
     `SELECT COUNT(*)::int AS cnt
        FROM market_returns
       WHERE buyer_id = $1
-        AND created_at >= NOW() - INTERVAL '30 days'`,
+        AND created_at >= NOW() - INTERVAL '30 days'`, // audit:cadence-platform — anti-abuse heuristic, not a user deadline.
     [buyerId],
   );
   const cnt = r.rows[0]?.cnt ?? 0;

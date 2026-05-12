@@ -96,6 +96,7 @@ import {
   type EmailCategory,
 } from "./preferences";
 import { escapeHtml } from "./layout";
+import { isMemorialAccount } from "@/lib/users/memorial";
 
 export type SenderKey = "noreply" | "tradein" | "bounty";
 
@@ -137,7 +138,8 @@ export interface SendEmailArgs {
 export type SendResult =
   | { ok: true; messageId: string }
   | { ok: false; error: string }
-  | { ok: false; error: "suppressed_by_preference"; category: EmailCategory };
+  | { ok: false; error: "suppressed_by_preference"; category: EmailCategory }
+  | { ok: false; error: "suppressed_by_memorial"; category: EmailCategory };
 
 function stripTags(html: string): string {
   return html
@@ -173,6 +175,19 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendResult> {
   const senderKey: SenderKey = args.from ?? "noreply";
   const sender = FROM_ADDRESS[senderKey];
   const displayName = args.fromName ?? sender.displayName;
+
+  // Memorial-state check (the Departed). Fires before the preference
+  // check because memorial state is a property of the account itself —
+  // not a category preference. Only gates non-essential emails (those
+  // that pass an `unsubscribe` arg); essential sends like magic-link
+  // sign-in still go through so the named steward can access the
+  // account. See docs/connections/the-departed.md and lib/users/memorial.ts.
+  if (args.unsubscribe) {
+    const memorial = await isMemorialAccount(args.unsubscribe.userId);
+    if (memorial) {
+      return { ok: false, error: "suppressed_by_memorial", category: args.unsubscribe.category };
+    }
+  }
 
   // Preference check
   if (args.unsubscribe) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { UserMention } from "@/lib/ui";
 import type {
   PublicProfile,
   ShowcaseCard,
@@ -191,7 +192,7 @@ export default function UserProfilePage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-black text-white truncate">
-                {profile.name ?? profile.username}
+                <UserMention user={profile} form="third-person" fallback={profile.username ?? "user"} />
               </h1>
               {profile.tier_name && (
                 <span
@@ -202,6 +203,7 @@ export default function UserProfilePage() {
                   {profile.tier_name}
                 </span>
               )}
+              <UserMention user={profile} form="pronouns-only" />
             </div>
             <p className="text-neutral-500 text-sm mt-0.5">@{profile.username}</p>
             {profile.bio && (

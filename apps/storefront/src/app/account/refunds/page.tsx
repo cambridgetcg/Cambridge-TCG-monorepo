@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface Refund {
   stripe_refund_id: string;
   amount_gbp: string;
@@ -40,6 +41,7 @@ export default function AccountRefundsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-white mb-2">Refunds</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Refunds processed against payments on your account. For

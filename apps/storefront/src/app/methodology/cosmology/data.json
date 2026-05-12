@@ -1,0 +1,23 @@
+{
+  "topic": "cosmology",
+  "title": "Cosmology",
+  "url": "/methodology/cosmology",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/cosmology/summary.md",
+  "source_code": ["docs/principles/cosmology.md"],
+  "doctrine_refs": [
+    "docs/connections/the-cosmology.md",
+    "docs/principles/cosmology.md"
+  ],
+  "axes": [
+    "identity",
+    "presence",
+    "time",
+    "value",
+    "transaction",
+    "authority",
+    "knowledge",
+    "substrate"
+  ],
+  "status": "stub"
+}

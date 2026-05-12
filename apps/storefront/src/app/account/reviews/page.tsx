@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface ReceivedReview {
   id: string;
   trade_id: string;
@@ -82,6 +83,7 @@ export default function AccountReviewsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-white mb-2">My Reviews</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Reviews you&apos;ve received and given.{" "}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface DeadRow {
   id: string;
   user_id: string;
@@ -77,6 +78,7 @@ export default function AdminEmailsPage() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {err && (
           <div className="mb-4 bg-red-900/30 border border-red-700/40 text-red-300 rounded-lg px-4 py-3 text-sm">
             {err}

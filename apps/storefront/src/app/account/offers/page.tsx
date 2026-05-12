@@ -2,13 +2,25 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatTimeUntil } from "@/lib/format";
+import { Badge, Palettes, Consequences } from "@/lib/ui";
+import type { Consequence } from "@/lib/ui";
+import { Audience } from "@/lib/ui";
 import {
   OFFER_STEPS,
   getOfferStep,
   getOfferActor,
   type OfferStatus,
 } from "@/lib/market/offer-timeline";
+
+const STATUS_LABELS: Record<OfferStatus, string> = {
+  pending:   "Awaiting response",
+  countered: "Counter sent",
+  accepted:  "Accepted",
+  declined:  "Declined",
+  expired:   "Expired",
+  withdrawn: "Withdrawn",
+};
 
 interface OfferRow {
   id: string;
@@ -33,24 +45,6 @@ interface OfferRow {
   buyer_name: string | null;
   seller_username: string | null;
   seller_name: string | null;
-}
-
-const STATUS_BADGE: Record<OfferStatus, { label: string; className: string }> = {
-  pending: { label: "Awaiting response", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  countered: { label: "Counter sent", className: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  accepted: { label: "Accepted", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  declined: { label: "Declined", className: "bg-neutral-500/15 text-neutral-300 border-neutral-500/30" },
-  expired: { label: "Expired", className: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
-  withdrawn: { label: "Withdrawn", className: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
-};
-
-function timeUntil(iso: string) {
-  const ms = new Date(iso).getTime() - Date.now();
-  if (ms <= 0) return "expired";
-  const hours = Math.floor(ms / (60 * 60 * 1000));
-  if (hours < 1) return "<1h";
-  if (hours < 24) return `${hours}h left`;
-  return `${Math.floor(hours / 24)}d ${hours % 24}h left`;
 }
 
 export default function OffersPage() {
@@ -93,6 +87,7 @@ export default function OffersPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Offers</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Negotiate prices on market asks. Sellers have 48 hours to respond before an offer expires.
@@ -171,7 +166,6 @@ function OfferCard({
   busy: boolean;
   onAct: (path: string, body?: object) => void;
 }) {
-  const badge = STATUS_BADGE[offer.status];
   const stepIdx = OFFER_STEPS.indexOf(getOfferStep(offer.status));
   const actor = getOfferActor(offer.status);
   const myTurn = actor === perspective;
@@ -183,6 +177,53 @@ function OfferCard({
   const [counterPrice, setCounterPrice] = useState("");
   const [counterMessage, setCounterMessage] = useState("");
   const [showCounter, setShowCounter] = useState(false);
+
+  // Pre-action consequences confirmation (Wave 3 of the All-Aboard plan).
+  // Holds the path of the action being confirmed, or null. The Consequences
+  // pill renders while non-null; on confirm we fire the actual action.
+  const [confirming, setConfirming] = useState<null | "accept" | "accept-counter">(null);
+
+  // Compute the deltas the buyer/seller is about to commit to. Honest:
+  // commission rate is the platform default (8%); the trust delta is the
+  // standard "completed trade" credit per the methodology page. Actual
+  // tier movement requires a DB lookup the page doesn't currently do —
+  // so we surface what's stable and link to the methodology pages for the
+  // rest.
+  const COMMISSION_RATE = 0.08;
+  function consequencesFor(path: "accept" | "accept-counter"): Consequence[] {
+    const price =
+      path === "accept-counter" && offer.counter_price
+        ? parseFloat(offer.counter_price)
+        : parseFloat(offer.offer_price);
+    const qty = offer.quantity;
+    const gross = price * qty;
+    const commission = Math.round(gross * COMMISSION_RATE * 100) / 100;
+    const sellerNet = gross - commission;
+    const list: Consequence[] = [
+      {
+        label: perspective === "seller" ? "You receive (after 8% commission)" : "Seller receives",
+        delta: formatPrice(sellerNet),
+        tone: "emerald",
+        methodology: "/methodology/commission-rate",
+        detail: `Gross ${formatPrice(gross)} − ${formatPrice(commission)} commission`,
+      },
+      {
+        label: "Trust score on completion",
+        delta: "+0.4 (estimated)",
+        tone: "emerald",
+        methodology: "/methodology/trust-score",
+      },
+    ];
+    if (path === "accept-counter") {
+      list.push({
+        label: "Payment deadline",
+        delta: "your declared response window",
+        methodology: "/methodology/response-windows",
+        detail: "Default 24h; longer if you've set a custom response window.",
+      });
+    }
+    return list;
+  }
 
   return (
     <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800">
@@ -201,9 +242,7 @@ function OfferCard({
             })}
           </p>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${badge.className}`}>
-          {badge.label}
-        </span>
+        <Badge status={offer.status} palette={Palettes.OfferStatusPalette} labels={STATUS_LABELS} />
       </div>
 
       {/* Price summary */}
@@ -270,7 +309,7 @@ function OfferCard({
       <div className="flex items-center justify-between gap-2 flex-wrap">
         {offer.status === "pending" || offer.status === "countered" ? (
           <span className="text-[10px] text-neutral-500 font-mono">
-            {timeUntil(offer.expires_at)}
+            {formatTimeUntil(offer.expires_at)} left
           </span>
         ) : (
           <span className="text-[10px] text-neutral-500">
@@ -286,7 +325,7 @@ function OfferCard({
             <>
               <button
                 disabled={busy}
-                onClick={() => onAct("accept")}
+                onClick={() => setConfirming("accept")}
                 className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
               >
                 {busy ? "..." : "Accept"}
@@ -313,7 +352,7 @@ function OfferCard({
             <>
               <button
                 disabled={busy}
-                onClick={() => onAct("accept-counter")}
+                onClick={() => setConfirming("accept-counter")}
                 className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
               >
                 {busy ? "..." : "Accept counter"}
@@ -350,6 +389,42 @@ function OfferCard({
           )}
         </div>
       </div>
+
+      {/* Pre-action consequences (Wave 3 of the All-Aboard plan).
+          When the user has clicked Accept or Accept-counter, we render
+          what the action will do, with WhyLinks to the methodology pages,
+          and a final Confirm step. Transparency Ring 2 extended forward
+          in time — the Heptapod's primitive made literal on the highest-
+          stakes irreversible action the storefront offers. */}
+      {confirming && (
+        <div className="mt-3 pt-3 border-t border-neutral-800 space-y-3">
+          <Consequences items={consequencesFor(confirming)} />
+          <div className="flex gap-2 justify-end">
+            <button
+              disabled={busy}
+              onClick={() => setConfirming(null)}
+              className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => {
+                const path = confirming;
+                setConfirming(null);
+                onAct(path);
+              }}
+              className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+            >
+              {busy
+                ? "..."
+                : confirming === "accept-counter"
+                  ? "Confirm — accept counter"
+                  : "Confirm — accept offer"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Counter form (seller-only, inline) */}
       {showCounter && perspective === "seller" && offer.status === "pending" && (

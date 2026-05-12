@@ -8,6 +8,26 @@
 import { getObject } from "@cambridge-tcg/aws/s3";
 import { createS3ClientOrThrow } from "@cambridge-tcg/aws/s3";
 import ExcelJS from "exceljs";
+import { parseSkuGame as parseSkuGameCode, parseSku, canonicalizeSku } from "@/lib/sku";
+
+/**
+ * Break a SKU (canonical or legacy) into `{ cardNumber, setCode }`.
+ * Returns sensible fallbacks for non-card SKUs (sealed products, etc.).
+ */
+function decomposeSku(sku: string): { cardNumber: string; setCode: string } {
+  const canonical = canonicalizeSku(sku);
+  if (canonical) {
+    const parts = parseSku(canonical);
+    if (parts) {
+      return {
+        cardNumber: `${parts.set.toUpperCase()}-${parts.number.toUpperCase()}`,
+        setCode: parts.set.toUpperCase(),
+      };
+    }
+  }
+  // Fallback: non-card SKU (e.g. SEALED-V123-JP). Best-effort split.
+  return { cardNumber: sku, setCode: "" };
+}
 
 // Lazily initialize the S3 client. Previously called at module load, which
 // broke `next build`: collecting page data imports this module without AWS
@@ -48,22 +68,58 @@ export async function fetchPriceFeed(): Promise<CardPriceRow[]> {
     const ebayItemNumber = row.getCell(7).value?.toString() || "";
 
     if (sku && cardrushJpy > 0) {
-      // Extract card number and set code from SKU: OP-OP01-001-JP → card: OP01-001, set: OP01
-      const parts = sku.replace("OP-", "").replace("-JP", "").split("-");
-      const setCode = parts[0] || "";
-      const cardNumber = parts.length >= 2 ? `${parts[0]}-${parts[1]}` : sku;
-
-      rows.push({ sku, cardNumber, setCode, setName: setCode, cardrushJpy, gbpToJpy, ebayItemNumber });
+      // Decompose via the canonical parser — accepts either form. Falls
+      // back to the legacy string-split when the SKU doesn't parse (e.g.
+      // sealed-product SKUs that aren't in the card namespace).
+      const decomposed = decomposeSku(sku);
+      rows.push({
+        sku,
+        cardNumber: decomposed.cardNumber,
+        setCode: decomposed.setCode,
+        setName: decomposed.setCode,
+        cardrushJpy,
+        gbpToJpy,
+        ebayItemNumber,
+      });
     }
   });
 
   return rows;
 }
 
+/**
+ * Extract the game code from a SKU (canonical or legacy form).
+ *
+ * Delegates to `@/lib/sku.parseSkuGame()` which accepts both forms via
+ * `canonicalizeSku()`. Replaces the previous hand-rolled implementation
+ * that only recognised the `OP-` prefix. See
+ * `docs/connections/the-drift-reconciliation.md` (kingdom-070).
+ *
+ * Returns the registered `GameCode` (`op` / `pkm` / `mtg` / …) or
+ * `"unknown"` when the input doesn't parse as either form. The legacy
+ * return-string contract (`"onepiece"` etc.) is preserved by mapping
+ * canonical codes to legacy game names — `parseSkuGame` is called by
+ * downstream code that switches on `"onepiece"` / `"pokemon"` / …
+ */
 export function parseSkuGame(sku: string): string {
-  if (sku.startsWith("OP-")) return "onepiece";
-  // Future: PKM-, YGO-, DBS- patterns
-  return "unknown";
+  const code = parseSkuGameCode(sku);
+  switch (code) {
+    case "op":
+      return "onepiece";
+    case "pkm":
+      return "pokemon";
+    case "dbs":
+    case "dbf":
+      return "dragonball";
+    case "mtg":
+      return "mtg";
+    case "ygo":
+      return "yugioh";
+    case "unknown":
+      return "unknown";
+    default:
+      return code;
+  }
 }
 
 export interface CardPriceRow {

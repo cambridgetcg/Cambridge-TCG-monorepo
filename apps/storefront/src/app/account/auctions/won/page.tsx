@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
 
+import { Audience } from "@/lib/ui";
 // Aggregate view of everything the user has won. Bidders used to have
 // no landing page for their wins — they'd find out they won via email
 // and then had to navigate back to the specific auction URL. This page
@@ -70,6 +71,7 @@ export default function WonAuctionsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
+      <Audience kind="consumer" />
         <p className="text-neutral-500">Loading…</p>
       </div>
     );

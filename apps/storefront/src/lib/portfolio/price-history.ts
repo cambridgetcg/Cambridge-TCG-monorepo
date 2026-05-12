@@ -33,7 +33,7 @@
 // ── The integral / differential pairing ─────────────────────────────────
 //
 // portfolio_snapshots (in valuation.ts) is the integral — totals across
-// a portfolio at a point in time. card_price_history (this module) is
+// a portfolio at a point in time. retail_price_observation (this module) is
 // the differential — per-card series. The relationship between them is
 // the relationship between "your collection grew 12% this quarter" and
 // "your three Yamato/Special Posters appreciated 40% while everything
@@ -69,15 +69,24 @@ import { retailPrice } from "@/lib/pricing";
 
 // ── daily sampling cron ─────────────────────────────────────────────────
 
-export interface PriceHistoryTickResult {
+export interface RetailObservationTickResult {
   skusConsidered: number;
   captured: number;
   failed: number;
   skipped: number;
 }
 
+/** @deprecated Phase 4 of kingdom-049 renamed this to `RetailObservationTickResult`. */
+export type PriceHistoryTickResult = RetailObservationTickResult;
+
 /**
- * Upsert today's price row for each SKU that any user is tracking.
+ * Upsert today's retail-observation row for each SKU that any user is
+ * tracking. Renamed in Phase 4 of kingdom-049 — the storefront samples
+ * what the kingdom *showed customers* (retail spot, best bid, best ask);
+ * wholesale's `price_archive` records what the kingdom *computed*. Two
+ * facts, same shape, different intent.
+ *
+ * See docs/connections/the-pricing-arrow.md (S17) Act 4.
  *
  * Called from the maintenance cron. Idempotent within a day: if a row for
  * today already exists the INSERT ... ON CONFLICT DO NOTHING skips it.
@@ -85,7 +94,7 @@ export interface PriceHistoryTickResult {
  * calls after the first pass, just a cheap SELECT of the already-sampled
  * SKUs to skip them.
  */
-export async function runPriceHistoryTick(): Promise<PriceHistoryTickResult> {
+export async function runRetailObservationTick(): Promise<RetailObservationTickResult> {
   // 1. Universe of SKUs: every distinct sku in portfolio_cards. (Future:
   //    union with portfolio_price_alerts once that exists.)
   const skusRes = await query(
@@ -98,7 +107,7 @@ export async function runPriceHistoryTick(): Promise<PriceHistoryTickResult> {
 
   // 2. Which of those already have a row for today? Skip those.
   const already = await query(
-    `SELECT sku FROM card_price_history
+    `SELECT sku FROM retail_price_observation
      WHERE captured_on = CURRENT_DATE AND sku = ANY($1::text[])`,
     [universe],
   );
@@ -118,7 +127,7 @@ export async function runPriceHistoryTick(): Promise<PriceHistoryTickResult> {
       if (!card) { failed++; continue; }
       const spot = retailPrice(card.price_gbp, card.channel_price);
       await query(
-        `INSERT INTO card_price_history (sku, captured_on, spot_gbp, wholesale_gbp)
+        `INSERT INTO retail_price_observation (sku, captured_on, spot_gbp, wholesale_gbp)
          VALUES ($1, CURRENT_DATE, $2, $3)
          ON CONFLICT (sku, captured_on) DO NOTHING`,
         [sku, spot.toFixed(2), card.price_gbp],
@@ -162,13 +171,13 @@ export async function getPriceChanges(
   const rows = await query(
     `WITH latest AS (
        SELECT DISTINCT ON (sku) sku, captured_on, spot_gbp
-       FROM card_price_history
+       FROM retail_price_observation
        WHERE sku = ANY($1::text[])
        ORDER BY sku, captured_on DESC
      ),
      past AS (
        SELECT DISTINCT ON (sku) sku, captured_on, spot_gbp
-       FROM card_price_history
+       FROM retail_price_observation
        WHERE sku = ANY($1::text[])
          AND captured_on <= CURRENT_DATE - $2::int
        ORDER BY sku, captured_on DESC
@@ -204,7 +213,7 @@ export async function getPriceChanges(
 export async function getPriceSeries(sku: string, days: number = 30): Promise<Array<{ captured_on: string; spot_gbp: number }>> {
   const r = await query(
     `SELECT captured_on, spot_gbp
-     FROM card_price_history
+     FROM retail_price_observation
      WHERE sku = $1 AND captured_on >= CURRENT_DATE - $2::int
      ORDER BY captured_on ASC`,
     [sku, days],

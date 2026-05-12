@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDateTime } from "@/lib/format";
+import { Badge, Palettes } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { MarketOrder, MarketTrade, EscrowStatus } from "@/lib/market/types";
 import { DISPUTE_REASONS } from "@/lib/trust/types";
 
+import { Audience } from "@/lib/ui";
 type TradeWithRole = MarketTrade & {
   current_user_role: "buyer" | "seller";
   payment_expires_at?: string | null;
@@ -19,38 +21,17 @@ interface TradePhoto {
   created_at: string;
 }
 
-const ESCROW_BADGES: Record<EscrowStatus, { label: string; color: string }> = {
-  awaiting_payment: { label: "Awaiting Payment", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  paid: { label: "Paid", color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  awaiting_shipment: { label: "Awaiting Shipment", color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  shipped_to_ctcg: { label: "Shipped to CTCG", color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
-  received_by_ctcg: { label: "Received by CTCG", color: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  verified: { label: "Verified", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  shipped_to_buyer: { label: "Shipped to Buyer", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  completed: { label: "Completed", color: "bg-green-500/15 text-green-400 border-green-500/30" },
-  disputed: { label: "Disputed", color: "bg-red-500/15 text-red-400 border-red-500/30" },
-  refunded: { label: "Refunded", color: "bg-red-500/15 text-red-400 border-red-500/30" },
-  cancelled: { label: "Cancelled", color: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" },
-};
-
 function EscrowBadge({ status }: { status: EscrowStatus }) {
-  const badge = ESCROW_BADGES[status] || { label: status, color: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30" };
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${badge.color}`}>
-      {badge.label}
-    </span>
+    <Badge
+      status={status}
+      palette={Palettes.EscrowStatusPalette}
+      labels={Palettes.EscrowStatusLabels}
+    />
   );
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const formatDate = formatDateTime;
 
 // Payment-window countdown for awaiting_payment trades. Rendered as a
 // small pill the user can't miss — goes amber < 6h, red < 1h, neutral
@@ -246,6 +227,7 @@ export default function TradesPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-6">Trades</h1>
 
       {photosNeeded.length > 0 && (

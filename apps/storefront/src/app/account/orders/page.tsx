@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
+import { Badge, Palettes } from "@/lib/ui";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
 
+import { Audience } from "@/lib/ui";
 interface OrderItem {
   type?: string;
   sku: string;
@@ -37,28 +39,6 @@ interface Order {
   delivered_at: string | null;
   notes: string | null;
 }
-
-// Status → badge. Redemption-specific states surface alongside normal
-// checkout states so a single badge list covers every kind of order.
-const STATUS_COLORS: Record<string, string> = {
-  completed: "bg-emerald-500/20 text-emerald-400",
-  shipped: "bg-blue-500/20 text-blue-400",
-  partially_shipped: "bg-blue-500/20 text-blue-400",
-  processing: "bg-amber-500/20 text-amber-400",
-  redemption_pending: "bg-amber-500/20 text-amber-400",
-  refunded: "bg-red-500/20 text-red-400",
-  cancelled: "bg-neutral-500/20 text-neutral-400",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  completed: "Delivered",
-  shipped: "Shipped",
-  partially_shipped: "Partially shipped",
-  processing: "Processing",
-  redemption_pending: "Awaiting shipment",
-  refunded: "Refunded",
-  cancelled: "Cancelled",
-};
 
 // Carrier-specific tracking URLs come from the shared @/lib/shipping/carriers
 // module so email templates and the customer order page never drift on
@@ -106,6 +86,7 @@ export default function OrdersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
+      <Audience kind="consumer" />
         <p className="text-neutral-500">Loading...</p>
       </div>
     );
@@ -181,8 +162,6 @@ function OrderCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const statusLabel = STATUS_LABELS[order.status] ?? order.status;
-  const statusClass = STATUS_COLORS[order.status] ?? "bg-neutral-700 text-neutral-300";
   const trackUrl = buildTrackingUrl(order.carrier, order.tracking_number);
   const items = order.items || [];
 
@@ -194,12 +173,10 @@ function OrderCard({
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass}`}>
-              {statusLabel}
-            </span>
+            <Badge status={order.status} palette={Palettes.OrderStatusPalette} labels={Palettes.OrderStatusLabels} />
             <span className="text-xs text-neutral-500 font-mono">#{order.id}</span>
             <span className="text-xs text-neutral-500">
-              {new Date(order.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              {formatDate(order.created_at)}
             </span>
             {order.tracking_number && (
               <span className="text-xs text-emerald-400 font-mono truncate">✈ {order.tracking_number}</span>

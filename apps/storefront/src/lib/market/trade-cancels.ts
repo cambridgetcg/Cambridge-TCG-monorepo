@@ -297,7 +297,7 @@ async function detectTradeCancelAbuse(requesterId: string): Promise<void> {
        FROM market_trade_cancellations
       WHERE requester_id = $1
         AND status = 'approved'
-        AND resolved_at >= NOW() - INTERVAL '14 days'`,
+        AND resolved_at >= NOW() - INTERVAL '14 days'`, // audit:cadence-platform — anti-abuse heuristic, not a user deadline.
     [requesterId],
   );
   const cnt = r.rows[0]?.cnt ?? 0;

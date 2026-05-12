@@ -2,12 +2,14 @@ import { fetchPrices, type PriceItem } from "@/lib/wholesale/client";
 import { formatPrice } from "@/lib/format";
 import BuylistTable from "@/components/tradein/BuylistTable";
 import SellCartBar from "@/components/tradein/SellCartBar";
+import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import Link from "next/link";
 
 export const metadata = {
   title: "Trade In Your Cards — Cambridge TCG",
   description:
     "Sell your trading cards for cash or store credit. Competitive prices, fast payouts. Near Mint cards accepted.",
+  other: audienceMetadata("consumer", ["seller", "trade-in"]),
 };
 
 export interface BuylistItem {
@@ -106,6 +108,7 @@ export default async function TradeInPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950">
+      <Audience kind="consumer" contexts={["seller", "trade-in"]} />
       {/* Hero */}
       <section className="border-b border-neutral-800">
         <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
@@ -115,6 +118,10 @@ export default async function TradeInPage() {
           <p className="text-neutral-400 mt-3 max-w-xl">
             Get cash or store credit for your trading cards. Prices are refreshed daily but are subject to change — card markets are volatile and prices can shift even within the same day. Your final payout is locked once we review your submission and issue a formal quotation.
           </p>
+          <div className="mt-3 flex items-center gap-3 text-xs">
+            <Provenance kind="synced" source="wholesale" cadence="daily" />
+            <WhyLink href="/methodology/pricing" label="how trade-in prices work" />
+          </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-4 mt-6">
             <div className="bg-neutral-900 rounded-xl px-5 py-3">
               <p className="text-2xl font-bold text-amber-400">{cardsWanted}</p>

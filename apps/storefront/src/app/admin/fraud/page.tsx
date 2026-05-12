@@ -5,6 +5,7 @@ import type { FraudSignal, TrustProfile, ExternalRep } from "@/lib/escrow/types"
 import { TRUST_TIERS } from "@/lib/escrow/types";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 // ── Types ──
 
 type SeverityFilter = "all" | "critical" | "high" | "medium" | "low" | "resolved";
@@ -324,6 +325,7 @@ export default function AdminFraudPage() {
           disabled={loading}
           className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
+      <Audience kind="operator" />
           {loading ? "Loading..." : "Refresh"}
         </button>
       }

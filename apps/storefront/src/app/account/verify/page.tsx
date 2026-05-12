@@ -6,6 +6,7 @@ import {
   VERIFICATION_DOC_LABELS,
 } from "@/lib/trust/types";
 import type { UserVerification, VerificationDocument } from "@/lib/trust/types";
+import { Audience } from "@/lib/ui";
 import {
   VERIFICATION_TIMELINE,
   getVerificationStep,
@@ -161,6 +162,7 @@ export default function VerifyPage() {
   if (loading) {
     return (
       <div className="space-y-4">
+      <Audience kind="consumer" />
         <div className="h-8 bg-neutral-800 rounded w-48 animate-pulse" />
         <div className="h-64 bg-neutral-900 rounded-xl animate-pulse" />
       </div>

@@ -9,6 +9,7 @@ import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import { TIMELINE_STEPS, getActiveStep } from "@/lib/escrow/timeline";
 import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust/dispute-timeline";
 
+import { Audience } from "@/lib/ui";
 // ── Escrow tier display ──
 
 interface EscrowRoutingData {
@@ -49,6 +50,7 @@ function EscrowTimeline({ tier, escrowStatus }: { tier: EscrowTier; escrowStatus
 
   return (
     <div className="flex items-center gap-0 overflow-x-auto py-2">
+      <Audience kind="consumer" />
       {steps.map((step, i) => {
         const isDone = i < activeIdx;
         const isCurrent = i === activeIdx;

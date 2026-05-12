@@ -135,7 +135,7 @@ export async function getTierConfig(tier: PullTier): Promise<BountyPullTier | nu
 export async function countGlobalPullsThisWeek(tier: PullTier): Promise<number> {
   const result = await query(
     `SELECT COUNT(*)::int AS n FROM bounty_pulls
-     WHERE tier = $1 AND resolved_at >= NOW() - INTERVAL '7 days'`,
+     WHERE tier = $1 AND resolved_at >= NOW() - INTERVAL '7 days'`, // audit:cadence-platform — global rate-limit window, not a user deadline.
     [tier],
   );
   return result.rows[0]?.n ?? 0;

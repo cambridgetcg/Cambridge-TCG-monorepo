@@ -3,7 +3,18 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Badge, Palettes } from "@/lib/ui";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
+
+import { Audience } from "@/lib/ui";
+const VAULT_LABELS: Record<string, string> = {
+  reserved:  "Reserved",
+  redeemed:  "Shipped",
+  sold_back: "Sold back",
+  expired:   "Expired",
+  gifted:    "Gifted",
+  traded:    "Traded",
+};
 
 interface VaultItem {
   id: string;
@@ -45,15 +56,6 @@ const FILTERS = [
   { key: "expired", label: "Expired" },
 ] as const;
 
-const STATUS_BADGE: Record<VaultItem["status"], string> = {
-  reserved:  "bg-amber-500/20 text-amber-400",
-  redeemed:  "bg-emerald-500/20 text-emerald-400",
-  sold_back: "bg-sky-500/20 text-sky-400",
-  expired:   "bg-neutral-500/20 text-neutral-400",
-  gifted:    "bg-fuchsia-500/20 text-fuchsia-400",
-  traded:    "bg-fuchsia-500/20 text-fuchsia-400",
-};
-
 export default function AccountVaultPage() {
   const [items, setItems] = useState<VaultItem[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -75,6 +77,7 @@ export default function AccountVaultPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-white">Vault History</h1>
         <Link
@@ -160,9 +163,7 @@ function VaultItemRow({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${STATUS_BADGE[item.status]}`}>
-              {item.status.replace("_", " ")}
-            </span>
+            <Badge status={item.status} palette={Palettes.VaultStatusPalette} labels={VAULT_LABELS} />
             <span className="font-semibold text-sm truncate">{item.card_name}</span>
           </div>
           <p className="text-xs text-neutral-500 mt-0.5">

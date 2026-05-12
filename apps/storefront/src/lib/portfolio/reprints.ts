@@ -203,6 +203,7 @@ export async function listActiveReprintAnnouncements(): Promise<ReprintAnnouncem
       WHERE status = 'active'
       ORDER BY severity = 'high' DESC,
                severity = 'medium' DESC,
+               -- audit:cadence-platform — expected-release-date estimate, not a history-display window.
                COALESCE(expected_release_date, created_at::date + INTERVAL '365 days')`,
   );
   return r.rows as ReprintAnnouncement[];

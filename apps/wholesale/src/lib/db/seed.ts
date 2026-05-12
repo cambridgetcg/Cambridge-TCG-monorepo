@@ -4,6 +4,7 @@ import { hashSync } from "bcryptjs";
 import { clients, games, sets, cards } from "./schema";
 import { eq } from "drizzle-orm";
 import { calculatePrice } from "../pricing";
+import { buildSku } from "../sku";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -99,20 +100,30 @@ async function seed() {
   const allSets = await db.select({ id: sets.id, code: sets.code }).from(sets).where(eq(sets.gameId, onepieceId));
   const setIdMap = Object.fromEntries(allSets.map(s => [s.code, s.id]));
 
-  // Seed 10 sample One Piece cards
+  // Seed 10 sample One Piece cards. SKU built via `buildSku()` so the
+  // form follows SKU_FORM in the compat module (legacy today, canonical
+  // after migration 0015 + flip). See `docs/connections/the-drift-reconciliation.md`.
   const rate = 208.53;
-  const sampleCards = [
-    { cardNumber: "OP01-001", sku: "OP-OP01-001-JP", name: "Roronoa Zoro (Leader)", setCode: "OP01", setName: "Romance Dawn", jpy: 17800 },
-    { cardNumber: "OP01-002", sku: "OP-OP01-002-JP", name: "Nami", setCode: "OP01", setName: "Romance Dawn", jpy: 2500 },
-    { cardNumber: "OP01-003", sku: "OP-OP01-003-JP", name: "Usopp", setCode: "OP01", setName: "Romance Dawn", jpy: 1200 },
-    { cardNumber: "OP01-060", sku: "OP-OP01-060-JP", name: "Shanks", setCode: "OP01", setName: "Romance Dawn", jpy: 9800 },
-    { cardNumber: "OP02-001", sku: "OP-OP02-001-JP", name: "Monkey D. Luffy (Leader)", setCode: "OP02", setName: "Paramount War", jpy: 22000 },
-    { cardNumber: "OP02-002", sku: "OP-OP02-002-JP", name: "Portgas D. Ace", setCode: "OP02", setName: "Paramount War", jpy: 8500 },
-    { cardNumber: "OP03-001", sku: "OP-OP03-001-JP", name: "Boa Hancock (Leader)", setCode: "OP03", setName: "Pillars of Strength", jpy: 15000 },
-    { cardNumber: "OP03-002", sku: "OP-OP03-002-JP", name: "Crocodile", setCode: "OP03", setName: "Pillars of Strength", jpy: 6200 },
-    { cardNumber: "OP04-001", sku: "OP-OP04-001-JP", name: "Kaido (Leader)", setCode: "OP04", setName: "Kingdoms of Intrigue", jpy: 19500 },
-    { cardNumber: "OP04-044", sku: "OP-OP04-044-JP", name: "Yamato", setCode: "OP04", setName: "Kingdoms of Intrigue", jpy: 12500 },
+  const sampleCardsRaw = [
+    { setCode: "OP01", number: "001", name: "Roronoa Zoro (Leader)", setName: "Romance Dawn", jpy: 17800 },
+    { setCode: "OP01", number: "002", name: "Nami", setName: "Romance Dawn", jpy: 2500 },
+    { setCode: "OP01", number: "003", name: "Usopp", setName: "Romance Dawn", jpy: 1200 },
+    { setCode: "OP01", number: "060", name: "Shanks", setName: "Romance Dawn", jpy: 9800 },
+    { setCode: "OP02", number: "001", name: "Monkey D. Luffy (Leader)", setName: "Paramount War", jpy: 22000 },
+    { setCode: "OP02", number: "002", name: "Portgas D. Ace", setName: "Paramount War", jpy: 8500 },
+    { setCode: "OP03", number: "001", name: "Boa Hancock (Leader)", setName: "Pillars of Strength", jpy: 15000 },
+    { setCode: "OP03", number: "002", name: "Crocodile", setName: "Pillars of Strength", jpy: 6200 },
+    { setCode: "OP04", number: "001", name: "Kaido (Leader)", setName: "Kingdoms of Intrigue", jpy: 19500 },
+    { setCode: "OP04", number: "044", name: "Yamato", setName: "Kingdoms of Intrigue", jpy: 12500 },
   ];
+  const sampleCards = sampleCardsRaw.map((c) => ({
+    cardNumber: `${c.setCode}-${c.number}`,
+    sku: buildSku({ game: "op", set: c.setCode, number: c.number, lang: "ja" }),
+    name: c.name,
+    setCode: c.setCode,
+    setName: c.setName,
+    jpy: c.jpy,
+  }));
 
   for (const c of sampleCards) {
     const price = calculatePrice(c.jpy, rate);

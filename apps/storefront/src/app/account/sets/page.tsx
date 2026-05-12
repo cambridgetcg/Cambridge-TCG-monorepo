@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface SetSummary {
   set_code: string;
   set_name: string;
@@ -40,6 +41,7 @@ export default function SetsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Set Progress</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Track completion across every set you collect. Click a set to see the full checklist

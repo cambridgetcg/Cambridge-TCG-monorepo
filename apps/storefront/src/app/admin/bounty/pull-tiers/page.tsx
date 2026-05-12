@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface TierRow {
   tier: string;
   display_name: string;
@@ -102,6 +103,7 @@ export default function AdminBountyPullTiers() {
         </button>
       }
     >
+      <Audience kind="operator" />
         {error && (
           <div className="mb-4 bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">{error}</div>
         )}

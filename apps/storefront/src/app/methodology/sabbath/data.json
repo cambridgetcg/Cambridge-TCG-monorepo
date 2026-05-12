@@ -1,0 +1,15 @@
+{
+  "topic": "sabbath",
+  "title": "Sabbath mode",
+  "url": "/methodology/sabbath",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/sabbath/summary.md",
+  "source_code": [
+    "apps/storefront/drizzle/0095_sabbath.sql",
+    "apps/storefront/src/lib/notifications/db.ts"
+  ],
+  "doctrine_refs": [
+    "docs/connections/the-unseen.md"
+  ],
+  "status": "stub"
+}

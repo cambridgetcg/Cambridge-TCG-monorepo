@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface TierRarity {
   rarity: string;
   expected_pct: number;
@@ -65,6 +66,7 @@ export default function FairnessPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="public-documentation" />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Link href="/verify" className="text-xs text-neutral-500 hover:text-neutral-300">← Verification home</Link>
         <h1 className="text-2xl font-bold mt-2 mb-1">Aggregate Fairness</h1>

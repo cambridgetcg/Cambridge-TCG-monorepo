@@ -30,17 +30,17 @@ Server Actions wrapping `adminAction()`.
 | Route | Size | Legacy ref | Notes |
 |-------|------|-----------|-------|
 | `/money/chargebacks` | **S** | `storefront/admin/chargebacks/page.tsx` (176) | Two actions: `annotate`, `force_resolve`. Status enum is small. Mirror disputes pilot. |
-| `/system/email` | **S** | `storefront/admin/emails/page.tsx` | Retry / cancel actions on `email_queue`. |
+| ~~`/system/email`~~ | ~~**S**~~ | ~~`storefront/admin/emails/page.tsx`~~ | **Shipped 2026-05-10** (kingdom-020, the Cemetery's New Chapel). `apps/admin/src/app/(dashboard)/system/email/{page,_actions,_components}.tsx` — dead-letter triage + 7-day status histogram + per-event volume. Retry/dismiss via adminAction. Spec: `tests/system-email.spec.ts`. |
 | `/system/audit` | **S** | `storefront/admin/governance/page.tsx` | Read-only — list `admin_actions_log` with filter pills by action prefix. |
-| `/trust/reviews` | **S** | `storefront/admin/reviews/page.tsx` (207) | Hide / restore actions. |
-| `/money/membership` | **S** | `storefront/admin/tiers/page.tsx` | Tier definitions table; small editor. |
+| ~~`/trust/reviews`~~ | ~~**S**~~ | ~~`storefront/admin/reviews/page.tsx` (207)~~ | **Shipped 2026-05-10** (kingdom-025 first chapel). `apps/admin/src/app/(dashboard)/trust/reviews/{page,_actions,_components}.tsx` — three-tab Manager (flagged/appealed/hidden) with hide/unhide/resolve_appeal Server Actions. Reviewer + reviewee deep-link to `/catalog/users/[id]`. Trust-score recompute is async via maintenance cron. Spec: `tests/trust-reviews.spec.ts`. |
+| ~~`/money/membership`~~ | ~~**S**~~ | ~~`storefront/admin/tiers/page.tsx`~~ | **Shipped 2026-05-09** (kingdom-023). Read-only Dashboard at `apps/admin/src/app/(dashboard)/money/membership/page.tsx` — five tier cards, perks grid, source breakdown (spending/subscription/manual). Tier perk editing still in legacy. Methodology: `docs/methodology/membership.md`. Spec: `tests/money-membership.spec.ts`. |
 
 ### Tier 2 — owns nontrivial state machines
 
 | Route | Size | Legacy ref | Notes |
 |-------|------|-----------|-------|
-| `/money/payouts` | **M** | `storefront/admin/payouts/page.tsx` (336) | Hold release flow; query `payout_holds`. Existing API at `/api/admin/payouts/*` — port logic to Server Actions. |
-| `/money/rewards` | **M** | `storefront/admin/{prizes,rewards}/page.tsx` | Bulk-ship + undo. Two related domains worth grouping. |
+| ~~`/money/payouts`~~ | ~~**M**~~ | ~~`storefront/admin/payouts/page.tsx` (336)~~ | **Shipped 2026-05-09** (kingdom-023). New chapel: `apps/admin/src/app/(dashboard)/money/payouts/{page,_actions,_components}.tsx`. Manual record-payout fully migrated; Stripe Connect transfers + balance still in legacy. Methodology: `docs/methodology/payout-holds.md`. Spec: `tests/money-payouts.spec.ts`. |
+| ~~`/money/rewards`~~ | ~~**M**~~ | ~~`storefront/admin/{prizes,rewards}/page.tsx`~~ | **Shipped 2026-05-10** (kingdom-023, closes the Money trinity). Prize fulfilment queue at `apps/admin/src/app/(dashboard)/money/rewards/{page,_actions,_components}.tsx` with three sections + ship/bulk-ship/markFulfilled actions. Same-user+address clustering. Undo deep-links to legacy (eligibility helper still in storefront). Raffle/box config NOT migrated — stays in legacy. Methodology: `docs/methodology/prize-fulfillment.md`. Spec: `tests/money-rewards.spec.ts`. |
 | `/ops/channels` | **M** | `wholesale/admin/channel-pricing/page.tsx` (226) | Per-channel margin rules. |
 | `/catalog/games` | **M** | `wholesale/admin/games/page.tsx` (310) | Game/set CRUD. |
 | `/catalog/clients` | **M** | `wholesale/admin/clients/page.tsx` (221) | B2B client editor. |

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface Chargeback {
   stripe_dispute_id: string;
   amount_gbp: string;
@@ -76,6 +77,7 @@ export default function AccountChargebacksPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-white mb-2">Chargebacks</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Bank disputes filed against charges on your account. If anything here is unexpected, contact{" "}

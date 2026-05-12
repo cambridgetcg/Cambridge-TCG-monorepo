@@ -30,6 +30,7 @@
 import Link from "next/link";
 import { query } from "@/lib/db";
 
+import { Audience } from "@/lib/ui";
 export const metadata = {
   title: "Fairness chain | Cambridge TCG",
   description:
@@ -83,6 +84,7 @@ export default async function ChainPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="public-documentation" />
       <div className="max-w-4xl mx-auto px-4 py-12">
         <Link href="/verify" className="text-sm text-neutral-400 hover:text-white mb-6 inline-block">
           &larr; Back to Verify

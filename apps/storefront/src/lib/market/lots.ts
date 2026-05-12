@@ -3,10 +3,15 @@
 // (fixed-price listing, buy-whole-or-none).
 
 import { query, transaction } from "@/lib/db";
-import { commissionRateForScore } from "./types";
+import { resolveCommission } from "@cambridge-tcg/pricing";
 import { logLotTransition } from "./lot-lifecycle-log";
+import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 
-const PAYMENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Default payment window when the buyer hasn't declared a response cadence.
+// 24h matches the historical platform constant. Buyers with a declared
+// response_window_hours (migration 0092 — the Asynchronous) get that
+// window instead. See `lib/users/response-window.ts`.
+const DEFAULT_PAYMENT_WINDOW_HOURS = 24;
 
 export interface LotItem {
   sku: string;
@@ -188,17 +193,33 @@ export async function beginLotPurchase(data: {
       return { ok: false as const, error: "You can't buy your own lot" };
     }
 
-    // Seller trust → commission rate (same flywheel as market_trades)
-    const sellerTrustRes = await q(
-      `SELECT trust_score FROM users WHERE id = $1`,
+    // Seller trust + tier → commission rate. Phase 6 of kingdom-049
+    // closed a real inconsistency: prior to this, lots.ts used only
+    // trust score, while market/db.ts used min(tier, trust). A Platinum
+    // seller listing a lot did not get their tier discount. Now both
+    // paths use the same resolver; the rate a lot trade is charged
+    // matches what the user-detail hub shows. See
+    // docs/connections/the-pricing-arrow.md (S17) — the arrow now
+    // covers commissions, not just retail prices.
+    const sellerRow = await q(
+      `SELECT u.trust_score, t.p2p_commission_rate AS tier_rate
+         FROM users u
+         LEFT JOIN tiers t ON t.id = u.tier_id
+        WHERE u.id = $1`,
       [lot.seller_user_id]
     );
-    const trust = sellerTrustRes.rows[0]?.trust_score ?? 0;
-    const rate = commissionRateForScore(trust);
+    const trustScore = sellerRow.rows[0]?.trust_score ?? 0;
+    const tierRate = sellerRow.rows[0]?.tier_rate != null
+      ? parseFloat(sellerRow.rows[0].tier_rate)
+      : null;
+    const { rate } = resolveCommission({ trustScore, tierRate, kind: "p2p" });
+    const trust = trustScore; // back-compat for the lifecycle-log metadata below
     const price = parseFloat(lot.price);
     const commission = Math.round(price * rate * 100) / 100;
     const sellerPayout = price - commission;
-    const paymentExpiresAt = new Date(Date.now() + PAYMENT_WINDOW_MS).toISOString();
+    // Buyer-aware payment deadline. response_window_hours overrides the
+    // 24h platform default when the buyer has declared a cadence.
+    const paymentExpiresAt = await paymentExpiresAtForBuyer(data.buyerId, DEFAULT_PAYMENT_WINDOW_HOURS);
 
     const tradeRes = await q(
       `INSERT INTO market_lot_trades

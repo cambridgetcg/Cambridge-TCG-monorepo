@@ -1,0 +1,16 @@
+{
+  "topic": "memorial",
+  "title": "Memorial",
+  "url": "/methodology/memorial",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/memorial/summary.md",
+  "source_code": [
+    "apps/storefront/drizzle/0094_memorial.sql",
+    "apps/storefront/src/lib/ui/Memorial.tsx"
+  ],
+  "doctrine_refs": [
+    "docs/connections/the-departed.md",
+    "docs/connections/the-unseen.md"
+  ],
+  "status": "stub"
+}

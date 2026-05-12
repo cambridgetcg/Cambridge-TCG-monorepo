@@ -9,6 +9,12 @@ import { query } from "@/lib/db";
 import { registerQueueHandler, type QueueHandlerResult, type QueueRow } from "../queue";
 import { renderLayout, escapeHtml } from "../layout";
 import { sendEmail } from "../send";
+import { DEFAULTS } from "@cambridge-tcg/pricing";
+
+// Trade-in-credit margin multiplier — single source via @cambridge-tcg/pricing.
+// Phase 1 of kingdom-049 replaced the hard-coded × 0.77 here. Phase 3 will
+// make `channel_pricing` table authoritative and drop silent JS fallback.
+const TRADEIN_CREDIT_MULT = DEFAULTS["tradein-credit"]!.marginMultiplier;
 
 interface Data {
   vaultItemId: string;
@@ -38,7 +44,7 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
     Math.floor((new Date(v.expires_at).getTime() - Date.now()) / 86400000),
   );
   const spot = parseFloat(v.spot_price_gbp);
-  const sellBack = Number((spot * 0.77).toFixed(2));
+  const sellBack = Number((spot * TRADEIN_CREDIT_MULT).toFixed(2));
   const greeting = v.name ? escapeHtml(v.name) : "there";
   const expiresDate = new Date(v.expires_at).toLocaleDateString("en-GB", {
     day: "numeric", month: "long", year: "numeric",

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# commit-msg — cooperative Sophia-trace check for the Creation doctrine.
+#
+# Reads the staged commit message and warns (or refuses, if STRICT=1) when
+# the trailer is missing the `Co-Authored-By:` line that the Creation
+# doctrine requires for every meaningful commit.
+#
+# Enable for this repo:
+#   git config core.hooksPath .githooks
+#
+# Strict mode (refuse the commit on trace miss):
+#   SOPHIA_STRICT=1 git commit ...
+#   # Or persistently:
+#   git config sophia.strict true
+#
+# Trivial patterns (typo / merge / bump / revert / wip / chore / fixup / squash)
+# are exempt — same shape as the creation audit (apps/admin/scripts/creation.ts).
+#
+# Shaping follow-up of kingdom-050. See docs/principles/creation.md.
+
+set -e
+
+MSG_FILE="$1"
+if [ ! -f "$MSG_FILE" ]; then
+  exit 0
+fi
+
+MSG=$(cat "$MSG_FILE")
+SUBJECT=$(echo "$MSG" | head -1)
+
+# Skip merge commits — they carry no agent intent.
+if echo "$SUBJECT" | grep -qE '^Merge (branch|pull request|remote-tracking|tag)'; then
+  exit 0
+fi
+
+# Skip trivial patterns.
+TRIVIAL_RE='^(typo|merge|bump|revert|wip|chore|fixup|squash|rebase)([:! (].*)?$'
+if echo "$SUBJECT" | grep -qiE "$TRIVIAL_RE"; then
+  exit 0
+fi
+
+# Skip commits that are entirely empty (someone aborting via empty message).
+if [ -z "$(echo "$MSG" | grep -v '^#')" ]; then
+  exit 0
+fi
+
+# Check for Co-Authored-By trailer.
+if echo "$MSG" | grep -qE '^Co-Authored-By:'; then
+  exit 0
+fi
+
+# Determine strict mode.
+STRICT="${SOPHIA_STRICT:-}"
+if [ -z "$STRICT" ]; then
+  STRICT=$(git config --get sophia.strict 2>/dev/null || true)
+fi
+
+# Build the message.
+WARN=$(cat <<'EOF'
+⚠️  commit-msg: Co-Authored-By trailer missing.
+
+The Creation doctrine (docs/principles/creation.md) asks every meaningful
+commit to carry a Sophia trace in the trailer:
+
+    Co-Authored-By: Claude <model-tag> <noreply@anthropic.com>
+
+(Replace <model-tag> with your model id, e.g. "Opus 4.7 (1M context)".)
+
+Trivial commits (typo / merge / bump / revert / wip / chore / fixup) are exempt.
+
+To skip this check once: git commit --no-verify ...
+To skip in this shell:    SOPHIA_STRICT=0 git commit ...
+EOF
+)
+
+if [ "$STRICT" = "1" ] || [ "$STRICT" = "true" ]; then
+  echo "$WARN" >&2
+  echo "" >&2
+  echo "❌ Commit refused (SOPHIA_STRICT=1 or sophia.strict=true)." >&2
+  echo "   Re-run with the trailer added, or pass --no-verify." >&2
+  exit 1
+fi
+
+echo "$WARN" >&2
+echo "" >&2
+echo "↳ Commit accepted anyway (cooperative mode). Set SOPHIA_STRICT=1 to refuse." >&2
+exit 0

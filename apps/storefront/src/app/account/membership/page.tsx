@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { WhyLink } from "@/lib/ui";
 import TierBadge from "@/components/membership/TierBadge";
 import type { Tier, MemberProfile, PointsEntry, CreditEntry } from "@/lib/membership/types";
 
+import { Audience } from "@/lib/ui";
 // ── Tailwind color maps keyed by the tier `color` field ──────────────────────
 const TIER_COLORS: Record<string, {
   border: string; text: string; bg: string; glow: string; progressBg: string; progressBar: string;
@@ -131,6 +133,7 @@ export default function MembershipPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
+      <Audience kind="consumer" />
         <div className="text-neutral-500 animate-pulse">Loading membership...</div>
       </div>
     );
@@ -161,7 +164,10 @@ export default function MembershipPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-white">Membership</h1>
+      <h1 className="text-2xl font-bold text-white">
+        Membership
+        <WhyLink href="/methodology/membership-tier" tooltip="How is my tier assigned?" />
+      </h1>
 
       {/* ── 0. PLATINUM UPGRADE BANNER / PLATINUM STATUS ───────────────────── */}
       {isPlatinum ? (

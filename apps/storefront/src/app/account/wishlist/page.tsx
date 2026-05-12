@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import WishlistCsvImport, { type ParsedWishRow } from "@/components/wishlist/CsvImport";
 
+import { Audience } from "@/lib/ui";
 interface WishlistItem {
   id: string;
   sku: string | null;
@@ -180,6 +181,7 @@ export default function WishlistPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="consumer" />
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
           <div>

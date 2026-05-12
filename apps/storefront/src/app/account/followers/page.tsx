@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { FollowList } from "@/components/social/FollowList";
 
+import { Audience } from "@/lib/ui";
 export default function FollowersPage() {
   return (
     <div>
+      <Audience kind="consumer" />
       <div className="mb-6">
         <h1 className="text-2xl font-black text-white">Followers</h1>
         <p className="text-neutral-500 text-sm mt-1">

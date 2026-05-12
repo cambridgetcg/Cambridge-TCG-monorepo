@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface ChecklistCard {
   set_code: string;
   card_number: string;
@@ -57,6 +58,7 @@ export default function SetDetailPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
+      <Audience kind="consumer" />
         <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );

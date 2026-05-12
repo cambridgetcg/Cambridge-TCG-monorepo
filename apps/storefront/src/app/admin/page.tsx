@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
 
+import { Audience } from "@/lib/ui";
 interface Queues {
   tradeinsPending: number;
   tradeinsAwaitingPay: number;
@@ -42,6 +43,7 @@ export default function AdminHome() {
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-neutral-800 text-sm rounded-lg hover:bg-neutral-700 transition"
         >
+      <Audience kind="operator" />
           Refresh
         </button>
       }

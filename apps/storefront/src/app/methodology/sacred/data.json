@@ -1,0 +1,16 @@
+{
+  "topic": "sacred",
+  "title": "Sacred cards",
+  "url": "/methodology/sacred",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/sacred/summary.md",
+  "source_code": [
+    "apps/storefront/drizzle/0096_sacred.sql",
+    "apps/storefront/src/lib/portfolio/valuation.ts",
+    "apps/storefront/src/app/api/portfolio/cards/[id]/sacred/route.ts"
+  ],
+  "doctrine_refs": [
+    "docs/connections/the-unseen.md"
+  ],
+  "status": "stub"
+}

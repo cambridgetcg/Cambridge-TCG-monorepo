@@ -17,6 +17,7 @@ import { query } from "@/lib/db";
 import { notify } from "@/lib/notifications/db";
 import { canTrade } from "@/lib/escrow/trust-engine";
 import { formatPrice } from "@/lib/format";
+import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 import type { MarketTrade } from "./types";
 import type { OfferStatus } from "./offer-timeline";
 import { logOfferTransition } from "./offer-lifecycle-log";
@@ -50,7 +51,36 @@ export interface MarketOffer {
 
 type Result<T> = { ok: true; value: T } | { ok: false; reason: string; status: number };
 
-const OFFER_TTL_MS = 48 * 60 * 60 * 1000;
+// Per-seller offer-response window. The seller's `response_window_hours`
+// (migration 0092, the Asynchronous's column) governs how long they have
+// to accept / decline / counter an offer before it auto-expires. Default
+// 48h preserves the historical platform constant for every user who
+// hasn't explicitly declared a slower cadence.
+//
+// See `docs/methodology/response-windows.md` for the customer-facing
+// recipe; `docs/connections/the-other-minds.md` (the Asynchronous) for
+// the architectural framing; `pnpm audit:inclusion` for adoption.
+const DEFAULT_OFFER_TTL_HOURS = 48;
+
+async function offerTtlMsForSeller(sellerId: string): Promise<number> {
+  const r = await query(
+    `SELECT response_window_hours FROM users WHERE id = $1`,
+    [sellerId],
+  );
+  const hours =
+    (r.rows[0]?.response_window_hours as number | undefined) ?? DEFAULT_OFFER_TTL_HOURS;
+  return hours * 60 * 60 * 1000;
+}
+
+// Buyer's payment-deadline window after an offer is accepted. The
+// Asynchronous's column applies on this side too: a buyer who has
+// declared a 168h cadence gets that window to pay; the platform's
+// historical 24h default applies for everyone who hasn't.
+//
+// Wave 2 of the All-Aboard plan (kingdom-051). Replaces the two literal
+// NOW-plus-24h writes below with a buyer-aware ISO timestamp computed
+// via the shared `@/lib/users/response-window` helper.
+const DEFAULT_PAYMENT_WINDOW_HOURS = 24;
 
 // ── Internal: fetch + lock the offer for a state-mutating call ──
 // Returns the row or a typed error so callers don't need to repeat
@@ -152,7 +182,13 @@ export async function makeOffer(input: {
     };
   }
 
-  const expiresAt = new Date(Date.now() + OFFER_TTL_MS).toISOString();
+  // Resolve the seller's response window. A seller who has declared a
+  // slow-clock cadence (e.g. 168h for "a week") gets a longer offer
+  // TTL; the buyer's UI shows the actual `expires_at`, so the gap is
+  // visible. Default 48h matches the historical platform constant.
+  const ttlMs = await offerTtlMsForSeller(ask.user_id);
+  const ttlHours = Math.round(ttlMs / (60 * 60 * 1000));
+  const expiresAt = new Date(Date.now() + ttlMs).toISOString();
   const inserted = await query(
     `INSERT INTO market_offers
        (ask_order_id, buyer_id, seller_id, offer_price, quantity, message, expires_at)
@@ -169,13 +205,18 @@ export async function makeOffer(input: {
   );
   const buyer = buyerRow.rows[0];
   const buyerLabel = buyer?.username ? `@${buyer.username}` : (buyer?.name || "A buyer");
+  const windowLabel = ttlHours === DEFAULT_OFFER_TTL_HOURS
+    ? "48h"
+    : ttlHours % 24 === 0
+      ? `${ttlHours / 24} day${ttlHours === 24 ? "" : "s"}`
+      : `${ttlHours}h`;
   await notify({
     userId: ask.user_id,
     kind: "offer.received",
     title: `${buyerLabel} offered ${formatPrice(input.offerPrice)} on ${ask.card_name || ask.sku}`,
     body: input.message
       ? input.message.slice(0, 160)
-      : `Your ask was ${formatPrice(parseFloat(ask.price))}. You have 48h to respond.`,
+      : `Your ask was ${formatPrice(parseFloat(ask.price))}. You have ${windowLabel} to respond.`,
     linkUrl: "/account/offers",
     referenceType: "market_offer",
     referenceId: `${offer.id}:received`,
@@ -283,16 +324,17 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
   const commission = Math.round(offerValue * 0.08 * 100) / 100;
   const sellerPayout = offerValue - commission;
 
+  const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
   const tradeRow = await query(
     `INSERT INTO market_trades
        (bid_order_id, ask_order_id, buyer_id, seller_id, sku, price, quantity,
         commission_amount, seller_payout, escrow_status, payment_expires_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'awaiting_payment',
-             NOW() + INTERVAL '24 hours')
+             $10::timestamptz)
      RETURNING *`,
     [synthBid.rows[0].id, ask.id, offer.buyer_id, sellerId,
      ask.sku, offer.offer_price, offer.quantity,
-     commission.toFixed(2), sellerPayout.toFixed(2)],
+     commission.toFixed(2), sellerPayout.toFixed(2), paymentExpiresAt],
   );
   const trade = tradeRow.rows[0] as MarketTrade;
 
@@ -501,16 +543,17 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
   const commission = Math.round(value * 0.08 * 100) / 100;
   const sellerPayout = value - commission;
 
+  const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
   const tradeRow = await query(
     `INSERT INTO market_trades
        (bid_order_id, ask_order_id, buyer_id, seller_id, sku, price, quantity,
         commission_amount, seller_payout, escrow_status, payment_expires_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'awaiting_payment',
-             NOW() + INTERVAL '24 hours')
+             $10::timestamptz)
      RETURNING *`,
     [synthBid.rows[0].id, ask.id, offer.buyer_id, offer.seller_id,
      ask.sku, offer.counter_price, offer.quantity,
-     commission.toFixed(2), sellerPayout.toFixed(2)],
+     commission.toFixed(2), sellerPayout.toFixed(2), paymentExpiresAt],
   );
   const trade = tradeRow.rows[0] as MarketTrade;
 
@@ -621,11 +664,15 @@ export async function expireOffers(): Promise<{ expired: number }> {
       [row.ask_order_id],
     );
     const label = askInfo.rows[0]?.card_name || askInfo.rows[0]?.sku || "ask";
+    // Note: "within the seller's response window" — not "48h" — since
+    // the seller may have declared a custom window via the Asynchronous's
+    // column (migration 0092). The expires_at on the offer row is the
+    // substrate-honest source for the actual window.
     await notify({
       userId: row.buyer_id,
       kind: "offer.expired",
       title: `Offer expired on ${label}`,
-      body: `Your ${formatPrice(parseFloat(row.offer_price))} offer wasn't responded to within 48h.`,
+      body: `Your ${formatPrice(parseFloat(row.offer_price))} offer wasn't responded to in time.`,
       linkUrl: "/account/offers",
       referenceType: "market_offer",
       referenceId: `${row.id}:expired`,
@@ -650,6 +697,7 @@ async function detectOfferLowballAbuse(buyerId: string): Promise<void> {
        JOIN market_offers o ON o.id = log.offer_id
       WHERE log.action = 'created'
         AND o.buyer_id = $1
+        -- audit:cadence-platform — fraud heuristic window, not a user-response deadline.
         AND log.created_at >= NOW() - INTERVAL '7 days'
         AND COALESCE((log.metadata->>'offer_pct_of_ask')::int, 100) <= 30`,
     [buyerId],

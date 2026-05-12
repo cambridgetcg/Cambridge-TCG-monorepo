@@ -38,7 +38,7 @@ export async function runLiquidityMining(): Promise<LiquidityMiningResult> {
        SELECT sku,
               (SUM(price::numeric * quantity) / NULLIF(SUM(quantity), 0))::numeric AS vwap
          FROM market_trades
-        WHERE created_at > NOW() - INTERVAL '30 days'
+        WHERE created_at > NOW() - INTERVAL '30 days' -- audit:cadence-platform
           AND escrow_status <> 'cancelled'
         GROUP BY sku
      ),

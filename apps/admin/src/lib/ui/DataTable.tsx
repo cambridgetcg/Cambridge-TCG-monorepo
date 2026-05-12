@@ -16,8 +16,10 @@ export type Align = "left" | "right" | "center";
 export interface Column<T> {
   /** Stable id for React keys. */
   key: string;
-  /** Header content — usually a string. */
-  header: React.ReactNode;
+  /** Header content — usually a string. Sister-compatible alias: `label`. */
+  header?: React.ReactNode;
+  /** Alias for `header` — sister chapels may use this name. One must be set. */
+  label?: React.ReactNode;
   align?: Align;
   /** Tailwind classes appended to the <td>. */
   cellClass?: string;
@@ -35,6 +37,8 @@ interface DataTableProps<T> {
   rowKey: (row: T, index: number) => string | number;
   /** Empty-state message. Use <EmptyState /> if you want a full block. */
   emptyMessage?: string;
+  /** Alias for `emptyMessage` — sister chapels may use this name. */
+  empty?: string;
   /** Min-width for horizontal-scroll on narrow viewports. */
   minWidth?: number;
   /** Optional row click target. If returned, the row gets a hover cursor. */
@@ -51,10 +55,12 @@ export function DataTable<T>({
   columns,
   rows,
   rowKey,
-  emptyMessage = "No rows.",
+  emptyMessage,
+  empty,
   minWidth = 600,
   rowHref,
 }: DataTableProps<T>) {
+  const emptyText = emptyMessage ?? empty ?? "No rows.";
   return (
     <div className="rounded-xl border border-neutral-800 overflow-hidden">
       <div className="overflow-x-auto">
@@ -71,7 +77,7 @@ export function DataTable<T>({
                     col.headerClass ?? "",
                   ].join(" ")}
                 >
-                  {col.header}
+                  {col.header ?? col.label}
                 </th>
               ))}
             </tr>
@@ -83,7 +89,7 @@ export function DataTable<T>({
                   colSpan={columns.length}
                   className="px-4 py-8 text-center text-neutral-500 text-sm border-t border-neutral-800"
                 >
-                  {emptyMessage}
+                  {emptyText}
                 </td>
               </tr>
             ) : (

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 
+import { Audience } from "@/lib/ui";
 interface Watch {
   sku: string;
   card_name: string | null;
@@ -58,6 +59,7 @@ export default function WatchlistPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-6">Watchlist</h1>
 
       <div className="flex gap-1 bg-neutral-900 rounded-lg p-1 mb-6 w-fit">

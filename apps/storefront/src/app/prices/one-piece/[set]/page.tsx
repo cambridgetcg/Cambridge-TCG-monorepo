@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchPrices, fetchSets } from "@/lib/wholesale/client";
+import { fetchPrices, fetchSets, type PriceItem } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { formatPrice } from "@/lib/format";
+import { Provenance, WhyLink } from "@/lib/ui";
+
+function freshestUpdate(items: PriceItem[]): string | null {
+  let max: string | null = null;
+  for (const it of items) {
+    if (it.updated_at && (max === null || it.updated_at > max)) max = it.updated_at;
+  }
+  return max;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -190,6 +199,15 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
           <h1 className="text-3xl font-bold text-white mb-2">
             {setCode} {setName} — Price Guide
           </h1>
+          <div className="mb-4 flex items-center gap-3 text-xs">
+            <Provenance
+              kind="synced"
+              source="wholesale"
+              at={freshestUpdate(cardsData.items)}
+              cadence="daily"
+            />
+            <WhyLink href="/methodology/pricing" label="how prices work" />
+          </div>
           <p className="text-neutral-300 leading-relaxed max-w-3xl mb-4">
             Complete price list for {setName} ({setCode}) from the One Piece
             Trading Card Game. All {cardCount} cards are listed below, sorted by

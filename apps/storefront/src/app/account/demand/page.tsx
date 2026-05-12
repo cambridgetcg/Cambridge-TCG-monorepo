@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 
+import { Audience } from "@/lib/ui";
 interface DemandRow {
   sku: string;
   cardName: string | null;
@@ -32,6 +33,7 @@ export default function DemandSignalsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Demand signals</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Cards buyers are watching and alerting on, weighted against current ask depth.

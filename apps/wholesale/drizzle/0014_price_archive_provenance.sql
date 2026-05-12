@@ -1,0 +1,151 @@
+-- Migration 0014 — protocol-aligned provenance on price_archive,
+-- plus ingest_run + ingest_quarantine tables.
+--
+-- Status: PROMOTED to active path 2026-05-12. `pnpm db:migrate` applies it.
+-- The `.draft` twin in apps/wholesale/drizzle/drafts/ is kept as the
+-- design-history copy; this file is the canonical truth.
+--
+-- Designed in `docs/connections/the-cardrush-alignment.md` kingdom-066.
+-- Closes leaks #2 (no source column), #4 (no ingest_run row), #5 (no
+-- quarantine), #7 (cross-day overwrite — partial: source becomes part of
+-- uniqueness), and #12 (no source_url) from `docs/connections/the-archive.md`.
+--
+-- After applying, `apps/wholesale/src/lib/price-snapshot-v2.ts` (also
+-- designed in the alignment doc) becomes wirable; the legacy
+-- `price-snapshot.ts` continues to work because the new columns are NULLABLE
+-- with defaults (legacy writes use the default 'cardrush' source).
+
+-- ── Phase 1 — provenance columns on price_archive ────────────────────────
+
+ALTER TABLE price_archive
+  ADD COLUMN IF NOT EXISTS source           text     NOT NULL DEFAULT 'cardrush',
+  ADD COLUMN IF NOT EXISTS source_url       text,
+  ADD COLUMN IF NOT EXISTS ingest_run_id    bigint,
+  ADD COLUMN IF NOT EXISTS error_reason     text,
+  -- The currency the cardrush_jpy column already implies. Recording it
+  -- explicitly so future multi-currency sources (TCGplayer USD, Cardmarket EUR)
+  -- can co-exist without column reuse.
+  ADD COLUMN IF NOT EXISTS source_currency  text     NOT NULL DEFAULT 'JPY',
+  -- Each source declares whether redistribution downstream is permitted.
+  -- Propagates into the data-pantry envelope's _meta.source_license array.
+  ADD COLUMN IF NOT EXISTS source_redistribute boolean NOT NULL DEFAULT false;
+
+-- ── Phase 2 — widen the unique key to include source ─────────────────────
+-- The previous index (card_id, snapshot_date) collapsed multi-source rows.
+-- The new index permits one row per (card_id, snapshot_date, source) — so
+-- TCGplayer + Cardmarket + CardRush prices for the same card on the same
+-- day are all preserved, distinguishable by source.
+
+DROP INDEX IF EXISTS price_archive_card_date_idx;
+
+CREATE UNIQUE INDEX IF NOT EXISTS price_archive_card_date_source_idx
+  ON price_archive(card_id, snapshot_date, source);
+
+-- ── Phase 3 — the ingest_run table (Stage 7 of the-pipeline.md) ─────────
+
+CREATE TABLE IF NOT EXISTS ingest_run (
+  id              bigserial PRIMARY KEY,
+  -- Stable source id; matches data-spec SourceName + the `_meta.sources` strings.
+  source_id       text NOT NULL,
+  -- data-spec spec_version at the moment the run was triggered.
+  spec_version    text NOT NULL,
+  -- How the run was triggered: 'cron', 'admin', 'webhook'.
+  triggered_by    text NOT NULL,
+  triggered_at    timestamptz NOT NULL DEFAULT now(),
+  finished_at     timestamptz,
+  -- Lifecycle: 'running' → 'done' / 'failed' / 'aborted'.
+  status          text NOT NULL DEFAULT 'running',
+  rows_read       int NOT NULL DEFAULT 0,
+  rows_normalized int NOT NULL DEFAULT 0,
+  rows_written    int NOT NULL DEFAULT 0,
+  rows_quarantined int NOT NULL DEFAULT 0,
+  errors          int NOT NULL DEFAULT 0,
+  -- IngestEvent[] from packages/data-ingest/src/types.ts.
+  events          jsonb,
+  -- Operator notes (manual overrides, context).
+  notes           text
+);
+
+CREATE INDEX IF NOT EXISTS ingest_run_source_recent_idx
+  ON ingest_run(source_id, triggered_at DESC);
+
+CREATE INDEX IF NOT EXISTS ingest_run_status_idx
+  ON ingest_run(status, triggered_at DESC)
+  WHERE status IN ('running', 'failed');
+
+-- ── Phase 4 — the ingest_quarantine table (Stage 4 of the-pipeline.md) ──
+
+CREATE TABLE IF NOT EXISTS ingest_quarantine (
+  id              bigserial PRIMARY KEY,
+  ingest_run_id   bigint NOT NULL REFERENCES ingest_run(id),
+  source_id       text NOT NULL,
+  -- The upstream's id where extractable (URL, productId, etc.). Optional.
+  upstream_id     text,
+  -- Raw upstream row preserved as JSON for replay + forensics. For HTML
+  -- scrapes this includes a truncated copy of the page (max 100KB) so
+  -- layout-change detection has evidence.
+  raw_payload     jsonb NOT NULL,
+  -- Normalizer's actionable reason ('unmapped lang qya', 'no_price_in_html', etc.).
+  reason          text NOT NULL,
+  as_of           timestamptz NOT NULL,
+  retrieved_at    timestamptz NOT NULL,
+  quarantined_at  timestamptz NOT NULL DEFAULT now(),
+  reviewed_at     timestamptz,
+  reviewed_by     text,
+  -- 'reprocess' | 'discard' | 'manual-fix' | 'upstream-bug' (open vocabulary;
+  -- the audit's review surface enforces no more, no less).
+  resolution      text
+);
+
+CREATE INDEX IF NOT EXISTS ingest_quarantine_unresolved_idx
+  ON ingest_quarantine(source_id, quarantined_at)
+  WHERE reviewed_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS ingest_quarantine_run_idx
+  ON ingest_quarantine(ingest_run_id);
+
+-- ── Phase 5 — optional: light foreign key on price_archive.ingest_run_id ──
+-- Skipped intentionally. Legacy rows have NULL ingest_run_id; enforcing
+-- the FK now would block the migration. A future cleanup migration can
+-- backfill ingest_run rows for legacy snapshots (synthetic entries) and
+-- then add the FK constraint.
+--
+-- ALTER TABLE price_archive
+--   ADD CONSTRAINT price_archive_ingest_run_fk
+--     FOREIGN KEY (ingest_run_id) REFERENCES ingest_run(id);
+
+-- ── Phase 6 — set source_redistribute defaults for legacy 'cardrush' rows ──
+-- CardRush rows are internal-only; the default in Phase 1 already sets
+-- source_redistribute=false. This UPDATE is for documentation, not change:
+-- it makes explicit that legacy rows match the new default.
+
+UPDATE price_archive SET source_redistribute = false
+  WHERE source = 'cardrush' AND source_redistribute IS DISTINCT FROM false;
+
+-- ── Phase 7 — backfill source_url from cards.cardrush_url for legacy rows ──
+-- One-shot backfill: copy the URL the snapshot scraped from onto the
+-- archive row so historical forensics has a click-through pointer.
+
+UPDATE price_archive pa
+   SET source_url = c.cardrush_url
+  FROM cards c
+ WHERE pa.card_id = c.id
+   AND pa.source_url IS NULL
+   AND c.cardrush_url IS NOT NULL;
+
+-- ── Done. After applying, sanity checks:
+--
+--   SELECT count(*), source, source_redistribute
+--     FROM price_archive
+--    GROUP BY source, source_redistribute;
+--   → expect: rows × ('cardrush', false)
+--
+--   \d price_archive
+--   → expect: source, source_url, ingest_run_id, error_reason,
+--             source_currency, source_redistribute columns visible
+--
+--   \d ingest_run
+--   → expect: 13 columns as defined above
+--
+--   \d ingest_quarantine
+--   → expect: 13 columns as defined above

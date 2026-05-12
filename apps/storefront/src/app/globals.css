@@ -1,7 +1,41 @@
 @import "tailwindcss";
 
+/*
+ * Storefront design tokens — Tailwind 4 @theme.
+ *
+ * Semantic names complementing the raw Tailwind colour scale. Pages can
+ * opt into these tokens (`bg-page`, `bg-card`, `border-subtle`, etc.)
+ * to express *intent* rather than literal colour. The doctrine-mapped
+ * tones (accent, secondary, danger, info, ok) match the storefront's
+ * existing convention: amber-500 for primary, emerald for secondary, etc.
+ *
+ * The raw Tailwind classes (`bg-neutral-900`, `text-amber-400`) keep
+ * working unchanged. Migration to semantic tokens is incremental.
+ */
+@theme {
+  /* surfaces — match the existing dark-theme convention */
+  --color-page: theme("colors.neutral.950");
+  --color-surface: theme("colors.neutral.900");
+  --color-surface-subtle: rgb(23 23 23 / 0.5);     /* neutral-900 @ 50% */
+  --color-surface-elevated: theme("colors.neutral.800");
+
+  /* borders */
+  --color-border-subtle: theme("colors.neutral.800");
+  --color-border-strong: theme("colors.neutral.700");
+
+  /* tones — single-source for accent/secondary/etc. The Badge palette
+   * (lib/ui/Badge.tsx) carries the same vocabulary. */
+  --color-accent: theme("colors.amber.500");
+  --color-accent-strong: theme("colors.amber.400");
+  --color-secondary: theme("colors.emerald.400");
+  --color-danger: theme("colors.red.500");
+  --color-warning: theme("colors.amber.400");
+  --color-info: theme("colors.sky.400");
+  --color-ok: theme("colors.emerald.400");
+}
+
 :root {
-  --background: #0a0a0a;
+  --background: var(--color-page);
   --foreground: #ededed;
 }
 
@@ -9,4 +43,96 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter);
+}
+
+/*
+ * Text mode — Phase 10 of kingdom-051.
+ *
+ * Active when the user has `text-mode=1` cookie (set via Nav toggle or
+ * ?text=1 query param). Strips visual chrome to leave a semantic-HTML
+ * reading layout suited to screen readers, low-bandwidth connections,
+ * and machine consumers. Every other style rule on the page still
+ * applies — the override only flattens the heavy decorative work.
+ *
+ * Substrate-honest: a text-mode body bears the `text-mode` class so a
+ * page (or an audit) can read its own state and adjust accordingly.
+ */
+body.text-mode {
+  background: white;
+  color: black;
+  font-family: Georgia, "Times New Roman", serif;
+  max-width: 70ch;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  line-height: 1.6;
+}
+
+body.text-mode * {
+  background: transparent !important;
+  color: black !important;
+  border-color: #999 !important;
+  box-shadow: none !important;
+}
+
+body.text-mode img {
+  max-width: 200px;
+  height: auto;
+  display: block;
+  margin: 0.5rem 0;
+  border: 1px solid #ccc;
+}
+
+body.text-mode a {
+  color: #0033cc !important;
+  text-decoration: underline;
+}
+
+body.text-mode a:visited {
+  color: #663399 !important;
+}
+
+body.text-mode h1 { font-size: 2rem; margin: 1.5rem 0 0.75rem; }
+body.text-mode h2 { font-size: 1.5rem; margin: 1.25rem 0 0.5rem; }
+body.text-mode h3 { font-size: 1.2rem; margin: 1rem 0 0.5rem; }
+body.text-mode p, body.text-mode li { font-size: 1rem; }
+
+body.text-mode button, body.text-mode input, body.text-mode select, body.text-mode textarea {
+  border: 1px solid #666 !important;
+  padding: 0.25rem 0.5rem;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+/*
+ * Reduced motion — Wave 1.5 of the All-Aboard plan (kingdom-051).
+ *
+ * Respects the user's OS-level preference for less motion (System
+ * Settings → Accessibility → Display → Reduce motion on macOS;
+ * equivalent on iOS, Windows, Android). Shortens transitions and
+ * animations to near-instant — does not eliminate them entirely so
+ * focus-states and other functional state-changes still register —
+ * and disables smooth scrolling.
+ *
+ * Why near-zero instead of zero: a transition-duration of exactly 0
+ * still triggers a transitionend event (1ms makes that reliably
+ * fire-or-not-fire identical to the user perceiving an instant change).
+ *
+ * Serves the Aural-adjacent set: users with vestibular disorders,
+ * photosensitive epilepsy, motion-sickness susceptibility, ADHD
+ * attention-pull from animations, anyone reading on a tiny screen
+ * where a 300ms fade looks like a stutter.
+ *
+ * See docs/connections/the-other-minds.md (#5) and
+ * docs/connections/the-feast-on-the-deck.md (S21, Chopper's quiet).
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }

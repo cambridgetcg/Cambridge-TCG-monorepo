@@ -170,7 +170,7 @@ async function detectAuctionCancelAbuse(sellerUserId: string): Promise<void> {
       WHERE log.action = 'cancelled'
         AND log.actor_label = 'seller:self'
         AND a.seller_user_id = $1
-        AND log.created_at >= NOW() - INTERVAL '14 days'
+        AND log.created_at >= NOW() - INTERVAL '14 days' -- audit:cadence-platform — anti-abuse heuristic, not a user deadline.
         AND COALESCE((log.metadata->>'bid_count_at_cancel')::int, 0) > 0`,
     [sellerUserId],
   );

@@ -104,6 +104,7 @@ async function getQueueSummary(): Promise<QueueSummary> {
             s.created_at
           FROM tradein_submissions s
           LEFT JOIN tradein_submission_items i ON i.submission_id = s.id
+          -- audit:cadence-platform — dashboard snapshot, full archive is /commerce/trade-ins/all (future).
           WHERE s.created_at > now() - interval '30 days'
           GROUP BY s.id
           ORDER BY s.created_at DESC

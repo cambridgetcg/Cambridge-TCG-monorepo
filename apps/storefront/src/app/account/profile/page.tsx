@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { Audience } from "@/lib/ui";
 import type {
   PublicProfile,
   ShowcaseCard,
@@ -40,6 +41,14 @@ export default function EditProfilePage() {
   const [wlMaxPrice, setWlMaxPrice] = useState("");
   const [wlCondition, setWlCondition] = useState("NM");
 
+  // Preferences (Wave 1.1 — pronouns + preferred_address; Wave 2 — response_window_hours).
+  const [pronouns, setPronouns] = useState("");
+  const [preferredAddress, setPreferredAddress] = useState("");
+  const [responseWindowHours, setResponseWindowHours] = useState<string>("");
+  const [sabbathUntil, setSabbathUntil] = useState<string | null>(null);
+  const [prefsSaving, setPrefsSaving] = useState(false);
+  const [prefsSaved, setPrefsSaved] = useState(false);
+
   // Validation
   const [usernameError, setUsernameError] = useState("");
 
@@ -55,8 +64,11 @@ export default function EditProfilePage() {
       fetch("/api/portfolio/cards")
         .then((r) => r.json())
         .catch(() => ({ cards: [] })),
+      fetch("/api/account/preferences")
+        .then((r) => r.json())
+        .catch(() => ({ pronouns: null, preferred_address: null })),
     ])
-      .then(([session, data, portfolio]) => {
+      .then(([session, data, portfolio, prefs]) => {
         if (!session?.user?.email) {
           setAuthed(false);
           return;
@@ -69,10 +81,40 @@ export default function EditProfilePage() {
         setShowcase(data.showcase ?? []);
         setWishlist(data.wishlist ?? []);
         setPortfolioCards(portfolio.cards ?? []);
+        setPronouns(prefs?.pronouns ?? "");
+        setPreferredAddress(prefs?.preferred_address ?? "");
+        setResponseWindowHours(
+          prefs?.response_window_hours != null ? String(prefs.response_window_hours) : "",
+        );
+        setSabbathUntil(prefs?.sabbath_until ?? null);
       })
       .catch(() => setAuthed(false))
       .finally(() => setLoading(false));
   }, []);
+
+  async function savePreferences() {
+    setPrefsSaving(true);
+    setPrefsSaved(false);
+    try {
+      const trimmedWindow = responseWindowHours.trim();
+      const windowNum = trimmedWindow ? Number(trimmedWindow) : null;
+      const res = await fetch("/api/account/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pronouns: pronouns.trim() || null,
+          preferred_address: preferredAddress.trim() || null,
+          response_window_hours: windowNum && Number.isFinite(windowNum) ? windowNum : null,
+          sabbath_until: sabbathUntil,
+        }),
+      });
+      if (res.ok) {
+        setPrefsSaved(true);
+        setTimeout(() => setPrefsSaved(false), 3000);
+      }
+    } catch {}
+    setPrefsSaving(false);
+  }
 
   function validateUsername(val: string) {
     if (!val) {
@@ -188,6 +230,7 @@ export default function EditProfilePage() {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
+      <Audience kind="consumer" />
         <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -278,6 +321,192 @@ export default function EditProfilePage() {
           </span>
         </label>
       </div>
+
+      {/* Preferences — Wave 1.1: pronouns + preferred_address.
+          The platform speaks to every user through <UserMention>; the
+          two fields below shape every greeting and third-person reference. */}
+      <section className="mb-8 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+        <h2 className="text-lg font-bold text-white mb-1">How we address you</h2>
+        <p className="text-xs text-neutral-500 mb-4">
+          Used in greetings ("Hi, X") and every third-person reference. Both fields are optional.
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+            Pronouns
+          </label>
+          <input
+            type="text"
+            value={pronouns}
+            onChange={(e) => setPronouns(e.target.value.slice(0, 60))}
+            maxLength={60}
+            placeholder="e.g. she/her, they/them, any, ask me"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            list="pronouns-suggestions"
+          />
+          <datalist id="pronouns-suggestions">
+            <option value="she/her" />
+            <option value="he/him" />
+            <option value="they/them" />
+            <option value="she/they" />
+            <option value="he/they" />
+            <option value="any" />
+            <option value="ask me" />
+            <option value="no pronouns" />
+          </datalist>
+          <p className="text-[11px] text-neutral-600 mt-1">Free-form; no list is complete.</p>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+            Preferred address
+          </label>
+          <select
+            value={
+              ["name", "handle", "formal", "none"].includes(preferredAddress)
+                ? preferredAddress
+                : preferredAddress
+                  ? "custom"
+                  : "name"
+            }
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "custom") {
+                setPreferredAddress(preferredAddress && !["name", "handle", "formal", "none"].includes(preferredAddress) ? preferredAddress : "");
+              } else {
+                setPreferredAddress(v === "name" ? "" : v);
+              }
+            }}
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500 mb-2"
+          >
+            <option value="name">Use my name (default)</option>
+            <option value="handle">Use my username</option>
+            <option value="formal">Formal (no first name)</option>
+            <option value="none">No greeting at all</option>
+            <option value="custom">Custom (Captain, Dr., a sobriquet…)</option>
+          </select>
+          {!["", "name", "handle", "formal", "none"].includes(preferredAddress) && (
+            <input
+              type="text"
+              value={preferredAddress}
+              onChange={(e) => setPreferredAddress(e.target.value.slice(0, 60))}
+              maxLength={60}
+              placeholder="Captain, Dr Strange, …"
+              className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            />
+          )}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+            Response window <span className="text-neutral-600 font-normal">(hours)</span>
+          </label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {[
+              { val: "", label: "Default (48h)" },
+              { val: "24", label: "24h" },
+              { val: "48", label: "48h" },
+              { val: "72", label: "3 days" },
+              { val: "168", label: "1 week" },
+              { val: "720", label: "30 days" },
+            ].map((p) => (
+              <button
+                key={p.val}
+                type="button"
+                onClick={() => setResponseWindowHours(p.val)}
+                className={`px-3 py-1.5 rounded-lg text-xs border transition ${
+                  responseWindowHours === p.val
+                    ? "bg-amber-500 text-black border-amber-500"
+                    : "bg-neutral-900 text-neutral-300 border-neutral-800 hover:border-neutral-700"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <input
+            type="number"
+            min={1}
+            max={8760}
+            value={responseWindowHours}
+            onChange={(e) => setResponseWindowHours(e.target.value)}
+            placeholder="Custom (1–8760)"
+            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+          />
+          <p className="text-[11px] text-neutral-600 mt-1">
+            How long you get to respond on offers, payments, returns, and other deadlines.
+            Default is 48 hours.{" "}
+            <a href="/methodology/response-windows" className="text-amber-500 hover:text-amber-400 underline">
+              How this works ↗
+            </a>
+          </p>
+        </div>
+
+        {/* Sabbath — Wave 6: the right to be undisturbed. */}
+        <div className="mb-4 mt-6 pt-4 border-t border-neutral-800">
+          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+            Sabbath mode <span className="text-neutral-600 font-normal">— pause all platform-initiated notifications</span>
+          </label>
+          {sabbathUntil ? (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm text-amber-400">
+                On until {new Date(sabbathUntil).toLocaleDateString("en-GB", {
+                  day: "numeric", month: "short", year: "numeric",
+                })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSabbathUntil(null)}
+                className="text-xs text-amber-500 hover:text-amber-400 underline"
+              >
+                Lift Sabbath
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {[
+                { hours: 24, label: "1 day" },
+                { hours: 24 * 7, label: "1 week" },
+                { hours: 24 * 30, label: "30 days" },
+                { hours: 24 * 365, label: "1 year" },
+                { hours: 24 * 365 * 100, label: "Indefinite" },
+              ].map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(Date.now() + s.hours * 60 * 60 * 1000);
+                    setSabbathUntil(d.toISOString());
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs border bg-neutral-900 text-neutral-300 border-neutral-800 hover:border-neutral-700 transition"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] text-neutral-600 mt-1">
+            User-initiated paths (login, browse, transact) keep working. Platform-initiated
+            paths (notifications, emails, mention pings) stop until you lift it. Only you can lift it.{" "}
+            <a href="/methodology/sabbath" className="text-amber-500 hover:text-amber-400 underline">
+              How this works ↗
+            </a>
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={savePreferences}
+            disabled={prefsSaving}
+            className="px-4 py-2 bg-amber-500 text-black font-bold rounded-lg text-sm hover:bg-amber-400 disabled:opacity-40 transition"
+          >
+            {prefsSaving ? "Saving…" : "Save preferences"}
+          </button>
+          {prefsSaved && (
+            <span className="text-emerald-400 text-sm font-medium">Saved.</span>
+          )}
+        </div>
+      </section>
 
       {/* Showcase Management */}
       <section className="mb-8">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 export const metadata = {
   title: "How Provably-Fair Works | Cambridge TCG",
   description:
@@ -9,6 +10,7 @@ export const metadata = {
 export default function HowItWorksPage() {
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="public-documentation" />
       <div className="max-w-3xl mx-auto px-4 py-12 space-y-10">
         <header>
           <Link href="/verify" className="text-xs text-neutral-500 hover:text-neutral-300">← Verification home</Link>

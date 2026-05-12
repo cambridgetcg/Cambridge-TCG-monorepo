@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   if (!sku) return NextResponse.json({ error: "sku required" }, { status: 400 });
 
   const r = await query(
-    `SELECT spot_gbp FROM card_price_history
+    `SELECT spot_gbp FROM retail_price_observation
      WHERE sku = $1 AND captured_on >= CURRENT_DATE - 30
      ORDER BY spot_gbp ASC`,
     [sku],

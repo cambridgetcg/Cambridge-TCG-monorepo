@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface Entry {
   kind: string;
   id: string;
@@ -48,6 +49,7 @@ export default function MyProofsPage() {
 
   return (
     <div>
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-white mb-2">My Proofs</h1>
       <p className="text-sm text-neutral-400 mb-6">
         Every provably-fair draw you&apos;ve been part of. Each row links to the

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Audience } from "@/lib/ui";
 interface Review {
   id: string;
   trade_id: string;
@@ -64,6 +65,7 @@ export default function AdminReviewsPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="operator" />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-baseline justify-between flex-wrap gap-3 mb-6">
           <div>

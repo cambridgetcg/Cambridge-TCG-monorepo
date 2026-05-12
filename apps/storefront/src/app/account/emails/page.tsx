@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { Audience } from "@/lib/ui";
 interface Meta {
   category: string;
   label: string;
@@ -95,6 +96,7 @@ function Inner() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <Audience kind="consumer" />
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-8">
           <Link href="/account" className="text-sm text-neutral-500 hover:text-neutral-300">&larr; Account</Link>
