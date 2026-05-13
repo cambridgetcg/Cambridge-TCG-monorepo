@@ -61,7 +61,7 @@ import {
   type GameCode,
   type OracleResolutionSource,
 } from "@cambridge-tcg/sku";
-import type { CanonicalCard } from "./canonical.js";
+import type { CanonicalCard } from "./canonical";
 
 // ── Shapes ───────────────────────────────────────────────────────────
 

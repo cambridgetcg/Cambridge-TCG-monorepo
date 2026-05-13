@@ -7,14 +7,14 @@
  * When you ship a new source, add a `SourceModule` export here.
  */
 
-import type { SourceModule, SourceId, SourceMeta } from "./types.js";
-import { scryfall } from "./scryfall/index.js";
-import { cardrush } from "./cardrush/index.js";
-import { pokemonTcgApi } from "./pokemon-tcg-api/index.js";
-import { ygoprodeck } from "./ygoprodeck/index.js";
-import { tcgplayer } from "./tcgplayer/index.js";
-import { cardmarket } from "./cardmarket/index.js";
-import { ebay } from "./ebay/index.js";
+import type { SourceModule, SourceId, SourceMeta } from "./types";
+import { scryfall } from "./scryfall/index";
+import { cardrush } from "./cardrush/index";
+import { pokemonTcgApi } from "./pokemon-tcg-api/index";
+import { ygoprodeck } from "./ygoprodeck/index";
+import { tcgplayer } from "./tcgplayer/index";
+import { cardmarket } from "./cardmarket/index";
+import { ebay } from "./ebay/index";
 
 /**
  * Every registered source. Indexed by id for O(1) lookup. The union

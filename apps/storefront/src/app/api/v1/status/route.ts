@@ -154,6 +154,8 @@ const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/examples",
   "/api/v1/examples/[endpoint_id]",
   "/api/v1/adopters",
+  // kingdom-085 — the aggregator presents its collected state.
+  "/api/v1/coverage",
 ]);
 
 // ── Per-resource state ─────────────────────────────────────────────────

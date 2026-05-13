@@ -42,10 +42,10 @@
  * See `docs/connections/the-tributaries.md` §2.3.
  */
 
-import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types.js";
-import type { CanonicalPrice } from "../canonical.js";
+import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types";
+import type { CanonicalPrice } from "../canonical";
 import type { GameCode } from "@cambridge-tcg/sku";
-import { createFetcher } from "../http.js";
+import { createFetcher } from "../http";
 
 // ── Subdomain → GameCode map ────────────────────────────────────────────
 

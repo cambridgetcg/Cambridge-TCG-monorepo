@@ -33,12 +33,12 @@
  * standardisation corpus. See `docs/STANDARDS-LICENSE.md`.
  */
 
-export { SPEC_VERSION, DEFAULT_LICENSE, FRESHNESS, type FreshnessKey } from "./freshness.js";
-export { ERROR_CODES, ERROR_STATUS, type ErrorCode } from "./error-codes.js";
+export { SPEC_VERSION, DEFAULT_LICENSE, FRESHNESS, type FreshnessKey } from "./freshness";
+export { ERROR_CODES, ERROR_STATUS, type ErrorCode } from "./error-codes";
 export {
   ENVELOPE_SCHEMA,
   META_SCHEMA,
   ERROR_BODY_SCHEMA,
   PROVENANCE_SCHEMA,
   ERROR_CODE_VALUES,
-} from "./schemas/index.js";
+} from "./schemas/index";

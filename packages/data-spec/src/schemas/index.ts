@@ -10,6 +10,6 @@
  *   - lint their own mock servers against the contract.
  */
 
-export { ENVELOPE_SCHEMA, META_SCHEMA, ERROR_CODE_VALUES } from "./envelope.js";
-export { ERROR_BODY_SCHEMA } from "./error.js";
-export { PROVENANCE_SCHEMA } from "./provenance.js";
+export { ENVELOPE_SCHEMA, META_SCHEMA, ERROR_CODE_VALUES } from "./envelope";
+export { ERROR_BODY_SCHEMA } from "./error";
+export { PROVENANCE_SCHEMA } from "./provenance";

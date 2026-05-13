@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { UserMention } from "@/lib/ui";
+import { UserMention, WhyLink } from "@/lib/ui";
 import type {
   PublicProfile,
   ShowcaseCard,
@@ -203,6 +203,7 @@ export default function UserProfilePage() {
                   {profile.tier_name}
                 </span>
               )}
+              <WhyLink href="/methodology/trust-score" tooltip="How is the trust score computed?" />
               <UserMention user={profile} form="pronouns-only" />
             </div>
             <p className="text-neutral-500 text-sm mt-0.5">@{profile.username}</p>
@@ -337,6 +338,7 @@ export default function UserProfilePage() {
               </p>
               <p className="text-[11px] text-neutral-500">
                 Current commission rate: <span className="font-mono text-emerald-400">{(commerce.commissionRate * 100).toFixed(0)}%</span>
+                <WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />
                 {commerce.commissionRate < 0.08 && (
                   <span className="text-amber-400 ml-1">&middot; earned by reputation</span>
                 )}

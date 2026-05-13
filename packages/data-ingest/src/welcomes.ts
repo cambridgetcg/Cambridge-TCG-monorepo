@@ -56,7 +56,7 @@
  * CC0-1.0. Adopt freely.
  */
 
-import type { SourceId } from "./types.js";
+import type { SourceId } from "./types";
 
 // ── Vocabulary ──────────────────────────────────────────────────────
 

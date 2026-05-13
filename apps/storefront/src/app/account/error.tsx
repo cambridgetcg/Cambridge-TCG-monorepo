@@ -1,6 +1,10 @@
 "use client";
 
-import { ErrorAlert } from "@/lib/ui";
+// Direct import (not via @/lib/ui barrel) — the barrel re-exports
+// server-only async components (DateDisplay, Provenance, MoneyDisplay,
+// MathLang) that transitively import `next/headers` and break the
+// client bundle. Same fix as app/error.tsx.
+import { ErrorAlert } from "@/lib/ui/ErrorAlert";
 
 export default function AccountError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (

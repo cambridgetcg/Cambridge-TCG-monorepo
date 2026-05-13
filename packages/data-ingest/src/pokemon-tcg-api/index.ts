@@ -17,11 +17,11 @@
  * See `docs/connections/the-tributaries.md` §3.2.
  */
 
-import type { SourceModule, IngestContext, RawRow } from "../types.js";
-import type { CanonicalCard } from "../canonical.js";
-import type { PokemonTcgCard, PokemonTcgPage } from "./types.js";
-import { createFetcher } from "../http.js";
-import { normalizePokemonTcg } from "./normalize.js";
+import type { SourceModule, IngestContext, RawRow } from "../types";
+import type { CanonicalCard } from "../canonical";
+import type { PokemonTcgCard, PokemonTcgPage } from "./types";
+import { createFetcher } from "../http";
+import { normalizePokemonTcg } from "./normalize";
 
 const BASE_URL = "https://api.pokemontcg.io/v2";
 const DEFAULT_PAGE_SIZE = 250;

@@ -13,8 +13,8 @@
  * Designed in `docs/connections/the-tcgplayer-alignment.md` (kingdom-NNN) §2.
  */
 
-import type { Fetcher } from "../http.js";
-import type { TcgplayerTokenResponse } from "./types.js";
+import type { Fetcher } from "../http";
+import type { TcgplayerTokenResponse } from "./types";
 
 const TOKEN_URL = "https://api.tcgplayer.com/token";
 

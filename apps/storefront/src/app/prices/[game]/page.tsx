@@ -14,7 +14,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
+import {
+  fetchGames,
+  fetchPrices,
+  fetchSets,
+  fetchAggregatorCoverage,
+} from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { formatPrice } from "@/lib/format";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
@@ -292,8 +297,10 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
 
   const accent = ACCENT_CLASSES[cfg.accent];
 
-  // Fetch sets and top cards in parallel, scoped to this game's slug.
-  const [sets, topCardsData, tradeinData] = await Promise.all([
+  // Fetch sets, top cards, tradein channel, and aggregator coverage in
+  // parallel. Coverage is null when wholesale is unreachable — the page
+  // renders without the coverage strip in that case.
+  const [sets, topCardsData, tradeinData, coverage] = await Promise.all([
     fetchSets(cfg.slug).catch(() => []),
     fetchPrices({
       game: cfg.slug,
@@ -306,7 +313,18 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
       limit: 20,
       channel: "tradein-credit",
     }).catch(() => ({ items: [] })),
+    // kingdom-085: per-game aggregator coverage. Scoped via game_code so
+    // the response only carries this game's rows; the strip renders below.
+    fetchAggregatorCoverage({ game: cfg.game_code }).catch(() => null),
   ]);
+
+  // Per-game observed-coverage rollup.
+  const gameCoverage =
+    coverage?.by_game.find((g) => g.game_code === cfg.game_code) ?? null;
+  const gameCoverageSources =
+    coverage?.by_game_source.filter(
+      (r) => r.game_code === cfg.game_code,
+    ) ?? [];
 
   // Substrate-honest: if the catalog returns nothing for this game, the
   // page renders with an empty-but-honest body rather than fabricating
@@ -417,9 +435,109 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           )}
         </div>
 
-        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-10">
+        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-6">
           {cfg.hero_paragraph}
         </p>
+
+        {/* ── Observed coverage strip (kingdom-085) ──────────────── */}
+        {/*  What we've actually accumulated for THIS game.            */}
+        {gameCoverage && gameCoverage.observations > 0 && (
+          <section className="mb-10 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+            <div className="flex items-baseline justify-between gap-4 mb-3 flex-wrap">
+              <h2 className="text-sm font-semibold text-white uppercase tracking-wider">
+                Aggregator coverage for {cfg.short_name}
+              </h2>
+              <Link
+                href="/prices/coverage"
+                className="text-xs text-blue-400 hover:underline"
+              >
+                full coverage map →
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Observations
+                </div>
+                <div className="text-xl font-bold text-white font-mono">
+                  {gameCoverage.observations.toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Cards observed
+                </div>
+                <div className="text-xl font-bold text-white font-mono">
+                  {gameCoverage.distinct_cards_max.toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Days of data
+                </div>
+                <div className="text-xl font-bold text-white font-mono">
+                  {(() => {
+                    const days =
+                      (new Date(gameCoverage.latest_snapshot).getTime() -
+                        new Date(gameCoverage.earliest_snapshot).getTime()) /
+                        (1000 * 60 * 60 * 24) +
+                      1;
+                    return Math.round(days).toLocaleString();
+                  })()}
+                </div>
+                <div className="text-[10px] text-neutral-500 mt-0.5">
+                  {gameCoverage.earliest_snapshot} →{" "}
+                  {gameCoverage.latest_snapshot}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Sources
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {gameCoverage.sources.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-block text-[10px] px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded font-mono"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {gameCoverageSources.length > 1 && (
+              <div className="text-[10px] text-neutral-500 pt-3 border-t border-neutral-800/60">
+                Per-source freshness:{" "}
+                {gameCoverageSources.map((r, i) => (
+                  <span key={r.source} className="font-mono">
+                    {i > 0 && <span className="text-neutral-700"> · </span>}
+                    {r.source}{" "}
+                    <span
+                      className={
+                        r.freshest_age_hours > 48
+                          ? "text-amber-400"
+                          : "text-emerald-400"
+                      }
+                    >
+                      {r.freshest_age_hours < 1
+                        ? "< 1h"
+                        : r.freshest_age_hours < 24
+                          ? `${Math.round(r.freshest_age_hours)}h`
+                          : `${Math.round(r.freshest_age_hours / 24)}d`}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="text-[10px] text-neutral-600 mt-2">
+              Live observed data from{" "}
+              <code className="text-neutral-500">price_archive</code>. The
+              underlying source license tier still applies — raw upstream
+              values are emitted only on auth-gated per-card endpoints.
+            </div>
+          </section>
+        )}
 
         {/* ---------------------------------------------------------- */}
         {/*  Substrate-honest panels (K1 + gaps + welcomes)              */}
@@ -473,10 +591,20 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         {/*  Top 20 Most Valuable Cards                                  */}
         {/* ---------------------------------------------------------- */}
         <section className="mb-14">
-          <h2 className="text-xl font-semibold text-white mb-5">
-            Top {topCards.length > 0 ? topCards.length : 20} Most Valuable{" "}
-            {cfg.short_name} Cards
-          </h2>
+          <div className="flex items-baseline justify-between mb-5">
+            <h2 className="text-xl font-semibold text-white">
+              Top {topCards.length > 0 ? topCards.length : 20} Most Valuable{" "}
+              {cfg.short_name} Cards
+            </h2>
+            {topCards.length > 0 && (
+              <Link
+                href={`/prices/${cfg.slug}/movers`}
+                className="text-sm text-blue-400 hover:underline"
+              >
+                See top 50 →
+              </Link>
+            )}
+          </div>
 
           {topCards.length === 0 ? (
             <p className="text-neutral-500 text-sm py-6 text-center bg-neutral-900 border border-neutral-800 rounded-lg">

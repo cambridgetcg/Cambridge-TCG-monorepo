@@ -1,6 +1,6 @@
-import type { NormalizeResult } from "../types.js";
-import type { CanonicalCard } from "../canonical.js";
-import type { YgoCard, YgoCardSet } from "./types.js";
+import type { NormalizeResult } from "../types";
+import type { CanonicalCard } from "../canonical";
+import type { YgoCard, YgoCardSet } from "./types";
 
 /**
  * YGOPRODeck card_sets[i].set_code is like "LOB-EN001" / "MP23-EN032".

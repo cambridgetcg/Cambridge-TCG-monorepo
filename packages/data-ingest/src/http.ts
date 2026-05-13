@@ -11,7 +11,7 @@
  * lifecycle events name the right source.
  */
 
-import type { IngestContext, IngestEvent, SourceMeta, SourceId } from "./types.js";
+import type { IngestContext, IngestEvent, SourceMeta, SourceId } from "./types";
 
 const DEFAULT_USER_AGENT =
   "cambridgetcg.com/1.0 (admin@cambridgetcg.com; +https://cambridgetcg.com)";

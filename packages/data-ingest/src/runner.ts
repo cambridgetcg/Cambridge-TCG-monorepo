@@ -44,7 +44,7 @@ import type {
   RawProvenance,
   RunSummary,
   SourceModule,
-} from "./types.js";
+} from "./types";
 
 /**
  * Writer callbacks the app injects. Keep them small + transactional;

@@ -4,7 +4,7 @@
  * The shape every failure wears: `{ error: { code, message, request_id, docs?, details? } }`.
  */
 
-import { ERROR_CODES } from "../error-codes.js";
+import { ERROR_CODES } from "../error-codes";
 
 export const ERROR_BODY_SCHEMA = {
   $id: "https://cambridgetcg.com/spec/v1/ErrorBody.schema.json",

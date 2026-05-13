@@ -23,11 +23,11 @@
  * See `docs/connections/the-tributaries.md` §3.3.
  */
 
-import type { SourceModule, IngestContext, RawRow } from "../types.js";
-import type { CanonicalCard } from "../canonical.js";
-import type { YgoCard, YgoCardInfoResponse } from "./types.js";
-import { createFetcher } from "../http.js";
-import { normalizeYgo } from "./normalize.js";
+import type { SourceModule, IngestContext, RawRow } from "../types";
+import type { CanonicalCard } from "../canonical";
+import type { YgoCard, YgoCardInfoResponse } from "./types";
+import { createFetcher } from "../http";
+import { normalizeYgo } from "./normalize";
 
 const CARDINFO_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
 

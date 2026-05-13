@@ -286,6 +286,101 @@ export async function fetchSourceLastRuns(): Promise<SourceRunRow[] | null> {
 }
 
 /**
+ * Aggregator coverage row from wholesale `/api/v1/aggregator/coverage`.
+ * Per-(game × source) observation counts + date range.
+ * kingdom-085 extension.
+ */
+export interface AggregatorCoverageRow {
+  game_code: string;
+  game_slug: string;
+  game_name: string;
+  source: string;
+  observations: number;
+  distinct_cards: number;
+  earliest_snapshot: string;
+  latest_snapshot: string;
+  days_of_coverage: number;
+  freshest_age_hours: number;
+}
+
+export interface AggregatorCoverageGameRow {
+  game_code: string;
+  game_slug: string;
+  game_name: string;
+  sources: string[];
+  observations: number;
+  distinct_cards_max: number;
+  earliest_snapshot: string;
+  latest_snapshot: string;
+}
+
+export interface AggregatorCoverageSourceRow {
+  source: string;
+  games: string[];
+  observations: number;
+  distinct_cards: number;
+  earliest_snapshot: string;
+  latest_snapshot: string;
+}
+
+export interface AggregatorCoverageResponse {
+  summary: {
+    total_observations: number;
+    distinct_cards: number;
+    distinct_games: number;
+    distinct_sources: number;
+    earliest_snapshot: string | null;
+    latest_snapshot: string | null;
+    days_of_coverage: number;
+  };
+  by_game_source: AggregatorCoverageRow[];
+  by_game: AggregatorCoverageGameRow[];
+  by_source: AggregatorCoverageSourceRow[];
+  filter: { source: string | null; game: string | null; since: string | null };
+  queried_at: string;
+}
+
+/**
+ * Fetch the aggregator's "what we've collected" snapshot. Substrate-honest:
+ * returns null on Falcon failure (timeout/401/parse); empty arrays when no
+ * data has accumulated yet. The freshness budget is short — operational
+ * metadata, refresh per request cycle.
+ */
+export async function fetchAggregatorCoverage(opts?: {
+  source?: string;
+  game?: string;
+  since?: string;
+}): Promise<AggregatorCoverageResponse | null> {
+  const u = new URL(WHOLESALE_URL + "/api/v1/aggregator/coverage");
+  if (opts?.source) u.searchParams.set("source", opts.source);
+  if (opts?.game) u.searchParams.set("game", opts.game);
+  if (opts?.since) u.searchParams.set("since", opts.since);
+  let res: Response;
+  try {
+    res = await wholesaleFetch(
+      u.toString(),
+      {
+        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+        next: { revalidate: 300 },
+      },
+    );
+  } catch (err) {
+    console.error("[wholesale] aggregator coverage fetch error", err);
+    return null;
+  }
+  if (!res.ok) {
+    console.error("[wholesale] aggregator coverage error", res.status);
+    return null;
+  }
+  try {
+    return (await res.json()) as AggregatorCoverageResponse;
+  } catch (err) {
+    console.error("[wholesale] aggregator coverage parse error", err);
+    return null;
+  }
+}
+
+/**
  * CardRush observation row from wholesale `/api/v1/cardrush/history/[sku]`.
  * Kingdom-081 Phase 5.4 extension.
  */

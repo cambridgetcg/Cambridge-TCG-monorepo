@@ -311,11 +311,16 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
                     className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
                   >
                     <td className="px-3 py-3 text-neutral-400 font-mono text-xs">
-                      {card.card_number}
+                      <Link
+                        href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
+                        className="hover:text-blue-400 transition-colors"
+                      >
+                        {card.card_number}
+                      </Link>
                     </td>
                     <td className="px-3 py-3">
                       <Link
-                        href={`/product/${card.sku}`}
+                        href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
                         className="text-white hover:text-blue-400 transition-colors"
                       >
                         {card.name}

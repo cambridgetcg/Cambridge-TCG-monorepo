@@ -1,6 +1,6 @@
-import type { NormalizeResult } from "../types.js";
-import type { CanonicalCard } from "../canonical.js";
-import type { PokemonTcgCard } from "./types.js";
+import type { NormalizeResult } from "../types";
+import type { CanonicalCard } from "../canonical";
+import type { PokemonTcgCard } from "./types";
 
 /**
  * Extract the collector number from Pokémon TCG API's `number` field.

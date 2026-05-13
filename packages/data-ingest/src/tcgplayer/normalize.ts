@@ -16,11 +16,11 @@
  * Designed in `docs/connections/the-tcgplayer-alignment.md` (kingdom-NNN) §5.
  */
 
-import type { NormalizeResult } from "../types.js";
-import type { CanonicalPrice, CanonicalMapping } from "../canonical.js";
-import type { TcgplayerRaw, TcgplayerCatalogRaw, TcgplayerPricingRaw } from "./types.js";
-import { TCGPLAYER_CONDITION_MAP } from "./conditions.js";
-import { TCGPLAYER_KNOWN_SUB_TYPES, variantTailForSubType, gameForCategory } from "./categories.js";
+import type { NormalizeResult } from "../types";
+import type { CanonicalPrice, CanonicalMapping } from "../canonical";
+import type { TcgplayerRaw, TcgplayerCatalogRaw, TcgplayerPricingRaw } from "./types";
+import { TCGPLAYER_CONDITION_MAP } from "./conditions";
+import { TCGPLAYER_KNOWN_SUB_TYPES, variantTailForSubType, gameForCategory } from "./categories";
 
 /**
  * Two outputs from one source — the normalizer dispatches on raw.kind.

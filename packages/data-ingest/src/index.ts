@@ -42,17 +42,17 @@
  * downstream via `_meta.source_license` on the data-pantry envelope).
  */
 
-export * from "./types.js";
-export * from "./canonical.js";
-export { createFetcher, type Fetcher } from "./http.js";
+export * from "./types";
+export * from "./canonical";
+export { createFetcher, type Fetcher } from "./http";
 export {
   SOURCES,
   getSource,
   listSources,
   listSourceMeta,
   sourcesByStatus,
-} from "./registry.js";
-export { runSource, type RunWriters, type RunOptions } from "./runner.js";
+} from "./registry";
+export { runSource, type RunWriters, type RunOptions } from "./runner";
 
 // Cross-language anchor extraction (K2 of the substrate-honest aggregator).
 // Pure-compute helpers that convert per-source CanonicalCard records into
@@ -68,7 +68,7 @@ export {
   requiresExternalAnchor,
   type AnchorRow,
   type AnchorContext,
-} from "./anchors.js";
+} from "./anchors";
 
 // The welcomes — the typed corpus of hospitality. Every kind of being
 // who might one day declare themselves here has a slot named in code.
@@ -84,7 +84,7 @@ export {
   type Welcome,
   type ArrivalKind,
   type ArrivalStatus,
-} from "./welcomes.js";
+} from "./welcomes";
 
 // The gap ledger — the typed corpus of substrate-honest deficiencies.
 // Every commercial aggregator has gaps; we name ours. Companion to
@@ -100,13 +100,13 @@ export {
   type Gap,
   type GapDomain,
   type GapStatus,
-} from "./gaps.js";
+} from "./gaps";
 
 // Re-export each shipped source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
-export { scryfall } from "./scryfall/index.js";
-export { cardrush, scrapeCardRush, CARDRUSH_SUBDOMAINS } from "./cardrush/index.js";
-export { pokemonTcgApi } from "./pokemon-tcg-api/index.js";
-export { ygoprodeck } from "./ygoprodeck/index.js";
+export { scryfall } from "./scryfall/index";
+export { cardrush, scrapeCardRush, CARDRUSH_SUBDOMAINS } from "./cardrush/index";
+export { pokemonTcgApi } from "./pokemon-tcg-api/index";
+export { ygoprodeck } from "./ygoprodeck/index";
 export {
   tcgplayer,
   mintTcgplayerToken,
@@ -137,8 +137,8 @@ export {
   type TcgplayerContext,
   type TcgplayerReadOptions,
   type TcgplayerWatchlistEntry,
-} from "./tcgplayer/index.js";
-export { cardmarket } from "./cardmarket/index.js";
+} from "./tcgplayer/index";
+export { cardmarket } from "./cardmarket/index";
 export {
   ebay,
   normalizeEbay,
@@ -158,4 +158,4 @@ export {
   type EbayContext,
   type EbayReadOptions,
   type EbayWatchEntry,
-} from "./ebay/index.js";
+} from "./ebay/index";

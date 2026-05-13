@@ -49,16 +49,16 @@ import type {
   IngestContext,
   RawRow,
   NormalizeResult,
-} from "../types.js";
-import { createFetcher, type Fetcher } from "../http.js";
-import { getEbayAccessToken } from "./oauth.js";
-import { normalizeEbay, type EbayCanonicalObservation } from "./normalize.js";
+} from "../types";
+import { createFetcher, type Fetcher } from "../http";
+import { getEbayAccessToken } from "./oauth";
+import { normalizeEbay, type EbayCanonicalObservation } from "./normalize";
 import type {
   EbayItemSummary,
   EbayMarketplaceId,
   EbayPaginatedResponse,
   EbayRaw,
-} from "./types.js";
+} from "./types";
 
 // ── Watch-list entry shape ─────────────────────────────────────────────
 
@@ -394,12 +394,12 @@ export const ebay: SourceModule<EbayRaw, EbayCanonicalObservation> = {
 };
 
 // Re-exports for callers that want the raw helpers
-export { normalizeEbay, type EbayCanonicalObservation } from "./normalize.js";
-export { parseEbayTitle } from "./title-parser.js";
-export { detectGrade, isGraded } from "./grade-detector.js";
-export { detectLanguage } from "./language-detector.js";
-export { detectConditionKeywords } from "./condition-keywords.js";
-export { getEbayAccessToken, _resetTokenCache as _resetEbayTokenCache } from "./oauth.js";
+export { normalizeEbay, type EbayCanonicalObservation } from "./normalize";
+export { parseEbayTitle } from "./title-parser";
+export { detectGrade, isGraded } from "./grade-detector";
+export { detectLanguage } from "./language-detector";
+export { detectConditionKeywords } from "./condition-keywords";
+export { getEbayAccessToken, _resetTokenCache as _resetEbayTokenCache } from "./oauth";
 export type {
   EbayBrowseRaw,
   EbayInsightsRaw,
@@ -407,7 +407,7 @@ export type {
   EbayItemSummary,
   EbayMarketplaceId,
   EbayRaw,
-} from "./types.js";
+} from "./types";
 // EbayContext + EbayReadOptions + EbayWatchEntry are defined above as
 // `export interface` / `export type`; this comment is just a marker that
 // callers (e.g. the wholesale snapshot) import them directly from the

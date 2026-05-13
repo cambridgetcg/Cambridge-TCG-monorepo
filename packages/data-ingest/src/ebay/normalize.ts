@@ -22,10 +22,10 @@
  *     audit *why* we accepted or rejected.
  */
 
-import type { NormalizeResult } from "../types.js";
-import type { CanonicalPrice } from "../canonical.js";
-import { parseEbayTitle } from "./title-parser.js";
-import type { EbayRaw, EbayBrowseRaw, EbayInsightsRaw } from "./types.js";
+import type { NormalizeResult } from "../types";
+import type { CanonicalPrice } from "../canonical";
+import { parseEbayTitle } from "./title-parser";
+import type { EbayRaw, EbayBrowseRaw, EbayInsightsRaw } from "./types";
 
 /** Default confidence threshold — below this we quarantine. */
 export const DEFAULT_CONFIDENCE_THRESHOLD = 0.7;

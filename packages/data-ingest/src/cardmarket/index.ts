@@ -16,7 +16,7 @@
  *
  * ── Future implementation sketch ─────────────────────────────────────
  *
- *   import { sign } from "./oauth1.js";  // hand-rolled HMAC-SHA1 signing
+ *   import { sign } from "./oauth1";  // hand-rolled HMAC-SHA1 signing
  *   const fetcher = createFetcher(ctx, cardmarket.meta);
  *   const url = `https://api.cardmarket.com/ws/v2.0/output.json/products/find?...`;
  *   const headers = { Authorization: sign(...) };
@@ -33,8 +33,8 @@
  * See `docs/connections/the-tributaries.md` §2.2.
  */
 
-import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types.js";
-import type { CanonicalCard } from "../canonical.js";
+import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types";
+import type { CanonicalCard } from "../canonical";
 
 export interface CardmarketProduct {
   idProduct: number;

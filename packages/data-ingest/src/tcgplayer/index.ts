@@ -39,8 +39,8 @@
  * Documented sustained: 300 req/min = 5 rps; burst 20.
  */
 
-import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types.js";
-import type { CanonicalPrice, CanonicalMapping } from "../canonical.js";
+import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types";
+import type { CanonicalPrice, CanonicalMapping } from "../canonical";
 import type {
   TcgplayerRaw,
   TcgplayerCategory,
@@ -50,9 +50,9 @@ import type {
   TcgplayerSkuExpanded,
   TcgplayerSkuPricing,
   TcgplayerListResponse,
-} from "./types.js";
-import { createFetcher, type Fetcher } from "../http.js";
-import { normalizeTcgplayer } from "./normalize.js";
+} from "./types";
+import { createFetcher, type Fetcher } from "../http";
+import { normalizeTcgplayer } from "./normalize";
 
 const BASE_URL = "https://api.tcgplayer.com";
 
@@ -613,18 +613,18 @@ function expandSkus(
 
 // ── Re-exports (public surface) ─────────────────────────────────────
 
-export { mintTcgplayerToken, readTcgplayerCredentialsFromEnv, tokenIsFresh } from "./oauth.js";
-export type { TcgplayerCredentials, TcgplayerToken } from "./oauth.js";
+export { mintTcgplayerToken, readTcgplayerCredentialsFromEnv, tokenIsFresh } from "./oauth";
+export type { TcgplayerCredentials, TcgplayerToken } from "./oauth";
 export {
   TCGPLAYER_CATEGORIES,
   TCGPLAYER_KNOWN_SUB_TYPES,
   categoryForGame,
   gameForCategory,
   variantTailForSubType,
-} from "./categories.js";
-export type { TcgplayerCategoryEntry } from "./categories.js";
-export { TCGPLAYER_CONDITION_MAP, isKnownTcgplayerCondition } from "./conditions.js";
-export type { CambridgeCondition } from "./conditions.js";
+} from "./categories";
+export type { TcgplayerCategoryEntry } from "./categories";
+export { TCGPLAYER_CONDITION_MAP, isKnownTcgplayerCondition } from "./conditions";
+export type { CambridgeCondition } from "./conditions";
 export type {
   TcgplayerRaw,
   TcgplayerCatalogRaw,
@@ -636,5 +636,5 @@ export type {
   TcgplayerProductPricing,
   TcgplayerCategory,
   TcgplayerGroup,
-} from "./types.js";
-export { normalizeTcgplayer } from "./normalize.js";
+} from "./types";
+export { normalizeTcgplayer } from "./normalize";

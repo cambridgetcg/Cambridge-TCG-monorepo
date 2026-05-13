@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { SELLER_COMMISSION_RATE } from "@/lib/auction/types";
 import { formatPrice } from "@/lib/format";
+import { WhyLink } from "@/lib/ui";
 
 type AuctionType = "english" | "buy_now";
 
@@ -295,7 +296,7 @@ export default function SellAuctionPage() {
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold">5</span>
-              <span>We verify, forward to buyer, and you get paid (12% commission)</span>
+              <span>We verify, forward to buyer, and you get paid (12% commission<WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />)</span>
             </div>
           </div>
         </div>
@@ -458,7 +459,10 @@ export default function SellAuctionPage() {
                   <span className="text-white font-medium">{formatPrice(previewPrice)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Commission (12%)</span>
+                  <span className="text-neutral-400">
+                    Commission (12%)
+                    <WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />
+                  </span>
                   <span className="text-red-400">-{formatPrice(commission)}</span>
                 </div>
                 <div className="border-t border-neutral-800 pt-2 flex justify-between">

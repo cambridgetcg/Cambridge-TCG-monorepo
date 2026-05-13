@@ -43,12 +43,12 @@
 
 import type { GameCode } from "@cambridge-tcg/sku";
 import { parseCardNumber } from "@cambridge-tcg/sku";
-import { detectGrade, type GradeDetection } from "./grade-detector.js";
-import { detectLanguage, type LanguageDetection } from "./language-detector.js";
+import { detectGrade, type GradeDetection } from "./grade-detector";
+import { detectLanguage, type LanguageDetection } from "./language-detector";
 import {
   detectConditionKeywords,
   type ConditionKeywordResult,
-} from "./condition-keywords.js";
+} from "./condition-keywords";
 
 // ── Game-prefix patterns (pass 2 disambiguator) ─────────────────────────
 

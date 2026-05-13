@@ -31,11 +31,11 @@
  * See `docs/connections/the-tributaries.md` §3.1.
  */
 
-import type { SourceModule, IngestContext, RawRow } from "../types.js";
-import type { CanonicalCard } from "../canonical.js";
-import type { ScryfallCard, ScryfallBulkIndex, ScryfallBulkMeta } from "./types.js";
-import { createFetcher } from "../http.js";
-import { normalizeScryfall } from "./normalize.js";
+import type { SourceModule, IngestContext, RawRow } from "../types";
+import type { CanonicalCard } from "../canonical";
+import type { ScryfallCard, ScryfallBulkIndex, ScryfallBulkMeta } from "./types";
+import { createFetcher } from "../http";
+import { normalizeScryfall } from "./normalize";
 
 const BULK_INDEX_URL = "https://api.scryfall.com/bulk-data";
 

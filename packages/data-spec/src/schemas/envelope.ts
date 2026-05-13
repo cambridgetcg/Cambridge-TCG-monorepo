@@ -12,7 +12,7 @@
  * inside `_meta`; this file's `$id` carries the same version.
  */
 
-import { ERROR_CODES } from "../error-codes.js";
+import { ERROR_CODES } from "../error-codes";
 
 export const META_SCHEMA = {
   $id: "https://cambridgetcg.com/spec/v1/Meta.schema.json",

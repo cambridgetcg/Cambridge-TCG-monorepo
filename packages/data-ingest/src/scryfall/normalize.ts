@@ -5,9 +5,9 @@
  * `{ ok: false, reason }`; never throw.
  */
 
-import type { NormalizeResult } from "../types.js";
-import type { CanonicalCard } from "../canonical.js";
-import type { ScryfallCard } from "./types.js";
+import type { NormalizeResult } from "../types";
+import type { CanonicalCard } from "../canonical";
+import type { ScryfallCard } from "./types";
 
 /** Map Scryfall lang strings to ISO 639-1 where they differ. */
 const LANG_MAP: Record<string, string> = {
