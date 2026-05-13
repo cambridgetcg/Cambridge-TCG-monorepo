@@ -16,7 +16,7 @@ import { usePathname } from "next/navigation";
  */
 
 const NAV_LINKS = [
-  { href: "/play", label: "Lobby", note: "Find rooms" },
+  { href: "/play", label: "Play", note: "Pick a deck, start a battle" },
   { href: "/play/welcome", label: "Welcome", note: "Pick your path" },
   { href: "/play/casual", label: "Casual", note: "For hobbyists" },
   { href: "/play/compete", label: "Compete", note: "For competitors" },
