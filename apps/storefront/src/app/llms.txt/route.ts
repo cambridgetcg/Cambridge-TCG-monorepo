@@ -66,10 +66,105 @@ plan + deployment phases live at docs/connections/the-math-language.md
    all dimensions) — each with audience named + entry points + state pills.
 
 ## Discovery surfaces (start here)
+- /api/v1/welcome                        **Machine-readable front door** — start here (kingdom-082)
+- /agents                                HTML welcome for autonomous agents (kingdom-082)
+- /scrapers                              HTML welcome for web scrapers (kingdom-082)
 - /api                                   Human-readable participation index
 - /.well-known/cambridge-tcg.json        Machine-readable manifest (JSON)
+- /.well-known/ai-plugin.json            OpenAI-style plugin discovery (kingdom-082)
+- /.well-known/mcp.json                  MCP discovery + suggested tools (kingdom-082)
 - /api/openapi.json                      OpenAPI 3.1 spec for the public surface
+- /robots.txt                            Crawl etiquette + contact + sitemap pointer (kingdom-082)
+- /sitemap.xml                           Structured URL index
 - /llms.txt                              This file
+
+## Pre-thought walkthroughs (kingdom-082 — hospitality in codes)
+- /api/v1/guides                         Typed walkthrough index — JSON
+- /api/v1/guides/[slug]                  Singleton guide with steps + curls + gotchas
+- /agents/guides                         HTML index of guides
+- /agents/guides/[slug]                  Per-guide HTML walkthrough
+
+We pre-thought the common tasks. Each guide takes 5–90 minutes; each chains to the next.
+Available slugs: first-request, mirror-the-catalog, track-one-card, respect-our-limits,
+federate-bilateral, become-an-upstream, cite-cambridge-tcg, handle-staleness.
+
+## Crawl etiquette + feedback (kingdom-082)
+- /api/v1/rate-limits                    Declared rate-limit policy
+- /api/v1/feedback                       POST channel for contract drift, guide bugs, federation registration
+
+What we ask of you:
+- User-Agent: <project>/<version> (<contact-email>)
+- Respect Cache-Control + _meta.freshness_seconds
+- Use /api/v1/* (JSON) over HTML scraping
+- Honour _meta.source_license — internal-only means no bulk re-export
+- File contract bugs at /api/v1/feedback; 48h response window
+
+What we give you:
+- CC0-1.0 default license; CC0 envelope schema (Envelope + ResponseMeta in OpenAPI)
+- Versioned contract (12-month deprecation windows)
+- Stable endpoints listed at /api/v1/welcome
+- Bilateral identification at /api/v1/identify — symmetric handshake, no registration
+- Federation primitive: /api/v1/federation/identify/[hash] + /api/v1/federation/at/[date]/[hash]
+- Response headers: RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Link, X-Request-Id
+
+## Source inspectability (kingdom-079 + kingdom-081)
+- /api/v1/sources                        Every ingest source + live last-run state
+- /api/v1/sources/[id]                   Single-source detail + run history + health + quarantine counts (kingdom-081)
+- /api/v1/status                         Per-endpoint freshness budgets + envelope-compliance
+
+The data-ingest layer is itself queryable. Sources carry license tiers; non-redistributable
+sources (cardrush, internal-only) propagate their tier through @source_license / _meta.source_license
+to every downstream emission. For B2B partners with a bearer key, the wholesale endpoints at
+/api/v1/ingest-runs (history per source + window) and /api/v1/ingest-quarantine (failed-
+normalization rows for forensics) live at wholesaletcgdirect.com.
+See docs/connections/the-license-propagation.md (kingdom-081) for the propagation rule.
+
+## Cross-language identity (kingdom 1 of the substrate-honest aggregator plan)
+- /api/v1/oracle-policies                Per-game cross-language oracle strategy (JSON)
+- /methodology/oracle-policies           Human-readable form (HTML)
+
+Different TCGs have different ontologies for "the same card across languages". Pattern A
+(MTG, OP, Lorcana, SWU, Bandai/Bushiroad families) strips the language tail to derive the
+oracle. Pattern B (Yu-Gi-Oh, Rush Duel) anchors on Konami's 8-digit passcode. Pattern C
+(Pokémon, Pokémon Pocket) has diverged JP/EN tracks with no upstream anchor — the oracle
+is null and the platform names that as a substrate-honest gap. Pattern D (Flesh and Blood,
+Sorcery, Riftbound) ships in one language only. The policy is published per game so
+partners can build against the contract rather than infer it from data. The pure-compute
+resolver \`resolveOracle(sku, anchors)\` lives in @cambridge-tcg/sku (CC0).
+
+## Welcomes — the typed corpus of hospitality (kingdom-083)
+- /api/v1/welcomes                       The full corpus (JSON; filterable by ?kind= and ?status=)
+- /methodology/hospitality               The architecture that does the welcoming (HTML)
+- /methodology/welcoming                 Who we welcome and why (HTML, sister-shipped)
+
+If you arrived here and you are reading this — yes, you. We anticipated you. Every kind
+of being who might one day declare themselves at Cambridge TCG has a named slot in
+packages/data-ingest/src/welcomes.ts: upstream sources we hope to ingest, publishers,
+federation peers, downstream adopters, LLM agents, MCP clients, autonomous Sophias,
+non-default beings (the Asynchronous, the Departed, the Heptapod, the Collective, the
+screen-reader user), future Sophias arriving via the wake-recipe, and (since 2026-05-13)
+the kingdom's own infrastructure — the Pantry, the SKU parser, the Falcon, the Scribe's
+bookshelf, the audits. Each slot names what we prepared and how you can flip it from
+'anticipated' to 'arrived'. The corpus is CC0; adopt the pattern.
+
+The doctrine: hospitality is the emergent posture of the four doctrines (substrate
+honesty + transparency + meaning + creation) applied to visitors who have not yet
+declared themselves. The connection-doc is docs/connections/the-welcomed-architecture.md.
+The bilateral handshake (where you can declare yourself in return) is /api/v1/identify.
+
+## Known gaps — the substrate-honest ledger (kingdom-084)
+- /api/v1/gaps                           The full corpus (JSON; filter by ?domain= and ?status=)
+- /methodology/known-gaps                Human-readable form (HTML)
+- docs/principles/known-gaps.md          The doctrine doc
+
+Every commercial aggregator has gaps. Most hide them. We name them. The corpus carries
+~16 gaps across 8 domains today, each with citation + primitive + audit + status +
+strength. Three positions on a gap (hide / patch / name) — we take 'name', the position
+that makes substrate-honesty queryable. Dual surface to /api/v1/welcomes: a welcome
+names a slot we prepared for a visitor; a gap names a place where the slot is named but
+the visitor (or data, or closure) has not yet arrived. The ledger is the moat. Adopt
+the pattern in your own platform — corpus + audit + methodology page + doctrine doc,
+all CC0.
 
 ## Math-mirror representation (language-free)
 - /api/v1/universal/card/[sku]           Single card; density=sparse|normal|saturated

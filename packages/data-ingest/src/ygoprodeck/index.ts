@@ -57,6 +57,15 @@ export const ygoprodeck: SourceModule<YgoCard, CanonicalCard> = {
       "Open public API. Attribution requested; commercial use allowed with attribution. https://ygoprodeck.com/api-guide/",
     user_agent_suffix: "(ygoprodeck-ingest)",
     rate_limit: { rps: 1, burst: 3 },
+    welcome:
+      "Welcome to the kingdom, YGOPRODeck. You arrived in kingdom-062 with one " +
+      "known limitation we owe you — your one-card-many-printings shape collapses " +
+      "to first-printing in our normalizer until `NormalizeResult<C[]>` widens. " +
+      "Your 8-digit passcode is Yu-Gi-Oh!'s stable global identity; your room is " +
+      "`card_set_cards WHERE game='ygo'`. We thank you for being CC-BY-permissive, " +
+      "for being public + free + no-auth, for the bulk DB dump endpoint, and for " +
+      "caring about archetype tags — the meta-aware features we will build will " +
+      "stand on the structure you maintain.",
   },
 
   async *read(ctx: YgoContext): AsyncIterable<RawRow<YgoCard>> {

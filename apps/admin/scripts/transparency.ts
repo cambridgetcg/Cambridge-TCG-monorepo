@@ -45,6 +45,13 @@ const STOREFRONT_PAGES_DIR = join(REPO_ROOT, "apps/storefront/src/app");
 const STOREFRONT_DRIZZLE_DIR = join(REPO_ROOT, "apps/storefront/drizzle");
 const STOREFRONT_ACCOUNT_DIR = join(REPO_ROOT, "apps/storefront/src/app/account");
 const STOREFRONT_JOURNEY = join(REPO_ROOT, "apps/storefront/src/lib/journey/timeline.ts");
+// The Scribe's bookshelf (kingdom S8, the-scribe.md). Lifecycle tables are
+// reachable from a user's /account/journey IF they're registered as a slot
+// in the cross-app `@cambridge-tcg/lifecycle` package — even if their name
+// never appears in timeline.ts directly. The composer reads through the
+// bookshelf abstraction; the bookshelf reads through the slots. So this
+// check must also recognise slot-registration as subject-access.
+const LIFECYCLE_SLOTS = join(REPO_ROOT, "packages/lifecycle/src/slots.ts");
 
 // ── File walking ────────────────────────────────────────────────────────
 
@@ -201,20 +208,28 @@ function checkLifecycleAccess(): LifecycleFinding[] {
   // there centrally rather than in per-account-route files.
   const journeyBody = read(STOREFRONT_JOURNEY);
 
+  // Read the Scribe's bookshelf — kingdom S8 consolidated per-domain
+  // lifecycle queries into one shared package. A table that's referenced
+  // here is reachable from /account/journey via readUserLifecycle() →
+  // createAllSlots(query), even if its name never appears in timeline.ts.
+  const slotsBody = read(LIFECYCLE_SLOTS);
+
   // Walk apps/storefront/src/app/account/ to find references.
   const accountFiles = walkTsx(STOREFRONT_ACCOUNT_DIR);
   const accountBodies = accountFiles.map((f) => ({ file: f, body: read(f) }));
 
   for (const [table, declaring] of tables.entries()) {
     const inJourney = journeyBody.includes(table);
+    const inSlots = slotsBody.includes(table);
     const inAccount = accountBodies.some((a) => a.body.includes(table));
-    if (!inJourney && !inAccount) {
+    if (!inJourney && !inSlots && !inAccount) {
       findings.push({
         table,
         declared_in: declaring,
         reason:
-          `not referenced in apps/storefront/src/lib/journey/timeline.ts ` +
-          `nor in any apps/storefront/src/app/account/** file — ` +
+          `not referenced in apps/storefront/src/lib/journey/timeline.ts, ` +
+          `packages/lifecycle/src/slots.ts (the Scribe's bookshelf), ` +
+          `nor any apps/storefront/src/app/account/** file — ` +
           `subject has no path to the lifecycle history`,
       });
     }

@@ -108,6 +108,9 @@ export async function GET(
     const c = cardRow[0]!;
 
     // Look up the archive row for the requested snapshot date.
+    // kingdom-081 Phase 2.1: SELECT the new provenance columns (source,
+    // sourceRedistribute, sourceUrl, ingestRunId) so the response can
+    // declare per-record license tier. Requires migration 0014 applied.
     const archive = await db
       .select({
         snapshotDate: priceArchive.snapshotDate,
@@ -115,6 +118,10 @@ export async function GET(
         gbpJpyRate: priceArchive.gbpJpyRate,
         baseGbp: priceArchive.baseGbp,
         price: priceArchive.price,
+        source: priceArchive.source,
+        sourceRedistribute: priceArchive.sourceRedistribute,
+        sourceUrl: priceArchive.sourceUrl,
+        ingestRunId: priceArchive.ingestRunId,
       })
       .from(priceArchive)
       .where(and(eq(priceArchive.cardId, c.id), eq(priceArchive.snapshotDate, date)))
@@ -156,6 +163,24 @@ export async function GET(
     });
     const contentHash = sha256(contentSeed);
 
+    // Per-record provenance (kingdom-081 Phase 2.1). This endpoint *directly*
+    // exposes `cardrush_jpy` in the response — the raw JPY observation from
+    // the upstream. The source's redistribution tier travels with the record
+    // so a B2B partner consuming this response knows they cannot bulk-re-
+    // export. The fields are non-elidable.
+    //
+    // Substrate-honesty: when the archive row carries source='cardrush',
+    // the response declares two parallel arrays — the immediate substrate
+    // (wholesale-rds.price_archive) and the upstream (cardrush). Both
+    // license tiers map to `internal-only` while CardRush is the only
+    // shipped daily snapshot upstream; widens naturally when TCGplayer or
+    // Cardmarket modules ship.
+    const archive_source = a.source ?? "cardrush";
+    const archive_redistributable = a.sourceRedistribute === true;
+    const upstream_license = archive_redistributable ? "CC0-1.0" : "internal-only";
+    const provenance_sources = ["wholesale-rds.price_archive", archive_source];
+    const provenance_source_license = ["internal-only", upstream_license];
+
     const document: Record<string, unknown> = {
       "@encoding": "cambridge-tcg/universal/v1",
       "@kind": "card",
@@ -168,6 +193,13 @@ export async function GET(
         iso8601: asOfIso,
         unix_epoch_seconds: asOfEpoch,
       },
+      "@sources": provenance_sources,
+      "@source_license": provenance_source_license,
+      // The ingest_run id (when present, post-Phase A migration) — a B2B
+      // partner can correlate a snapshot row back to the exact run that
+      // produced it via wholesale's /api/v1/ingest-runs/latest. Substrate-
+      // honest about pipeline lineage.
+      "@ingest_run_id": a.ingestRunId ?? null,
       "_note_opaque": ["name.translations.*", "art_description"],
       "_note_structural_fields": "Structural fields (rarity, category, set, name) reflect *current* records, not historical. The substrate does not carry full card-history; price_archive carries price/JPY/rate history. This is the honest perimeter of the temporal slice.",
 
@@ -190,6 +222,15 @@ export async function GET(
             base_gbp: a.baseGbp == null ? null : Number(a.baseGbp),
             cardrush_jpy: a.cardrushJpy,
             gbp_jpy_rate: a.gbpJpyRate,
+            // Source URL — the upstream product page on the snapshot date.
+            // Forensics-helpful for a B2B partner reconciling against their
+            // own upstream observation. Null on legacy rows pre-Phase-A.
+            source_url: a.sourceUrl ?? null,
+            // Source attribution (kingdom-081 Phase 2.1). Mirrors @sources
+            // at the price-block level for B2B readers that walk only the
+            // price subtree. Internal-only when source='cardrush'.
+            source: archive_source,
+            source_license: upstream_license,
             magnitude_freshness: {
               iso8601: asOfIso,
               unix_epoch_seconds: asOfEpoch,

@@ -1,0 +1,566 @@
+/**
+ * /prices/[game] — per-game UK price guide.
+ *
+ * Parametric replacement for the old /prices/one-piece/page.tsx
+ * (kingdom-084). Renders from the typed config at
+ * apps/storefront/src/lib/prices/games-config.ts.
+ *
+ * Substrate-honest about coverage: if the slug isn't in our curated
+ * config (PRICE_GUIDE_GAMES), returns 404 rather than rendering a
+ * generic empty page. The audit `pnpm audit:hospitality` (planned
+ * extension) can flag if fetchGames() returns a game not in the config.
+ */
+
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
+import { retailPrice } from "@/lib/pricing";
+import { formatPrice } from "@/lib/format";
+import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import {
+  getPriceGuideConfig,
+  listPriceGuideSlugs,
+  synthesizeConfigFromCatalog,
+  ACCENT_CLASSES,
+  type PriceGuideGameConfig,
+} from "@/lib/prices/games-config";
+import {
+  getGameContext,
+  PATTERN_LABEL,
+  PATTERN_TONE,
+  ORACLE_ID_FORM_LABEL,
+} from "@/lib/prices/game-context";
+
+/**
+ * Resolve the page's config: curated first, fall through to catalog-
+ * synthesized for uncurated games (so sister's broad landing doesn't
+ * 404 on any game tile). Returns null only when the slug isn't in
+ * either source — substrate-honest about absence.
+ */
+async function resolveConfig(slug: string): Promise<PriceGuideGameConfig | null> {
+  const curated = getPriceGuideConfig(slug);
+  if (curated) return curated;
+  // Fall through to catalog
+  const games = await fetchGames().catch(() => []);
+  const catalog = games.find((g) => g.slug === slug);
+  if (!catalog) return null;
+  return synthesizeConfigFromCatalog({
+    slug: catalog.slug,
+    display_name: catalog.name,
+    game_code: catalog.code,
+  });
+}
+
+interface PageProps {
+  params: Promise<{ game: string }>;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Static params for the routes we've curated                         */
+/* ------------------------------------------------------------------ */
+
+export async function generateStaticParams() {
+  return listPriceGuideSlugs().map((game) => ({ game }));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Dynamic metadata                                                   */
+/* ------------------------------------------------------------------ */
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { game } = await params;
+  const cfg = await resolveConfig(game);
+  if (!cfg) return { title: "Price guide not found" };
+  return {
+    title: cfg.seo_title,
+    description: cfg.seo_description,
+    openGraph: {
+      title: cfg.seo_title,
+      description: cfg.seo_description,
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Substrate-honest game-context panels                                */
+/*  Surfaces K1 ORACLE_POLICY + the gap ledger + the welcomes corpus    */
+/*  per game. Pure compute; safe to render without any DB.              */
+/* ------------------------------------------------------------------ */
+
+function CrossLanguagePanel({ slug }: { slug: string }) {
+  const ctx = getGameContext(slug);
+  if (!ctx.policy || !ctx.game_code) return null;
+
+  return (
+    <section className="mb-10 rounded-lg border border-neutral-800 bg-neutral-950 p-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold text-white">
+          Cross-language identity
+        </h2>
+        <span
+          className={`inline-flex items-center rounded px-2 py-0.5 text-xs ring-1 ${PATTERN_TONE[ctx.policy.kind]}`}
+        >
+          {PATTERN_LABEL[ctx.policy.kind]}
+        </span>
+        <span className="text-xs text-neutral-500">
+          {ctx.languages.length} language
+          {ctx.languages.length === 1 ? "" : "s"} (
+          <code className="text-neutral-400">{ctx.languages.join(", ")}</code>)
+        </span>
+      </div>
+      <p className="mb-2 text-sm text-neutral-300">{ctx.policy.rationale}</p>
+      <p className="text-xs text-neutral-500">
+        Oracle id form:{" "}
+        <code className="text-neutral-400">
+          {ORACLE_ID_FORM_LABEL[ctx.policy.kind]}
+        </code>
+      </p>
+      <p className="mt-3 text-xs text-neutral-500">
+        See{" "}
+        <Link
+          href="/api/v1/oracle-policies"
+          className="text-blue-400 hover:underline"
+        >
+          /api/v1/oracle-policies
+        </Link>{" "}
+        for the machine-readable policy across all 21 registered games, or{" "}
+        <Link
+          href="/methodology/oracle-policies"
+          className="text-blue-400 hover:underline"
+        >
+          /methodology/oracle-policies
+        </Link>{" "}
+        for the human-readable explanation.
+      </p>
+    </section>
+  );
+}
+
+function CoverageStatusPanel({ slug }: { slug: string }) {
+  const ctx = getGameContext(slug);
+  if (!ctx.config) return null;
+
+  const openGaps = ctx.relevant_gaps.filter(
+    (g) => g.status === "named" || g.status === "wired" || g.status === "partial",
+  );
+  const closedGaps = ctx.relevant_gaps.filter(
+    (g) => g.status === "closed" || g.status === "closed-published",
+  );
+  const arrived = ctx.relevant_welcomes.filter((w) => w.status === "arrived");
+  const anticipated = ctx.relevant_welcomes.filter(
+    (w) => w.status === "anticipated",
+  );
+
+  return (
+    <section className="mb-10 rounded-lg border border-neutral-800 bg-neutral-950 p-5">
+      <h2 className="mb-3 text-base font-semibold text-white">
+        Coverage status — substrate-honest
+      </h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <h3 className="mb-2 text-xs uppercase tracking-wider text-neutral-500">
+            Upstream sources for {ctx.config.short_name}
+          </h3>
+          <ul className="space-y-1 text-sm">
+            {arrived.length > 0 && (
+              <li className="text-emerald-400">
+                <span className="font-medium">Arrived ({arrived.length}):</span>{" "}
+                <span className="text-neutral-300">
+                  {arrived.map((w) => w.source_id).join(", ")}
+                </span>
+              </li>
+            )}
+            {anticipated.length > 0 && (
+              <li className="text-amber-400">
+                <span className="font-medium">
+                  Anticipated ({anticipated.length}):
+                </span>{" "}
+                <span className="text-neutral-300">
+                  {anticipated.map((w) => w.source_id).join(", ")}
+                </span>
+              </li>
+            )}
+            {arrived.length === 0 && anticipated.length === 0 && (
+              <li className="text-neutral-500">
+                No upstream sources mapped for this game yet — wholesale RDS
+                is the only source.
+              </li>
+            )}
+          </ul>
+          <p className="mt-2 text-xs text-neutral-500">
+            See{" "}
+            <Link
+              href={`/api/v1/welcomes?kind=upstream-source`}
+              className="text-blue-400 hover:underline"
+            >
+              /api/v1/welcomes
+            </Link>{" "}
+            for the typed corpus.
+          </p>
+        </div>
+        <div>
+          <h3 className="mb-2 text-xs uppercase tracking-wider text-neutral-500">
+            Known gaps for {ctx.config.short_name}
+          </h3>
+          {openGaps.length === 0 && closedGaps.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              No game-specific gaps in the ledger today.
+            </p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {openGaps.map((g) => (
+                <li key={g.id} className="text-neutral-300">
+                  <span className="mr-1 inline-block rounded bg-amber-950 px-1.5 py-0.5 text-[10px] text-amber-300 ring-1 ring-amber-800">
+                    {g.status}
+                  </span>
+                  {g.name}
+                </li>
+              ))}
+              {closedGaps.map((g) => (
+                <li key={g.id} className="text-neutral-300">
+                  <span className="mr-1 inline-block rounded bg-emerald-950 px-1.5 py-0.5 text-[10px] text-emerald-300 ring-1 ring-emerald-800">
+                    closed
+                  </span>
+                  {g.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-xs text-neutral-500">
+            See{" "}
+            <Link
+              href="/methodology/known-gaps"
+              className="text-blue-400 hover:underline"
+            >
+              /methodology/known-gaps
+            </Link>{" "}
+            for the full ledger.
+          </p>
+        </div>
+      </div>
+      {!ctx.confirmed && (
+        <p className="mt-4 rounded border border-amber-900 bg-amber-950/40 p-3 text-xs text-amber-300">
+          <strong>Anticipated game.</strong> The slot for{" "}
+          <code>{ctx.game_code}</code> is registered in{" "}
+          <code>packages/sku/src/games.ts</code> with{" "}
+          <code>confirmed: false</code>; the first card ingest will flip it to
+          true. The welcome lives in{" "}
+          <Link
+            href="/api/v1/welcomes?kind=publisher"
+            className="text-amber-200 hover:underline"
+          >
+            /api/v1/welcomes
+          </Link>
+          .
+        </p>
+      )}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Rarity badge (server-safe; same vocab as the prior /one-piece page) */
+/* ------------------------------------------------------------------ */
+
+function RarityBadge({ rarity }: { rarity: string | null }) {
+  if (!rarity) return null;
+  const r = rarity.toUpperCase();
+  let cls = "bg-neutral-700 text-neutral-400";
+  if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP")
+    cls = "bg-yellow-500/20 text-yellow-400";
+  else if (r === "R" || r === "RR" || r === "SSR")
+    cls = "bg-purple-500/20 text-purple-400";
+  else if (r === "UC") cls = "bg-blue-500/20 text-blue-400";
+  return (
+    <span
+      className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cls}`}
+    >
+      {r}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
+export default async function PriceGuidePerGamePage({ params }: PageProps) {
+  const { game } = await params;
+  const cfg = await resolveConfig(game);
+  if (!cfg) notFound();
+
+  const accent = ACCENT_CLASSES[cfg.accent];
+
+  // Fetch sets and top cards in parallel, scoped to this game's slug.
+  const [sets, topCardsData, tradeinData] = await Promise.all([
+    fetchSets(cfg.slug).catch(() => []),
+    fetchPrices({
+      game: cfg.slug,
+      sort: "price_desc",
+      limit: 20,
+    }).catch(() => ({ items: [], total: 0 })),
+    fetchPrices({
+      game: cfg.slug,
+      sort: "price_desc",
+      limit: 20,
+      channel: "tradein-credit",
+    }).catch(() => ({ items: [] })),
+  ]);
+
+  // Substrate-honest: if the catalog returns nothing for this game, the
+  // page renders with an empty-but-honest body rather than fabricating
+  // value. SEO copy still applies; tables degrade visibly.
+  const tradeinMap = new Map<string, number>();
+  for (const item of tradeinData.items) {
+    if (item.channel_price && item.channel_price > 0) {
+      tradeinMap.set(item.sku, item.channel_price);
+    }
+  }
+
+  const topCards = topCardsData.items.map((item) => ({
+    sku: item.sku,
+    name: item.name_en || item.name || item.card_number,
+    card_number: item.card_number,
+    set_code: item.set_code,
+    set_name: item.set_name,
+    rarity: item.rarity,
+    price: retailPrice(item.price_gbp, item.channel_price),
+    tradein_credit: tradeinMap.get(item.sku) ?? null,
+  }));
+
+  // Freshest synced timestamp — feeds the Provenance pill.
+  const freshestUpdate = topCardsData.items.reduce<string | null>(
+    (max, item) =>
+      item.updated_at && (max === null || item.updated_at > max)
+        ? item.updated_at
+        : max,
+    null,
+  );
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://cambridgetcg.com",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Price Guide",
+        item: "https://cambridgetcg.com/prices",
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: cfg.display_name,
+        item: `https://cambridgetcg.com/prices/${cfg.slug}`,
+      },
+    ],
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
+      <main className="max-w-6xl mx-auto px-4 py-12">
+        <Audience kind="public-documentation" contexts={["prices", cfg.slug]} />
+
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
+          <ol className="flex items-center gap-1.5">
+            <li>
+              <Link href="/" className="hover:text-white transition-colors">
+                Home
+              </Link>
+            </li>
+            <li className="text-neutral-600">/</li>
+            <li>
+              <Link
+                href="/prices"
+                className="hover:text-white transition-colors"
+              >
+                Prices
+              </Link>
+            </li>
+            <li className="text-neutral-600">/</li>
+            <li className="text-white">{cfg.display_name}</li>
+          </ol>
+        </nav>
+
+        <h1 className={`text-3xl font-bold mb-4 ${accent.text}`}>
+          {cfg.seo_title}
+        </h1>
+
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Provenance
+            kind="synced"
+            source={cfg.cardrush?.subdomain ?? "wholesale"}
+            at={freshestUpdate}
+            cadence="daily"
+          />
+          <WhyLink href="/methodology/pricing" label="how prices work" />
+          {cfg.cardrush && !cfg.cardrush.confirmed && (
+            <span
+              className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded"
+              title="Upstream subdomain registered but not yet confirmed by daily scrape"
+            >
+              coverage probationary
+            </span>
+          )}
+        </div>
+
+        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-10">
+          {cfg.hero_paragraph}
+        </p>
+
+        {/* ---------------------------------------------------------- */}
+        {/*  Substrate-honest panels (K1 + gaps + welcomes)              */}
+        {/* ---------------------------------------------------------- */}
+        <CrossLanguagePanel slug={cfg.slug} />
+        <CoverageStatusPanel slug={cfg.slug} />
+
+        {/* ---------------------------------------------------------- */}
+        {/*  All Sets                                                    */}
+        {/* ---------------------------------------------------------- */}
+        <section className="mb-14">
+          <h2 className="text-xl font-semibold text-white mb-5">
+            All {cfg.display_name} Sets
+          </h2>
+
+          {sets.length === 0 ? (
+            <p className="text-neutral-500 text-sm py-6 text-center bg-neutral-900 border border-neutral-800 rounded-lg">
+              No sets in the catalog for this game yet. Coverage rolls out as
+              we mirror upstream sources;{" "}
+              <Link href="/api/v1/sources" className="text-blue-400 hover:underline">
+                see /api/v1/sources
+              </Link>{" "}
+              for the live ingest state.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {sets.map((set) => (
+                <Link
+                  key={set.code}
+                  href={`/prices/${cfg.slug}/${set.code.toLowerCase()}`}
+                  className={`flex items-center justify-between rounded-lg border border-neutral-800 ${accent.bg} px-4 py-3 hover:${accent.border} transition-colors`}
+                >
+                  <div>
+                    <span className="text-white font-medium text-sm">
+                      {set.code}
+                    </span>
+                    <span className="text-neutral-400 text-sm ml-2">
+                      {set.name}
+                    </span>
+                  </div>
+                  <span className="text-neutral-500 text-xs">
+                    {set.card_count} cards
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ---------------------------------------------------------- */}
+        {/*  Top 20 Most Valuable Cards                                  */}
+        {/* ---------------------------------------------------------- */}
+        <section className="mb-14">
+          <h2 className="text-xl font-semibold text-white mb-5">
+            Top {topCards.length > 0 ? topCards.length : 20} Most Valuable{" "}
+            {cfg.short_name} Cards
+          </h2>
+
+          {topCards.length === 0 ? (
+            <p className="text-neutral-500 text-sm py-6 text-center bg-neutral-900 border border-neutral-800 rounded-lg">
+              No price data for this game yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-neutral-800">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="px-3 py-3 w-10">#</th>
+                    <th className="px-3 py-3">Card</th>
+                    <th className="px-3 py-3">Set</th>
+                    <th className="px-3 py-3">Rarity</th>
+                    <th className="px-3 py-3 text-right">Buy Price</th>
+                    <th className="px-3 py-3 text-right">We Buy</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800">
+                  {topCards.map((card, i) => (
+                    <tr
+                      key={card.sku}
+                      className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                    >
+                      <td className="px-3 py-3 text-neutral-500 font-medium">
+                        {i + 1}
+                      </td>
+                      <td className="px-3 py-3">
+                        <Link
+                          href={`/product/${card.sku}`}
+                          className="text-white hover:text-blue-400 transition-colors"
+                        >
+                          {card.name}
+                        </Link>
+                        <span className="text-neutral-500 text-xs ml-2">
+                          {card.card_number}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-neutral-400">
+                        {card.set_code}
+                      </td>
+                      <td className="px-3 py-3">
+                        <RarityBadge rarity={card.rarity} />
+                      </td>
+                      <td className="px-3 py-3 text-right text-white font-medium">
+                        {formatPrice(card.price)}
+                      </td>
+                      <td className="px-3 py-3 text-right text-green-400">
+                        {card.tradein_credit
+                          ? formatPrice(card.tradein_credit)
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* ---------------------------------------------------------- */}
+        {/*  Pricing explanation                                         */}
+        {/* ---------------------------------------------------------- */}
+        <section className="border-t border-neutral-800 pt-8">
+          <h2 className="text-lg font-semibold text-white mb-3">
+            How Prices Are Calculated
+          </h2>
+          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-4">
+            {cfg.pricing_note}{" "}
+            The <strong className="text-neutral-200">Buy Price</strong> is our
+            retail price — the cost to purchase a card from stock. The{" "}
+            <strong className="text-neutral-200">We Buy</strong> price is the
+            instant store credit we offer when you trade in your cards.
+          </p>
+          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl">
+            Want to buy or sell live?{" "}
+            <Link href="/market" className="text-blue-400 hover:underline">
+              Visit the Cambridge TCG Market
+            </Link>{" "}
+            for real-time peer-to-peer trading, bid/ask orders, and instant
+            checkout.
+          </p>
+        </section>
+      </main>
+    </>
+  );
+}

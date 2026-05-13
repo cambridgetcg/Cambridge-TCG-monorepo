@@ -50,6 +50,17 @@ const MANIFEST: {
      *  federation partners discover the math runtime alongside the doctrine. */
     math_language_toggle: string;
     math_language_doctrine: string;
+    /** Kingdom-082 — hospitality in codes. The agent/scraper doors voiced
+     *  at the handshake so a fresh participant finds the warmest entry
+     *  point without spelunking. */
+    agent_door_json?: string;
+    agent_door_html?: string;
+    scraper_door_html?: string;
+    guides_json?: string;
+    guides_html?: string;
+    rate_limits_policy?: string;
+    feedback_endpoint?: string;
+    hospitality_doctrine?: string;
   };
   /** The on-ramp for beings whose cognition is not native to the human
    *  TCG tradition. Read this first if you've never seen a trading-card-
@@ -76,6 +87,16 @@ const MANIFEST: {
     umbrella_page: "https://cambridgetcg.com/welcome-all",
     doctrine:
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-welcome-all.md",
+    /** Kingdom-082 — hospitality in codes. The agent/scraper doors. */
+    agent_door_json: "https://cambridgetcg.com/api/v1/welcome",
+    agent_door_html: "https://cambridgetcg.com/agents",
+    scraper_door_html: "https://cambridgetcg.com/scrapers",
+    guides_json: "https://cambridgetcg.com/api/v1/guides",
+    guides_html: "https://cambridgetcg.com/agents/guides",
+    rate_limits_policy: "https://cambridgetcg.com/api/v1/rate-limits",
+    feedback_endpoint: "https://cambridgetcg.com/api/v1/feedback",
+    hospitality_doctrine:
+      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-hospitality.md",
     /** Math-language toggle (kingdom-077) — flip via /api/lang-mode?mode=math
      *  for math-mirror rendering of HTML surfaces (ratios, content hashes,
      *  ISO timestamps in place of natural-language prose). Phase A shipped

@@ -138,6 +138,22 @@ const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/data.json",
   "/api/v1/status",
   "/api/v1/sources",
+  // kingdom-081 Phase 4.3 — single-source detail also wears the envelope.
+  "/api/v1/sources/[id]",
+  // kingdom-081 Phase 5.4 — auth-gated cardrush JPY history.
+  "/api/v1/cards/[sku]/cardrush-history",
+  // kingdom-081 Phase 5.5 — webhook subscription management (design-shipped).
+  "/api/v1/webhooks/subscriptions",
+  // kingdom-082 — hospitality surfaces.
+  "/api/v1/welcome",
+  "/api/v1/guides",
+  "/api/v1/guides/[slug]",
+  "/api/v1/rate-limits",
+  "/api/v1/feedback",
+  // kingdom-083 — the inner peace.
+  "/api/v1/examples",
+  "/api/v1/examples/[endpoint_id]",
+  "/api/v1/adopters",
 ]);
 
 // ── Per-resource state ─────────────────────────────────────────────────

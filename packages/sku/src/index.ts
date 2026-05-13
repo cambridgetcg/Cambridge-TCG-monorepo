@@ -62,3 +62,16 @@ export {
   type SetFormat,
   type CardNumberParts,
 } from "./sets";
+
+export {
+  ORACLE_POLICY,
+  resolveOracle,
+  strippedOracleId,
+  groupByOracle,
+  type OraclePolicy,
+  type OraclePatternKind,
+  type OracleAnchors,
+  type OracleResolution,
+  type OracleResolutionSource,
+  type OracleConfidence,
+} from "./oracle";

@@ -18,7 +18,9 @@
     "./cardmarket": { "types": "./src/cardmarket/index.ts", "default": "./src/cardmarket/index.ts" }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@cambridge-tcg/data-spec": "workspace:^",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
   }
 }

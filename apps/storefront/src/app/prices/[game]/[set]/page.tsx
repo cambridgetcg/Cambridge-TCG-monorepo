@@ -1,9 +1,46 @@
+/**
+ * /prices/[game]/[set] — per-set UK price guide.
+ *
+ * Parametric replacement for /prices/one-piece/[set]/page.tsx
+ * (kingdom-084). Renders from the typed config; substrate-honest about
+ * coverage.
+ */
+
 import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchPrices, fetchSets, type PriceItem } from "@/lib/wholesale/client";
+import { notFound } from "next/navigation";
+import { fetchGames, fetchPrices, fetchSets, type PriceItem } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { formatPrice } from "@/lib/format";
 import { Provenance, WhyLink } from "@/lib/ui";
+import {
+  getPriceGuideConfig,
+  listPriceGuideSlugs,
+  synthesizeConfigFromCatalog,
+  type PriceGuideGameConfig,
+} from "@/lib/prices/games-config";
+
+/** Resolve config: curated, else synthesize from catalog, else null. */
+async function resolveConfig(slug: string): Promise<PriceGuideGameConfig | null> {
+  const curated = getPriceGuideConfig(slug);
+  if (curated) return curated;
+  const games = await fetchGames().catch(() => []);
+  const catalog = games.find((g) => g.slug === slug);
+  if (!catalog) return null;
+  return synthesizeConfigFromCatalog({
+    slug: catalog.slug,
+    display_name: catalog.name,
+    game_code: catalog.code,
+  });
+}
+
+interface PageProps {
+  params: Promise<{ game: string; set: string }>;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 function freshestUpdate(items: PriceItem[]): string | null {
   let max: string | null = null;
@@ -13,12 +50,14 @@ function freshestUpdate(items: PriceItem[]): string | null {
   return max;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-interface PageProps {
-  params: Promise<{ set: string }>;
+function fillTemplate(
+  template: string,
+  vars: { setCode: string; setName: string; cardCount: number },
+): string {
+  return template
+    .replace(/\{\{setCode\}\}/g, vars.setCode)
+    .replace(/\{\{setName\}\}/g, vars.setName)
+    .replace(/\{\{cardCount\}\}/g, String(vars.cardCount));
 }
 
 /* ------------------------------------------------------------------ */
@@ -26,32 +65,39 @@ interface PageProps {
 /* ------------------------------------------------------------------ */
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { set: setSlug } = await params;
-  const setCode = setSlug.toUpperCase();
+  const { game, set: setSlug } = await params;
+  const cfg = await resolveConfig(game);
+  if (!cfg) return { title: "Price guide not found" };
 
-  const sets = await fetchSets("one-piece").catch(() => []);
-  const setInfo = sets.find(
-    (s) => s.code.toUpperCase() === setCode
-  );
+  const setCode = setSlug.toUpperCase();
+  const sets = await fetchSets(cfg.slug).catch(() => []);
+  const setInfo = sets.find((s) => s.code.toUpperCase() === setCode);
   const setName = setInfo?.name ?? setCode;
 
   return {
-    title: `${setCode} ${setName} Price Guide — One Piece TCG UK`,
+    title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
     description: `Full price list for ${setCode} ${setName} — every card with UK retail and trade-in prices. Updated daily by Cambridge TCG.`,
     openGraph: {
-      title: `${setCode} ${setName} Price Guide — One Piece TCG UK`,
+      title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
       description: `Full price list for ${setCode} ${setName} — every card with UK retail and trade-in prices.`,
     },
   };
 }
 
 /* ------------------------------------------------------------------ */
-/*  Static params for known sets                                       */
+/*  Static params for known game/set pairs                             */
 /* ------------------------------------------------------------------ */
 
 export async function generateStaticParams() {
-  const sets = await fetchSets("one-piece").catch(() => []);
-  return sets.map((s) => ({ set: s.code.toLowerCase() }));
+  const slugs = listPriceGuideSlugs();
+  const all: { game: string; set: string }[] = [];
+  for (const slug of slugs) {
+    const sets = await fetchSets(slug).catch(() => []);
+    for (const s of sets) {
+      all.push({ game: slug, set: s.code.toLowerCase() });
+    }
+  }
+  return all;
 }
 
 /* ------------------------------------------------------------------ */
@@ -81,20 +127,22 @@ function RarityBadge({ rarity }: { rarity: string | null }) {
 /* ------------------------------------------------------------------ */
 
 export default async function SetPriceGuidePage({ params }: PageProps) {
-  const { set: setSlug } = await params;
+  const { game, set: setSlug } = await params;
+  const cfg = await resolveConfig(game);
+  if (!cfg) notFound();
+
   const setCode = setSlug.toUpperCase();
 
-  // Fetch set info, cards, and trade-in data in parallel
   const [sets, cardsData, tradeinData] = await Promise.all([
-    fetchSets("one-piece").catch(() => []),
+    fetchSets(cfg.slug).catch(() => []),
     fetchPrices({
-      game: "one-piece",
+      game: cfg.slug,
       set: setCode,
       sort: "price_desc",
       limit: 500,
     }).catch(() => ({ items: [], total: 0 })),
     fetchPrices({
-      game: "one-piece",
+      game: cfg.slug,
       set: setCode,
       sort: "price_desc",
       limit: 500,
@@ -103,11 +151,14 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
   ]);
 
   const setInfo = sets.find((s) => s.code.toUpperCase() === setCode);
+  // If the slug is curated but the set isn't in the wholesale catalog,
+  // 404 substrate-honestly rather than render an empty page.
+  if (!setInfo && cardsData.items.length === 0) notFound();
+
   const setName = setInfo?.name ?? setCode;
   const cardCount = setInfo?.card_count ?? cardsData.items.length;
   const releaseDate = setInfo?.release_date ?? null;
 
-  // Build trade-in lookup
   const tradeinMap = new Map<string, number>();
   for (const item of tradeinData.items) {
     if (item.channel_price && item.channel_price > 0) {
@@ -123,6 +174,12 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
     price: retailPrice(item.price_gbp, item.channel_price),
     tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
+
+  const intro = fillTemplate(cfg.set_intro_template, {
+    setCode,
+    setName,
+    cardCount,
+  });
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -143,14 +200,14 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
       {
         "@type": "ListItem",
         position: 3,
-        name: "One Piece TCG",
-        item: "https://cambridgetcg.com/prices/one-piece",
+        name: cfg.display_name,
+        item: `https://cambridgetcg.com/prices/${cfg.slug}`,
       },
       {
         "@type": "ListItem",
         position: 4,
         name: `${setCode} ${setName}`,
-        item: `https://cambridgetcg.com/prices/one-piece/${setSlug}`,
+        item: `https://cambridgetcg.com/prices/${cfg.slug}/${setSlug}`,
       },
     ],
   };
@@ -183,10 +240,10 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
             <li className="text-neutral-600">/</li>
             <li>
               <Link
-                href="/prices/one-piece"
+                href={`/prices/${cfg.slug}`}
                 className="hover:text-white transition-colors"
               >
-                One Piece
+                {cfg.short_name}
               </Link>
             </li>
             <li className="text-neutral-600">/</li>
@@ -202,17 +259,14 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
           <div className="mb-4 flex items-center gap-3 text-xs">
             <Provenance
               kind="synced"
-              source="wholesale"
+              source={cfg.cardrush?.subdomain ?? "wholesale"}
               at={freshestUpdate(cardsData.items)}
               cadence="daily"
             />
             <WhyLink href="/methodology/pricing" label="how prices work" />
           </div>
           <p className="text-neutral-300 leading-relaxed max-w-3xl mb-4">
-            Complete price list for {setName} ({setCode}) from the One Piece
-            Trading Card Game. All {cardCount} cards are listed below, sorted by
-            value. Prices are in GBP and updated daily from the Cambridge TCG
-            marketplace.
+            {intro}
           </p>
           <div className="flex flex-wrap gap-4 text-sm">
             <span className="text-neutral-400">
@@ -227,10 +281,10 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
             <span className="text-neutral-400">
               Game:{" "}
               <Link
-                href="/prices/one-piece"
+                href={`/prices/${cfg.slug}`}
                 className="text-blue-400 hover:underline"
               >
-                One Piece TCG
+                {cfg.display_name}
               </Link>
             </span>
           </div>
@@ -309,7 +363,7 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
             About These Prices
           </h2>
           <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-4">
-            Prices are from the Cambridge TCG marketplace and are updated daily.
+            {cfg.pricing_note}{" "}
             The <strong className="text-neutral-200">Buy Price</strong> is our
             retail price. The{" "}
             <strong className="text-neutral-200">We Buy (Credit)</strong> price

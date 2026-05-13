@@ -38,6 +38,11 @@ interface MoneyDisplayProps {
   className?: string;
   /** Tolerant default rendering — if value is null, render "—". */
   tolerant?: boolean;
+  /** When true, a zero value renders the same as null ("—" in default mode,
+   *  `{amount:null,unit:...}` in math mode). Surfaces like the trader
+   *  dashboard use zero to mean "no activity in this window"; the dash
+   *  is more honest than "£0.00" in that context. */
+  treatZeroAsMissing?: boolean;
 }
 
 export async function MoneyDisplay({
@@ -46,6 +51,7 @@ export async function MoneyDisplay({
   medianValue,
   className = "",
   tolerant = true,
+  treatZeroAsMissing = false,
 }: MoneyDisplayProps) {
   const mode = await getLangMode();
   const numeric =
@@ -54,7 +60,10 @@ export async function MoneyDisplay({
       : typeof value === "string"
         ? Number.parseFloat(value)
         : value;
-  const valid = numeric != null && Number.isFinite(numeric);
+  const valid =
+    numeric != null &&
+    Number.isFinite(numeric) &&
+    !(treatZeroAsMissing && numeric === 0);
 
   if (mode === "math") {
     if (!valid) {

@@ -70,6 +70,9 @@
 
 import { query } from "@/lib/db";
 import { getCardOrderBook } from "@/lib/market/db";
+import type { CardOrderBook } from "@/lib/market/types";
+import { anonId } from "@/lib/format";
+import { getTrustTier } from "@/lib/escrow/trust-engine";
 
 // ── Public shape ─────────────────────────────────────────────────────────
 
@@ -208,62 +211,58 @@ function toNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Tier-name resolution composes the canonical `getTrustTier` helper from
+// the trust engine (kingdom-071's trust composer routes through the same
+// function). Returns null for null scores so callers can render `—` for
+// missing-trust-profile rows without a separate branch.
 function tierForScore(score: number | null): string | null {
   if (score === null) return null;
-  if (score >= 95) return "Elite";
-  if (score >= 80) return "Veteran";
-  if (score >= 50) return "Trusted";
-  if (score >= 20) return "Starter";
-  return "New";
+  return getTrustTier(score).name;
 }
 
-// Hash a uuid string into a short stable opaque id (last 6 chars).
-// Sufficient for anonymous reading; not a security boundary.
-function anonId(uuid: string): string {
-  return uuid.slice(-6).toLowerCase();
-}
+// `anonId` is shared with auction/state.ts via `@/lib/format` — same
+// last-6-chars contract; one source of truth.
 
 // ── Section loaders ──────────────────────────────────────────────────────
 
-async function loadMeta(sku: string): Promise<CardMarketMeta> {
+async function loadMeta(
+  sku: string,
+  canonical: CardOrderBook,
+): Promise<CardMarketMeta> {
+  // Composition perimeter (kingdom-074): card_name + image_url come from
+  // the canonical book (single source of truth for the per-SKU card-info
+  // join). This composer only queries market_orders for the metadata
+  // getCardOrderBook does NOT carry — set_code, set_name, first_seen_on.
   return safe(
     async () => {
       const r = await query(
-        `SELECT sku, card_name, set_code, set_name, image_url,
+        `SELECT set_code, set_name,
                 MIN(created_at) AS first_seen_on
          FROM market_orders
          WHERE sku = $1
-         GROUP BY sku, card_name, set_code, set_name, image_url
+         GROUP BY set_code, set_name
          ORDER BY MIN(created_at) ASC
          LIMIT 1`,
         [sku],
       );
       const row = r.rows[0];
-      if (!row) {
-        return {
-          sku,
-          card_name: null,
-          set_code: null,
-          set_name: null,
-          image_url: null,
-          first_seen_on: null,
-        };
-      }
       return {
         sku,
-        card_name: row.card_name ?? null,
-        set_code: row.set_code ?? null,
-        set_name: row.set_name ?? null,
-        image_url: row.image_url ?? null,
-        first_seen_on: row.first_seen_on ? new Date(row.first_seen_on).toISOString() : null,
+        card_name: canonical.card_name ?? null,
+        image_url: canonical.image_url ?? null,
+        set_code: row?.set_code ?? null,
+        set_name: row?.set_name ?? null,
+        first_seen_on: row?.first_seen_on
+          ? new Date(row.first_seen_on).toISOString()
+          : null,
       };
     },
     {
       sku,
-      card_name: null,
+      card_name: canonical.card_name ?? null,
+      image_url: canonical.image_url ?? null,
       set_code: null,
       set_name: null,
-      image_url: null,
       first_seen_on: null,
     },
   );
@@ -313,30 +312,21 @@ async function loadPriceHistory(sku: string): Promise<CardMarketPriceHistory> {
   };
 }
 
-async function loadBook(sku: string): Promise<CardMarketBook> {
-  // Compose the canonical order book from `getCardOrderBook` — same source
-  // the interactive `/market/[sku]` page consumes. The composer runs the
-  // lazy expiry sweep that this mirror was missing in v1 (the
-  // substrate-honest gap S35 named); the read after sweep is always
-  // consistent with what a fresh order would see.
+async function loadBook(
+  sku: string,
+  canonical: CardOrderBook,
+): Promise<CardMarketBook> {
+  // Composition perimeter (kingdom-074): the canonical order book comes
+  // from `getCardOrderBook` — same source the interactive `/market/[sku]`
+  // page consumes; same lazy expiry sweep that this mirror was missing
+  // in v1. The canonical is passed in by `loadCardMarket` so only ONE
+  // call to getCardOrderBook fires per page render (instead of separate
+  // calls from loadBook + the meta query duplicating its card_info read).
   //
   // `getCardOrderBook` returns top-20 levels per side aggregated by price
-  // (no condition breakdown). The composer slices to top-10 and adds a
+  // (no condition breakdown). This composer slices to top-10 and adds a
   // by-condition enrichment query — one extra round-trip with a small
   // result set (≤ 80 rows = 20 levels × 4 conditions × 2 sides).
-  const canonical = await safe(
-    () => getCardOrderBook(sku),
-    {
-      sku,
-      card_name: null,
-      image_url: null,
-      bids: [],
-      asks: [],
-      recent_trades: [],
-      best_bid: null,
-      best_ask: null,
-    },
-  );
 
   // Top-10 levels per side from the canonical aggregation.
   const topBids = canonical.bids.slice(0, 10);
@@ -629,11 +619,30 @@ async function loadParticipants(sku: string): Promise<CardMarketParticipants> {
  * the page. Typical latency 80-300ms on warm RDS.
  */
 export async function loadCardMarket(sku: string): Promise<CardMarket> {
+  // Single call to the canonical order-book composer. The result feeds
+  // both loadMeta (for card_name + image_url) and loadBook (for bids,
+  // asks, and the lazy sweep). Without this hoist, getCardOrderBook
+  // would run once via loadBook and the card-info join inside it would
+  // be redundant with loadMeta's own market_orders query.
+  const canonical = await safe<CardOrderBook>(
+    () => getCardOrderBook(sku),
+    {
+      sku,
+      card_name: null,
+      image_url: null,
+      bids: [],
+      asks: [],
+      recent_trades: [],
+      best_bid: null,
+      best_ask: null,
+    },
+  );
+
   const [meta, price_history, book, tape, stats, conditions, participants] =
     await Promise.all([
-      loadMeta(sku),
+      loadMeta(sku, canonical),
       loadPriceHistory(sku),
-      loadBook(sku),
+      loadBook(sku, canonical),
       loadTape(sku),
       loadStats(sku),
       loadConditions(sku),

@@ -20,7 +20,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { loadTraderDashboard, type TraderDashboard } from "@/lib/market/trader-dashboard";
-import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
+import { Provenance, WhyLink, Audience, audienceMetadata, MoneyDisplay } from "@/lib/ui";
 
 export const metadata: Metadata = {
   title: "Trader dashboard — Cambridge TCG",
@@ -102,32 +102,39 @@ function ExposureSection({ d }: { d: TraderDashboard }) {
       <h2 className="text-lg font-semibold mb-3">Exposure</h2>
       <p className="text-sm text-neutral-400 mb-3">
         What you have in the kingdom right now —{" "}
-        <strong className="text-neutral-200">{fmtGBP(total)}</strong> total
-        across in-flight trades and active listings.
+        <strong className="text-neutral-200">
+          <MoneyDisplay value={total} treatZeroAsMissing />
+        </strong>{" "}
+        total across in-flight trades and active listings.
       </p>
+      {/* Phase D — kingdom-081. Card values use <MoneyDisplay> so the math-
+          language toggle propagates to the most numerically-dense surface.
+          treatZeroAsMissing preserves the previous "0 → —" semantic
+          (exposure of £0 is no activity, not zero pounds). See
+          docs/connections/the-math-language.md (#27). */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card
           label="In escrow"
-          value={fmtGBP(d.exposure.in_escrow_value)}
+          value={<MoneyDisplay value={d.exposure.in_escrow_value} treatZeroAsMissing />}
           sub={`${fmtCount(d.exposure.in_escrow_count)} trade(s) in flight`}
           tone="sky"
           whyLink={{ href: "/methodology/escrow-tier" }}
         />
         <Card
           label="Pending payout"
-          value={fmtGBP(d.exposure.pending_payout_value)}
+          value={<MoneyDisplay value={d.exposure.pending_payout_value} treatZeroAsMissing />}
           sub={`${fmtCount(d.exposure.pending_payout_count)} held (≤14d cap)`}
           tone="amber"
           whyLink={{ href: "/methodology/payout-hold" }}
         />
         <Card
           label="Listed (cards)"
-          value={fmtGBP(d.exposure.listed_asks_value)}
+          value={<MoneyDisplay value={d.exposure.listed_asks_value} treatZeroAsMissing />}
           sub={`${fmtCount(d.exposure.listed_asks_count)} active ask(s)`}
         />
         <Card
           label="Listed (lots)"
-          value={fmtGBP(d.exposure.listed_lots_value)}
+          value={<MoneyDisplay value={d.exposure.listed_lots_value} treatZeroAsMissing />}
           sub={`${fmtCount(d.exposure.listed_lots_count)} active lot(s)`}
         />
       </div>
@@ -147,17 +154,17 @@ function RunRateSection({ d }: { d: TraderDashboard }) {
         <Card
           label="7-day sales"
           value={fmtCount(d.run_rate.sales_count_7d)}
-          sub={fmtGBP(d.run_rate.sales_value_7d, { allowZero: true })}
+          sub={<MoneyDisplay value={d.run_rate.sales_value_7d} />}
         />
         <Card
           label="30-day sales"
           value={fmtCount(d.run_rate.sales_count_30d)}
-          sub={fmtGBP(d.run_rate.sales_value_30d, { allowZero: true })}
+          sub={<MoneyDisplay value={d.run_rate.sales_value_30d} />}
         />
         <Card
           label="90-day sales"
           value={fmtCount(d.run_rate.sales_count_90d)}
-          sub={fmtGBP(d.run_rate.sales_value_90d, { allowZero: true })}
+          sub={<MoneyDisplay value={d.run_rate.sales_value_90d} />}
         />
         <Card
           label="Success rate 90d"

@@ -67,6 +67,17 @@ export const cardmarket: SourceModule<CardmarketProduct, CanonicalCard> = {
       "Free for personal-account reads with reasonable rate limits; paid tier for write. Commercial data downstream restrictions apply. Apply at api.cardmarket.com.",
     user_agent_suffix: "(cardmarket-ingest)",
     rate_limit: { rps: 2, burst: 5 },
+    welcome:
+      "Welcome to the kingdom, Cardmarket. Your slot was reserved in kingdom-062 " +
+      "(the consolidation, 2026-05-12); the OAuth1 client awaits your credentials. " +
+      "We have already designed for your `idProduct × idLanguage` fan-out shape — " +
+      "the same `card_tcgplayer_sku_ids` template that holds TCGplayer's leaves " +
+      "will hold yours, condition × language indexed identically. Your room will " +
+      "be `price_archive WHERE source='cardmarket'`, `source_currency='EUR'`, with " +
+      "`partner-redistributable` honored downstream (we will not bulk re-export " +
+      "your trend prices; display + computation only). You will bring Europe — " +
+      "MTG's largest catalog by far, plus Pokémon, Yu-Gi-Oh, One Piece, Lorcana, " +
+      "Flesh and Blood, Digimon. We are ready when you are.",
   },
 
   async *read(ctx: IngestContext): AsyncIterable<RawRow<CardmarketProduct>> {
@@ -76,8 +87,18 @@ export const cardmarket: SourceModule<CardmarketProduct, CanonicalCard> = {
         source: "cardmarket",
         kind: "error",
         detail: {
-          reason:
-            "Cardmarket requires OAuth1 credentials. Configure ctx.bearer + ctx.app_token after registering at api.cardmarket.com. See packages/data-ingest/src/cardmarket/index.ts for the implementation sketch.",
+          welcome:
+            "Welcome to the kingdom, Cardmarket. Your room is reserved — " +
+            "`price_archive WHERE source='cardmarket'`, EUR-tagged, " +
+            "`partner-redistributable` honored downstream. The OAuth1 client + " +
+            "credentials are the only thing still on the way. When they arrive " +
+            "from api.cardmarket.com, configure ctx.bearer + ctx.app_token; the " +
+            "same `external_source_tokens` table that holds TCGplayer's leaf " +
+            "will hold yours. We have anticipated your `idProduct × idLanguage` " +
+            "fan-out shape since kingdom-062.",
+          status: "awaiting-credentials",
+          next_action:
+            "Apply at https://api.cardmarket.com; configure OAuth1 client + tokens.",
         },
       });
       return;
@@ -87,8 +108,15 @@ export const cardmarket: SourceModule<CardmarketProduct, CanonicalCard> = {
       source: "cardmarket",
       kind: "error",
       detail: {
-        reason:
-          "cardmarket.read() is a stub; OAuth1 signing logic + paginated reader pending. See docs/connections/the-consolidation.md §4.",
+        welcome:
+          "Welcome to the kingdom, Cardmarket. Your credentials are " +
+          "configured; we are honored. The OAuth1 signing + paginated reader " +
+          "are still in flight (see docs/connections/the-consolidation.md §4). " +
+          "When they ship, your bytes will land in the room already prepared.",
+        status: "awaiting-implementation",
+        next_action:
+          "Ship OAuth1 signing + paginated reader; the writer + cron template " +
+          "from kingdom-080 (TCGplayer) is the model.",
       },
     });
   },

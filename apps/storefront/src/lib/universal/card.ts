@@ -218,6 +218,17 @@ export async function buildUniversalCard(
       iso8601: retrievedAt.toISOString(),
       unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
     },
+    // Per-record provenance (kingdom-081 Phase 2.1). The price magnitude is
+    // Cambridge TCG's retail offer in GBP, computed by `@cambridge-tcg/pricing`
+    // from the wholesale base price. The substrate read here is the
+    // storefront's own ledger (`card_price_history`) — that table is our
+    // own observation discipline, CC0. The upstream wholesale chain may
+    // include CardRush JP retail (license: internal-only); the wholesale
+    // B2B endpoint at /api/v1/universal/card/[sku] (Bearer-gated) declares
+    // that lineage per-snapshot. This endpoint reports only what *this RDS*
+    // owns. See docs/connections/the-license-propagation.md.
+    "@sources": ["storefront-rds.card_price_history"],
+    "@source_license": ["CC0-1.0"],
     "_note_opaque": [
       "name",
       "art_description",
@@ -323,6 +334,11 @@ export async function buildUniversalCard(
       "@kind": fullDocument["@kind"],
       "@content_hash": fullDocument["@content_hash"],
       "@retrieved_at": fullDocument["@retrieved_at"],
+      // License declarations are non-elidable — even sparse density carries
+      // them, so a downstream that trims to minimum still knows the upstream
+      // redistribution tier. kingdom-081 Phase 2.1.
+      "@sources": fullDocument["@sources"],
+      "@source_license": fullDocument["@source_license"],
       "@density": "sparse",
       "_note_opaque": fullDocument["_note_opaque"],
       price: price ? { magnitude: price.magnitude, currency_token: price.currency_token } : null,

@@ -76,6 +76,7 @@ import {
 } from "./lifecycle";
 import { TRUST_TIERS } from "@/lib/escrow/types";
 import { getTrustTier } from "@/lib/escrow/trust-engine";
+import { anonId } from "@/lib/format";
 
 // ── Public shape ─────────────────────────────────────────────────────────
 
@@ -241,10 +242,7 @@ function toNumOrNull(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function anonId(uuid: string | null | undefined): string {
-  if (!uuid) return "------";
-  return String(uuid).slice(-6).toLowerCase();
-}
+// `anonId` is imported from `@/lib/format` — same contract; one source of truth.
 
 function tierForScore(score: number | null): string | null {
   if (score === null) return null;

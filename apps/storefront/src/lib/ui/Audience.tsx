@@ -35,6 +35,8 @@ export type AudienceKind =
   | "operator"
   /** Autonomous agents (LLM-driven players, MCP clients). */
   | "agent"
+  /** Web scrapers / HTML harvesters (kingdom-082 hospitality door). */
+  | "scraper"
   /** Pages designed equally for multiple audiences. */
   | "mixed"
   /** Public methodology / documentation surfaces. */

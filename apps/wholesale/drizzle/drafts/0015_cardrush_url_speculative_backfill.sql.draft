@@ -1,0 +1,139 @@
+-- DRAFT — speculative-cardrush-subdomain coverage backfill (kingdom-081 Phase 3.2)
+--
+-- Status: NOT in active path. Lives in drafts/.
+--
+-- Designed in `docs/connections/the-license-propagation.md` (kingdom-081).
+-- Sequenced AFTER `pnpm --filter @cambridge-tcg/admin cardrush-probe` confirms
+-- which speculative subdomains are live, and AFTER the operator flips
+-- `confirmed: false → true` in `packages/data-ingest/src/cardrush/` for
+-- those promoted subdomains.
+--
+-- ── What this migration does ────────────────────────────────────────────
+--
+-- Backfills `cards.cardrush_url` for cards in games whose CardRush subdomain
+-- was speculative (promoted in this commit) so the daily snapshot pipeline
+-- actually scrapes them. Until now those subdomains had zero rows pointing
+-- at them; the pipeline filtered them out at the SQL boundary
+-- (`WHERE cardrush_url IS NOT NULL`).
+--
+-- ── How to use this draft ───────────────────────────────────────────────
+--
+-- 1. Run `pnpm --filter @cambridge-tcg/admin cardrush-probe`. Output a
+--    markdown table per subdomain — promote / investigate / remove.
+-- 2. For each `promote-to-confirmed` subdomain, decide the URL pattern.
+--    CardRush product URLs typically take the form:
+--      https://cardrush-{game}.jp/product/detail.php?product_id=<NNN>
+--    But the product_id is upstream-assigned; the platform doesn't have it
+--    in `cards`. So the backfill is **not fully mechanical** — operator
+--    determines URL pattern per subdomain. Options:
+--    (a) Copy-paste known card URLs from cardrush manually (high effort).
+--    (b) Write a one-off scrape script that walks the cardrush catalog
+--        listing and maps `set_code + card_number` → product_id, then
+--        backfill from that map (medium effort).
+--    (c) Construct URLs from a guessed pattern, accept high fail rate,
+--        let the error_reason column accumulate evidence (low effort).
+-- 3. Choose your approach. Replace the templated UPDATEs below with the
+--    concrete UPDATE statements.
+-- 4. Run the dry-run query FIRST (Phase 1) to count affected rows.
+-- 5. Promote this file to active path (drop the `.draft` suffix), then
+--    `pnpm db:migrate` from apps/wholesale/.
+--
+-- ── Phase 1 — dry-run counts (read-only, run first) ─────────────────────
+
+-- Per-game count of cards that have NO cardrush_url today. These are the
+-- candidates for backfill once the subdomain is confirmed.
+--
+-- SELECT
+--   g.code  AS game_code,
+--   COUNT(*) AS cards_without_url
+-- FROM cards c
+-- JOIN games g ON g.id = c.game_id
+-- WHERE c.cardrush_url IS NULL
+-- GROUP BY g.code
+-- ORDER BY cards_without_url DESC;
+
+-- ── Phase 2 — per-subdomain backfill (uncomment + adapt as needed) ──────
+--
+-- The patterns below are SCAFFOLDING. They will NOT work as-is — the
+-- product_id token must be filled in from the operator's chosen approach
+-- (see step 2 above). Concrete options inline.
+
+-- Example (a): operator imports a CSV of (sku, cardrush_url) pairs into a
+-- temporary table cardrush_url_seed (sku text, url text), then:
+--
+-- UPDATE cards c
+--    SET cardrush_url = s.url,
+--        updated_at = now()
+--   FROM cardrush_url_seed s
+--  WHERE c.sku = s.sku
+--    AND c.cardrush_url IS NULL;
+
+-- Example (b): operator has a per-game product_id map in a temp table
+-- cardrush_id_map (game_code text, set_code text, card_number text, product_id int):
+--
+-- UPDATE cards c
+--    SET cardrush_url = format(
+--          'https://cardrush-%s.jp/product/detail.php?product_id=%s',
+--          m.game_code,
+--          m.product_id
+--        ),
+--        updated_at = now()
+--   FROM cardrush_id_map m
+--   JOIN games g ON g.code = m.game_code
+--  WHERE c.game_id = g.id
+--    AND c.set_code = m.set_code
+--    AND c.card_number = m.card_number
+--    AND c.cardrush_url IS NULL;
+
+-- Example (c): construct from a guessed pattern. NOT recommended; will
+-- generate ~95% scrape failures (which then accumulate error_reason rows).
+-- Only useful if upstream's URL scheme is deterministic from set + number.
+--
+-- UPDATE cards c
+--    SET cardrush_url = format(
+--          'https://cardrush-%s.jp/c/%s/%s',  -- placeholder pattern
+--          g.code,
+--          lower(c.set_code),
+--          c.card_number
+--        ),
+--        updated_at = now()
+--   FROM games g
+--  WHERE c.game_id = g.id
+--    AND g.code IN ('mtg', 'ygo', 'dmw', 'vng', 'wei', 'fab', 'lgr', 'bsr', 'dbf')
+--    AND c.cardrush_url IS NULL;
+
+-- ── Phase 3 — post-backfill sanity ──────────────────────────────────────
+--
+-- After running the chosen UPDATE in Phase 2, verify coverage:
+--
+-- SELECT
+--   g.code AS game,
+--   COUNT(*) FILTER (WHERE c.cardrush_url IS NOT NULL) AS with_url,
+--   COUNT(*) FILTER (WHERE c.cardrush_url IS NULL)     AS without_url
+-- FROM cards c
+-- JOIN games g ON g.id = c.game_id
+-- GROUP BY g.code
+-- ORDER BY g.code;
+--
+-- Then re-run `pnpm audit:cardrush-coverage`. The promoted subdomains
+-- should move from `uncovered` → `covered` (or `covered-stale` until the
+-- next snapshot cron runs).
+--
+-- ── Phase 4 — first scrape after backfill ───────────────────────────────
+--
+-- The next daily snapshot run will pick up the newly-seeded URLs. To
+-- accelerate testing, the operator can trigger an immediate dry-run:
+--
+--   curl -X POST 'https://wholesaletcgdirect.com/api/cron/ingest/cardrush?dryRun=1&maxCards=50' \
+--     -H 'Authorization: Bearer $CRON_SECRET'
+--
+-- Then `SELECT source, error_reason, count(*) FROM price_archive
+--      WHERE snapshot_date = current_date GROUP BY source, error_reason;`
+-- A wave of `subdomain_unconfirmed` rows indicates the URLs are wrong;
+-- a wave of priced rows indicates success.
+--
+-- ── Rollback ────────────────────────────────────────────────────────────
+--
+-- The backfill is reversible: UPDATE cards SET cardrush_url = NULL
+-- WHERE game_id IN (...) AND cardrush_url LIKE 'https://cardrush-%';
+-- (Operator should snapshot the cards table before applying.)

@@ -6,7 +6,7 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/price-snapshot",
+      "path": "/api/cron/ingest/cardrush",
       "schedule": "0 2 * * *"
     },
     {

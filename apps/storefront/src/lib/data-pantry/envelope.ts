@@ -186,15 +186,53 @@ export function jsonResponse<T>(
   const maxAge = opts.no_cache ? 0 : opts.cache_max_age ?? Math.min(freshness, 3600);
   const sMaxAge = opts.no_cache ? 0 : opts.cache_s_max_age ?? Math.min(freshness * 3, 86400);
 
+  // RateLimit-* headers (IETF draft standard) — kingdom-082 hospitality.
+  // Advisory: we don't currently enforce per-endpoint limits at the edge
+  // for public endpoints. The headers declare the platform's polite-poll
+  // cadence based on the freshness budget. A well-behaved client honours
+  // them by spacing requests at `RateLimit-Reset` intervals. See
+  // /api/v1/rate-limits for the full policy.
+  //
+  // For freshness-based endpoints the "quota" is conceptually "one fresh
+  // response per window" — polling faster returns the same response.
+  // RateLimit-Limit: 1; RateLimit-Reset: freshness_seconds.
+  const rateLimitWindow = Math.max(freshness, 1);
+  const rateLimitHeaders: Record<string, string> = opts.no_cache
+    ? {}
+    : {
+        "RateLimit-Limit": "1",
+        "RateLimit-Remaining": "1",
+        "RateLimit-Reset": String(rateLimitWindow),
+        "RateLimit-Policy": `1;w=${rateLimitWindow};comment="advisory; one fresh response per freshness window"`,
+      };
+
+  // Link header (RFC 8288) — agents that follow Link headers discover
+  // related resources without parsing the body.
+  const linkParts: string[] = [
+    '<' + opts.endpoint + '>; rel="self"',
+    '</api/v1/welcome>; rel="start"',
+    '</api/v1/manifest>; rel="describedby"',
+    '</api/openapi.json>; rel="alternate"; type="application/json"',
+    '</api/v1/rate-limits>; rel="https://cambridgetcg.com/rels/rate-limits"',
+    '</api/v1/feedback>; rel="https://cambridgetcg.com/rels/feedback"',
+  ];
+  if (opts.next_link) {
+    linkParts.push('<' + opts.next_link + '>; rel="next"');
+  }
+
   return NextResponse.json(body, {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Expose-Headers":
+        "X-Request-Id, X-Spec-Version, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy, Link",
       "X-Request-Id": body._meta.request_id,
       "X-Spec-Version": SPEC_VERSION,
       "Cache-Control": opts.no_cache
         ? "no-store"
         : `public, max-age=${maxAge}, s-maxage=${sMaxAge}`,
+      Link: linkParts.join(", "),
+      ...rateLimitHeaders,
     },
   });
 }

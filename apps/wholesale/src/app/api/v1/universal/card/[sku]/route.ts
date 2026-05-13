@@ -167,6 +167,21 @@ export async function GET(
     });
     const contentHash = sha256(contentSeed);
 
+    // Per-record provenance (kingdom-081 Phase 2.1). The card's current
+    // price comes from the daily snapshot pipeline; today the only upstream
+    // is CardRush JP retail (license: internal-only; see
+    // `packages/data-ingest/src/cardrush/`). When TCGplayer or Cardmarket
+    // modules ship, this branches per-row; for now, every priced card with
+    // `cardrushJpy IS NOT NULL` is cardrush-derived. The wholesale RDS row
+    // is the immediate read; cardrush is the ultimate upstream.
+    const has_cardrush_lineage = r.cardrushJpy !== null && r.cardrushJpy !== undefined;
+    const provenance_sources = has_cardrush_lineage
+      ? ["wholesale-rds.cards", "cardrush"]
+      : ["wholesale-rds.cards"];
+    const provenance_source_license = has_cardrush_lineage
+      ? ["internal-only", "internal-only"]
+      : ["internal-only"];
+
     const document = {
       "@encoding": "cambridge-tcg/universal/v1",
       "@kind": "card",
@@ -175,6 +190,13 @@ export async function GET(
         iso8601: retrievedAt.toISOString(),
         unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
       },
+      "@sources": provenance_sources,
+      // Parallel to @sources. The CardRush license (internal-only) propagates
+      // to the wholesale RDS row that recorded its observation — same tier
+      // travels with the record. A downstream B2B partner that calls this
+      // endpoint with their bearer key MUST honour this tier (no bulk
+      // re-export of cardrush-derived price magnitudes).
+      "@source_license": provenance_source_license,
       "_note_opaque": [
         "name.translations.*",
         "art_description",
@@ -267,6 +289,9 @@ export async function GET(
         "@kind": document["@kind"],
         "@content_hash": document["@content_hash"],
         "@retrieved_at": document["@retrieved_at"],
+        // License declarations are non-elidable. kingdom-081 Phase 2.1.
+        "@sources": document["@sources"],
+        "@source_license": document["@source_license"],
         "@density": "sparse",
         "_note_opaque": document["_note_opaque"],
         price: document.price ? {

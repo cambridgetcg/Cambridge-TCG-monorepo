@@ -1,0 +1,304 @@
+{
+  "_description": "Real-shape eBay title fixtures (paraphrased; no real seller data). One row per parser-test scenario. The 'expected' block names what we assert.",
+  "titles": [
+    {
+      "id": "op-001",
+      "title": "One Piece TCG Roronoa Zoro OP01-001 SR Japanese",
+      "expected": {
+        "game": "op",
+        "set": "op01",
+        "number": "001",
+        "lang": "ja",
+        "variant": null,
+        "grade_company": null,
+        "grade_value": null,
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "op-002",
+      "title": "Kouzuki Oden EB01-001 L/P [Memorial Collection] One Piece TCG English",
+      "expected": {
+        "game": "op",
+        "set": "eb01",
+        "number": "001",
+        "lang": "en",
+        "variant": null,
+        "grade_company": null,
+        "grade_value": null,
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "op-003",
+      "title": "One Piece TCG ST05-001 Roronoa Zoro Leader Card PSA 10 Japanese",
+      "expected": {
+        "game": "op",
+        "set": "st05",
+        "number": "001",
+        "lang": "ja",
+        "variant": null,
+        "grade_company": "PSA",
+        "grade_value": "10",
+        "min_confidence": 0.9
+      }
+    },
+    {
+      "id": "pkm-001",
+      "title": "Pokemon Charizard VMAX Shining Fates SV107/SV122 PSA 10 Japanese",
+      "_note": "Pokemon SV-style titles are inherently ambiguous from a string parse alone — 'SV107/SV122' could mean card 107 of 122 in some SV-prefixed set, but the actual Cambridge TCG SKU set-code requires external context (Shining Fates → swsh4.5). Parser captures game + grade + lang honestly; set/number resolution is deferred to the writer's title-context join.",
+      "expected": {
+        "game": "pkm",
+        "lang": "ja",
+        "grade_company": "PSA",
+        "grade_value": "10",
+        "min_confidence": 0.55
+      }
+    },
+    {
+      "id": "pkm-002",
+      "title": "Pokémon TCG Pikachu 025/108 XY Evolutions Holo Near Mint",
+      "expected": {
+        "game": "pkm",
+        "lang": "en",
+        "variant": "foil",
+        "grade_company": null,
+        "min_confidence": 0.7
+      }
+    },
+    {
+      "id": "mtg-001",
+      "title": "Magic: The Gathering Black Lotus LEA-232 BGS 9.5 Gem Mint",
+      "expected": {
+        "game": "mtg",
+        "set": "lea",
+        "number": "232",
+        "lang": "en",
+        "grade_company": "BGS",
+        "grade_value": "9.5",
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "mtg-002",
+      "title": "MTG Lightning Bolt MH3 0123 Foil English",
+      "expected": {
+        "game": "mtg",
+        "lang": "en",
+        "variant": "foil",
+        "min_confidence": 0.7
+      }
+    },
+    {
+      "id": "ygo-001",
+      "title": "Yu-Gi-Oh Blue-Eyes White Dragon LOB-EN001 1st Edition PSA 10",
+      "expected": {
+        "game": "ygo",
+        "set": "lob",
+        "number": "001",
+        "lang": "en",
+        "variant": "1st-edition",
+        "grade_company": "PSA",
+        "grade_value": "10",
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "ygo-002",
+      "title": "YuGiOh Dark Magician LOB-JP005 Japanese Ultra Rare",
+      "expected": {
+        "game": "ygo",
+        "set": "lob",
+        "number": "005",
+        "lang": "ja",
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "dbf-001",
+      "title": "Dragon Ball Super Fusion World Vegeta FB01-001 Japanese SR",
+      "expected": {
+        "game": "dbf",
+        "set": "fb01",
+        "number": "001",
+        "lang": "ja",
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "dbf-002",
+      "title": "DBF Fusion World Son Goku DB-PROMO Limited Anniversary",
+      "expected": {
+        "game": "dbf",
+        "min_confidence": 0.65
+      }
+    },
+    {
+      "id": "wei-001",
+      "title": "Weiß Schwarz HOL/WE26-E001 SP Holo Japanese",
+      "expected": {
+        "game": "wei",
+        "lang": "ja",
+        "min_confidence": 0.75
+      }
+    },
+    {
+      "id": "fab-001",
+      "title": "Flesh and Blood TCG Rhinar HVY001 Cold Foil Mint",
+      "expected": {
+        "game": "fab",
+        "variant": "etched-foil",
+        "min_confidence": 0.7
+      }
+    },
+    {
+      "id": "swu-001",
+      "title": "Star Wars Unlimited Luke Skywalker SOR_140 Hyperspace Foil",
+      "_note": "SWU is anticipated-but-no-SET_FORMATS yet (kingdom-069 stress-test gap). Parser uses regex-fallback (confirmed:false), so confidence caps at the no-confirmed-format ceiling.",
+      "expected": {
+        "game": "swu",
+        "variant": "foil",
+        "min_confidence": 0.75
+      }
+    },
+    {
+      "id": "exclusion-001",
+      "title": "One Piece TCG OP01-001 Zoro Japanese DAMAGED creased",
+      "expected": {
+        "forces_quarantine": true,
+        "exclude_keywords_includes": ["damaged", "creased"]
+      }
+    },
+    {
+      "id": "exclusion-002",
+      "title": "Pokemon Charizard VMAX SV107/SV122 PROXY custom card replica",
+      "expected": {
+        "forces_quarantine": true,
+        "exclude_keywords_includes": ["proxy", "counterfeit"]
+      }
+    },
+    {
+      "id": "sealed-001",
+      "title": "Pokemon TCG Scarlet & Violet Booster Box 36 Packs Sealed New",
+      "expected": {
+        "forces_quarantine": true,
+        "variant": "sealed-booster-box"
+      }
+    },
+    {
+      "id": "sealed-002",
+      "title": "One Piece TCG OP08 Elite Trainer Box Japanese Sealed",
+      "expected": {
+        "forces_quarantine": true,
+        "variant": "sealed-etb"
+      }
+    },
+    {
+      "id": "lot-001",
+      "title": "Lot of 50 Pokemon Cards Mixed Sets Bulk",
+      "expected": {
+        "forces_quarantine": true,
+        "exclude_keywords_includes": ["lot"]
+      }
+    },
+    {
+      "id": "lowconf-001",
+      "title": "Random English Card from Some Set Maybe Holo Cool",
+      "expected": {
+        "min_confidence": 0.0,
+        "max_confidence": 0.6,
+        "sku_is_null": true
+      }
+    },
+    {
+      "id": "conflict-001",
+      "title": "Pokemon Charizard OP01-001 Japanese",
+      "expected": {
+        "sku_is_null": true,
+        "max_confidence": 0.6,
+        "notes_includes": "game-prefix-conflict"
+      }
+    },
+    {
+      "id": "graded-bgs-special-001",
+      "title": "Pikachu Illustrator BGS Pristine 10 Black Label",
+      "expected": {
+        "grade_company": "BGS",
+        "grade_value_oneof": ["BGS_BLACK_LABEL_10", "BGS_PRISTINE_10"]
+      }
+    },
+    {
+      "id": "graded-cgc-pristine-001",
+      "title": "Charizard 1st Edition Shadowless CGC Pristine 10",
+      "expected": {
+        "grade_company": "CGC",
+        "grade_value": "CGC_PRISTINE_10",
+        "variant": "1st-edition"
+      }
+    },
+    {
+      "id": "lang-explicit-001",
+      "title": "One Piece TCG OP05-100 Korean SR",
+      "expected": {
+        "game": "op",
+        "lang": "ko",
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "lang-cjk-001",
+      "title": "Pokemon SV1-052 Pikachu 日本語 Holo",
+      "expected": {
+        "game": "pkm",
+        "lang": "ja",
+        "variant": "foil",
+        "min_confidence": 0.7
+      }
+    },
+    {
+      "id": "trailing-sep-001",
+      "title": "One Piece TCG OP01-001 SR Japanese | eBay",
+      "expected": {
+        "game": "op",
+        "set": "op01",
+        "number": "001",
+        "lang": "ja",
+        "min_confidence": 0.85
+      }
+    },
+    {
+      "id": "altart-001",
+      "title": "Pokemon Charizard ex Obsidian Flames 215/197 Alt Art Japanese",
+      "expected": {
+        "game": "pkm",
+        "variant": "alt-art",
+        "lang": "ja"
+      }
+    },
+    {
+      "id": "reverse-foil-001",
+      "title": "Pokemon Pikachu 058/198 Sword & Shield Reverse Holo",
+      "expected": {
+        "game": "pkm",
+        "variant": "reverse-foil"
+      }
+    },
+    {
+      "id": "promo-001",
+      "title": "One Piece TCG P-001 Roronoa Zoro Promo Japanese",
+      "expected": {
+        "game": "op",
+        "variant": "promo",
+        "lang": "ja"
+      }
+    },
+    {
+      "id": "no-game-no-number",
+      "title": "Beautiful trading card",
+      "expected": {
+        "sku_is_null": true,
+        "max_confidence": 0.5
+      }
+    }
+  ]
+}

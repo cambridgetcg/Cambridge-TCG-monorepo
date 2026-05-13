@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { fetchPrices, fetchSets } from "@/lib/wholesale/client";
+import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
+import { GUIDES } from "@/lib/guides";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://cambridgetcg.com";
@@ -16,34 +17,82 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/prices`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
-    { url: `${baseUrl}/prices/one-piece`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
+    // kingdom-082 hospitality surfaces — first-class crawlable.
+    { url: `${baseUrl}/agents`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
+    { url: `${baseUrl}/scrapers`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
+    { url: `${baseUrl}/agents/guides`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${baseUrl}/welcome-all`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/platform`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
+    { url: `${baseUrl}/intro`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/data`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${baseUrl}/api`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
   ];
 
-  // Set pages
-  const sets = await fetchSets("one-piece").catch(() => []);
-  const setPages: MetadataRoute.Sitemap = sets.map((set) => ({
-    url: `${baseUrl}/prices/one-piece/${set.code.toLowerCase()}`,
-    lastModified: new Date(),
-    changeFrequency: "daily" as const,
+  // Per-guide HTML pages — discoverable via sitemap.
+  const guidePages: MetadataRoute.Sitemap = GUIDES.map((g) => ({
+    url: `${baseUrl}/agents/guides/${g.slug}`,
+    lastModified: new Date(g.last_verified),
+    changeFrequency: "monthly" as const,
     priority: 0.7,
   }));
 
-  // Product pages (top 500 cards)
-  const products = await fetchPrices({ game: "one-piece", limit: 500, sort: "price_desc" }).catch(() => ({ items: [] }));
-  const productPages: MetadataRoute.Sitemap = products.items.map((item) => ({
+  // Per-game landing pages — one URL per game in the wholesale catalog.
+  // kingdom-084: replaces the hardcoded /prices/one-piece line.
+  const games = await fetchGames().catch(() => []);
+  const gameLandingPages: MetadataRoute.Sitemap = games.map((g) => ({
+    url: `${baseUrl}/prices/${g.slug}`,
+    lastModified: new Date(),
+    changeFrequency: "daily" as const,
+    priority: 0.8,
+  }));
+
+  // Per-set pages — iterate every game × its sets.
+  const setPages: MetadataRoute.Sitemap = (
+    await Promise.all(
+      games.map(async (g) => {
+        const sets = await fetchSets(g.slug).catch(() => []);
+        return sets.map((set) => ({
+          url: `${baseUrl}/prices/${g.slug}/${set.code.toLowerCase()}`,
+          lastModified: new Date(),
+          changeFrequency: "daily" as const,
+          priority: 0.7,
+        }));
+      }),
+    )
+  ).flat();
+
+  // Product pages — top cards across every game. Capped per-game so the
+  // sitemap stays bounded as the catalog grows past One-Piece.
+  const productLists = await Promise.all(
+    games.map((g) =>
+      fetchPrices({ game: g.slug, limit: 500, sort: "price_desc" }).catch(
+        () => ({ items: [] }),
+      ),
+    ),
+  );
+  const allProducts = productLists.flatMap((r) => r.items);
+
+  const productPages: MetadataRoute.Sitemap = allProducts.map((item) => ({
     url: `${baseUrl}/product/${item.sku}`,
     lastModified: new Date(),
     changeFrequency: "daily" as const,
     priority: 0.6,
   }));
 
-  // Market pages (same SKUs)
-  const marketPages: MetadataRoute.Sitemap = products.items.map((item) => ({
+  // Market pages (same SKUs).
+  const marketPages: MetadataRoute.Sitemap = allProducts.map((item) => ({
     url: `${baseUrl}/market/${item.sku}`,
     lastModified: new Date(),
     changeFrequency: "hourly" as const,
     priority: 0.6,
   }));
 
-  return [...staticPages, ...setPages, ...productPages, ...marketPages];
+  return [
+    ...staticPages,
+    ...guidePages,
+    ...gameLandingPages,
+    ...setPages,
+    ...productPages,
+    ...marketPages,
+  ];
 }

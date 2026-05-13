@@ -285,6 +285,345 @@ export async function fetchSourceLastRuns(): Promise<SourceRunRow[] | null> {
   }
 }
 
+/**
+ * CardRush observation row from wholesale `/api/v1/cardrush/history/[sku]`.
+ * Kingdom-081 Phase 5.4 extension.
+ */
+export interface CardrushObservation {
+  snapshot_date: string;
+  cardrush_jpy: number | null;
+  gbp_jpy_rate: number | null;
+  base_gbp: number | null;
+  price_gbp: number | null;
+  source_url: string | null;
+  ingest_run_id: number | null;
+  error_reason: string | null;
+}
+
+export interface CardrushHistoryResponse {
+  sku: string;
+  cardrush_url: string | null;
+  source: "cardrush";
+  source_license: "internal-only";
+  count: number;
+  observations: CardrushObservation[];
+  retrieved_at: string;
+}
+
+/**
+ * Fetch CardRush observation history for one card. License-sensitive:
+ * the returned values are raw JPY observations under cardrush's
+ * internal-only license. Storefront callers must enforce a session gate
+ * before exposing.
+ */
+export async function fetchCardrushHistory(opts: {
+  sku: string;
+  limit?: number;
+}): Promise<CardrushHistoryResponse | null> {
+  const u = new URL(
+    WHOLESALE_URL + "/api/v1/cardrush/history/" + encodeURIComponent(opts.sku),
+  );
+  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
+  let res: Response;
+  try {
+    res = await wholesaleFetch(
+      u.toString(),
+      {
+        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+        next: { revalidate: 300 },
+      },
+    );
+  } catch (err) {
+    console.error("[wholesale] cardrush-history fetch error", err);
+    return null;
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    console.error("[wholesale] cardrush-history error", res.status);
+    return null;
+  }
+  try {
+    return (await res.json()) as CardrushHistoryResponse;
+  } catch (err) {
+    console.error("[wholesale] cardrush-history parse error", err);
+    return null;
+  }
+}
+
+// ── TCGplayer history (kingdom-080 follow-up) ────────────────────────
+//
+// Per-condition USD observation history. Partner-redistributable license —
+// display + computation OK per partner agreement; bulk re-export restricted.
+// The storefront-side proxy at /api/v1/cards/[sku]/tcgplayer-history adds
+// a session gate and license-aware envelope.
+
+export interface TcgplayerObservation {
+  snapshot_date: string;
+  condition: string;
+  base_gbp: number | null;
+  price_gbp: number | null;
+  fx_rate_to_gbp: number | null;
+  fx_rate_source: string | null;
+  usd_market: string | null;
+  usd_mid: string | null;
+  usd_low: string | null;
+  usd_high: string | null;
+  usd_direct_low: string | null;
+  headline_field: string | null;
+  tcgplayer_sku_id: number | null;
+  source_url: string | null;
+  ingest_run_id: number | null;
+  error_reason: string | null;
+}
+
+export interface TcgplayerHistoryResponse {
+  sku: string;
+  tcgplayer_product_id: number | null;
+  tcgplayer_sub_type: string | null;
+  source: "tcgplayer";
+  source_license: "partner-redistributable";
+  filter_condition: string | null;
+  count: number;
+  conditions_present: string[];
+  observations: TcgplayerObservation[];
+  retrieved_at: string;
+}
+
+/**
+ * Fetch TCGplayer observation history for one card. License-sensitive:
+ * the values are partner-tier USD observations. Storefront callers must
+ * enforce a session gate before exposing.
+ */
+export async function fetchTcgplayerHistory(opts: {
+  sku: string;
+  limit?: number;
+  condition?: string;
+}): Promise<TcgplayerHistoryResponse | null> {
+  const u = new URL(
+    WHOLESALE_URL + "/api/v1/tcgplayer/history/" + encodeURIComponent(opts.sku),
+  );
+  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
+  if (opts.condition) u.searchParams.set("condition", opts.condition);
+  let res: Response;
+  try {
+    res = await wholesaleFetch(u.toString(), {
+      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+      next: { revalidate: 300 },
+    });
+  } catch (err) {
+    console.error("[wholesale] tcgplayer-history fetch error", err);
+    return null;
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    console.error("[wholesale] tcgplayer-history error", res.status);
+    return null;
+  }
+  try {
+    return (await res.json()) as TcgplayerHistoryResponse;
+  } catch (err) {
+    console.error("[wholesale] tcgplayer-history parse error", err);
+    return null;
+  }
+}
+
+// ── TCGplayer federation resolve (kingdom-080 follow-up) ──────────────
+//
+// Public federation reverse-lookup: a partner with a TCGplayer
+// productId+subType or skuId can resolve to a Cambridge canonical SKU.
+
+export interface TcgplayerResolveResponse {
+  source: "tcgplayer";
+  inputs: {
+    product_id: number | null;
+    sub_type: string | null;
+    sku_id: number | null;
+  };
+  resolved: {
+    canonical_sku: string;
+    card_id: number;
+    tcgplayer_product_id: number;
+    tcgplayer_sub_type: string | null;
+    condition: string | null;
+    language: string | null;
+  } | null;
+  /** Set when 2+ cards match the (product_id) but no sub_type was given. */
+  ambiguous?: boolean;
+  message?: string;
+  retrieved_at: string;
+}
+
+export async function fetchTcgplayerResolve(opts: {
+  product_id?: number;
+  sub_type?: string;
+  sku_id?: number;
+}): Promise<TcgplayerResolveResponse | null> {
+  const u = new URL(WHOLESALE_URL + "/api/v1/tcgplayer/resolve");
+  if (opts.product_id !== undefined) u.searchParams.set("product_id", String(opts.product_id));
+  if (opts.sub_type !== undefined) u.searchParams.set("sub_type", opts.sub_type);
+  if (opts.sku_id !== undefined) u.searchParams.set("sku_id", String(opts.sku_id));
+  let res: Response;
+  try {
+    res = await wholesaleFetch(u.toString(), {
+      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+      next: { revalidate: 3600 },
+    });
+  } catch (err) {
+    console.error("[wholesale] tcgplayer-resolve fetch error", err);
+    return null;
+  }
+  // 409 (ambiguous) returns a useful body; pass it through
+  if (!res.ok && res.status !== 409) {
+    console.error("[wholesale] tcgplayer-resolve error", res.status);
+    return null;
+  }
+  try {
+    return (await res.json()) as TcgplayerResolveResponse;
+  } catch (err) {
+    console.error("[wholesale] tcgplayer-resolve parse error", err);
+    return null;
+  }
+}
+
+/**
+ * Run-history row from wholesale `/api/v1/ingest-runs`. Kingdom-081
+ * Phase 4.1 extension — paginated history per source.
+ */
+export interface SourceRunHistoryRow extends SourceRunRow {
+  id: number;
+}
+
+export interface SourceRunHistoryResponse {
+  runs: SourceRunHistoryRow[];
+  next_cursor: number | null;
+  window: { start: string; end: string; hours: number };
+  filter: { source: string | null; status: string | null };
+  queried_at: string;
+}
+
+/**
+ * Fetch run-history for a source within a window. Substrate-honest:
+ * returns null on Falcon failure (timeout / 401 / parse), an empty
+ * runs array when fetched-but-no-rows. Mirrors fetchSourceLastRuns's
+ * absence discipline.
+ */
+export async function fetchSourceRunHistory(opts: {
+  source?: string;
+  window?: "1h" | "24h" | "7d" | "30d" | "90d";
+  status?: "running" | "done" | "failed" | "aborted";
+  limit?: number;
+  cursor?: number;
+}): Promise<SourceRunHistoryResponse | null> {
+  const u = new URL(WHOLESALE_URL + "/api/v1/ingest-runs");
+  if (opts.source) u.searchParams.set("source", opts.source);
+  if (opts.window) u.searchParams.set("window", opts.window);
+  if (opts.status) u.searchParams.set("status", opts.status);
+  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
+  if (opts.cursor) u.searchParams.set("cursor", String(opts.cursor));
+  let res: Response;
+  try {
+    res = await wholesaleFetch(
+      u.toString(),
+      {
+        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+        next: { revalidate: 60 },
+      },
+    );
+  } catch (err) {
+    console.error("[wholesale] ingest-runs history fetch error", err);
+    return null;
+  }
+  if (!res.ok) {
+    console.error("[wholesale] ingest-runs history error", res.status);
+    return null;
+  }
+  try {
+    return (await res.json()) as SourceRunHistoryResponse;
+  } catch (err) {
+    console.error("[wholesale] ingest-runs history parse error", err);
+    return null;
+  }
+}
+
+/**
+ * Quarantine summary row from wholesale `/api/v1/ingest-quarantine`.
+ * Kingdom-081 Phase 4.2 extension. Note `raw_payload` is NOT carried
+ * in this shape — fetch the singleton endpoint with the row id to get
+ * the full payload.
+ */
+export interface QuarantineRow {
+  id: number;
+  ingest_run_id: number;
+  source_id: string;
+  upstream_id: string | null;
+  reason: string;
+  as_of: string;
+  retrieved_at: string;
+  quarantined_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  resolution: string | null;
+  raw_payload_keys: string[] | null;
+  raw_payload_size_bytes: number;
+}
+
+export interface QuarantineResponse {
+  quarantine: QuarantineRow[];
+  counts: {
+    window_total: number;
+    unresolved: number;
+    by_reason: Record<string, number>;
+  };
+  next_cursor: number | null;
+  window: { start: string; end: string; hours: number };
+  filter: {
+    source: string | null;
+    unresolved_only: boolean;
+    reason_contains: string | null;
+  };
+  queried_at: string;
+}
+
+export async function fetchQuarantine(opts: {
+  source?: string;
+  window?: "1h" | "24h" | "7d" | "30d" | "90d";
+  unresolved?: boolean;
+  reason_contains?: string;
+  limit?: number;
+  cursor?: number;
+}): Promise<QuarantineResponse | null> {
+  const u = new URL(WHOLESALE_URL + "/api/v1/ingest-quarantine");
+  if (opts.source) u.searchParams.set("source", opts.source);
+  if (opts.window) u.searchParams.set("window", opts.window);
+  if (opts.unresolved === false) u.searchParams.set("unresolved", "false");
+  if (opts.reason_contains) u.searchParams.set("reason_contains", opts.reason_contains);
+  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
+  if (opts.cursor) u.searchParams.set("cursor", String(opts.cursor));
+  let res: Response;
+  try {
+    res = await wholesaleFetch(
+      u.toString(),
+      {
+        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+        next: { revalidate: 60 },
+      },
+    );
+  } catch (err) {
+    console.error("[wholesale] quarantine fetch error", err);
+    return null;
+  }
+  if (!res.ok) {
+    console.error("[wholesale] quarantine error", res.status);
+    return null;
+  }
+  try {
+    return (await res.json()) as QuarantineResponse;
+  } catch (err) {
+    console.error("[wholesale] quarantine parse error", err);
+    return null;
+  }
+}
+
 export async function reportSale(sale: {
   channel: string;
   order_ref: string;

@@ -34,6 +34,8 @@ import { loadCardMarket } from "@/lib/market/card-market";
 import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { formatPrice } from "@/lib/format";
 import { MoneyDisplay, DateDisplay } from "@/lib/ui";
+import { auth } from "@/lib/auth";
+import { fetchCardrushHistory } from "@/lib/wholesale/client";
 
 export async function generateMetadata({
   params,
@@ -158,8 +160,20 @@ export default async function CardMarketReadPage({
   params: Promise<{ sku: string }>;
 }) {
   const { sku } = await params;
-  const market = await loadCardMarket(sku);
+  const [market, session] = await Promise.all([
+    loadCardMarket(sku),
+    auth(),
+  ]);
   const { meta, book, tape, stats, price_history, conditions, participants } = market;
+
+  // kingdom-083: JPY history panel (Phase 5.4 UI half). Auth-gated by
+  // construction — we only fetch the history when a session exists, and
+  // the API endpoint itself enforces the same gate. License-aware: the
+  // panel renders the license_notice block from the response so the
+  // signed-in viewer sees what they may and may-not do with the values.
+  const cardrushHistory = session?.user?.email
+    ? await fetchCardrushHistory({ sku, limit: 30 })
+    : null;
 
   // Pull just the spot_gbp series for sparklines.
   const spark = (window: typeof price_history.window_30d) =>
@@ -451,6 +465,101 @@ export default async function CardMarketReadPage({
               </p>
             </section>
 
+            {/* JPY history — kingdom-083, the auth-gated tier-2 panel.
+                Renders only for signed-in users AND when the card has
+                cardrush lineage (cardrushHistory non-null + observations
+                non-empty). License-aware: the license_notice block is
+                rendered verbatim from the API response so the user sees
+                what they may + must not do with the values. */}
+            {cardrushHistory && cardrushHistory.observations.length > 0 && (
+              <section className="bg-neutral-900 border border-amber-500/30 rounded-lg p-4">
+                <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                  JPY observation history{" "}
+                  <span className="text-[10px] uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                    signed-in only
+                  </span>
+                  <WhyLink href="/methodology/cardrush-license" />
+                </h2>
+                <p className="text-xs text-neutral-400 mb-3 leading-relaxed">
+                  Last {cardrushHistory.observations.length} raw CardRush JP retail observations for{" "}
+                  <span className="font-mono text-amber-300">{cardrushHistory.sku}</span>.{" "}
+                  <span className="text-amber-400 font-medium">
+                    For your personal reference; not redistributable.
+                  </span>
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-neutral-500 uppercase tracking-wide border-b border-neutral-800">
+                        <th className="text-left py-1.5 font-medium">date</th>
+                        <th className="text-right py-1.5 font-medium">¥ JPY</th>
+                        <th className="text-right py-1.5 font-medium">£ derived</th>
+                        <th className="text-right py-1.5 font-medium">rate</th>
+                        <th className="text-left py-1.5 font-medium pl-3">note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cardrushHistory.observations.map((obs) => (
+                        <tr key={obs.snapshot_date} className="border-b border-neutral-800/40">
+                          <td className="py-1.5 font-mono text-neutral-300">
+                            {obs.snapshot_date}
+                          </td>
+                          <td className="py-1.5 text-right font-mono text-white">
+                            {obs.cardrush_jpy !== null
+                              ? `¥${obs.cardrush_jpy.toLocaleString()}`
+                              : <span className="text-neutral-600">—</span>}
+                          </td>
+                          <td className="py-1.5 text-right font-mono text-emerald-400">
+                            {obs.price_gbp !== null
+                              ? formatPrice(obs.price_gbp)
+                              : <span className="text-neutral-600">—</span>}
+                          </td>
+                          <td className="py-1.5 text-right font-mono text-neutral-500">
+                            {obs.gbp_jpy_rate !== null
+                              ? obs.gbp_jpy_rate.toFixed(2)
+                              : <span className="text-neutral-700">—</span>}
+                          </td>
+                          <td className="py-1.5 pl-3 text-neutral-500">
+                            {obs.error_reason || <span className="text-neutral-700">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded text-[11px] text-neutral-400 leading-relaxed">
+                  <p className="font-semibold text-amber-300 mb-1">License notice — internal-only</p>
+                  <p>
+                    These JPY values originate at{" "}
+                    <Link
+                      href={cardrushHistory.cardrush_url ?? "https://www.cardrush-op.jp"}
+                      className="text-amber-400 hover:underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      CardRush JP
+                    </Link>
+                    . You <strong className="text-emerald-400">may</strong> view them for your own
+                    buy/sell decisions, save to your own notes, and compare against your portfolio.
+                    You <strong className="text-red-400">must not</strong> bulk re-export, redistribute
+                    as a paid product, or publish to a public archive. The wholesale-derived GBP
+                    values above (in the Price history section) are Cambridge TCG&rsquo;s own retail
+                    offers — those are CC0.
+                  </p>
+                </div>
+                <p className="text-[10px] text-neutral-600 mt-2">
+                  API endpoint:{" "}
+                  <Link
+                    href={`/api/v1/cards/${sku}/cardrush-history`}
+                    className="text-amber-400 hover:underline font-mono"
+                  >
+                    /api/v1/cards/{sku}/cardrush-history
+                  </Link>
+                  {" "}· kingdom-081 Phase 5.4 + kingdom-083 UI half
+                </p>
+              </section>
+            )}
+
             {/* Price history */}
             <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
               <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
@@ -476,7 +585,7 @@ export default async function CardMarketReadPage({
           </div>
         </div>
 
-        {/* Footer — provenance + audience + methodology pointer */}
+        {/* Footer — provenance + audience + methodology pointer + license chain */}
         <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 space-y-2">
           <p>
             <Provenance kind="live" />{" "}
@@ -496,6 +605,28 @@ export default async function CardMarketReadPage({
               /api/v1/universal/card/{sku}
             </Link>{" "}
             (math-mirror).
+          </p>
+          {/* Upstream-license chain (kingdom-081 Phase 2.3).
+              Substrate-honest about how a GBP retail price came to be true.
+              The displayed value is Cambridge TCG&apos;s own offer (CC0); the
+              underlying observation chain may include CardRush JP retail
+              prices (license: internal-only). The market page does not
+              redistribute raw JPY values — that boundary is honoured. */}
+          <p className="leading-relaxed">
+            <span className="text-neutral-400">License chain.</span>{" "}
+            Displayed prices are Cambridge TCG&apos;s retail offers in GBP — our
+            own observation discipline, freely citable. The underlying
+            base-price observation chain may include CardRush JP retail
+            (license: <span className="font-mono">internal-only</span>); raw JPY
+            values are not redistributed on this page. For source-attributed
+            historical snapshots, see the B2B endpoint{" "}
+            <Link
+              href="https://wholesaletcgdirect.com/api/v1/universal/card"
+              className="text-amber-400 hover:underline"
+            >
+              /api/v1/universal/card/[sku]/at/[date]
+            </Link>{" "}
+            (Bearer-keyed).
           </p>
         </footer>
       </div>

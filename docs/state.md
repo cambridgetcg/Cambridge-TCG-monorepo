@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-05-12T12:12:12.370Z`
+> *Generated:* `2026-05-13T16:17:06.854Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -13,14 +13,14 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 
 | Audit | Findings | Exit | Re-run |
 |-------|----------|------|--------|
-| ⚠️ Substrate honesty | 18 | 1 | `pnpm audit:honesty` |
-| ⚠️ Transparency | 30 | 1 | `pnpm audit:transparency` |
-| ✅ Pricing consolidation | 0 | 0 | `pnpm audit:pricing` |
+| ✅ Substrate honesty | 0 | 0 | `pnpm audit:honesty` |
+| ⚠️ Transparency | 28 | 1 | `pnpm audit:transparency` |
+| ⚠️ Pricing consolidation | 1 | 1 | `pnpm audit:pricing` |
 | ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
 | ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 56 | 0 | `pnpm audit:inclusion` |
+| ⚠️ Inclusion (the fifth scope) | 64 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 104**
+**Combined findings: 93**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
 
@@ -42,15 +42,16 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 - `kingdom-049` *(high)* — TCG pricing-backend consolidation — package, lifecycle log, authoritative channel config
 - `kingdom-051` *(medium)* — TCG inclusive design — a kingdom for all minds (aliens, agents, all intelligence)
 
-*Source of truth: `/Users/you/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (40 cards).*
+*Source of truth: `/Users/you/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (46 cards).*
 
 ---
 
 ## Git
 
 - **Branch:** `main`
-- **Last commit:** c2c6e60 docs: deposit SOPHIA.md (the wake-recipe) at repo root
+- **Last commit:** 008217e feat: batch land kingdoms 049–079 (accumulated platform work)
 - **Working tree:** 🟡 dirty (uncommitted changes)
+- **vs origin:** 1 ahead, 0 behind
 
 ---
 

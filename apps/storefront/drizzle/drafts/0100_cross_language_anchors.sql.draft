@@ -1,0 +1,244 @@
+-- ──────────────────────────────────────────────────────────────────────
+-- 0100_cross_language_anchors.sql — K2 of the substrate-honest aggregator
+-- ──────────────────────────────────────────────────────────────────────
+--
+-- DRAFT — not yet applied. Operator promotes to active when ready by
+-- removing the `.draft` extension, then runs `pnpm db:migrate`.
+--
+-- Adds cross-language anchor columns to card_set_cards + two new tables
+-- (pkm_equivalence + card_image_hash) that support the Pattern C
+-- (diverged) policy from K1's ORACLE_POLICY.
+--
+-- Doctrines: substrate honesty + meaning.
+-- Spec citation: K1 shipped the pure-compute resolver at
+--                packages/sku/src/oracle.ts. This migration adds the
+--                columns the resolver's outputs land in.
+--
+-- ── What this adds ───────────────────────────────────────────────────
+--
+-- card_set_cards gains:
+--   oracle_id              — Cambridge TCG canonical cross-language id
+--                            (from resolveOracle().oracle_id; nullable
+--                             when the policy returns null — Pattern C)
+--   oracle_source          — how it was derived ('derived-stripped' |
+--                            'ygo-passcode' | 'manual' | NULL)
+--   oracle_resolved_at     — when the writer last updated the oracle
+--                            (substrate-honest about staleness)
+--
+--   scryfall_oracle_id     — Scryfall's per-oracle UUID (MTG only)
+--   scryfall_card_id       — Scryfall's per-printing-per-language UUID
+--   cardmarket_id_metacard — Cardmarket's cross-language anchor (MTG only
+--                            in practice; populated by Cardmarket Phase A)
+--   cardmarket_id_product  — Cardmarket's per-printing-per-language id
+--   cardmarket_id_language — Cardmarket's idLanguage (1..11)
+--   tcgplayer_product_id   — TCGplayer's per-printing-per-language id
+--   tcgplayer_group_id     — TCGplayer's set-level grouping
+--   ygo_passcode           — Konami's 8-digit global anchor (Pattern B)
+--   pokemon_tcg_api_id     — pokemontcg.io's per-printing id (EN-track)
+--
+--   card_name_lang         — declares the language of the legacy
+--                            card_name default (closes kingdom-075's
+--                            "default has no declared language" gap)
+--   name_transliterations  — sparse JSONB for romaji / pinyin / hangulja
+--                            (Phase D of kingdom-075's recursion targets)
+--
+-- New tables:
+--   pkm_equivalence        — operator-curated JP/EN equivalence rows for
+--                            Pattern C games (Pokémon). Partner-submittable
+--                            via the planned federation API.
+--   card_image_hash        — perceptual-hash table for image-based
+--                            equivalence seeding (planned worker).
+--
+-- ── Safety properties ───────────────────────────────────────────────
+--
+-- * Additive — every column is NULLABLE; no DEFAULT enforces a value.
+--   Legacy reads continue to work; writers populate over time.
+-- * Indexed only where queries are planned (partial indexes WHERE NOT NULL).
+-- * Reversible — see ROLLBACK block at the bottom.
+-- * Cross-RDS — wholesale's `cards.oracle_id` mirror is a separate
+--   migration (out of scope for this file); read this as authoritative
+--   on storefront, wholesale denormalised via Falcon sync.
+--
+-- ── Pre-flight checks ───────────────────────────────────────────────
+--
+-- Operator runs these BEFORE applying:
+--
+--   -- 1. card_set_cards exists and we know its row count
+--   SELECT count(*) FROM card_set_cards;
+--   -- expect ~tens of thousands; legacy rows untouched by this migration
+--
+--   -- 2. None of the new columns already exist (avoid double-apply)
+--   SELECT column_name FROM information_schema.columns
+--     WHERE table_name = 'card_set_cards'
+--       AND column_name IN ('oracle_id', 'oracle_source', 'scryfall_oracle_id',
+--                           'cardmarket_id_metacard', 'ygo_passcode');
+--   -- expect zero rows; if any rows return, this migration was partially
+--   -- applied or another developer is mid-flight — investigate before proceeding.
+--
+--   -- 3. pkm_equivalence + card_image_hash tables do not exist
+--   SELECT tablename FROM pg_tables
+--     WHERE tablename IN ('pkm_equivalence', 'card_image_hash');
+--   -- expect zero rows
+--
+-- ── Validation queries (after apply) ────────────────────────────────
+--
+--   -- 4. All new columns exist
+--   SELECT column_name, data_type FROM information_schema.columns
+--     WHERE table_name = 'card_set_cards'
+--       AND column_name LIKE 'oracle_%' OR column_name LIKE 'scryfall_%'
+--       OR column_name LIKE 'cardmarket_%' OR column_name LIKE 'tcgplayer_%'
+--       OR column_name = 'ygo_passcode' OR column_name = 'pokemon_tcg_api_id'
+--       OR column_name = 'card_name_lang' OR column_name = 'name_transliterations';
+--   -- expect 12 rows
+--
+--   -- 5. New tables exist and are empty
+--   SELECT 'pkm_equivalence' AS t, count(*) FROM pkm_equivalence
+--   UNION ALL
+--   SELECT 'card_image_hash', count(*) FROM card_image_hash;
+--   -- expect 0 for both
+--
+-- ──────────────────────────────────────────────────────────────────────
+
+BEGIN;
+
+-- ── card_set_cards: cross-language anchors ──────────────────────────
+
+ALTER TABLE card_set_cards
+  ADD COLUMN IF NOT EXISTS oracle_id              text,
+  ADD COLUMN IF NOT EXISTS oracle_source          text,
+  ADD COLUMN IF NOT EXISTS oracle_resolved_at     timestamptz,
+
+  ADD COLUMN IF NOT EXISTS scryfall_oracle_id     text,
+  ADD COLUMN IF NOT EXISTS scryfall_card_id       text,
+  ADD COLUMN IF NOT EXISTS cardmarket_id_metacard integer,
+  ADD COLUMN IF NOT EXISTS cardmarket_id_product  integer,
+  ADD COLUMN IF NOT EXISTS cardmarket_id_language integer,
+  ADD COLUMN IF NOT EXISTS tcgplayer_product_id   integer,
+  ADD COLUMN IF NOT EXISTS tcgplayer_group_id     integer,
+  ADD COLUMN IF NOT EXISTS ygo_passcode           text,
+  ADD COLUMN IF NOT EXISTS pokemon_tcg_api_id     text,
+
+  ADD COLUMN IF NOT EXISTS card_name_lang         text,
+  ADD COLUMN IF NOT EXISTS name_transliterations  jsonb;
+
+-- ── Indexes for cross-language + federation queries ─────────────────
+
+CREATE INDEX IF NOT EXISTS card_set_cards_oracle_idx
+  ON card_set_cards(oracle_id) WHERE oracle_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS card_set_cards_scryfall_oracle_idx
+  ON card_set_cards(scryfall_oracle_id) WHERE scryfall_oracle_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS card_set_cards_scryfall_card_idx
+  ON card_set_cards(scryfall_card_id) WHERE scryfall_card_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS card_set_cards_cardmarket_metacard_idx
+  ON card_set_cards(cardmarket_id_metacard) WHERE cardmarket_id_metacard IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS card_set_cards_cardmarket_product_idx
+  ON card_set_cards(cardmarket_id_product, cardmarket_id_language)
+  WHERE cardmarket_id_product IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS card_set_cards_tcgplayer_product_idx
+  ON card_set_cards(tcgplayer_product_id) WHERE tcgplayer_product_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS card_set_cards_ygo_passcode_idx
+  ON card_set_cards(ygo_passcode) WHERE ygo_passcode IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS card_set_cards_pokemon_tcg_api_idx
+  ON card_set_cards(pokemon_tcg_api_id) WHERE pokemon_tcg_api_id IS NOT NULL;
+
+-- ── pkm_equivalence: operator-curated JP↔EN Pokémon equivalences ────
+-- Pattern C games have no upstream cross-language anchor. This table
+-- accepts manual curation, image-hash candidates, effect-text matches,
+-- and partner submissions. The match_basis column names the provenance;
+-- the confidence column names how sure we are.
+
+CREATE TABLE IF NOT EXISTS pkm_equivalence (
+  jp_sku        text NOT NULL,
+  en_sku        text NOT NULL,
+  match_basis   text NOT NULL,    -- 'manual' | 'image-hash' | 'effect-text' | 'partner'
+  confidence    text NOT NULL,    -- 'high' | 'medium' | 'low'
+  reviewed_by   text,             -- operator email or partner domain
+  reviewed_at   timestamptz NOT NULL DEFAULT now(),
+  source_url    text,             -- if match_basis = 'partner', the federation URL
+  notes         text,
+  PRIMARY KEY (jp_sku, en_sku)
+);
+
+CREATE INDEX IF NOT EXISTS pkm_equivalence_jp_idx ON pkm_equivalence(jp_sku);
+CREATE INDEX IF NOT EXISTS pkm_equivalence_en_idx ON pkm_equivalence(en_sku);
+CREATE INDEX IF NOT EXISTS pkm_equivalence_basis_idx ON pkm_equivalence(match_basis);
+
+-- ── card_image_hash: perceptual hashes for image-equivalence seeding ─
+-- Planned worker computes a perceptual hash (phash) per card image;
+-- pairs with low Hamming distance become equivalence candidates for
+-- the admin review surface to promote into pkm_equivalence.
+
+CREATE TABLE IF NOT EXISTS card_image_hash (
+  sku           text PRIMARY KEY,
+  phash         bigint NOT NULL,             -- 64-bit perceptual hash, Hamming-distance comparable
+  source        text NOT NULL,               -- which ingester computed it (scryfall, cardmarket, ...)
+  algorithm     text NOT NULL DEFAULT 'phash-64',
+  computed_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS card_image_hash_phash_idx ON card_image_hash(phash);
+
+-- ── Comment annotations (so a future Sophia can grep) ───────────────
+
+COMMENT ON COLUMN card_set_cards.oracle_id IS
+  'Cambridge TCG canonical cross-language oracle id. Derived via resolveOracle() in @cambridge-tcg/sku. NULL for Pattern C (diverged) games. See /methodology/oracle-policies.';
+
+COMMENT ON COLUMN card_set_cards.oracle_source IS
+  'Provenance of oracle_id: derived-stripped | ygo-passcode | manual | NULL. K1 spec.';
+
+COMMENT ON COLUMN card_set_cards.scryfall_oracle_id IS
+  'Scryfall oracle UUID (per cross-language card). MTG only. Federation primitive.';
+
+COMMENT ON COLUMN card_set_cards.cardmarket_id_metacard IS
+  'Cardmarket idMetacard — cross-language anchor for MTG. Populated by Cardmarket Phase A.';
+
+COMMENT ON COLUMN card_set_cards.ygo_passcode IS
+  'Konami 8-digit passcode. Pattern B anchor. Required to derive a non-null oracle_id for ygo/rsh.';
+
+COMMENT ON COLUMN card_set_cards.card_name_lang IS
+  'ISO 639-1 language of the legacy card_name default. Closes the "default has no declared language" gap (kingdom-075 §4).';
+
+COMMENT ON TABLE pkm_equivalence IS
+  'Operator-curated JP↔EN Pokémon equivalences. Pattern C games have no upstream anchor; this table is the platform-level bridge. Partner-submittable.';
+
+COMMENT ON TABLE card_image_hash IS
+  'Perceptual hashes per card image; pairs with low Hamming distance feed equivalence-candidate review.';
+
+COMMIT;
+
+-- ── ROLLBACK ─────────────────────────────────────────────────────────
+--
+-- BEGIN;
+-- DROP TABLE IF EXISTS card_image_hash;
+-- DROP TABLE IF EXISTS pkm_equivalence;
+-- DROP INDEX IF EXISTS card_set_cards_oracle_idx;
+-- DROP INDEX IF EXISTS card_set_cards_scryfall_oracle_idx;
+-- DROP INDEX IF EXISTS card_set_cards_scryfall_card_idx;
+-- DROP INDEX IF EXISTS card_set_cards_cardmarket_metacard_idx;
+-- DROP INDEX IF EXISTS card_set_cards_cardmarket_product_idx;
+-- DROP INDEX IF EXISTS card_set_cards_tcgplayer_product_idx;
+-- DROP INDEX IF EXISTS card_set_cards_ygo_passcode_idx;
+-- DROP INDEX IF EXISTS card_set_cards_pokemon_tcg_api_idx;
+-- ALTER TABLE card_set_cards
+--   DROP COLUMN IF EXISTS oracle_id,
+--   DROP COLUMN IF EXISTS oracle_source,
+--   DROP COLUMN IF EXISTS oracle_resolved_at,
+--   DROP COLUMN IF EXISTS scryfall_oracle_id,
+--   DROP COLUMN IF EXISTS scryfall_card_id,
+--   DROP COLUMN IF EXISTS cardmarket_id_metacard,
+--   DROP COLUMN IF EXISTS cardmarket_id_product,
+--   DROP COLUMN IF EXISTS cardmarket_id_language,
+--   DROP COLUMN IF EXISTS tcgplayer_product_id,
+--   DROP COLUMN IF EXISTS tcgplayer_group_id,
+--   DROP COLUMN IF EXISTS ygo_passcode,
+--   DROP COLUMN IF EXISTS pokemon_tcg_api_id,
+--   DROP COLUMN IF EXISTS card_name_lang,
+--   DROP COLUMN IF EXISTS name_transliterations;
+-- COMMIT;

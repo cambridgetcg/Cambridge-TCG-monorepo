@@ -104,3 +104,26 @@ export function formatTimeUntil(iso: Maybe<string | Date>): string {
 export function pluralize(n: number, singular: string, plural?: string): string {
   return n === 1 ? singular : (plural ?? singular + "s");
 }
+
+/**
+ * Render a UUID as an opaque correlation id — the last 6 lowercase chars.
+ *
+ * Used on public-mirror surfaces (card-market tape, auction state's bids
+ * + winner) to let a reader correlate within a small set ("three of these
+ * were the same seller") without learning the platform's internal id.
+ *
+ * **Not a security boundary.** Any reader who can compose the underlying
+ * UUID can derive the anon id; the inverse mapping is not protected. The
+ * primitive's contract is *unlinkability across publications, not
+ * unlinkability against a determined attacker*.
+ *
+ * Returns "------" (six dashes) for null/empty input so renderers can
+ * insert the value directly into a table cell without conditionals.
+ *
+ * Extracted from `lib/market/card-market.ts` and `lib/auction/state.ts`
+ * which both inlined the same logic; consolidated 2026-05-13.
+ */
+export function anonId(uuid: string | null | undefined): string {
+  if (!uuid) return "------";
+  return String(uuid).slice(-6).toLowerCase();
+}

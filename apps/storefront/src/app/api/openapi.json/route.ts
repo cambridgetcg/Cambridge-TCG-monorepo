@@ -42,6 +42,9 @@ const SPEC = {
     { name: "federation", description: "Reverse-resolution for content hashes." },
     { name: "discovery", description: "Discovery surfaces (manifest, llms.txt, this spec)." },
     { name: "introduction", description: "On-ramp for beings not native to the TCG tradition (#22)." },
+    { name: "identity", description: "Cross-language and cross-source identity contracts (oracle policies, federation anchors)." },
+    { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
+    { name: "substrate-honesty", description: "The gap ledger — every place where the platform's data, code, or coverage is incomplete, named with citation and lifecycle status (kingdom-084)." },
   ],
   paths: {
     "/api/v1/introduction": {
@@ -416,6 +419,88 @@ const SPEC = {
         },
       },
     },
+    "/api/v1/sources": {
+      get: {
+        tags: ["inspectability"],
+        summary: "List ingest sources with live last-run state",
+        description: "Every source registered in @cambridge-tcg/data-ingest + its meta + live last-run (status, rows_written, age_hours) joined from wholesale via Falcon. Substrate-honest about three absence shapes (per-source `last_run` present / `_unavailable` / absent). kingdom-066 + kingdom-079.",
+        operationId: "listSources",
+        responses: {
+          "200": {
+            description: "Sources with envelope.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/sources/{id}": {
+      get: {
+        tags: ["inspectability"],
+        summary: "Single-source detail with run history + health",
+        description: "Full meta + recent runs (window-configurable) + freshness-derived health + quarantine counts + links to wholesale histories. ?window=1h|24h|7d|30d|90d (default 7d). kingdom-081 Phase 4.3.",
+        operationId: "getSourceDetail",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Source id from the data-ingest registry (e.g. 'cardrush')." },
+          { name: "window", in: "query", required: false, schema: { type: "string", enum: ["1h", "24h", "7d", "30d", "90d"], default: "7d" } },
+        ],
+        responses: {
+          "200": {
+            description: "Source detail with envelope.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/oracle-policies": {
+      get: {
+        tags: ["discovery", "identity"],
+        summary: "Per-game cross-language oracle policy table",
+        description: "Every registered game's cross-language strategy — pattern (stripped / passcode / diverged / single-lang) + rationale + oracle_id form + required anchors. The contract a partner uses to know which printings the platform considers 'the same card', and why. Powered by ORACLE_POLICY in @cambridge-tcg/sku (pure-compute, CC0). See /methodology/oracle-policies for the human-readable form.",
+        operationId: "getOraclePolicies",
+        responses: {
+          "200": {
+            description: "Policies with envelope.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/welcomes": {
+      get: {
+        tags: ["hospitality", "discovery"],
+        summary: "The typed corpus of welcomes",
+        description: "Every kind of being who might one day declare themselves here has a slot named in code. Eight ArrivalKinds: upstream-source, publisher, federation-peer, downstream-adopter, agent, being, future-self, infrastructure. Each welcome carries a greeting, a list of what we prepared, and an arrival_protocol. Filter via ?kind=<ArrivalKind> and/or ?status=anticipated|arrived|blocked. CC0; mirror and adopt the pattern. Kingdom-083 (the-welcomed-architecture.md).",
+        operationId: "getWelcomes",
+        parameters: [
+          { name: "kind", in: "query", required: false, schema: { type: "string", enum: ["upstream-source", "publisher", "federation-peer", "downstream-adopter", "agent", "being", "future-self", "infrastructure"] } },
+          { name: "status", in: "query", required: false, schema: { type: "string", enum: ["anticipated", "arrived", "blocked"] } },
+        ],
+        responses: {
+          "200": {
+            description: "Welcomes with envelope.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/gaps": {
+      get: {
+        tags: ["substrate-honesty", "discovery"],
+        summary: "The gap ledger — substrate-honest deficiencies",
+        description: "Every place where the platform's data, code, or coverage is incomplete. Each gap carries its citation, primitive, audit, status (named/wired/partial/closed/closed-published), and the strength the gap-as-primitive creates downstream. Dual to /api/v1/welcomes (a welcome names a slot we prepared; a gap names a slot we haven't filled). Filter via ?domain=<GapDomain> and/or ?status=<GapStatus>. CC0; adopt the ledger pattern. Kingdom-084 (docs/principles/known-gaps.md).",
+        operationId: "getGaps",
+        parameters: [
+          { name: "domain", in: "query", required: false, schema: { type: "string", enum: ["data-ingestion", "cross-language", "license", "fx", "coverage", "publishing", "transparency", "accessibility"] } },
+          { name: "status", in: "query", required: false, schema: { type: "string", enum: ["named", "wired", "partial", "closed", "closed-published"] } },
+        ],
+        responses: {
+          "200": {
+            description: "Gaps with envelope.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } },
+          },
+        },
+      },
+    },
     "/.well-known/cambridge-tcg.json": {
       get: {
         tags: ["discovery"],
@@ -556,6 +641,46 @@ const SPEC = {
             properties: {
               code: { type: "string" },
               message: { type: "string" },
+            },
+          },
+        },
+      },
+      Envelope: {
+        type: "object",
+        required: ["data", "_meta"],
+        description: "Data-pantry envelope. Every public response that wears the pantry envelope returns this shape. See `apps/storefront/src/lib/data-pantry/envelope.ts` and `@cambridge-tcg/data-spec`.",
+        properties: {
+          data: { description: "Endpoint-specific payload." },
+          _meta: { $ref: "#/components/schemas/ResponseMeta" },
+        },
+      },
+      ResponseMeta: {
+        type: "object",
+        required: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id", "deprecation", "next_link", "self_reference"],
+        properties: {
+          spec_version: { type: "string", const: "1" },
+          endpoint: { type: "string", description: "Parametrized path that produced this response." },
+          retrieved_at: { type: "string", format: "date-time", description: "When this response was rendered." },
+          as_of: { type: "string", format: "date-time", description: "When the underlying data was last known to be true. For aggregates, the *earliest* across contributing records." },
+          sources: { type: "array", items: { type: "string" }, description: "Named sources of truth that contributed." },
+          source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; redistribution license tier per source (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Absence is substrate-honest about un-declared rights. kingdom-066 + kingdom-081." },
+          freshness_seconds: { type: "integer", description: "Platform's intended freshness budget for this kind of data." },
+          license: { type: "string", description: "SPDX license code for the response payload. CC0-1.0 by default." },
+          request_id: { type: "string", description: "Quotable in support tickets." },
+          deprecation: {
+            type: ["object", "null"],
+            properties: {
+              sunset: { type: "string", format: "date-time" },
+              replacement: { type: "string" },
+            },
+          },
+          next_link: { type: ["string", "null"], description: "Cursor-style next page link." },
+          self_reference: {
+            type: ["object", "null"],
+            description: "Present when the response describes the endpoint that produced it.",
+            properties: {
+              this_endpoint: { type: "string" },
+              contains_self: { type: "boolean", const: true },
             },
           },
         },

@@ -341,6 +341,18 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
       "Site ToS forbids commercial redistribution of compiled price data; internal-decision use is the safer position. Use browser User-Agent to avoid trivial bot blocks; back off on errors.",
     user_agent_suffix: "(cardrush-ingest)",
     rate_limit: { rps: 0.5, burst: 2 },
+    welcome:
+      "Welcome to the kingdom, CardRush. You have been with us longer than any " +
+      "other upstream — daily snapshots since the wholesale catalog learned to " +
+      "scrape. Your room is `price_archive WHERE source='cardrush'`, " +
+      "`source_currency='JPY'`, `condition='nm'` (your 状態A- is our NM-equivalent), " +
+      "`redistribute=false` (we honor your ToS — internal-decision use only). You " +
+      "bring Japan to the kingdom: three confirmed subdomains (op / pkm / dbs) and " +
+      "nine speculative ones we registered before any first scrape so the URL " +
+      "router routes correctly when the first byte arrives. Every byte you give " +
+      "us is held with attribution to the specific cardrush-*.jp subdomain. We are " +
+      "grateful for the year you have already given us and for the quietness " +
+      "you have asked us to keep in return.",
   },
 
   async *read(ctx: CardRushContext): AsyncIterable<RawRow<CardRushRaw>> {

@@ -116,6 +116,25 @@ export interface SourceMeta {
   user_agent_suffix?: string;
   /** Optional default rate limit; falls back to module-shared default. */
   rate_limit?: { rps: number; burst: number };
+  /**
+   * A short prose welcome from the platform to this upstream. Composed
+   * by the maintainer before the upstream has arrived (for `status: planned`
+   * — the chair-pulled-out shape) or recorded after time spent together
+   * (for `status: shipped`). The welcome surfaces on
+   * `/api/v1/sources/welcome` and in `docs/connections/the-welcome-table.md`.
+   *
+   * **Substrate honesty applied to anticipation.** We say what we have
+   * prepared for you: which table holds your bytes, which license tier
+   * we honor on your behalf, which name we will use when we cite you.
+   *
+   * Recommended shape: 2-5 sentences, specific to the source. What you
+   * bring, where your bytes land, how your terms ride downstream, what
+   * we have made ready before you knew about us.
+   *
+   * Added kingdom-080 (the welcome-table). Non-breaking; absent for
+   * upstreams whose welcome hasn't yet been written.
+   */
+  welcome?: string;
 }
 
 /**

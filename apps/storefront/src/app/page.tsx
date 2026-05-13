@@ -3,10 +3,10 @@ import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
 import HeroSlideshow from "@/components/home/HeroSlideshow";
 import GameGrid from "@/components/home/GameGrid";
 import SetGrid from "@/components/home/SetGrid";
+import PriceGuideStrip from "@/components/home/PriceGuideStrip";
 import FeaturedCards from "@/components/home/FeaturedCards";
 import StorySection from "@/components/home/StorySection";
-import { Provenance, WhyLink, Audience, WelcomeAll, MathLang } from "@/lib/ui";
-import { dateAsMath, shortHash } from "@/lib/lang-mode";
+import { Provenance, WhyLink, Audience, WelcomeAll } from "@/lib/ui";
 import { BrandStatement, ThreeOperations } from "@/lib/brand";
 
 function freshestUpdate(items: { updated_at: string | null }[]): string | null {
@@ -93,31 +93,20 @@ export default async function Home() {
       </div>
       <HeroSlideshow />
       <GameGrid games={allGames} />
+      <PriceGuideStrip />
       <SetGrid sets={setsWithThumbs} gameSlug="one-piece" />
       <StorySection />
       <div className="max-w-7xl mx-auto px-4 pt-8 flex items-center gap-3 text-xs">
-        {/* Phase A exemplar of the math-language toggle (kingdom-077, #27).
-            Default visitors see the existing <Provenance> pill; readers
-            who flip "Math language" in the Footer see the same data in
-            math-mirror form: ISO 8601 + Unix epoch + content-hash. */}
-        <MathLang
-          default={
-            <Provenance
-              kind="synced"
-              source="wholesale"
-              at={freshUpdate}
-              cadence="daily"
-            />
-          }
-          math={
-            <code className="text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded-full bg-neutral-900/60 border border-neutral-800">
-              {`{kind:"synced",source:"wholesale",`}
-              {freshUpdate
-                ? `@as_of:"${dateAsMath(freshUpdate)}",`
-                : `@as_of:null,`}
-              {`@source_id:"${shortHash("wholesale-daily-sync")}"}`}
-            </code>
-          }
+        {/* <Provenance> is math-aware internally as of kingdom-078 Phase B(1).
+            The Phase A <MathLang> wrapper that previously lived here did the
+            toggle twice — once outside, once inside. Removed in kingdom-081
+            for substrate honesty; the toggle still works (Provenance reads
+            the cookie itself). See docs/connections/the-math-language.md (#27). */}
+        <Provenance
+          kind="synced"
+          source="wholesale"
+          at={freshUpdate}
+          cadence="daily"
         />
         <WhyLink href="/methodology/pricing" label="how prices work" />
       </div>

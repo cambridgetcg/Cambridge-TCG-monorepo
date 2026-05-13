@@ -1,0 +1,93 @@
+-- DRAFT — webhook subscriptions (kingdom-081 Phase 5.5)
+--
+-- Status: NOT in active path. Lives in drafts/. Apply when the runtime
+-- delivery substrate (retry, HMAC, queue) is ready in a future kingdom.
+--
+-- Designed in `docs/connections/the-license-propagation.md` (kingdom-081).
+--
+-- ── What this migration declares ────────────────────────────────────────
+--
+-- The webhook_subscriptions table is the substrate for the manifest's
+-- `webhook` channel (which has been "planned" since kingdom-053). When a
+-- user wants Cambridge TCG to push them events (an ingest-run-failed, a
+-- price target hit, a new auction matching a watch), they POST a
+-- subscription record. The runtime fires HTTPS POSTs to `target_url` on
+-- the relevant event.
+--
+-- The schema is minimal-viable. Cross-RDS event-type discipline lives at
+-- the application layer (see /api/v1/webhooks/event-types — also planned).
+-- HMAC signing key is per-subscription (rotatable via a column update +
+-- a future PATCH on /api/v1/webhooks/subscriptions/[id]).
+--
+-- ── Why minimal ─────────────────────────────────────────────────────────
+--
+-- Webhook delivery is a substantial engineering task: retry, back-off,
+-- dead-letter, observability, replay. Kingdom-081 declares the *schema*
+-- and the *subscription endpoint shape* so partners can begin to plan;
+-- the delivery loop is its own kingdom.
+--
+-- Substrate-honest: the manifest will declare webhook channel as
+-- "design-shipped" (schema visible, subscription endpoint accepts records)
+-- but "runtime-pending" (no events actually deliver yet). Operators can
+-- still pre-register their target URLs; when the runtime ships they fire
+-- automatically.
+
+CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  -- The HTTPS URL Cambridge TCG POSTs events to. Required https://.
+  target_url      text NOT NULL,
+
+  -- The event types this subscription wants. Open vocabulary; first
+  -- intended values:
+  --   "ingest_run.failed"      — a wholesale ingest cron failed
+  --   "ingest_run.stale"       — last ingest_run.finished_at is past 2× freshness
+  --   "price.target_hit"       — a portfolio_target was breached
+  --   "auction.match"          — a watch_alert matched a new listing
+  --   "card.new_observation"   — first cardrush observation for a tracked SKU
+  --
+  -- Storage as text[] so a single subscription can carry multiple types
+  -- without a join table.
+  event_types     text[] NOT NULL,
+
+  -- HMAC-SHA256 signing key. Cambridge TCG signs each delivery payload
+  -- with this; the partner verifies. Rotate by UPDATEing this column.
+  signing_secret  text NOT NULL,
+
+  -- Optional descriptive label for the user's own management UI.
+  label           text,
+
+  -- Lifecycle.
+  status          text NOT NULL DEFAULT 'active',  -- 'active' | 'paused' | 'failed'
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+
+  -- Delivery health (populated by the runtime; null until then).
+  last_delivery_at        timestamptz,
+  last_delivery_status    int,
+  consecutive_failures    int NOT NULL DEFAULT 0,
+
+  CONSTRAINT webhook_subscriptions_https_only
+    CHECK (target_url LIKE 'https://%'),
+  CONSTRAINT webhook_subscriptions_status_valid
+    CHECK (status IN ('active', 'paused', 'failed'))
+);
+
+CREATE INDEX IF NOT EXISTS webhook_subscriptions_user_idx
+  ON webhook_subscriptions(user_id);
+
+CREATE INDEX IF NOT EXISTS webhook_subscriptions_active_event_types_idx
+  ON webhook_subscriptions USING GIN (event_types)
+  WHERE status = 'active';
+
+-- ── Future delivery-log table (NOT in this migration) ──────────────────
+--
+-- A future kingdom will add `webhook_deliveries` for the delivery audit
+-- trail (one row per attempt, with HTTP status, response body, retry
+-- count). Schema deferred until the runtime is built. The pattern is the
+-- same as `email_queue` / `email_attempts`.
+--
+-- ── Rollback ────────────────────────────────────────────────────────────
+--
+-- DROP TABLE webhook_subscriptions;

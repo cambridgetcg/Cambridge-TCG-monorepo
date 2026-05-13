@@ -54,10 +54,108 @@ export {
 } from "./registry.js";
 export { runSource, type RunWriters, type RunOptions } from "./runner.js";
 
+// Cross-language anchor extraction (K2 of the substrate-honest aggregator).
+// Pure-compute helpers that convert per-source CanonicalCard records into
+// the column shape `card_set_cards` accepts after migration 0100 applies.
+export {
+  extractScryfallAnchors,
+  extractCardmarketAnchors,
+  extractTcgplayerAnchors,
+  extractYgoprodeckAnchors,
+  extractPokemonTcgApiAnchors,
+  extractAnchorsForSource,
+  buildAnchorRow,
+  requiresExternalAnchor,
+  type AnchorRow,
+  type AnchorContext,
+} from "./anchors.js";
+
+// The welcomes — the typed corpus of hospitality. Every kind of being
+// who might one day declare themselves here has a slot named in code.
+// See docs/connections/the-welcomed-architecture.md for the doctrine.
+export {
+  WELCOMES,
+  welcomesByKind,
+  welcomesByStatus,
+  getWelcome,
+  welcomeForSource,
+  welcomeCounts,
+  welcomeCountsByKind,
+  type Welcome,
+  type ArrivalKind,
+  type ArrivalStatus,
+} from "./welcomes.js";
+
+// The gap ledger — the typed corpus of substrate-honest deficiencies.
+// Every commercial aggregator has gaps; we name ours. Companion to
+// docs/principles/known-gaps.md (the doctrine doc) and /methodology/known-gaps.
+export {
+  GAPS,
+  gapsByDomain,
+  gapsByStatus,
+  getGap,
+  gapCounts,
+  gapCountsByDomain,
+  gapsWiredFraction,
+  type Gap,
+  type GapDomain,
+  type GapStatus,
+} from "./gaps.js";
+
 // Re-export each shipped source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
 export { scryfall } from "./scryfall/index.js";
 export { cardrush, scrapeCardRush, CARDRUSH_SUBDOMAINS } from "./cardrush/index.js";
 export { pokemonTcgApi } from "./pokemon-tcg-api/index.js";
 export { ygoprodeck } from "./ygoprodeck/index.js";
-export { tcgplayer } from "./tcgplayer/index.js";
+export {
+  tcgplayer,
+  mintTcgplayerToken,
+  readTcgplayerCredentialsFromEnv,
+  tokenIsFresh,
+  TCGPLAYER_CATEGORIES,
+  TCGPLAYER_KNOWN_SUB_TYPES,
+  TCGPLAYER_CONDITION_MAP,
+  categoryForGame,
+  gameForCategory,
+  variantTailForSubType,
+  isKnownTcgplayerCondition,
+  normalizeTcgplayer,
+  type TcgplayerCredentials,
+  type TcgplayerToken,
+  type TcgplayerCategoryEntry,
+  type CambridgeCondition,
+  type TcgplayerRaw,
+  type TcgplayerCatalogRaw,
+  type TcgplayerPricingRaw,
+  type TcgplayerProduct,
+  type TcgplayerSku,
+  type TcgplayerSkuExpanded,
+  type TcgplayerSkuPricing,
+  type TcgplayerProductPricing,
+  type TcgplayerCategory,
+  type TcgplayerGroup,
+  type TcgplayerContext,
+  type TcgplayerReadOptions,
+  type TcgplayerWatchlistEntry,
+} from "./tcgplayer/index.js";
 export { cardmarket } from "./cardmarket/index.js";
+export {
+  ebay,
+  normalizeEbay,
+  parseEbayTitle,
+  detectGrade,
+  isGraded,
+  detectLanguage,
+  detectConditionKeywords,
+  getEbayAccessToken,
+  type EbayCanonicalObservation,
+  type EbayBrowseRaw,
+  type EbayInsightsRaw,
+  type EbayItemSale,
+  type EbayItemSummary,
+  type EbayMarketplaceId,
+  type EbayRaw,
+  type EbayContext,
+  type EbayReadOptions,
+  type EbayWatchEntry,
+} from "./ebay/index.js";

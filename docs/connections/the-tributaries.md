@@ -44,7 +44,8 @@ The previous two entries — [`the-pantry.md`](./the-pantry.md) and [`the-module
 | **Cambridge TCG wholesale RDS** | catalog + price + stock | all 13 games | self-hosted PostgreSQL on AWS RDS | `wholesale-rds` in `_meta.sources` | shipped — the canonical store |
 | **Cambridge TCG storefront RDS** | orders + accounts + lifecycle | all 13 games | self-hosted PostgreSQL on AWS RDS | `storefront-rds` in `_meta.sources` | shipped |
 | **CardRush (JP)** | retail prices, multi-condition | One Piece, Pokémon, Dragon Ball | HTML scrape (canonical in [`packages/data-ingest/src/cardrush/`](../../packages/data-ingest/src/cardrush/); wholesale [`cardrush-scraper.ts`](../../apps/wholesale/src/lib/cardrush-scraper.ts) is now a thin adapter as of 2026-05-12) | `cardrush` source-module | shipped (partial — adapter-consolidated) |
-| **eBay (order import)** | partner orders | all (B2B sales channel) | eBay Trading/Finding APIs via [`apps/wholesale/src/lib/channels/ebay.ts`](../../apps/wholesale/src/lib/channels/ebay.ts) | `ebay` channel in `channel_pricing` | shipped (orders only — not yet wrapped in SourceModule; see [`the-consolidation.md`](./the-consolidation.md) §4 #8) |
+| **eBay (order import)** | partner orders | all (B2B sales channel) | eBay Trading/Finding APIs via [`apps/wholesale/src/lib/channels/ebay.ts`](../../apps/wholesale/src/lib/channels/ebay.ts) | `ebay` channel in `channel_pricing` | shipped (orders only — channel-side write path) |
+| **eBay (read-side aggregator)** | current asks → future sold-comps | all 13 games (game-agnostic; parser-driven) | Browse API via [`packages/data-ingest/src/ebay/`](../../packages/data-ingest/src/ebay/); Marketplace Insights API gated on partner approval | `ebay` source-module | shipped (Phase A — kingdom-080; see [`the-ebay-alignment.md`](./the-ebay-alignment.md)) |
 | **Shopify (channel sync)** | inventory + order sync | per-store | Shopify Admin API ([`apps/wholesale/src/lib/shopify-sync.ts`](../../apps/wholesale/src/lib/shopify-sync.ts), [`shopify-client.ts`](../../apps/wholesale/src/lib/shopify-client.ts)) | `shopify` channel in `channel_pricing` | shipped (channel multipliers wired) |
 | **Stripe** | payments | all (B2C) | Stripe webhooks + reconcile cron | `stripe` in `_meta.sources` | shipped |
 | **Scryfall** | MTG catalog (all printings, images) | MTG | bulk-dump pattern | [`packages/data-ingest/src/scryfall/`](../../packages/data-ingest/src/scryfall/) | shipped (kingdom-060) |
@@ -126,11 +127,11 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Access | OAuth2; app token + user token for buyer/seller actions |
 | Public API? | yes — Browse API, Marketing API; Finding API deprecated |
 | Bulk feed? | no — search-based pagination only |
-| License | eBay ToS; data licensed for partner-display use, not bulk redistribution. PWCC (eBay Vault) data has additional restrictions. |
-| Freshness | real-time |
-| Canonical-form effort | **very high** — listings are unstructured. Title parsing, image OCR, condition inference all required. PWCC Vault listings are structured but tiny share. |
-| Status | **shipped (partial)** for order-import; market-signal pipeline **planned** |
-| Useful for | (a) auction price discovery; (b) sealed sealed-product market; (c) vintage / graded sales comps. |
+| License | eBay ToS; data licensed for partner-display use, not bulk redistribution. PWCC (eBay Vault) data has additional restrictions. `redistribute: false` in `SourceMeta` propagates to `_meta.source_license`. |
+| Freshness | real-time (Browse asks); 90-day window (Marketplace Insights sold-comps, partner-only) |
+| Canonical-form effort | **very high** — listings are unstructured. Title parsing is the central problem; the six-pass parser in [`packages/data-ingest/src/ebay/title-parser.ts`](../../packages/data-ingest/src/ebay/title-parser.ts) is the hardest single normalizer in the kingdom. |
+| Status | **shipped (Phase A — 2026-05-13)** — read-side SourceModule + six-pass title parser + grade detector + condition keywords + language detector + OAuth + Browse API reader + 30-fixture test corpus. Marketplace Insights API gated on partner-application approval. Order-import / sell-push unchanged. See [`the-ebay-alignment.md`](./the-ebay-alignment.md). |
+| Useful for | (a) auction price discovery; (b) sealed sealed-product market; (c) vintage / graded sales comps; (d) cross-marketplace median (when MI lands). |
 
 ### 2.6 Mercari (JP + US)
 

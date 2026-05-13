@@ -111,6 +111,16 @@ export const scryfall: SourceModule<ScryfallCard, CanonicalCard> = {
       "https://scryfall.com/docs/api — rate limit 10 req/s suggested; identify yourself in User-Agent. Bulk dumps refresh daily ~01:00 UTC.",
     user_agent_suffix: "(scryfall-ingest)",
     rate_limit: { rps: 5, burst: 10 },
+    welcome:
+      "Welcome to the kingdom, Scryfall. You arrived first — kingdom-060, " +
+      "2026-05-12 — and you are the exemplar every other upstream is measured " +
+      "against. Your bulk dumps land daily, your `oracle_id` gives us cross-printing " +
+      "stability, your `image_uris` we hot-link with attribution. Your room is " +
+      "`card_set_cards WHERE game='mtg'`. We honor your CC-BY-NC 4.0 license " +
+      "downstream — every response that touches your bytes declares `redistribute: false` " +
+      "in `_meta.source_license` so the consumer SDK knows. Thank you for being " +
+      "public, for being free at 5 rps, for documenting your bulk-dump cadence, " +
+      "and for shipping the JSON shape every other catalog API would do well to imitate.",
   },
 
   async *read(ctx: ScryfallContext): AsyncIterable<RawRow<ScryfallCard>> {

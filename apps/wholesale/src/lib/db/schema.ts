@@ -57,6 +57,19 @@ const money = customType<{ data: number; driverData: string }>({
   },
 });
 
+// `fxRate` — generalized FX rate column for any source-currency → GBP
+// conversion. Used by price_archive.fx_rate_to_gbp (migration 0015).
+// numeric(12, 6) gives 6 decimal places — enough for any currency pair
+// (e.g. JPY/GBP ≈ 0.005340; USD/GBP ≈ 0.78xxxx) without float drift.
+const fxRate = customType<{ data: number; driverData: string }>({
+  dataType() {
+    return "numeric(12, 6)";
+  },
+  fromDriver(value: string): number {
+    return Number(value);
+  },
+});
+
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -132,11 +145,25 @@ export const cards = pgTable("cards", {
   // Sparse JSONB: { "zh": "...", "ko": "...", "es": "...", "jp_romaji": "..." }.
   // Nullable; consumers fall back to name_en, then name, then card_number.
   nameTranslations: jsonb("name_translations"),
+  // ── Cross-source upstream id columns (migration 0015; kingdom-NNN) ──
+  // ONE Cambridge SKU ↔ ONE (tcgplayer_product_id, tcgplayer_sub_type) tuple.
+  // The skuId fan-out (per-condition leaves) lives in card_tcgplayer_sku_ids.
+  // See docs/connections/the-tcgplayer-alignment.md §1.
+  tcgplayerProductId: integer("tcgplayer_product_id"),
+  tcgplayerGroupId: integer("tcgplayer_group_id"),
+  // 'Normal' | 'Foil' | 'Reverse Holofoil' — TCGplayer's printing discriminator.
+  tcgplayerSubType: text("tcgplayer_sub_type"),
+  // Reserved for the next kingdom (Cardmarket OAuth1 integration).
+  cardmarketIdProduct: integer("cardmarket_id_product"),
 }, (table) => ({
   nameIdx: index("cards_name_idx").on(table.name),
   cardNumberIdx: index("cards_card_number_idx").on(table.cardNumber),
   gameCategoryIdx: index("cards_game_category_idx").on(table.gameId, table.category),
   setCodeIdx: index("cards_set_code_idx").on(table.setCode),
+  tcgplayerProductIdx: index("cards_tcgplayer_product_idx").on(table.tcgplayerProductId),
+  tcgplayerProductSubTypeUnique: uniqueIndex("cards_tcgplayer_product_subtype_idx")
+    .on(table.tcgplayerProductId, table.tcgplayerSubType),
+  cardmarketProductIdx: index("cards_cardmarket_product_idx").on(table.cardmarketIdProduct),
 }));
 
 export const orders = pgTable("orders", {
@@ -219,14 +246,33 @@ export const priceArchive = pgTable("price_archive", {
   errorReason: text("error_reason"),
   sourceCurrency: text("source_currency").notNull().default("JPY"),
   sourceRedistribute: boolean("source_redistribute").notNull().default(false),
+  // ── Migration 0015 (kingdom-NNN) — condition + extra + generalized FX ─
+  // Open vocabulary for `condition`; recommended values: 'nm' | 'lp' | 'mp'
+  // | 'hp' | 'damaged' | 'sealed' | 'unspecified'. CardRush backfills to
+  // 'nm' (A-condition). TCGplayer per-condition; other sources declare.
+  condition: text("condition").notNull().default("unspecified"),
+  // Source-specific structured payload (TCGplayer low/mid/high/direct_low,
+  // Cardmarket trend/30d/7d, ...). See per-source contracts in
+  // docs/connections/the-tcgplayer-alignment.md §2.2.
+  extra: jsonb("extra"),
+  // Generic FX rate applied to source_currency → GBP at write time. Closes
+  // Leak #8 (FX provenance unaudited) from the-archive.md Part B.
+  fxRateToGbp: fxRate("fx_rate_to_gbp"),
+  // 'live' | 'cached' | 'fallback'
+  fxRateSource: text("fx_rate_source"),
 }, (table) => ({
-  // Widened unique index includes source so multi-source rows for the same
-  // (card, date) can coexist (TCGplayer USD + Cardmarket EUR + CardRush JPY
-  // for the same card on the same day are now distinguishable).
-  cardDateSourceUnique: uniqueIndex("price_archive_card_date_source_idx")
-    .on(table.cardId, table.snapshotDate, table.source),
+  // Widened unique index — third widening (kingdom-066 added source; this
+  // adds condition). Multi-condition rows for the same (card, date, source)
+  // now coexist (TCGplayer NM/LP/MP/HP on the same card on the same day are
+  // distinguishable; CardRush continues to write a single 'nm' row).
+  cardDateSourceConditionUnique: uniqueIndex("price_archive_card_date_source_condition_idx")
+    .on(table.cardId, table.snapshotDate, table.source, table.condition),
   dateIdx: index("price_archive_date_idx").on(table.snapshotDate),
   skuIdx: index("price_archive_sku_idx").on(table.sku),
+  // Time-series scan index — "what's TCGplayer NM saying across the last
+  // 90 days for the cards in this set" — uses this.
+  sourceConditionRecentIdx: index("price_archive_source_condition_recent_idx")
+    .on(table.source, table.condition, table.cardId, table.snapshotDate),
 }));
 
 // ── ingestRun ────────────────────────────────────────────────────────
@@ -284,14 +330,167 @@ export const ingestQuarantine = pgTable("ingest_quarantine", {
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   reviewedBy: text("reviewed_by"),
   resolution: text("resolution"),
+  // ── Migration 0015 — quarantine taxonomy ────────────────────────────
+  // Open vocabulary; the alignment doc names eight kinds for TCGplayer
+  // (mapping.no-set-match / mapping.ambiguous / mapping.unmapped-condition /
+  // mapping.unmapped-subtype / pricing.unmapped-product / pricing.mapping-drift /
+  // fx.rate-fetch-failed / upstream.shape-drift). Other sources may declare
+  // their own kinds. Filter-friendly index added below.
+  kind: text("kind"),
 }, (table) => ({
   unresolvedIdx: index("ingest_quarantine_unresolved_idx")
     .on(table.sourceId, table.quarantinedAt),
   runIdx: index("ingest_quarantine_run_idx").on(table.ingestRunId),
+  kindUnresolvedIdx: index("ingest_quarantine_kind_unresolved_idx")
+    .on(table.sourceId, table.kind, table.quarantinedAt),
 }));
 
 export type IngestQuarantineRow = typeof ingestQuarantine.$inferSelect;
 export type NewIngestQuarantineRow = typeof ingestQuarantine.$inferInsert;
+
+// ── ebayListingObservation ───────────────────────────────────────────
+//
+// Stage 3 of the pipeline for eBay (the-ebay-alignment.md, kingdom-081
+// Phase B). One row per (marketplace, listing, observation-time).
+// Substrate-honest: parsed_confidence ∈ [0, 1] carries the title-parser's
+// confidence; first_party=true only when the row came from Marketplace
+// Insights API (verified sale); false for Browse asks (still-listed).
+//
+// License tier: partner-redistributable; downstream emission propagates
+// via `_meta.source_license` (see the-tributaries.md §11). The cron
+// writer (kingdom-082) populates ingestRunId pointing at the run row.
+//
+// Migration: drizzle/drafts/0016_ebay_observations.sql.draft (promote
+// to drizzle/0016_ebay_observations.sql when operator is ready to apply).
+export const ebayListingObservation = pgTable("ebay_listing_observation", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  sku: text("sku").notNull(),
+  marketplaceId: text("marketplace_id").notNull(),
+  listingId: text("listing_id").notNull(),
+  saleType: text("sale_type").notNull(),
+  condition: text("condition"),
+  priceAmount: money("price_amount").notNull(),
+  priceCurrency: text("price_currency").notNull(),
+  shippingAmount: money("shipping_amount"),
+  totalAmount: money("total_amount"),
+  gradeCompany: text("grade_company"),
+  gradeValue: text("grade_value"),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+  asOf: timestamp("as_of", { withTimezone: true }).notNull(),
+  soldAt: timestamp("sold_at", { withTimezone: true }),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  rawTitle: text("raw_title").notNull(),
+  parsedConfidence: real("parsed_confidence").notNull(),
+  conditionKeywords: text("condition_keywords").array(),
+  sourceUrl: text("source_url"),
+  apiSurface: text("api_surface").notNull(),
+  firstParty: boolean("first_party").notNull().default(false),
+  ingestRunId: bigint("ingest_run_id", { mode: "number" })
+    .notNull()
+    .references(() => ingestRun.id),
+  shillSuspected: boolean("shill_suspected").notNull().default(false),
+}, (table) => ({
+  // Dedup: same listing observed again at the same instant won't double-write.
+  marketplaceListingObservedUnique: uniqueIndex("ebay_obs_unique")
+    .on(table.marketplaceId, table.listingId, table.observedAt),
+  // Time-series scan: "what's this SKU doing across all observations?"
+  skuObservedIdx: index("ebay_obs_sku_observed_idx")
+    .on(table.sku, table.observedAt),
+  // Quick listing lookup.
+  listingIdx: index("ebay_obs_listing_idx")
+    .on(table.listingId, table.marketplaceId),
+  // Run trace.
+  ingestRunIdx: index("ebay_obs_ingest_run_idx")
+    .on(table.ingestRunId),
+  // Cohort cross-section: "EBAY_GB near-mint asks for SKU X in last 30d".
+  skuMarketplaceSaleIdx: index("ebay_obs_sku_marketplace_sale_idx")
+    .on(table.sku, table.marketplaceId, table.saleType, table.observedAt),
+}));
+
+export type EbayListingObservationRow = typeof ebayListingObservation.$inferSelect;
+export type NewEbayListingObservationRow = typeof ebayListingObservation.$inferInsert;
+
+// ── ebayWatchList ────────────────────────────────────────────────────
+//
+// Operator-curated set of canonical SKUs the eBay cron walks per run.
+// Priority bucketing lets the scheduler stagger cadence: 300 top
+// (30-minute target), 200 mid (4-hour), 100 default (daily). Seeded
+// from cards.cardrush_url IS NOT NULL on migration apply.
+//
+// Migration: drizzle/drafts/0016_ebay_observations.sql.draft.
+export const ebayWatchList = pgTable("ebay_watch_list", {
+  sku: text("sku").primaryKey(),
+  priority: integer("priority").notNull().default(100),
+  lastObservedAt: timestamp("last_observed_at", { withTimezone: true }),
+  addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  addedBy: text("added_by").notNull(),
+  reason: text("reason"),
+  active: boolean("active").notNull().default(true),
+}, (table) => ({
+  // Scheduler: walks watch list in priority order, oldest-observed first.
+  priorityIdx: index("ebay_watch_priority_idx")
+    .on(table.priority, table.lastObservedAt),
+}));
+
+export type EbayWatchListRow = typeof ebayWatchList.$inferSelect;
+export type NewEbayWatchListRow = typeof ebayWatchList.$inferInsert;
+
+// ── cardTcgplayerSkuIds ──────────────────────────────────────────────
+//
+// Per-(condition × language) skuId mapping for TCGplayer. ONE card row
+// has ONE tcgplayer_product_id but N skuIds (typically 5 conditions ×
+// 1-2 languages = 5-10 leaf ids). Persisting these lets the federation
+// reverse-lookup resolve a partner's TCGplayer skuId back to our
+// (canonical_sku, condition) without re-walking TCGplayer's catalog.
+//
+// kingdom-NNN. Migration: drizzle/0015_tcgplayer_cross_source.sql.
+
+export const cardTcgplayerSkuIds = pgTable("card_tcgplayer_sku_ids", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  cardId: integer("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+  // Open vocabulary; recommended values listed on priceArchive.condition.
+  condition: text("condition").notNull(),
+  // ISO 639-1
+  language: text("language").notNull(),
+  tcgplayerSkuId: integer("tcgplayer_sku_id").notNull().unique(),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  cardCondLangUnique: uniqueIndex("card_tcgplayer_sku_card_cond_lang_idx")
+    .on(table.cardId, table.condition, table.language),
+  lookupIdx: index("card_tcgplayer_sku_lookup_idx").on(table.tcgplayerSkuId),
+}));
+
+export type CardTcgplayerSkuIdRow = typeof cardTcgplayerSkuIds.$inferSelect;
+export type NewCardTcgplayerSkuIdRow = typeof cardTcgplayerSkuIds.$inferInsert;
+
+// ── externalSourceTokens ──────────────────────────────────────────────
+//
+// OAuth2 access-token persistence for upstream sources. TCGplayer's token
+// has ~14d TTL; cardmarket/eBay/etc. follow the same shape. Persisting in
+// RDS rather than in-memory or KV makes rotation observable (rotation_count,
+// minted_at) and survives Vercel function cold starts.
+//
+// One row per source_id; INSERT … ON CONFLICT DO UPDATE on rotation.
+//
+// kingdom-NNN. Migration: drizzle/0015_tcgplayer_cross_source.sql.
+
+export const externalSourceTokens = pgTable("external_source_tokens", {
+  // Matches data-spec SourceName + the `_meta.sources` strings.
+  sourceId: text("source_id").primaryKey(),
+  accessToken: text("access_token").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  mintedAt: timestamp("minted_at", { withTimezone: true }).notNull().defaultNow(),
+  rotationCount: integer("rotation_count").notNull().default(0),
+  // Optional refresh_token (OAuth2 authorisation_code grant; not used by
+  // TCGplayer's client_credentials but reserved for eBay-style flows).
+  refreshToken: text("refresh_token"),
+  // Optional scope info when the upstream issues scoped tokens.
+  scopes: text("scopes"),
+});
+
+export type ExternalSourceTokenRow = typeof externalSourceTokens.$inferSelect;
+export type NewExternalSourceTokenRow = typeof externalSourceTokens.$inferInsert;
 
 export const orderStatusHistory = pgTable("order_status_history", {
   id: serial("id").primaryKey(),

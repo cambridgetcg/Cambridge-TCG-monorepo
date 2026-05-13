@@ -12,7 +12,7 @@
  * See `docs/methodology/source-protocol.md` for the protocol and
  * `docs/connections/the-tributaries.md` for the catalog.
  *
- * ── Nine checks ──────────────────────────────────────────────────────
+ * ── Ten checks ───────────────────────────────────────────────────────
  *
  *   1. Module exists — every `SOURCES[id]` (excluding undefined planned
  *      slots) has a directory at `packages/data-ingest/src/<id>/`.
@@ -29,6 +29,12 @@
  *      is within 2× the FreshnessKey budget. Skips gracefully when
  *      WHOLESALE_DATABASE_URL is unset OR the ingest_run table doesn't
  *      yet exist (Phase A migration not applied).
+ *  10. License propagation (kingdom-081) — every emission site (route file
+ *      under apps/{storefront,wholesale}/src/app/api/) that references a
+ *      non-redistributable upstream by name (e.g. "cardrush") in its
+ *      response shape must also declare `@source_license` or `source_license`
+ *      somewhere in the file. Heuristic static check — false positives are
+ *      a drift signal, not a CI gate.
  *
  * Exit non-zero on any check failure. Pass `--strict` to fail on any
  * planned-with-row mismatch as well.
@@ -418,6 +424,75 @@ async function main(): Promise<void> {
           err instanceof Error ? err.message : String(err)
         })`,
       );
+    }
+  }
+
+  // ── Check 10: license propagation (kingdom-081) ──────────────────────
+  // For every non-redistributable source declared in the registry, find
+  // emission sites that reference it by name and verify the same file
+  // declares `@source_license` or `source_license`. Heuristic; false
+  // positives are expected and reduce as license-propagation work lands.
+  //
+  // Designed in docs/connections/the-cardrush-alignment.md §3 Phase E +
+  // the kingdom-081 plan in docs/connections/the-license-propagation.md.
+  {
+    const NON_REDISTRIBUTABLE_SOURCE_IDS = new Set<string>();
+    for (const [id, mod] of Object.entries(sources)) {
+      if (mod && mod.meta.redistribute === false) {
+        NON_REDISTRIBUTABLE_SOURCE_IDS.add(id);
+      }
+    }
+
+    const SCAN_ROOTS = [
+      resolve(REPO_ROOT, "apps", "storefront", "src", "app", "api"),
+      resolve(REPO_ROOT, "apps", "wholesale", "src", "app", "api"),
+    ];
+
+    function listRouteFiles(root: string): string[] {
+      const out: string[] = [];
+      if (!existsSync(root)) return out;
+      const stack = [root];
+      while (stack.length) {
+        const dir = stack.pop()!;
+        for (const entry of readdirSync(dir)) {
+          const p = join(dir, entry);
+          const st = statSync(p);
+          if (st.isDirectory()) {
+            // Skip node_modules + dotted dirs
+            if (entry.startsWith(".") || entry === "node_modules") continue;
+            stack.push(p);
+          } else if (entry === "route.ts" || entry === "route.tsx") {
+            out.push(p);
+          }
+        }
+      }
+      return out;
+    }
+
+    const route_files = SCAN_ROOTS.flatMap(listRouteFiles);
+
+    for (const id of NON_REDISTRIBUTABLE_SOURCE_IDS) {
+      // Pattern: file mentions the source id as a string in a sources-array
+      // context. Heuristic: look for `"<id>"` anywhere in the file. Then
+      // check the same file has `source_license` or `@source_license`.
+      const id_token = `"${id}"`;
+      for (const file of route_files) {
+        const text = readFileSync(file, "utf8");
+        if (!text.includes(id_token)) continue;
+        // Only flag if it looks like a sources-array context (avoid e.g.
+        // pure comments that mention "cardrush" — though those would still
+        // need source_license nearby anyway). Heuristic: the source-id token
+        // appears within 200 chars of "sources" (case-insensitive).
+        const idx = text.indexOf(id_token);
+        if (idx === -1) continue;
+        const near_window = text.slice(Math.max(0, idx - 200), idx + 200);
+        if (!/sources/i.test(near_window)) continue;
+        // The check: is source_license declared anywhere in this file?
+        if (!text.includes("source_license") && !text.includes("@source_license")) {
+          const short_path = file.replace(REPO_ROOT + "/", "");
+          fail(10, id, `${short_path} references "${id}" in a sources context but does not declare source_license. License tier "${(sources as Record<string, ModuleShape | undefined>)[id]?.meta.license ?? "?"}" must propagate to the emission.`);
+        }
+      }
     }
   }
 

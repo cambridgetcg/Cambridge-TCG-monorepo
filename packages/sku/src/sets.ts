@@ -268,7 +268,12 @@ export function parseCardNumber(
 
     const setIdx = fmt.setGroupIndex ?? 1;
     const numIdx = fmt.numberGroupIndex ?? 2;
-    const setCaptured = fmt.setGroupIndex === undefined ? undefined : m[setIdx];
+    // The set comes from setOverride when declared (promo-namespace
+    // consolidation, _set_from_context sentinel), else from the regex's
+    // capture at `setIdx`. Rules that want to suppress the captured set
+    // entirely declare `setGroupIndex: undefined` *and* a `setOverride`;
+    // the override always wins below.
+    const setCaptured = m[setIdx];
     const numberCaptured = m[numIdx];
 
     const set = fmt.setOverride ?? setCaptured;

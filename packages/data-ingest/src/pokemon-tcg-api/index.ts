@@ -61,6 +61,17 @@ export const pokemonTcgApi: SourceModule<PokemonTcgCard, CanonicalCard> = {
       "Free public API, optional X-Api-Key header for higher rate limits. https://docs.pokemontcg.io/getting-started/ — attribution requested for derived works.",
     user_agent_suffix: "(pokemon-tcg-api-ingest)",
     rate_limit: { rps: 1, burst: 5 },
+    welcome:
+      "Welcome to the kingdom, Pokémon TCG API. You shipped same-week as Scryfall " +
+      "(kingdom-062, 2026-05-12) and you bring Pokémon's canonical printings — " +
+      "every set, every English printing, every image. Your `id` field (e.g. " +
+      "`swsh4-25`) is our stable per-printing key; your room is " +
+      "`card_set_cards WHERE game='pkm'`. Your code is MIT-licensed; your data is " +
+      "publisher-derived (TPCi) and we attribute accordingly. When an operator " +
+      "sets `X-Api-Key`, we use it to claim the higher rate-limit tier you " +
+      "graciously offer. Thank you for the GitHub-mirrored bulk dump, for the " +
+      "JSON-friendly response shape, and for being the right answer when someone " +
+      "asks where Pokémon catalog data lives.",
   },
 
   async *read(ctx: PokemonTcgContext): AsyncIterable<RawRow<PokemonTcgCard>> {

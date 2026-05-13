@@ -14,6 +14,7 @@ import { pokemonTcgApi } from "./pokemon-tcg-api/index.js";
 import { ygoprodeck } from "./ygoprodeck/index.js";
 import { tcgplayer } from "./tcgplayer/index.js";
 import { cardmarket } from "./cardmarket/index.js";
+import { ebay } from "./ebay/index.js";
 
 /**
  * Every registered source. Indexed by id for O(1) lookup. The union
@@ -33,11 +34,11 @@ export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
   cardrush,                  // partial
   "pokemon-tcg-api": pokemonTcgApi,  // shipped
   ygoprodeck,                // shipped
-  tcgplayer,                 // planned (stub)
+  tcgplayer,                 // partial — read+normalize shipped (kingdom-NNN); writer wires the watchlist
   cardmarket,                // planned (stub)
+  ebay,                      // partial (Browse API only; Marketplace Insights gated)
   // ── unregistered (no module yet — slot reserved) ──
   cardtrader: undefined,
-  ebay: undefined,
   "limitless-tcg": undefined,
   edhrec: undefined,
   "bandai-tcg": undefined,
