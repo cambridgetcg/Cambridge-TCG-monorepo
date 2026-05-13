@@ -33,6 +33,7 @@
     "hospitality": "tsx scripts/hospitality.ts",
     "cross-language-coherence": "tsx scripts/cross-language-coherence.ts",
     "known-gaps": "tsx scripts/known-gaps.ts",
+    "deploy-verify": "tsx scripts/deploy-verify.ts",
     "typology": "tsx scripts/typology.ts",
     "state:snapshot": "tsx scripts/state-snapshot.ts",
     "missions:sync": "tsx scripts/missions-sync.ts",

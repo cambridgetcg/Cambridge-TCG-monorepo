@@ -1,5 +1,144 @@
 # Deploy & infrastructure runbook
 
+## The five-minute deploy gate (read first)
+
+Before pushing a commit that will trigger production deploys:
+
+```bash
+# 1. Typecheck every package + app (~30s)
+pnpm typecheck
+
+# 2. Build each affected app locally — catches Turbopack/bundler
+#    issues that typecheck does NOT (see "Common deploy failures" below).
+#    Only required for apps you touched, but cheap to run all three.
+pnpm --filter cambridgetcg-storefront build   # ~10s, 380+ pages
+pnpm --filter tcg-wholesale build              # ~10s, 75 pages
+pnpm --filter @cambridge-tcg/admin build       # ~10s
+
+# 3. Run the audits + unit tests
+pnpm audit && pnpm test:admin
+pnpm --filter @cambridge-tcg/sku test
+pnpm --filter @cambridge-tcg/data-ingest test
+```
+
+**The non-negotiable one is step 2.** `pnpm typecheck` validates types
+but does NOT exercise the bundler. Next.js 16 + Turbopack has stricter
+module resolution than `tsc` (see [Common deploy failures](#common-deploy-failures)
+for the patterns that bit us in 2026-05).
+
+If any of these fail, fix locally before pushing. The CI workflow
+(`ci.yml`) runs the same per-app build on paths-filtered changes, but
+**only for apps whose `apps/<name>/` subtree changed** — pure-packages
+changes don't trigger an app build in CI. Local pre-deploy build is
+the only reliable gate for "I changed a package; does it still build?"
+
+## Post-deploy verification
+
+After a deploy reaches `READY`, verify the live site actually shows the
+new code. Vercel can ship a `READY` deployment that serves a stale
+build if alias-promotion didn't fully propagate.
+
+```bash
+# 1. Confirm the new commit's tip is the alias target
+curl -sSI https://cambridgetcg.com/ | grep -iE "x-vercel-id|x-matched"
+
+# 2. Probe at least one endpoint that ONLY exists in the new commit
+#    (e.g. an /api/v1/<thing> route you just added)
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" https://cambridgetcg.com/api/v1/gaps
+
+# 3. The full audit: walks /api/v1/manifest and probes every declared
+#    public endpoint. ~128 probes; ~20s. Exits non-zero on 5xx or any
+#    manifest-vs-deploy drift.
+pnpm audit:deploy-verify
+```
+
+`pnpm audit:deploy-verify` is the canonical post-deploy gate. Run it
+after every promotion to production. Its exit code is the deploy's
+green-light signal.
+
+If any probe returns 404, either the deploy is still propagating
+(wait 30s + retry) or the deploy aliased a different commit than
+expected (check `/system/deploys` for the active SHA).
+
+### deploy-verify classification
+
+The script's exit logic, substrate-honest:
+
+| Returned status | How the script reads it |
+|---|---|
+| `200` | Healthy. |
+| `307` / `401` | Healthy if the route is auth-gated. The probe is unauthenticated. |
+| `400` | Healthy. Route exists; rejected the probe's stub params. |
+| `404` | Healthy for parametric paths (`[id]`, `[sku]`, etc.) where the stub doesn't resolve to data. Fail otherwise — the manifest declared the route, the deploy must serve it. |
+| `405` | Healthy. Route exists, just doesn't accept GET. |
+| `5xx` | **Always fail.** Server error on production, regardless of route shape. |
+
+Pass `--strict` to also fail on slow responses (>3s). Pass
+`--skip-wholesale` to scope to storefront only. Pass
+`--base=https://staging.example.com` to verify a non-production target.
+
+### Known production 500s (as of 2026-05-13)
+
+The deploy-verify audit currently surfaces four pre-existing 500
+endpoints on production. These are NOT regressions from a deploy —
+they're long-running bugs. Triage owner: each row's noted area.
+
+| Endpoint | Cause | Owner |
+|---|---|---|
+| `/api/v1/sophias.json` | Reads `docs/connections/the-pillow-book.md` at request time; the docs/ folder isn't bundled into Vercel deploys | Storefront — inline the doc, or build-time-generate the JSON |
+| `/api/v1/pillow-book.json` | Same — docs/-not-bundled | Same |
+| `/checkout` | Stripe initialisation flake (transient; not always 500) | Storefront — defer Stripe init |
+| `/tradein` | Unknown — investigate logs | Storefront |
+
+When you fix one of these, remove its row from this table and confirm
+the audit now passes 128/128.
+
+## Common deploy failures
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Local `pnpm typecheck` is green, but Vercel build fails with `Module not found: Can't resolve './X.js'` somewhere in `packages/data-ingest/` or `packages/data-spec/` | Workspace TS files use NodeNext-style `.js`-extension imports (`from "./registry.js"`). Webpack handles via `extensionAlias`; Turbopack does NOT rewrite at resolution time even with `transpilePackages`. | Strip `.js` from internal package imports — relies on `moduleResolution: "bundler"` (already set in every tsconfig). See the 2026-05-13 fix commit; `pnpm sku/data-ingest/data-spec` all use extensionless now. |
+| Vercel build fails with `'server-only' cannot be imported from a Client Component module` or `next/headers ... only available in App Router` | A "use client" component imports something from `@/lib/ui` barrel, and the barrel re-exports a server-only component (e.g. `DateDisplay`, `Provenance`, `MoneyDisplay`) that transitively pulls `next/headers`. Turbopack walks the entire re-export graph. | Two fixes, both shipped 2026-05-13: (a) make server-side cookie helpers dynamic-import `next/headers` inside the function rather than at module top — see `apps/storefront/src/lib/lang-mode-server.ts` for the pattern. (b) client components import from direct paths (`@/lib/ui/ErrorAlert`) rather than the barrel. See `apps/storefront/src/app/error.tsx` for the canonical comment. |
+| Vercel build warns `This build is using Turbopack, with a webpack config and no turbopack config` | Next.js 16 defaults to Turbopack; a stray `webpack: (config) => ...` in `next.config.ts` is now suspect. | Either remove the webpack config or add `turbopack: {}` to silence the warning. We declared `turbopack: {}` in both storefront + wholesale `next.config.ts` as the canonical bundler. |
+| Auto-deploy doesn't trigger after `git push origin main` | Push went to `origin` (Codeberg) only. Vercel watches the `github` remote (`cambridgetcg/Cambridge-TCG-monorepo`). | `git push github main` explicitly, or use the manual trigger: `set -a; source apps/admin/.env.local; set +a; python3 .github/scripts/deploy-from-main.py <project>`. |
+| Auto-deploy fires but Vercel reports `incorrect_git_source_info` | GitHub doesn't yet have the commit referenced by the deploy request (push raced the API call). | Push to `github` remote first, wait ~5s, then re-run the manual trigger. |
+| Live site responds 200 on home but 404 on new routes after a `READY` deploy | Live site might be on an older alias; or the deploy succeeded but pages are still propagating through Vercel's edge network. | Wait 30–60s and retry. Or hard-check the active commit via the admin `/system/deploys` ribbon. |
+| CI on PR/push green, but Vercel build fails when push lands | `ci.yml` only runs an app's build if `apps/<name>/` changed (paths-filter). A pure-packages change passes CI but can still break the app build. | Always run `pnpm --filter <app> build` locally for any package change that downstream apps consume. |
+
+## Lessons learned (2026-05-13)
+
+A 2-week deploy outage went unnoticed on the storefront and wholesale:
+the last green storefront deploy was 2026-04-30 (commit `1e1c83daaf80`);
+every subsequent push generated an `ERROR` deploy. The live site kept
+serving the last-green build's content. Three causes stacked:
+
+1. **The `.js` extension drift.** A Next.js minor-version bump tightened
+   Turbopack's resolution. The workspace's TS-`.js` imports stopped
+   resolving. Typecheck stayed green (because `tsc` doesn't run the
+   bundler); CI's per-app build only fires on app-dir changes, and most
+   of the broken work was in `packages/*`, so CI didn't catch it.
+
+2. **The server-only barrel leak.** A new client component (auction
+   status badge) started using `@/lib/ui`, which transitively pulled
+   `lang-mode-server` (via the `DateDisplay` re-export). The error
+   wasn't from the new component — it was from the barrel — but it
+   only surfaced when *any* client component touched the barrel.
+
+3. **No post-deploy verification habit.** Every deploy that went to
+   `ERROR` stayed in `ERROR` quietly; the hourly `health.yml` workflow
+   detects state but didn't open a PR-blocking signal that humans
+   noticed.
+
+Mitigations now in place:
+
+- This runbook's [five-minute deploy gate](#the-five-minute-deploy-gate-read-first)
+  + [post-deploy verification](#post-deploy-verification) sections.
+- `apps/admin/scripts/deploy-verify.ts` (when shipped) — walks the
+  manifest and probes every public endpoint.
+- An open issue: extend `ci.yml` to run the app build whenever
+  `packages/*` changes, even if no `apps/<name>` files changed.
+  (Currently the paths-filter excludes packages from app-specific jobs.)
+
 ## How the three apps deploy
 
 | App | Vercel project | Domain | Repo path |
