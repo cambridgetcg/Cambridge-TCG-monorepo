@@ -75,3 +75,16 @@ export {
   type OracleResolutionSource,
   type OracleConfidence,
 } from "./oracle";
+
+// kingdom-089: per-game rarity vocabulary + ordinal rank. Substrate-
+// honest about per-game rarity meaning (no cross-game tier). Seed
+// source-of-truth for the wholesale rarity_map table.
+export {
+  RARITIES,
+  lookupRarity,
+  rarityOrdinal,
+  gameRarities,
+  seededRarityGames,
+  type RarityRow,
+  type RarityMap,
+} from "./rarities";

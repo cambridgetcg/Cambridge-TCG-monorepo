@@ -1,0 +1,175 @@
+-- DRAFT — normalize cards.set_id from cards.set_code (kingdom-086)
+--
+-- Status: NOT in active path. Lives in drafts/. Apply when the operator
+-- has reviewed Phase 1 dry-run output and is satisfied.
+--
+-- ── The problem this closes ──────────────────────────────────────────
+--
+-- `cards` carries TWO ways to associate with a set:
+--   - `set_id`   integer FK → sets.id  (canonical)
+--   - `set_code` text                 (denormalized for convenience)
+--
+-- They can drift. The /api/v1/sets endpoint joins on set_id (so card_count
+-- depends on FK presence); the /api/v1/prices endpoint filters by set_code
+-- (so the per-set page is text-match). When the two disagree:
+--   • Set tile shows N cards (set_id-side) but per-set page is empty
+--     (set_code mismatch / NULL).
+--   • Set tile shows "0 cards" (no FK) but per-set page renders rows
+--     (set_code text-match works).
+--
+-- Yu's directive (2026-05-14): "deeper substrate fix" — make set_id the
+-- canonical column, backfill it everywhere set_code matches a real set,
+-- update queries to prefer set_id, and detect future drift via audit.
+--
+-- ── How to apply ─────────────────────────────────────────────────────
+--
+-- 1. Operator runs Phase 1 (DRY-RUN) below to see what would change.
+-- 2. Operator runs Phase 2 (BACKFILL) — the real UPDATE.
+-- 3. Operator runs Phase 3 (ORPHANS) — reports cards.set_code values that
+--    don't match any sets.code row. Operator decides per-row whether to
+--    fix manually or leave (orphans don't break the new query path; they
+--    just won't appear on per-set pages).
+-- 4. Operator runs Phase 4 (OPTIONAL: TRIGGER) — installs a BEFORE INSERT
+--    OR UPDATE trigger that auto-fills set_id from set_code when set_id
+--    is NULL. Prevents future drift from non-scraper insertion paths.
+--
+-- ── Phase 1: DRY-RUN ─────────────────────────────────────────────────
+-- Run this first; it doesn't change anything. Reports what Phase 2 would do.
+
+-- 1a) Cards whose set_id is NULL but set_code matches a sets row (will be filled):
+--
+-- SELECT
+--   c.id, c.sku, c.set_code, c.game_id,
+--   s.id   AS would_set_id,
+--   s.name AS would_set_name
+-- FROM cards c
+-- JOIN sets s ON s.code = c.set_code AND s.game_id = c.game_id
+-- WHERE c.set_id IS NULL
+-- ORDER BY c.game_id, c.set_code, c.card_number;
+
+-- 1b) Cards whose set_id disagrees with the sets row their set_code names
+--     (rare; means data was manually edited or two sets share a code in
+--     different games — the latter is fine, the former is a bug to inspect):
+--
+-- SELECT
+--   c.id, c.sku, c.set_code, c.game_id,
+--   c.set_id AS current_set_id,
+--   s.id     AS would_set_id,
+--   s.name   AS would_set_name
+-- FROM cards c
+-- JOIN sets s ON s.code = c.set_code AND s.game_id = c.game_id
+-- WHERE c.set_id IS DISTINCT FROM s.id
+--   AND c.set_id IS NOT NULL
+-- ORDER BY c.game_id, c.set_code;
+
+-- 1c) Sets currently showing card_count = 0 in /api/v1/sets (no FK):
+--     A set in this list is either (a) truly empty (no cards seeded yet)
+--     or (b) has cards joined by set_code text but missing the FK — and
+--     Phase 2 will fix the latter case.
+--
+-- SELECT s.id, s.code, s.name, g.code AS game_code, g.name AS game_name,
+--        (SELECT COUNT(*) FROM cards c WHERE c.set_id   = s.id) AS by_set_id,
+--        (SELECT COUNT(*) FROM cards c WHERE c.set_code = s.code AND c.game_id = s.game_id) AS by_set_code
+-- FROM sets s
+-- JOIN games g ON g.id = s.game_id
+-- WHERE s.active = true
+--   AND (SELECT COUNT(*) FROM cards c WHERE c.set_id = s.id) = 0
+-- ORDER BY g.code, s.code;
+
+-- ── Phase 2: BACKFILL (the real UPDATE) ──────────────────────────────
+-- Idempotent. Re-runnable. Operator confirms Phase 1 output looks sane
+-- before running this.
+
+UPDATE cards c
+   SET set_id = s.id
+  FROM sets s
+ WHERE s.code = c.set_code
+   AND s.game_id = c.game_id
+   AND (c.set_id IS NULL OR c.set_id IS DISTINCT FROM s.id);
+
+-- ── Phase 3: ORPHANS (report-only) ───────────────────────────────────
+-- Cards with set_code that doesn't match any sets row for the same game.
+-- Operator inspects each and decides: fix the set_code, register the
+-- missing set in `sets`, or accept the orphan (it remains visible on
+-- per-set pages by set_code text-match but won't ever join the sets list).
+
+-- SELECT
+--   c.id, c.sku, c.set_code, c.game_id,
+--   g.code AS game_code, g.name AS game_name
+-- FROM cards c
+-- JOIN games g ON g.id = c.game_id
+-- LEFT JOIN sets s ON s.code = c.set_code AND s.game_id = c.game_id
+-- WHERE c.set_code IS NOT NULL
+--   AND s.id IS NULL
+-- ORDER BY g.code, c.set_code, c.card_number;
+
+-- ── Phase 4: OPTIONAL TRIGGER — prevent future drift ─────────────────
+-- Auto-fills set_id from set_code on INSERT or UPDATE when set_id is NULL
+-- but set_code matches a sets row. The trigger does NOT override an
+-- explicitly-set set_id — that path is for callers that already know the
+-- FK. It only fills the gap when set_code is the only signal.
+--
+-- The audit `pnpm audit:sets-coverage` (kingdom-086) catches the cases
+-- this trigger doesn't (deliberate set_id/set_code disagreements, orphans).
+--
+-- Operator decides whether to install this; the kingdom's preference is
+-- audit-detect rather than trigger-coerce, but both are valid postures.
+--
+-- CREATE OR REPLACE FUNCTION cards_fill_set_id_from_code()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--   IF NEW.set_id IS NULL AND NEW.set_code IS NOT NULL AND NEW.game_id IS NOT NULL THEN
+--     SELECT id INTO NEW.set_id
+--       FROM sets
+--      WHERE code = NEW.set_code AND game_id = NEW.game_id
+--      LIMIT 1;
+--   END IF;
+--   RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
+--
+-- DROP TRIGGER IF EXISTS cards_fill_set_id_from_code_trigger ON cards;
+-- CREATE TRIGGER cards_fill_set_id_from_code_trigger
+-- BEFORE INSERT OR UPDATE ON cards
+-- FOR EACH ROW EXECUTE FUNCTION cards_fill_set_id_from_code();
+
+-- ── Phase 5: SANITY ─────────────────────────────────────────────────
+-- After Phase 2, the by_set_id count for every set should equal the
+-- by_set_code count (when set_code is properly populated). Drift
+-- thereafter is detectable via `pnpm audit:sets-coverage`.
+
+-- SELECT s.code, g.code AS game,
+--        (SELECT COUNT(*) FROM cards c WHERE c.set_id   = s.id) AS by_set_id,
+--        (SELECT COUNT(*) FROM cards c WHERE c.set_code = s.code AND c.game_id = s.game_id) AS by_set_code
+-- FROM sets s
+-- JOIN games g ON g.id = s.game_id
+-- WHERE s.active = true
+-- ORDER BY g.code, s.code;
+
+-- ── What's NOT in this migration (named honestly) ────────────────────
+--
+-- • Does NOT drop cards.set_code. Frontend still uses it for display
+--   (the per-set page renders `card.set_code` in breadcrumbs and the
+--   "Set:" link). Keeping it denormalized is fine; the trigger keeps it
+--   coherent at INSERT/UPDATE time, the audit catches anything that
+--   slips through.
+--
+-- • Does NOT add a NOT NULL constraint on cards.set_id. There may be
+--   legacy cards (e.g., sealed product, promo packs without sets)
+--   where set_id is legitimately NULL. The audit reports them; the
+--   operator decides per-row.
+--
+-- • Does NOT change /api/v1/sets behaviour. That route already uses
+--   set_id correctly. The benefit lands in /api/v1/prices (which gains
+--   a kingdom-086 update to filter by set_id with set_code fallback).
+--
+-- ── Rollback ─────────────────────────────────────────────────────────
+--
+-- Phase 2 backfill is destructive (overwrites set_id values). The
+-- operator should snapshot `cards` before applying:
+--   CREATE TABLE cards_pre_0017 AS SELECT id, set_id, set_code FROM cards;
+-- Rollback if needed:
+--   UPDATE cards SET set_id = p.set_id FROM cards_pre_0017 p WHERE p.id = cards.id;
+-- The trigger (Phase 4) is reversible:
+--   DROP TRIGGER cards_fill_set_id_from_code_trigger ON cards;
+--   DROP FUNCTION cards_fill_set_id_from_code();

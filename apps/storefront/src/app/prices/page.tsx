@@ -7,6 +7,12 @@ import {
   ACCENT_CLASSES,
   type PriceGuideGameConfig,
 } from "@/lib/prices/games-config";
+import { fetchRates } from "@/lib/fx/rates";
+import { getDisplayCurrency } from "@/lib/fx/currency-server";
+import {
+  CurrencySelector,
+  RateTablePanel,
+} from "@/components/CurrencySelector";
 
 export const metadata: Metadata = {
   title: "TCG Card Price Guide UK — Cambridge TCG",
@@ -50,7 +56,11 @@ function composeTiles(games: GameItem[]): ResolvedTile[] {
 // ── Page ───────────────────────────────────────────────────────────────
 
 export default async function PricesLandingPage() {
-  const liveGames = await fetchGames().catch(() => [] as GameItem[]);
+  const [liveGames, rates, currency] = await Promise.all([
+    fetchGames().catch(() => [] as GameItem[]),
+    fetchRates(),
+    getDisplayCurrency(),
+  ]);
   const tiles = composeTiles(liveGames);
   const liveTiles = tiles.filter((t) => t.live !== null);
   const totalCards = liveTiles.reduce(
@@ -95,6 +105,7 @@ export default async function PricesLandingPage() {
           <Provenance kind="synced" source="wholesale" cadence="daily" />
           <WhyLink href="/methodology/pricing" label="how prices work" />
           <WhyLink href="/methodology/cross-source-pricing" label="cross-source comparison" />
+          <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
           <Link
             href="/prices/coverage"
             className="text-xs text-blue-400 hover:underline"
@@ -114,6 +125,16 @@ export default async function PricesLandingPage() {
           {totalCards > 0 &&
             `${totalCards.toLocaleString()} cards across ${liveTiles.length} game${liveTiles.length === 1 ? "" : "s"} today.`}
         </p>
+
+        {/* Currency selector + rate table — Yu's directive 2026-05-14 */}
+        <div className="mb-10 grid gap-4 lg:grid-cols-[1fr,1.2fr]">
+          <CurrencySelector
+            selected={currency}
+            rates={rates}
+            back="/prices"
+          />
+          <RateTablePanel rates={rates} selected={currency} />
+        </div>
 
         <section>
           <h2 className="text-xl font-semibold text-white mb-6">

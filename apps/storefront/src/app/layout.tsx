@@ -7,6 +7,8 @@ import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
+import { fetchRates } from "@/lib/fx/rates";
+import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
@@ -61,6 +63,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // to leave a semantic-HTML reading layout. See docs/connections/the-table-extends.md.
   const textMode = cookieStore.get("text-mode")?.value === "1";
 
+  // Yu 2026-05-14: read display currency + FX rates ONCE per request and
+  // pipe into the client tree via Providers → MoneyContext. Every client
+  // component below the root inherits the selector without a network
+  // round-trip. fetchRates() is cached 6h at the framework layer.
+  const displayCurrency = displayCurrencyFromCookies(cookieStore);
+  const fxRates = await fetchRates();
+
   return (
     <html lang="en">
       <head>
@@ -107,7 +116,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           Skip to content
         </a>
-        <Providers>
+        <Providers money={{ currency: displayCurrency, rates: fxRates }}>
           {showBanner && <DevBanner />}
           <Nav />
           <div id="main-content">{children}</div>

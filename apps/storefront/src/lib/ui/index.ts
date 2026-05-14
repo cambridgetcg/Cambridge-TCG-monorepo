@@ -37,6 +37,7 @@ export { TrustTierAware } from "./TrustTierAware";
 export { WelcomeAll, WELCOME_STATEMENT, WELCOME_STATEMENT_COMPACT } from "./WelcomeAll";
 export { MathLang } from "./MathLang";
 export { MoneyDisplay } from "./MoneyDisplay";
+export { Money } from "../fx/Money";
 export { DateDisplay } from "./DateDisplay";
 export {
   TypeSignature,

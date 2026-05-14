@@ -29,8 +29,10 @@ import { notFound } from "next/navigation";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
 import { ACCENT_CLASSES } from "@/lib/prices/games-config";
 import { loadCardState } from "@/lib/prices/state";
-import { formatPrice } from "@/lib/format";
 import { RarityBadge } from "@/lib/ui/prices/RarityBadge";
+import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { getDisplayCurrency } from "@/lib/fx/currency-server";
+import { CurrencySelector } from "@/components/CurrencySelector";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -65,7 +67,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CardPriceGuidePage({ params }: PageProps) {
   const { game, set, number } = await params;
 
-  const state = await loadCardState(game, set, number);
+  const [state, rates, currency] = await Promise.all([
+    loadCardState(game, set, number),
+    fetchRates(),
+    getDisplayCurrency(),
+  ]);
   if (!state) notFound();
 
   const { config, set: setMeta, card, cross_source_signals: signals } = state;
@@ -220,6 +226,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                 href="/methodology/cross-source-pricing"
                 label="cross-source"
               />
+              <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
               <Link
                 href={`/api/v1/prices/games/${config.slug}/sets/${setSlug}/cards/${numberSlug}`}
                 className="text-xs text-blue-400 hover:underline"
@@ -227,6 +234,15 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               >
                 JSON →
               </Link>
+            </div>
+
+            {/* Currency selector — Yu's directive 2026-05-14 */}
+            <div className="mb-4">
+              <CurrencySelector
+                selected={currency}
+                rates={rates}
+                back={`/prices/${config.slug}/${setSlug}/${numberSlug}`}
+              />
             </div>
 
             {/* Headline price */}
@@ -237,7 +253,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                     Buy from us
                   </div>
                   <div className="text-2xl font-bold text-white">
-                    {card.price_gbp ? formatPrice(card.price_gbp) : "—"}
+                    {formatGbpAs(card.price_gbp, currency, rates)}
                   </div>
                   <div className="text-[10px] text-neutral-500 mt-1">
                     {card.stock > 0
@@ -250,7 +266,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                     We buy (credit)
                   </div>
                   <div className="text-2xl font-bold text-emerald-400">
-                    {card.tradein_credit_gbp ? formatPrice(card.tradein_credit_gbp) : "—"}
+                    {formatGbpAs(card.tradein_credit_gbp, currency, rates)}
                   </div>
                   <div className="text-[10px] text-neutral-500 mt-1">
                     instant store credit

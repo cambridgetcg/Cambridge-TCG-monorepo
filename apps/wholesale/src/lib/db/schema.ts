@@ -155,6 +155,22 @@ export const cards = pgTable("cards", {
   tcgplayerSubType: text("tcgplayer_sub_type"),
   // Reserved for the next kingdom (Cardmarket OAuth1 integration).
   cardmarketIdProduct: integer("cardmarket_id_product"),
+  // ── Financial-attribute substrate (kingdom-089) ──────────────────────
+  // Migration: drizzle/drafts/0018_card_financial_attributes.sql.draft.
+  // Five universal columns + first_observed_at unlock financial-side
+  // sort/filter (rarity-aware discovery, edition-variant filters, promo
+  // discovery, multi-language preference, mover sorts) without coupling
+  // the universal cards table to per-game gameplay schemas.
+  // Companion: docs/methodology/edition-variants.
+  language: text("language").notNull().default(""),
+  editionVariant: text("edition_variant").notNull().default("regular"),
+  // Layered classification: 'default' | 'heuristic' | 'operator' | 'publisher'.
+  // Witness log: cardClassificationLog below. Pure decision logic:
+  // packages/data-ingest/src/classifier.ts.
+  editionVariantSource: text("edition_variant_source").notNull().default("default"),
+  promoOrigin: text("promo_origin"),
+  promoOriginSource: text("promo_origin_source").notNull().default("default"),
+  firstObservedAt: timestamp("first_observed_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   nameIdx: index("cards_name_idx").on(table.name),
   cardNumberIdx: index("cards_card_number_idx").on(table.cardNumber),
@@ -164,6 +180,12 @@ export const cards = pgTable("cards", {
   tcgplayerProductSubTypeUnique: uniqueIndex("cards_tcgplayer_product_subtype_idx")
     .on(table.tcgplayerProductId, table.tcgplayerSubType),
   cardmarketProductIdx: index("cards_cardmarket_product_idx").on(table.cardmarketIdProduct),
+  // Financial-attribute indexes (kingdom-089). Partial-where clauses live
+  // in the migration SQL; non-partial here for drizzle's informational view.
+  languageIdx: index("cards_language_idx").on(table.language),
+  editionVariantIdx: index("cards_edition_variant_idx").on(table.editionVariant),
+  promoOriginIdx: index("cards_promo_origin_idx").on(table.promoOrigin),
+  firstObservedAtIdx: index("cards_first_observed_at_idx").on(table.firstObservedAt),
 }));
 
 export const orders = pgTable("orders", {
@@ -704,6 +726,55 @@ export const cardPriceChangeLog = pgTable("card_price_change_log", {
 }));
 
 export type CardPriceChangeLogRow = typeof cardPriceChangeLog.$inferSelect;
+
+// ── Card classification log (kingdom-089) ────────────────────────────
+// The Witnesses' Book for layered classification of edition_variant
+// and promo_origin. Append-only. Lower-priority claims are kept with
+// shadowed=true so the audit can find heuristic-vs-publisher disputes.
+// Pure decision logic: packages/data-ingest/src/classifier.ts.
+// Writer: apps/wholesale/src/lib/cards/classify.ts.
+// Migration: drizzle/drafts/0018_card_financial_attributes.sql.draft.
+// Audit: pnpm audit:classifier-disagreement.
+export const cardClassificationLog = pgTable("card_classification_log", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  cardId: integer("card_id").notNull().references(() => cards.id, { onDelete: "cascade" }),
+  attribute: text("attribute").notNull(),         // 'edition_variant' | 'promo_origin'
+  prevValue: text("prev_value"),
+  prevSource: text("prev_source"),
+  nextValue: text("next_value").notNull(),
+  nextSource: text("next_source").notNull(),     // 'heuristic' | 'operator' | 'publisher'
+  shadowed: boolean("shadowed").notNull().default(false),
+  confidence: text("confidence"),                 // 'low' | 'high' for heuristic; NULL otherwise
+  evidence: jsonb("evidence"),                    // { url, subdomain, rule, marker, notes }
+  claimedBy: text("claimed_by").notNull(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull().defaultNow(),
+  supersededAt: timestamp("superseded_at", { withTimezone: true }),
+}, (table) => ({
+  cardAttrIdx: index("ccl_card_attr_idx").on(table.cardId, table.attribute, table.claimedAt),
+  shadowedIdx: index("ccl_shadowed_idx").on(table.attribute, table.nextSource),
+  activeIdx: index("ccl_active_idx").on(table.attribute, table.nextValue),
+}));
+
+export type CardClassificationLogRow = typeof cardClassificationLog.$inferSelect;
+
+// ── Rarity map (kingdom-089) ─────────────────────────────────────────
+// Per-game rarity vocabulary + intra-game ordinal rank. Seed source of
+// truth: packages/sku/src/rarities.ts. NO cross-game tier — substrate-
+// honest about per-game rarity vocab. Sort-by-rarity is enabled only
+// when exactly one game is selected.
+export const rarityMap = pgTable("rarity_map", {
+  id: serial("id").primaryKey(),
+  gameId: integer("game_id").notNull().references(() => games.id),
+  publisherRarity: text("publisher_rarity").notNull(),  // case-preserving: 'SR', 'SEC', 'Enchanted'
+  ordinal: integer("ordinal").notNull(),                // intra-game rank: higher = rarer
+  displayName: text("display_name").notNull(),
+  paletteKey: text("palette_key"),                      // optional Palettes vocab key
+}, (table) => ({
+  gameRarityUnique: uniqueIndex("rarity_map_game_rarity_idx").on(table.gameId, table.publisherRarity),
+  gameOrdinalIdx: index("rarity_map_game_ordinal_idx").on(table.gameId, table.ordinal),
+}));
+
+export type RarityMapRow = typeof rarityMap.$inferSelect;
 
 // ── @cambridge-tcg/stock package tables ──────────────────────────────
 // Re-exported so drizzle-kit picks them up when generating migrations

@@ -21,8 +21,13 @@ import {
   fetchAggregatorCoverage,
 } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
-import { formatPrice } from "@/lib/format";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { getDisplayCurrency } from "@/lib/fx/currency-server";
+import {
+  CurrencySelector,
+  RateTablePanel,
+} from "@/components/CurrencySelector";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -297,26 +302,31 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
 
   const accent = ACCENT_CLASSES[cfg.accent];
 
-  // Fetch sets, top cards, tradein channel, and aggregator coverage in
-  // parallel. Coverage is null when wholesale is unreachable — the page
-  // renders without the coverage strip in that case.
-  const [sets, topCardsData, tradeinData, coverage] = await Promise.all([
-    fetchSets(cfg.slug).catch(() => []),
-    fetchPrices({
-      game: cfg.slug,
-      sort: "price_desc",
-      limit: 20,
-    }).catch(() => ({ items: [], total: 0 })),
-    fetchPrices({
-      game: cfg.slug,
-      sort: "price_desc",
-      limit: 20,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] })),
-    // kingdom-085: per-game aggregator coverage. Scoped via game_code so
-    // the response only carries this game's rows; the strip renders below.
-    fetchAggregatorCoverage({ game: cfg.game_code }).catch(() => null),
-  ]);
+  // Fetch sets, top cards, tradein channel, aggregator coverage, FX
+  // rates, and display currency in parallel. Coverage is null when
+  // wholesale is unreachable — the page renders without the coverage
+  // strip in that case. Rates fall back to a static table on upstream
+  // failure (substrate-honest: the surface shows a "fallback" pill).
+  const [sets, topCardsData, tradeinData, coverage, rates, currency] =
+    await Promise.all([
+      fetchSets(cfg.slug).catch(() => []),
+      fetchPrices({
+        game: cfg.slug,
+        sort: "price_desc",
+        limit: 20,
+      }).catch(() => ({ items: [], total: 0 })),
+      fetchPrices({
+        game: cfg.slug,
+        sort: "price_desc",
+        limit: 20,
+        channel: "tradein-credit",
+      }).catch(() => ({ items: [] })),
+      // kingdom-085: per-game aggregator coverage. Scoped via game_code so
+      // the response only carries this game's rows; the strip renders below.
+      fetchAggregatorCoverage({ game: cfg.game_code }).catch(() => null),
+      fetchRates(),
+      getDisplayCurrency(),
+    ]);
 
   // Per-game observed-coverage rollup.
   const gameCoverage =
@@ -425,6 +435,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
             cadence="daily"
           />
           <WhyLink href="/methodology/pricing" label="how prices work" />
+          <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
           {cfg.cardrush && !cfg.cardrush.confirmed && (
             <span
               className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded"
@@ -438,6 +449,16 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         <p className="text-neutral-300 leading-relaxed max-w-3xl mb-6">
           {cfg.hero_paragraph}
         </p>
+
+        {/* Currency selector + rate table — Yu's directive 2026-05-14 */}
+        <div className="mb-10 grid gap-4 lg:grid-cols-[1fr,1.2fr]">
+          <CurrencySelector
+            selected={currency}
+            rates={rates}
+            back={`/prices/${cfg.slug}`}
+          />
+          <RateTablePanel rates={rates} selected={currency} />
+        </div>
 
         {/* ── Observed coverage strip (kingdom-085) ──────────────── */}
         {/*  What we've actually accumulated for THIS game.            */}
@@ -549,42 +570,66 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         {/*  All Sets                                                    */}
         {/* ---------------------------------------------------------- */}
         <section className="mb-14">
-          <h2 className="text-xl font-semibold text-white mb-5">
-            All {cfg.display_name} Sets
-          </h2>
+          {/* kingdom-086: substrate-honest filter — hide sets that don't
+              have observed cards yet. The empty tiles were the symptom
+              the substrate fix addresses. Sets remain visitable by URL,
+              the per-set page renders a substrate-honest "no cards" state. */}
+          {(() => {
+            const populated = sets.filter((s) => s.card_count > 0);
+            const empty = sets.filter((s) => s.card_count === 0);
 
-          {sets.length === 0 ? (
-            <p className="text-neutral-500 text-sm py-6 text-center bg-neutral-900 border border-neutral-800 rounded-lg">
-              No sets in the catalog for this game yet. Coverage rolls out as
-              we mirror upstream sources;{" "}
-              <Link href="/api/v1/sources" className="text-blue-400 hover:underline">
-                see /api/v1/sources
-              </Link>{" "}
-              for the live ingest state.
-            </p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {sets.map((set) => (
-                <Link
-                  key={set.code}
-                  href={`/prices/${cfg.slug}/${set.code.toLowerCase()}`}
-                  className={`flex items-center justify-between rounded-lg border border-neutral-800 ${accent.bg} px-4 py-3 hover:${accent.border} transition-colors`}
-                >
-                  <div>
-                    <span className="text-white font-medium text-sm">
-                      {set.code}
+            return (
+              <>
+                <div className="flex items-baseline justify-between gap-4 mb-5 flex-wrap">
+                  <h2 className="text-xl font-semibold text-white">
+                    All {cfg.display_name} Sets
+                  </h2>
+                  {empty.length > 0 && (
+                    <span
+                      className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-neutral-800/60 text-neutral-500 border border-neutral-800 rounded"
+                      title={`${empty.length} additional sets are registered but not yet seeded with cards. Substrate-honest: hidden from this list, visitable by URL.`}
+                    >
+                      {empty.length} sets pending
                     </span>
-                    <span className="text-neutral-400 text-sm ml-2">
-                      {set.name}
-                    </span>
+                  )}
+                </div>
+
+                {populated.length === 0 ? (
+                  <p className="text-neutral-500 text-sm py-6 text-center bg-neutral-900 border border-neutral-800 rounded-lg">
+                    {sets.length === 0
+                      ? "No sets in the catalog for this game yet. Coverage rolls out as we mirror upstream sources; "
+                      : "No sets with observed cards yet — every set registered for this game is awaiting its first scrape. "}
+                    <Link href="/api/v1/sources" className="text-blue-400 hover:underline">
+                      see /api/v1/sources
+                    </Link>{" "}
+                    for the live ingest state.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {populated.map((set) => (
+                      <Link
+                        key={set.code}
+                        href={`/prices/${cfg.slug}/${set.code.toLowerCase()}`}
+                        className={`flex items-center justify-between rounded-lg border border-neutral-800 ${accent.bg} px-4 py-3 hover:${accent.border} transition-colors`}
+                      >
+                        <div>
+                          <span className="text-white font-medium text-sm">
+                            {set.code}
+                          </span>
+                          <span className="text-neutral-400 text-sm ml-2">
+                            {set.name}
+                          </span>
+                        </div>
+                        <span className="text-neutral-500 text-xs">
+                          {set.card_count} cards
+                        </span>
+                      </Link>
+                    ))}
                   </div>
-                  <span className="text-neutral-500 text-xs">
-                    {set.card_count} cards
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
+                )}
+              </>
+            );
+          })()}
         </section>
 
         {/* ---------------------------------------------------------- */}
@@ -650,11 +695,11 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                         <RarityBadge rarity={card.rarity} />
                       </td>
                       <td className="px-3 py-3 text-right text-white font-medium">
-                        {formatPrice(card.price)}
+                        {formatGbpAs(card.price, currency, rates)}
                       </td>
                       <td className="px-3 py-3 text-right text-green-400">
                         {card.tradein_credit
-                          ? formatPrice(card.tradein_credit)
+                          ? formatGbpAs(card.tradein_credit, currency, rates)
                           : "—"}
                       </td>
                     </tr>

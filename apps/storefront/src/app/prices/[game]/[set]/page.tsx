@@ -11,8 +11,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchGames, fetchPrices, fetchSets, type PriceItem } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
-import { formatPrice } from "@/lib/format";
 import { Provenance, WhyLink } from "@/lib/ui";
+import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { getDisplayCurrency } from "@/lib/fx/currency-server";
+import { CurrencySelector } from "@/components/CurrencySelector";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -133,7 +135,7 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
 
   const setCode = setSlug.toUpperCase();
 
-  const [sets, cardsData, tradeinData] = await Promise.all([
+  const [sets, cardsData, tradeinData, rates, currency] = await Promise.all([
     fetchSets(cfg.slug).catch(() => []),
     fetchPrices({
       game: cfg.slug,
@@ -148,6 +150,8 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
       limit: 500,
       channel: "tradein-credit",
     }).catch(() => ({ items: [] })),
+    fetchRates(),
+    getDisplayCurrency(),
   ]);
 
   const setInfo = sets.find((s) => s.code.toUpperCase() === setCode);
@@ -264,6 +268,7 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
               cadence="daily"
             />
             <WhyLink href="/methodology/pricing" label="how prices work" />
+            <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
           </div>
           <p className="text-neutral-300 leading-relaxed max-w-3xl mb-4">
             {intro}
@@ -289,6 +294,15 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
             </span>
           </div>
         </header>
+
+        {/* Currency selector — Yu's directive 2026-05-14 */}
+        <div className="mb-8">
+          <CurrencySelector
+            selected={currency}
+            rates={rates}
+            back={`/prices/${cfg.slug}/${setSlug}`}
+          />
+        </div>
 
         {/* Card table */}
         <section className="mb-14">
@@ -330,11 +344,11 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
                       <RarityBadge rarity={card.rarity} />
                     </td>
                     <td className="px-3 py-3 text-right text-white font-medium">
-                      {formatPrice(card.price)}
+                      {formatGbpAs(card.price, currency, rates)}
                     </td>
                     <td className="px-3 py-3 text-right text-green-400">
                       {card.tradein_credit
-                        ? formatPrice(card.tradein_credit)
+                        ? formatGbpAs(card.tradein_credit, currency, rates)
                         : "—"}
                     </td>
                     <td className="px-3 py-3 text-right">

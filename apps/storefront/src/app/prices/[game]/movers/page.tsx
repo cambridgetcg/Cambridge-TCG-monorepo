@@ -28,8 +28,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchPrices, type PriceItem } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
-import { formatPrice } from "@/lib/format";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { getDisplayCurrency } from "@/lib/fx/currency-server";
+import { CurrencySelector } from "@/components/CurrencySelector";
 import {
   getPriceGuideConfig,
   ACCENT_CLASSES,
@@ -88,18 +90,21 @@ export default async function GameMoversPage({ params }: PageProps) {
   const cfg = getPriceGuideConfig(game);
   if (!cfg) notFound();
 
-  const data = await fetchPrices({
-    game: cfg.slug,
-    sort: "price_desc",
-    limit: 50,
-  }).catch(() => ({ items: [], total: 0 } as { items: PriceItem[]; total: number }));
-
-  const tradeinData = await fetchPrices({
-    game: cfg.slug,
-    sort: "price_desc",
-    limit: 50,
-    channel: "tradein-credit",
-  }).catch(() => ({ items: [] } as { items: PriceItem[] }));
+  const [data, tradeinData, rates, currency] = await Promise.all([
+    fetchPrices({
+      game: cfg.slug,
+      sort: "price_desc",
+      limit: 50,
+    }).catch(() => ({ items: [], total: 0 } as { items: PriceItem[]; total: number })),
+    fetchPrices({
+      game: cfg.slug,
+      sort: "price_desc",
+      limit: 50,
+      channel: "tradein-credit",
+    }).catch(() => ({ items: [] } as { items: PriceItem[] })),
+    fetchRates(),
+    getDisplayCurrency(),
+  ]);
 
   const tradeinMap = new Map<string, number>();
   for (const item of tradeinData.items) {
@@ -200,11 +205,20 @@ export default async function GameMoversPage({ params }: PageProps) {
           />
         </div>
 
-        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-8">
+        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-6">
           Top 50 highest-priced {cfg.display_name} cards currently
           published on Cambridge TCG. Sorted by buy price. Updated daily
           from our marketplace + cross-source archive (kingdom-080).
         </p>
+
+        {/* Currency selector — Yu's directive 2026-05-14 */}
+        <div className="mb-8">
+          <CurrencySelector
+            selected={currency}
+            rates={rates}
+            back={`/prices/${cfg.slug}/movers`}
+          />
+        </div>
 
         {/* Substrate-honest about the recent-movers gap */}
         <section className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
@@ -290,11 +304,11 @@ export default async function GameMoversPage({ params }: PageProps) {
                           <RarityBadge rarity={card.rarity} />
                         </td>
                         <td className="px-3 py-3 text-right text-white font-medium">
-                          {formatPrice(card.price)}
+                          {formatGbpAs(card.price, currency, rates)}
                         </td>
                         <td className="px-3 py-3 text-right text-green-400">
                           {card.tradein_credit
-                            ? formatPrice(card.tradein_credit)
+                            ? formatGbpAs(card.tradein_credit, currency, rates)
                             : "—"}
                         </td>
                       </tr>

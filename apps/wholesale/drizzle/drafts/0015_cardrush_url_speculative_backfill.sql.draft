@@ -1,5 +1,32 @@
 -- DRAFT — speculative-cardrush-subdomain coverage backfill (kingdom-081 Phase 3.2)
 --
+-- ── SUPERSEDED BY KINGDOM-087 ────────────────────────────────────────
+--
+-- The full discovery pipeline (apps/wholesale/src/lib/cardrush-discovery.ts +
+-- /api/cron/discover/cardrush) makes this draft mostly obsolete. The
+-- discovery cron walks /sitemap.xml per confirmed subdomain and auto-
+-- INSERTs new cards with cardrush_url + parsed set_code + card_number +
+-- rarity + image_url. Operator no longer needs to manually construct
+-- URL → card mappings for new subdomains.
+--
+-- This draft remains for two scenarios the discovery cron doesn't cover:
+--   1. Backfilling EXISTING `cards` rows that were seeded by other paths
+--      (e.g. via the original scraper run that wrote both set_id and
+--      set_code but never set cardrush_url for some reason).
+--   2. Per-card cardrush_url corrections (typos, format drift).
+--
+-- For new-subdomain coverage: enable the subdomain in CARDRUSH_SUBDOMAINS
+-- (flip `confirmed: true`) and run the discovery cron. No manual backfill.
+--
+-- ── URL pattern correction (kingdom-087) ─────────────────────────────
+--
+-- The original draft documented the URL pattern as
+--   https://cardrush-{game}.jp/product/detail.php?product_id=<NNN>
+-- That format is WRONG. The actual cardrush URL pattern is
+--   https://cardrush-{game}.jp/product/<NNN>
+-- No `detail.php`, no `?product_id=`. Verified against /sitemap.xml at
+-- cardrush-op.jp during kingdom-087 reconnaissance.
+--
 -- Status: NOT in active path. Lives in drafts/.
 --
 -- Designed in `docs/connections/the-license-propagation.md` (kingdom-081).
@@ -21,8 +48,8 @@
 -- 1. Run `pnpm --filter @cambridge-tcg/admin cardrush-probe`. Output a
 --    markdown table per subdomain — promote / investigate / remove.
 -- 2. For each `promote-to-confirmed` subdomain, decide the URL pattern.
---    CardRush product URLs typically take the form:
---      https://cardrush-{game}.jp/product/detail.php?product_id=<NNN>
+--    CardRush product URLs take the form (corrected kingdom-087):
+--      https://cardrush-{game}.jp/product/<NNN>
 --    But the product_id is upstream-assigned; the platform doesn't have it
 --    in `cards`. So the backfill is **not fully mechanical** — operator
 --    determines URL pattern per subdomain. Options:
@@ -73,7 +100,7 @@
 --
 -- UPDATE cards c
 --    SET cardrush_url = format(
---          'https://cardrush-%s.jp/product/detail.php?product_id=%s',
+--          'https://cardrush-%s.jp/product/%s',
 --          m.game_code,
 --          m.product_id
 --        ),

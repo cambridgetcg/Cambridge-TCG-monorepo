@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cards, games } from "@/lib/db/schema";
+import { cards, games, sets } from "@/lib/db/schema";
 import { eq, gte, and, sql, gt, ilike, or, asc, desc } from "drizzle-orm";
 import { authenticateApiKey, unauthorized } from "../auth";
 import { priceForChannel } from "@/lib/channel-pricing";
@@ -32,6 +32,9 @@ export async function GET(req: NextRequest) {
     const rarity = params.get("rarity");
 
     const conditions = [];
+    // Track the resolved gameId so subsequent filters (set lookup) can
+    // scope by game. Set once when ?game is provided.
+    let resolvedGameId: number | null = null;
 
     if (gameCode) {
       const game = await db
@@ -42,7 +45,8 @@ export async function GET(req: NextRequest) {
       if (!game.length) {
         return NextResponse.json({ error: `Game not found: ${gameCode}` }, { status: 404 });
       }
-      conditions.push(eq(cards.gameId, game[0].id));
+      resolvedGameId = game[0].id;
+      conditions.push(eq(cards.gameId, resolvedGameId));
     }
 
     if (updatedSince) {
@@ -68,7 +72,44 @@ export async function GET(req: NextRequest) {
     }
 
     if (setCode) {
-      conditions.push(eq(cards.setCode, setCode));
+      // kingdom-086 substrate fix: prefer the canonical FK (cards.set_id)
+      // over the denormalized text (cards.set_code). Resolve the URL's
+      // setCode to a sets.id via the (sets.code, sets.game_id) tuple, then
+      // filter cards by set_id. Fall back to set_code text-match when
+      // either: (a) no sets row matches (orphan-code case), or (b) the
+      // backfill migration 0017 hasn't been applied yet and cards still
+      // have set_id IS NULL. The OR keeps the route forward-compatible
+      // with the migration and backward-compatible with pre-migration data.
+      //
+      // Scoping: when ?game is also provided we use that game_id; otherwise
+      // we accept any sets.code match across games (rare; partner-API edge case).
+      // Scope the set lookup by gameId when ?game is provided; otherwise
+      // accept any sets.code match across games (partner-API edge case).
+      const setWhere =
+        resolvedGameId !== null
+          ? and(eq(sets.code, setCode), eq(sets.gameId, resolvedGameId))
+          : eq(sets.code, setCode);
+      const setRow = await db
+        .select({ id: sets.id })
+        .from(sets)
+        .where(setWhere)
+        .limit(1);
+
+      if (setRow.length > 0) {
+        // Canonical FK + text fallback. Transition-safe: covers both
+        // post-migration (set_id populated, fast path) and pre-migration
+        // (set_id NULL, set_code text-match works).
+        const sid = setRow[0].id;
+        conditions.push(
+          or(eq(cards.setId, sid), eq(cards.setCode, setCode))!,
+        );
+      } else {
+        // No sets row for this code; the only path that returns rows is
+        // orphan cards keyed by set_code. Substrate-honest: this means
+        // either the URL was bogus or the set isn't registered. Both
+        // legitimate; the per-set page renders empty either way.
+        conditions.push(eq(cards.setCode, setCode));
+      }
     }
 
     if (category === "singles" || category === "sealed") {
