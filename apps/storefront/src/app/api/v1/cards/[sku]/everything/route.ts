@@ -225,26 +225,54 @@ export async function GET(
   ctx: { params: Promise<{ sku: string }> },
 ) {
   const { sku: rawSku } = await ctx.params;
-  const sku = decodeURIComponent(rawSku).trim().toLowerCase();
+  // Preserve the caller's SKU case — wholesale data carries legacy
+  // UPPERCASE SKUs (kingdom-071 normalize migration is still in drafts).
+  // Lowercasing here would 404 the Falcon's `cards.sku === X` lookup.
+  // Shape parsing (parseSkuShape) is case-insensitive internally.
+  const sku = decodeURIComponent(rawSku).trim();
 
   const parsed = parseSkuShape(sku);
   if (!parsed) {
     return errorResponse({
       code: "INVALID_SKU",
       message:
-        `'${rawSku}' is not a canonical SKU. Expected '<game>-<set>-<number>-<lang>[-<variant>]' (e.g. 'op-op01-001-ja').`,
+        `'${rawSku}' is not a canonical SKU. Expected '<game>-<set>-<number>-<lang>[-<variant>]' (e.g. 'op-op01-001-ja' or legacy 'OP-OP01-001-JP-V11DZ').`,
       docs: "/methodology/sku-standard",
     });
   }
 
   // Fire every Falcon call in parallel. Each degrades to null on
-  // failure; we surface absence in `composition.falcon_calls`.
-  const [card, priceSources, cardrushHist, tcgplayerHist] = await Promise.all([
+  // failure; we surface absence in `composition.falcon_calls`. If the
+  // primary SKU returns 404, retry once with case-swap (covers the
+  // case where the caller normalized to lowercase but data is legacy
+  // uppercase, or vice versa) — substrate-honest tolerance.
+  let [card, priceSources, cardrushHist, tcgplayerHist] = await Promise.all([
     fetchCard(sku),
     fetchPriceSources({ sku }),
     fetchCardrushHistory({ sku, limit: 365 }).catch(() => null),
     fetchTcgplayerHistory({ sku, limit: 365 }).catch(() => null),
   ]);
+
+  if (!card) {
+    // Retry with swapped case. Legacy data is uppercase; canonical is
+    // lowercase. The Falcon's case-sensitive lookup may need either.
+    const altSku = sku === sku.toUpperCase() ? sku.toLowerCase() : sku.toUpperCase();
+    if (altSku !== sku) {
+      const altCard = await fetchCard(altSku);
+      if (altCard) {
+        card = altCard;
+        // Re-fire the dependents with the corrected casing.
+        const [ps, ch, th] = await Promise.all([
+          fetchPriceSources({ sku: altSku }),
+          fetchCardrushHistory({ sku: altSku, limit: 365 }).catch(() => null),
+          fetchTcgplayerHistory({ sku: altSku, limit: 365 }).catch(() => null),
+        ]);
+        priceSources = ps;
+        cardrushHist = ch;
+        tcgplayerHist = th;
+      }
+    }
+  }
 
   if (!card) {
     return errorResponse({
@@ -256,13 +284,24 @@ export async function GET(
 
   // ── Siblings: same physical card, different language/variant. ────
   // Query the wholesale prices route for SET-NUMBER without lang;
-  // returns every language variant for this set + number.
-  const siblingsRaw = await fetchPrices({
-    game: parsed.game,
-    q: `${parsed.set}-${parsed.number}`,
-    limit: 50,
-  }).catch(() => ({ items: [] as PriceItem[] } as { items: PriceItem[] }));
+  // returns every language variant for this set + number. Try the
+  // parsed game token in multiple forms because the wholesale games
+  // table's case is data-dependent (see /search/cards fallback).
+  async function fetchSiblings(): Promise<PriceItem[]> {
+    const q = `${parsed!.set}-${parsed!.number}`;
+    for (const g of [parsed!.game, parsed!.game.toUpperCase(), parsed!.game.toLowerCase()]) {
+      const r = await fetchPrices({ game: g, q, limit: 50 }).catch(
+        () => ({ items: [] as PriceItem[] } as { items: PriceItem[] }),
+      );
+      if (r.items.length > 0) return r.items;
+    }
+    return [];
+  }
+  const siblingsRaw = { items: await fetchSiblings() };
 
+  // Compare on lowercased SKUs — legacy data is uppercase, user input
+  // can be either; canonicalize for the equality check.
+  const selfSkuLower = (card?.sku ?? sku).toLowerCase();
   const siblings: SiblingRow[] = siblingsRaw.items
     .filter((item) => {
       const ps = parseSkuShape(item.sku);
@@ -278,7 +317,7 @@ export async function GET(
         image_url: item.image_url,
         has_current_price: typeof item.price_gbp === "number" && item.price_gbp > 0,
         price_gbp: typeof item.price_gbp === "number" ? item.price_gbp : null,
-        is_self: item.sku === sku,
+        is_self: item.sku.toLowerCase() === selfSkuLower,
       };
     })
     .sort((a, b) => {
