@@ -10,20 +10,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runShopifySync } from "@/lib/shopify-sync";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const maxDuration = 300; // 5-minute Vercel function timeout
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const secret = req.nextUrl.searchParams.get("secret");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (
-    !cronSecret ||
-    (authHeader !== `Bearer ${cronSecret}` && secret !== cronSecret)
-  ) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const startTs = new Date().toISOString();
   console.log(`[cron/shopify-sync] Starting daily sync at ${startTs}`);

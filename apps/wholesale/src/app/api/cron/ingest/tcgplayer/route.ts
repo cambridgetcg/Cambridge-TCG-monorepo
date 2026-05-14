@@ -39,23 +39,9 @@ import {
   runTcgplayerCatalog,
   runTcgplayerPricing,
 } from "@/lib/ingest/tcgplayer";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const maxDuration = 800; // seconds — Vercel fluid-function limit
-
-function authorizeCron(req: NextRequest): boolean {
-  if (req.headers.get("x-vercel-cron") === "true") return true;
-
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-
-  const auth = req.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
-
-  const url = new URL(req.url);
-  if (url.searchParams.get("secret") === secret) return true;
-
-  return false;
-}
 
 function parseIntList(value: string | null): number[] | undefined {
   if (!value) return undefined;
@@ -76,12 +62,8 @@ function parseStringList(value: string | null): string[] | undefined {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (!authorizeCron(req)) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "cron secret required" } },
-      { status: 401 },
-    );
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "live-pricing";

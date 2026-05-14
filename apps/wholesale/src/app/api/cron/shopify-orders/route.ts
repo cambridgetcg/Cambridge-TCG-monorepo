@@ -17,6 +17,7 @@ import { cards, clients, orders as ordersTable, orderItems, stockAdjustments } f
 import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
 import { ShopifyClient } from "@/lib/shopify-client";
+import { requireCronAuth } from "@/lib/cron-auth";
 import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
 
@@ -49,28 +50,9 @@ async function getOrCreateShopifyClient(): Promise<number> {
   return created.id;
 }
 
-function authorizeCron(req: NextRequest): boolean {
-  // Vercel Cron sends this header automatically
-  if (req.headers.get("x-vercel-cron") === "true") return true;
-
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-
-  // Bearer token
-  const auth = req.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
-
-  // Query param
-  const url = new URL(req.url);
-  if (url.searchParams.get("secret") === secret) return true;
-
-  return false;
-}
-
 export async function POST(req: NextRequest) {
-  if (!authorizeCron(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const url = new URL(req.url);
   const orderNumbersParam = url.searchParams.get("order_numbers");

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { clients, orders } from "@/lib/db/schema";
 import { eq, sql, and, inArray, gte } from "drizzle-orm";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 /**
  * Recalculates volume discount spend for all clients using a rolling 30-day window.
@@ -16,29 +17,15 @@ import { eq, sql, and, inArray, gte } from "drizzle-orm";
 const PAID_STATUSES: ("paid" | "ordered" | "shipped" | "delivered")[] = ["paid", "ordered", "shipped", "delivered"];
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret (Vercel sends this automatically for cron jobs)
-  const authHeader = req.headers.get("authorization");
-  const secret = req.nextUrl.searchParams.get("secret");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret || (authHeader !== `Bearer ${cronSecret}` && secret !== cronSecret)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
   const result = await recalculateAllClients();
   return NextResponse.json(result);
 }
 
-// Also support POST for manual trigger
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const secret = req.nextUrl.searchParams.get("secret");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret || (authHeader !== `Bearer ${cronSecret}` && secret !== cronSecret)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
   const result = await recalculateAllClients();
   return NextResponse.json(result);
 }

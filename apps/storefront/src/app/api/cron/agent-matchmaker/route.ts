@@ -14,16 +14,11 @@
 
 import { NextResponse } from "next/server";
 import { tickMatchmaker } from "@/lib/agents/matchmaker";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export async function GET(request: Request) {
-  const expected = process.env.CRON_SECRET?.trim();
-  if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(request);
+  if (denied) return denied;
 
   try {
     const result = await tickMatchmaker();

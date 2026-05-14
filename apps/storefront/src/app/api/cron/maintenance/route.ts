@@ -34,25 +34,11 @@ import { expireCancelRequests } from "@/lib/market/trade-cancels";
 import { runVacationSweep } from "@/lib/market/vacation";
 import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
 import { releaseExpiredReservations } from "@/lib/stock/reservations";
+import { requireCronAuth } from "@/lib/cron-auth";
 
-// Vercel cron hits this route on the schedule defined in vercel.json. We
-// accept the request only when CRON_SECRET is set and the Bearer token
-// matches — Vercel injects this header automatically for project crons.
-//
-// IMPORTANT: Fails closed — if CRON_SECRET is not set, the route rejects
-// all requests. Local dev must set CRON_SECRET=dev (or any value) to test.
 export async function GET(request: Request) {
-  const expected = process.env.CRON_SECRET?.trim();
-  if (!expected) {
-    return NextResponse.json(
-      { error: "CRON_SECRET not configured" },
-      { status: 503 }
-    );
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(request);
+  if (denied) return denied;
 
   const start = Date.now();
   // Run pipelines independently — a failure in one shouldn't block the

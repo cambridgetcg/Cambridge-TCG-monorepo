@@ -10,17 +10,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildBuylist } from "@/lib/buylist-builder";
 import { writeBuylistToKV } from "@/lib/cloudflare-kv";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const secret = req.nextUrl.searchParams.get("secret");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret || (authHeader !== `Bearer ${cronSecret}` && secret !== cronSecret)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const start = Date.now();
   console.log(`[cron/rebuild-buylist] Starting at ${new Date().toISOString()}`);

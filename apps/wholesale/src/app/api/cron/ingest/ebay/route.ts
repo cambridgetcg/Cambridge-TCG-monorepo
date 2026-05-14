@@ -41,26 +41,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runEbaySnapshot, type EbayTier } from "@/lib/ebay-snapshot";
 import type { EbayMarketplaceId } from "@cambridge-tcg/data-ingest";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export const maxDuration = 800; // seconds — Vercel fluid-function ceiling
 
 const VALID_TIERS: readonly EbayTier[] = ["top", "mid", "all"] as const;
 const VALID_MARKETPLACE_PREFIX = "EBAY_";
-
-function authorizeCron(req: NextRequest): boolean {
-  if (req.headers.get("x-vercel-cron") === "true") return true;
-
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-
-  const auth = req.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
-
-  const url = new URL(req.url);
-  if (url.searchParams.get("secret") === secret) return true;
-
-  return false;
-}
 
 function parseTier(raw: string | null): EbayTier {
   if (raw && (VALID_TIERS as readonly string[]).includes(raw)) {
@@ -87,12 +73,8 @@ function parseMarketplaces(raw: string | null): readonly EbayMarketplaceId[] {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (!authorizeCron(req)) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "cron secret required" } },
-      { status: 401 },
-    );
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const url = new URL(req.url);
   const tier = parseTier(url.searchParams.get("tier"));

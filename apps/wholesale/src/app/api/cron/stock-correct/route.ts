@@ -12,20 +12,11 @@ import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
-
-function authorizeCron(req: NextRequest): boolean {
-  if (req.headers.get("x-vercel-cron") === "true") return true;
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = req.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
-  return false;
-}
+import { requireCronAuth } from "@/lib/cron-auth";
 
 export async function POST(req: NextRequest) {
-  if (!authorizeCron(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const body = await req.json().catch(() => ({}));
   const adjustmentList = body.adjustments as Array<{ sku: string; delta: number }> | undefined;
