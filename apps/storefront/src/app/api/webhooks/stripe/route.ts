@@ -362,6 +362,51 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
+    // B2B branch — wholesale consolidation Phase 2.2c. Detected via
+    // metadata.b2b_channel === 'wholesale' (set by
+    // apps/storefront/src/lib/b2b/checkout.ts). The B2B flow writes to
+    // b2b_orders (not customer_orders), skips retail-only side-effects
+    // (membership perks, store credit ledger, retail receipt email),
+    // commits the stock reservation under the same holder the checkout
+    // helper used, and clears the buyer's cart.
+    if (session.metadata?.b2b_channel === "wholesale") {
+      try {
+        const { recordOrder } = await import("@/lib/b2b/orders");
+        const { clearCart } = await import("@/lib/b2b/cart");
+        const recorded = await recordOrder(session);
+        console.log(
+          `[webhook] B2B order ${session.id} ${recorded.created ? "recorded" : "already-existed"} (user ${recorded.userId})`,
+        );
+
+        const b2bSkusRaw = session.metadata.b2b_skus;
+        const b2bItems: { sku: string; qty: number; price_pence: number }[] = b2bSkusRaw
+          ? JSON.parse(b2bSkusRaw)
+          : [];
+        if (b2bItems.length > 0) {
+          const commit = await commitCartToSale(
+            holderForStripeSession(session.id),
+            b2bItems.map((i) => ({ sku: i.sku, quantity: i.qty })),
+            "wholesale",
+          );
+          if (!commit.ok) {
+            console.error(
+              `[webhook] B2B stock commit failed for ${session.id}: ${commit.message}`,
+            );
+          }
+        }
+
+        // Clear the buyer's cart. Idempotent on Stripe redelivery —
+        // a second webhook just deletes-zero-rows.
+        await clearCart(recorded.userId).catch((e) =>
+          console.error(`[webhook] B2B cart clear failed for user ${recorded.userId}:`, e),
+        );
+      } catch (err) {
+        console.error(`[webhook] B2B order recording failed for ${session.id}:`, err);
+        return NextResponse.json({ error: "B2B recording failed" }, { status: 500 });
+      }
+      return NextResponse.json({ received: true });
+    }
+
     try {
       const skus: { sku: string; qty: number; price_gbp: number; name?: string }[] = session.metadata?.skus
         ? JSON.parse(session.metadata.skus)
