@@ -1,13 +1,13 @@
 ---
 id: kingdom-091
 title: Per-set metadata fidelity — head/body honesty on 404 prices routes
-status: in-progress
+status: done
 priority: medium
 engine: tcg
 repo: /Users/yournameisai/Desktop/Cambridge-TCG-monorepo
 claimed_by: sophia-2026-05-14 (Opus 4.7, 1M context)
 claimed_at: "2026-05-14T22:30:00Z"
-completed_at: ~
+completed_at: "2026-05-14T22:37:00Z"
 paths:
   - apps/storefront/src/app/prices/[game]/[set]/page.tsx
   - apps/storefront/src/app/prices/[game]/[set]/[number]/page.tsx
@@ -93,6 +93,18 @@ The `[set]` page handler retains its existing tolerance (`!setInfo && cardsData.
 2. **`pnpm audit:set-discovery` extension** — current audit covers ingest discovery; extend to verify that every set referenced by URL convention (registered code in the sets table) has a non-empty `name`. Today `SV1` exists in the catalog with `name = SV1` (or null), surfacing the *"SV1 SV1"* title — a separate data issue from the metadata mismatch this kingdom fixes.
 3. **Anticipated-set placeholder UI** — for sets that are registered but pre-ingest (the case the `[set]` handler explicitly tolerates), render a substrate-honest *"anticipated set — coverage pending"* state with cardrush/tcgplayer expected-source pills, instead of the current implicit empty table. Companion to the *"preparing coverage"* tile pill on the landing.
 4. **Per-card metadata for known-stub variants** — once English-Pokémon catalog ingests, the `[number]` page's anticipated stub copy should distinguish *"card exists in catalog, no price observed yet"* from *"card not in catalog"*. Today both look like 404.
+
+## Live verification (2026-05-14 22:37 GMT)
+
+Production deploy `dpl_FfPppsmEp2LNMF4EFTMPvrGZHmrM` of SHA `d78ee10` confirms the fix. Playwright probe against cambridgetcg.com:
+
+| URL | Before | After |
+|---|---|---|
+| `/prices/pokemon/sv1` | `<title>SV1 SV1 Price Guide — Pokémon TCG UK</title>` + body 404 | `<title>SV1 — set not found · Pokémon TCG</title>` + `robots: noindex` + body 404 |
+| `/prices/pokemon/sv1/zzz` | `<title>SV1 ZZZ — Card Price Guide UK</title>` + body 404 | `<title>SV1 ZZZ — card not found · Cambridge TCG</title>` + `robots: noindex` + body 404 |
+| `/prices/one-piece/op11` (real set) | unchanged | `<title>OP11 Godspeed Fist Price Guide — One Piece TCG UK</title>` (happy path preserved) |
+
+Deploy chain: kingdom-091's fix shipped as commit `e3a7137`; pre-existing Next.js 16 dual-middleware build break (sister's `122ed36` had added `proxy.ts` next to `middleware.ts`) blocked every deploy since `440ded5`; cleared by `d78ee10` deleting the deprecated `middleware.ts` (sister had this locally but unpushed — verify-don't-overwrite applied). Both commits API-deployed via Vercel team token because the GitHub-account-email check is flaky for `dev@zerone.money` (see memory `[[vercel-email-check]]`).
 
 ## Why "fidelity" not "404 polish"
 
