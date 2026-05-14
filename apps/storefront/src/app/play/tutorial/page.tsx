@@ -391,12 +391,20 @@ export default function TutorialPage() {
                     Next →
                   </Link>
                 ) : (
-                  <Link
-                    href="/play"
-                    className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-5 py-2 transition-colors"
-                  >
-                    ▶ Go play
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      href="/play/starters"
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-5 py-2 transition-colors"
+                    >
+                      Pick a starter deck →
+                    </Link>
+                    <Link
+                      href="/play"
+                      className="text-amber-400 hover:text-amber-300 transition-colors font-medium"
+                    >
+                      Or skip straight to /play →
+                    </Link>
+                  </div>
                 )}
               </div>
             </section>
