@@ -486,8 +486,10 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
 
 function SiblingsBlock({
   siblings,
+  game,
 }: {
   siblings: Everything["siblings"];
+  game: string;
 }) {
   const others = siblings.filter((s) => !s.is_self);
   if (others.length === 0) {
@@ -519,9 +521,10 @@ function SiblingsBlock({
           {others.map((s) => (
             <Link
               key={s.sku}
-              href={`/prices/search?game=${encodeURIComponent(
-                s.sku.split("-")[0] ?? "",
-              )}&q=${encodeURIComponent(s.sku)}`}
+              // Preserve the current game token rather than extracting
+              // from the SKU prefix — the wholesale games table's case
+              // is data-dependent and the SKU prefix may not match.
+              href={`/prices/search?game=${encodeURIComponent(game)}&q=${encodeURIComponent(s.sku)}`}
               className="block rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
             >
               <div className="flex items-baseline justify-between mb-2">
@@ -551,9 +554,11 @@ function SiblingsBlock({
 function MatchesBlock({
   matches,
   summary,
+  game,
 }: {
   matches: EverythingResponse["data"]["matches"];
   summary: EverythingResponse["data"]["summary"];
+  game: string;
 }) {
   return (
     <Card>
@@ -569,9 +574,8 @@ function MatchesBlock({
           {matches.slice(0, 20).map((m) => (
             <Link
               key={m.sku}
-              href={`/prices/search?game=${encodeURIComponent(
-                m.sku.split("-")[0] ?? "",
-              )}&q=${encodeURIComponent(m.sku)}`}
+              // Preserve the current game token — same reason as SiblingsBlock.
+              href={`/prices/search?game=${encodeURIComponent(game)}&q=${encodeURIComponent(m.sku)}`}
               className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
             >
               {m.image_url && (
@@ -673,6 +677,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
           <MatchesBlock
             matches={result.data.matches}
             summary={result.data.summary}
+            game={game}
           />
         )}
 
@@ -764,7 +769,10 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
 
           <HistoryBlock history={result.data.everything.history} />
 
-          <SiblingsBlock siblings={result.data.everything.siblings} />
+          <SiblingsBlock
+            siblings={result.data.everything.siblings}
+            game={game}
+          />
         </>
       )}
 

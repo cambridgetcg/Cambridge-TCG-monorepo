@@ -489,16 +489,24 @@ export async function GET(
     source_license.push("partner-redistributable");
   }
 
-  // Pokemon (and other bright-data-unlocker-routed subdomains) carry
-  // an upstream_proxy declaration per kingdom-088's _meta widening.
-  // Heuristic: if the card's game is pkm AND a cardrush row is in the
-  // sources, the byte rode through the unlocker. (Substrate-honest
-  // approximation; the per-row via_proxy would be authoritative once
-  // it lands on price_archive — recursion target.)
-  const upstream_proxy =
-    parsed.game === "pkm" && sources.includes("cardrush")
-      ? sources.map((s) => (s === "cardrush" ? "bright-data-web-unlocker" : "none"))
-      : undefined;
+  // Bright-data-unlocker-routed subdomains carry an upstream_proxy
+  // declaration per kingdom-088's _meta widening. Authoritative signal:
+  // the cardrush observation row's source URL — if it points at a
+  // subdomain registered as access="bright-data-unlocker" (today: only
+  // cardrush-pokemon.jp), the byte rode through the unlocker.
+  // Substrate-honest fallback when no cardrush_url is present: declare
+  // proxy IFF the SKU's game prefix is the pokemon family ('pk' or
+  // 'pkm'). The per-row via_proxy column on price_archive will make
+  // this exact once the operator applies that migration — recursion
+  // target named in docs/connections/the-bright-data-unlock.md §8.
+  function detectProxy(): boolean {
+    if (cardrushHist?.cardrush_url?.includes("cardrush-pokemon.jp")) return true;
+    if ((parsed.game === "pk" || parsed.game === "pkm") && sources.includes("cardrush")) return true;
+    return false;
+  }
+  const upstream_proxy = detectProxy()
+    ? sources.map((s) => (s === "cardrush" ? "bright-data-web-unlocker" : "none"))
+    : undefined;
 
   const data: EverythingPayload = {
     card: cardMeta,
