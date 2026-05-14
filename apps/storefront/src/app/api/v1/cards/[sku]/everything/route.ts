@@ -163,6 +163,7 @@ interface EverythingPayload {
    *  Falcon call resolved. UI can render this in a debug panel. */
   composition: {
     falcon_calls: Record<string, "ok" | "absent" | "error">;
+    siblings_attempts?: string[];
   };
 }
 
@@ -291,33 +292,38 @@ export async function GET(
   //   1. game as-parsed
   //   2. case variants
   //   3. fetchGames() lookup to find slug for the code
+  const siblingsLog: string[] = [];
   async function fetchSiblings(): Promise<PriceItem[]> {
     const q = `${parsed!.set}-${parsed!.number}`;
     const tried = new Set<string>();
-    async function tryGame(g: string): Promise<PriceItem[] | null> {
-      if (tried.has(g)) return null;
+    async function tryGame(g: string, label: string): Promise<PriceItem[] | null> {
+      if (tried.has(g)) {
+        siblingsLog.push(`${label}=${g} skipped(seen)`);
+        return null;
+      }
       tried.add(g);
       const r = await fetchPrices({ game: g, q, limit: 50 }).catch(
         () => ({ items: [] as PriceItem[] } as { items: PriceItem[] }),
       );
+      siblingsLog.push(`${label}=${g} → ${r.items.length} rows`);
       return r.items.length > 0 ? r.items : null;
     }
-    const r1 = await tryGame(parsed!.game);
+    const r1 = await tryGame(parsed!.game, "parsed");
     if (r1) return r1;
-    const r2 = await tryGame(parsed!.game.toUpperCase());
+    const r2 = await tryGame(parsed!.game.toUpperCase(), "upper");
     if (r2) return r2;
-    // Look up the slug via fetchGames — data may key cards by slug rather
-    // than code. Cached for 10min per Falcon revalidate.
     const games = await fetchGames().catch(() => []);
+    siblingsLog.push(`fetchGames → ${games.length}`);
     const match = games.find(
       (g) =>
         g.code.toLowerCase() === parsed!.game ||
         g.slug.toLowerCase() === parsed!.game,
     );
+    siblingsLog.push(`match=${match ? `${match.code}/${match.slug}` : "none"}`);
     if (match) {
-      const r3 = await tryGame(match.slug);
+      const r3 = await tryGame(match.slug, "slug");
       if (r3) return r3;
-      const r4 = await tryGame(match.code);
+      const r4 = await tryGame(match.code, "code");
       if (r4) return r4;
     }
     return [];
@@ -433,8 +439,11 @@ export async function GET(
       price_sources: priceSources ? "ok" : "absent",
       cardrush_history: cardrushHist ? "ok" : "absent",
       tcgplayer_history: tcgplayerHist ? "ok" : "absent",
-      siblings: "ok",
+      siblings: siblings.length > 0 ? "ok" : "absent",
     },
+    // kingdom-090 debug: surfaces which game tokens we tried for siblings.
+    // Cleaned up once the resolver canonicalizes upstream — recursion target.
+    siblings_attempts: siblingsLog,
   };
 
   // Build the `_meta.sources` + `_meta.source_license` parallel arrays
