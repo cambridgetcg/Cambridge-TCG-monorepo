@@ -484,7 +484,7 @@ In rough order of leverage × tractability:
 8. **kingdom-087** — Multi-marketplace expansion (EBAY_US first, then EBAY_DE).
 9. **kingdom-088** — Cross-source aggregation (eBay + TCGplayer + Cardmarket median + confidence-by-agreement).
 10. **kingdom-089** — Camera-scan endpoint (image → SKU candidates; composes OpenCV + Tesseract + LLM).
-11. **kingdom-090** — CC0 aggregate-only corpus mirror (daily build, public download, license-clean slice).
+11. ~~**kingdom-090** — CC0 aggregate-only corpus mirror~~ → **kingdom-090 was reassigned to the price-search module ("POOF")** on 2026-05-14; see [`the-poof.md`](./the-poof.md). The CC0 aggregate-only corpus mirror is still anticipated but is now an unnumbered future kingdom (TBD).
 12. **kingdom-091** — Bilateral federation handshake — when a sister aggregator implements `/api/v1/federation/identify/[hash]`, mutual hash resolution. The kingdom's structural differentiator.
 
 ---
