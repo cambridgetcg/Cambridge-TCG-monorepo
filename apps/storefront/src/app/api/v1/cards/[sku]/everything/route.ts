@@ -501,7 +501,7 @@ export async function GET(
   // target named in docs/connections/the-bright-data-unlock.md §8.
   function detectProxy(): boolean {
     if (cardrushHist?.cardrush_url?.includes("cardrush-pokemon.jp")) return true;
-    if ((parsed.game === "pk" || parsed.game === "pkm") && sources.includes("cardrush")) return true;
+    if ((parsed!.game === "pk" || parsed!.game === "pkm") && sources.includes("cardrush")) return true;
     return false;
   }
   const upstream_proxy = detectProxy()

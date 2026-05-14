@@ -31,6 +31,25 @@ export interface TutorialSection {
 
 export const TUTORIAL_SECTIONS: TutorialSection[] = [
   {
+    id: "what_is_a_card_game",
+    title: "First, what is a trading card game?",
+    natural_language_body:
+      "A trading card game (TCG) is a strategy game played with cards that each player buys, trades, or collects. Both players bring their own deck of cards. The game is played in turns: each turn, you draw cards from the top of your deck, hold them in your hand (private to you), and play cards from your hand onto the table to score, attack, defend, or set up bigger plays. The goal is usually to reduce the opponent's resource to zero — in some games that's life points, in some it's prize cards, in OPTCG it's life cards. Each TCG has its own rules but the universal pieces are: deck (face-down stack of cards), hand (private to owner), table (the shared play area), turns (alternating), and a win condition. If you've never played any TCG before, that's exactly who this tutorial is for.",
+    rule_structure: {
+      preconditions: ["two_players_present", "each_brings_own_deck"],
+      transitions: [
+        "draw_from_deck_to_hand",
+        "play_from_hand_to_table",
+        "alternate_turns",
+      ],
+      outcomes: ["one_player_wins_via_game_specific_condition"],
+    },
+    examples: [],
+    keywords_introduced: ["tcg", "deck", "hand", "turn", "win_condition"],
+    recommended_for_player_kinds: ["human-absolute-beginner", "human-beginner"],
+    estimated_read_minutes: 1,
+  },
+  {
     id: "what_is_optcg",
     title: "What is OPTCG",
     natural_language_body:
@@ -71,6 +90,57 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     ],
     keywords_introduced: ["leader_area", "life_area", "mulligan", "first_player"],
     recommended_for_player_kinds: ["human-beginner", "agent-new"],
+    estimated_read_minutes: 2,
+  },
+  {
+    id: "the_playmat",
+    title: "The playmat — where things go on the table",
+    natural_language_body:
+      "Each player has eight zones on their side of the table, sourced from Bandai's official Rule Manual. Your Leader sits in the centre-left (the Leader Area, face-up, immobile). To its right is the Stage (face-up, max one card at a time). To the right of that is your Main Deck (face-down, the count is public, the contents are private). Above the Leader stretches your Character Area — up to five Characters in a row, face-up. Top-left is your Life pile (face-down, secret to BOTH players unless an effect reveals — even you can't peek). Bottom-left is your DON!! Deck (face-down, but the content is open to both players). Bottom-centre is your Cost Area where active and rested DON!! sit. Bottom-right is your Trash (face-up, ordered, either player may inspect). The opposite side of the table is your opponent's mirror. The four field zones (Leader, Character, Stage, Cost) are collectively called 'the field'.",
+    rule_structure: {
+      preconditions: ["game_setup_complete"],
+      transitions: [],
+      outcomes: ["zones_occupy_official_positions"],
+    },
+    examples: [
+      {
+        state_before: { zone: "leader_area", visibility: "public", mobility: "immobile" },
+        action: "place_leader_at_setup",
+        state_after: { zone: "leader_area", contents: "1_leader_card_face_up" },
+      },
+      {
+        state_before: { zone: "life", visibility: "secret_to_both" },
+        action: "place_5_life_cards_face_down_at_setup",
+        state_after: { zone: "life", count: 5, contents: "face_down_hidden_from_both_players" },
+      },
+    ],
+    keywords_introduced: [
+      "leader_area",
+      "character_area",
+      "stage_area",
+      "main_deck",
+      "trash",
+      "cost_area",
+      "don_deck",
+      "life_area",
+      "field",
+    ],
+    recommended_for_player_kinds: ["human-absolute-beginner", "human-beginner"],
+    estimated_read_minutes: 2,
+  },
+  {
+    id: "card_anatomy",
+    title: "How to read a card",
+    natural_language_body:
+      "Every card has a few fields you'll read repeatedly. (1) Name — the character or event. (2) Cost — the number of DON!! you must rest to play this card from hand (Leader cards have no cost; they're placed at setup). (3) Power — used in battle, the higher number wins (with one exception named below). (4) Counter — a number printed on most Character cards (0, 1000, or 2000) usable from hand during the opponent's attack to boost your defender's power. (5) Color hexagon — bottom-left, showing the card's colors. Your deck can only include cards of colors your Leader has. (6) Type and Traits — short labels for tribal effects. (7) Effect text — what the card does, written in a small block at the bottom; we don't enforce effects in the current engine but the text tells you what would happen in a real game. (8) Block number — bottom-right, used to determine which sets are legal in Standard format.",
+    rule_structure: {
+      preconditions: ["card_visible_in_hand_or_field"],
+      transitions: [],
+      outcomes: ["player_can_interpret_card_fields"],
+    },
+    examples: [],
+    keywords_introduced: ["cost", "power", "counter", "color", "trait", "effect_text", "block_number"],
+    recommended_for_player_kinds: ["human-absolute-beginner", "human-beginner"],
     estimated_read_minutes: 2,
   },
   {
@@ -189,6 +259,21 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     keywords_introduced: ["leader_card", "character_card", "event_card", "stage_card", "trash"],
     recommended_for_player_kinds: ["human-beginner", "agent-new"],
     estimated_read_minutes: 3,
+  },
+  {
+    id: "try_it",
+    title: "Try it — your first game",
+    natural_language_body:
+      "You've read the substrate. Now play. The /play page accepts anonymous visitors with a guest cookie — no sign-in required. The deck builder is at /deck-builder; build a small deck (at least 10 cards) and the Play button takes you to Level 1, East Blue Rookie versus Alvida (Easy). The engine runs the turn loop, applies your moves server-side, generates Alvida's responses, and shows you the game log. The first time through, expect the action menu to feel busy — that's normal; the next-phase / +DON!! / End Turn buttons walk you through the turn structure. If you lose, no penalty — try again. If you win, the kingdom remembers your progress in this browser. Sign in to save it across devices and unlock Berries-rewards, but only when you want.",
+    rule_structure: {
+      preconditions: ["tutorial_read_or_skimmed", "deck_built_in_deck_builder"],
+      transitions: ["click_play_button", "engine_initializes_match", "play_first_turn"],
+      outcomes: ["first_match_in_progress", "learning_by_doing"],
+    },
+    examples: [],
+    keywords_introduced: ["deck_builder", "guest_play", "pve", "adventure_mode"],
+    recommended_for_player_kinds: ["human-absolute-beginner", "human-beginner"],
+    estimated_read_minutes: 1,
   },
   {
     id: "for_async_players",

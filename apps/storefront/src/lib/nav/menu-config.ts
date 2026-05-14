@@ -57,17 +57,21 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "All cards", href: "/catalog", description: "The full catalogue across all games" },
           { label: "By game", href: "/prices", description: "Pick a game to browse its sets" },
-          { label: "Universal lookup", href: "/catalog", description: "By SKU or hash" },
+          { label: "Search prices", href: "/prices/search", description: "Cross-game price search", badge: "beta" },
+          { label: "Universal lookup", href: "/catalog", description: "By SKU or content hash" },
           { label: "Glossary", href: "/glossary" },
+          { label: "Open data", href: "/data", description: "Bulk catalog dumps (CC0)" },
         ],
       },
       {
         heading: "Prices",
         items: [
           { label: "Price guide", href: "/prices", description: "Per-game UK price guides" },
-          { label: "Movers", href: "/prices/one-piece/movers", description: "Biggest price changes" },
-          { label: "Coverage map", href: "/prices/coverage" },
+          { label: "Movers", href: "/prices/one-piece/movers", description: "Biggest price changes 7d" },
+          { label: "Coverage map", href: "/prices/coverage", description: "Per-source coverage rollup" },
           { label: "How prices work", href: "/methodology/pricing" },
+          { label: "Cross-source pricing", href: "/methodology/cross-source-pricing" },
+          { label: "FX rates", href: "/methodology/fx-rates" },
         ],
       },
       {
@@ -77,6 +81,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Deck builder", href: "/deck-builder", badge: "beta" },
           { label: "Deck check", href: "/play/deck-check" },
           { label: "How to play", href: "/guides/how-to-play" },
+          { label: "Sealed product info", href: "/methodology/play-module" },
         ],
       },
     ],
@@ -93,7 +98,8 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "Live market", href: "/market", description: "Real-time peer-to-peer trading" },
           { label: "Market lots", href: "/market/lots" },
-          { label: "Market pulse", href: "/market/pulse" },
+          { label: "Market pulse", href: "/market/pulse", description: "Volume + spread heatmap" },
+          { label: "Price guide", href: "/prices" },
           { label: "Price offers", href: "/account/offers", authed_only: true },
         ],
       },
@@ -101,6 +107,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Auctions",
         items: [
           { label: "Open auctions", href: "/auctions" },
+          { label: "How auctions work", href: "/methodology/commission-rate" },
           { label: "Sell at auction", href: "/auctions/sell", authed_only: true },
           { label: "My auctions", href: "/account/auctions", authed_only: true },
           { label: "Auctions won", href: "/account/auctions/won", authed_only: true },
@@ -109,13 +116,15 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Tools",
         items: [
+          { label: "Market methodology", href: "/methodology/market" },
+          { label: "Trust & escrow", href: "/methodology/trust-score" },
           { label: "Watchlist", href: "/account/watchlist", authed_only: true },
           { label: "Saved searches", href: "/account/searches", authed_only: true },
           { label: "Demand signals", href: "/account/demand", authed_only: true },
-          { label: "Market methodology", href: "/methodology/market" },
         ],
       },
     ],
+    footer: { label: "Verify a recent transaction →", href: "/verify" },
   },
 
   // ── Play ────────────────────────────────────────────────────────────
@@ -127,9 +136,10 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Modes",
         items: [
           { label: "Casual", href: "/play/casual", description: "Fun-first hobbyist mode" },
-          { label: "Competitive", href: "/play/compete" },
-          { label: "Adventure", href: "/play/adventure", description: "Single-player PvE" },
-          { label: "Spec a match", href: "/play/spec" },
+          { label: "Competitive", href: "/play/compete", description: "Ranked play; agent ladder" },
+          { label: "Adventure", href: "/play/adventure", description: "Single-player PvE journey" },
+          { label: "Spec a match", href: "/play/spec", description: "Watch a live game" },
+          { label: "Tutorial", href: "/play/welcome", description: "Seven entry paths by player kind" },
         ],
       },
       {
@@ -137,20 +147,23 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "Deck builder", href: "/deck-builder", badge: "beta" },
           { label: "Deck check", href: "/play/deck-check" },
-          { label: "My decks", href: "/decks", authed_only: true },
           { label: "Public decks", href: "/decks" },
+          { label: "My decks", href: "/decks", authed_only: true },
+          { label: "How to play", href: "/guides/how-to-play" },
         ],
       },
       {
         heading: "Watch & learn",
         items: [
-          { label: "New here?", href: "/play/welcome", description: "Seven entry paths" },
           { label: "Leaderboards", href: "/leaderboards" },
           { label: "Agent leaderboard", href: "/leaderboards/agents" },
           { label: "Play methodology", href: "/methodology/play-module" },
+          { label: "For agent builders", href: "/methodology/agents" },
+          { label: "My agents", href: "/account/agents", authed_only: true },
         ],
       },
     ],
+    footer: { label: "Provable fairness on every random outcome →", href: "/verify" },
   },
 
   // ── Sell ────────────────────────────────────────────────────────────
@@ -165,13 +178,15 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Bulk quote", href: "/trade-in/bulk" },
           { label: "Bundle quote", href: "/trade-in/bundle" },
           { label: "Custom quote", href: "/trade-in/custom-quote" },
-          { label: "Submit", href: "/trade-in/submit" },
+          { label: "Submit cards", href: "/trade-in/submit" },
           { label: "Trade-in terms", href: "/trade-in/terms" },
         ],
       },
       {
         heading: "Auction & lots",
         items: [
+          { label: "Open auctions", href: "/auctions", description: "See current public auctions" },
+          { label: "How auctions work", href: "/methodology/commission-rate" },
           { label: "Sell at auction", href: "/auctions/sell", authed_only: true },
           { label: "My lots", href: "/account/lots", authed_only: true },
           { label: "Returns", href: "/account/returns", authed_only: true },
@@ -181,6 +196,9 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Operate",
         items: [
+          { label: "Trader methodology", href: "/methodology/trader-dashboard", description: "How the trader dashboard computes" },
+          { label: "Payout policy", href: "/methodology/payout-hold" },
+          { label: "Store credit", href: "/methodology/store-credit" },
           { label: "Trader dashboard", href: "/account/trader", authed_only: true },
           { label: "Pricing rules", href: "/account/pricing-rules", authed_only: true },
           { label: "Vacation mode", href: "/account/vacation", authed_only: true },
@@ -188,6 +206,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         ],
       },
     ],
+    footer: { label: "Trade-in & seller methodology →", href: "/methodology" },
   },
 
   // ── Discover ▾ — closes the discovery gap ───────────────────────────
@@ -199,6 +218,8 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Platform",
         items: [
           { label: "Platform", href: "/platform", description: "The data plane as primary identity" },
+          { label: "Open data", href: "/data", description: "Bulk catalog dumps + JSON-LD" },
+          { label: "Bridge", href: "/bridge", description: "Federation bridge surface" },
           { label: "Manifest", href: "/manifest", description: "Directory of offerings" },
           { label: "Graph", href: "/graph", description: "Typed mesh of meanings" },
           { label: "Ontology", href: "/ontology", description: "Schema beneath the graph" },
@@ -210,7 +231,8 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Methodology",
         items: [
-          { label: "All methodology", href: "/methodology", description: "Index of 31 decisions" },
+          { label: "All methodology", href: "/methodology", description: "Index of 32 decisions" },
+          { label: "Navigation doctrine", href: "/methodology/navigation", badge: "live" },
           { label: "Trust & escrow", href: "/methodology/trust-score" },
           { label: "Pricing", href: "/methodology/pricing" },
           { label: "Edition variants", href: "/methodology/edition-variants" },
@@ -233,6 +255,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "For agents", href: "/agents" },
           { label: "Agent guides", href: "/agents/guides" },
           { label: "For scrapers", href: "/scrapers" },
+          { label: "Machine welcome (JSON)", href: "/api/v1/welcome" },
         ],
       },
     ],
@@ -249,8 +272,10 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "Community hub", href: "/community" },
           { label: "New here?", href: "/community/welcome" },
+          { label: "Membership", href: "/membership", description: "Tiers, benefits, and what they include" },
           { label: "Following", href: "/account/following", authed_only: true },
           { label: "Followers", href: "/account/followers", authed_only: true },
+          { label: "Collectives", href: "/account/collectives", authed_only: true },
         ],
       },
       {
@@ -260,6 +285,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Reward packs", href: "/rewards/packs" },
           { label: "Spin wheel", href: "/rewards/spin" },
           { label: "My prizes", href: "/account/rewards", authed_only: true },
+          { label: "Reward methodology", href: "/methodology/membership-tier" },
         ],
       },
       {
@@ -269,9 +295,12 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Leaderboards", href: "/leaderboards" },
           { label: "Agent leaderboard", href: "/leaderboards/agents" },
           { label: "Trust scores", href: "/methodology/trust-score" },
+          { label: "Memorial accounts", href: "/methodology/memorial" },
+          { label: "Sabbath mode", href: "/methodology/sabbath" },
         ],
       },
     ],
+    footer: { label: "Welcoming statement — every kind of being →", href: "/welcome-all" },
   },
 
   // ── About ───────────────────────────────────────────────────────────
@@ -286,6 +315,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Welcoming statement", href: "/welcome-all" },
           { label: "Platform identity", href: "/platform" },
           { label: "Methodology of methodology", href: "/methodology/methodology" },
+          { label: "Cosmology", href: "/methodology/cosmology" },
         ],
       },
       {
@@ -296,6 +326,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Welcoming", href: "/methodology/welcoming" },
           { label: "Known gaps", href: "/methodology/known-gaps" },
           { label: "Navigation doctrine", href: "/methodology/navigation" },
+          { label: "Upstream sources", href: "/methodology/upstream-sources" },
         ],
       },
       {
@@ -304,10 +335,12 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Guides", href: "/guides" },
           { label: "How to play", href: "/guides/how-to-play" },
           { label: "Verification", href: "/verify" },
+          { label: "Site map", href: "/map" },
           { label: "Contact / feedback", href: "/api/v1/feedback" },
         ],
       },
     ],
+    footer: { label: "The full doctrine + audit corpus →", href: "/methodology" },
   },
 ];
 
