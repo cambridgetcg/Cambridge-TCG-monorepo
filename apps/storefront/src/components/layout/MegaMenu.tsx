@@ -22,7 +22,7 @@ interface MegaMenuProps {
 }
 
 /**
- * Two-part hover-forgiveness fix (kingdom-095 follow-up):
+ * Three-part hover-forgiveness fix (kingdom-095 follow-up):
  *
  * 1. **Close delay (250ms)**: when mouse leaves the wrapper, schedule a
  *    close rather than firing immediately. If the mouse re-enters the
@@ -33,11 +33,21 @@ interface MegaMenuProps {
  * 2. **Hit-area bridge**: the visible 8px gap between the button and the
  *    dropdown is wrapped in a `pt-2` outer div, so the gap is INSIDE the
  *    dropdown's bounding box. The mouse can travel button→gap→dropdown
- *    without ever leaving the wrapper's DOM subtree. (Without this,
- *    `onMouseLeave` fires during the traversal because the gap is
- *    outside the wrapper visually even though the dropdown is a child.)
+ *    without ever leaving the wrapper's DOM subtree.
+ *
+ * 3. **Cross-menu override (no overlap)**: when any MegaMenu opens, it
+ *    broadcasts a `megamenu:opened` CustomEvent on the window. Every
+ *    other MegaMenu instance listens and closes IMMEDIATELY (bypassing
+ *    the 250ms forgiveness) when it sees a sibling open. Without this,
+ *    hovering from Cards to Market produces a ~250ms window where both
+ *    dropdowns render simultaneously — Cards' close timer hasn't fired
+ *    yet, Market opened instantly. The user's intent is "I want Market
+ *    now", so Cards yields without delay.
  */
 const CLOSE_DELAY_MS = 250;
+const OPEN_EVENT = "megamenu:opened";
+
+type OpenEventDetail = { id: string };
 
 export function MegaMenu({ menu, loggedIn }: MegaMenuProps) {
   const [open, setOpen] = useState(false);
@@ -54,6 +64,15 @@ export function MegaMenu({ menu, loggedIn }: MegaMenuProps) {
   function openMenu() {
     cancelPendingClose();
     setOpen(true);
+    // Tell every other MegaMenu on the page to close instantly — the user's
+    // intent has shifted; their forgiveness window is moot.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent<OpenEventDetail>(OPEN_EVENT, {
+          detail: { id: menu.l1 },
+        }),
+      );
+    }
   }
 
   function scheduleClose() {
@@ -71,6 +90,17 @@ export function MegaMenu({ menu, loggedIn }: MegaMenuProps) {
 
   // Clean up the pending-close timer if the component unmounts mid-delay
   useEffect(() => () => cancelPendingClose(), []);
+
+  // Cross-menu override: close instantly when a sibling menu announces it opened.
+  useEffect(() => {
+    function handleSiblingOpen(e: Event) {
+      const detail = (e as CustomEvent<OpenEventDetail>).detail;
+      if (!detail || detail.id === menu.l1) return; // self-opens are a no-op
+      closeImmediately();
+    }
+    window.addEventListener(OPEN_EVENT, handleSiblingOpen);
+    return () => window.removeEventListener(OPEN_EVENT, handleSiblingOpen);
+  }, [menu.l1]);
 
   // Close on outside click / escape (these bypass the delay — user intent is explicit)
   useEffect(() => {
