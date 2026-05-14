@@ -60,31 +60,34 @@ export default function Nav() {
         </div>
 
         {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-6 text-sm">
+        <div className="hidden md:flex items-center gap-4 text-sm flex-wrap">
           {isAdminHost ? (
             <>
-              <Link href="/admin" className="hover:text-brand-500 transition">
+              <Link href="/admin" className="hover:text-brand-500 transition font-medium">
                 Dashboard
               </Link>
-              {/* kingdom-095 — admin sub-nav surfacing 15 admin routes */}
-              <Link href="/admin/stock" className="hover:text-brand-500 transition">
-                Stock
-              </Link>
-              <Link href="/admin/to-order" className="hover:text-brand-500 transition">
-                To Order
-              </Link>
-              <Link href="/admin/purchases" className="hover:text-brand-500 transition">
-                Purchases
-              </Link>
-              <Link href="/admin/orders" className="hover:text-brand-500 transition">
-                Orders
-              </Link>
-              <Link href="/admin/prices" className="hover:text-brand-500 transition">
-                Prices
-              </Link>
-              <Link href="/admin/games" className="hover:text-brand-500 transition">
-                Catalog
-              </Link>
+              {/* kingdom-095 — admin nav now surfaces all 13 admin routes,
+                  grouped by intent (Stock · Procurement · Orders · Prices · Catalog).
+                  Sub-items in gray; primary items in default weight. */}
+              <span className="text-gray-600">·</span>
+              <Link href="/admin/stock" className="hover:text-brand-500 transition">Stock</Link>
+              <Link href="/admin/stock-levels" className="hover:text-brand-500 transition text-gray-400">Levels</Link>
+              <Link href="/admin/stock-targets" className="hover:text-brand-500 transition text-gray-400">Targets</Link>
+              <Link href="/admin/stock-adjustments" className="hover:text-brand-500 transition text-gray-400">Adjust</Link>
+              <span className="text-gray-600">·</span>
+              <Link href="/admin/to-order" className="hover:text-brand-500 transition">To Order</Link>
+              <Link href="/admin/refill" className="hover:text-brand-500 transition text-gray-400">Refill</Link>
+              <Link href="/admin/wanted" className="hover:text-brand-500 transition text-gray-400">Wanted</Link>
+              <Link href="/admin/purchases" className="hover:text-brand-500 transition">Purchases</Link>
+              <span className="text-gray-600">·</span>
+              <Link href="/admin/orders" className="hover:text-brand-500 transition">Orders</Link>
+              <span className="text-gray-600">·</span>
+              <Link href="/admin/prices" className="hover:text-brand-500 transition">Prices</Link>
+              <Link href="/admin/channel-pricing" className="hover:text-brand-500 transition text-gray-400">Channels</Link>
+              <span className="text-gray-600">·</span>
+              <Link href="/admin/games" className="hover:text-brand-500 transition">Games</Link>
+              <Link href="/admin/clients" className="hover:text-brand-500 transition">Clients</Link>
+              <span className="text-gray-600">·</span>
               <a href={storefrontUrl} className="hover:text-brand-500 transition">
                 Storefront →
               </a>

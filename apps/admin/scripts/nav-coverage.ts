@@ -57,15 +57,8 @@ const ORPHAN_ALLOWLIST: ReadonlyArray<string | RegExp> = [
   "/order-confirmation",
   "/og",
   "/api",
-  // Sister-shipped routes covered by their kingdom's own surfaces (kingdom-046+):
-  "/account/collectives",
-  "/account/emails",
-  "/account/wishlist",
+  // Storefront /admin/* is covered by the admin app's own sidebar.
   "/admin",
-  "/bridge",
-  "/data",
-  "/membership",
-  "/prices/search",
   // Parameterized routes — concrete instances in menu (e.g. /prices/one-piece) cover these.
   "/prices/[game]",
   "/prices/[game]/movers",
