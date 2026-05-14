@@ -126,15 +126,94 @@ export default function PlayPage() {
     return () => { cancelled = true; };
   }, []);
 
-  /* ---- Load saved decks ---- */
+  /* ---- Whether we've auto-mounted a starter (vs the visitor having
+   *      their own decks). Affects the "Pick a different starter" UI. */
+  const [usingStarter, setUsingStarter] = useState(false);
+
+  /* ---- Load saved decks (and auto-mount default starter if none).
+   *
+   *      Kingdom-082, see docs/research/deck-builder-rookie-flow-design.md
+   *      §1 tier-1 — Yu 2026-05-14: "MINIMUM BARRIERS, MAXIMUM FUNNNNNN!!!"
+   *      A guest landing here should not see a "build your first deck"
+   *      wall. If they have no localStorage decks, we auto-mount the
+   *      default rookie starter (ST-15 Red Newgate) so the regular play
+   *      surface renders with one click to play.
+   *
+   *      The starter is fetched from /api/v1/play/starters/<id> which
+   *      returns the leader + cards resolved against the wholesale
+   *      catalog. */
   useEffect(() => {
+    let cancelled = false;
+
+    // Step 1: load localStorage. If we have decks, use them — done.
+    let stored: SavedDeck[] = [];
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed: SavedDeck[] = JSON.parse(stored);
-        setSavedDecks(parsed);
-      }
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) stored = JSON.parse(raw);
     } catch { /* ignore */ }
+
+    if (stored.length > 0) {
+      setSavedDecks(stored);
+      return;
+    }
+
+    // Step 2: no saved decks — auto-mount the default starter.
+    fetch("/api/v1/play/starters/st-15-red-newgate")
+      .then((r) => r.ok ? r.json() : Promise.reject(r))
+      .then((env) => {
+        if (cancelled) return;
+        const detail = env?.data;
+        if (!detail || !detail.leader?.resolved) return;
+        const leaderCard: SavedDeckCard = {
+          sku: detail.leader.sku,
+          card_number: detail.leader.card_number,
+          name: detail.leader.name,
+          set_code: detail.leader.set_code ?? "",
+          set_name: "",
+          rarity: detail.leader.rarity,
+          image_url: detail.leader.image_url,
+          spot_price: 0,
+          tradein_credit: null,
+        };
+        type CardRef = {
+          sku: string | null;
+          card_number: string;
+          name: string | null;
+          set_code: string | null;
+          rarity: string | null;
+          image_url: string | null;
+          quantity: number;
+          resolved: boolean;
+        };
+        const entries = (detail.cards as CardRef[])
+          .filter((c) => c.resolved && c.sku)
+          .map((c) => ({
+            sku: c.sku as string,
+            quantity: c.quantity,
+            card: {
+              sku: c.sku as string,
+              card_number: c.card_number,
+              name: c.name ?? c.card_number,
+              set_code: c.set_code ?? "",
+              set_name: "",
+              rarity: c.rarity,
+              image_url: c.image_url,
+              spot_price: 0,
+              tradein_credit: null,
+            } satisfies SavedDeckCard,
+          }));
+        const starterDeck: SavedDeck = {
+          name: `${detail.display_name} (starter)`,
+          leader: leaderCard,
+          entries,
+          savedAt: new Date().toISOString(),
+        };
+        setSavedDecks([starterDeck]);
+        setUsingStarter(true);
+      })
+      .catch(() => { /* silent — falls back to original empty-state UX */ });
+
+    return () => { cancelled = true; };
   }, []);
 
   /* ---- Fetch public rooms (only when multiplayer panel opened) ---- */
@@ -339,15 +418,35 @@ export default function PlayPage() {
                   <div className="p-5 sm:p-6">
                     <div className="flex items-center justify-between mb-3">
                       <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-400">
-                        Your deck
+                        {usingStarter ? "Your starter" : "Your deck"}
                       </h2>
                       <Link
-                        href="/deck-builder"
+                        href={usingStarter ? "/play/starters" : "/deck-builder"}
                         className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
                       >
-                        Edit decks →
+                        {usingStarter ? "Pick a different color →" : "Edit decks →"}
                       </Link>
                     </div>
+                    {usingStarter && (
+                      <p className="mb-3 text-[11px] text-neutral-500 leading-relaxed">
+                        We pre-loaded the Red Whitebeard starter so you can
+                        play right away. Six starters cover six colors —{" "}
+                        <Link
+                          href="/play/starters"
+                          className="text-amber-400 hover:text-amber-300 underline"
+                        >
+                          browse them
+                        </Link>{" "}
+                        or build your own in the{" "}
+                        <Link
+                          href="/deck-builder"
+                          className="text-amber-400 hover:text-amber-300 underline"
+                        >
+                          deck builder
+                        </Link>
+                        .
+                      </p>
+                    )}
                     <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                       {savedDecks.map((deck, i) => {
                         const totalCards = deck.entries.reduce((s, e) => s + e.quantity, 0);

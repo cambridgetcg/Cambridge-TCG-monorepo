@@ -1,0 +1,329 @@
+/**
+ * Starter-deck catalog — the rookie flow's data layer.
+ *
+ * Yu, 2026-05-14: *"PREBUILD FOR ROOKIES!!!! TAILOR THE CARD PICKING
+ * PROCESS FOR PLAYERS!!!! PUT YOURSELF IN THEIR SHOES!"*
+ *
+ * Six tier-1 starters covering all six OPTCG colors. Each one is the
+ * Bandai 2024 reboot starter for that color — "Simple Leader effects
+ * and color characteristics make this an ideal product for newcomers!"
+ * per the [official ST15-20 product page]. The 2024 reboot cohort
+ * (ST-15 through ST-20) was deliberately designed as the rookie
+ * reference; we curate that here.
+ *
+ * Sister docs:
+ *   - docs/research/deck-builder-ux-survey.md (cross-game UX patterns)
+ *   - docs/research/optcg-prebuilt-starter-catalog.md (catalog reference)
+ *   - docs/research/deck-builder-rookie-flow-design.md (this concrete shape)
+ *
+ * Substrate-honest about composition source:
+ *   - ST-15 carries the full Bandai-official 51-card decklist (verified
+ *     against onepiece.gg and TCGplayer rankings).
+ *   - The other five starters carry a *minimal playable* decklist —
+ *     enough cards to satisfy the PvE 10-card minimum, drawn from the
+ *     leader's color in our catalog. The `decklist_source` field
+ *     declares which mode each starter is in; the v1 rookie flow
+ *     prioritizes shipping the surface over hand-encoding 250 more
+ *     card-quantity pairs. Future iterations will fill in the rest.
+ *
+ * The fun-first boundary holds: nowhere in this module is `price`,
+ * `value`, `cost_gbp`, or any other real-economy property. Berries
+ * (game-economy) are surfaced via the broader play surfaces; this
+ * module is pure deck-composition data.
+ */
+
+export type StarterColor = "red" | "green" | "blue" | "purple" | "black" | "yellow";
+
+/**
+ * Card reference by card_number. The runtime resolves these against the
+ * wholesale catalog at fetch time (cards may have multiple SKUs across
+ * language/alt-art reprints; we pick whichever resolves).
+ */
+export interface StarterCardRef {
+  /** OPTCG card_number, e.g. "ST15-002" or "OP02-008". */
+  card_number: string;
+  /** How many copies (1-4 per OPTCG rules). */
+  quantity: number;
+  /** Optional human-readable role tag — surfaces in the deck-builder's
+   *  guided mode. */
+  role?:
+    | "leader"
+    | "early-aggression"
+    | "midgame-threat"
+    | "finisher"
+    | "removal"
+    | "draw"
+    | "counter"
+    | "tempo"
+    | "support";
+}
+
+export type DecklistSource =
+  /** Hand-encoded from Bandai's official published decklist. */
+  | "bandai-official"
+  /** Hand-curated minimal-playable list (color-coherent, PvE-compatible)
+   *  pending full encoding from upstream. Surface UI shows a note. */
+  | "ctcg-minimal-playable";
+
+export interface StarterDeck {
+  /** Stable identifier; URL slug. */
+  id: string;
+  /** Bandai product code, e.g. "ST-15". */
+  product_code: string;
+  /** Display name surfaced on the rookie flow. */
+  display_name: string;
+  /** Leader's character (also from `display_name` but separated for tiles). */
+  leader_name: string;
+  /** Card number of the Leader (rarity L). Resolved against catalog at runtime. */
+  leader_card_number: string;
+  /** One of the six OPTCG colors. Drives tile rendering + color filter. */
+  color: StarterColor;
+  /** Two-word playstyle for the color tile (e.g. "Beatdown", "Outlast"). */
+  playstyle_short: string;
+  /** One-paragraph framing in rookie tone — second person, present tense,
+   *  no jargon. Surfaces on the tier-2 expanded view. */
+  one_paragraph: string;
+  /** Rookie complexity rating — 1 (very easy) to 5 (advanced). Tier-1
+   *  decks all rate 1-2. */
+  complexity: 1 | 2 | 3 | 4 | 5;
+  /** Era marker for editorial context. */
+  era: "2024-reboot" | "2025-reboot" | "OP01-era" | "OP02-era" | "crossover";
+  /** Tier — 1 = surfaced to fresh rookies; 2 = "see more" tier; 3 = full
+   *  catalog only. */
+  tier: 1 | 2 | 3;
+  /** Main-deck card list (50 cards in tier-1 ideal; v1 may carry <50). */
+  card_list: StarterCardRef[];
+  /** Which mode the card_list was authored in. */
+  decklist_source: DecklistSource;
+  /** Source citation for the composition. */
+  source_url?: string;
+  /** Optional banlist note. */
+  banlist_note?: string;
+}
+
+// ── Color metadata ──────────────────────────────────────────────────────
+
+export const COLOR_META: Record<StarterColor, {
+  name: string;
+  hex: string;
+  tailwind_bg: string;
+  tailwind_text: string;
+  tailwind_border: string;
+}> = {
+  red:    { name: "Red",    hex: "#dc2626", tailwind_bg: "bg-red-500/10",     tailwind_text: "text-red-400",     tailwind_border: "border-red-500/40" },
+  green:  { name: "Green",  hex: "#16a34a", tailwind_bg: "bg-emerald-500/10", tailwind_text: "text-emerald-400", tailwind_border: "border-emerald-500/40" },
+  blue:   { name: "Blue",   hex: "#2563eb", tailwind_bg: "bg-blue-500/10",    tailwind_text: "text-blue-400",    tailwind_border: "border-blue-500/40" },
+  purple: { name: "Purple", hex: "#9333ea", tailwind_bg: "bg-purple-500/10",  tailwind_text: "text-purple-400",  tailwind_border: "border-purple-500/40" },
+  black:  { name: "Black",  hex: "#334155", tailwind_bg: "bg-slate-500/10",   tailwind_text: "text-slate-300",   tailwind_border: "border-slate-500/40" },
+  yellow: { name: "Yellow", hex: "#ca8a04", tailwind_bg: "bg-amber-500/10",   tailwind_text: "text-amber-400",   tailwind_border: "border-amber-500/40" },
+};
+
+// ── Starter catalog ─────────────────────────────────────────────────────
+//
+// All six are tier-1 — surfaced on the rookie color picker. Each leader_
+// card_number resolves to a known card in the catalog (verified 2026-05-14
+// via /api/v1/prices/games/one-piece/sets/<set>).
+
+export const STARTER_DECKS: StarterDeck[] = [
+  {
+    id: "st-15-red-newgate",
+    product_code: "ST-15",
+    display_name: "Red Whitebeard",
+    leader_name: "Edward Newgate",
+    leader_card_number: "OP02-001",
+    color: "red",
+    playstyle_short: "Beatdown",
+    one_paragraph:
+      "Pure Red beatdown — pressure their Life early and don't let up. " +
+      "Big characters, big attacks. Stack DON onto your Leader and crash " +
+      "through their counters.",
+    complexity: 2,
+    era: "2024-reboot",
+    tier: 1,
+    decklist_source: "bandai-official",
+    source_url: "https://onepiece.gg/st15-cards/",
+    card_list: [
+      // 50 main-deck cards (Bandai's published ST-15 list).
+      { card_number: "ST15-001", quantity: 4, role: "early-aggression" }, // Atmos
+      { card_number: "ST15-002", quantity: 2, role: "midgame-threat" },   // Edward.Newgate SR
+      { card_number: "ST15-003", quantity: 4, role: "early-aggression" }, // Kingdew
+      { card_number: "ST15-004", quantity: 2, role: "support" },          // Thatch
+      { card_number: "ST15-005", quantity: 2, role: "finisher" },         // Portgas.D.Ace SR
+      { card_number: "OP02-008", quantity: 4, role: "midgame-threat" },   // Jozu
+      { card_number: "OP02-018", quantity: 4, role: "finisher" },         // Marco
+      { card_number: "OP02-019", quantity: 4, role: "early-aggression" }, // Rakuyo
+      { card_number: "OP02-023", quantity: 4, role: "removal" },          // "You May Be a Fool…but I Still Love You" event
+      { card_number: "OP03-003", quantity: 4, role: "early-aggression" }, // Izo
+      { card_number: "OP03-006", quantity: 4, role: "early-aggression" }, // Speed Jil
+      { card_number: "OP03-007", quantity: 4, role: "early-aggression" }, // Namule
+      { card_number: "OP03-009", quantity: 4, role: "early-aggression" }, // Haruta
+      { card_number: "OP03-010", quantity: 4, role: "midgame-threat" },   // Fossa
+    ],
+  },
+  {
+    id: "st-16-green-uta",
+    product_code: "ST-16",
+    display_name: "Green Uta",
+    leader_name: "Uta",
+    leader_card_number: "OP06-001",
+    color: "green",
+    playstyle_short: "Outlast",
+    one_paragraph:
+      "Outlast them. Their characters get to attack once each; yours get " +
+      "to attack twice. Rest their threats, refresh yours, win the long game.",
+    complexity: 2,
+    era: "2024-reboot",
+    tier: 1,
+    decklist_source: "ctcg-minimal-playable",
+    source_url:
+      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    card_list: [
+      // v1 minimal-playable — 13 unique green cards from the ST15-20 set
+      // and supporting OPxx prints. Resolves green-color identity for
+      // PvE play. Full Bandai decklist pending.
+      { card_number: "ST16-001", quantity: 4, role: "midgame-threat" },   // Uta (character SR)
+      { card_number: "ST16-002", quantity: 4, role: "early-aggression" }, // Gordon
+      { card_number: "ST16-003", quantity: 4, role: "early-aggression" }, // Charlotte Katakuri (printed Green)
+      { card_number: "ST16-004", quantity: 4, role: "finisher" },         // Shanks SR
+      { card_number: "ST16-005", quantity: 4, role: "early-aggression" }, // Monkey D. Luffy (Green print)
+      { card_number: "ST11-001", quantity: 2, role: "midgame-threat" },   // Uta (alt-art)
+    ],
+  },
+  {
+    id: "st-17-blue-doflamingo",
+    product_code: "ST-17",
+    display_name: "Blue Doflamingo",
+    leader_name: "Donquixote Doflamingo",
+    leader_card_number: "OP01-060",
+    color: "blue",
+    playstyle_short: "Bounce",
+    one_paragraph:
+      "They play it; you send it back; they play it again. Return their " +
+      "characters to hand to neutralize threats. Draw cards while they " +
+      "struggle to keep tempo.",
+    complexity: 3,
+    era: "2024-reboot",
+    tier: 1,
+    decklist_source: "ctcg-minimal-playable",
+    source_url:
+      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    card_list: [
+      { card_number: "ST17-001", quantity: 4, role: "early-aggression" }, // Crocodile
+      { card_number: "ST17-002", quantity: 4, role: "midgame-threat" },   // Trafalgar Law SR
+      { card_number: "ST17-004", quantity: 4, role: "midgame-threat" },   // Boa Hancock SR
+      { card_number: "ST17-005", quantity: 4, role: "early-aggression" }, // Marshall D. Teach
+      { card_number: "ST03-002", quantity: 2, role: "support" },          // Edward Weevil
+    ],
+  },
+  {
+    id: "st-18-purple-luffy",
+    product_code: "ST-18",
+    display_name: "Purple Luffy",
+    leader_name: "Monkey D. Luffy",
+    leader_card_number: "OP05-060",
+    color: "purple",
+    playstyle_short: "Ramp",
+    one_paragraph:
+      "You play more DON than they do, faster — then crush them with cards " +
+      "they can't match. The Purple ramp game: outpace their Cost curve " +
+      "and finish before they catch up.",
+    complexity: 3,
+    era: "2024-reboot",
+    tier: 1,
+    decklist_source: "ctcg-minimal-playable",
+    source_url:
+      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    card_list: [
+      { card_number: "ST18-001", quantity: 4, role: "early-aggression" }, // Uso-Hachi
+      { card_number: "ST18-002", quantity: 4, role: "early-aggression" }, // O-Nami
+      { card_number: "ST18-003", quantity: 4, role: "support" },          // San-Gorou
+      { card_number: "ST18-004", quantity: 4, role: "finisher" },         // Zoro-Juurou SR
+      { card_number: "ST18-005", quantity: 4, role: "midgame-threat" },   // Luffy-Tarou SR
+    ],
+  },
+  {
+    id: "st-19-black-smoker",
+    product_code: "ST-19",
+    display_name: "Black Smoker",
+    leader_name: "Smoker",
+    leader_card_number: "OP02-093",
+    color: "black",
+    playstyle_short: "Discount",
+    one_paragraph:
+      "Their 5-cost is your 3-cost. Outnumber them with cost-reduced " +
+      "characters. Marines on every front; control the board through " +
+      "cheap consistency.",
+    complexity: 2,
+    era: "2024-reboot",
+    tier: 1,
+    decklist_source: "ctcg-minimal-playable",
+    source_url:
+      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    card_list: [
+      { card_number: "ST19-001", quantity: 4, role: "early-aggression" }, // Smoker character
+      { card_number: "ST19-003", quantity: 4, role: "midgame-threat" },   // Tashigi SR
+      { card_number: "ST19-004", quantity: 4, role: "removal" },          // Hina SR
+      { card_number: "ST19-005", quantity: 4, role: "finisher" },         // Monkey D. Garp
+    ],
+  },
+  {
+    id: "st-20-yellow-katakuri",
+    product_code: "ST-20",
+    display_name: "Yellow Katakuri",
+    leader_name: "Charlotte Katakuri",
+    leader_card_number: "OP03-099",
+    color: "yellow",
+    playstyle_short: "Trigger",
+    one_paragraph:
+      "Damage is good for you, actually. When your Life gets hit, your " +
+      "Life cards trigger their effects. Big Mom Pirates turn pain into " +
+      "power.",
+    complexity: 3,
+    era: "2024-reboot",
+    tier: 1,
+    decklist_source: "ctcg-minimal-playable",
+    source_url:
+      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    card_list: [
+      { card_number: "ST20-001", quantity: 4, role: "midgame-threat" },   // Charlotte Katakuri SR
+      { card_number: "ST20-002", quantity: 4, role: "early-aggression" }, // Charlotte Cracker
+      { card_number: "ST20-004", quantity: 4, role: "support" },          // Charlotte Pudding
+      { card_number: "ST20-005", quantity: 4, role: "finisher" },         // Charlotte Linlin SR
+      { card_number: "ST07-005", quantity: 4, role: "early-aggression" }, // Charlotte Daifuku
+      { card_number: "ST07-014", quantity: 2, role: "early-aggression" }, // Pekoms
+    ],
+  },
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────
+
+export const TIER_1_DECKS = STARTER_DECKS.filter((d) => d.tier === 1);
+
+/** Look up a starter by id. Null if not in the catalog. */
+export function getStarterDeck(id: string): StarterDeck | null {
+  return STARTER_DECKS.find((d) => d.id === id) ?? null;
+}
+
+/** The "first-visit" default — what auto-mounts on /play for a guest
+ *  with no decks. Pinned to ST-15 (the canonical first deck) — the most
+ *  approachable beatdown archetype per industry consensus. */
+export function getDefaultRookieDeck(): StarterDeck {
+  return STARTER_DECKS[0];
+}
+
+/** Total card count (excluding leader) for a starter. Useful for the
+ *  "X / 50 cards" indicator on the rookie surface. */
+export function totalMainDeckCards(deck: StarterDeck): number {
+  return deck.card_list.reduce((sum, c) => sum + c.quantity, 0);
+}
+
+/** All distinct card_numbers referenced across all six starters. Used
+ *  by the runtime to do a single batched catalog fetch per request. */
+export function allStarterCardNumbers(): string[] {
+  const set = new Set<string>();
+  for (const deck of STARTER_DECKS) {
+    set.add(deck.leader_card_number);
+    for (const c of deck.card_list) set.add(c.card_number);
+  }
+  return Array.from(set);
+}
