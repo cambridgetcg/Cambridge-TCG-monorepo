@@ -147,6 +147,13 @@ export function scoreMatches(
     const parsed = parseSkuShape(c.sku);
     const card_number_norm = c.card_number.toUpperCase();
     const set_code_norm = (c.set_code ?? "").toUpperCase();
+    // The publisher-full form: how the row's card_number reads when
+    // prefixed with its set ("OP01-001"). Some upstream catalogs store
+    // this directly in card_number (kingdom-087 cardrush style); others
+    // store just the trailing digits ("001"). Both shapes must match.
+    const card_number_full = setNum && !card_number_norm.includes("-")
+      ? `${set_code_norm}-${card_number_norm}`
+      : card_number_norm;
 
     // Confidence ladder — first hit wins.
     let confidence: ResolveConfidence = "fuzzy";
@@ -157,7 +164,22 @@ export function scoreMatches(
       confidence = "exact";
       reason = "canonical SKU exact";
     }
-    // Tier 2: set+number exact (covers `OP01-001`).
+    // Tier 2: set+number matches the full publisher form
+    //         (covers card_number stored as "OP01-001" with set_code "OP01"
+    //         — the common case in wholesale today; verified live
+    //         2026-05-14 with 5 SKU variants on op-op01-001).
+    else if (
+      setNum &&
+      set_code_norm === setNum.set &&
+      (card_number_norm === `${setNum.set}-${setNum.number}` ||
+        card_number_full === `${setNum.set}-${setNum.number}`)
+    ) {
+      confidence = "exact";
+      reason = "set+number matched (publisher form)";
+    }
+    // Tier 3: set+number matches just the trailing number
+    //         (covers card_number stored as "001" with set_code "OP01"
+    //         — some upstream catalogs).
     else if (
       setNum &&
       set_code_norm === setNum.set &&
@@ -166,9 +188,8 @@ export function scoreMatches(
       confidence = "exact";
       reason = "set+number matched";
     }
-    // Tier 3: set+number that's a substring of card_number's set portion
-    //         (handles publisher-format like "OP-OP01-001" where the
-    //         input "OP01-001" should match — rare; defensive).
+    // Tier 4: set+number suffix match (defensive — handles legacy
+    //         "OP-OP01-001" double-prefix forms).
     else if (
       setNum &&
       card_number_norm.endsWith("-" + setNum.number) &&
@@ -177,11 +198,12 @@ export function scoreMatches(
       confidence = "exact";
       reason = "set+number matched (suffixed)";
     }
-    // Tier 4: number-only input. Multiple matches expected; UI lists them.
+    // Tier 5: number-only input. Multiple matches expected; UI lists them.
     else if (
       !setNum &&
       !skuShape &&
-      card_number_norm === norm
+      (card_number_norm === norm ||
+        card_number_norm.endsWith(`-${norm}`))
     ) {
       confidence = "fuzzy";
       reason = "card_number matched; set ambiguous";

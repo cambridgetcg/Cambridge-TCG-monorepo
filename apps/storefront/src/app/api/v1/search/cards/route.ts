@@ -41,7 +41,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { fetchPrices } from "@/lib/wholesale/client";
+import { fetchPrices, fetchGames } from "@/lib/wholesale/client";
 import { jsonResponse, errorResponse, invalidSkuError } from "@/lib/data-pantry";
 import {
   scoreMatches,
@@ -54,6 +54,46 @@ import {
 export const runtime = "nodejs";
 
 const ENDPOINT = "/api/v1/search/cards";
+
+/**
+ * Map a caller-supplied game token to whatever the wholesale prices
+ * route will accept. The wholesale route's `or(eq(games.code, X),
+ * eq(games.slug, X))` filter is case-sensitive — so `game=op` returns
+ * nothing if data stores `code='OP'`, and vice versa. This resolver
+ * walks the registry once + caches alternatives in-process so the
+ * caller can pass any of: code lowercase ("op"), code uppercase
+ * ("OP"), slug ("one-piece"), or display-name ("One Piece").
+ *
+ * Returns the first form that actually matches the registry; falls
+ * back to the input verbatim if none match (the wholesale route then
+ * returns 404 / 0 results which the caller surfaces honestly).
+ */
+async function resolveGameToken(input: string): Promise<string> {
+  const games = await fetchGames().catch(() => []);
+  if (games.length === 0) return input;
+  const norm = input.trim().toLowerCase();
+  // 1. Exact match against any registered code / slug / name.
+  for (const g of games) {
+    if (
+      g.code === input ||
+      g.slug === input ||
+      g.name === input
+    ) {
+      return g.code; // prefer code (canonical for the prices route)
+    }
+  }
+  // 2. Case-insensitive match.
+  for (const g of games) {
+    if (
+      g.code.toLowerCase() === norm ||
+      g.slug.toLowerCase() === norm ||
+      g.name.toLowerCase() === norm
+    ) {
+      return g.code;
+    }
+  }
+  return input;
+}
 
 function parseLimit(raw: string | null): number {
   const n = parseInt(raw ?? "20", 10);
@@ -99,8 +139,10 @@ export async function GET(req: NextRequest) {
       ? `${skuShape.set}-${skuShape.number}`
       : q;
 
+  const resolvedGame = await resolveGameToken(game);
+
   const wholesaleResp = await fetchPrices({
-    game,
+    game: resolvedGame,
     q: wholesaleQ,
     limit,
   });

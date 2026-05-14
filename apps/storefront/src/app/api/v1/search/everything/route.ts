@@ -46,9 +46,32 @@ import {
   groupSiblings,
   type ResolvedMatch,
 } from "@/lib/search/resolver";
-import { fetchPrices } from "@/lib/wholesale/client";
+import { fetchPrices, fetchGames } from "@/lib/wholesale/client";
 
 export const runtime = "nodejs";
+
+/** Mirror of /search/cards' game resolver — accepts code / slug / name
+ *  in any case and returns the canonical `games.code` the wholesale
+ *  prices route will match exactly. See that route for the longform
+ *  rationale (case-sensitive postgres eq + multiple legacy forms). */
+async function resolveGameToken(input: string): Promise<string> {
+  const games = await fetchGames().catch(() => []);
+  if (games.length === 0) return input;
+  const norm = input.trim().toLowerCase();
+  for (const g of games) {
+    if (g.code === input || g.slug === input || g.name === input) return g.code;
+  }
+  for (const g of games) {
+    if (
+      g.code.toLowerCase() === norm ||
+      g.slug.toLowerCase() === norm ||
+      g.name.toLowerCase() === norm
+    ) {
+      return g.code;
+    }
+  }
+  return input;
+}
 
 function originFromReq(req: NextRequest): string {
   // Prefer x-forwarded-host (Vercel sets it); fall back to req URL.
@@ -85,7 +108,8 @@ export async function GET(req: NextRequest) {
       ? `${skuShape.set}-${skuShape.number}`
       : q;
 
-  const wholesaleResp = await fetchPrices({ game, q: wholesaleQ, limit });
+  const resolvedGame = await resolveGameToken(game);
+  const wholesaleResp = await fetchPrices({ game: resolvedGame, q: wholesaleQ, limit });
   const matches: ResolvedMatch[] = scoreMatches({ game, q }, wholesaleResp.items);
   const summary = summarizeMatches(matches);
 
