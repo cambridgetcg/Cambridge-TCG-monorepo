@@ -29,9 +29,10 @@ import { notFound } from "next/navigation";
 import { fetchPrices, type PriceItem } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
-import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector } from "@/components/CurrencySelector";
+import { Money } from "@/lib/fx/Money";
 import {
   getPriceGuideConfig,
   ACCENT_CLASSES,
@@ -304,12 +305,10 @@ export default async function GameMoversPage({ params }: PageProps) {
                           <RarityBadge rarity={card.rarity} />
                         </td>
                         <td className="px-3 py-3 text-right text-white font-medium">
-                          {formatGbpAs(card.price, currency, rates)}
+                          <Money value={card.price} />
                         </td>
                         <td className="px-3 py-3 text-right text-green-400">
-                          {card.tradein_credit
-                            ? formatGbpAs(card.tradein_credit, currency, rates)
-                            : "—"}
+                          <Money value={card.tradein_credit} treatZeroAsMissing />
                         </td>
                       </tr>
                     );

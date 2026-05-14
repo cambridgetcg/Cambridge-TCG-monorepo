@@ -12,9 +12,10 @@ import { notFound } from "next/navigation";
 import { fetchGames, fetchPrices, fetchSets, type PriceItem } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { Provenance, WhyLink } from "@/lib/ui";
-import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
-import { CurrencySelector } from "@/components/CurrencySelector";
+import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
+import { Money } from "@/lib/fx/Money";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -38,7 +39,17 @@ async function resolveConfig(slug: string): Promise<PriceGuideGameConfig | null>
 
 interface PageProps {
   params: Promise<{ game: string; set: string }>;
+  searchParams: Promise<{ sort?: string }>;
 }
+
+const SORT_OPTIONS = [
+  { label: "Card #", value: "number_asc" },
+  { label: "Name A-Z", value: "name_asc" },
+  { label: "Price ↑", value: "price_asc" },
+  { label: "Price ↓", value: "price_desc" },
+] as const;
+const DEFAULT_SORT = "number_asc";
+const VALID_SORTS = new Set<string>(SORT_OPTIONS.map((o) => o.value));
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -128,8 +139,13 @@ function RarityBadge({ rarity }: { rarity: string | null }) {
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
-export default async function SetPriceGuidePage({ params }: PageProps) {
+export default async function SetPriceGuidePage({
+  params,
+  searchParams,
+}: PageProps) {
   const { game, set: setSlug } = await params;
+  const sp = await searchParams;
+  const sort = sp.sort && VALID_SORTS.has(sp.sort) ? sp.sort : DEFAULT_SORT;
   const cfg = await resolveConfig(game);
   if (!cfg) notFound();
 
@@ -140,7 +156,7 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
     fetchPrices({
       game: cfg.slug,
       set: setCode,
-      sort: "price_desc",
+      sort,
       limit: 500,
     }).catch(() => ({ items: [], total: 0 })),
     fetchPrices({
@@ -268,7 +284,7 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
               cadence="daily"
             />
             <WhyLink href="/methodology/pricing" label="how prices work" />
-            <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
+            <CurrencyWhyLink />
           </div>
           <p className="text-neutral-300 leading-relaxed max-w-3xl mb-4">
             {intro}
@@ -306,6 +322,32 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
 
         {/* Card table */}
         <section className="mb-14">
+          {/* Sort pills */}
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <span className="text-xs text-neutral-500 uppercase tracking-wider">
+              Sort:
+            </span>
+            {SORT_OPTIONS.map((opt) => {
+              const active = sort === opt.value;
+              const href =
+                opt.value === DEFAULT_SORT
+                  ? `/prices/${cfg.slug}/${setSlug}`
+                  : `/prices/${cfg.slug}/${setSlug}?sort=${opt.value}`;
+              return (
+                <Link
+                  key={opt.value}
+                  href={href}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                    active
+                      ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
+                      : "bg-neutral-800 text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  {opt.label}
+                </Link>
+              );
+            })}
+          </div>
           <div className="overflow-x-auto rounded-lg border border-neutral-800">
             <table className="w-full text-sm text-left">
               <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
@@ -344,12 +386,10 @@ export default async function SetPriceGuidePage({ params }: PageProps) {
                       <RarityBadge rarity={card.rarity} />
                     </td>
                     <td className="px-3 py-3 text-right text-white font-medium">
-                      {formatGbpAs(card.price, currency, rates)}
+                      <Money value={card.price} />
                     </td>
                     <td className="px-3 py-3 text-right text-green-400">
-                      {card.tradein_credit
-                        ? formatGbpAs(card.tradein_credit, currency, rates)
-                        : "—"}
+                      <Money value={card.tradein_credit} treatZeroAsMissing />
                     </td>
                     <td className="px-3 py-3 text-right">
                       <Link

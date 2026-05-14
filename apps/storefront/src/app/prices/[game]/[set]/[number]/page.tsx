@@ -30,9 +30,10 @@ import { Provenance, WhyLink, Audience } from "@/lib/ui";
 import { ACCENT_CLASSES } from "@/lib/prices/games-config";
 import { loadCardState } from "@/lib/prices/state";
 import { RarityBadge } from "@/lib/ui/prices/RarityBadge";
-import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
-import { CurrencySelector } from "@/components/CurrencySelector";
+import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
+import { Money } from "@/lib/fx/Money";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -226,7 +227,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                 href="/methodology/cross-source-pricing"
                 label="cross-source"
               />
-              <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
+              <CurrencyWhyLink />
               <Link
                 href={`/api/v1/prices/games/${config.slug}/sets/${setSlug}/cards/${numberSlug}`}
                 className="text-xs text-blue-400 hover:underline"
@@ -253,7 +254,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                     Buy from us
                   </div>
                   <div className="text-2xl font-bold text-white">
-                    {formatGbpAs(card.price_gbp, currency, rates)}
+                    <Money value={card.price_gbp} />
                   </div>
                   <div className="text-[10px] text-neutral-500 mt-1">
                     {card.stock > 0
@@ -266,7 +267,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                     We buy (credit)
                   </div>
                   <div className="text-2xl font-bold text-emerald-400">
-                    {formatGbpAs(card.tradein_credit_gbp, currency, rates)}
+                    <Money value={card.tradein_credit_gbp} />
                   </div>
                   <div className="text-[10px] text-neutral-500 mt-1">
                     instant store credit

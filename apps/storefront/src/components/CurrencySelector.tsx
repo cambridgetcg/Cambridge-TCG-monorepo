@@ -1,21 +1,36 @@
 /**
  * CurrencySelector — six-currency display switcher for the price guide.
  *
- * Server component. Renders a horizontal row of pill links, one per
+ * Client component. Renders a horizontal row of pill links, one per
  * supported currency. The selected one is highlighted; the rest are
- * dimmed. Clicking a pill GETs /api/currency?code=XXX&back=<back>, which
- * sets the cookie and redirects back.
+ * dimmed.
  *
- * JS-free by construction: every interaction is a plain <a> redirect.
- * Accessible to screen readers / agents / text-only browsers. Mirrors
- * the platform's other "switch a cookie + redirect back" toggles (math
- * language in the Footer, text-mode).
+ * Toggle behaviour:
+ *   1. JS-enabled (default): plain left-click is intercepted, the
+ *      MoneyContext is flipped in-place via `setCurrency(code)`, the
+ *      cookie is written client-side, and the navigation is cancelled.
+ *      Every <Money> consumer below the root <Providers> re-renders
+ *      synchronously — no round-trip, no full-page re-render, scroll
+ *      position preserved.
+ *   2. JS-disabled / modifier-click / middle-click: the underlying
+ *      <Link> falls through to GET /api/currency?code=XXX&back=…, which
+ *      sets the cookie server-side and 302s back. The selector remains
+ *      reachable by screen readers / agents / text-only browsers.
  *
  * The `back` prop must be a same-origin path (the route resolves it
  * against the request origin to prevent open-redirect abuse).
+ *
+ * Yu 2026-05-14 (kingdom-090 follow-up): toggle was sluggish on
+ * /prices/* because every click triggered a redirect + full server
+ * re-render of a page that fetches sets / top cards / trade-in / coverage
+ * in parallel. The in-place toggle keeps the JS-free fallback intact.
  */
 
+"use client";
+
 import Link from "next/link";
+import { useMoneyContext } from "@/lib/fx/money-context";
+import { WhyLink } from "@/lib/ui";
 import {
   SUPPORTED_CURRENCIES,
   CURRENCY_META,
@@ -23,25 +38,47 @@ import {
   type RateTable,
 } from "@/lib/fx/rates";
 
+/**
+ * <CurrencyWhyLink> — WhyLink whose label includes the live display
+ * currency code from MoneyContext. Tracks in-place toggles so the label
+ * never goes stale relative to the prices below. Drop next to a
+ * currency-aware value with `href="/methodology/fx-rates"`.
+ */
+export function CurrencyWhyLink({ href = "/methodology/fx-rates" }: { href?: string } = {}) {
+  const { currency } = useMoneyContext();
+  return <WhyLink href={href} label={`display currency · ${currency}`} />;
+}
+
 interface CurrencySelectorProps {
-  /** The currency currently active (read from cookie by the caller). */
+  /** Initial selection seeded by the SSR layout. The MoneyProvider
+   *  initializes its state from the same cookie, so on first paint the
+   *  prop and context agree. After that the context is authoritative. */
   selected: Currency;
-  /** The current rate table — surfaces the live rate inside each pill
-   *  so the visitor sees "1 GBP = 1.27 USD" before they switch. */
+  /** Rate table for the per-pill mini-rate (e.g. "1.27" inside the USD
+   *  pill). The context carries the same table; the prop is accepted
+   *  for backwards-compat and as an explicit override. */
   rates: RateTable;
-  /** Same-origin path to redirect to after the cookie is set.
-   *  Typically the URL of the page rendering the selector. */
+  /** Same-origin path to redirect to after the cookie is set (used only
+   *  on the JS-disabled / modifier-click fallback). Typically the URL
+   *  of the page rendering the selector. */
   back: string;
   /** Optional label shown above the row. Defaults to "Display currency". */
   label?: string;
 }
 
 export function CurrencySelector({
-  selected,
-  rates,
+  selected: ssrSelected,
+  rates: propRates,
   back,
   label = "Display currency",
 }: CurrencySelectorProps) {
+  const { currency: ctxCurrency, rates: ctxRates, setCurrency } =
+    useMoneyContext();
+  // Context wins once we're mounted; the prop is the SSR seed and matches
+  // context on first render (both come from the same cookie via layout).
+  const selected = ctxCurrency ?? ssrSelected;
+  const rates = ctxRates ?? propRates;
+
   return (
     <section
       aria-label={label}
@@ -86,6 +123,21 @@ export function CurrencySelector({
               role="radio"
               aria-checked={isSelected}
               prefetch={false}
+              onClick={(e) => {
+                // Allow modifier-click (open in new tab) + non-primary
+                // mouse buttons to go through the API-route fallback.
+                if (
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey ||
+                  e.button !== 0
+                ) {
+                  return;
+                }
+                e.preventDefault();
+                setCurrency(code);
+              }}
               className={
                 "inline-flex items-baseline gap-1.5 px-2.5 py-1.5 rounded border text-xs transition-colors " +
                 (isSelected
@@ -128,9 +180,11 @@ function formatRateForPill(code: Currency, rate: number): string {
 // ── Rate table panel ────────────────────────────────────────────────────
 
 interface RateTablePanelProps {
-  /** Current rate table (live or fallback). */
+  /** Current rate table (live or fallback). The context carries the same
+   *  data; the prop is accepted for backwards-compat. */
   rates: RateTable;
-  /** Currently-selected display currency, highlighted in the table. */
+  /** Initial selected currency, highlighted in the table. The context
+   *  takes over after mount so the highlight tracks in-place toggles. */
   selected: Currency;
 }
 
@@ -139,7 +193,14 @@ interface RateTablePanelProps {
  * and freshness; links to the methodology page and the JSON endpoint
  * so a curious visitor / agent can read the same data machine-side.
  */
-export function RateTablePanel({ rates, selected }: RateTablePanelProps) {
+export function RateTablePanel({
+  rates: propRates,
+  selected: ssrSelected,
+}: RateTablePanelProps) {
+  const { currency: ctxCurrency, rates: ctxRates } = useMoneyContext();
+  const rates = ctxRates ?? propRates;
+  const selected = ctxCurrency ?? ssrSelected;
+
   const fetchedAt = new Date(rates.fetched_at);
   const ageMs = Date.now() - fetchedAt.getTime();
   const ageHours = Math.max(0, Math.round(ageMs / (1000 * 60 * 60)));

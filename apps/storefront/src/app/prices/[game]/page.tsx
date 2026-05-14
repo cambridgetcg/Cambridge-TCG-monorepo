@@ -22,12 +22,14 @@ import {
 } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
-import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
+import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import {
   CurrencySelector,
   RateTablePanel,
+  CurrencyWhyLink,
 } from "@/components/CurrencySelector";
+import { Money } from "@/lib/fx/Money";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -435,7 +437,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
             cadence="daily"
           />
           <WhyLink href="/methodology/pricing" label="how prices work" />
-          <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
+          <CurrencyWhyLink />
           {cfg.cardrush && !cfg.cardrush.confirmed && (
             <span
               className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded"
@@ -730,12 +732,10 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                         <RarityBadge rarity={card.rarity} />
                       </td>
                       <td className="px-3 py-3 text-right text-white font-medium">
-                        {formatGbpAs(card.price, currency, rates)}
+                        <Money value={card.price} />
                       </td>
                       <td className="px-3 py-3 text-right text-green-400">
-                        {card.tradein_credit
-                          ? formatGbpAs(card.tradein_credit, currency, rates)
-                          : "—"}
+                        <Money value={card.tradein_credit} treatZeroAsMissing />
                       </td>
                     </tr>
                   ))}

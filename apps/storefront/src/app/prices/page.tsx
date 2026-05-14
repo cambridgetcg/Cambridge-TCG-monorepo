@@ -12,6 +12,7 @@ import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import {
   CurrencySelector,
   RateTablePanel,
+  CurrencyWhyLink,
 } from "@/components/CurrencySelector";
 
 export const metadata: Metadata = {
@@ -105,7 +106,7 @@ export default async function PricesLandingPage() {
           <Provenance kind="synced" source="wholesale" cadence="daily" />
           <WhyLink href="/methodology/pricing" label="how prices work" />
           <WhyLink href="/methodology/cross-source-pricing" label="cross-source comparison" />
-          <WhyLink href="/methodology/fx-rates" label={`display currency · ${currency}`} />
+          <CurrencyWhyLink />
           <Link
             href="/prices/coverage"
             className="text-xs text-blue-400 hover:underline"
