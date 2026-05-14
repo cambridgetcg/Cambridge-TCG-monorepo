@@ -87,12 +87,21 @@ The `[set]` page handler retains its existing tolerance (`!setInfo && cardsData.
 - `pnpm exec tsc --noEmit -p apps/storefront/tsconfig.json` exit 0.
 - Live verify on the deploy after merge: head and body agree.
 
-## Recursion targets
+## Recursion targets — closure pass (2026-05-14 22:52 GMT)
 
-1. **Coverage-map 404** — `/prices/coverage` returns 200 with a notFound body, linked from every per-game *"full coverage map →"* link. Separate kingdom; either build the page or scrub the link.
-2. **`pnpm audit:set-discovery` extension** — current audit covers ingest discovery; extend to verify that every set referenced by URL convention (registered code in the sets table) has a non-empty `name`. Today `SV1` exists in the catalog with `name = SV1` (or null), surfacing the *"SV1 SV1"* title — a separate data issue from the metadata mismatch this kingdom fixes.
-3. **Anticipated-set placeholder UI** — for sets that are registered but pre-ingest (the case the `[set]` handler explicitly tolerates), render a substrate-honest *"anticipated set — coverage pending"* state with cardrush/tcgplayer expected-source pills, instead of the current implicit empty table. Companion to the *"preparing coverage"* tile pill on the landing.
-4. **Per-card metadata for known-stub variants** — once English-Pokémon catalog ingests, the `[number]` page's anticipated stub copy should distinguish *"card exists in catalog, no price observed yet"* from *"card not in catalog"*. Today both look like 404.
+All four targets addressed in a single closure pass on Yu's *"close out the recursion targets"* directive:
+
+1. **T1 — Coverage-map 404 ✅** Shipped as commit `12fd239`. New server-rendered route at `apps/storefront/src/app/prices/coverage/page.tsx` reads `fetchAggregatorCoverage()` and renders summary KPIs + per-game + per-source + per-(game × source) tables. Substrate-honest about every absence state: wholesale unreachable (amber banner), `price_archive` empty (no-snapshots-yet panel), individual empty arrays (collapsed sections). Includes a `.gitignore` exception keeping the route visible (root `coverage/` rule was hiding it as test output). Live: `https://cambridgetcg.com/prices/coverage` renders the unreachable-banner today because wholesale auth fails on prod for this endpoint — substrate-honest, not zero-faked.
+
+2. **T2 — Anonymous-sets audit ✅** Shipped as part of sister's `ced1b08` commit. Extends `apps/admin/scripts/set-discovery.ts` with a third check class: scans the `sets` table for rows where `name IS NULL OR name = '' OR name = code` and reports them as *"Anonymous sets"*. STRICT-mode now exits non-zero when any of the three classes (catch-all / unparseable / anonymous) is non-empty.
+
+3. **T3 — Anticipated-set placeholder UI ✅** Shipped as part of sister's `ced1b08` commit. Replaces the bare *"No cards found for this set."* table row with a substrate-honest amber-bordered panel showing the set's expected upstream sources (CardRush subdomain with `probationary` chip if unconfirmed, plus `wholesale-rds`), back-links to the game's index + `/prices/coverage` + `/api/v1/sources`. The card table now renders only when there are cards; the panel renders only when there aren't.
+
+4. **T4 — Per-card variant metadata** → **deferred to kingdom-092**. Mission card authored at `docs/missions/kingdom-092.md` with status `queued`. The work needs a `loadCardState` discriminator-union extension that's structurally larger than the kingdom-091 metadata-only fix; better to wait for the English-Pokémon catalog ingest so the discriminator has a real production fixture to anchor to.
+
+**One author, many hands:** T2, T3, and T4's mission card all rode under sister Sophia's `ced1b08 feat(b2b): wholesale consolidation Phase 2.1` commit because the changes were unstaged when she ran `git add` for her wholesale-consolidation work. The result is correct; the commit message just doesn't credit them. `git blame` on those lines points at `ced1b08` rather than a dedicated kingdom-091-closure commit — a small honest cost of parallel work. Future readers cross-referencing this mission card and the file history will see the bridge.
+
+## Why "fidelity" not "404 polish"
 
 ## Live verification (2026-05-14 22:37 GMT)
 
