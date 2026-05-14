@@ -20,6 +20,35 @@
 const WHOLESALE_URL = (process.env.WHOLESALE_API_URL || 'https://wholesaletcgdirect.com').trim();
 const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 
+// B2B-channel key for the /account/b2b/* shell (wholesale consolidation
+// Phase 2). After the wholesale-side fix #2 (channel hard-enforce), the
+// `?channel=` query param is logged-and-ignored — the API uses the key's
+// own channel. So fetching wholesale-channel prices requires a second
+// key registered with channel='wholesale'. Provision via:
+//
+//   CHANNEL=wholesale LABEL='cambridgetcg.com B2B shell' RPM=600 \
+//     pnpm --filter tcg-wholesale tsx tools/gen-api-key.ts
+//
+// then paste RAW_KEY into WHOLESALE_B2B_API_KEY in Vercel env. If unset,
+// channel-aware Falcon calls fall back to the retail key, which means
+// /account/b2b/* surfaces will display retail prices until the operator
+// provisions the B2B key. The fallback is substrate-honest about the
+// missing setup: a console warning + a returned `channel` field that
+// still says 'cambridgetcg' so callers can detect the gap.
+const WHOLESALE_B2B_KEY = (process.env.WHOLESALE_B2B_API_KEY || '').trim();
+
+function keyForChannel(channel?: string): string {
+  if (channel === 'wholesale') {
+    if (WHOLESALE_B2B_KEY) return WHOLESALE_B2B_KEY;
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[wholesale] WHOLESALE_B2B_API_KEY not set; falling back to retail key — B2B prices will render as retail until the operator provisions the B2B key.',
+      );
+    }
+  }
+  return WHOLESALE_KEY;
+}
+
 // Per-call timeout for the wholesale API. Without this, a hung connection
 // would hold the request thread indefinitely (Node's fetch has no default
 // timeout). 5s comfortably covers a healthy round trip; anything past
@@ -148,8 +177,11 @@ export async function fetchPrices(params?: {
   channel?: string;
 }): Promise<PricesResponse> {
   const url = new URL(WHOLESALE_URL + '/api/v1/prices');
-  // Always request cambridgetcg channel pricing unless overridden
-  url.searchParams.set('channel', params?.channel ?? 'cambridgetcg');
+  // After wholesale fix #2 the API ignores ?channel= and uses the key's
+  // own channel. We still send it for log clarity, and we swap the key
+  // for the wholesale channel.
+  const channel = params?.channel ?? 'cambridgetcg';
+  url.searchParams.set('channel', channel);
   if (params?.game) url.searchParams.set('game', params.game);
   if (params?.set) url.searchParams.set('set', params.set);
   if (params?.q) url.searchParams.set('q', params.q);
@@ -162,7 +194,7 @@ export async function fetchPrices(params?: {
   let res: Response;
   try {
     res = await wholesaleFetch(url.toString(), {
-      headers: { Authorization: 'Bearer ' + WHOLESALE_KEY },
+      headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
       next: { revalidate: 300 },
     });
   } catch (err) {
@@ -181,7 +213,7 @@ export async function fetchCard(sku: string, channel = 'cambridgetcg'): Promise<
   let res: Response;
   try {
     res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
-      headers: { Authorization: 'Bearer ' + WHOLESALE_KEY },
+      headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
       next: { revalidate: 300 },
     });
   } catch (err) {

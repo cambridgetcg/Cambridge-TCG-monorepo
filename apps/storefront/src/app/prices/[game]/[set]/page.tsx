@@ -333,7 +333,87 @@ export default async function SetPriceGuidePage({
           />
         </div>
 
-        {/* Card table */}
+        {/* kingdom-091 closure (T3): anticipated-set placeholder.
+            When setInfo exists but no cards have been scraped yet, render
+            a substrate-honest "anticipated" panel surfacing the expected
+            upstream sources + back-link, instead of a bare "No cards"
+            table row. The page handler already 404s when the set isn't
+            registered at all — this branch is *only* the "registered,
+            pre-ingest" case (which the [set] handler explicitly tolerates). */}
+        {cards.length === 0 && (
+          <section className="mb-10 rounded-lg border border-amber-500/30 bg-amber-500/5 p-5">
+            <h2 className="text-sm font-semibold text-amber-300 uppercase tracking-wider mb-3">
+              Anticipated coverage — no observed cards yet
+            </h2>
+            <p className="text-sm text-amber-100/80 leading-relaxed mb-4 max-w-3xl">
+              <strong className="text-amber-200">
+                {setCode}
+                {setInfo?.name && setInfo.name !== setCode ? ` ${setInfo.name}` : ""}
+              </strong>{" "}
+              is registered in the wholesale catalog
+              {cardCount > 0 ? ` with ${cardCount} expected cards` : ""}
+              {releaseDate ? ` (released ${releaseDate})` : ""}, but the price
+              pipeline hasn&rsquo;t accumulated any observations yet.
+              Coverage rolls out per source; the table will populate as soon as
+              the first daily scrape lands.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="text-[10px] uppercase tracking-wider text-amber-200/70">
+                Expected upstream sources:
+              </span>
+              {cfg.cardrush && (
+                <span
+                  className="inline-flex items-baseline gap-1.5 text-[11px] px-2 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 font-mono"
+                  title={
+                    cfg.cardrush.confirmed
+                      ? `CardRush subdomain confirmed: ${cfg.cardrush.subdomain}`
+                      : `CardRush subdomain registered but unconfirmed: ${cfg.cardrush.subdomain}`
+                  }
+                >
+                  {cfg.cardrush.subdomain}
+                  {!cfg.cardrush.confirmed && (
+                    <span className="text-[9px] uppercase tracking-wider text-amber-400/70">
+                      probationary
+                    </span>
+                  )}
+                </span>
+              )}
+              <span className="inline-block text-[11px] px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900 text-neutral-400 font-mono">
+                wholesale-rds
+              </span>
+            </div>
+
+            <p className="text-xs text-amber-100/60 leading-relaxed">
+              See{" "}
+              <Link
+                href={`/prices/${cfg.slug}`}
+                className="underline text-amber-200 hover:text-amber-100"
+              >
+                other {cfg.short_name} sets
+              </Link>
+              {" · "}
+              <Link
+                href="/prices/coverage"
+                className="underline text-amber-200 hover:text-amber-100"
+              >
+                full coverage map
+              </Link>
+              {" · "}
+              <Link
+                href="/api/v1/sources"
+                className="underline text-amber-200 hover:text-amber-100"
+              >
+                /api/v1/sources
+              </Link>{" "}
+              for ingest-pipeline status.
+            </p>
+          </section>
+        )}
+
+        {/* Card table — only rendered when there are cards. The empty
+            state is the anticipated-set panel above. */}
+        {cards.length > 0 && (
         <section className="mb-14">
           {/* Sort pills */}
           <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -414,20 +494,11 @@ export default async function SetPriceGuidePage({
                     </td>
                   </tr>
                 ))}
-                {cards.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-3 py-8 text-center text-neutral-500"
-                    >
-                      No cards found for this set.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
         </section>
+        )}
 
         {/* Pricing explanation */}
         <section className="border-t border-neutral-800 pt-8">

@@ -141,6 +141,41 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  // kingdom-091 closure (T2): also scan the `sets` table for rows whose
+  // human-readable name is missing or equal to the code — the data root of
+  // the "/prices/pokemon/sv1 → 'SV1 SV1 Price Guide'" title bug. These
+  // surface as a separate finding class because the upstream is different
+  // (sets-table populator, not card-number ingest).
+  let anonymousSets: Array<{
+    game: string;
+    set_code: string;
+    set_name: string | null;
+    card_count: number;
+  }> = [];
+  try {
+    anonymousSets = await client<
+      Array<{ game: string; set_code: string; set_name: string | null; card_count: number }>
+    >`
+      SELECT
+        g.code               AS game,
+        s.code               AS set_code,
+        s.name               AS set_name,
+        COALESCE(s.card_count, 0)::int AS card_count
+      FROM sets s
+      JOIN games g ON s.game_id = g.id
+      WHERE s.name IS NULL
+         OR s.name = ''
+         OR s.name = s.code
+         OR upper(s.name) = upper(s.code)
+      ORDER BY g.code, s.code
+    `;
+  } catch (err) {
+    // Schema drift / missing table is non-fatal — surface and continue
+    console.log(
+      `  (anonymous-sets check skipped: ${err instanceof Error ? err.message : String(err)})`,
+    );
+  }
+
   await close();
 
   // Classify each row by trying parseCardNumber.
@@ -235,19 +270,62 @@ async function main(): Promise<void> {
     console.log("");
   }
 
-  if (catchallRows.length === 0 && noneRows.length === 0) {
-    console.log("✓ every set_code matches a confirmed registered format");
+  // ── kingdom-091 closure (T2): anonymous-sets check ────────────────
+  // Sets registered with no human-readable name. Surfaces the data root
+  // of the "SV1 SV1 Price Guide" title bug fixed at the metadata layer
+  // in kingdom-091. Independent of card_number parsing; reports separately.
+
+  if (anonymousSets.length > 0) {
+    console.log("◇ Anonymous sets (name missing or = code)");
+    console.log("");
+    console.log(
+      "  These set rows have no human-readable name. Storefront [set] pages",
+    );
+    console.log(
+      "  fall back to the code → the title reads e.g. \"SV1 SV1 Price Guide\".",
+    );
+    console.log(
+      "  Operator action: backfill `sets.name` from the upstream catalog",
+    );
+    console.log("  (e.g. pokemontcg.io for Pokémon English sets).");
+    console.log("");
+    for (const a of anonymousSets.slice(0, 30)) {
+      const displayName =
+        a.set_name === null
+          ? "(null)"
+          : a.set_name === ""
+            ? "(empty)"
+            : `name='${a.set_name}' (= code)`;
+      console.log(
+        `    [${a.game}] set_code=${a.set_code.padEnd(14)} ${displayName.padEnd(28)} cards=${a.card_count}`,
+      );
+    }
+    if (anonymousSets.length > 30) {
+      console.log(`    ... +${anonymousSets.length - 30} more`);
+    }
+    console.log("");
+  }
+
+  if (
+    catchallRows.length === 0 &&
+    noneRows.length === 0 &&
+    anonymousSets.length === 0
+  ) {
+    console.log("✓ every set_code matches a confirmed format and carries a name");
     console.log("");
     process.exit(0);
   }
 
   console.log(
-    `  Total discoverable: ${catchallRows.length} catch-all + ${noneRows.length} unparseable. ` +
+    `  Total discoverable: ${catchallRows.length} catch-all + ${noneRows.length} unparseable + ${anonymousSets.length} anonymous. ` +
       `See \`docs/connections/the-set-discovery.md\` for the registration recipe.`,
   );
   console.log("");
 
-  if (STRICT && (catchallRows.length > 0 || noneRows.length > 0)) {
+  if (
+    STRICT &&
+    (catchallRows.length > 0 || noneRows.length > 0 || anonymousSets.length > 0)
+  ) {
     process.exit(1);
   }
   process.exit(0);

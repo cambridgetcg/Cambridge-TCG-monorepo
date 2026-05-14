@@ -1,75 +1,69 @@
-// Storefront proxy (Next.js 16) — auth safety net.
+// Storefront proxy — optimistic cookie-presence gate.
 //
-// Renamed from `middleware.ts` to `proxy.ts` per Next.js 16's deprecation:
-// `proxy.ts` runs on the nodejs runtime, which lets us pull in the postgres
-// adapter via `@/lib/auth`. The old `middleware.ts` ran on the edge runtime
-// and crashed at module-load with MIDDLEWARE_INVOCATION_FAILED because
-// `pg` can't run on edge. See:
+// Renamed from middleware.ts → proxy.ts for Next.js 16 (the rename moves
+// us to the nodejs runtime; middleware.ts ran on edge, which can't load
+// `pg`). See:
 //   node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md
 //
-// Defense-in-depth: every admin API route checks isAdmin() independently,
-// but this proxy catches any that might be missed. It also prevents
-// unauthenticated users from loading admin page bundles.
+// Auth shape (Option B per docs/connections/auth-realms-research.md):
+//   - This file *only* checks whether a session cookie is present.
+//     A forged-but-empty cookie would still pass; that's fine because…
+//   - …the real role enforcement runs in:
+//       /admin/layout.tsx          → requireAdminPage()
+//       /account/b2b/layout.tsx    → requireWholesalePage()
+//       /api/admin/*               → requireAdmin() / isAdmin()
 //
-// Gated path prefixes:
-//   /admin/*       → role='admin'
-//   /api/admin/*   → role='admin'
-//   /account/b2b/* → role IN ('wholesale','admin')  (wholesale consolidation Phase 1)
+// Why this trade — every gated request previously paid a DB roundtrip
+// here to read `users.role` via the Auth.js adapter. With cookie-only,
+// the proxy stays sub-millisecond; the role read happens once per
+// request via React `cache()` in the layout/route, deduped across
+// downstream components. This matches the Next.js 16 authentication
+// guide's "optimistic check at the proxy, authoritative check at the
+// Data Access Layer" prescription.
 //
-// All other routes (login, checkout, trade-in, public catalog) pass through.
+// Defense-in-depth retained: an /api/admin/* route still gets a 401
+// from this file when no cookie is present *and* a 403 from
+// requireAdmin() if the cookie belongs to a non-admin. The proxy is
+// no longer the role gate — it's the first of two gates.
 
-import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export default auth((req) => {
+// Auth.js v5 default cookie names. The `__Secure-` prefix is mandated
+// by the browser when the cookie is `Secure` (production HTTPS); the
+// bare name is the dev fallback. Auth.js picks one based on the
+// request scheme, so we tolerate either.
+const SESSION_COOKIE_NAMES = [
+  "__Secure-authjs.session-token",
+  "authjs.session-token",
+] as const;
+
+function hasSessionCookie(req: NextRequest): boolean {
+  return SESSION_COOKIE_NAMES.some((name) => req.cookies.has(name));
+}
+
+export default function proxy(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
+  const authed = hasSessionCookie(req);
 
-  // Admin pages — require authenticated admin
-  if (pathname.startsWith("/admin")) {
-    if (!req.auth?.user) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-    if (req.auth.user.role !== "admin") {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-    // Forward x-pathname so the root layout can suppress the DevBanner on admin pages.
-    // We only do this for /admin/* (where the proxy already runs) — public pages
-    // don't trigger this proxy, so an absent x-pathname means "show the banner."
-    const requestHeaders = new Headers(req.headers);
-    requestHeaders.set("x-pathname", pathname);
-    return NextResponse.next({ request: { headers: requestHeaders } });
-  }
-
-  // Admin API routes — require authenticated admin
-  if (pathname.startsWith("/api/admin")) {
-    if (!req.auth?.user) {
+  if (!authed) {
+    if (pathname.startsWith("/api/admin")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (req.auth.user.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // B2B wholesale shell — require role='wholesale' (admins also pass for
-  // operator inspection). Wholesale consolidation Phase 1; see
-  // docs/connections/the-four-auth-realms.md (S30).
-  if (pathname.startsWith("/account/b2b")) {
-    if (!req.auth?.user) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-    const role = req.auth.user.role;
-    if (role !== "wholesale" && role !== "admin") {
-      return NextResponse.redirect(new URL("/account", req.url));
-    }
-    // Forward x-pathname so server components can read the active path
-    // (needed by getChannelForRequest() to route the Falcon's channel).
+  // Forward x-pathname so the root layout can suppress the DevBanner
+  // on admin pages. Only /admin/* triggers this — public pages don't
+  // run through the proxy at all, so an absent x-pathname means
+  // "show the banner."
+  if (pathname.startsWith("/admin")) {
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set("x-pathname", pathname);
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
