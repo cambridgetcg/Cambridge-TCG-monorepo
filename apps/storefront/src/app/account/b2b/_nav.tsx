@@ -19,7 +19,7 @@ const B2B_NAV_ITEMS = [
   { href: "/account/b2b", label: "Overview", exact: true },
   { href: "/account/b2b/catalog", label: "Catalog", prefix: "/account/b2b/catalog" },
   { href: "/account/b2b/cards", label: "Cards", prefix: "/account/b2b/cards", hideTopLevel: true },
-  { href: "/account/b2b/cart", label: "Cart", prefix: "/account/b2b/cart" },
+  { href: "/account/b2b/cart", label: "Cart", prefix: "/account/b2b/cart", badge: "cart" as const },
   { href: "/account/b2b/orders", label: "Orders", prefix: "/account/b2b/orders" },
 ] as const;
 
@@ -31,7 +31,7 @@ function isActive(pathname: string, item: typeof B2B_NAV_ITEMS[number]): boolean
   return false;
 }
 
-export function B2BNav() {
+export function B2BNav({ cartCount = 0 }: { cartCount?: number }) {
   const pathname = usePathname() ?? "/account/b2b";
   // The "Cards" item is a child detail surface — only render in the strip
   // when the user is already on a /cards/* route, otherwise it's clutter.
@@ -45,18 +45,24 @@ export function B2BNav() {
       <div className="flex flex-wrap gap-1 -mb-px">
         {visibleItems.map((item) => {
           const active = isActive(pathname, item);
+          const badge = "badge" in item && item.badge === "cart" && cartCount > 0 ? cartCount : null;
           return (
             <Link
               key={item.href}
               href={item.href}
               className={
-                "px-3 py-2 text-sm font-medium border-b-2 transition-colors " +
+                "px-3 py-2 text-sm font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 " +
                 (active
                   ? "border-amber-500 text-amber-400"
                   : "border-transparent text-neutral-400 hover:text-neutral-200 hover:border-neutral-700")
               }
             >
               {item.label}
+              {badge !== null && (
+                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-neutral-950 text-xs font-bold leading-none">
+                  {badge}
+                </span>
+              )}
             </Link>
           );
         })}

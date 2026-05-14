@@ -11,13 +11,18 @@
  */
 
 import { requireWholesalePage } from "@/lib/auth/realms";
+import { countItems } from "@/lib/b2b/cart";
 import { B2BNav } from "./_nav";
 
 export default async function B2BLayout({ children }: { children: React.ReactNode }) {
-  await requireWholesalePage();
+  const user = await requireWholesalePage();
+  // Cart count for the nav badge. Read here (once) and pass to the
+  // client nav so we don't trigger a cart query in every server
+  // component that mounts inside the layout.
+  const cartCount = await countItems(user.id).catch(() => 0);
   return (
     <div>
-      <B2BNav />
+      <B2BNav cartCount={cartCount} />
       {children}
     </div>
   );
