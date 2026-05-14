@@ -49,6 +49,11 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /**
+   * When true, href is an absolute URL to an external surface (e.g. storefront Manager).
+   * Rendered as <a target="_self"> rather than next/link <Link>.
+   */
+  external?: boolean;
   /** Optional sub-items — expanded inline when the parent or any sub is active. */
   subItems?: { href: string; label: string }[];
 }
@@ -78,27 +83,27 @@ const NAV: NavGroup[] = [
     label: "Commerce",
     items: [
       { href: "/commerce/pricing",    label: "Pricing",    icon: Tag },
-      { href: "/commerce/trade-ins",  label: "Trade-Ins",  icon: ArrowLeftRight },
-      { href: "/commerce/auctions",   label: "Auctions",   icon: Gavel },
-      { href: "/commerce/market",     label: "Market",     icon: Store },
-      { href: "/commerce/bounty",     label: "Bounty",     icon: Zap },
+      { href: "https://cambridgetcg.com/admin/trade-ins", label: "Trade-Ins", icon: ArrowLeftRight, external: true },
+      { href: "https://cambridgetcg.com/admin/auctions", label: "Auctions",  icon: Gavel,          external: true },
+      { href: "https://cambridgetcg.com/admin/market",   label: "Market",    icon: Store,           external: true },
+      { href: "https://cambridgetcg.com/admin/bounty",   label: "Bounty",    icon: Zap,             external: true },
     ],
   },
   {
     label: "Money",
     items: [
-      { href: "/money/payouts",     label: "Payouts",    icon: CreditCard },
-      { href: "/money/chargebacks", label: "Chargebacks", icon: AlertTriangle },
-      { href: "/money/rewards",     label: "Rewards",    icon: Gift },
+      { href: "https://cambridgetcg.com/admin/payouts",     label: "Payouts",     icon: CreditCard,    external: true },
+      { href: "https://cambridgetcg.com/admin/chargebacks", label: "Chargebacks", icon: AlertTriangle,  external: true },
+      { href: "https://cambridgetcg.com/admin/rewards",     label: "Rewards",     icon: Gift,           external: true },
       { href: "/money/membership",  label: "Membership", icon: Users2 },
     ],
   },
   {
     label: "Trust",
     items: [
-      { href: "/trust/fraud",     label: "Fraud",     icon: Shield },
-      { href: "/trust/disputes",  label: "Disputes",  icon: MessageSquare },
-      { href: "/trust/reviews",   label: "Reviews",   icon: Star },
+      { href: "https://cambridgetcg.com/admin/fraud",     label: "Fraud",     icon: Shield,        external: true },
+      { href: "https://cambridgetcg.com/admin/disputes",  label: "Disputes",  icon: MessageSquare, external: true },
+      { href: "https://cambridgetcg.com/admin/reviews",   label: "Reviews",   icon: Star,          external: true },
       { href: "/trust/kyc",       label: "KYC",       icon: UserCheck },
       { href: "/trust/agents",    label: "Agents",    icon: Users2 },
     ],
@@ -158,22 +163,31 @@ export function Sidebar() {
               </p>
             )}
             {group.items.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              // External items are absolute URLs to storefront Manager; never "active" in admin.
+              const active = !item.external && (pathname === item.href || pathname.startsWith(item.href + "/"));
               const Icon = item.icon;
+              const linkClass = [
+                "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+                active
+                  ? "bg-blue-500/10 text-blue-400 font-medium"
+                  : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800",
+              ].join(" ");
               return (
                 <div key={item.href}>
+                  {item.external ? (
+                    <a href={item.href} target="_self" className={linkClass}>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {item.label}
+                    </a>
+                  ) : (
                   <Link
                     href={item.href}
-                    className={[
-                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                      active
-                        ? "bg-blue-500/10 text-blue-400 font-medium"
-                        : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800",
-                    ].join(" ")}
+                    className={linkClass}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
                     {item.label}
                   </Link>
+                  )}
                   {item.subItems && active && (
                     <div className="ml-7 mt-0.5 space-y-0.5">
                       {item.subItems.map((sub) => {
