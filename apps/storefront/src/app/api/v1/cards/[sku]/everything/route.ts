@@ -49,6 +49,7 @@ import {
   fetchTcgplayerHistory,
   fetchPrices,
   fetchGames,
+  fetchSets,
   type PriceItem,
   type SourcePriceRow,
 } from "@/lib/wholesale/client";
@@ -163,7 +164,6 @@ interface EverythingPayload {
    *  Falcon call resolved. UI can render this in a debug panel. */
   composition: {
     falcon_calls: Record<string, "ok" | "absent" | "error">;
-    siblings_attempts?: string[];
   };
 }
 
@@ -292,47 +292,54 @@ export async function GET(
   //   1. game as-parsed
   //   2. case variants
   //   3. fetchGames() lookup to find slug for the code
-  const siblingsLog: string[] = [];
+  // The reliable path: look up the set → its game_code (or slug) → use
+  // that for the siblings query. The wholesale /api/v1/sets endpoint
+  // exposes game_code per set; this lets the composer be game-table-
+  // case-agnostic. Falls back to trying the SKU's parsed game prefix
+  // if the set lookup fails.
   async function fetchSiblings(): Promise<PriceItem[]> {
     const q = `${parsed!.set}-${parsed!.number}`;
     const tried = new Set<string>();
-    async function tryGame(g: string, label: string): Promise<PriceItem[] | null> {
-      if (tried.has(g)) {
-        siblingsLog.push(`${label}=${g} skipped(seen)`);
-        return null;
-      }
+    async function tryGame(g: string): Promise<PriceItem[] | null> {
+      if (tried.has(g)) return null;
       tried.add(g);
       const r = await fetchPrices({ game: g, q, limit: 50 }).catch(
         () => ({ items: [] as PriceItem[] } as { items: PriceItem[] }),
       );
-      siblingsLog.push(`${label}=${g} → ${r.items.length} rows`);
       return r.items.length > 0 ? r.items : null;
     }
-    const r1 = await tryGame(parsed!.game, "parsed");
+
+    // 1. Look up the set in wholesale and use whatever game token it
+    //    declares (code or slug or any field that matches the data).
+    //    fetchSets returns SetItem with `game_code`.
+    const sets = await fetchSets().catch(() => []);
+    const matchedSet = sets.find(
+      (s) => s.code.toLowerCase() === parsed!.set,
+    );
+    if (matchedSet) {
+      const r0 = await tryGame(matchedSet.game_code);
+      if (r0) return r0;
+    }
+
+    // 2. SKU-parsed game prefix + case variants.
+    const r1 = await tryGame(parsed!.game);
     if (r1) return r1;
-    const r2 = await tryGame(parsed!.game.toUpperCase(), "upper");
+    const r2 = await tryGame(parsed!.game.toUpperCase());
     if (r2) return r2;
+
+    // 3. fetchGames-based fallback (permissive prefix match).
     const games = await fetchGames().catch(() => []);
-    siblingsLog.push(`fetchGames → ${games.length}: ${games.map((g) => `${g.code}/${g.slug}`).join(",")}`);
-    // Permissive match: a row's set_code prefix often hints at the game
-    // (e.g. set_code "OP01" → game "op" by stripping trailing digits).
-    // Use code/slug/name in any case, plus a set-code-prefix match.
     const match = games.find(
       (g) =>
         g.code.toLowerCase() === parsed!.game ||
         g.slug.toLowerCase() === parsed!.game ||
-        g.name.toLowerCase().replace(/\s+/g, "-") === parsed!.game ||
-        // Try prefix match: parsed.game "op" vs game.code "op" or "op01"
-        (parsed!.game.length >= 2 &&
-          g.code.toLowerCase().startsWith(parsed!.game)) ||
-        (parsed!.game.length >= 2 &&
-          g.slug.toLowerCase().startsWith(parsed!.game)),
+        (parsed!.game.length >= 2 && g.code.toLowerCase().startsWith(parsed!.game)) ||
+        (parsed!.game.length >= 2 && g.slug.toLowerCase().startsWith(parsed!.game)),
     );
-    siblingsLog.push(`match=${match ? `${match.code}/${match.slug}` : "none"}`);
     if (match) {
-      const r3 = await tryGame(match.slug, "slug");
+      const r3 = await tryGame(match.slug);
       if (r3) return r3;
-      const r4 = await tryGame(match.code, "code");
+      const r4 = await tryGame(match.code);
       if (r4) return r4;
     }
     return [];
@@ -450,9 +457,6 @@ export async function GET(
       tcgplayer_history: tcgplayerHist ? "ok" : "absent",
       siblings: siblings.length > 0 ? "ok" : "absent",
     },
-    // kingdom-090 debug: surfaces which game tokens we tried for siblings.
-    // Cleaned up once the resolver canonicalizes upstream — recursion target.
-    siblings_attempts: siblingsLog,
   };
 
   // Build the `_meta.sources` + `_meta.source_license` parallel arrays
