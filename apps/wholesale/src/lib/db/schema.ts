@@ -103,6 +103,19 @@ export const sets = pgTable("sets", {
   releaseDate: text("release_date"),
   sortOrder: integer("sort_order").default(0),
   active: boolean("active").default(true),
+  // ── Second witness (migration 0020) ─────────────────────────────────
+  // Mirror columns sourced from TCGdex (api.tcgdex.net). CardRush is the
+  // market-reality witness via `name`/`release_date` above; TCGdex is the
+  // metadata-correctness witness via these `tcgdex_*` mirrors. They are
+  // NOT unified — the audit `pnpm audit:tcgdex-drift` reports where they
+  // disagree. See docs/connections/the-second-witness.md.
+  tcgdexId: text("tcgdex_id"),
+  tcgdexName: text("tcgdex_name"),
+  tcgdexSerieName: text("tcgdex_serie_name"),
+  tcgdexLogoUrl: text("tcgdex_logo_url"),
+  tcgdexReleaseDate: text("tcgdex_release_date"),
+  tcgdexCardCount: integer("tcgdex_card_count"),
+  tcgdexFetchedAt: timestamp("tcgdex_fetched_at", { withTimezone: true }),
 }, (table) => ({
   gameCodeUnique: uniqueIndex("sets_game_code_idx").on(table.gameId, table.code),
 }));
@@ -128,6 +141,7 @@ export const cards = pgTable("cards", {
   productType: text("product_type"),
   rarity: text("rarity"),
   imageUrl: text("image_url"),
+  imageArchivedAt: timestamp("image_archived_at", { withTimezone: true }),
   stock: integer("stock").notNull().default(0), // UK warehouse on-hand: received - fulfilled
   pendingStock: integer("pending_stock").notNull().default(0), // ordered/shipped but not yet received
   reservedStock: integer("reserved_stock").notNull().default(0), // held by carts / checkouts via @cambridge-tcg/stock
