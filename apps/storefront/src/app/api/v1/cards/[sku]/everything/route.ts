@@ -313,11 +313,20 @@ export async function GET(
     const r2 = await tryGame(parsed!.game.toUpperCase(), "upper");
     if (r2) return r2;
     const games = await fetchGames().catch(() => []);
-    siblingsLog.push(`fetchGames → ${games.length}`);
+    siblingsLog.push(`fetchGames → ${games.length}: ${games.map((g) => `${g.code}/${g.slug}`).join(",")}`);
+    // Permissive match: a row's set_code prefix often hints at the game
+    // (e.g. set_code "OP01" → game "op" by stripping trailing digits).
+    // Use code/slug/name in any case, plus a set-code-prefix match.
     const match = games.find(
       (g) =>
         g.code.toLowerCase() === parsed!.game ||
-        g.slug.toLowerCase() === parsed!.game,
+        g.slug.toLowerCase() === parsed!.game ||
+        g.name.toLowerCase().replace(/\s+/g, "-") === parsed!.game ||
+        // Try prefix match: parsed.game "op" vs game.code "op" or "op01"
+        (parsed!.game.length >= 2 &&
+          g.code.toLowerCase().startsWith(parsed!.game)) ||
+        (parsed!.game.length >= 2 &&
+          g.slug.toLowerCase().startsWith(parsed!.game)),
     );
     siblingsLog.push(`match=${match ? `${match.code}/${match.slug}` : "none"}`);
     if (match) {
