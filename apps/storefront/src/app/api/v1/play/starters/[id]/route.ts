@@ -153,7 +153,7 @@ export async function GET(
     data,
     endpoint: `/api/v1/play/starters/${id}`,
     sources: ["ctcg-derived", "wholesale-rds.cards"],
-    source_license: ["CC0-1.0", "CC0-1.0"],
+    source_license: ["cc0", "cc0"],
     freshness: "catalog",
   });
 }

@@ -65,7 +65,7 @@ export async function GET(req: Request): Promise<Response> {
     data,
     endpoint: "/api/v1/play/starters",
     sources: ["ctcg-derived"],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     freshness: "methodology",
     contains_self: true,
   });

@@ -227,7 +227,7 @@ export async function GET(
     data,
     endpoint: "/api/v1/sources/[id]",
     sources: ["ctcg-derived", "wholesale-rds.ingest_run", "wholesale-rds.ingest_quarantine"],
-    source_license: ["CC0-1.0", "CC0-1.0", "CC0-1.0"],
+    source_license: ["cc0", "cc0", "cc0"],
     freshness: "status",
   });
 }

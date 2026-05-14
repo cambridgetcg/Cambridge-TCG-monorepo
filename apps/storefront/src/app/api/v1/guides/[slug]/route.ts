@@ -72,7 +72,7 @@ export async function GET(
     },
     endpoint: "/api/v1/guides/[slug]",
     sources: ["ctcg-derived"],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     freshness: "methodology",
     contains_self: true,
   });

@@ -155,8 +155,24 @@ function newRequestId(): string {
 /**
  * Build the canonical envelope around a response payload. Pure;
  * caller wraps in NextResponse.json when ready to emit.
+ *
+ * Throws on parallel-array length mismatch. `source_license` and
+ * `upstream_proxy` (when supplied) must run one-to-one with `sources` —
+ * each entry's index matches the source it describes. Mismatched
+ * lengths would silently emit a wrong-shape `_meta`, so we fail at the
+ * boundary instead. See docs/connections/the-modules.md hygiene rule 8.
  */
 export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
+  if (opts.source_license && opts.source_license.length !== opts.sources.length) {
+    throw new TypeError(
+      `envelope: source_license has ${opts.source_license.length} entries but sources has ${opts.sources.length} — they must run parallel`,
+    );
+  }
+  if (opts.upstream_proxy && opts.upstream_proxy.length !== opts.sources.length) {
+    throw new TypeError(
+      `envelope: upstream_proxy has ${opts.upstream_proxy.length} entries but sources has ${opts.sources.length} — they must run parallel`,
+    );
+  }
   const now = new Date().toISOString();
   return {
     data: opts.data,

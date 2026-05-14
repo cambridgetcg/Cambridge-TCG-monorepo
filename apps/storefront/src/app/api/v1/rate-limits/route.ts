@@ -191,7 +191,7 @@ export async function GET(): Promise<Response> {
     data,
     endpoint: "/api/v1/rate-limits",
     sources: ["ctcg-derived"],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     freshness: "methodology",
     contains_self: true,
   });

@@ -154,7 +154,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         data: body,
         endpoint: "/api/v1/federation/identify/by-upstream",
         sources: ["wholesale-rds.cards", "wholesale-rds.card_tcgplayer_sku_ids"],
-        source_license: ["CC0-1.0", "CC0-1.0"],
+        source_license: ["cc0", "cc0"],
         freshness: "identity",
       });
     }
@@ -174,7 +174,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         data: body,
         endpoint: "/api/v1/federation/identify/by-upstream",
         sources: ["wholesale-rds.cards", "wholesale-rds.card_tcgplayer_sku_ids"],
-        source_license: ["CC0-1.0", "CC0-1.0"],
+        source_license: ["cc0", "cc0"],
         freshness: "identity",
       });
     }
@@ -214,7 +214,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "wholesale-rds.card_tcgplayer_sku_ids",
         "storefront-rds.card_set_cards",
       ],
-      source_license: ["CC0-1.0", "CC0-1.0", "CC0-1.0"],
+      source_license: ["cc0", "cc0", "cc0"],
       freshness: "identity",
     });
   }

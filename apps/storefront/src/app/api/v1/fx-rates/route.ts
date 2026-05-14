@@ -78,7 +78,7 @@ export async function GET(): Promise<Response> {
     data,
     endpoint: "/api/v1/fx-rates",
     sources: [table.source === "fallback" ? "ctcg-fallback" : table.source],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     // Custom freshness: 6 hours matches our upstream cache.
     freshness: 21_600,
     as_of: table.fetched_at,

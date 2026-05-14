@@ -223,7 +223,7 @@ export async function GET(): Promise<NextResponse> {
     data,
     endpoint: "/api/v1/sources/welcome",
     sources: ["ctcg-derived"],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     freshness: "methodology",
     contains_self: true,
     license: "CC0-1.0",

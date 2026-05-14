@@ -122,7 +122,7 @@ export async function GET(): Promise<Response> {
     data,
     endpoint: "/api/v1/feedback",
     sources: ["ctcg-derived"],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     freshness: "methodology",
     contains_self: true,
   });
@@ -232,7 +232,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     data,
     endpoint: "/api/v1/feedback",
     sources: ["ctcg-derived"],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     freshness: "status",
     no_cache: true,
   });

@@ -103,7 +103,7 @@ export async function GET(): Promise<Response> {
     },
     endpoint: "/api/v1/webhooks/subscriptions",
     sources: ["storefront-rds.webhook_subscriptions"],
-    source_license: ["CC0-1.0"],
+    source_license: ["cc0"],
     freshness: "status",
     no_cache: true,
   });
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       },
       endpoint: "/api/v1/webhooks/subscriptions",
       sources: ["storefront-rds.webhook_subscriptions"],
-      source_license: ["CC0-1.0"],
+      source_license: ["cc0"],
       freshness: "status",
       no_cache: true,
     });

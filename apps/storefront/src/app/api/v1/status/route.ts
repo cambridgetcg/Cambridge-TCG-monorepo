@@ -25,6 +25,7 @@
 import type { NextResponse } from "next/server";
 import { MANIFEST, type ManifestResource } from "@/lib/manifest";
 import { FRESHNESS, jsonResponse, SPEC_VERSION, type FreshnessKey } from "@/lib/data-pantry";
+import { ENVELOPE_COMPLIANT_PATHS } from "./envelope-compliance.generated";
 
 // ── Per-endpoint freshness assignment ────────────────────────────────────
 //
@@ -126,41 +127,16 @@ function freshnessFor(r: ManifestResource): FreshnessAssignment {
   return { label: "price_current", seconds: FRESHNESS.price_current, rationale: "computed — default 5min" };
 }
 
-// ── Envelope compliance — which endpoints emit via the pantry ────────────
+// ── Envelope compliance — derived, not hand-maintained ──────────────────
 //
-// The pantry envelope was introduced 2026-05-12 (kingdom-058). As more
-// endpoints adopt `jsonResponse`, append their paths here. The list is
-// the platform's substrate-honest declaration of where the convention
-// has reached — drift between this list and reality is itself a finding
-// the inclusion audit could check in a future iteration.
-
-const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
-  "/data.json",
-  "/api/v1/status",
-  "/api/v1/sources",
-  // kingdom-081 Phase 4.3 — single-source detail also wears the envelope.
-  "/api/v1/sources/[id]",
-  // kingdom-081 Phase 5.4 — auth-gated cardrush JPY history.
-  "/api/v1/cards/[sku]/cardrush-history",
-  // kingdom-081 Phase 5.5 — webhook subscription management (design-shipped).
-  "/api/v1/webhooks/subscriptions",
-  // kingdom-082 — hospitality surfaces.
-  "/api/v1/welcome",
-  "/api/v1/guides",
-  "/api/v1/guides/[slug]",
-  "/api/v1/rate-limits",
-  "/api/v1/feedback",
-  // kingdom-083 — the inner peace.
-  "/api/v1/examples",
-  "/api/v1/examples/[endpoint_id]",
-  "/api/v1/adopters",
-  // kingdom-085 — the aggregator presents its collected state.
-  "/api/v1/coverage",
-  // kingdom-090 — the price-search module (POOF).
-  "/api/v1/search/cards",
-  "/api/v1/cards/[sku]/everything",
-  "/api/v1/search/everything",
-]);
+// The set of paths that emit through `jsonResponse` from `@/lib/data-pantry`
+// lives in `envelope-compliance.generated.ts`, kept in sync with the actual
+// callers by `apps/storefront/scripts/audit-envelope-contract.mts`. Adding
+// a new jsonResponse caller requires running
+// `pnpm audit:envelope-contract --regen` and committing the regenerated
+// file; the audit refuses to pass without the regen so reality can't drift
+// from this surface again. See the kingdom-059 review (2026-05-14) for why
+// the previous hand-maintained Set was substrate-dishonest.
 
 // ── Per-resource state ─────────────────────────────────────────────────
 
