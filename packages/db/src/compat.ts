@@ -86,13 +86,33 @@ function toCompatResult(rows: postgres.RowList<postgres.Row[]>): CompatQueryResu
 }
 
 /**
+ * Pre-serialize parameter values that postgres.js's `unsafe()` path doesn't
+ * always reach with its type inference under aggressive bundling.
+ *
+ * Under Next.js + Turbopack the storefront chunk loses the date-type
+ * serializer in some code paths, so `client.unsafe(sql, [new Date()])`
+ * ends up calling `Buffer.byteLength(dateObject)` and throws
+ * `TypeError: The "string" argument must be of type string ...
+ * Received an instance of Date`. This broke next-auth's email sign-in
+ * (handleLoginOrRegister → updateUser({ emailVerified: new Date() })).
+ *
+ * The serialization here mirrors postgres.js's own date serializer
+ * (ISO 8601 timestamptz string). Tagged-template queries are unaffected
+ * because they go through a different code path.
+ */
+function serializeParam(x: unknown): unknown {
+  if (x instanceof Date) return x.toISOString();
+  return x;
+}
+
+/**
  * Create a compat query function from any postgres.js sql-callable
  * (the root client or a transaction handle).
  */
 function makeQueryFn(sql: postgres.Sql | postgres.TransactionSql): CompatQueryFn {
   return async (sqlStr: string, params: unknown[] = []) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = await sql.unsafe(sqlStr, params as any[]);
+    const rows = await sql.unsafe(sqlStr, params.map(serializeParam) as any[]);
     return toCompatResult(rows);
   };
 }
