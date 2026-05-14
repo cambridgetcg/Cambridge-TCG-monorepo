@@ -210,11 +210,7 @@ export default function PlayPage() {
       });
       const result = await res.json();
       if (!res.ok) {
-        if (res.status === 401) {
-          setStartError("Please sign in to start a battle.");
-        } else {
-          setStartError(result.error || "Couldn't start the battle.");
-        }
+        setStartError(result.error || "Couldn't start the battle.");
         setStarting(false);
         return;
       }
@@ -453,6 +449,18 @@ export default function PlayPage() {
                         <p className="text-[11px] text-neutral-600 text-center">
                           Solo vs AI · take your time · no rating shown
                         </p>
+                        {signedIn === false && (
+                          <p className="text-[11px] text-amber-500/80 text-center">
+                            Playing as guest — progress lives in this browser.{" "}
+                            <Link
+                              href="/api/auth/signin?callbackUrl=/play"
+                              className="underline hover:text-amber-400"
+                            >
+                              Sign in
+                            </Link>{" "}
+                            to save it across devices and earn Berries.
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <div className="text-sm text-neutral-500 py-4">
