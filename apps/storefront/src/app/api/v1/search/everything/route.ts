@@ -167,8 +167,15 @@ export async function GET(req: NextRequest) {
       const origin = originFromReq(req);
       const composerUrl = `${origin}/api/v1/cards/${encodeURIComponent(foldedSku)}/everything`;
       const composerRes = await fetch(composerUrl, {
-        // Use Vercel's edge cache; freshness budget is in the composer.
-        next: { revalidate: 300 },
+        // No edge cache — the composer's response shape evolves
+        // (kingdom-090 variant classifier added new fields) and a
+        // 5-min cache risked serving stale pre-classifier responses
+        // until expiry. The composer itself sets a 5-min Cache-Control
+        // header; downstream clients can cache there if they wish.
+        // Live-tested 2026-05-14 — cache mismatch surfaced when V11DZ
+        // direct-SKU input rendered with empty variant kinds while
+        // SET-NUMBER input rendered correctly.
+        cache: "no-store",
         // Don't forward arbitrary headers — keep this server-to-server
         // call hygienic.
         headers: { Accept: "application/json" },
