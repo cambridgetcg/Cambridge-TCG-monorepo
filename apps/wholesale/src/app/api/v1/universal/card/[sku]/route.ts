@@ -29,7 +29,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, games, sets } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../../auth";
+import { authenticateApiKey } from "../../../auth";
 import { createHash } from "node:crypto";
 
 // Stable canonical-JSON: object keys sorted, no whitespace. Used to
@@ -77,7 +77,7 @@ export async function GET(
 ) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const { sku } = await params;
 

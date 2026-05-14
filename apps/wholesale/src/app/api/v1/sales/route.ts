@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
-import { authenticateApiKey, unauthorized } from "../auth";
+import { authenticateApiKey } from "../auth";
 
 interface SaleItem {
   sku: string;
@@ -20,7 +20,7 @@ interface SaleRequest {
 export async function POST(req: NextRequest) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const body = (await req.json()) as SaleRequest;
 

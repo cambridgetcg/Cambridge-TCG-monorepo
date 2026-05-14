@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sets, cards, games } from "@/lib/db/schema";
 import { eq, and, sql, or } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../auth";
+import { authenticateApiKey } from "../auth";
 
 export async function GET(req: NextRequest) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const gameCode = req.nextUrl.searchParams.get("game");
 

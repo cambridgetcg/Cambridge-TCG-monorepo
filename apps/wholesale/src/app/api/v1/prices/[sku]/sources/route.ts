@@ -26,7 +26,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, priceArchive } from "@/lib/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../../auth";
+import { authenticateApiKey } from "../../../auth";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -70,7 +70,7 @@ export async function GET(
 ) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const { sku } = await params;
     const url = new URL(req.url);

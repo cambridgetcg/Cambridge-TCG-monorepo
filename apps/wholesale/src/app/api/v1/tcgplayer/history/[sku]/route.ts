@@ -27,7 +27,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, priceArchive } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../../auth";
+import { authenticateApiKey } from "../../../auth";
 
 const DEFAULT_LIMIT = 90;
 const MAX_LIMIT = 365;
@@ -48,7 +48,7 @@ export async function GET(
 ) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const { sku } = await params;
     const url = new URL(req.url);

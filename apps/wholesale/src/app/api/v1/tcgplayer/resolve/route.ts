@@ -29,7 +29,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, cardTcgplayerSkuIds } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../auth";
+import { authenticateApiKey } from "../../auth";
 
 interface ResolveBody {
   source: "tcgplayer";
@@ -55,7 +55,7 @@ interface ResolveBody {
 export async function GET(req: NextRequest) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const url = new URL(req.url);
     const productIdParam = url.searchParams.get("product_id");

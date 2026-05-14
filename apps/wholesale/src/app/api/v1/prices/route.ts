@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, games, sets } from "@/lib/db/schema";
 import { eq, gte, and, sql, gt, ilike, or, asc, desc } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../auth";
+import { authenticateApiKey } from "../auth";
 import { priceForChannel } from "@/lib/channel-pricing";
 
 export async function GET(req: NextRequest) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const params = req.nextUrl.searchParams;
 

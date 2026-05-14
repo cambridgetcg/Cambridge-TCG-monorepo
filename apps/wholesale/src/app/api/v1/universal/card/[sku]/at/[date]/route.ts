@@ -30,7 +30,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, games, priceArchive } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../../../../auth";
+import { authenticateApiKey } from "../../../../../auth";
 import { createHash } from "node:crypto";
 
 function canonicalize(value: unknown): string {
@@ -71,7 +71,7 @@ export async function GET(
 ) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const { sku, date } = await params;
     if (!ISO_DATE.test(date)) {

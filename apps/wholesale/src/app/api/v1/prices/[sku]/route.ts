@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, games } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../auth";
+import { authenticateApiKey } from "../../auth";
 import { priceForChannel } from "@/lib/channel-pricing";
 
 export async function GET(
@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const { sku } = await params;
     // Channel is determined by the authenticating API key; the `?channel`

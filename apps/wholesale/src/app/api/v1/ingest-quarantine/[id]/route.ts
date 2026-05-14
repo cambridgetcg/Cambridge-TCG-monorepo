@@ -19,7 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../auth";
+import { authenticateApiKey } from "../../auth";
 
 export async function GET(
   req: NextRequest,
@@ -27,7 +27,7 @@ export async function GET(
 ) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const { id: idParam } = await params;
     const id = parseInt(idParam, 10);
@@ -122,7 +122,7 @@ export async function PATCH(
 ) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const { id: idParam } = await params;
     const id = parseInt(idParam, 10);

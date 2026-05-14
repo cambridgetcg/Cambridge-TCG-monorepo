@@ -44,12 +44,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../../auth";
+import { authenticateApiKey } from "../../auth";
 
 export async function GET(req: NextRequest) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     // DISTINCT ON (source_id) ORDER BY source_id, triggered_at DESC
     // — Postgres pattern for "most recent row per group".

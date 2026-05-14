@@ -664,7 +664,23 @@ export const channelApiKeys = pgTable("channel_api_keys", {
   // WHERE revoked_at IS NULL; setting this stops auth without losing
   // the row's audit history.
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  // Migration 0018 — per-key sliding-window rate limit. Default 60 rpm.
+  requestsPerMinute: integer("requests_per_minute").notNull().default(60),
 });
+
+// Migration 0018 — per-key request log. authenticateApiKey counts rows
+// in the trailing 60s window per api_key_id; cleanup is operator-side.
+export const apiKeyUsage = pgTable("api_key_usage", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  apiKeyId: integer("api_key_id").notNull().references(() => channelApiKeys.id, { onDelete: "cascade" }),
+  usedAt: timestamp("used_at", { withTimezone: true }).notNull().defaultNow(),
+  path: text("path"),
+  status: integer("status"),
+}, (table) => ({
+  keyTimeIdx: index("api_key_usage_key_time_idx").on(table.apiKeyId, table.usedAt),
+}));
+
+export type ApiKeyUsage = typeof apiKeyUsage.$inferSelect;
 
 // DB-backed login rate limiter. Migration 0016. One row per attempt;
 // sliding-window count via the (email, attempted_at) index.

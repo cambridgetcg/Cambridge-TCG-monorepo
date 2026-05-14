@@ -38,7 +38,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
-import { authenticateApiKey, unauthorized } from "../auth";
+import { authenticateApiKey } from "../auth";
 
 const WINDOW_TO_HOURS: Record<string, number> = {
   "1h": 1,
@@ -73,7 +73,7 @@ type RunRow = {
 export async function GET(req: NextRequest) {
   try {
     const apiKey = await authenticateApiKey(req);
-    if (!apiKey) return unauthorized();
+    if (apiKey instanceof NextResponse) return apiKey;
 
     const url = new URL(req.url);
     const sourceParam = url.searchParams.get("source");
