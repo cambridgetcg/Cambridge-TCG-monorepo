@@ -33,6 +33,7 @@ import Link from "next/link";
 import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
 import { Card, PageHeader, audienceMetadata } from "@/lib/ui";
 import { formatPrice } from "@/lib/format";
+import { AddToB2BCart } from "../cart/_client";
 
 export const metadata: Metadata = {
   title: "Wholesale catalog — Cambridge TCG",
@@ -227,6 +228,7 @@ export default async function B2BCatalogPage({
               <th className="px-3 py-3">Rarity</th>
               <th className="px-3 py-3 text-right">Stock</th>
               <th className="px-3 py-3 text-right">Wholesale</th>
+              <th className="px-3 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-800">
@@ -263,12 +265,15 @@ export default async function B2BCatalogPage({
                   <td className="px-3 py-3 text-right font-medium text-white">
                     {formatPrice(wholesalePrice)}
                   </td>
+                  <td className="px-3 py-3 text-right">
+                    <AddToB2BCart sku={card.sku} compact disabled={card.stock <= 0} />
+                  </td>
                 </tr>
               );
             })}
             {pricesResp.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-neutral-500">
+                <td colSpan={7} className="px-3 py-8 text-center text-neutral-500">
                   No cards match these filters.
                 </td>
               </tr>

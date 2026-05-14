@@ -17,6 +17,7 @@ import Image from "next/image";
 import { fetchCard, cardAltText } from "@/lib/wholesale/client";
 import { Card, PageHeader, audienceMetadata } from "@/lib/ui";
 import { formatPrice } from "@/lib/format";
+import { AddToB2BCart } from "../../cart/_client";
 
 interface PageProps {
   params: Promise<{ sku: string }>;
@@ -76,7 +77,7 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
 
         <div className="space-y-4">
           <Card>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-xs uppercase tracking-wider text-neutral-500">
                   Wholesale price
@@ -86,7 +87,13 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
                 </span>
               </div>
               <div className="text-xs text-neutral-500">
-                Price reflects your wholesale account tier. Cart and checkout coming in Phase 2.2.
+                Price reflects your wholesale account tier. Total at checkout uses the live rate.
+              </div>
+              <div className="pt-1">
+                <AddToB2BCart sku={card.sku} disabled={card.stock <= 0} />
+                {card.stock <= 0 && (
+                  <span className="ml-3 text-xs text-neutral-500">Out of stock</span>
+                )}
               </div>
             </div>
           </Card>

@@ -19,6 +19,7 @@ const B2B_NAV_ITEMS = [
   { href: "/account/b2b", label: "Overview", exact: true },
   { href: "/account/b2b/catalog", label: "Catalog", prefix: "/account/b2b/catalog" },
   { href: "/account/b2b/cards", label: "Cards", prefix: "/account/b2b/cards", hideTopLevel: true },
+  { href: "/account/b2b/cart", label: "Cart", prefix: "/account/b2b/cart" },
   { href: "/account/b2b/orders", label: "Orders", prefix: "/account/b2b/orders" },
 ] as const;
 
