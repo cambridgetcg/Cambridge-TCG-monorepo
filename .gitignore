@@ -22,6 +22,9 @@ sovereign.log
 tsconfig.tsbuildinfo
 
 coverage/
+# Exception: /prices/coverage is the storefront's aggregator-coverage map
+# route (kingdom-091 closure), not a test-coverage output directory.
+!apps/storefront/src/app/prices/coverage/
 playwright-report/
 playwright-output/
 test-results/
