@@ -100,6 +100,24 @@ export function formatTimeUntil(iso: Maybe<string | Date>): string {
   return `${mins}m`;
 }
 
+// ── Admin-merge aliases (2026-05-14) ─────────────────────────────────
+// Admin pages ported from apps/admin/ use shorter `fmt*` names.
+// Re-exported under the names admin's call sites use so the ports
+// can stay verbatim. Future cleanup can rename call sites and drop
+// these aliases.
+
+export { formatDate as fmtDate };
+export { formatDateTime as fmtDateTime };
+export { formatRelativeTime as fmtRelative };
+
+/** JPY formatter — admin-merge addition; admin pages display source prices in JPY. */
+export function fmtJPY(v: Maybe<string | number>): string {
+  if (v == null) return "—";
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return `¥${Math.round(n).toLocaleString("en-GB")}`;
+}
+
 /** Pluralise — "1 order" vs "2 orders". */
 export function pluralize(n: number, singular: string, plural?: string): string {
   return n === 1 ? singular : (plural ?? singular + "s");

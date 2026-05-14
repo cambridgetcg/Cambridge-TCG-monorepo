@@ -30,3 +30,4 @@ export { Verifiability } from "./Verifiability";
 export { Discretion, type DiscretionReason } from "./Discretion";
 export { Withholding } from "./Withholding";
 export { Consequences, type Consequence, type ConsequenceTone } from "./Consequences";
+export { ComingSoon } from "./ComingSoon";
