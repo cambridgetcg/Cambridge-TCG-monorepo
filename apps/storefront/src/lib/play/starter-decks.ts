@@ -149,15 +149,14 @@ export const STARTER_DECKS: StarterDeck[] = [
       { card_number: "ST15-003", quantity: 4, role: "early-aggression" }, // Kingdew
       { card_number: "ST15-004", quantity: 2, role: "support" },          // Thatch
       { card_number: "ST15-005", quantity: 2, role: "finisher" },         // Portgas.D.Ace SR
-      { card_number: "OP02-008", quantity: 4, role: "midgame-threat" },   // Jozu
+      // NOTE: Bandai's official ST-15 list has 4× OP02-008 (Jozu R).
+      // That card_number is missing from our wholesale catalog
+      // (verified 2026-05-14). Substituted with OP02-029 (Carrot R)
+      // until the original is ingested upstream.
+      { card_number: "OP02-029", quantity: 4, role: "midgame-threat" },   // Carrot (substitute for missing OP02-008 Jozu)
       { card_number: "OP02-018", quantity: 4, role: "finisher" },         // Marco
       { card_number: "OP02-019", quantity: 4, role: "early-aggression" }, // Rakuyo
-      // NOTE: Bandai's official list has 4× OP02-023 (event "You May Be
-      // a Fool…but I Still Love You"). That card_number is not in our
-      // wholesale catalog (verified 2026-05-14). Substituted with
-      // OP02-022 (Whitebeard Pirates UC), which IS in catalog. When the
-      // event card is ingested upstream, restore the original line.
-      { card_number: "OP02-022", quantity: 4, role: "support" },          // Whitebeard Pirates (substitute for missing OP02-023)
+      { card_number: "OP02-023", quantity: 4, role: "removal" },          // "You May Be a Fool…but I Still Love You" event
       { card_number: "OP03-003", quantity: 4, role: "early-aggression" }, // Izo
       { card_number: "OP03-006", quantity: 4, role: "early-aggression" }, // Speed Jil
       { card_number: "OP03-007", quantity: 4, role: "early-aggression" }, // Namule

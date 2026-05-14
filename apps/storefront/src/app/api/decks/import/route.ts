@@ -221,7 +221,10 @@ export async function POST(req: Request): Promise<Response> {
       image_url: cat.image_url ?? null,
       rarity: cat.rarity ?? null,
       set_code: cat.set_code ?? null,
-      is_leader: (cat.rarity ?? "").toUpperCase() === "L",
+      // Rarity may be "L" or "L/P" (alt-art promo variant) or other
+      // hybrid forms; any rarity that *starts* with L is a Leader card
+      // by Bandai's classification.
+      is_leader: ((cat.rarity ?? "").toUpperCase().split("/")[0] === "L"),
     };
   });
 
