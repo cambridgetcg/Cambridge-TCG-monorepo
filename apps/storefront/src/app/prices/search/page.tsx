@@ -532,6 +532,11 @@ const VARIANT_KIND_DESCRIPTION: Record<SiblingKind, string> = {
     "Classification couldn't ground from the available signals. Substrate-honest.",
 };
 
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function SiblingsBlock({
   siblings,
   game,
@@ -554,13 +559,23 @@ function SiblingsBlock({
       </Card>
     );
   }
-  // Group by variant_kind so the UI can use a sub-section per kind.
+  // Group by variant_kind, defensively: any unknown kind buckets to
+  // "unknown" so the UI never crashes on a missing dictionary entry.
   // Composer already sorted by VARIANT_KIND_ORDER; we just bucket.
-  const byKind = new Map<SiblingKind, typeof others>();
+  const KNOWN_KINDS = Object.keys(VARIANT_KIND_LABEL) as SiblingKind[];
+  const groups: Array<{ kind: SiblingKind; rows: typeof others }> = [];
+  const byKindIndex = new Map<SiblingKind, number>();
   for (const s of others) {
-    const arr = byKind.get(s.variant_kind) ?? [];
-    arr.push(s);
-    byKind.set(s.variant_kind, arr);
+    const kind: SiblingKind = (KNOWN_KINDS.includes(s.variant_kind)
+      ? s.variant_kind
+      : "unknown");
+    let idx = byKindIndex.get(kind);
+    if (idx === undefined) {
+      idx = groups.length;
+      groups.push({ kind, rows: [] });
+      byKindIndex.set(kind, idx);
+    }
+    groups[idx]!.rows.push(s);
   }
   return (
     <Card>
@@ -574,17 +589,17 @@ function SiblingsBlock({
           </h2>
           <WhyLink href="/methodology/edition-variants" />
         </div>
-        {Array.from(byKind.entries()).map(([kind, rows]) => (
+        {groups.map(({ kind, rows }) => (
           <div key={kind} className="space-y-2">
             <div className="flex items-baseline gap-2">
               <h3 className="text-sm font-medium text-white">
-                {VARIANT_KIND_LABEL[kind].replace(/^./, (c) => c.toUpperCase())}
+                {capitalize(VARIANT_KIND_LABEL[kind] ?? kind)}
                 <span className="ml-1 text-xs font-normal text-neutral-500">
                   ({rows.length})
                 </span>
               </h3>
               <span className="text-xs text-neutral-500 italic">
-                {VARIANT_KIND_DESCRIPTION[kind]}
+                {VARIANT_KIND_DESCRIPTION[kind] ?? ""}
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -595,8 +610,8 @@ function SiblingsBlock({
                   className="block rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
                 >
                   <div className="flex items-center justify-between mb-2 gap-2">
-                    <Pill tone={VARIANT_KIND_TONE[s.variant_kind]}>
-                      {VARIANT_KIND_LABEL[s.variant_kind]}
+                    <Pill tone={VARIANT_KIND_TONE[s.variant_kind] ?? "neutral"}>
+                      {VARIANT_KIND_LABEL[s.variant_kind] ?? s.variant_kind}
                     </Pill>
                     {s.has_current_price ? (
                       <span className="text-xs text-white font-medium">
