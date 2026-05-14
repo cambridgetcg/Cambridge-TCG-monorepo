@@ -38,8 +38,8 @@ import {
   Audience,
   audienceMetadata,
   TrustTier,
+  MoneyDisplay,
 } from "@/lib/ui";
-import { formatPrice } from "@/lib/format";
 
 export async function generateMetadata({
   params,
@@ -332,11 +332,11 @@ export default async function PublicTrustPage({
                 <Stat label="Dispute rate" value={fmtPct(state.stats.dispute_rate, 1)} />
                 <Stat
                   label="Total volume"
-                  value={formatPrice(state.stats.total_volume_gbp)}
+                  value={<MoneyDisplay value={state.stats.total_volume_gbp} />}
                 />
                 <Stat
                   label="Largest trade"
-                  value={formatPrice(state.stats.largest_trade_gbp)}
+                  value={<MoneyDisplay value={state.stats.largest_trade_gbp} />}
                 />
               </div>
             </section>
@@ -366,22 +366,22 @@ export default async function PublicTrustPage({
                 />
                 <PropRow
                   label="Per-trade limit"
-                  value={formatPrice(state.propagation.trade_limit_gbp)}
+                  value={<MoneyDisplay value={state.propagation.trade_limit_gbp} />}
                   href="/methodology/trust-score"
                 />
                 <PropRow
                   label="Daily limit"
-                  value={formatPrice(state.propagation.daily_limit_gbp)}
+                  value={<MoneyDisplay value={state.propagation.daily_limit_gbp} />}
                   href="/methodology/trust-score"
                 />
                 <PropRow
                   label="Direct escrow ≤"
-                  value={formatPrice(state.propagation.direct_escrow_max_gbp)}
+                  value={<MoneyDisplay value={state.propagation.direct_escrow_max_gbp} />}
                   href="/methodology/escrow-tier"
                 />
                 <PropRow
                   label="Verified escrow ≤"
-                  value={formatPrice(state.propagation.verified_escrow_max_gbp)}
+                  value={<MoneyDisplay value={state.propagation.verified_escrow_max_gbp} />}
                   href="/methodology/escrow-tier"
                 />
                 <PropRow
@@ -470,7 +470,9 @@ function Stat({
   tone,
 }: {
   label: string;
-  value: string;
+  // Widened to ReactNode so <MoneyDisplay> et al can compose. Kingdom-078
+  // Phase D pattern — same widening sister applied to other Stat panels.
+  value: React.ReactNode;
   tone?: "emerald" | "red" | "amber";
 }) {
   const valColor =
@@ -492,7 +494,8 @@ function PropRow({
   href,
 }: {
   label: string;
-  value: string;
+  // Widened to ReactNode for the same reason as Stat above.
+  value: React.ReactNode;
   href: string;
 }) {
   return (

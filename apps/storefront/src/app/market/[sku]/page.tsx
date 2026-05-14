@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useCreditSell } from "@/context/CreditSellContext";
 import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
@@ -124,7 +125,7 @@ function BidAskRow({
               <span className="text-neutral-400">{isBidHouse ? "\u221E" : bid.total_quantity}</span>
               <span className={`${bidTextColor} font-medium flex items-center gap-1`}>
                 {isBidHouse && <span title="CTCG Store Credit">&#127978;</span>}
-                {formatPrice(Number(bid.price))}
+                <Money value={Number(bid.price)} />
                 {isBidHouse && <span className="text-[10px] text-purple-400/80 font-sans font-semibold">CTCG &mdash; We Buy (unlimited)</span>}
                 {isBidHouse && <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1 py-px rounded font-sans">credit</span>}
               </span>
@@ -152,7 +153,7 @@ function BidAskRow({
             <span className="relative z-10 w-full flex justify-between px-2 text-xs font-mono">
               <span className={`${askTextColor} font-medium flex items-center gap-1`}>
                 {isHouse && <span title="CTCG stock">&#127978;</span>}
-                {formatPrice(Number(ask.price))}
+                <Money value={Number(ask.price)} />
                 {isHouse && <span className="text-[10px] text-amber-500/80 font-sans font-semibold">CTCG</span>}
               </span>
               <span className="text-neutral-400">{ask.total_quantity}</span>
@@ -253,7 +254,7 @@ function SpotPricePanel({ view }: { view: UnifiedMarketView }) {
         <div className="flex items-center justify-between">
           <span className="text-xs text-neutral-400">CTCG Spot</span>
           <span className="text-sm font-mono text-amber-400 font-bold">
-            {formatPrice(spot_price)}
+            <Money value={spot_price} />
             <span className="text-xs text-neutral-500 font-normal ml-1.5">
               ({spot_stock} in stock)
             </span>
@@ -271,7 +272,7 @@ function SpotPricePanel({ view }: { view: UnifiedMarketView }) {
         <div className="flex items-center justify-between">
           <span className="text-xs text-neutral-400">Market Price</span>
           <span className="text-sm font-mono text-white font-bold">
-            {formatPrice(market_price)}
+            <Money value={market_price} />
             {p2p_discount != null && p2p_discount > 0 && (
               <span className="ml-1.5 text-[10px] font-sans font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 {p2p_discount}% below spot
@@ -287,18 +288,18 @@ function SpotPricePanel({ view }: { view: UnifiedMarketView }) {
           <span className="text-[10px] text-neutral-500 uppercase tracking-wide">CTCG Spread</span>
           <div className="flex items-center justify-between">
             <span className="text-xs text-neutral-400">CTCG Sells at</span>
-            <span className="text-xs font-mono text-amber-400 font-semibold">{formatPrice(spot_price)}</span>
+            <span className="text-xs font-mono text-amber-400 font-semibold"><Money value={spot_price} /></span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-neutral-400">CTCG Buys at</span>
             <span className="text-xs font-mono text-purple-400 font-semibold">
-              {formatPrice(tradein_credit)}
+              <Money value={tradein_credit} />
               <span className="ml-1 text-[9px] bg-purple-500/20 text-purple-400 px-1 py-px rounded">credit</span>
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-neutral-500">Spread</span>
-            <span className="text-xs font-mono text-neutral-500">{formatPrice(spot_price - tradein_credit)}</span>
+            <span className="text-xs font-mono text-neutral-500"><Money value={spot_price - tradein_credit} /></span>
           </div>
         </div>
       )}
@@ -310,13 +311,13 @@ function SpotPricePanel({ view }: { view: UnifiedMarketView }) {
           {tradein_credit != null && (
             <div className="flex items-center justify-between">
               <span className="text-xs text-neutral-500">Trade-in credit</span>
-              <span className="text-xs font-mono text-purple-400">~{formatPrice(tradein_credit)}</span>
+              <span className="text-xs font-mono text-purple-400">~<Money value={tradein_credit} /></span>
             </div>
           )}
           {tradein_cash != null && (
             <div className="flex items-center justify-between">
               <span className="text-xs text-neutral-500">Trade-in cash</span>
-              <span className="text-xs font-mono text-neutral-300">~{formatPrice(tradein_cash)}</span>
+              <span className="text-xs font-mono text-neutral-300">~<Money value={tradein_cash} /></span>
             </div>
           )}
         </div>
@@ -326,7 +327,7 @@ function SpotPricePanel({ view }: { view: UnifiedMarketView }) {
       {spot_price != null && tradein_cash != null && (
         <div className="flex items-center justify-between">
           <span className="text-xs text-neutral-500">Cash trade-in</span>
-          <span className="text-xs font-mono text-neutral-300">~{formatPrice(tradein_cash)}</span>
+          <span className="text-xs font-mono text-neutral-300">~<Money value={tradein_cash} /></span>
         </div>
       )}
     </div>
@@ -419,7 +420,7 @@ function BuyRoutingInfo({ view }: { view: UnifiedMarketView }) {
   if (isHouse) {
     return (
       <div className="text-xs px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
-        &#127978; Buy from CTCG at {formatPrice(bestPrice)} (guaranteed stock)
+        &#127978; Buy from CTCG at <Money value={bestPrice} /> (guaranteed stock)
       </div>
     );
   }
@@ -429,14 +430,14 @@ function BuyRoutingInfo({ view }: { view: UnifiedMarketView }) {
     const savings = spot_price - bestPrice;
     return (
       <div className="text-xs px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-        Buy from seller at {formatPrice(bestPrice)} (save {formatPrice(savings)} vs CTCG spot)
+        Buy from seller at <Money value={bestPrice} /> (save <Money value={savings} /> vs CTCG spot)
       </div>
     );
   }
 
   return (
     <div className="text-xs px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-300">
-      Buy from seller at {formatPrice(bestPrice)}
+      Buy from seller at <Money value={bestPrice} />
     </div>
   );
 }
@@ -841,13 +842,13 @@ export default function CardMarketPage() {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-neutral-400">VWAP</span>
                     <span className="font-mono text-white">
-                      {fairValue.vwap !== null ? formatPrice(fairValue.vwap) : "—"}
+                      {fairValue.vwap !== null ? <Money value={fairValue.vwap} /> : "—"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-neutral-400">Median</span>
                     <span className="font-mono text-neutral-300">
-                      {fairValue.median !== null ? formatPrice(fairValue.median) : "—"}
+                      {fairValue.median !== null ? <Money value={fairValue.median} /> : "—"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
@@ -885,15 +886,15 @@ export default function CardMarketPage() {
             {/* Spread indicator */}
             <div className="flex items-center gap-3 mb-4 text-xs">
               <span className="text-emerald-400">
-                Best Bid: {book.best_bid ? formatPrice(Number(book.best_bid)) : "—"}
+                Best Bid: {book.best_bid ? <Money value={Number(book.best_bid)} /> : "—"}
               </span>
               {spread && (
                 <span className="px-2 py-0.5 bg-neutral-800 rounded text-neutral-400">
-                  Spread: {formatPrice(Number(spread))}
+                  Spread: <Money value={Number(spread)} />
                 </span>
               )}
               <span className="text-red-400">
-                Best Ask: {book.best_ask ? formatPrice(Number(book.best_ask)) : "—"}
+                Best Ask: {book.best_ask ? <Money value={Number(book.best_ask)} /> : "—"}
               </span>
             </div>
 
@@ -934,7 +935,7 @@ export default function CardMarketPage() {
                     {/* Top: price + quantity + button */}
                     <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-4">
                       <p className="text-2xl font-bold text-purple-400 mb-0.5">
-                        {formatPrice(book.tradein_credit)}
+                        <Money value={book.tradein_credit} />
                         <span className="text-sm ml-1.5 bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-semibold">
                           Store Credit
                         </span>
@@ -1054,7 +1055,7 @@ export default function CardMarketPage() {
                 : `Best bid: ${book.best_bid ? formatPrice(Number(book.best_bid)) : "—"}`}
               {tab === "buy" && book.spot_price != null && (
                 <span className="ml-2 text-amber-400/70">
-                  (CTCG Spot: {formatPrice(book.spot_price)})
+                  (CTCG Spot: <Money value={book.spot_price} />)
                 </span>
               )}
             </div>
@@ -1130,7 +1131,7 @@ export default function CardMarketPage() {
                 {/* Total preview */}
                 {price && quantity && (
                   <div className="text-xs text-neutral-400 text-right">
-                    Total: {formatPrice(parseFloat(price) * parseInt(quantity, 10) || 0)}
+                    Total: <Money value={parseFloat(price) * parseInt(quantity, 10) || 0} />
                   </div>
                 )}
 
@@ -1225,7 +1226,7 @@ export default function CardMarketPage() {
                   {book.recent_trades.map((trade) => (
                     <tr key={trade.id} className="border-b border-neutral-800/50">
                       <td className="py-2 text-white font-mono">
-                        {formatPrice(Number(trade.price))}
+                        <Money value={Number(trade.price)} />
                       </td>
                       <td className="py-2 text-neutral-300">{trade.quantity}</td>
                       <td className="py-2 text-neutral-400 text-xs">
@@ -1278,7 +1279,7 @@ export default function CardMarketPage() {
                   <div className="flex items-center justify-between text-[10px] text-neutral-500 mt-0.5">
                     <span>{r.coWatchCount} watchers</span>
                     {r.bestAsk !== null && (
-                      <span className="text-red-400">{formatPrice(r.bestAsk)}</span>
+                      <span className="text-red-400"><Money value={r.bestAsk} /></span>
                     )}
                   </div>
                 </Link>

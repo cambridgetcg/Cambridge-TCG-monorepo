@@ -29,15 +29,6 @@ export const metadata: Metadata = {
   other: audienceMetadata("consumer", ["trader", "dashboard"]),
 };
 
-function fmtGBP(value: number | null, opts?: { allowZero?: boolean }): string {
-  if (value === null) return "—";
-  if (value === 0 && !opts?.allowZero) return "—";
-  return "£" + value.toLocaleString("en-GB", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function fmtCount(value: number | null): string {
   if (value === null) return "—";
   return value.toString();
@@ -207,7 +198,7 @@ function OutstandingSection({ d }: { d: TraderDashboard }) {
             value={fmtCount(d.outstanding.trades_to_ship)}
             sub={
               d.outstanding.trades_to_ship && d.outstanding.trades_to_ship > 0
-                ? `${fmtGBP(d.outstanding.trades_to_ship_value)} pending`
+                ? <><MoneyDisplay value={d.outstanding.trades_to_ship_value} treatZeroAsMissing /> pending</>
                 : "Open /account/trades"
             }
             tone={d.outstanding.trades_to_ship && d.outstanding.trades_to_ship > 0 ? "amber" : "neutral"}

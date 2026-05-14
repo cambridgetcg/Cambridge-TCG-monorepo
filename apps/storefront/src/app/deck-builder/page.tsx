@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/Toast";
 import HandSimulator from "@/components/deck-builder/HandSimulator";
@@ -637,7 +638,7 @@ export default function DeckBuilderPage() {
                 </p>
                 {rarityBadge(leader.rarity)}
                 <p className="text-sm text-amber-400 font-semibold mt-1">
-                  {formatPrice(leader.spot_price)}
+                  <Money value={leader.spot_price} />
                 </p>
               </div>
             </div>
@@ -850,7 +851,7 @@ export default function DeckBuilderPage() {
                       <div className="flex items-center gap-1 mb-2">
                         {rarityBadge(card.rarity)}
                         <span className="text-xs font-bold text-amber-400">
-                          {formatPrice(card.spot_price)}
+                          <Money value={card.spot_price} />
                         </span>
                       </div>
 
@@ -942,7 +943,7 @@ export default function DeckBuilderPage() {
                 <span>
                   Deck ({totalCards}/{MAX_DECK_SIZE})
                 </span>
-                <span className="text-amber-400">{formatPrice(fullDeckValue)}</span>
+                <span className="text-amber-400"><Money value={fullDeckValue} /></span>
                 <svg
                   width="12"
                   height="12"
@@ -1049,7 +1050,7 @@ export default function DeckBuilderPage() {
                     </span>
                     <span className="text-neutral-500">|</span>
                     <span className="text-amber-400 font-semibold">
-                      {formatPrice(fullDeckValue)}
+                      <Money value={fullDeckValue} />
                     </span>
                   </div>
                 </div>
@@ -1121,9 +1122,7 @@ export default function DeckBuilderPage() {
                             </p>
                             <p className="text-[10px] text-neutral-500">
                               {entry.card.card_number} &middot;{" "}
-                              {formatPrice(
-                                entry.card.spot_price * entry.quantity
-                              )}
+                              <Money value={entry.card.spot_price * entry.quantity} />
                             </p>
                           </div>
 
@@ -1160,7 +1159,7 @@ export default function DeckBuilderPage() {
                         Deck value{leader ? " (incl. Leader)" : ""}
                       </span>
                       <span className="text-amber-400 font-bold">
-                        {formatPrice(fullDeckValue)}
+                        <Money value={fullDeckValue} />
                       </span>
                     </div>
                   </div>
@@ -1228,7 +1227,7 @@ export default function DeckBuilderPage() {
                   {totalCards}/{MAX_DECK_SIZE}
                 </span>
                 <span className="text-xs text-amber-400 font-semibold">
-                  {formatPrice(fullDeckValue)}
+                  <Money value={fullDeckValue} />
                 </span>
               </div>
               <button
@@ -1325,7 +1324,7 @@ export default function DeckBuilderPage() {
             )}
 
             <p className="text-xs text-neutral-500 mt-4">
-              {totalCards} cards &middot; {formatPrice(fullDeckValue)}
+              {totalCards} cards &middot; <Money value={fullDeckValue} />
               {leader ? ` · Leader: ${leader.name}` : ""}
             </p>
 

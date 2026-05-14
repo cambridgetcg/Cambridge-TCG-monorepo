@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice, formatRelativeTime } from "@/lib/format";
-import { Badge, Palettes } from "@/lib/ui";
+import { formatRelativeTime } from "@/lib/format";
+import { Badge, Palettes, Money } from "@/lib/ui";
 
 import { Audience } from "@/lib/ui";
 interface SavedSearch {
@@ -264,7 +264,7 @@ function SearchCard({
                     </p>
                   </div>
                   <span className="font-mono text-amber-400 shrink-0 ml-3">
-                    {formatPrice(parseFloat(m.matched_price))}
+                    <Money value={parseFloat(m.matched_price)} />
                   </span>
                 </Link>
               ))}

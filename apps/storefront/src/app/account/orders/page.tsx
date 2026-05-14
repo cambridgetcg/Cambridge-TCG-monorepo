@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatPrice, formatDate } from "@/lib/format";
-import { Badge, Palettes } from "@/lib/ui";
+import { formatDate } from "@/lib/format";
+import { Badge, Palettes, Money } from "@/lib/ui";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
 
 import { Audience } from "@/lib/ui";
@@ -187,7 +187,7 @@ function OrderCard({
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-sm font-bold text-white">{formatPrice(parseFloat(order.total_gbp))}</p>
+          <p className="text-sm font-bold text-white"><Money value={parseFloat(order.total_gbp)} /></p>
         </div>
         <span className="text-neutral-600 text-sm">{expanded ? "▲" : "▼"}</span>
       </button>
@@ -255,7 +255,7 @@ function OrderCard({
                       </td>
                       <td className="py-2 text-center text-neutral-300">{qty}</td>
                       <td className="py-2 text-right text-neutral-300 whitespace-nowrap">
-                        {unitPrice > 0 ? formatPrice(unitPrice * qty) : "—"}
+                        {unitPrice > 0 ? <Money value={unitPrice * qty} /> : "—"}
                       </td>
                     </tr>
                   );

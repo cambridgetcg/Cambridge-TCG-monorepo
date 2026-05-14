@@ -22,6 +22,16 @@ import {
 } from "./lib/cardrush-parser";
 import { mapToWholesale, mapSealedToWholesale, createSkuState, type WholesaleCard, type GlobalSkuState } from "./lib/cardrush-mapper";
 import { uploadImagesToS3, s3ImageUrl } from "./lib/s3-images";
+// kingdom-089: layered classification wire — heuristic claims emitted
+// on every batch alongside the cards INSERT.
+import {
+  applyClassificationBatch,
+  emptyStats as emptyClassifyStats,
+  isSubstrateReady as isClassificationSubstrateReady,
+  mapLegacyGameCode,
+  mergeStats as mergeClassifyStats,
+  type BatchClassificationStats,
+} from "./lib/cardrush-classify-batch";
 
 // DB imports — only used when not --dry-run
 import postgres from "postgres";
@@ -254,6 +264,24 @@ async function upsertToDb(
     const now = new Date();
     const BATCH_SIZE = 100;
 
+    // kingdom-089: probe classification substrate once per upsert run.
+    // Gates the per-batch classifier call below. When false, the tool
+    // runs cleanly against pre-migration databases (substrate-honest).
+    const classifyReady = await isClassificationSubstrateReady(
+      sql as unknown as Parameters<typeof isClassificationSubstrateReady>[0],
+    );
+    const classifyGameCode = mapLegacyGameCode(gc.dbGameCode);
+    let classifyStats: BatchClassificationStats = emptyClassifyStats();
+    if (classifyReady && !classifyGameCode) {
+      console.log(
+        `  classify: skipping — no GameCode mapping for "${gc.dbGameCode}" (extend mapLegacyGameCode in tools/lib/cardrush-classify-batch.ts)`,
+      );
+    } else if (!classifyReady) {
+      console.log(
+        "  classify: skipping — classification substrate not applied (drafts/0018 pending)",
+      );
+    }
+
     for (let i = 0; i < wholesale.length; i += BATCH_SIZE) {
       const batch = wholesale.slice(i, i + BATCH_SIZE);
 
@@ -352,10 +380,36 @@ async function upsertToDb(
             base_gbp = EXCLUDED.base_gbp,
             price = EXCLUDED.price`;
       }
+
+      // kingdom-089: layered classification — emits heuristic claims for
+      // any card whose name / rarity / card-number triggers a rule.
+      // Idempotent re-application; substrate-honestly skipped when
+      // the migration isn't applied or the game isn't mapped.
+      if (classifyReady && classifyGameCode) {
+        const batchStats = await applyClassificationBatch(
+          sql as unknown as Parameters<typeof applyClassificationBatch>[0],
+          batch,
+          skuToId as ReadonlyMap<string, number>,
+          classifyGameCode,
+        );
+        classifyStats = mergeClassifyStats(classifyStats, batchStats);
+      }
     }
 
     // Verification
     console.log(`  Upserted ${wholesale.length} cards (batch mode)`);
+    if (classifyReady && classifyGameCode && classifyStats.cardsScanned > 0) {
+      const ruleSummary = Object.entries(classifyStats.ruleHits)
+        .sort((a, b) => b[1] - a[1])
+        .map(([rule, count]) => `${rule}=${count}`)
+        .join(", ");
+      console.log(
+        `  Classified ${classifyStats.cardsScanned} cards → ${classifyStats.claimsEmitted} claim(s) ` +
+          `(${classifyStats.claimsPromoted} promoted, ${classifyStats.claimsShadowed} shadowed, ` +
+          `${classifyStats.cardsErrored} errored)` +
+          (ruleSummary ? ` · ${ruleSummary}` : ""),
+      );
+    }
     const [count] = await sql`SELECT COUNT(*) as cnt FROM cards WHERE set_code = ${setCode}`;
     console.log(`  Total ${setCode} cards in DB: ${count.cnt}`);
   } finally {

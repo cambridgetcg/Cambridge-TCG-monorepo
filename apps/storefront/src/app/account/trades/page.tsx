@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatPrice, formatDateTime } from "@/lib/format";
-import { Badge, Palettes } from "@/lib/ui";
+import { formatDateTime } from "@/lib/format";
+import { Badge, Palettes, Money } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { MarketOrder, MarketTrade, EscrowStatus } from "@/lib/market/types";
 import { DISPUTE_REASONS } from "@/lib/trust/types";
@@ -320,7 +320,7 @@ export default function TradesPage() {
                           {order.side === "bid" ? "Buy" : "Sell"}
                         </span>
                       </td>
-                      <td className="p-4 text-white font-mono">{formatPrice(Number(order.price))}</td>
+                      <td className="p-4 text-white font-mono"><Money value={Number(order.price)} /></td>
                       <td className="p-4 text-neutral-300">{order.quantity}</td>
                       <td className="p-4 text-neutral-500">{order.filled_quantity}</td>
                       <td className="p-4 text-neutral-400 text-xs">{order.condition}</td>
@@ -399,7 +399,7 @@ export default function TradesPage() {
                             {isBuyer ? "Bought" : "Sold"}
                           </span>
                         </td>
-                        <td className="p-4 text-white font-mono">{formatPrice(Number(trade.price))}</td>
+                        <td className="p-4 text-white font-mono"><Money value={Number(trade.price)} /></td>
                         <td className="p-4 text-neutral-300">{trade.quantity}</td>
                         <td className="p-4">
                           <div className="flex flex-col gap-1">
@@ -465,7 +465,7 @@ export default function TradesPage() {
           <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-white mb-1">Open a dispute</h2>
             <p className="text-xs text-neutral-400 mb-4">
-              {disputeFor.card_name || disputeFor.sku} &middot; {formatPrice(parseFloat(disputeFor.price))}
+              {disputeFor.card_name || disputeFor.sku} &middot; <Money value={parseFloat(disputeFor.price)} />
             </p>
 
             <label className="block text-xs text-neutral-500 mb-1">Reason</label>

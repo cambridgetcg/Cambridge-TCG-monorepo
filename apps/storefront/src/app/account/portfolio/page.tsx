@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { formatPrice } from "@/lib/format";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { ValuatedCard, PortfolioSummary, PortfolioSnapshot, ListingAction } from "@/lib/portfolio/types";
 import PortfolioAnalytics from "@/components/portfolio/PortfolioAnalytics";
@@ -12,7 +11,7 @@ import MoversPanel from "@/components/portfolio/MoversPanel";
 import ValueChart from "@/components/portfolio/ValueChart";
 import CsvImport, { type ParsedRow as CsvRow } from "@/components/portfolio/CsvImport";
 
-import { Audience } from "@/lib/ui";
+import { Audience, Money } from "@/lib/ui";
 type SortKey = "value" | "pnl" | "recent";
 
 export default function PortfolioPage() {
@@ -188,12 +187,12 @@ export default function PortfolioPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-neutral-900 rounded-xl p-4">
             <p className="text-xs text-neutral-500 uppercase tracking-wide">Total Value</p>
-            <p className="text-2xl font-bold text-amber-400">{formatPrice(summary.total_value)}</p>
+            <p className="text-2xl font-bold text-amber-400"><Money value={summary.total_value} /></p>
           </div>
           <div className="bg-neutral-900 rounded-xl p-4">
             <p className="text-xs text-neutral-500 uppercase tracking-wide">Total Cost</p>
             <p className="text-lg font-semibold text-neutral-300">
-              {summary.total_cost != null ? formatPrice(summary.total_cost) : "—"}
+              {summary.total_cost != null ? <Money value={summary.total_cost} /> : "—"}
             </p>
           </div>
           <div className="bg-neutral-900 rounded-xl p-4">
@@ -201,7 +200,7 @@ export default function PortfolioPage() {
             {summary.total_pnl != null ? (
               <p className={`text-lg font-semibold ${summary.total_pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                 {summary.total_pnl >= 0 ? "+" : ""}
-                {formatPrice(summary.total_pnl)}
+                <Money value={summary.total_pnl} />
                 {summary.total_pnl_percent != null && (
                   <span className="text-sm ml-1">
                     ({summary.total_pnl_percent >= 0 ? "+" : ""}
@@ -392,8 +391,8 @@ export default function PortfolioPage() {
 
                 {/* Value */}
                 <div className="text-sm mb-1">
-                  <span className="text-neutral-500">{card.quantity} x {card.market_price != null ? formatPrice(card.market_price) : "—"}</span>
-                  <span className="text-white font-semibold ml-1">= {formatPrice(card.current_value)}</span>
+                  <span className="text-neutral-500">{card.quantity} x {card.market_price != null ? <Money value={card.market_price} /> : "—"}</span>
+                  <span className="text-white font-semibold ml-1">= <Money value={card.current_value} /></span>
                 </div>
 
                 {/* Price trend — only rendered if we have history data */}
@@ -427,10 +426,10 @@ export default function PortfolioPage() {
                 <div className="text-xs mb-3">
                   {card.total_cost != null ? (
                     <>
-                      <span className="text-neutral-500">Cost {formatPrice(card.total_cost)}</span>
+                      <span className="text-neutral-500">Cost <Money value={card.total_cost} /></span>
                       {card.pnl != null && (
                         <span className={`ml-1.5 font-medium ${card.pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                          {card.pnl >= 0 ? "+" : ""}{formatPrice(card.pnl)}
+                          {card.pnl >= 0 ? "+" : ""}<Money value={card.pnl} />
                           {card.pnl_percent != null && (
                             <span className="ml-0.5">({card.pnl_percent >= 0 ? "+" : ""}{card.pnl_percent.toFixed(1)}%)</span>
                           )}

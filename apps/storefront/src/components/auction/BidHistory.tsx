@@ -1,5 +1,5 @@
 import type { Bid } from "@/lib/auction/types";
-import { formatPrice } from "@/lib/format";
+import { MoneyDisplay } from "@/lib/ui";
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -46,9 +46,7 @@ export default function BidHistory({ bids }: BidHistoryProps) {
               <p className="text-xs text-neutral-500">{timeAgo(bid.created_at)}</p>
             </div>
           </div>
-          <span className="text-sm font-semibold text-amber-500 shrink-0 ml-3">
-            {formatPrice(parseFloat(bid.amount))}
-          </span>
+          <MoneyDisplay value={parseFloat(bid.amount)} className="text-sm font-semibold text-amber-500 shrink-0 ml-3" />
         </div>
       ))}
     </div>

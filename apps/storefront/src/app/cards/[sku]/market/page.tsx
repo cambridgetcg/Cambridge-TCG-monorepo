@@ -32,7 +32,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { loadCardMarket } from "@/lib/market/card-market";
 import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
-import { formatPrice } from "@/lib/format";
 import { MoneyDisplay, DateDisplay } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { fetchCardrushHistory } from "@/lib/wholesale/client";
@@ -254,7 +253,7 @@ export default async function CardMarketReadPage({
                             <span className="text-neutral-500 text-xs">ask{c.ask_count === 1 ? "" : "s"}</span>
                             {c.best_ask_price !== null && (
                               <span className="text-amber-400 ml-2 font-mono">
-                                from {formatPrice(c.best_ask_price)}
+                                from <MoneyDisplay value={c.best_ask_price} />
                               </span>
                             )}
                           </>
@@ -356,7 +355,7 @@ export default async function CardMarketReadPage({
                         {book.bids.map((row, i) => (
                           <li key={`bid-${i}`} className="flex items-center justify-between bg-emerald-500/5 border border-emerald-500/15 rounded px-2 py-1.5">
                             <span className="text-emerald-400 font-mono font-medium">
-                              {formatPrice(row.price)}
+                              <MoneyDisplay value={row.price} />
                             </span>
                             <span className="flex items-center gap-1.5">
                               <span className="text-neutral-300 font-mono text-xs">×{row.total_quantity}</span>
@@ -384,7 +383,7 @@ export default async function CardMarketReadPage({
                         {book.asks.map((row, i) => (
                           <li key={`ask-${i}`} className="flex items-center justify-between bg-red-500/5 border border-red-500/15 rounded px-2 py-1.5">
                             <span className="text-red-400 font-mono font-medium">
-                              {formatPrice(row.price)}
+                              <MoneyDisplay value={row.price} />
                             </span>
                             <span className="flex items-center gap-1.5">
                               <span className="text-neutral-300 font-mono text-xs">×{row.total_quantity}</span>
@@ -433,7 +432,7 @@ export default async function CardMarketReadPage({
                       <tbody>
                         {tape.entries.map((t) => (
                           <tr key={t.trade_id} className="border-b border-neutral-800/50">
-                            <td className="py-2 text-white font-mono">{formatPrice(t.price)}</td>
+                            <td className="py-2 text-white font-mono"><MoneyDisplay value={t.price} /></td>
                             <td className="py-2 text-neutral-300">{t.quantity}</td>
                             <td className="py-2">
                               {t.seller_trust_tier ? (
@@ -511,7 +510,7 @@ export default async function CardMarketReadPage({
                           </td>
                           <td className="py-1.5 text-right font-mono text-emerald-400">
                             {obs.price_gbp !== null
-                              ? formatPrice(obs.price_gbp)
+                              ? <MoneyDisplay value={obs.price_gbp} />
                               : <span className="text-neutral-600">—</span>}
                           </td>
                           <td className="py-1.5 text-right font-mono text-neutral-500">
@@ -675,8 +674,8 @@ function Window({ label, points }: { label: string; points: number[] }) {
       <Sparkline points={points} width={200} height={50} />
       {points.length > 0 && (
         <div className="mt-1.5 flex items-baseline justify-between text-[11px]">
-          <span className="text-neutral-600">{formatPrice(points[0])}</span>
-          <span className="text-neutral-300 font-mono">{formatPrice(points[points.length - 1])}</span>
+          <span className="text-neutral-600"><MoneyDisplay value={points[0]} /></span>
+          <span className="text-neutral-300 font-mono"><MoneyDisplay value={points[points.length - 1]} /></span>
         </div>
       )}
     </div>

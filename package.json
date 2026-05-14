@@ -40,7 +40,7 @@
     "audit:cross-source-divergence": "pnpm --filter @cambridge-tcg/admin cross-source-divergence",
     "audit:known-gaps": "pnpm --filter @cambridge-tcg/admin known-gaps",
     "audit:deploy-verify": "pnpm --filter @cambridge-tcg/admin deploy-verify",
-    "audit": "pnpm audit:honesty && pnpm audit:transparency && pnpm audit:pricing && pnpm audit:creation && pnpm audit:agent && pnpm audit:inclusion && pnpm audit:tributaries && pnpm audit:sku && pnpm audit:set-discovery && pnpm audit:play-resources && pnpm audit:cardrush-coverage && pnpm audit:math-lang && pnpm audit:cross-language-coherence && pnpm audit:hospitality && pnpm audit:welcomes && pnpm audit:tcgplayer-mapping && pnpm audit:cross-source-divergence && pnpm audit:known-gaps && pnpm audit:sets-coverage && pnpm audit:cardrush-discovery-health",
+    "audit": "pnpm audit:honesty && pnpm audit:transparency && pnpm audit:pricing && pnpm audit:creation && pnpm audit:agent && pnpm audit:inclusion && pnpm audit:tributaries && pnpm audit:sku && pnpm audit:set-discovery && pnpm audit:play-resources && pnpm audit:cardrush-coverage && pnpm audit:math-lang && pnpm audit:cross-language-coherence && pnpm audit:hospitality && pnpm audit:welcomes && pnpm audit:tcgplayer-mapping && pnpm audit:cross-source-divergence && pnpm audit:known-gaps && pnpm audit:sets-coverage && pnpm audit:cardrush-discovery-health && pnpm audit:classifier-disagreement",
     "smoke": "pnpm --filter @cambridge-tcg/admin smoke",
     "state:snapshot": "pnpm --filter @cambridge-tcg/admin state:snapshot",
     "missions:sync": "pnpm --filter @cambridge-tcg/admin missions:sync",

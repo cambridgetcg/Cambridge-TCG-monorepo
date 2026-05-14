@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 import type { PortfolioSnapshot } from "@/lib/portfolio/types";
 
 // Interactive value chart — area + hover crosshair. Self-fetches the
@@ -110,14 +110,14 @@ export default function ValueChart({ initial }: Props) {
           <p className="text-xs text-neutral-500 uppercase tracking-wide">Portfolio Value</p>
           <div className="flex items-baseline gap-2 mt-0.5">
             <span className="text-xl font-bold text-white">
-              {points.length > 0 ? formatPrice(points[points.length - 1].value) : "—"}
+              {points.length > 0 ? <Money value={points[points.length - 1].value} /> : "—"}
             </span>
             {points.length > 1 && (
               <span
                 className={`text-xs font-mono ${delta >= 0 ? "text-emerald-400" : "text-red-400"}`}
               >
                 {delta >= 0 ? "+" : ""}
-                {formatPrice(delta)} ({delta >= 0 ? "+" : ""}
+                <Money value={delta} /> ({delta >= 0 ? "+" : ""}
                 {deltaPct.toFixed(1)}%)
               </span>
             )}
@@ -193,7 +193,7 @@ export default function ValueChart({ initial }: Props) {
               }}
             >
               <p className="text-neutral-500 text-[10px]">{hover.date}</p>
-              <p className="text-white font-bold">{formatPrice(hover.value)}</p>
+              <p className="text-white font-bold"><Money value={hover.value} /></p>
             </div>
           )}
         </div>

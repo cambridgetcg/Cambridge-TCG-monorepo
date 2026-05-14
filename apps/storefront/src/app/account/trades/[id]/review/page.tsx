@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
-
-import { Audience } from "@/lib/ui";
+import { Audience, Money } from "@/lib/ui";
 function ClickableStars({
   value,
   onChange,
@@ -181,7 +179,7 @@ export default function ReviewTradePage() {
             )}
             {(trade.price || trade.amount) && (
               <p className="text-sm text-neutral-400">
-                Price: {formatPrice(parseFloat(trade.price || trade.amount))}
+                Price: <Money value={parseFloat(trade.price || trade.amount)} />
               </p>
             )}
             {(trade.counterparty_name || trade.other_user_name) && (

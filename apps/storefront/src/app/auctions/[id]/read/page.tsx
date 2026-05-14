@@ -26,8 +26,8 @@ import {
   Audience,
   audienceMetadata,
   TrustTier,
+  MoneyDisplay,
 } from "@/lib/ui";
-import { formatPrice } from "@/lib/format";
 
 export async function generateMetadata({
   params,
@@ -250,19 +250,19 @@ export default async function AuctionReadPage({
                 <WhyLink href="/methodology/commission-rate" />
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                <Stat label="Current price" value={formatPrice(pricing.current_price)} tone="amber" />
-                <Stat label="Starting price" value={formatPrice(pricing.starting_price)} />
-                <Stat label="Bid increment" value={formatPrice(pricing.bid_increment)} />
+                <Stat label="Current price" value={<MoneyDisplay value={pricing.current_price} />} tone="amber" />
+                <Stat label="Starting price" value={<MoneyDisplay value={pricing.starting_price} />} />
+                <Stat label="Bid increment" value={<MoneyDisplay value={pricing.bid_increment} />} />
                 {pricing.buy_now_price !== null && (
-                  <Stat label="Buy now" value={formatPrice(pricing.buy_now_price)} tone="emerald" />
+                  <Stat label="Buy now" value={<MoneyDisplay value={pricing.buy_now_price} />} tone="emerald" />
                 )}
                 {meta.status === "live" && !timing.has_ended && (
-                  <Stat label="Min next bid" value={formatPrice(pricing.min_next_bid)} />
+                  <Stat label="Min next bid" value={<MoneyDisplay value={pricing.min_next_bid} />} />
                 )}
                 {isDutch && pricing.dutch_computed_price !== null && (
                   <Stat
                     label="Live computed"
-                    value={formatPrice(pricing.dutch_computed_price)}
+                    value={<MoneyDisplay value={pricing.dutch_computed_price} />}
                     sub="dutch live"
                   />
                 )}
@@ -279,9 +279,9 @@ export default async function AuctionReadPage({
               </div>
               {isDutch && pricing.dutch && (
                 <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
-                  Dutch auction — drops {formatPrice(pricing.dutch.drop_amount)} every{" "}
-                  {pricing.dutch.drop_interval_seconds}s from {formatPrice(pricing.dutch.start_price)}{" "}
-                  toward {formatPrice(pricing.dutch.end_price)}.
+                  Dutch auction — drops <MoneyDisplay value={pricing.dutch.drop_amount} /> every{" "}
+                  {pricing.dutch.drop_interval_seconds}s from <MoneyDisplay value={pricing.dutch.start_price} />{" "}
+                  toward <MoneyDisplay value={pricing.dutch.end_price} />.
                 </p>
               )}
             </section>
@@ -331,12 +331,12 @@ export default async function AuctionReadPage({
                 />
                 <PropRow
                   label="Estimated seller payout"
-                  value={formatPrice(propagation.estimated_seller_payout_gbp)}
+                  value={<MoneyDisplay value={propagation.estimated_seller_payout_gbp} />}
                   href="/methodology/commission-rate"
                 />
                 <PropRow
                   label="Estimated commission"
-                  value={formatPrice(propagation.estimated_commission_gbp)}
+                  value={<MoneyDisplay value={propagation.estimated_commission_gbp} />}
                   href="/methodology/commission-rate"
                 />
               </div>
@@ -366,7 +366,7 @@ export default async function AuctionReadPage({
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] text-neutral-500 uppercase tracking-wide">Winning bid</div>
-                    <div className="text-amber-400 font-mono font-medium">{formatPrice(winner.winning_bid)}</div>
+                    <div className="text-amber-400 font-mono font-medium"><MoneyDisplay value={winner.winning_bid} /></div>
                     {winner.paid_at && (
                       <div className="text-[10px] text-emerald-400 mt-1">Paid {fmtRel(winner.paid_at)}</div>
                     )}
@@ -403,7 +403,7 @@ export default async function AuctionReadPage({
                         {bids.recent.map((b, i) => (
                           <tr key={i} className="border-b border-neutral-800/50">
                             <td className="py-2 text-white font-mono">
-                              {formatPrice(b.amount)}
+                              <MoneyDisplay value={b.amount} />
                               {b.is_best_offer && (
                                 <span className="ml-2 text-[10px] text-blue-400">offer</span>
                               )}
@@ -464,8 +464,10 @@ function Stat({
   tone,
 }: {
   label: string;
-  value: string;
-  sub?: string;
+  // Widened to ReactNode (kingdom-078 Phase D pattern): now accepts
+  // <MoneyDisplay> and other math-aware primitives directly.
+  value: React.ReactNode;
+  sub?: React.ReactNode;
   tone?: "emerald" | "red" | "amber" | "neutral";
 }) {
   const valColor =
@@ -489,7 +491,8 @@ function PropRow({
   href,
 }: {
   label: string;
-  value: string;
+  // Widened to ReactNode for <MoneyDisplay> et al — kingdom-078 Phase D.
+  value: React.ReactNode;
   href: string;
 }) {
   return (

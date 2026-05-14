@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 
 interface PulseData {
   hot: Array<{ sku: string; cardName: string | null; imageUrl: string | null; volume24h: number; tradeCount24h: number }>;
@@ -66,7 +67,7 @@ export default function MarketPulsePage() {
                 <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
                   <div className="text-right">
                     <div className="text-xs font-mono text-white">
-                      {row.lastPrice !== null ? formatPrice(row.lastPrice) : "—"}
+                      {row.lastPrice !== null ? <Money value={row.lastPrice} /> : "—"}
                     </div>
                     {row.change24hPct !== null && (
                       <div className={`text-[10px] font-mono ${row.change24hPct > 0 ? "text-emerald-400" : "text-red-400"}`}>
@@ -85,7 +86,7 @@ export default function MarketPulsePage() {
                   <div className="text-right">
                     <div className="text-xs font-mono text-amber-400">{row.watchCount} ★</div>
                     {row.bestAsk !== null && (
-                      <div className="text-[10px] text-neutral-500 font-mono">ask {formatPrice(row.bestAsk)}</div>
+                      <div className="text-[10px] text-neutral-500 font-mono">ask <Money value={row.bestAsk} /></div>
                     )}
                   </div>
                 </PulseRow>
@@ -105,7 +106,7 @@ export default function MarketPulsePage() {
                           : "—"}
                       </div>
                       {spread !== null && (
-                        <div className="text-[10px] font-mono text-emerald-400">spread {formatPrice(spread)}</div>
+                        <div className="text-[10px] font-mono text-emerald-400">spread <Money value={spread} /></div>
                       )}
                     </div>
                   </PulseRow>
@@ -120,7 +121,7 @@ export default function MarketPulsePage() {
                   <PulseRow key={`${row.sku}-${row.tradedAt}`} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl}>
                     <div className="text-right">
                       <div className="text-xs font-mono text-white">
-                        {row.price !== null ? formatPrice(row.price) : "—"}
+                        {row.price !== null ? <Money value={row.price} /> : "—"}
                       </div>
                       <div className="text-[10px] text-neutral-500">
                         {row.tradedAt ? timeAgo(row.tradedAt) : ""}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useCreditSell } from "@/context/CreditSellContext";
 
@@ -579,7 +579,7 @@ export default function MarketPage() {
 
                           {/* CTCG Price */}
                           <td className="px-3 py-2 text-right text-amber-400 font-semibold whitespace-nowrap">
-                            {formatPrice(card.spot_price)}
+                            <Money value={card.spot_price} />
                           </td>
 
                           {/* We Buy (store credit) */}
@@ -587,7 +587,7 @@ export default function MarketPage() {
                             {card.tradein_credit != null && card.tradein_credit > 0 ? (
                               <span className="inline-flex items-center gap-1.5" title="Instant store credit — we buy unlimited quantity">
                                 <span className="text-purple-400 font-bold">
-                                  {formatPrice(card.tradein_credit)}
+                                  <Money value={card.tradein_credit} />
                                 </span>
                                 <button
                                   onClick={(e) => handleAddToSellCart(card, e)}
@@ -605,14 +605,14 @@ export default function MarketPage() {
                           <td className="px-3 py-2 text-right whitespace-nowrap">
                             {isCheaper ? (
                               <span className="text-emerald-400 font-semibold">
-                                {formatPrice(card.market_price)}
+                                <Money value={card.market_price} />
                                 <span className="ml-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded">
                                   ↓{diff}%
                                 </span>
                               </span>
                             ) : (
                               <span className="text-neutral-400">
-                                {formatPrice(card.market_price)}
+                                <Money value={card.market_price} />
                               </span>
                             )}
                           </td>
@@ -696,14 +696,14 @@ export default function MarketPage() {
 
                       {/* Price */}
                       <p className="text-sm font-bold text-amber-400">
-                        {formatPrice(card.spot_price)}
+                        <Money value={card.spot_price} />
                       </p>
 
                       {/* We buy — store credit */}
                       {card.tradein_credit != null && card.tradein_credit > 0 && (
                         <div className="flex items-center gap-1.5 mt-1" title="Instant store credit — we buy unlimited quantity">
                           <span className="text-[11px] text-purple-400 font-semibold">
-                            We buy: {formatPrice(card.tradein_credit)}
+                            We buy: <Money value={card.tradein_credit} />
                           </span>
                           <button
                             onClick={(e) => handleAddToSellCart(card, e)}
@@ -796,7 +796,7 @@ export default function MarketPage() {
                   {totalItems} card{totalItems !== 1 ? "s" : ""} to sell
                 </span>
                 <span className="text-xs sm:text-sm text-neutral-400 truncate">
-                  <span className="text-purple-400 font-medium">{formatPrice(totalCredit)}</span>
+                  <span className="text-purple-400 font-medium"><Money value={totalCredit} /></span>
                   <span className="ml-1 text-neutral-500">credit</span>
                 </span>
               </div>

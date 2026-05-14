@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
-
-import { Audience } from "@/lib/ui";
+import { Audience, Money } from "@/lib/ui";
 interface MyLot {
   id: string;
   title: string;
@@ -215,7 +213,7 @@ export default function MyLotsPage() {
                       : "bg-neutral-800 text-neutral-400"
                     }`}>{l.status}</span>
                   </td>
-                  <td className="p-3 text-right font-mono text-amber-400">{formatPrice(parseFloat(l.price))}</td>
+                  <td className="p-3 text-right font-mono text-amber-400"><Money value={parseFloat(l.price)} /></td>
                   <td className="p-3 text-right text-neutral-400 text-xs">{l.item_count} cards · {l.total_quantity} units</td>
                   <td className="p-3 text-right text-xs text-neutral-500">
                     {new Date(l.created_at).toLocaleDateString("en-GB")}

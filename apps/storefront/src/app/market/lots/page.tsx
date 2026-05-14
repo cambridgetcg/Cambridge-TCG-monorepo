@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 
 interface LotRow {
   id: string;
@@ -80,7 +80,7 @@ export default function MarketLotsPage() {
                   </p>
                   <div className="flex items-baseline justify-between mt-2">
                     <span className="text-base font-mono text-amber-400 font-bold">
-                      {formatPrice(parseFloat(lot.price))}
+                      <Money value={parseFloat(lot.price)} />
                     </span>
                     {lot.seller_username && (
                       <span className="text-[11px] text-neutral-500">@{lot.seller_username}</span>

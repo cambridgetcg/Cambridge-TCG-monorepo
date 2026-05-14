@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice, formatTimeUntil } from "@/lib/format";
-import { Badge, Palettes, Consequences } from "@/lib/ui";
+import { formatTimeUntil } from "@/lib/format";
+import { Badge, Palettes, Consequences, Money } from "@/lib/ui";
 import type { Consequence } from "@/lib/ui";
 import { Audience } from "@/lib/ui";
 import {
@@ -202,10 +202,10 @@ function OfferCard({
     const list: Consequence[] = [
       {
         label: perspective === "seller" ? "You receive (after 8% commission)" : "Seller receives",
-        delta: formatPrice(sellerNet),
+        delta: <Money value={sellerNet} />,
         tone: "emerald",
         methodology: "/methodology/commission-rate",
-        detail: `Gross ${formatPrice(gross)} − ${formatPrice(commission)} commission`,
+        detail: <>Gross <Money value={gross} /> − <Money value={commission} /> commission</>,
       },
       {
         label: "Trust score on completion",
@@ -249,11 +249,11 @@ function OfferCard({
       <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
         <div className="bg-neutral-950/40 rounded-lg px-3 py-2">
           <div className="text-neutral-500 uppercase tracking-wide text-[10px]">Ask</div>
-          <div className="font-mono font-bold text-neutral-300">{formatPrice(parseFloat(offer.ask_price))}</div>
+          <div className="font-mono font-bold text-neutral-300"><Money value={parseFloat(offer.ask_price)} /></div>
         </div>
         <div className="bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
           <div className="text-amber-400 uppercase tracking-wide text-[10px]">Offer</div>
-          <div className="font-mono font-bold text-white">{formatPrice(parseFloat(offer.offer_price))}</div>
+          <div className="font-mono font-bold text-white"><Money value={parseFloat(offer.offer_price)} /></div>
         </div>
         <div className={`rounded-lg px-3 py-2 ${offer.counter_price
           ? "bg-blue-500/10 border border-blue-500/20" : "bg-neutral-950/40"}`}>
@@ -261,7 +261,7 @@ function OfferCard({
             Counter
           </div>
           <div className="font-mono font-bold text-white">
-            {offer.counter_price ? formatPrice(parseFloat(offer.counter_price)) : "—"}
+            {offer.counter_price ? <Money value={parseFloat(offer.counter_price)} /> : "—"}
           </div>
         </div>
       </div>

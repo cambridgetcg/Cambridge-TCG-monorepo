@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
 
-import { Audience } from "@/lib/ui";
+import { Audience, Money } from "@/lib/ui";
 // Aggregate view of everything the user has won. Bidders used to have
 // no landing page for their wins — they'd find out they won via email
 // and then had to navigate back to the specific auction URL. This page
@@ -137,7 +136,7 @@ export default function WonAuctionsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-neutral-500 flex-wrap">
-                      <span className="text-white font-mono">{formatPrice(parseFloat(a.current_price))}</span>
+                      <span className="text-white font-mono"><Money value={parseFloat(a.current_price)} /></span>
                       {a.actual_end_at && (
                         <span>Won {new Date(a.actual_end_at).toLocaleDateString("en-GB")}</span>
                       )}

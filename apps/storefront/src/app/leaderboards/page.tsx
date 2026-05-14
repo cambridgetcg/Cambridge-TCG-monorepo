@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 
 interface SellerOrBuyer {
   username: string; name: string | null;
@@ -72,7 +72,7 @@ export default function LeaderboardsPage() {
               {data.topSellers.map((s, i) => (
                 <UserRow key={s.username} rank={i + 1} username={s.username} name={s.name}>
                   <div className="text-right">
-                    <div className="text-xs font-mono text-amber-400">{formatPrice(s.volumeGbp)}</div>
+                    <div className="text-xs font-mono text-amber-400"><Money value={s.volumeGbp} /></div>
                     <div className="text-[10px] text-neutral-500">{s.tradeCount} trade{s.tradeCount !== 1 ? "s" : ""}</div>
                   </div>
                 </UserRow>
@@ -83,7 +83,7 @@ export default function LeaderboardsPage() {
               {data.topBuyers.map((b, i) => (
                 <UserRow key={b.username} rank={i + 1} username={b.username} name={b.name}>
                   <div className="text-right">
-                    <div className="text-xs font-mono text-emerald-400">{formatPrice(b.volumeGbp)}</div>
+                    <div className="text-xs font-mono text-emerald-400"><Money value={b.volumeGbp} /></div>
                     <div className="text-[10px] text-neutral-500">{b.tradeCount} trade{b.tradeCount !== 1 ? "s" : ""}</div>
                   </div>
                 </UserRow>
@@ -110,7 +110,7 @@ export default function LeaderboardsPage() {
                     <p className="text-[10px] text-neutral-600 font-mono truncate">{s.sku}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-mono text-white">{formatPrice(s.avgPrice)}</div>
+                    <div className="text-xs font-mono text-white"><Money value={s.avgPrice} /></div>
                     <div className="text-[10px] text-neutral-500">{s.tradeCount}× &middot; {s.volume} units</div>
                   </div>
                 </Link>

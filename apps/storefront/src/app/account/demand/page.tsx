@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
-
-import { Audience } from "@/lib/ui";
+import { Audience, Money } from "@/lib/ui";
 interface DemandRow {
   sku: string;
   cardName: string | null;
@@ -88,7 +86,7 @@ export default function DemandSignalsPage() {
                     {r.askDepth === 0 ? <span className="text-red-400">0</span> : r.askDepth}
                   </td>
                   <td className="p-3 text-right text-neutral-300 font-mono">
-                    {r.bestAsk ? formatPrice(r.bestAsk) : "—"}
+                    {r.bestAsk ? <Money value={r.bestAsk} /> : "—"}
                   </td>
                   <td className="p-3 text-right font-mono">
                     <span className={r.opportunityScore >= 5 ? "text-emerald-400 font-bold"

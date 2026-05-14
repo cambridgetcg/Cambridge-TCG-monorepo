@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
-import { Badge, Palettes } from "@/lib/ui";
+import { Badge, Palettes, Money } from "@/lib/ui";
 
 import { Audience } from "@/lib/ui";
 interface ItemRow {
@@ -95,7 +94,7 @@ export default function TradeInsPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm font-bold text-white">
-                      {formatPrice(parseFloat(s.payment_method === "cash" ? s.quoted_cash_total || "0" : s.quoted_credit_total || "0"))}
+                      <Money value={parseFloat(s.payment_method === "cash" ? s.quoted_cash_total || "0" : s.quoted_credit_total || "0")} />
                     </p>
                   </div>
                   <span className="text-neutral-600 text-sm">{expanded === s.reference ? "▲" : "▼"}</span>
@@ -158,11 +157,11 @@ export default function TradeInsPage() {
                               </td>
                               <td className="py-2 text-center text-neutral-300">{item.quantity}</td>
                               <td className="py-2 text-right text-neutral-300 whitespace-nowrap">
-                                {formatPrice(
+                                <Money value={
                                   parseFloat(
                                     (s.payment_method === "cash" ? item.quoted_cash_price : item.quoted_credit_price) || "0"
                                   ) * item.quantity
-                                )}
+                                } />
                               </td>
                             </tr>
                           ))}

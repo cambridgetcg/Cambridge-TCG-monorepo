@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/format";
-import { WhyLink } from "@/lib/ui";
+import { WhyLink, Money } from "@/lib/ui";
 import { TRUST_TIERS } from "@/lib/escrow/types";
 import type { TrustProfile, TradeReview, ExternalRep } from "@/lib/escrow/types";
 
@@ -215,7 +215,7 @@ function EscrowThresholdsSection({ trustScore }: { trustScore: number }) {
             <span className="text-sm font-medium text-emerald-400">Direct Ship</span>
           </div>
           <span className="text-sm text-neutral-300">
-            trades up to <span className="font-mono font-semibold text-emerald-400">{formatPrice(directMax)}</span>
+            trades up to <span className="font-mono font-semibold text-emerald-400"><Money value={directMax} /></span>
           </span>
         </div>
         {directMax !== verifiedMax && (
@@ -225,7 +225,7 @@ function EscrowThresholdsSection({ trustScore }: { trustScore: number }) {
               <span className="text-sm font-medium text-blue-400">Verified Ship</span>
             </div>
             <span className="text-sm text-neutral-300">
-              trades up to <span className="font-mono font-semibold text-blue-400">{formatPrice(verifiedMax)}</span>
+              trades up to <span className="font-mono font-semibold text-blue-400"><Money value={verifiedMax} /></span>
             </span>
           </div>
         )}
@@ -235,7 +235,7 @@ function EscrowThresholdsSection({ trustScore }: { trustScore: number }) {
             <span className="text-sm font-medium text-amber-400">Full Escrow</span>
           </div>
           <span className="text-sm text-neutral-300">
-            trades above <span className="font-mono font-semibold text-amber-400">{formatPrice(verifiedMax)}</span>
+            trades above <span className="font-mono font-semibold text-amber-400"><Money value={verifiedMax} /></span>
           </span>
         </div>
       </div>
@@ -474,11 +474,11 @@ export default function TrustProfilePage() {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-neutral-400">Per-trade limit</span>
-              <span className="text-sm font-medium text-white">{formatPrice(tier.tradeLimit)}</span>
+              <span className="text-sm font-medium text-white"><Money value={tier.tradeLimit} /></span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-neutral-400">Daily limit</span>
-              <span className="text-sm font-medium text-white">{formatPrice(tier.dailyLimit)}</span>
+              <span className="text-sm font-medium text-white"><Money value={tier.dailyLimit} /></span>
             </div>
           </div>
         </div>
@@ -512,7 +512,7 @@ export default function TrustProfilePage() {
             </div>
           </div>
           <div className="mt-3 text-xs text-neutral-500 space-y-1">
-            <p>At {nextTier.name}: trade limit {formatPrice(nextTier.tradeLimit)}, daily limit {formatPrice(nextTier.dailyLimit)}</p>
+            <p>At {nextTier.name}: trade limit <Money value={nextTier.tradeLimit} />, daily limit <Money value={nextTier.dailyLimit} /></p>
             {nextTier.payoutHoldDays === 0 ? (
               <p>Instant payouts</p>
             ) : (

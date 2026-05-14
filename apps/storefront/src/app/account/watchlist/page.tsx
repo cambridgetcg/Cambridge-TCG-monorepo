@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
-
-import { Audience } from "@/lib/ui";
+import { Audience, Money } from "@/lib/ui";
 interface Watch {
   sku: string;
   card_name: string | null;
@@ -122,13 +120,13 @@ export default function WatchlistPage() {
                       </Link>
                     </td>
                     <td className="p-3 text-right font-mono text-emerald-400">
-                      {w.best_bid ? formatPrice(parseFloat(w.best_bid)) : "—"}
+                      {w.best_bid ? <Money value={parseFloat(w.best_bid)} /> : "—"}
                     </td>
                     <td className="p-3 text-right font-mono text-red-400">
-                      {w.best_ask ? formatPrice(parseFloat(w.best_ask)) : "—"}
+                      {w.best_ask ? <Money value={parseFloat(w.best_ask)} /> : "—"}
                     </td>
                     <td className="p-3 text-right font-mono text-neutral-300">
-                      {w.last_trade_price ? formatPrice(parseFloat(w.last_trade_price)) : "—"}
+                      {w.last_trade_price ? <Money value={parseFloat(w.last_trade_price)} /> : "—"}
                     </td>
                     <td className="p-3 text-right">
                       <button
@@ -176,7 +174,7 @@ export default function WatchlistPage() {
                       {a.direction === "below" ? "Ask drops to" : "Sells at"}
                     </td>
                     <td className="p-3 text-right font-mono text-white">
-                      {formatPrice(parseFloat(a.threshold_price))}
+                      <Money value={parseFloat(a.threshold_price)} />
                     </td>
                     <td className="p-3 text-right text-xs text-neutral-500">
                       {a.last_fired_at ? new Date(a.last_fired_at).toLocaleDateString("en-GB") : "—"}

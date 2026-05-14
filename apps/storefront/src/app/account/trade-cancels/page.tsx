@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { formatPrice, formatTimeUntil } from "@/lib/format";
-import { Badge, Palettes } from "@/lib/ui";
+import { formatTimeUntil } from "@/lib/format";
+import { Badge, Palettes, Money } from "@/lib/ui";
 import { Audience } from "@/lib/ui";
 import {
   CANCEL_STEPS,
@@ -199,7 +199,7 @@ function CancelCard({
           </p>
           <p className="text-xs text-neutral-500 mt-0.5">
             {row.requester_role === "buyer" ? "Buyer" : "Seller"} requested ·{" "}
-            Trade total {formatPrice(tradeTotal)}
+            Trade total <Money value={tradeTotal} />
             <span className="mx-1.5">·</span>
             Opened {new Date(row.created_at).toLocaleDateString("en-GB", {
               day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",

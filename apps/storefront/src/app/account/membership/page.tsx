@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { WhyLink } from "@/lib/ui";
+import { WhyLink, Money } from "@/lib/ui";
 import TierBadge from "@/components/membership/TierBadge";
 import type { Tier, MemberProfile, PointsEntry, CreditEntry } from "@/lib/membership/types";
 
@@ -250,7 +250,7 @@ export default function MembershipPage() {
               <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-4 text-center">
                 <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Monthly</p>
                 <p className="text-2xl font-bold text-white mb-1">
-                  {formatPrice(monthlyPrice)}
+                  <Money value={monthlyPrice} />
                   <span className="text-sm font-normal text-neutral-500"> /month</span>
                 </p>
                 <button
@@ -278,11 +278,11 @@ export default function MembershipPage() {
               >
                 <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "#E5E4E2" }}>Annual</p>
                 <p className="text-2xl font-bold text-white mb-1">
-                  {formatPrice(annualPrice)}
+                  <Money value={annualPrice} />
                   <span className="text-sm font-normal text-neutral-500"> /year</span>
                 </p>
                 <p className="text-xs text-emerald-400 font-medium">
-                  Save {formatPrice(annualSavings)} ({annualSavingsPercent}%)
+                  Save <Money value={annualSavings} /> ({annualSavingsPercent}%)
                 </p>
                 <button
                   onClick={() => handleSubscribe("annual")}
@@ -338,7 +338,7 @@ export default function MembershipPage() {
             )}
 
             <div className="text-sm text-neutral-400">
-              Annual spend: <span className="text-white font-semibold">{formatPrice(profile.annual_spend)}</span>
+              Annual spend: <span className="text-white font-semibold"><Money value={profile.annual_spend} /></span>
             </div>
           </div>
 
@@ -361,7 +361,7 @@ export default function MembershipPage() {
                   />
                 </div>
                 <p className="text-xs text-neutral-500">
-                  {formatPrice(profile.amount_to_next)} more to reach {profile.next_tier!.name}
+                  <Money value={profile.amount_to_next} /> more to reach {profile.next_tier!.name}
                 </p>
               </div>
             )}
@@ -478,7 +478,7 @@ export default function MembershipPage() {
         <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
           <div className="flex items-baseline justify-between mb-4">
             <h3 className="text-base font-semibold text-white">Store Credit</h3>
-            <span className="text-2xl font-bold text-emerald-400">{formatPrice(profile.store_credit_balance)}</span>
+            <span className="text-2xl font-bold text-emerald-400"><Money value={profile.store_credit_balance} /></span>
           </div>
 
           {visibleCredits.length > 0 ? (
@@ -495,7 +495,7 @@ export default function MembershipPage() {
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-2">
                       <span className={`text-sm font-medium ${amt > 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {amt > 0 ? "+" : ""}{formatPrice(Math.abs(amt))}
+                        {amt > 0 ? "+" : ""}<Money value={Math.abs(amt)} />
                       </span>
                       <span className="text-[10px] text-neutral-600 w-14 text-right">{relativeDate(entry.created_at)}</span>
                     </div>

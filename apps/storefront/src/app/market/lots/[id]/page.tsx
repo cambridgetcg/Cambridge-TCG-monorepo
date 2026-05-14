@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
+import { Money } from "@/lib/ui";
 
 interface Lot {
   id: string;
@@ -100,7 +100,7 @@ export default function LotDetailPage() {
               </p>
             )}
 
-            <p className="text-3xl font-black text-amber-400 mt-4">{formatPrice(price)}</p>
+            <p className="text-3xl font-black text-amber-400 mt-4"><Money value={price} /></p>
             <p className="text-xs text-neutral-500 mt-1">
               {lot.items.length} card{lot.items.length !== 1 ? "s" : ""} &middot;{" "}
               {lot.items.reduce((s, i) => s + i.quantity, 0)} total units
@@ -125,7 +125,7 @@ export default function LotDetailPage() {
                   disabled={buying || !canBuy}
                   className="px-5 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
                 >
-                  {buying ? "Starting..." : `Buy lot for ${formatPrice(price)}`}
+                  {buying ? "Starting..." : <>Buy lot for <Money value={price} /></>}
                 </button>
               )}
             </div>

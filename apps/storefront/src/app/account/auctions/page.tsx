@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
-import { Badge, Palettes } from "@/lib/ui";
+import { Badge, Palettes, Money } from "@/lib/ui";
 
 import { Audience } from "@/lib/ui";
 interface SellerAuction {
@@ -139,7 +139,7 @@ export default function MyAuctionsPage() {
                     </span>
                     {offer.buy_now_price && (
                       <span className="text-xs text-neutral-500">
-                        (Buy Now {formatPrice(parseFloat(offer.buy_now_price))})
+                        (Buy Now <Money value={parseFloat(offer.buy_now_price)} />)
                       </span>
                     )}
                   </div>
@@ -148,7 +148,7 @@ export default function MyAuctionsPage() {
                   </div>
                 </div>
                 <div className="text-lg font-bold text-amber-400">
-                  {formatPrice(parseFloat(offer.amount))}
+                  <Money value={parseFloat(offer.amount)} />
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -224,7 +224,7 @@ export default function MyAuctionsPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-xs text-neutral-500">
-                        <span>{formatPrice(parseFloat(auction.current_price))}</span>
+                        <span><Money value={parseFloat(auction.current_price)} /></span>
                         <span>{auction.bid_count} bid{auction.bid_count !== 1 ? "s" : ""}</span>
                         <span>{new Date(auction.created_at).toLocaleDateString("en-GB")}</span>
                       </div>
@@ -247,12 +247,12 @@ export default function MyAuctionsPage() {
                       </div>
                       <div>
                         <span className="text-neutral-500">Starting Price</span>
-                        <p className="text-white">{formatPrice(parseFloat(auction.starting_price))}</p>
+                        <p className="text-white"><Money value={parseFloat(auction.starting_price)} /></p>
                       </div>
                       {auction.buy_now_price && (
                         <div>
                           <span className="text-neutral-500">Buy Now Price</span>
-                          <p className="text-white">{formatPrice(parseFloat(auction.buy_now_price))}</p>
+                          <p className="text-white"><Money value={parseFloat(auction.buy_now_price)} /></p>
                         </div>
                       )}
                       <div>

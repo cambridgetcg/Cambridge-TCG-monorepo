@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { AuctionSummary } from "@/lib/auction/types";
-import { formatPrice } from "@/lib/format";
+import { MoneyDisplay } from "@/lib/ui";
 import AuctionStatusBadge from "./AuctionStatusBadge";
 import AuctionCountdown from "./AuctionCountdown";
 
@@ -51,9 +51,7 @@ export default function AuctionCard({ auction, serverTime }: AuctionCardProps) {
           </h3>
 
           <div className="flex items-center justify-between">
-            <span className="text-lg font-bold text-amber-500">
-              {formatPrice(parseFloat(auction.current_price))}
-            </span>
+            <MoneyDisplay value={parseFloat(auction.current_price)} className="text-lg font-bold text-amber-500" />
             {auction.bid_count > 0 && (
               <span className="text-xs text-neutral-500">
                 {auction.bid_count} bid{auction.bid_count !== 1 ? "s" : ""}
