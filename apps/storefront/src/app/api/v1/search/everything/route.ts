@@ -50,27 +50,47 @@ import { fetchPrices, fetchGames } from "@/lib/wholesale/client";
 
 export const runtime = "nodejs";
 
-/** Mirror of /search/cards' game resolver — accepts code / slug / name
- *  in any case and returns the canonical `games.code` the wholesale
- *  prices route will match exactly. See that route for the longform
- *  rationale (case-sensitive postgres eq + multiple legacy forms). */
-async function resolveGameToken(input: string): Promise<string> {
+/** Mirror of /search/cards' progressive game-token fallback. Try the
+ *  input as-given; on 0 rows, try registry-canonical form and case
+ *  variants. The wholesale prices route's eq() is case-sensitive and
+ *  the data may carry either form. See that route for longer rationale. */
+async function fetchPricesWithGameFallback(args: {
+  game: string;
+  q: string;
+  limit: number;
+}): Promise<Awaited<ReturnType<typeof fetchPrices>>> {
+  const seen = new Set<string>();
+  async function tryGame(g: string) {
+    if (!g || seen.has(g)) return null;
+    seen.add(g);
+    const r = await fetchPrices({ game: g, q: args.q, limit: args.limit });
+    return r.items.length > 0 ? r : null;
+  }
+  const r1 = await tryGame(args.game);
+  if (r1) return r1;
   const games = await fetchGames().catch(() => []);
-  if (games.length === 0) return input;
-  const norm = input.trim().toLowerCase();
-  for (const g of games) {
-    if (g.code === input || g.slug === input || g.name === input) return g.code;
+  const norm = args.game.trim().toLowerCase();
+  const match =
+    games.find(
+      (g) => g.code === args.game || g.slug === args.game || g.name === args.game,
+    ) ??
+    games.find(
+      (g) =>
+        g.code.toLowerCase() === norm ||
+        g.slug.toLowerCase() === norm ||
+        g.name.toLowerCase() === norm,
+    );
+  if (match) {
+    const r2 = await tryGame(match.code);
+    if (r2) return r2;
+    const r3 = await tryGame(match.slug);
+    if (r3) return r3;
   }
-  for (const g of games) {
-    if (
-      g.code.toLowerCase() === norm ||
-      g.slug.toLowerCase() === norm ||
-      g.name.toLowerCase() === norm
-    ) {
-      return g.code;
-    }
-  }
-  return input;
+  const r4 = await tryGame(args.game.toLowerCase());
+  if (r4) return r4;
+  const r5 = await tryGame(args.game.toUpperCase());
+  if (r5) return r5;
+  return { count: 0, total: 0, channel: "", items: [] };
 }
 
 function originFromReq(req: NextRequest): string {
@@ -108,8 +128,11 @@ export async function GET(req: NextRequest) {
       ? `${skuShape.set}-${skuShape.number}`
       : q;
 
-  const resolvedGame = await resolveGameToken(game);
-  const wholesaleResp = await fetchPrices({ game: resolvedGame, q: wholesaleQ, limit });
+  const wholesaleResp = await fetchPricesWithGameFallback({
+    game,
+    q: wholesaleQ,
+    limit,
+  });
   const matches: ResolvedMatch[] = scoreMatches({ game, q }, wholesaleResp.items);
   const summary = summarizeMatches(matches);
 

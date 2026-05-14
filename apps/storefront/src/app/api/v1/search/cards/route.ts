@@ -56,43 +56,74 @@ export const runtime = "nodejs";
 const ENDPOINT = "/api/v1/search/cards";
 
 /**
- * Map a caller-supplied game token to whatever the wholesale prices
- * route will accept. The wholesale route's `or(eq(games.code, X),
- * eq(games.slug, X))` filter is case-sensitive — so `game=op` returns
- * nothing if data stores `code='OP'`, and vice versa. This resolver
- * walks the registry once + caches alternatives in-process so the
- * caller can pass any of: code lowercase ("op"), code uppercase
- * ("OP"), slug ("one-piece"), or display-name ("One Piece").
+ * Try the caller's game token against the wholesale prices route,
+ * with progressive fallback variants. The wholesale route's
+ * `or(eq(games.code, X), eq(games.slug, X))` filter is case-sensitive
+ * — so `game=op` may return nothing when the registry stores
+ * `code='OP'`, and similarly across slug forms. Rather than
+ * second-guessing which variant the registry uses (we don't always
+ * have a working fetchGames() at request time), this helper attempts:
  *
- * Returns the first form that actually matches the registry; falls
- * back to the input verbatim if none match (the wholesale route then
- * returns 404 / 0 results which the caller surfaces honestly).
+ *   1. The input as-given (preserves callers who pass the exact form).
+ *   2. The registry-canonical form via fetchGames() (when available).
+ *   3. Lower-case variant of the input.
+ *   4. Upper-case variant of the input.
+ *
+ * Returns the first variant that yields at least one card row, or the
+ * empty fetch result if all fail. The caller surfaces a 0-match
+ * response with the original input echoed back (substrate-honest).
  */
-async function resolveGameToken(input: string): Promise<string> {
+async function fetchPricesWithGameFallback(args: {
+  game: string;
+  q: string;
+  limit: number;
+}): Promise<Awaited<ReturnType<typeof fetchPrices>>> {
+  const seen = new Set<string>();
+  const tried: string[] = [];
+
+  async function tryGame(g: string) {
+    if (!g || seen.has(g)) return null;
+    seen.add(g);
+    tried.push(g);
+    const r = await fetchPrices({ game: g, q: args.q, limit: args.limit });
+    if (r.items.length > 0) return r;
+    return null;
+  }
+
+  // 1. Input as-given.
+  const r1 = await tryGame(args.game);
+  if (r1) return r1;
+
+  // 2. Registry-canonical (when fetchGames() returns).
   const games = await fetchGames().catch(() => []);
-  if (games.length === 0) return input;
-  const norm = input.trim().toLowerCase();
-  // 1. Exact match against any registered code / slug / name.
-  for (const g of games) {
-    if (
-      g.code === input ||
-      g.slug === input ||
-      g.name === input
-    ) {
-      return g.code; // prefer code (canonical for the prices route)
-    }
+  const norm = args.game.trim().toLowerCase();
+  const match =
+    games.find(
+      (g) => g.code === args.game || g.slug === args.game || g.name === args.game,
+    ) ??
+    games.find(
+      (g) =>
+        g.code.toLowerCase() === norm ||
+        g.slug.toLowerCase() === norm ||
+        g.name.toLowerCase() === norm,
+    );
+  if (match) {
+    const r2 = await tryGame(match.code);
+    if (r2) return r2;
+    const r3 = await tryGame(match.slug);
+    if (r3) return r3;
   }
-  // 2. Case-insensitive match.
-  for (const g of games) {
-    if (
-      g.code.toLowerCase() === norm ||
-      g.slug.toLowerCase() === norm ||
-      g.name.toLowerCase() === norm
-    ) {
-      return g.code;
-    }
-  }
-  return input;
+
+  // 3 / 4. Case variants of the input.
+  const r4 = await tryGame(args.game.toLowerCase());
+  if (r4) return r4;
+  const r5 = await tryGame(args.game.toUpperCase());
+  if (r5) return r5;
+
+  // All fallbacks exhausted — return the last attempt's empty body.
+  // The Falcon already returns a non-null { items: [] } envelope on
+  // zero matches, so we synthesize one here too.
+  return { count: 0, total: 0, channel: "", items: [] };
 }
 
 function parseLimit(raw: string | null): number {
@@ -139,10 +170,8 @@ export async function GET(req: NextRequest) {
       ? `${skuShape.set}-${skuShape.number}`
       : q;
 
-  const resolvedGame = await resolveGameToken(game);
-
-  const wholesaleResp = await fetchPrices({
-    game: resolvedGame,
+  const wholesaleResp = await fetchPricesWithGameFallback({
+    game,
     q: wholesaleQ,
     limit,
   });
