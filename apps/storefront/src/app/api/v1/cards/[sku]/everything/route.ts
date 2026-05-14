@@ -55,6 +55,11 @@ import {
 } from "@/lib/wholesale/client";
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import { parseSkuShape } from "@/lib/search/resolver";
+import {
+  classifySibling,
+  compareVariantKinds,
+  type VariantKind,
+} from "@/lib/search/variants";
 
 export const runtime = "nodejs";
 
@@ -125,12 +130,24 @@ interface SiblingRow {
   sku: string;
   lang: string | null;
   variant: string | null;
+  /** Print's set code (often same as parsed.set; differs for super-parallels). */
+  set_code: string | null;
+  /** Card's rarity per wholesale; null when unset. */
+  rarity: string | null;
   name: string;
   image_url: string | null;
   has_current_price: boolean;
   price_gbp: number | null;
-  /** Whether this row IS the requested SKU (UI dims it). */
+  /** Whether this row IS the requested SKU (UI marks it ★). */
   is_self: boolean;
+  /** Classified kind — kingdom-090 follow-up. See lib/search/variants.ts. */
+  variant_kind: VariantKind;
+  /** Substrate-honest: why this kind was chosen. */
+  variant_kind_reason: string;
+  /** Inferred from card-name script (CJK → ja, Latin → en). Distinct
+   *  from the SKU's lang segment because OPTCG ships both JP-text and
+   *  EN-text prints inside the same JP-set, both stored with lang=jp. */
+  effective_language: "ja" | "en" | "unknown";
 }
 
 interface CtcgQuote {
@@ -356,21 +373,51 @@ export async function GET(
     })
     .map((item) => {
       const ps = parseSkuShape(item.sku);
+      const is_self = item.sku.toLowerCase() === selfSkuLower;
+      const classified = classifySibling({
+        sibling: {
+          sku: item.sku,
+          set_code: item.set_code,
+          name: item.name ?? "",
+          name_en: item.name_en,
+          rarity: item.rarity,
+        },
+        self: {
+          sku: card?.sku ?? sku,
+          set_code: card?.set_code ?? null,
+          name: card?.name ?? "",
+          name_en: card?.name_en ?? null,
+        },
+      });
+      // Override the kind to "self" for the actual self row; the
+      // classifier would do this too but we double-confirm against
+      // the lowercased SKU comparison.
+      const variant_kind = is_self ? "self" : classified.variant_kind;
+      const variant_kind_reason = is_self
+        ? "self: exact SKU match"
+        : classified.variant_kind_reason;
       return {
         sku: item.sku,
         lang: ps?.lang ?? null,
         variant: ps?.variant ?? null,
+        set_code: item.set_code,
+        rarity: item.rarity,
         name: item.name ?? item.card_number,
         image_url: item.image_url,
         has_current_price: typeof item.price_gbp === "number" && item.price_gbp > 0,
         price_gbp: typeof item.price_gbp === "number" ? item.price_gbp : null,
-        is_self: item.sku.toLowerCase() === selfSkuLower,
+        is_self,
+        variant_kind,
+        variant_kind_reason,
+        effective_language: classified.effective_language,
       };
     })
     .sort((a, b) => {
-      // Self first; then by lang.
+      // Self first; then by variant_kind order; then by SKU for stability.
       if (a.is_self !== b.is_self) return a.is_self ? -1 : 1;
-      return (a.lang ?? "").localeCompare(b.lang ?? "");
+      const k = compareVariantKinds(a.variant_kind, b.variant_kind);
+      if (k !== 0) return k;
+      return a.sku.localeCompare(b.sku);
     });
 
   // ── prices_today block ────────────────────────────────────────────

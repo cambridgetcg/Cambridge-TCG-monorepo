@@ -164,11 +164,23 @@ interface Everything {
     sku: string;
     lang: string | null;
     variant: string | null;
+    set_code: string | null;
+    rarity: string | null;
     name: string;
     image_url: string | null;
     has_current_price: boolean;
     price_gbp: number | null;
     is_self: boolean;
+    variant_kind:
+      | "self"
+      | "language"
+      | "alt-art"
+      | "parallel"
+      | "super-parallel"
+      | "promo"
+      | "unknown";
+    variant_kind_reason: string;
+    effective_language: "ja" | "en" | "unknown";
   }>;
   ctcg: {
     sell_price_gbp: number | null;
@@ -484,6 +496,42 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
   );
 }
 
+// ── Variant-kind helpers (mirror lib/search/variants.ts) ─────────────
+
+type SiblingKind = Everything["siblings"][number]["variant_kind"];
+
+const VARIANT_KIND_LABEL: Record<SiblingKind, string> = {
+  self: "this print",
+  language: "language",
+  "alt-art": "alt art",
+  parallel: "parallel",
+  "super-parallel": "super parallel",
+  promo: "promo",
+  unknown: "variant",
+};
+const VARIANT_KIND_TONE: Record<SiblingKind, PillTone> = {
+  self: "emerald",
+  language: "blue",
+  "alt-art": "amber",
+  parallel: "sky",
+  "super-parallel": "blue",
+  promo: "amber",
+  unknown: "neutral",
+};
+const VARIANT_KIND_DESCRIPTION: Record<SiblingKind, string> = {
+  self: "The print you're viewing.",
+  language: "Same physical card in a different language print.",
+  "alt-art":
+    "Same set + number, different art — released alongside the base card as a booster 'hit.'",
+  parallel: "Same art, different finish (foil / holo / refractor).",
+  "super-parallel":
+    "Reissued in a later set with new art, retaining the original card number.",
+  promo:
+    "Promo distribution — preorder bonus, event, sealed-edition, or PROMO-set printing.",
+  unknown:
+    "Classification couldn't ground from the available signals. Substrate-honest.",
+};
+
 function SiblingsBlock({
   siblings,
   game,
@@ -496,56 +544,94 @@ function SiblingsBlock({
     return (
       <Card>
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-white">
-            Different languages
-          </h2>
+          <h2 className="text-lg font-semibold text-white">Variants</h2>
           <p className="text-sm text-neutral-400">
-            No other language or variant versions of this card are in the
-            catalog yet. (As wholesale ingests more upstreams, additional
-            language variants surface here automatically.)
+            No other prints of this card (alt-arts, parallels, super-parallels,
+            language variants, or promos) are in the catalog yet. As wholesale
+            ingests more upstreams, additional prints surface here automatically.
           </p>
         </div>
       </Card>
     );
   }
+  // Group by variant_kind so the UI can use a sub-section per kind.
+  // Composer already sorted by VARIANT_KIND_ORDER; we just bucket.
+  const byKind = new Map<SiblingKind, typeof others>();
+  for (const s of others) {
+    const arr = byKind.get(s.variant_kind) ?? [];
+    arr.push(s);
+    byKind.set(s.variant_kind, arr);
+  }
   return (
     <Card>
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-white">
-          Different languages
-          <span className="ml-2 text-sm font-normal text-neutral-400">
-            · {others.length} other {others.length === 1 ? "variant" : "variants"}
-          </span>
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {others.map((s) => (
-            <Link
-              key={s.sku}
-              // Preserve the current game token rather than extracting
-              // from the SKU prefix — the wholesale games table's case
-              // is data-dependent and the SKU prefix may not match.
-              href={`/prices/search?game=${encodeURIComponent(game)}&q=${encodeURIComponent(s.sku)}`}
-              className="block rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
-            >
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="text-xs font-mono text-amber-400 uppercase">
-                  {s.lang ?? "?"}{s.variant ? `/${s.variant}` : ""}
-                </span>
-                {s.has_current_price ? (
-                  <span className="text-xs text-white font-medium">
-                    {fmtGbp(s.price_gbp)}
-                  </span>
-                ) : (
-                  <span className="text-xs text-neutral-600">no price</span>
-                )}
-              </div>
-              <div className="text-xs text-neutral-300 truncate">{s.name}</div>
-              <div className="text-[10px] text-neutral-600 truncate mt-1 font-mono">
-                {s.sku}
-              </div>
-            </Link>
-          ))}
+      <div className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold text-white">
+            Variants
+            <span className="ml-2 text-sm font-normal text-neutral-400">
+              · {others.length} other {others.length === 1 ? "print" : "prints"}
+            </span>
+          </h2>
+          <WhyLink href="/methodology/edition-variants" />
         </div>
+        {Array.from(byKind.entries()).map(([kind, rows]) => (
+          <div key={kind} className="space-y-2">
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-sm font-medium text-white">
+                {VARIANT_KIND_LABEL[kind].replace(/^./, (c) => c.toUpperCase())}
+                <span className="ml-1 text-xs font-normal text-neutral-500">
+                  ({rows.length})
+                </span>
+              </h3>
+              <span className="text-xs text-neutral-500 italic">
+                {VARIANT_KIND_DESCRIPTION[kind]}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {rows.map((s) => (
+                <Link
+                  key={s.sku}
+                  href={`/prices/search?game=${encodeURIComponent(game)}&q=${encodeURIComponent(s.sku)}`}
+                  className="block rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
+                >
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <Pill tone={VARIANT_KIND_TONE[s.variant_kind]}>
+                      {VARIANT_KIND_LABEL[s.variant_kind]}
+                    </Pill>
+                    {s.has_current_price ? (
+                      <span className="text-xs text-white font-medium">
+                        {fmtGbp(s.price_gbp)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-neutral-600">no price</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-neutral-300 truncate">{s.name}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {s.set_code && (
+                      <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                        {s.set_code}
+                      </span>
+                    )}
+                    {s.rarity && (
+                      <span className="text-[10px] text-neutral-500">
+                        · {s.rarity}
+                      </span>
+                    )}
+                    {s.effective_language !== "unknown" && (
+                      <span className="text-[10px] text-neutral-500">
+                        · {s.effective_language === "ja" ? "JP-text" : "EN-text"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-neutral-600 truncate mt-1 font-mono">
+                    {s.sku}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </Card>
   );
