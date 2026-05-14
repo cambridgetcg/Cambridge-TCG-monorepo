@@ -46,18 +46,21 @@ import {
   groupSiblings,
   type ResolvedMatch,
 } from "@/lib/search/resolver";
-import { fetchPrices, fetchGames } from "@/lib/wholesale/client";
+import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
 
 export const runtime = "nodejs";
 
-/** Mirror of /search/cards' progressive game-token fallback. Try the
- *  input as-given; on 0 rows, try registry-canonical form and case
- *  variants. The wholesale prices route's eq() is case-sensitive and
- *  the data may carry either form. See that route for longer rationale. */
+/** Mirror of /search/cards' progressive game-token fallback. Set-based
+ *  lookup first (most reliable — every set knows its game), then input
+ *  as-given, then registry-canonical, then case variants. SKU-prefix
+ *  startsWith was removed: `"onepiece".startsWith("op")` is false, so
+ *  that pass never resolved the OP01-001 case it was added for. See
+ *  the cards route for longer rationale. */
 async function fetchPricesWithGameFallback(args: {
   game: string;
   q: string;
   limit: number;
+  set?: string;
 }): Promise<Awaited<ReturnType<typeof fetchPrices>>> {
   const seen = new Set<string>();
   async function tryGame(g: string) {
@@ -66,15 +69,21 @@ async function fetchPricesWithGameFallback(args: {
     const r = await fetchPrices({ game: g, q: args.q, limit: args.limit });
     return r.items.length > 0 ? r : null;
   }
+
+  // 0. Set-based lookup — bypasses game-token translation by using
+  //    wholesale's own sets→game_code mapping.
+  if (args.set) {
+    const setLower = args.set.toLowerCase();
+    const sets = await fetchSets().catch(() => []);
+    const matchedSet = sets.find((s) => s.code.toLowerCase() === setLower);
+    if (matchedSet) {
+      const r0 = await tryGame(matchedSet.game_code);
+      if (r0) return r0;
+    }
+  }
+
   const r1 = await tryGame(args.game);
   if (r1) return r1;
-  // Three-pass game-token translation (exact → case-insensitive →
-  // SKU-prefix startsWith). The third pass mirrors the composer at
-  // /api/v1/cards/[sku]/everything and is the fix for `?game=op` (a
-  // 2-char SKU prefix) returning 0 matches while `?game=one-piece`
-  // returns the expected 5 — wholesale games row stores code='onepiece'
-  // and slug='one-piece', neither equals 'op'. Live-verified regression
-  // on OP01-001, 2026-05-14.
   const games = await fetchGames().catch(() => []);
   const norm = args.game.trim().toLowerCase();
   const match =
@@ -86,14 +95,7 @@ async function fetchPricesWithGameFallback(args: {
         g.code.toLowerCase() === norm ||
         g.slug.toLowerCase() === norm ||
         g.name.toLowerCase() === norm,
-    ) ??
-    (norm.length >= 2
-      ? games.find(
-          (g) =>
-            g.code.toLowerCase().startsWith(norm) ||
-            g.slug.toLowerCase().startsWith(norm),
-        )
-      : undefined);
+    );
   if (match) {
     const r2 = await tryGame(match.code);
     if (r2) return r2;
@@ -146,6 +148,7 @@ export async function GET(req: NextRequest) {
     game,
     q: wholesaleQ,
     limit,
+    set: setNum?.set ?? skuShape?.set,
   });
   const matches: ResolvedMatch[] = scoreMatches({ game, q }, wholesaleResp.items);
   const summary = summarizeMatches(matches);

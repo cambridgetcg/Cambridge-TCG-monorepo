@@ -41,7 +41,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { fetchPrices, fetchGames } from "@/lib/wholesale/client";
+import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
 import { jsonResponse, errorResponse, invalidSkuError } from "@/lib/data-pantry";
 import {
   scoreMatches,
@@ -60,14 +60,19 @@ const ENDPOINT = "/api/v1/search/cards";
  * with progressive fallback variants. The wholesale route's
  * `or(eq(games.code, X), eq(games.slug, X))` filter is case-sensitive
  * — so `game=op` may return nothing when the registry stores
- * `code='OP'`, and similarly across slug forms. Rather than
- * second-guessing which variant the registry uses (we don't always
- * have a working fetchGames() at request time), this helper attempts:
+ * `code='onepiece'`/`slug='one-piece'`, and there's no character
+ * relationship between the SKU prefix and the wholesale code/slug.
  *
- *   1. The input as-given (preserves callers who pass the exact form).
- *   2. The registry-canonical form via fetchGames() (when available).
- *   3. Lower-case variant of the input.
- *   4. Upper-case variant of the input.
+ * Resolution order (most reliable first):
+ *
+ *   0. Set-based lookup — if the caller's input parses to a known set,
+ *      look the set up in wholesale (`fetchSets`) and use its declared
+ *      `game_code`. Every set knows its own game; this bypasses any
+ *      game-token translation. Mirrors the composer's `fetchSiblings`
+ *      pattern at /api/v1/cards/[sku]/everything.
+ *   1. Input as-given (preserves callers who pass the exact form).
+ *   2. Registry-canonical via `fetchGames()` — exact then case-insensitive.
+ *   3. Case variants of the input.
  *
  * Returns the first variant that yields at least one card row, or the
  * empty fetch result if all fail. The caller surfaces a 0-match
@@ -77,6 +82,10 @@ async function fetchPricesWithGameFallback(args: {
   game: string;
   q: string;
   limit: number;
+  /** When the input parses to a SET-NUMBER or canonical SKU, pass the
+   *  set code here. We'll use wholesale's own sets→game_code mapping
+   *  to bypass game-token translation entirely. */
+  set?: string;
 }): Promise<Awaited<ReturnType<typeof fetchPrices>>> {
   const seen = new Set<string>();
   const tried: string[] = [];
@@ -90,21 +99,27 @@ async function fetchPricesWithGameFallback(args: {
     return null;
   }
 
+  // 0. Set-based lookup — most reliable; uses wholesale's own data to
+  //    translate. Covers the case where the caller's game token doesn't
+  //    correspond to any wholesale code/slug (e.g. SKU prefix `op` vs
+  //    wholesale `onepiece`/`one-piece` — no character relationship).
+  if (args.set) {
+    const setLower = args.set.toLowerCase();
+    const sets = await fetchSets().catch(() => []);
+    const matchedSet = sets.find((s) => s.code.toLowerCase() === setLower);
+    if (matchedSet) {
+      const r0 = await tryGame(matchedSet.game_code);
+      if (r0) return r0;
+    }
+  }
+
   // 1. Input as-given.
   const r1 = await tryGame(args.game);
   if (r1) return r1;
 
-  // 2. Registry-canonical (when fetchGames() returns).
-  //    Three find() passes in increasing permissiveness:
+  // 2. Registry-canonical (when fetchGames() returns). Two passes:
   //      a. Exact equality on raw input (preserves case-sensitive callers).
   //      b. Case-insensitive equality.
-  //      c. SKU-prefix startsWith — covers the common case where the caller
-  //         passes the 2-char SKU prefix ("op", "pkm") and the wholesale
-  //         games table stores it as "onepiece"/"one-piece". This mirrors
-  //         the composer's startsWith fallback at /api/v1/cards/[sku]/
-  //         everything — without it, /search/cards?game=op returns 0 matches
-  //         while /search/cards?game=one-piece returns 5 (live-verified
-  //         regression on OP01-001, 2026-05-14).
   const games = await fetchGames().catch(() => []);
   const norm = args.game.trim().toLowerCase();
   const match =
@@ -116,14 +131,7 @@ async function fetchPricesWithGameFallback(args: {
         g.code.toLowerCase() === norm ||
         g.slug.toLowerCase() === norm ||
         g.name.toLowerCase() === norm,
-    ) ??
-    (norm.length >= 2
-      ? games.find(
-          (g) =>
-            g.code.toLowerCase().startsWith(norm) ||
-            g.slug.toLowerCase().startsWith(norm),
-        )
-      : undefined);
+    );
   if (match) {
     const r2 = await tryGame(match.code);
     if (r2) return r2;
@@ -191,6 +199,7 @@ export async function GET(req: NextRequest) {
     game,
     q: wholesaleQ,
     limit,
+    set: setNum?.set ?? skuShape?.set,
   });
 
   if (wholesaleResp.items.length === 0) {
