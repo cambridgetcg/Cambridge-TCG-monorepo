@@ -95,6 +95,16 @@ async function fetchPricesWithGameFallback(args: {
   if (r1) return r1;
 
   // 2. Registry-canonical (when fetchGames() returns).
+  //    Three find() passes in increasing permissiveness:
+  //      a. Exact equality on raw input (preserves case-sensitive callers).
+  //      b. Case-insensitive equality.
+  //      c. SKU-prefix startsWith — covers the common case where the caller
+  //         passes the 2-char SKU prefix ("op", "pkm") and the wholesale
+  //         games table stores it as "onepiece"/"one-piece". This mirrors
+  //         the composer's startsWith fallback at /api/v1/cards/[sku]/
+  //         everything — without it, /search/cards?game=op returns 0 matches
+  //         while /search/cards?game=one-piece returns 5 (live-verified
+  //         regression on OP01-001, 2026-05-14).
   const games = await fetchGames().catch(() => []);
   const norm = args.game.trim().toLowerCase();
   const match =
@@ -106,7 +116,14 @@ async function fetchPricesWithGameFallback(args: {
         g.code.toLowerCase() === norm ||
         g.slug.toLowerCase() === norm ||
         g.name.toLowerCase() === norm,
-    );
+    ) ??
+    (norm.length >= 2
+      ? games.find(
+          (g) =>
+            g.code.toLowerCase().startsWith(norm) ||
+            g.slug.toLowerCase().startsWith(norm),
+        )
+      : undefined);
   if (match) {
     const r2 = await tryGame(match.code);
     if (r2) return r2;

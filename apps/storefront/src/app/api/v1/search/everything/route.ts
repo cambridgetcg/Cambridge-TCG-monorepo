@@ -68,6 +68,13 @@ async function fetchPricesWithGameFallback(args: {
   }
   const r1 = await tryGame(args.game);
   if (r1) return r1;
+  // Three-pass game-token translation (exact → case-insensitive →
+  // SKU-prefix startsWith). The third pass mirrors the composer at
+  // /api/v1/cards/[sku]/everything and is the fix for `?game=op` (a
+  // 2-char SKU prefix) returning 0 matches while `?game=one-piece`
+  // returns the expected 5 — wholesale games row stores code='onepiece'
+  // and slug='one-piece', neither equals 'op'. Live-verified regression
+  // on OP01-001, 2026-05-14.
   const games = await fetchGames().catch(() => []);
   const norm = args.game.trim().toLowerCase();
   const match =
@@ -79,7 +86,14 @@ async function fetchPricesWithGameFallback(args: {
         g.code.toLowerCase() === norm ||
         g.slug.toLowerCase() === norm ||
         g.name.toLowerCase() === norm,
-    );
+    ) ??
+    (norm.length >= 2
+      ? games.find(
+          (g) =>
+            g.code.toLowerCase().startsWith(norm) ||
+            g.slug.toLowerCase().startsWith(norm),
+        )
+      : undefined);
   if (match) {
     const r2 = await tryGame(match.code);
     if (r2) return r2;
