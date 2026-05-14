@@ -460,7 +460,11 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           method="get"
           className="mb-10 rounded-lg border border-amber-700/50 bg-amber-500/5 p-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end"
         >
-          <input type="hidden" name="game" value={cfg.game_code} />
+          {/* Use slug not code — the wholesale prices route's game filter
+              matches reliably on `slug` per the games table; `game_code`
+              has case-sensitive drift surfaced by the kingdom-090
+              live verification 2026-05-14. */}
+          <input type="hidden" name="game" value={cfg.slug} />
           <div>
             <label className="block text-xs uppercase tracking-wider text-amber-300 mb-2 font-semibold">
               Card number → everything
