@@ -149,6 +149,15 @@ export interface RawProvenance {
   retrieved_at: string;
   /** Source id (constant per source, but carried per-row for legibility). */
   source: SourceId;
+  /**
+   * Credential-free identifier for the proxy this row was fetched
+   * through (`bright-data-web-unlocker`, etc.), or null/absent for
+   * direct fetch. Added kingdom-088 (the-bright-data-unlock). Callers
+   * may surface it in `_meta.upstream_proxy` on public responses so
+   * substrate-honesty stays end-to-end: a row fetched through an
+   * unlocker carries that fact through to any partner who reads it.
+   */
+  via_proxy?: string | null;
 }
 
 /** One raw row read from upstream. */

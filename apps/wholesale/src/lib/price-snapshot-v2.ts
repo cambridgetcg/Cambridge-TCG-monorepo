@@ -38,7 +38,7 @@ import {
   ingestRun,
   ingestQuarantine,
 } from "@/lib/db/schema";
-import type { IngestContext } from "@cambridge-tcg/data-ingest";
+import type { CardRushContext } from "@cambridge-tcg/data-ingest";
 import { cardrush, runSource } from "@cambridge-tcg/data-ingest";
 import { fetchGbpJpyRate } from "@/lib/fx";
 import { calculatePriceByCategory } from "@/lib/pricing";
@@ -174,10 +174,20 @@ export async function runDailySnapshotV2(
     // IngestContext; the bare runSource() signature uses IngestContext so we
     // cast through the source's own context shape. See packages/data-ingest/
     // src/cardrush/index.ts CardRushContext.
-    const ctx = {
-      cardrush: { urls: watchList },
+    //
+    // bright_data_proxy_url: forwarded from the deployment env. When set,
+    // cardrush subdomains with access="bright-data-unlocker" (currently
+    // cardrush-pokemon.jp; WAF-blocked on direct egress) route through
+    // the unlocker. When absent, those scrapes return
+    // error_reason="proxy_not_configured" — visible failure, not silent
+    // 403. Added kingdom-088 (the-bright-data-unlock).
+    const ctx: CardRushContext = {
+      cardrush: {
+        urls: watchList,
+        bright_data_proxy_url: process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL,
+      },
       signal: AbortSignal.timeout(45 * 60_000),
-    } as IngestContext;
+    };
 
     const summary = await runSource(
       cardrush,

@@ -6,6 +6,10 @@
       "schedule": "0 0 * * *"
     },
     {
+      "path": "/api/cron/discover/cardrush",
+      "schedule": "0 1 * * *"
+    },
+    {
       "path": "/api/cron/ingest/cardrush",
       "schedule": "0 2 * * *"
     },

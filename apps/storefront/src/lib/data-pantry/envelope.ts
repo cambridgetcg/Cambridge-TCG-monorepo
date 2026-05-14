@@ -88,6 +88,13 @@ export interface ResponseMeta {
    *  per-source rights for this response. Added kingdom-066 (the
    *  cardrush alignment); see docs/connections/the-cardrush-alignment.md. */
   source_license?: readonly string[];
+  /** Optional. Parallel array to `sources` naming the proxy used to
+   *  retrieve each upstream's bytes (`bright-data-web-unlocker`,
+   *  `none`). When absent, every source was fetched directly from
+   *  platform egress. Substrate-honesty extended one ring further: a
+   *  row fetched through an unlocker carries that fact through to any
+   *  partner who reads it. Added kingdom-088 (the-bright-data-unlock). */
+  upstream_proxy?: readonly string[];
 }
 
 export interface ResponseEnvelope<T> {
@@ -107,6 +114,11 @@ interface EnvelopeOptions<T> {
    *  `sources`. When omitted, the envelope's `_meta.source_license`
    *  field is also omitted (substrate-honest about absence). */
   source_license?: readonly string[];
+  /** Optional. Parallel array to `sources` naming the proxy used per
+   *  source (`bright-data-web-unlocker`, `none`). When supplied, length
+   *  must match `sources`. Omit when every source was fetched directly.
+   *  Added kingdom-088 — see `docs/connections/the-bright-data-unlock.md`. */
+  upstream_proxy?: readonly string[];
   /** Either a FreshnessKey from the table, or a custom number. */
   freshness?: FreshnessKey | number;
   /** When the data was last true. Defaults to now (current-state view). */
@@ -163,6 +175,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
         ? { this_endpoint: opts.endpoint, contains_self: true }
         : null,
       ...(opts.source_license ? { source_license: opts.source_license } : {}),
+      ...(opts.upstream_proxy ? { upstream_proxy: opts.upstream_proxy } : {}),
     },
   };
 }

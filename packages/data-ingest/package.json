@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "@cambridge-tcg/data-spec": "workspace:^",
-    "@cambridge-tcg/sku": "workspace:^"
+    "@cambridge-tcg/sku": "workspace:^",
+    "undici": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

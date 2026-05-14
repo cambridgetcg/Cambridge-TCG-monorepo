@@ -140,6 +140,20 @@ export const META_SCHEMA = {
         },
       ],
     },
+    upstream_proxy: {
+      description:
+        "Optional. When present, parallel array to `sources`: one entry per source naming the proxy used to retrieve that upstream's bytes ('bright-data-web-unlocker', 'none'). Absence means direct egress for every source. Substrate-honesty extended one ring further: a row fetched through an unlocker carries that fact through to any partner who reads it. Added kingdom-088; see docs/connections/the-bright-data-unlock.md.",
+      oneOf: [
+        { type: "null" },
+        {
+          type: "array",
+          items: {
+            type: "string",
+            examples: ["bright-data-web-unlocker", "none"],
+          },
+        },
+      ],
+    },
   },
 } as const;
 

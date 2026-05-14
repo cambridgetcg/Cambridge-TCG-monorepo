@@ -317,6 +317,9 @@ importers:
       '@cambridge-tcg/sku':
         specifier: workspace:^
         version: link:../sku
+      undici:
+        specifier: ^7.0.0
+        version: 7.25.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

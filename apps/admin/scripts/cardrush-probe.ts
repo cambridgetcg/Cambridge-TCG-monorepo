@@ -72,6 +72,9 @@ interface ProbeResult {
   /** "dns_failure" | "fetch_error" | error message; null on success. */
   error: string | null;
   duration_ms: number;
+  /** kingdom-087: /sitemap.xml presence — discovery primitive availability. */
+  sitemap_status: number | null;
+  sitemap_product_count: number;
 }
 
 type Recommendation =
@@ -106,6 +109,37 @@ async function probeHost(host: string, game: string, confirmed_before: boolean):
     "Accept-Language": "ja,en;q=0.5",
   };
 
+  // kingdom-087: also probe /sitemap.xml. A subdomain with a working
+  // sitemap.xml that contains /product/[N] URLs is the strongest
+  // confirmation signal — the discovery pipeline can run against it
+  // without further validation.
+  let sitemap_status: number | null = null;
+  let sitemap_product_count = 0;
+  try {
+    const smController = new AbortController();
+    const smTimer = setTimeout(() => smController.abort(), 8000);
+    const smRes = await fetch(`https://${host}/sitemap.xml`, {
+      headers: { "User-Agent": BROWSER_UA, "X-Cambridge-TCG-Probe": USER_AGENT },
+      signal: smController.signal,
+    });
+    clearTimeout(smTimer);
+    sitemap_status = smRes.status;
+    if (smRes.ok) {
+      const smBody = await smRes.text();
+      // Tolerate optional `www.` prefix — cardrush sitemaps emit
+      // `https://www.<host>/product/<N>`. Without this tolerance the
+      // count is always 0 (kingdom-087 post-probe-run fix).
+      const productRe = new RegExp(
+        `https?://(?:www\\.)?${host.replace(/[.]/g, "\\.")}/product/\\d+`,
+        "g",
+      );
+      sitemap_product_count = (smBody.match(productRe) ?? []).length;
+    }
+  } catch {
+    // Silent; sitemap_status stays null. The homepage probe is the
+    // primary check; sitemap is augmenting info.
+  }
+
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -122,6 +156,8 @@ async function probeHost(host: string, game: string, confirmed_before: boolean):
       body_bytes: body.length,
       error: null,
       duration_ms: Date.now() - start,
+      sitemap_status,
+      sitemap_product_count,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -139,6 +175,8 @@ async function probeHost(host: string, game: string, confirmed_before: boolean):
       body_bytes: 0,
       error: isDns ? "dns_failure" : `fetch_error: ${message}`,
       duration_ms: Date.now() - start,
+      sitemap_status,
+      sitemap_product_count,
     };
   }
 }
@@ -185,8 +223,8 @@ async function main(): Promise<void> {
   console.log("");
   console.log("◇ Markdown summary (commit this with the registry update)");
   console.log("");
-  console.log("| host | game | conf-before | status | jpy? | bytes | recommendation |");
-  console.log("|------|------|-------------|--------|------|-------|----------------|");
+  console.log("| host | game | conf-before | status | jpy? | sitemap | products | recommendation |");
+  console.log("|------|------|-------------|--------|------|---------|----------|----------------|");
   for (const r of results) {
     const rec = recommendFor(r);
     const status =
@@ -195,10 +233,21 @@ async function main(): Promise<void> {
         : r.error
           ? "fetch-err"
           : r.http_status?.toString() ?? "?";
+    const sitemap =
+      r.sitemap_status === null
+        ? "—"
+        : r.sitemap_status === 200
+          ? "200"
+          : `${r.sitemap_status}`;
+    const products = r.sitemap_product_count > 0 ? r.sitemap_product_count.toString() : "0";
     console.log(
-      `| ${r.host} | ${r.game} | ${r.confirmed_before ? "yes" : "no"} | ${status} | ${r.jpy_in_body ? "yes" : "no"} | ${r.body_bytes} | ${rec} |`,
+      `| ${r.host} | ${r.game} | ${r.confirmed_before ? "yes" : "no"} | ${status} | ${r.jpy_in_body ? "yes" : "no"} | ${sitemap} | ${products} | ${rec} |`,
     );
   }
+  console.log("");
+  console.log("  sitemap = HTTP status of /sitemap.xml; products = /product/[N] count in sitemap.");
+  console.log("  A live sitemap with products is the strongest confirmation signal —");
+  console.log("  the kingdom-087 discovery cron can run against any subdomain showing both.");
   console.log("");
 
   const promote = results.filter((r) => recommendFor(r) === "promote-to-confirmed");

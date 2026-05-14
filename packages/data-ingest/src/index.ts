@@ -54,6 +54,32 @@ export {
 } from "./registry";
 export { runSource, type RunWriters, type RunOptions } from "./runner";
 
+// kingdom-089: layered classification — pure decision logic for
+// edition_variant + promo_origin claims. Priority: publisher (3) >
+// operator (2) > heuristic (1) > default (0). Equal-or-higher promotes;
+// lower is shadowed. The SQL writer lives per-app (e.g.
+// apps/wholesale/src/lib/cards/classify.ts) because each app owns its
+// DB connection. Migration:
+// apps/wholesale/drizzle/drafts/0018_card_financial_attributes.sql.draft.
+// Methodology: /methodology/edition-variants.
+// Audit: pnpm audit:classifier-disagreement.
+export {
+  decideClaim,
+  validateClaim,
+  CLASSIFICATION_PRIORITY,
+  CLASSIFICATION_SOURCE_PRIORITY_ORDER,
+  EDITION_VARIANT_VALUES,
+  PROMO_ORIGIN_VALUES,
+  type ClassificationSource,
+  type ClassifiableAttribute,
+  type ClassificationEvidence,
+  type Claim,
+  type CurrentWinner,
+  type ClaimDecision,
+  type EditionVariant,
+  type PromoOrigin,
+} from "./classifier";
+
 // Cross-language anchor extraction (K2 of the substrate-honest aggregator).
 // Pure-compute helpers that convert per-source CanonicalCard records into
 // the column shape `card_set_cards` accepts after migration 0100 applies.
@@ -104,7 +130,31 @@ export {
 
 // Re-export each shipped source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
 export { scryfall } from "./scryfall/index";
-export { cardrush, scrapeCardRush, CARDRUSH_SUBDOMAINS } from "./cardrush/index";
+export {
+  cardrush,
+  scrapeCardRush,
+  CARDRUSH_SUBDOMAINS,
+  getOrCreateFetcher,
+  type CardRushContext,
+  type CardRushReadOptions,
+  type CardRushFetcherCache,
+  type SubdomainAccessMode,
+  type SubdomainRole,
+} from "./cardrush/index";
+// kingdom-087: discovery layer — sitemap-driven catalog enumeration.
+// kingdom-088: per-host fetcher routing (direct vs bright-data-unlocker).
+export {
+  fetchSitemap,
+  parseSitemapProductUrls,
+  parseCardMetadata,
+  fetchAndParseProduct,
+  createDiscoveryFetcher,
+  createDiscoveryCache,
+  pickDiscoveryFetcher,
+  type SitemapFetchResult,
+  type CardMetadata,
+  type FetchAndParseResult,
+} from "./cardrush/discovery";
 export { pokemonTcgApi } from "./pokemon-tcg-api/index";
 export { ygoprodeck } from "./ygoprodeck/index";
 export {
