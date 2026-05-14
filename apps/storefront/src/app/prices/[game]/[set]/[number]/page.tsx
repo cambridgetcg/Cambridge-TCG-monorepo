@@ -44,10 +44,13 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { game, set, number } = await params;
   const state = await loadCardState(game, set, number);
+  // kingdom-091: head/body fidelity. The page handler notFound()s when state
+  // is null; mirror that here so the title says "not found" + robots:noindex.
   if (!state) {
     return {
-      title: `${set.toUpperCase()} ${number.toUpperCase()} — Card Price Guide UK`,
-      description: "Card price information.",
+      title: `${set.toUpperCase()} ${number.toUpperCase()} — card not found · Cambridge TCG`,
+      description: `No catalog entry for ${set.toUpperCase()} ${number.toUpperCase()}.`,
+      robots: { index: false },
     };
   }
   const cardName = state.card.name;

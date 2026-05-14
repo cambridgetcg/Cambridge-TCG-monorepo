@@ -80,12 +80,25 @@ function fillTemplate(
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { game, set: setSlug } = await params;
   const cfg = await resolveConfig(game);
-  if (!cfg) return { title: "Price guide not found" };
+  if (!cfg) return { title: "Price guide not found", robots: { index: false } };
 
   const setCode = setSlug.toUpperCase();
   const sets = await fetchSets(cfg.slug).catch(() => []);
   const setInfo = sets.find((s) => s.code.toUpperCase() === setCode);
-  const setName = setInfo?.name ?? setCode;
+
+  // kingdom-091: head/body fidelity. When the set is not in the wholesale
+  // catalog, the page handler 404s — emit a matching not-found title +
+  // noindex robots so SEO / federation crawlers don't see a fake-looking
+  // "SV1 SV1 Price Guide" title pointing at the 404 body.
+  if (!setInfo) {
+    return {
+      title: `${setCode} — set not found · ${cfg.display_name}`,
+      description: `No catalog entry for ${setCode} in ${cfg.display_name}.`,
+      robots: { index: false },
+    };
+  }
+
+  const setName = setInfo.name || setCode;
 
   return {
     title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
