@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { fetchCard, fetchPrices, cardAltText } from "@/lib/wholesale/client";
 import { formatRetailPrice, retailPrice } from "@/lib/pricing";
 import { getUnifiedMarketView } from "@/lib/market/unified";
-import { formatPrice } from "@/lib/format";
+import { MoneyDisplay } from "@/lib/ui";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -239,7 +239,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                     </span>
                     <div className="text-sm text-neutral-300">
                       We buy this card for{" "}
-                      <span className="text-purple-400 font-semibold">{formatPrice(market.tradein_credit!)}</span>{" "}
+                      <MoneyDisplay value={market.tradein_credit!} className="text-purple-400 font-semibold" />{" "}
                       <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1 py-0.5 rounded font-semibold">store credit</span>
                       <span className="text-xs text-neutral-500 ml-1">&mdash; always available, unlimited</span>
                     </div>
@@ -280,7 +280,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                     <div className="text-sm text-neutral-300">
                       Also available from sellers:{" "}
                       <span className="text-white font-medium">
-                        From {formatPrice(bestP2pAsk!)}
+                        From <MoneyDisplay value={bestP2pAsk!} />
                       </span>{" "}
                       <span className="text-emerald-400">
                         ({p2pDiscountPct}% below our price)
@@ -300,7 +300,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                 {hasP2pAsks && !p2pBelowStore && (
                   <div className="text-sm text-neutral-400">
                     Also available from sellers from{" "}
-                    <span className="text-white font-medium">{formatPrice(bestP2pAsk!)}</span>
+                    <MoneyDisplay value={bestP2pAsk!} className="text-white font-medium" />
                     {" "}&nbsp;
                     <Link
                       href={`/market/${sku}`}
@@ -335,7 +335,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                     <div className="text-sm text-neutral-300 flex flex-col gap-1.5">
                       <span>
                         We buy this card for{" "}
-                        <span className="text-purple-400 font-semibold">{formatPrice(market.tradein_credit!)}</span>{" "}
+                        <MoneyDisplay value={market.tradein_credit!} className="text-purple-400 font-semibold" />{" "}
                         <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1 py-0.5 rounded font-semibold">store credit</span>
                         <span className="text-xs text-neutral-500 ml-1">&mdash; always available, unlimited</span>
                       </span>

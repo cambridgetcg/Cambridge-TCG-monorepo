@@ -1,6 +1,5 @@
 import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
 import type { PriceItem, SetItem } from "@/lib/wholesale/client";
-import { formatPrice } from "@/lib/format";
 import CardGrid from "@/components/catalog/CardGrid";
 import CatalogFilters from "@/components/catalog/CatalogFilters";
 import SetSidebar from "@/components/catalog/SetSidebar";

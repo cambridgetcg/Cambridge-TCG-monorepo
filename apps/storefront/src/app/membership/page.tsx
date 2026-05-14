@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { formatPrice } from "@/lib/format";
 
 export const metadata = {
   title: "Membership — How It Works — Cambridge TCG",

@@ -280,7 +280,7 @@ export default function PlayPage() {
   /* ================================================================ */
 
   const hasDecks = savedDecks.length > 0;
-  const canStart = signedIn === true && hasDecks && nextOpponent !== null;
+  const canStart = hasDecks && nextOpponent !== null;
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
@@ -318,37 +318,13 @@ export default function PlayPage() {
 
           {signedIn !== null && pve !== null && (
             <>
-              {/* ---- Not signed in ---- */}
-              {!signedIn && (
-                <div className="p-6 sm:p-8">
-                  <h2 className="text-xl font-bold mb-1">Ready to play?</h2>
-                  <p className="text-neutral-400 text-sm mb-5">
-                    Sign in to load a deck and start a battle against an AI opponent.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Link
-                      href="/api/auth/signin?callbackUrl=/play"
-                      className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
-                    >
-                      Sign in to play
-                    </Link>
-                    <Link
-                      href="/deck-builder"
-                      className="text-amber-400 hover:text-amber-300 text-sm font-medium transition-colors"
-                    >
-                      Build a deck first →
-                    </Link>
-                  </div>
-                </div>
-              )}
-
-              {/* ---- Signed in, no decks ---- */}
-              {signedIn && !hasDecks && (
+              {/* ---- No decks (signed-in or guest, same CTA) ---- */}
+              {!hasDecks && (
                 <div className="p-6 sm:p-8">
                   <h2 className="text-xl font-bold mb-1">Build your first deck</h2>
                   <p className="text-neutral-400 text-sm mb-5">
                     You&apos;ll need at least one saved deck (10+ cards) before you can battle.
-                    The deck builder takes a few minutes.
+                    The deck builder takes a few minutes — no sign-in required.
                   </p>
                   <Link
                     href="/deck-builder"
@@ -359,8 +335,8 @@ export default function PlayPage() {
                 </div>
               )}
 
-              {/* ---- Signed in, has decks — the real play surface ---- */}
-              {signedIn && hasDecks && (
+              {/* ---- Has decks — the real play surface ---- */}
+              {hasDecks && (
                 <div className="grid md:grid-cols-[1fr_1fr] divide-y md:divide-y-0 md:divide-x divide-neutral-800">
 
                   {/* Deck picker */}

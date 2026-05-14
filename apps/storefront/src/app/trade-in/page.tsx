@@ -1,5 +1,4 @@
 import { fetchPrices, type PriceItem } from "@/lib/wholesale/client";
-import { formatPrice } from "@/lib/format";
 import BuylistTable from "@/components/tradein/BuylistTable";
 import SellCartBar from "@/components/tradein/SellCartBar";
 import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";

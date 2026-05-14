@@ -80,6 +80,16 @@ export {
   type PromoOrigin,
 } from "./classifier";
 
+// kingdom-089: CardRush-specific heuristic classifier. Maps product
+// signals (URL + name + rarity + game + card number) into zero or more
+// classification claims. Pure function; the writer lives per-app.
+// See packages/data-ingest/src/cardrush/classify.ts.
+export {
+  classifyCardRushSignal,
+  CARDRUSH_CLASSIFICATION_RULES,
+  type CardRushClassificationSignal,
+} from "./cardrush/classify";
+
 // Cross-language anchor extraction (K2 of the substrate-honest aggregator).
 // Pure-compute helpers that convert per-source CanonicalCard records into
 // the column shape `card_set_cards` accepts after migration 0100 applies.
