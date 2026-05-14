@@ -445,6 +445,85 @@ export async function fetchCardrushHistory(opts: {
   }
 }
 
+// ── Multi-source latest snapshot (kingdom-081 Phase 5.2) ─────────────
+//
+// One row per source for a card on its latest snapshot date (or a
+// caller-specified date). Today only cardrush ships, so the response
+// carries one row; when TCGplayer + Cardmarket land their writers the
+// response branches naturally (same shape, more rows). Agreement stats
+// + license tier per source.
+
+export interface SourcePriceRow {
+  source: string;
+  source_url: string | null;
+  source_currency: string;
+  source_redistribute: boolean;
+  source_license_tier: string;
+  ingest_run_id: number | null;
+  snapshot_date: string;
+  price_gbp: number;
+  base_gbp: number;
+  cardrush_jpy: number | null;
+  gbp_jpy_rate: number | null;
+  error_reason: string | null;
+}
+
+export interface MultiSourcePriceResponse {
+  sku: string;
+  snapshot_date: string;
+  card_id: number;
+  count: number;
+  prices: SourcePriceRow[];
+  agreement: {
+    distinct_source_count: number;
+    min_gbp: number | null;
+    max_gbp: number | null;
+    spread_gbp: number | null;
+    coefficient_of_variation: number | null;
+  };
+  note: string;
+  retrieved_at: string;
+}
+
+/**
+ * Fetch the multi-source price view for one card on its latest snapshot
+ * day (or a caller-specified date). Drives the kingdom-090 price-search
+ * composer's `prices_today` block. Returns null on 404 (card or snapshot
+ * missing); falcon-degrade-to-null on transport failure so the composer
+ * can render a substrate-honest "no source rows yet" state instead of
+ * fabricating prices.
+ */
+export async function fetchPriceSources(opts: {
+  sku: string;
+  date?: string;
+}): Promise<MultiSourcePriceResponse | null> {
+  const u = new URL(
+    WHOLESALE_URL + "/api/v1/prices/" + encodeURIComponent(opts.sku) + "/sources",
+  );
+  if (opts.date) u.searchParams.set("date", opts.date);
+  let res: Response;
+  try {
+    res = await wholesaleFetch(u.toString(), {
+      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+      next: { revalidate: 300 },
+    });
+  } catch (err) {
+    console.error("[wholesale] price-sources fetch error", err);
+    return null;
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    console.error("[wholesale] price-sources error", res.status);
+    return null;
+  }
+  try {
+    return (await res.json()) as MultiSourcePriceResponse;
+  } catch (err) {
+    console.error("[wholesale] price-sources parse error", err);
+    return null;
+  }
+}
+
 // ── TCGplayer history (kingdom-080 follow-up) ────────────────────────
 //
 // Per-condition USD observation history. Partner-redistributable license —

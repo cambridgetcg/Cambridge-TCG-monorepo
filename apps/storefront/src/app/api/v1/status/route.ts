@@ -156,6 +156,10 @@ const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/adopters",
   // kingdom-085 — the aggregator presents its collected state.
   "/api/v1/coverage",
+  // kingdom-090 — the price-search module (POOF).
+  "/api/v1/search/cards",
+  "/api/v1/cards/[sku]/everything",
+  "/api/v1/search/everything",
 ]);
 
 // ── Per-resource state ─────────────────────────────────────────────────

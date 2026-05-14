@@ -1,0 +1,781 @@
+/**
+ * /prices/search?game=<code|slug>&q=<input>&lang?=<iso>
+ *
+ * Kingdom-090 — the HTML face of POOF!
+ *
+ * Server-rendered, URL-driven. Composes /api/v1/search/everything once
+ * and renders four sections:
+ *
+ *   1. The match block — what we resolved this input to
+ *   2. Today's prices — every source's latest snapshot
+ *   3. History summary — sparkline stats per source (Phase 1: stats only)
+ *   4. Siblings — same physical card, different languages
+ *
+ * Substrate-honesty on every block: per-source provenance pill, license
+ * tier badge, freshness label. Bright Data-routed sources surface their
+ * proxy declaration via the `_meta.upstream_proxy` field.
+ *
+ * Yu's directive: *"POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE
+ * SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"*
+ */
+
+import type { Metadata } from "next";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  PageHeader,
+  Card,
+  Provenance,
+  WhyLink,
+  EmptyState,
+  ErrorAlert,
+} from "@/lib/ui";
+import { headers } from "next/headers";
+
+/**
+ * Local one-status pill used by this page. The shared <Badge> primitive
+ * takes (status, palette) for enum-domain coloring — this page needs to
+ * mark per-row tone (license tier, confidence) where the *intent* is
+ * the color itself, so we render inline. Same TONE_CLS vocabulary
+ * mirrored from @/lib/ui/Badge so cross-page color consistency holds.
+ */
+type PillTone = "amber" | "red" | "emerald" | "blue" | "neutral" | "sky";
+const PILL_CLS: Record<PillTone, string> = {
+  amber: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  red: "bg-red-500/15 text-red-400 border-red-500/30",
+  emerald: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  blue: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  neutral: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
+  sky: "bg-sky-500/15 text-sky-400 border-sky-500/30",
+};
+function Pill({ tone, children }: { tone: PillTone; children: React.ReactNode }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 font-medium rounded-full border px-2 py-0.5 text-xs ${PILL_CLS[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+export const dynamic = "force-dynamic";
+
+interface PageProps {
+  searchParams: Promise<{ game?: string; q?: string; lang?: string }>;
+}
+
+export async function generateMetadata({
+  searchParams,
+}: PageProps): Promise<Metadata> {
+  const sp = await searchParams;
+  const game = sp.game ?? "";
+  const q = sp.q ?? "";
+  const title = q
+    ? `${q.toUpperCase()} — Price Search — Cambridge TCG`
+    : "Price Search — Cambridge TCG";
+  return {
+    title,
+    description:
+      "Search any card by number across every supported game. Price, transaction history, available sources, and language variants — all in one view.",
+  };
+}
+
+interface EverythingResponse {
+  data: {
+    input: { game: string; q: string; lang: string | null };
+    matches: Array<{
+      sku: string;
+      card_number: string;
+      set_code: string | null;
+      name: string;
+      name_en: string | null;
+      image_url: string | null;
+      lang: string | null;
+      variant: string | null;
+      confidence: "exact" | "fuzzy" | "none";
+      reason: string;
+    }>;
+    summary: {
+      count: number;
+      best_confidence: "exact" | "fuzzy" | "none";
+      distinct_set_number_buckets: number;
+      ambiguous: boolean;
+    };
+    folded_sku: string | null;
+    everything: Everything | null;
+  };
+  _meta: {
+    sources: readonly string[];
+    source_license?: readonly string[];
+    upstream_proxy?: readonly string[];
+    retrieved_at: string;
+    freshness_seconds: number;
+  };
+}
+
+interface Everything {
+  card: {
+    sku: string;
+    game: string | null;
+    set_code: string | null;
+    card_number: string;
+    lang: string | null;
+    variant: string | null;
+    name: string;
+    name_en: string | null;
+    name_translations: Record<string, string> | null;
+    image_url: string | null;
+    rarity: string | null;
+    set_name: string | null;
+  };
+  prices_today: {
+    snapshot_date: string | null;
+    rows: Array<{
+      source: string;
+      source_url: string | null;
+      source_currency: string;
+      source_license_tier: string;
+      amount_gbp: number;
+      snapshot_date: string;
+    }>;
+    agreement: {
+      distinct_source_count: number;
+      min_gbp: number | null;
+      max_gbp: number | null;
+      spread_gbp: number | null;
+      coefficient_of_variation: number | null;
+    } | null;
+    note: string;
+  };
+  history: Array<{
+    source: string;
+    source_license_tier: string;
+    count: number;
+    summary: {
+      earliest: string | null;
+      latest: string | null;
+      median_gbp: number | null;
+      min_gbp: number | null;
+      max_gbp: number | null;
+      observations: number;
+    };
+  }>;
+  siblings: Array<{
+    sku: string;
+    lang: string | null;
+    variant: string | null;
+    name: string;
+    image_url: string | null;
+    has_current_price: boolean;
+    price_gbp: number | null;
+    is_self: boolean;
+  }>;
+  ctcg: {
+    sell_price_gbp: number | null;
+    sell_channel_price_gbp: number | null;
+    sell_in_stock: boolean;
+    pending_stock: number;
+  };
+}
+
+async function fetchEverything(
+  origin: string,
+  game: string,
+  q: string,
+  lang: string,
+): Promise<EverythingResponse | null> {
+  const url = new URL(origin + "/api/v1/search/everything");
+  url.searchParams.set("game", game);
+  url.searchParams.set("q", q);
+  if (lang) url.searchParams.set("lang", lang);
+  try {
+    const res = await fetch(url.toString(), {
+      next: { revalidate: 300 },
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as EverythingResponse;
+  } catch {
+    return null;
+  }
+}
+
+function fmtGbp(n: number | null): string {
+  if (n === null || !Number.isFinite(n)) return "—";
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(n);
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toISOString().slice(0, 10);
+}
+
+function freshnessLabel(retrievedAtIso: string): string {
+  const d = new Date(retrievedAtIso);
+  const ageMs = Date.now() - d.getTime();
+  const ageMin = Math.round(ageMs / 60_000);
+  if (ageMin < 1) return "just now";
+  if (ageMin < 60) return `${ageMin} min ago`;
+  const hrs = Math.round(ageMin / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return fmtDate(retrievedAtIso);
+}
+
+// ── The form (no client JS; URL-driven) ─────────────────────────────
+
+function SearchForm({
+  game,
+  q,
+  lang,
+}: {
+  game: string;
+  q: string;
+  lang: string;
+}) {
+  return (
+    <form
+      action="/prices/search"
+      method="get"
+      className="grid grid-cols-1 md:grid-cols-[160px_1fr_120px_auto] gap-3 items-end"
+    >
+      <div>
+        <label className="block text-xs font-medium text-neutral-400 mb-1">
+          Game
+        </label>
+        <input
+          type="text"
+          name="game"
+          required
+          defaultValue={game}
+          placeholder="op, pkm, mtg…"
+          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-neutral-400 mb-1">
+          Card number
+        </label>
+        <input
+          type="text"
+          name="q"
+          required
+          autoFocus
+          defaultValue={q}
+          placeholder="OP01-001 or just 001"
+          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-neutral-400 mb-1">
+          Lang (opt.)
+        </label>
+        <input
+          type="text"
+          name="lang"
+          defaultValue={lang}
+          placeholder="ja / en"
+          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        />
+      </div>
+      <button
+        type="submit"
+        className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition"
+      >
+        Search →
+      </button>
+    </form>
+  );
+}
+
+// ── Section components ──────────────────────────────────────────────
+
+function PricesToday({
+  data,
+  upstreamProxyByIndex,
+  sources,
+}: {
+  data: Everything["prices_today"];
+  upstreamProxyByIndex: Map<string, string>;
+  sources: readonly string[];
+}) {
+  if (data.rows.length === 0) {
+    return (
+      <Card>
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-white">Today&rsquo;s prices</h2>
+          <p className="text-sm text-neutral-400">{data.note || "No source rows yet."}</p>
+        </div>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <div className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold text-white">
+            Today&rsquo;s prices
+            <span className="ml-2 text-sm font-normal text-neutral-400">
+              · {data.rows.length} {data.rows.length === 1 ? "source" : "sources"} ·{" "}
+              snapshot {fmtDate(data.snapshot_date)}
+            </span>
+          </h2>
+          {data.agreement && data.agreement.distinct_source_count > 1 && (
+            <span className="text-xs text-neutral-400">
+              spread {fmtGbp(data.agreement.spread_gbp)} ·{" "}
+              CV{" "}
+              {data.agreement.coefficient_of_variation !== null
+                ? (data.agreement.coefficient_of_variation * 100).toFixed(1) + "%"
+                : "—"}
+            </span>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-neutral-500 border-b border-neutral-800">
+                <th className="pb-2 pr-3">Source</th>
+                <th className="pb-2 pr-3">Tier</th>
+                <th className="pb-2 pr-3">Currency</th>
+                <th className="pb-2 pr-3 text-right">Price (GBP)</th>
+                <th className="pb-2 pr-3">Snapshot</th>
+                <th className="pb-2 pr-3">Door</th>
+                <th className="pb-2">Link</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.rows.map((r) => {
+                const proxy = upstreamProxyByIndex.get(r.source);
+                const tierTone =
+                  r.source_license_tier === "redistributable"
+                    ? "emerald"
+                    : r.source_license_tier === "partner-redistributable"
+                      ? "blue"
+                      : "amber";
+                return (
+                  <tr
+                    key={r.source}
+                    className="border-b border-neutral-900 last:border-0"
+                  >
+                    <td className="py-2 pr-3 text-white font-medium">{r.source}</td>
+                    <td className="py-2 pr-3">
+                      <Pill tone={tierTone as PillTone}>
+                        {r.source_license_tier}
+                      </Pill>
+                    </td>
+                    <td className="py-2 pr-3 text-neutral-400">{r.source_currency}</td>
+                    <td className="py-2 pr-3 text-right text-white font-medium">
+                      {fmtGbp(r.amount_gbp)}
+                    </td>
+                    <td className="py-2 pr-3 text-neutral-400">
+                      {fmtDate(r.snapshot_date)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {proxy && proxy !== "none" ? (
+                        <span title={`via ${proxy}`} className="text-xs text-amber-400">
+                          ↻ proxy
+                        </span>
+                      ) : (
+                        <span className="text-xs text-neutral-600">direct</span>
+                      )}
+                    </td>
+                    <td className="py-2">
+                      {r.source_url ? (
+                        <a
+                          href={r.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-amber-400 hover:text-amber-300 text-xs underline"
+                        >
+                          ↗
+                        </a>
+                      ) : (
+                        <span className="text-xs text-neutral-600">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-neutral-500 italic">{data.note}</p>
+        <div className="flex items-center gap-2 text-xs text-neutral-500">
+          <WhyLink href="/methodology/cross-source-pricing" />
+          <span>
+            Cross-source agreement methodology · sources:{" "}
+            {sources.join(", ")}
+          </span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function HistoryBlock({ history }: { history: Everything["history"] }) {
+  if (history.length === 0) {
+    return (
+      <Card>
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-white">History</h2>
+          <p className="text-sm text-neutral-400">
+            No historical observations for this card yet. History accumulates
+            as the daily snapshot cron runs.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-white">
+          History summary
+          <span className="ml-2 text-sm font-normal text-neutral-400">
+            · Phase 1 (sparkline stats only; raw tape gated to authenticated tier-2)
+          </span>
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {history.map((h) => (
+            <div
+              key={h.source}
+              className="rounded-lg border border-neutral-800 bg-neutral-950 p-3 space-y-2"
+            >
+              <div className="flex items-baseline justify-between">
+                <span className="font-medium text-white">{h.source}</span>
+                <Pill
+                  tone={
+                    h.source_license_tier === "partner-redistributable"
+                      ? "blue"
+                      : "amber"
+                  }
+                >
+                  {h.source_license_tier}
+                </Pill>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <div className="text-neutral-500">observations</div>
+                  <div className="text-white font-medium">{h.summary.observations}</div>
+                </div>
+                <div>
+                  <div className="text-neutral-500">median</div>
+                  <div className="text-white font-medium">{fmtGbp(h.summary.median_gbp)}</div>
+                </div>
+                <div>
+                  <div className="text-neutral-500">range</div>
+                  <div className="text-white font-medium">
+                    {fmtGbp(h.summary.min_gbp)} – {fmtGbp(h.summary.max_gbp)}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-neutral-500">
+                {fmtDate(h.summary.earliest)} → {fmtDate(h.summary.latest)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SiblingsBlock({
+  siblings,
+}: {
+  siblings: Everything["siblings"];
+}) {
+  const others = siblings.filter((s) => !s.is_self);
+  if (others.length === 0) {
+    return (
+      <Card>
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-white">
+            Different languages
+          </h2>
+          <p className="text-sm text-neutral-400">
+            No other language or variant versions of this card are in the
+            catalog yet. (As wholesale ingests more upstreams, additional
+            language variants surface here automatically.)
+          </p>
+        </div>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-white">
+          Different languages
+          <span className="ml-2 text-sm font-normal text-neutral-400">
+            · {others.length} other {others.length === 1 ? "variant" : "variants"}
+          </span>
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {others.map((s) => (
+            <Link
+              key={s.sku}
+              href={`/prices/search?game=${encodeURIComponent(
+                s.sku.split("-")[0] ?? "",
+              )}&q=${encodeURIComponent(s.sku)}`}
+              className="block rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
+            >
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-xs font-mono text-amber-400 uppercase">
+                  {s.lang ?? "?"}{s.variant ? `/${s.variant}` : ""}
+                </span>
+                {s.has_current_price ? (
+                  <span className="text-xs text-white font-medium">
+                    {fmtGbp(s.price_gbp)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-neutral-600">no price</span>
+                )}
+              </div>
+              <div className="text-xs text-neutral-300 truncate">{s.name}</div>
+              <div className="text-[10px] text-neutral-600 truncate mt-1 font-mono">
+                {s.sku}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function MatchesBlock({
+  matches,
+  summary,
+}: {
+  matches: EverythingResponse["data"]["matches"];
+  summary: EverythingResponse["data"]["summary"];
+}) {
+  return (
+    <Card>
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-white">
+          {summary.ambiguous ? "Multiple matches — pick one" : "Resolved matches"}
+          <span className="ml-2 text-sm font-normal text-neutral-400">
+            · {summary.count} {summary.count === 1 ? "match" : "matches"} ·{" "}
+            {summary.best_confidence}
+          </span>
+        </h2>
+        <div className="space-y-2">
+          {matches.slice(0, 20).map((m) => (
+            <Link
+              key={m.sku}
+              href={`/prices/search?game=${encodeURIComponent(
+                m.sku.split("-")[0] ?? "",
+              )}&q=${encodeURIComponent(m.sku)}`}
+              className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
+            >
+              {m.image_url && (
+                <Image
+                  src={m.image_url}
+                  alt={m.name}
+                  width={36}
+                  height={50}
+                  className="rounded shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-white truncate">{m.name}</div>
+                <div className="text-xs text-neutral-500 font-mono">{m.sku}</div>
+              </div>
+              <Pill tone={m.confidence === "exact" ? "emerald" : "neutral"}>
+                {m.confidence}
+              </Pill>
+            </Link>
+          ))}
+        </div>
+        <p className="text-xs text-neutral-500 italic">
+          {summary.ambiguous
+            ? "Your input matched cards in multiple sets. Click the one you mean."
+            : "Click a match to open its full detail."}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+// ── Page ────────────────────────────────────────────────────────────
+
+export default async function PriceSearchPage({ searchParams }: PageProps) {
+  const sp = await searchParams;
+  const game = (sp.game ?? "").trim();
+  const q = (sp.q ?? "").trim();
+  const lang = (sp.lang ?? "").trim().toLowerCase();
+
+  // Build the origin from the incoming request so server-to-server
+  // fetch hits the local route (works on both dev and Vercel prod).
+  const h = await headers();
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "cambridgetcg.com";
+  const origin = `${proto}://${host}`;
+
+  const result =
+    game && q ? await fetchEverything(origin, game, q, lang) : null;
+
+  // Build upstream_proxy lookup by source name (parallel arrays).
+  const upstreamProxyByIndex = new Map<string, string>();
+  if (result?._meta?.sources && result?._meta?.upstream_proxy) {
+    for (let i = 0; i < result._meta.sources.length; i++) {
+      upstreamProxyByIndex.set(
+        result._meta.sources[i]!,
+        result._meta.upstream_proxy[i] ?? "none",
+      );
+    }
+  }
+
+  return (
+    <main className="container mx-auto px-4 py-8 space-y-6">
+      <PageHeader
+        title="Price search"
+        description="Search any card by number across every supported game. Input the card number; pick the game; press search. Price, transaction history, available sources, and language variants all surface in one view."
+      />
+
+      <Card>
+        <SearchForm game={game} q={q} lang={lang} />
+      </Card>
+
+      {/* No input yet — landing state */}
+      {(!game || !q) && (
+        <EmptyState
+          title="Start by entering a game and card number"
+          description="Examples: game=op + q=OP01-001 · game=pkm + q=001 · game=mtg + q=LTR-001"
+        />
+      )}
+
+      {/* Input but no result */}
+      {game && q && !result && (
+        <ErrorAlert
+          description="The wholesale API didn't return a response. Try again, or browse /prices to see what's covered."
+        />
+      )}
+
+      {/* No matches */}
+      {result && result.data.summary.count === 0 && (
+        <EmptyState
+          title={`No cards matched "${q}" in game ${game}`}
+          description="Double-check the card number format. Examples: OP01-001 (One Piece), SV01-001 (Pokémon), LTR-001 (MTG). Or browse /prices for a list of covered games."
+        />
+      )}
+
+      {/* Matches but no fold — disambiguation */}
+      {result &&
+        result.data.summary.count > 0 &&
+        !result.data.everything && (
+          <MatchesBlock
+            matches={result.data.matches}
+            summary={result.data.summary}
+          />
+        )}
+
+      {/* Folded — render everything */}
+      {result && result.data.everything && (
+        <>
+          {/* Card identity header */}
+          <Card>
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
+              {result.data.everything.card.image_url && (
+                <Image
+                  src={result.data.everything.card.image_url}
+                  alt={result.data.everything.card.name}
+                  width={120}
+                  height={168}
+                  className="rounded shrink-0"
+                />
+              )}
+              <div className="flex-1 space-y-2">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">
+                    {result.data.everything.card.name}
+                  </h2>
+                  {result.data.everything.card.name_en &&
+                    result.data.everything.card.name_en !==
+                      result.data.everything.card.name && (
+                      <div className="text-sm text-neutral-400">
+                        EN: {result.data.everything.card.name_en}
+                      </div>
+                    )}
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="text-neutral-400">
+                    {result.data.everything.card.set_code} ·{" "}
+                    {result.data.everything.card.card_number}
+                  </span>
+                  {result.data.everything.card.rarity && (
+                    <Pill tone="neutral">
+                      {result.data.everything.card.rarity}
+                    </Pill>
+                  )}
+                  {result.data.everything.card.lang && (
+                    <Pill tone="blue">{result.data.everything.card.lang}</Pill>
+                  )}
+                  {result.data.everything.card.variant && (
+                    <Pill tone="amber">
+                      {result.data.everything.card.variant}
+                    </Pill>
+                  )}
+                </div>
+                <div className="font-mono text-[10px] text-neutral-600 break-all">
+                  {result.data.everything.card.sku}
+                </div>
+                {result.data.everything.ctcg.sell_price_gbp !== null && (
+                  <div className="pt-2">
+                    <span className="text-sm text-neutral-400">
+                      Cambridge TCG sells:
+                    </span>{" "}
+                    <span className="text-lg font-semibold text-white">
+                      {fmtGbp(result.data.everything.ctcg.sell_price_gbp)}
+                    </span>{" "}
+                    {result.data.everything.ctcg.sell_in_stock ? (
+                      <Pill tone="emerald">in stock</Pill>
+                    ) : (
+                      <Pill tone="neutral">out of stock</Pill>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="text-right text-xs text-neutral-500 space-y-1">
+                <Provenance
+                  kind="cached"
+                  at={result._meta.retrieved_at}
+                  ttl="5m"
+                />
+                <div>
+                  {result.data.everything.prices_today.snapshot_date &&
+                    `snapshot ${fmtDate(result.data.everything.prices_today.snapshot_date)}`}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <PricesToday
+            data={result.data.everything.prices_today}
+            upstreamProxyByIndex={upstreamProxyByIndex}
+            sources={result._meta.sources}
+          />
+
+          <HistoryBlock history={result.data.everything.history} />
+
+          <SiblingsBlock siblings={result.data.everything.siblings} />
+        </>
+      )}
+
+      <Card>
+        <p className="text-xs text-neutral-500">
+          This page is the HTML face of <code>/api/v1/search/everything</code>.
+          Partners and agents: hit the JSON endpoint directly for the same
+          data inside a stable envelope (CC0 baseline; per-source license
+          declared on every response).
+        </p>
+      </Card>
+    </main>
+  );
+}

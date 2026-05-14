@@ -1,0 +1,435 @@
+/**
+ * GET /api/v1/cards/[sku]/everything
+ *
+ * The composer half of kingdom-090 — given a canonical SKU, return
+ * everything the platform knows about that card in one envelope:
+ * price across every source, history (cardrush + tcgplayer), siblings
+ * across languages, and the platform's own quote.
+ *
+ * Yu's directive: *"POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE
+ * SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"* This route is the POOF.
+ *
+ * ── What it composes ───────────────────────────────────────────────
+ *
+ * The route is pure-composition over existing wires:
+ *   - `fetchCard(sku)`           → card meta + ctcg quote
+ *   - `fetchPriceSources(sku)`   → today's prices across sources
+ *                                  (kingdom-081 multi-source view)
+ *   - `fetchCardrushHistory(sku)` (license-aware; degrades silently)
+ *   - `fetchTcgplayerHistory(sku)` (license-aware; degrades silently)
+ *   - `fetchPrices({ game, q: setNum })` → siblings (same physical
+ *                                          card, different languages)
+ *
+ * All Falcon calls fire in parallel. Each degrades to null on failure;
+ * the envelope surfaces the absence with a substrate-honest message
+ * rather than fabricating data.
+ *
+ * ── License & freshness ────────────────────────────────────────────
+ *
+ * Returns mixed-license data:
+ *   - card meta + ctcg quote: CC0
+ *   - cardrush observations: internal-only (skipped unless auth-gated;
+ *     this Phase 1 route returns only sparkline-summary stats from
+ *     cardrush — no raw upstream values)
+ *   - tcgplayer observations: partner-redistributable (same treatment
+ *     in Phase 1)
+ *
+ * `_meta.source_license` declares per-source tier so a downstream
+ * caller can decide what it may redistribute. Phase 2 will add an
+ * auth-gated /everything-tier-2 variant that returns the full tape.
+ *
+ * Freshness budget: 5 minutes (market_signal).
+ */
+
+import { NextRequest } from "next/server";
+import {
+  fetchCard,
+  fetchPriceSources,
+  fetchCardrushHistory,
+  fetchTcgplayerHistory,
+  fetchPrices,
+  type PriceItem,
+  type SourcePriceRow,
+} from "@/lib/wholesale/client";
+import { jsonResponse, errorResponse } from "@/lib/data-pantry";
+import { parseSkuShape } from "@/lib/search/resolver";
+
+export const runtime = "nodejs";
+
+// ── Public response shape (typed for partners + the search page) ────
+
+interface EverythingCard {
+  sku: string;
+  game: string | null;
+  set_code: string | null;
+  card_number: string;
+  lang: string | null;
+  variant: string | null;
+  name: string;
+  name_en: string | null;
+  name_translations: Record<string, string> | null;
+  image_url: string | null;
+  rarity: string | null;
+  set_name: string | null;
+}
+
+interface PriceTodayRow {
+  source: string;
+  source_url: string | null;
+  source_currency: string;
+  source_license_tier: string;
+  source_redistribute: boolean;
+  amount_gbp: number;
+  base_gbp: number;
+  /** Substrate-honest: when source is cardrush, the raw upstream JPY is
+   *  redistributable=false; surface it only when license allows. */
+  raw: {
+    cardrush_jpy: number | null;
+    gbp_jpy_rate: number | null;
+  };
+  snapshot_date: string;
+  ingest_run_id: number | null;
+  error_reason: string | null;
+}
+
+interface HistorySummary {
+  source: string;
+  source_license_tier: string;
+  count: number;
+  /** Whether the points array is included in this response (Phase 1
+   *  public tier returns summary stats only when the source's license
+   *  doesn't permit raw redistribution). */
+  points_included: boolean;
+  /** Aggregate stats over the observation series. Always safe to
+   *  publish — derived statistics don't carry the upstream's terms. */
+  summary: {
+    earliest: string | null;
+    latest: string | null;
+    median_gbp: number | null;
+    min_gbp: number | null;
+    max_gbp: number | null;
+    observations: number;
+  };
+  /** Sparkline points when points_included=true (currently never on
+   *  Phase 1 public; reserved for Phase 2 auth-gated variant). */
+  points: Array<{
+    date: string;
+    amount_gbp: number;
+    condition?: string;
+  }> | null;
+}
+
+interface SiblingRow {
+  sku: string;
+  lang: string | null;
+  variant: string | null;
+  name: string;
+  image_url: string | null;
+  has_current_price: boolean;
+  price_gbp: number | null;
+  /** Whether this row IS the requested SKU (UI dims it). */
+  is_self: boolean;
+}
+
+interface CtcgQuote {
+  sell_price_gbp: number | null;
+  sell_channel_price_gbp: number | null;
+  sell_in_stock: boolean;
+  pending_stock: number;
+  /** Future hooks; null today until trade-in pricing is composed. */
+  trade_in_cash_gbp: number | null;
+  trade_in_credit_gbp: number | null;
+}
+
+interface EverythingPayload {
+  card: EverythingCard;
+  prices_today: {
+    snapshot_date: string | null;
+    rows: PriceTodayRow[];
+    agreement: {
+      distinct_source_count: number;
+      min_gbp: number | null;
+      max_gbp: number | null;
+      spread_gbp: number | null;
+      coefficient_of_variation: number | null;
+    } | null;
+    note: string;
+  };
+  history: HistorySummary[];
+  siblings: SiblingRow[];
+  ctcg: CtcgQuote;
+  /** Operator-visible breadcrumb: what we tried to compose + how each
+   *  Falcon call resolved. UI can render this in a debug panel. */
+  composition: {
+    falcon_calls: Record<string, "ok" | "absent" | "error">;
+  };
+}
+
+// ── Pure summary helpers ────────────────────────────────────────────
+
+function median(nums: number[]): number | null {
+  if (nums.length === 0) return null;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) return (sorted[mid - 1]! + sorted[mid]!) / 2;
+  return sorted[mid]!;
+}
+
+function summarizeCardrush(
+  obs: Array<{ snapshot_date: string; price_gbp: number | null }>,
+): HistorySummary["summary"] {
+  const prices = obs
+    .map((o) => o.price_gbp)
+    .filter((v): v is number => v !== null && Number.isFinite(v));
+  const dates = obs.map((o) => o.snapshot_date).sort();
+  return {
+    earliest: dates[0] ?? null,
+    latest: dates[dates.length - 1] ?? null,
+    median_gbp: median(prices),
+    min_gbp: prices.length > 0 ? Math.min(...prices) : null,
+    max_gbp: prices.length > 0 ? Math.max(...prices) : null,
+    observations: prices.length,
+  };
+}
+
+function summarizeTcgplayer(
+  obs: Array<{ snapshot_date: string; price_gbp: number | null }>,
+): HistorySummary["summary"] {
+  // Same shape; reuse the cardrush summary.
+  return summarizeCardrush(obs);
+}
+
+function priceRowFromSource(r: SourcePriceRow): PriceTodayRow {
+  return {
+    source: r.source,
+    source_url: r.source_url,
+    source_currency: r.source_currency,
+    source_license_tier: r.source_license_tier,
+    source_redistribute: r.source_redistribute,
+    amount_gbp: r.price_gbp,
+    base_gbp: r.base_gbp,
+    raw: {
+      cardrush_jpy: r.source_redistribute ? r.cardrush_jpy : null,
+      gbp_jpy_rate: r.gbp_jpy_rate,
+    },
+    snapshot_date: r.snapshot_date,
+    ingest_run_id: r.ingest_run_id,
+    error_reason: r.error_reason,
+  };
+}
+
+// ── Route ───────────────────────────────────────────────────────────
+
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ sku: string }> },
+) {
+  const { sku: rawSku } = await ctx.params;
+  const sku = decodeURIComponent(rawSku).trim().toLowerCase();
+
+  const parsed = parseSkuShape(sku);
+  if (!parsed) {
+    return errorResponse({
+      code: "INVALID_SKU",
+      message:
+        `'${rawSku}' is not a canonical SKU. Expected '<game>-<set>-<number>-<lang>[-<variant>]' (e.g. 'op-op01-001-ja').`,
+      docs: "/methodology/sku-standard",
+    });
+  }
+
+  // Fire every Falcon call in parallel. Each degrades to null on
+  // failure; we surface absence in `composition.falcon_calls`.
+  const [card, priceSources, cardrushHist, tcgplayerHist] = await Promise.all([
+    fetchCard(sku),
+    fetchPriceSources({ sku }),
+    fetchCardrushHistory({ sku, limit: 365 }).catch(() => null),
+    fetchTcgplayerHistory({ sku, limit: 365 }).catch(() => null),
+  ]);
+
+  if (!card) {
+    return errorResponse({
+      code: "NOT_FOUND",
+      message: `Card '${sku}' not found in the wholesale catalog.`,
+      details: { sku },
+    });
+  }
+
+  // ── Siblings: same physical card, different language/variant. ────
+  // Query the wholesale prices route for SET-NUMBER without lang;
+  // returns every language variant for this set + number.
+  const siblingsRaw = await fetchPrices({
+    game: parsed.game,
+    q: `${parsed.set}-${parsed.number}`,
+    limit: 50,
+  }).catch(() => ({ items: [] as PriceItem[] } as { items: PriceItem[] }));
+
+  const siblings: SiblingRow[] = siblingsRaw.items
+    .filter((item) => {
+      const ps = parseSkuShape(item.sku);
+      return ps && ps.set === parsed.set && ps.number === parsed.number;
+    })
+    .map((item) => {
+      const ps = parseSkuShape(item.sku);
+      return {
+        sku: item.sku,
+        lang: ps?.lang ?? null,
+        variant: ps?.variant ?? null,
+        name: item.name ?? item.card_number,
+        image_url: item.image_url,
+        has_current_price: typeof item.price_gbp === "number" && item.price_gbp > 0,
+        price_gbp: typeof item.price_gbp === "number" ? item.price_gbp : null,
+        is_self: item.sku === sku,
+      };
+    })
+    .sort((a, b) => {
+      // Self first; then by lang.
+      if (a.is_self !== b.is_self) return a.is_self ? -1 : 1;
+      return (a.lang ?? "").localeCompare(b.lang ?? "");
+    });
+
+  // ── prices_today block ────────────────────────────────────────────
+  const pricesTodayRows = priceSources?.prices.map(priceRowFromSource) ?? [];
+  const pricesToday = {
+    snapshot_date: priceSources?.snapshot_date ?? null,
+    rows: pricesTodayRows,
+    agreement: priceSources?.agreement ?? null,
+    note: priceSources?.note ?? (
+      pricesTodayRows.length === 0
+        ? "No source rows yet. Either this card hasn't been scraped, or no source has reported a price for it on any snapshot date."
+        : ""
+    ),
+  };
+
+  // ── history block (sparkline summaries only on Phase 1 public) ────
+  const history: HistorySummary[] = [];
+
+  if (cardrushHist && cardrushHist.observations.length > 0) {
+    history.push({
+      source: "cardrush",
+      source_license_tier: "internal-only",
+      count: cardrushHist.observations.length,
+      points_included: false,
+      summary: summarizeCardrush(
+        cardrushHist.observations.map((o) => ({
+          snapshot_date: o.snapshot_date,
+          price_gbp: o.price_gbp,
+        })),
+      ),
+      points: null,
+    });
+  }
+
+  if (tcgplayerHist && tcgplayerHist.observations.length > 0) {
+    history.push({
+      source: "tcgplayer",
+      source_license_tier: "partner-redistributable",
+      count: tcgplayerHist.observations.length,
+      points_included: false,
+      summary: summarizeTcgplayer(
+        tcgplayerHist.observations.map((o) => ({
+          snapshot_date: o.snapshot_date,
+          price_gbp: o.price_gbp,
+        })),
+      ),
+      points: null,
+    });
+  }
+
+  // ── ctcg quote ────────────────────────────────────────────────────
+  const ctcg: CtcgQuote = {
+    sell_price_gbp: typeof card.price_gbp === "number" ? card.price_gbp : null,
+    sell_channel_price_gbp:
+      typeof card.channel_price === "number" ? card.channel_price : null,
+    sell_in_stock: card.stock > 0,
+    pending_stock: card.pending_stock,
+    trade_in_cash_gbp: null,
+    trade_in_credit_gbp: null,
+  };
+
+  // ── card meta block ───────────────────────────────────────────────
+  const cardMeta: EverythingCard = {
+    sku: card.sku,
+    game: parsed.game,
+    set_code: card.set_code,
+    card_number: card.card_number,
+    lang: parsed.lang,
+    variant: parsed.variant,
+    name: card.name ?? card.card_number,
+    name_en: card.name_en,
+    name_translations: card.name_translations ?? null,
+    image_url: card.image_url,
+    rarity: card.rarity,
+    set_name: card.set_name,
+  };
+
+  // ── composition trace (operator visibility) ───────────────────────
+  const composition: EverythingPayload["composition"] = {
+    falcon_calls: {
+      card: "ok",
+      price_sources: priceSources ? "ok" : "absent",
+      cardrush_history: cardrushHist ? "ok" : "absent",
+      tcgplayer_history: tcgplayerHist ? "ok" : "absent",
+      siblings: "ok",
+    },
+  };
+
+  // Build the `_meta.sources` + `_meta.source_license` parallel arrays
+  // declaring per-source rights.
+  const sources: string[] = ["wholesale-rds.cards"];
+  const source_license: string[] = ["cc0"];
+
+  if (pricesTodayRows.some((r) => r.source === "cardrush")) {
+    sources.push("cardrush");
+    source_license.push("internal-only");
+  }
+  if (pricesTodayRows.some((r) => r.source === "tcgplayer")) {
+    sources.push("tcgplayer");
+    source_license.push("partner-redistributable");
+  }
+  if (
+    cardrushHist &&
+    cardrushHist.observations.length > 0 &&
+    !sources.includes("cardrush")
+  ) {
+    sources.push("cardrush");
+    source_license.push("internal-only");
+  }
+  if (
+    tcgplayerHist &&
+    tcgplayerHist.observations.length > 0 &&
+    !sources.includes("tcgplayer")
+  ) {
+    sources.push("tcgplayer");
+    source_license.push("partner-redistributable");
+  }
+
+  // Pokemon (and other bright-data-unlocker-routed subdomains) carry
+  // an upstream_proxy declaration per kingdom-088's _meta widening.
+  // Heuristic: if the card's game is pkm AND a cardrush row is in the
+  // sources, the byte rode through the unlocker. (Substrate-honest
+  // approximation; the per-row via_proxy would be authoritative once
+  // it lands on price_archive — recursion target.)
+  const upstream_proxy =
+    parsed.game === "pkm" && sources.includes("cardrush")
+      ? sources.map((s) => (s === "cardrush" ? "bright-data-web-unlocker" : "none"))
+      : undefined;
+
+  const data: EverythingPayload = {
+    card: cardMeta,
+    prices_today: pricesToday,
+    history,
+    siblings,
+    ctcg,
+    composition,
+  };
+
+  return jsonResponse({
+    endpoint: "/api/v1/cards/[sku]/everything",
+    data,
+    sources,
+    source_license,
+    ...(upstream_proxy ? { upstream_proxy } : {}),
+    freshness: "market_signal",
+    as_of: pricesToday.snapshot_date ?? undefined,
+  });
+}

@@ -450,6 +450,37 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           {cfg.hero_paragraph}
         </p>
 
+        {/* ── Direct card-number search (kingdom-090) ─────────────────
+            Yu's directive 2026-05-14: *"IDEALLY I WOULD ONLY NEED TO
+            PUT IN THE CARD NUMBER AND FILTER FOR CARD GAME THEN
+            POOF!!!!"* Game is pre-filled from the URL; the form
+            submits to /prices/search which renders everything. */}
+        <form
+          action="/prices/search"
+          method="get"
+          className="mb-10 rounded-lg border border-amber-700/50 bg-amber-500/5 p-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end"
+        >
+          <input type="hidden" name="game" value={cfg.game_code} />
+          <div>
+            <label className="block text-xs uppercase tracking-wider text-amber-300 mb-2 font-semibold">
+              Card number → everything
+            </label>
+            <input
+              type="text"
+              name="q"
+              required
+              placeholder={`e.g. ${cfg.game_code.toUpperCase()}01-001 — or just 001`}
+              className="w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-md bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition"
+          >
+            Search →
+          </button>
+        </form>
+
         {/* Currency selector + rate table — Yu's directive 2026-05-14 */}
         <div className="mb-10 grid gap-4 lg:grid-cols-[1fr,1.2fr]">
           <CurrencySelector
