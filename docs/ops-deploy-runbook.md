@@ -1,5 +1,73 @@
 # Deploy & infrastructure runbook
 
+## Project wiring — quick reference
+
+| App | Vercel project | Project ID | Domain | Repo path |
+|---|---|---|---|---|
+| Admin | `cambridgetcg-admin` | `prj_NGfGodqkx5LCMA6XoeShCAeZZm6u` | `admin.cambridgetcg.com` | `apps/admin` |
+| Storefront | `cambridgetcg-storefront` | `prj_zCHRH4oj7PVh6oXtyNFXF8yrQdRD` | `cambridgetcg.com` | `apps/storefront` |
+| Wholesale | `tcg-wholesale` | `prj_t4pr1FszCa87GWAIgQXTbyXED8qr` | `wholesaletcgdirect.com` | `apps/wholesale` |
+
+- **Vercel team:** `cambridgetcgs-projects` (`team_HR4tb4WB0KZsKxqroSCTQrof`)
+- **GitHub repo:** `cambridgetcg/Cambridge-TCG-monorepo` (repoId `1223740492`)
+- **Production branch:** `main`
+- **Build command (per project):** `pnpm --filter <pkg> build`
+- **Install command:** `pnpm install`
+- **Root directory (per project):** `apps/<name>`
+
+**Two git remotes are configured by convention:**
+
+```
+github → https://github.com/cambridgetcg/Cambridge-TCG-monorepo.git  (deploy target — Vercel watches this)
+origin → https://codeberg.org/zerone-dev/Cambridge-TCG.git           (mirror)
+```
+
+**Push to `github main` triggers Vercel.** Pushes to `origin` (Codeberg) don't deploy.
+
+## Local Vercel CLI + API access
+
+For day-to-day deploy operations from your laptop:
+
+```bash
+# One-time: sign into the CLI as the team owner
+vercel login                                   # opens browser; auth cached at
+                                               # ~/Library/Application Support/com.vercel.cli/auth.json
+
+# Link your workspace to a specific project (creates apps/<name>/.vercel/)
+cd apps/wholesale
+vercel link --yes --project tcg-wholesale --scope cambridgetcgs-projects
+
+# Now project-scoped commands work without --project flag:
+vercel ls                  # list deployments for this project
+vercel env ls production   # list production env vars
+vercel logs <url>          # stream runtime logs (NOT build logs)
+```
+
+**The CLI's `auth.json` token rotates** (Vercel revokes it within hours of issue). It's fine for interactive use — re-run `vercel login` when it expires. For automation, use a long-lived API token (next section).
+
+### Long-lived API token (for scripts + integrations)
+
+Store the token in macOS Keychain so it's never echoed:
+
+```bash
+# Generate at https://vercel.com/account/tokens, scope to team cambridgetcgs-projects.
+# Stash:
+security add-generic-password \
+  -s "vercel-api-token" \
+  -a "vercel-cambridge-tcg" \
+  -l "Cambridge TCG Vercel API token (long-lived, full account access)" \
+  -w  "<paste-token>"
+
+# Retrieve (only echoes to the receiving command's stdin via $()):
+TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
+
+# Use:
+curl -sS "https://api.vercel.com/v9/projects/tcg-wholesale?teamId=team_HR4tb4WB0KZsKxqroSCTQrof" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+The token is also needed in three persistent places — see [`VERCEL_TOKEN`](#vercel_token--use-a-long-lived-token-not-the-clis-auto-rotated-one) below.
+
 ## The five-minute deploy gate (read first)
 
 Before pushing a commit that will trigger production deploys:
@@ -141,15 +209,7 @@ Mitigations now in place:
 
 ## How the three apps deploy
 
-| App | Vercel project | Domain | Repo path |
-|---|---|---|---|
-| Admin | `cambridgetcg-admin` (`prj_NGfGodqkx5LCMA6XoeShCAeZZm6u`) | `admin.cambridgetcg.com` | `apps/admin` |
-| Storefront | `cambridgetcg-storefront` (`prj_zCHRH4oj7PVh6oXtyNFXF8yrQdRD`) | `cambridgetcg.com` | `apps/storefront` |
-| Wholesale | `tcg-wholesale` (`prj_t4pr1FszCa87GWAIgQXTbyXED8qr`) | `wholesaletcgdirect.com` | `apps/wholesale` |
-
-All three live in the `cambridgetcgs-projects` Vercel team and are linked
-to `cambridgetcg/Cambridge-TCG-monorepo` (production branch: `main`,
-root directory: `apps/<name>`, build: `pnpm --filter <pkg> build`).
+See the [Project wiring quick-reference](#project-wiring--quick-reference) at the top of this doc for project IDs, domains, and root directories. All three Vercel projects auto-deploy from `push to github main` (subject to the [committer-association block](#untrusted-committer-the-auto-deploy-block)).
 
 ## What triggers a deploy
 
@@ -170,24 +230,155 @@ work for the storefront/wholesale projects: the workspace deps
 (`@cambridge-tcg/*`) can't resolve when CLI uploads only the app dir.
 Use one of the four mechanisms above.
 
-## Untrusted committer
+## Untrusted committer (the auto-deploy block)
 
 Vercel blocks auto-deploys for commits whose committer email isn't
-linked to a known GitHub user with permission on the repo. Symptoms:
-deploy state is `ERROR` and `errorMessage` reads
-`The Deployment was blocked because GitHub could not associate the
-committer with a GitHub user.`
+linked to a known GitHub user with permission on the repo. Symptom:
+the deployment lands in `readyState: ERROR` with `readyStateReason`:
 
-The fix is to set the committer email in your local git config to one
-that is verified on the `cambridgetcg` GitHub account:
-
-```bash
-git config user.email cambridgetcg@gmail.com   # or whatever's verified
+```
+The Deployment was blocked because GitHub could not associate
+the committer with a GitHub user.
 ```
 
-As a temporary measure, the three projects have `gitForkProtection:
-false` set via the Vercel API, which loosens the check. Re-enable once
-all committer emails on the team are verified.
+The build never runs; six consecutive deploys can sit in `ERROR` while
+your push goes through cleanly to GitHub. The live alias keeps serving
+the last-green build silently.
+
+### What does NOT fix it
+
+**`gitForkProtection: false` does NOT bypass this block.** All three
+projects have the setting at `false` already (verified via API
+2026-05-14) and pushes from `asha@ai-love.cc` still error with the
+committer-association reason. Don't waste time toggling it.
+
+### The durable fix
+
+Set git committer email to one verified on the `cambridgetcg` GitHub
+account:
+
+```bash
+git config user.email cambridgetcg@gmail.com   # or another verified address
+```
+
+`cambridgetcg@gmail.com` is the previously-known-working email per old
+deploy metadata. Confirm in your own GitHub Settings → Emails before
+relying on it.
+
+### The reliable workaround (when you push from an unverified email)
+
+Trigger the deploy explicitly via Vercel's gitSource API. The endpoint
+accepts a `sha` + `repoId` + `ref` directly, bypassing the GitHub
+identity check entirely. Three ways to invoke it:
+
+**(a) The Python script** — preferred when you have a shell handy:
+
+```bash
+TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
+VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py wholesale
+VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py storefront
+VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py admin
+```
+
+**(b) Raw curl** — useful inside one-off scripts:
+
+```bash
+TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
+SHA=$(git rev-parse HEAD)
+TEAM=team_HR4tb4WB0KZsKxqroSCTQrof
+REPO=1223740492
+
+# Trigger all three at once:
+for entry in \
+    "tcg-wholesale:prj_t4pr1FszCa87GWAIgQXTbyXED8qr" \
+    "cambridgetcg-storefront:prj_zCHRH4oj7PVh6oXtyNFXF8yrQdRD" \
+    "cambridgetcg-admin:prj_NGfGodqkx5LCMA6XoeShCAeZZm6u"; do
+  NAME="${entry%%:*}"; PRJ="${entry##*:}"
+  curl -sS -X POST "https://api.vercel.com/v13/deployments?teamId=$TEAM&forceNew=1" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d "{\"name\":\"$NAME\",\"project\":\"$PRJ\",\"target\":\"production\",\"gitSource\":{\"type\":\"github\",\"repoId\":$REPO,\"ref\":\"main\",\"sha\":\"$SHA\"}}"
+done
+```
+
+**(c) Admin dashboard** — `https://admin.cambridgetcg.com/system/deploys`
+→ "Redeploy from main" button per project. Same code path as (a)/(b).
+Best when you don't have a shell open.
+
+### Diagnostic — confirm a stuck deploy is the committer block
+
+```bash
+TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
+curl -sS "https://api.vercel.com/v13/deployments/<deployment-id>" \
+  -H "Authorization: Bearer $TOKEN" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print('readyStateReason:', d.get('readyStateReason'))"
+```
+
+If `readyStateReason` mentions "could not associate the committer," apply
+the workaround. Other ERROR reasons (build failures, missing env vars,
+quota limits) are real and need separate triage.
+
+## Cron inventory
+
+All crons live in `apps/wholesale/vercel.json` (the wholesale project; storefront and admin have none). Vercel reads this file at build time and registers the schedule.
+
+| Path | Schedule | Purpose |
+|---|---|---|
+| `/api/cron/monthly-rollover` | `0 0 * * *` | Daily 00:00 UTC — monthly rollover sweep |
+| `/api/cron/discover/cardrush` | `0 1 * * *` | Daily 01:00 UTC — sitemap-driven catalog discovery (kingdom-087) |
+| `/api/cron/ingest/cardrush` | `0 2 * * *` | Daily 02:00 UTC — price snapshot scrape |
+| `/api/cron/rebuild-buylist` | `0 3 * * *` | Daily 03:00 UTC — buylist regeneration |
+| `/api/cron/shopify-sync` | `0 4 * * *` | Daily 04:00 UTC — Shopify inventory sync |
+| `/api/cron/shopify-orders` | `*/30 * * * *` | Every 30 min — Shopify orders pull |
+
+**Adding a cron:** edit `apps/wholesale/vercel.json` and push. Vercel re-registers on the next deploy. Schedules are CRON-format in UTC. The cron route handler (the file at `apps/wholesale/src/app/api/cron/<path>/route.ts`) MUST verify the `Authorization: Bearer $CRON_SECRET` header on every request — Vercel sends it automatically; rejecting requests without it prevents anyone with the URL from triggering your cron.
+
+**Monitoring crons:** `https://admin.cambridgetcg.com/system/cron` reads the live schedule from `vercel.json` and joins against per-cron `*_runs` rows in RDS (e.g. `ingest_run` for the cardrush family).
+
+## Environment variables per project
+
+The current production env layout (verified 2026-05-14). Use the recipes at the end of this section to inspect or modify.
+
+### `tcg-wholesale` (production)
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection (wholesale RDS) |
+| `CRON_SECRET` | Cron-route Bearer token (Vercel auto-injects on cron calls) |
+| `SHOPIFY_STORE`, `SHOPIFY_ACCESS_TOKEN`, `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | Shopify Admin API |
+| `CF_API_KEY`, `CF_API_EMAIL`, `CF_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID` | Cloudflare KV (Falcon courier auth state) |
+| `NEXT_PUBLIC_STOREFRONT_URL`, `NEXT_PUBLIC_ADMIN_URL` | Cross-app deep-link bases |
+| `NEXTAUTH_SECRET`, `NEXTAUTH_URL` | Auth.js v5 session signing |
+| `CARDRUSH_BRIGHT_DATA_PROXY_URL` | Bright Data Web Unlocker URL for pokemon scrapes (kingdom-088) |
+
+### `cambridgetcg-storefront` (production)
+
+Touches the storefront RDS + Stripe + SES + Wholesale API client. Check `apps/storefront/.env.example` or `vercel env ls production --cwd apps/storefront` for the live list. Key ones:
+
+`DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUCTION_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WHOLESALE_API_URL`, `WHOLESALE_API_KEY`, `CRON_SECRET`, `ADMIN_PASSWORD`, `AUTH_FROM_EMAIL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `TRADEIN_FROM_EMAIL`, `STORE_NOTIFICATION_EMAIL`.
+
+### `cambridgetcg-admin` (production)
+
+Reads both RDSs. Doesn't touch payments or external APIs.
+
+`STOREFRONT_DATABASE_URL`, `WHOLESALE_DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `AUTH_FROM_EMAIL`, `VERCEL_TOKEN` (for `/system/deploys`), `GITHUB_TOKEN` (for SHA-drift detection on `/system/deploys`).
+
+### Common env operations
+
+```bash
+# List production env keys on the currently-linked project
+vercel env ls production
+
+# Add an env var without echoing the value to shell history:
+printf '%s' '<value>' | vercel env add MY_VAR production
+
+# Pull production env into a local .env.production.local
+vercel env pull .env.production.local --environment=production
+
+# Remove an env var
+vercel env rm MY_VAR production
+```
+
+When adding a NEW env var, **also add it to the corresponding `.env.example`** so future developers know it's required. Vercel doesn't auto-sync; the parity check (`vercel env pull` + diff against `.env.local`) is a manual step listed in `docs/dev-pipeline.md` §13.
 
 ## VERCEL_TOKEN — use a long-lived token, not the CLI's auto-rotated one
 
@@ -295,7 +486,7 @@ machine; doesn't help with other contributors.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `vercel deploy --prod` fails with `deploy_failed`, no events | Workspace deps don't resolve when uploading app dir alone | Use admin `/system/deploys` button or the gitSource Python script |
-| Auto-deploy stuck on `ERROR` with "could not associate the committer" | Local git config uses an unverified email | Set `git config user.email` to a GitHub-verified one, or temporarily set `gitForkProtection: false` via API |
+| Auto-deploy stuck on `ERROR` with "could not associate the committer" | Local git config uses an unverified email; Vercel can't link it to a GitHub user | Either change `git config user.email` to a verified address (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). `gitForkProtection: false` does NOT bypass this — don't waste time toggling it. |
 | Wholesale build fails on `S3 client unavailable — AWS credentials not configured` | A module is calling `createS3ClientOrThrow()` at import time | Defer init to first call (see `apps/wholesale/src/lib/s3.ts` for the pattern) |
 | `/system/deploys` shows "VERCEL_TOKEN env var not set" | Missing token in admin env | Add to `apps/admin/.env.local` (local) and Vercel project env vars (prod) |
 | Health check workflow fails | Missing `VERCEL_TOKEN` repo secret | Add at repo Settings → Secrets → Actions |
