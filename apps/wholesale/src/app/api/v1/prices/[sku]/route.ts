@@ -14,7 +14,17 @@ export async function GET(
     if (!apiKey) return unauthorized();
 
     const { sku } = await params;
-    const channel = req.nextUrl.searchParams.get("channel") || "wholesale";
+    // Channel is determined by the authenticating API key; the `?channel`
+    // query param is no longer honoured. A key issued for channel X can
+    // only read channel X's pricing. Mismatch is a warn-and-proceed.
+    const queryChannel = req.nextUrl.searchParams.get("channel");
+    if (queryChannel && queryChannel !== apiKey.channel) {
+      console.warn(
+        `[/api/v1/prices/[sku]] Ignoring ?channel=${queryChannel} for key with channel=${apiKey.channel}. ` +
+        `Channel is now sourced from the API key; rotate the key if a different channel is needed.`,
+      );
+    }
+    const channel = apiKey.channel;
 
     const rows = await db
       .select({

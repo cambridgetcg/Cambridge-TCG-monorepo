@@ -16,8 +16,18 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(Math.max(parseInt(params.get("limit") || "48", 10) || 48, 1), 500);
     const offset = Math.max(parseInt(params.get("offset") || "0", 10) || 0, 0);
 
-    // Channel param (default: wholesale)
-    const channel = params.get("channel") || "wholesale";
+    // Channel is determined by the authenticating API key; the `?channel`
+    // query param is no longer honoured. A key issued for channel X can
+    // only read channel X's pricing. If a caller passes `?channel=Y` we
+    // log the mismatch (deprecation signal) and proceed with apiKey.channel.
+    const queryChannel = params.get("channel");
+    if (queryChannel && queryChannel !== apiKey.channel) {
+      console.warn(
+        `[/api/v1/prices] Ignoring ?channel=${queryChannel} for key with channel=${apiKey.channel}. ` +
+        `Channel is now sourced from the API key; rotate the key if a different channel is needed.`,
+      );
+    }
+    const channel = apiKey.channel;
 
     // Existing filters
     const gameCode = params.get("game");
@@ -207,7 +217,7 @@ export async function GET(req: NextRequest) {
       count: rows.length,
       limit,
       offset,
-      channel: needsChannelPrice ? channel : apiKey.channel,
+      channel: apiKey.channel,
       items,
     });
   } catch (err) {
