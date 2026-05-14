@@ -76,3 +76,93 @@ export function parseMoversParams(
     limit,
   };
 }
+
+// ── Response builder ────────────────────────────────────────────────
+
+/** One row coming out of the SQL+channel-pricing pipeline. */
+export interface MoversRow {
+  sku: string;
+  card_number: string;
+  name: string | null;
+  name_en: string | null;
+  set_code: string | null;
+  set_name: string | null;
+  rarity: string | null;
+  image_url: string | null;
+  category: string;
+  price_now: number;
+  price_then: number;
+  channel_price: number;
+  pct_change: number;
+  now_date: string;
+  then_date: string;
+}
+
+export interface MoverItem {
+  sku: string;
+  card_number: string;
+  name: string | null;
+  name_en: string | null;
+  set_code: string | null;
+  set_name: string | null;
+  rarity: string | null;
+  image_url: string | null;
+  category: string;
+  price_then: number;
+  price_now: number;
+  channel_price: number;
+  pct_change: number;
+  then_date: string;
+  now_date: string;
+}
+
+export interface MoversResponse {
+  window: MoversWindow;
+  window_days: number;
+  window_tolerance_days: number;
+  min_price_floor: number;
+  source: "cardrush";
+  source_license: "internal-only";
+  channel: string;
+  game_code: string;
+  computed_at: string;
+  count: number;
+  movers: MoverItem[];
+}
+
+export function buildMoversResponse(
+  rows: MoversRow[],
+  params: MoversParams,
+  channel: string,
+  computedAt: Date,
+): MoversResponse {
+  return {
+    window: params.window,
+    window_days: params.windowDays,
+    window_tolerance_days: params.windowToleranceDays,
+    min_price_floor: params.minPrice,
+    source: "cardrush",
+    source_license: "internal-only",
+    channel,
+    game_code: params.game,
+    computed_at: computedAt.toISOString(),
+    count: rows.length,
+    movers: rows.map((r) => ({
+      sku: r.sku,
+      card_number: r.card_number,
+      name: r.name,
+      name_en: r.name_en,
+      set_code: r.set_code,
+      set_name: r.set_name,
+      rarity: r.rarity,
+      image_url: r.image_url,
+      category: r.category,
+      price_then: r.price_then,
+      price_now: r.price_now,
+      channel_price: r.channel_price,
+      pct_change: r.pct_change,
+      then_date: r.then_date,
+      now_date: r.now_date,
+    })),
+  };
+}
