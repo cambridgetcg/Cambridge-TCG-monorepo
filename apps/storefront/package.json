@@ -15,6 +15,7 @@
     "@cambridge-tcg/data-spec": "workspace:^",
     "@cambridge-tcg/db": "workspace:^",
     "@cambridge-tcg/lifecycle": "workspace:^",
+    "@cambridge-tcg/play": "workspace:^",
     "@cambridge-tcg/pricing": "workspace:^",
     "@cambridge-tcg/sku": "workspace:^",
     "@cambridge-tcg/stock": "workspace:^",

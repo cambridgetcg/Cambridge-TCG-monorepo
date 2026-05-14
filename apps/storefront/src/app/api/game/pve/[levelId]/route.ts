@@ -3,18 +3,21 @@ import { cookies } from "next/headers";
 import crypto from "node:crypto";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { initializeGame } from "@/lib/game/engine";
-import { applyAction } from "@/lib/game/reducer";
-import { aiTurn, generateAIDeck } from "@/lib/game/ai";
+import { getEngine } from "@cambridge-tcg/play";
+import "@/lib/game/registry-bootstrap"; // side-effect: registers engines
 import { postActivity } from "@/lib/social/db";
 import { calculateBerriesEarn } from "@/lib/bounty/earn";
 import { grantPveRewardsIdempotent } from "@/lib/game/rewards";
 import type { GameState } from "@/lib/game/types";
 
+// Fallback for pve_levels rows that pre-date the game_code migration.
+// Once 0099_pve_game_code.sql is applied + every row has a non-null value,
+// this default becomes dead code and can be removed.
+const DEFAULT_GAME_CODE = "optcg";
+
 // In PVE the human is always player1 and the AI is always player2.
-// Keep this assumption in one place.
-const HUMAN_KEY = "player1" as const;
-const AI_KEY = "player2" as const;
+// (The GameEngine contract accepts these as inline literals now, so the
+// HUMAN_KEY/AI_KEY constants previously held here were dropped.)
 
 // Guest play (no sign-in required). On the first `start` request without a
 // session, we mint a `users` row with role='guest' and pin its id to an
@@ -89,6 +92,10 @@ interface PVELevel {
   first_clear_credit: string;
   repeat_points: number;
   is_active: boolean;
+  /** Added by 0099_pve_game_code.sql. Until that migration applies on
+   *  prod, the column is missing on existing rows; we fall back to
+   *  DEFAULT_GAME_CODE = "optcg" at read time. */
+  game_code?: string | null;
 }
 
 async function loadLevel(levelId: string): Promise<PVELevel | null> {
@@ -153,6 +160,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
   const level = await loadLevel(levelId);
   if (!level) return NextResponse.json({ error: "Level not found." }, { status: 404 });
 
+  // Resolve which game engine the level wants. Falls back to OPTCG for
+  // rows that pre-date the 0099_pve_game_code migration. Once migration
+  // lands and every row has a non-null game_code, the fallback becomes
+  // dead code.
+  const gameCode = level.game_code ?? DEFAULT_GAME_CODE;
+  const engine = getEngine(gameCode);
+  if (!engine) {
+    return NextResponse.json(
+      { error: `Unknown game engine for code "${gameCode}". This level needs a registered engine.` },
+      { status: 500 },
+    );
+  }
+
   // Gate: unlocks require previous level cleared. Guests use the same
   // pve_progress table — their cookie pins their progression to one
   // browser; clearing cookies resets to Lv.1.
@@ -173,22 +193,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     }
 
     let aiDeck = level.ai_deck;
-    if (!Array.isArray(aiDeck) || aiDeck.length === 0) {
+    if ((!Array.isArray(aiDeck) || aiDeck.length === 0) && engine.generateAIDeck) {
       const catalogRes = await fetch(
         `https://cambridgetcg.com/api/market/catalog?game=one-piece&set=${level.set_code || "OP01"}&limit=200`,
       );
       const catalogData = await catalogRes.json().catch(() => ({ cards: [] }));
-      aiDeck = generateAIDeck(level.set_code || "OP01", catalogData.cards || []);
+      aiDeck = engine.generateAIDeck(level.set_code || "OP01", catalogData.cards || []);
     }
 
-    const gameState = initializeGame(
-      actor.userId,
-      actor.name,
-      playerDeck,
-      `ai_${level.id}`,
-      level.opponent_name,
-      aiDeck as Parameters<typeof initializeGame>[5],
-    );
+    const gameState = engine.initializeGame({
+      humanUserId: actor.userId,
+      humanName: actor.name,
+      humanDeck: playerDeck,
+      aiId: `ai_${level.id}`,
+      aiName: level.opponent_name,
+      aiDeck: (aiDeck as unknown[]) as Parameters<typeof engine.initializeGame>[0]["aiDeck"],
+      levelHint: {
+        levelNumber: level.level_number,
+        setCode: level.set_code,
+        difficulty: level.difficulty,
+        aiAggression: parseFloat(level.ai_aggression),
+      },
+    });
 
     const created = await query(
       `INSERT INTO pve_games (user_id, level_id, game_state, status) VALUES ($1,$2,$3,'playing') RETURNING id`,
@@ -200,6 +226,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       state: gameState,
       opponent: opponentPayload(level),
       isGuest: actor.isGuest,
+      gameCode,
     });
   }
 
@@ -226,7 +253,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       return NextResponse.json({ error: "Not your turn." }, { status: 409 });
     }
 
-    const newState = applyAction(currentState, HUMAN_KEY, type, data ?? {});
+    const newState = engine.applyAction(currentState, "player1", type, data ?? {}) as GameState;
 
     await query(
       `UPDATE pve_games SET game_state=$2, turn_number=$3 WHERE id=$1`,
@@ -249,14 +276,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     }
 
     const aggression = parseFloat(level.ai_aggression);
-    const decision = aiTurn(currentState, AI_KEY, aggression);
+    const decision = engine.aiTurn(currentState, "player2", { aiAggression: aggression });
 
     let nextState = currentState;
     const appliedActions: typeof decision.actions = [];
+    const terminalSet = new Set(engine.terminalPhases);
     for (const action of decision.actions) {
-      nextState = applyAction(nextState, AI_KEY, action.type, action.data);
+      nextState = engine.applyAction(nextState, "player2", action.type, action.data) as GameState;
       appliedActions.push(action);
-      if (nextState.phase === "finished") break;
+      if (terminalSet.has(nextState.phase)) break;
     }
 
     await query(
@@ -274,7 +302,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
   // ── victory — verified against persisted state ──
   if (body.action === "victory") {
     const state: GameState = game.game_state;
-    if (state.phase !== "finished" || state.winner !== actor.userId) {
+    const result = engine.victoryCheck(state, actor.userId);
+    if (!result) {
       return NextResponse.json(
         { error: "Game is not in a victorious state." },
         { status: 409 },
@@ -285,8 +314,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       return NextResponse.json({ victory: true, alreadyClaimed: true });
     }
 
-    const turnsPlayed = state.turnNumber;
-    const lifeRemaining = state.player1.lifeCount;
+    const turnsPlayed = result.turnsPlayed;
+    // OPTCG-specific summary lifts; future engines may surface
+    // different shapes here. The pve_progress row tracks "best_life_remaining"
+    // for OPTCG; other games can reinterpret or skip it.
+    const lifeRemaining = (result.summary.lifeRemaining as number | undefined) ?? null;
 
     await query(
       `UPDATE pve_games SET status='won', result='win', ended_at=NOW() WHERE id=$1`,

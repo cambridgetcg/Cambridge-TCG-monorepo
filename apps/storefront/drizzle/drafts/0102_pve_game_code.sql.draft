@@ -1,0 +1,44 @@
+-- Migration: pve_levels.game_code
+-- Kingdom: multi-game play roadmap Phase 1 (S47 the-multi-game-play.md → S48 the-game-registry.md)
+-- Status: DRAFT. Operator applies via `pnpm db:migrate` on storefront. Until applied,
+--         the PVE route falls back to DEFAULT_GAME_CODE = "optcg" at read time
+--         (see apps/storefront/src/app/api/game/pve/[levelId]/route.ts).
+--
+-- What this does:
+--   - Adds `pve_levels.game_code TEXT NOT NULL DEFAULT 'optcg'` (every existing
+--     row is OPTCG; no data migration needed).
+--   - Adds a CHECK constraint that game_code is non-empty (catches the
+--     accidental empty-string write).
+--   - Backfills NULL to 'optcg' just-in-case (the DEFAULT handles new rows,
+--     but if any row already had an explicit NULL via a non-defaulted INSERT
+--     this catches it).
+--
+-- After applying:
+--   - The DEFAULT_GAME_CODE fallback in route.ts becomes dead code (can be
+--     removed in a follow-up commit).
+--   - `pnpm audit:play-game-registry` will verify every distinct value of
+--     pve_levels.game_code maps to a registered GameEngine in
+--     @cambridge-tcg/play.
+--
+-- Why no foreign key to a games table:
+--   - The registry of game codes is in code (@cambridge-tcg/play registry),
+--     not the database. The audit closes the loop between data and code.
+--   - This mirrors how packages/sku set_formats and packages/sku rarities
+--     are registries-in-code, not DB tables.
+
+BEGIN;
+
+ALTER TABLE pve_levels
+  ADD COLUMN IF NOT EXISTS game_code TEXT NOT NULL DEFAULT 'optcg';
+
+-- Defensive: backfill any null-by-explicit-insert rows.
+UPDATE pve_levels SET game_code = 'optcg' WHERE game_code IS NULL;
+
+-- Non-empty check.
+ALTER TABLE pve_levels
+  ADD CONSTRAINT pve_levels_game_code_nonempty CHECK (length(game_code) > 0);
+
+-- Index so the audit and future per-game queries don't full-scan.
+CREATE INDEX IF NOT EXISTS pve_levels_game_code_idx ON pve_levels(game_code);
+
+COMMIT;

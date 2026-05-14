@@ -25,6 +25,9 @@ importers:
       '@cambridge-tcg/lifecycle':
         specifier: workspace:^
         version: link:../../packages/lifecycle
+      '@cambridge-tcg/play':
+        specifier: workspace:^
+        version: link:../../packages/play
       '@cambridge-tcg/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing
@@ -122,6 +125,9 @@ importers:
       '@cambridge-tcg/lifecycle':
         specifier: workspace:^
         version: link:../../packages/lifecycle
+      '@cambridge-tcg/play':
+        specifier: workspace:^
+        version: link:../../packages/play
       '@cambridge-tcg/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing
@@ -360,6 +366,15 @@ importers:
         version: 4.1.5(@types/node@22.19.17)(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
 
   packages/lifecycle:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/play:
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
