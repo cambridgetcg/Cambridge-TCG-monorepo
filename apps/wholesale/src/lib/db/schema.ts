@@ -662,6 +662,20 @@ export const channelApiKeys = pgTable("channel_api_keys", {
   lastUsedAt: timestamp("last_used_at"),
 });
 
+// DB-backed login rate limiter. Migration 0016. One row per attempt;
+// sliding-window count via the (email, attempted_at) index.
+export const loginAttempts = pgTable("login_attempts", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  email: text("email").notNull(),
+  attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
+  success: boolean("success").notNull().default(false),
+  ip: text("ip"),
+}, (table) => ({
+  emailTimeIdx: index("login_attempts_email_time_idx").on(table.email, table.attemptedAt),
+}));
+
+export type LoginAttempt = typeof loginAttempts.$inferSelect;
+
 export const channelPricing = pgTable("channel_pricing", {
   id: serial("id").primaryKey(),
   channel: text("channel").notNull().unique(),

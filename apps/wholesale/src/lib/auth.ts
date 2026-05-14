@@ -2,38 +2,41 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compareSync } from "bcryptjs";
 import { db } from "./db";
-import { clients } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { clients, loginAttempts } from "./db/schema";
+import { eq, and, gt, sql } from "drizzle-orm";
 
-// Simple in-memory brute-force guard: 5 failed attempts per email per 15 minutes.
-// Not persistent across restarts — good enough for a low-traffic B2B site.
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const WINDOW_MS = 15 * 60 * 1000;
 
-function checkLoginRateLimit(email: string): boolean {
-  const now = Date.now();
-  const record = loginAttempts.get(email);
-  if (!record || now > record.resetAt) {
-    loginAttempts.set(email, { count: 0, resetAt: now + WINDOW_MS });
-    return true; // allowed
+// Sliding-window count over login_attempts. Persists across function
+// invocations — the in-memory Map this replaces was cosmetic on Vercel.
+// Fail open on DB error: login shouldn't be a DB outage's first casualty.
+async function checkLoginRateLimit(email: string): Promise<boolean> {
+  try {
+    const since = new Date(Date.now() - WINDOW_MS);
+    const [row] = await db
+      .select({ n: sql<number>`cast(count(*) as integer)` })
+      .from(loginAttempts)
+      .where(
+        and(
+          eq(loginAttempts.email, email),
+          eq(loginAttempts.success, false),
+          gt(loginAttempts.attemptedAt, since),
+        ),
+      );
+    return (row?.n ?? 0) < MAX_ATTEMPTS;
+  } catch (err) {
+    console.warn(`[AUTH] Rate-limit check failed for ${email} — allowing attempt:`, err);
+    return true;
   }
-  if (record.count >= MAX_ATTEMPTS) return false; // blocked
-  return true;
 }
 
-function recordLoginFailure(email: string): void {
-  const now = Date.now();
-  const record = loginAttempts.get(email);
-  if (!record || now > record.resetAt) {
-    loginAttempts.set(email, { count: 1, resetAt: now + WINDOW_MS });
-  } else {
-    record.count += 1;
+async function recordLoginAttempt(email: string, success: boolean): Promise<void> {
+  try {
+    await db.insert(loginAttempts).values({ email, success }).execute();
+  } catch (err) {
+    console.warn(`[AUTH] Failed to record login attempt for ${email}:`, err);
   }
-}
-
-function clearLoginFailures(email: string): void {
-  loginAttempts.delete(email);
 }
 
 const isProd = process.env.NODE_ENV === "production";
@@ -83,8 +86,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials?.password as string;
         if (!email || !password) return null;
 
-        // Rate limit check
-        if (!checkLoginRateLimit(email)) {
+        if (!(await checkLoginRateLimit(email))) {
           console.warn(`[AUTH] Login blocked for ${email} — too many failed attempts`);
           return null;
         }
@@ -96,11 +98,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .limit(1);
 
         if (!user || !compareSync(password, user.passwordHash)) {
-          recordLoginFailure(email);
+          await recordLoginAttempt(email, false);
           return null;
         }
 
-        clearLoginFailures(email);
+        await recordLoginAttempt(email, true);
         return {
           id: String(user.id),
           email: user.email,
@@ -131,6 +133,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 });
