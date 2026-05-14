@@ -458,7 +458,7 @@ export default function PlayPage() {
                             >
                               Sign in
                             </Link>{" "}
-                            to save it across devices and earn Berries.
+                            to save it across devices.
                           </p>
                         )}
                       </div>

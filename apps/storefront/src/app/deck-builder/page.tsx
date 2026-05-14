@@ -1132,26 +1132,10 @@ export default function DeckBuilderPage() {
 
                 {/* Action buttons */}
                 <div className="px-4 py-3 border-t border-neutral-800 space-y-2">
-                  {/* Buy Missing */}
-                  {deckEntries.length > 0 && (
-                    <button
-                      onClick={() => {
-                        // Open each card's market page
-                        const skus = deckEntries.map((e) => e.card.sku);
-                        // Open first card, rest can be navigated
-                        if (skus.length > 0) {
-                          window.open(`/market/${skus[0]}`, "_blank");
-                        }
-                        toast(
-                          `${skus.length} cards — visit each card's market page to buy`,
-                          "info"
-                        );
-                      }}
-                      className="w-full py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-500 transition"
-                    >
-                      Buy Missing Cards
-                    </button>
-                  )}
+                  {/* Yu 2026-05-14: "Buy Missing Cards" CTA removed —
+                      play module is fun-only, no commerce nudges. Players
+                      who want to acquire cards navigate to /catalog or
+                      /market directly. The deck builder is for building. */}
 
                   {/* Action row */}
                   <div className="flex gap-2">

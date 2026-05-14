@@ -101,20 +101,24 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
   }
 
   // ── First-clear credit ──
-  let creditEarned = 0;
-  if (!alreadyGranted.credit && isFirstClear) {
-    const credit = parseFloat(String(level.first_clear_credit ?? "0"));
-    if (credit > 0) {
-      await addCredit(
-        userId,
-        credit,
-        "manual_adjustment",
-        `PVE First Clear Bonus: ${level.title}`,
-        gameId,
-      );
-      creditEarned = credit;
-    }
-  }
+  //
+  // Yu 2026-05-14: "MAKE IT PURELY FOR FUN!!!! MINIMUM BARRIERS, MAXIMUM
+  // FUNNNNNN!!!" The play module is fun-only. The substrate used to grant
+  // real store credit on first-clear (the `first_clear_credit` column on
+  // pve_levels). That contradicted the prose on /play/welcome, /play/casual,
+  // and /play/compete — and the UI rendering was stripped in the prior
+  // commit (cdd6077). This is the source-of-truth short-circuit: we never
+  // grant credit again, regardless of what pve_levels.first_clear_credit
+  // contains. The column and the input plumbing stay so a future
+  // play-to-earn opt-in can re-attach prizes here under an explicit gate.
+  const creditEarned = 0;
+  // Intentionally NOT calling addCredit(). The variable + the
+  // `first_clear_credit` plumbing in PveGrantInput remain so the typed
+  // contract is unchanged; the value never leaves zero.
+  void addCredit; // referenced only for the comment above; keep the import
+  void level.first_clear_credit;
+  void isFirstClear;
+  void alreadyGranted.credit;
 
   // ── Milestone pull token ──
   let pullTokenEarned: PullTier | null = null;
