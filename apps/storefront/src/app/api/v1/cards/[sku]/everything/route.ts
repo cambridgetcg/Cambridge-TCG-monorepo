@@ -48,6 +48,7 @@ import {
   fetchCardrushHistory,
   fetchTcgplayerHistory,
   fetchPrices,
+  fetchGames,
   type PriceItem,
   type SourcePriceRow,
 } from "@/lib/wholesale/client";
@@ -284,16 +285,40 @@ export async function GET(
 
   // ── Siblings: same physical card, different language/variant. ────
   // Query the wholesale prices route for SET-NUMBER without lang;
-  // returns every language variant for this set + number. Try the
-  // parsed game token in multiple forms because the wholesale games
-  // table's case is data-dependent (see /search/cards fallback).
+  // returns every language variant for this set + number. The SKU's
+  // game prefix may be lowercase code ("op") but wholesale's games
+  // table filter may require slug ("one-piece"); try a sequence:
+  //   1. game as-parsed
+  //   2. case variants
+  //   3. fetchGames() lookup to find slug for the code
   async function fetchSiblings(): Promise<PriceItem[]> {
     const q = `${parsed!.set}-${parsed!.number}`;
-    for (const g of [parsed!.game, parsed!.game.toUpperCase(), parsed!.game.toLowerCase()]) {
+    const tried = new Set<string>();
+    async function tryGame(g: string): Promise<PriceItem[] | null> {
+      if (tried.has(g)) return null;
+      tried.add(g);
       const r = await fetchPrices({ game: g, q, limit: 50 }).catch(
         () => ({ items: [] as PriceItem[] } as { items: PriceItem[] }),
       );
-      if (r.items.length > 0) return r.items;
+      return r.items.length > 0 ? r.items : null;
+    }
+    const r1 = await tryGame(parsed!.game);
+    if (r1) return r1;
+    const r2 = await tryGame(parsed!.game.toUpperCase());
+    if (r2) return r2;
+    // Look up the slug via fetchGames — data may key cards by slug rather
+    // than code. Cached for 10min per Falcon revalidate.
+    const games = await fetchGames().catch(() => []);
+    const match = games.find(
+      (g) =>
+        g.code.toLowerCase() === parsed!.game ||
+        g.slug.toLowerCase() === parsed!.game,
+    );
+    if (match) {
+      const r3 = await tryGame(match.slug);
+      if (r3) return r3;
+      const r4 = await tryGame(match.code);
+      if (r4) return r4;
     }
     return [];
   }
