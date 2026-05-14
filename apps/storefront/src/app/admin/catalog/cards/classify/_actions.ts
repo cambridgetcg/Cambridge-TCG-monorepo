@@ -72,7 +72,7 @@ export async function classifyCardAction(input: {
         value: input.value,
         source: "operator",
         evidence: { notes: input.reason },
-        claimedBy: `operator:${admin.label}`,
+        claimedBy: `operator:${admin.email}`,
       };
       const validationError = validateClaim(claim);
       if (validationError) {
@@ -118,7 +118,7 @@ export async function classifyCardAction(input: {
           VALUES
             (${card.id}, ${input.attribute}, ${currentValue}, ${currentSource},
              ${input.value}, 'operator', ${decision.shadowed}, ${null},
-             ${sql.json({ notes: input.reason })}, ${`operator:${admin.label}`})
+             ${sql.json({ notes: input.reason })}, ${`operator:${admin.email}`})
           RETURNING id
         `;
         const logId = logRows[0].id;
@@ -260,7 +260,7 @@ export async function revokeClassificationAction(input: {
                rule: "operator-revoke",
                notes: input.reason,
                supersededLogId: winning.id,
-             })}, ${`operator:${admin.label}`})
+             })}, ${`operator:${admin.email}`})
         `;
 
         return {
