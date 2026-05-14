@@ -164,7 +164,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     const newState = applyAction(currentState, HUMAN_KEY, type, data ?? {});
 
     await query(
-      `UPDATE pve_games SET game_state=$2, turn_number=$3, last_action_at=NOW() WHERE id=$1`,
+      `UPDATE pve_games SET game_state=$2, turn_number=$3 WHERE id=$1`,
       [gameId, JSON.stringify(newState), newState.turnNumber],
     );
 
@@ -195,7 +195,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     }
 
     await query(
-      `UPDATE pve_games SET game_state=$2, turn_number=$3, last_action_at=NOW() WHERE id=$1`,
+      `UPDATE pve_games SET game_state=$2, turn_number=$3 WHERE id=$1`,
       [gameId, JSON.stringify(nextState), nextState.turnNumber],
     );
 
