@@ -55,9 +55,9 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Browse",
         items: [
+          { label: "Search prices", href: "/prices/search", description: "Card number → price, history, sources, variants — in one view", badge: "beta" },
           { label: "All cards", href: "/catalog", description: "The full catalogue across all games" },
           { label: "By game", href: "/prices", description: "Pick a game to browse its sets" },
-          { label: "Search prices", href: "/prices/search", description: "Cross-game price search", badge: "beta" },
           { label: "Universal lookup", href: "/catalog", description: "By SKU or content hash" },
           { label: "Glossary", href: "/glossary" },
           { label: "Open data", href: "/data", description: "Bulk catalog dumps (CC0)" },
@@ -97,6 +97,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Buy",
         items: [
           { label: "Live market", href: "/market", description: "Real-time peer-to-peer trading" },
+          { label: "Search prices", href: "/prices/search", description: "Card number → everything in one view", badge: "beta" },
           { label: "Market lots", href: "/market/lots" },
           { label: "Market pulse", href: "/market/pulse", description: "Volume + spread heatmap" },
           { label: "Price guide", href: "/prices" },

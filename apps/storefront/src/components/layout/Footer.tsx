@@ -36,6 +36,7 @@ export default async function Footer() {
         {/* Shop */}
         <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
           <p className="text-white font-medium mb-1">Shop</p>
+          <Link href="/prices/search" className="hover:text-white transition">Price Search</Link>
           <Link href="/catalog" className="hover:text-white transition">Catalog</Link>
           <Link href="/market" className="hover:text-white transition">P2P Market</Link>
           <Link href="/auctions" className="hover:text-white transition">Auctions</Link>
