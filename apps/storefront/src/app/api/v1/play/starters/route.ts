@@ -13,17 +13,26 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import {
-  TIER_1_DECKS,
+  STARTER_DECKS,
   COLOR_META,
   totalMainDeckCards,
 } from "@/lib/play/starter-decks";
 
-export async function GET(): Promise<Response> {
+export async function GET(req: Request): Promise<Response> {
+  // Optional ?tier=1 / ?tier=2 / ?tier=all (default: all). Clients that
+  // only want the rookie cohort filter client-side; the API stays
+  // discoverable by default.
+  const url = new URL(req.url);
+  const tierFilter = url.searchParams.get("tier");
+  const decks = tierFilter
+    ? STARTER_DECKS.filter((d) => String(d.tier) === tierFilter)
+    : STARTER_DECKS;
+
   const data = {
     "@kind": "starter_deck_catalog",
-    tier: 1,
-    count: TIER_1_DECKS.length,
-    starters: TIER_1_DECKS.map((deck) => ({
+    tier_filter: tierFilter ?? "all",
+    count: decks.length,
+    starters: decks.map((deck) => ({
       id: deck.id,
       product_code: deck.product_code,
       display_name: deck.display_name,
@@ -35,6 +44,7 @@ export async function GET(): Promise<Response> {
       one_paragraph: deck.one_paragraph,
       complexity: deck.complexity,
       era: deck.era,
+      tier: deck.tier,
       decklist_source: deck.decklist_source,
       source_url: deck.source_url ?? null,
       // v1 carries a partial card_list for some starters — surface the

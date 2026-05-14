@@ -51,6 +51,46 @@ function bucket(rarity: string | null): TrackedRarity | "other" {
   return "other";
 }
 
+// Yu 2026-05-14 / Phase 3 of the rookie flow (tier-3 guided build).
+//
+// Role inference — heuristic. The wholesale catalog doesn't return card
+// cost or color, so we can't compute a true cost curve or color-role
+// matrix. The next-best signal we have is rarity, which correlates with
+// role at the deck-level:
+//   - C  → cheap chaff / early aggression (most deck volume)
+//   - UC → support / utility (mid-deck count)
+//   - R  → mid-game threats (a few per deck)
+//   - SR / L / SP / SEC → finishers / spike picks (1-3 per deck)
+//
+// This is coarse — real deck-building knows that some C cards are
+// removal and some SR cards are draw — but it gives the rookie a useful
+// distribution-check at a glance. When card.cost arrives in the catalog
+// upstream, we'll add a real cost curve.
+type DeckRole = "core" | "support" | "midgame" | "finisher" | "other";
+
+const ROLE_FOR_RARITY: Record<string, DeckRole> = {
+  C: "core",
+  UC: "support",
+  R: "midgame",
+  SR: "finisher",
+  SEC: "finisher",
+  SP: "finisher",
+  L: "finisher",
+};
+
+const ROLE_META: Record<DeckRole, { label: string; description: string; color: string }> = {
+  core:     { label: "Core",     description: "Cheap consistency — your bread and butter (typically C rarity)", color: "bg-neutral-500" },
+  support:  { label: "Support",  description: "Utility + tempo plays (typically UC)",                            color: "bg-blue-500" },
+  midgame:  { label: "Mid-game", description: "Real threats with a board impact (typically R)",                  color: "bg-purple-500" },
+  finisher: { label: "Finisher", description: "Game-deciders (SR / L / SP / SEC)",                                color: "bg-amber-500" },
+  other:    { label: "Other",    description: "Uncategorized rarities (PROMO, alt-art, etc.)",                    color: "bg-neutral-600" },
+};
+
+function roleOf(rarity: string | null): DeckRole {
+  if (!rarity) return "other";
+  return ROLE_FOR_RARITY[rarity.toUpperCase()] ?? "other";
+}
+
 export default function DeckStatsPanel({
   leader: _leader,
   entries,
@@ -62,8 +102,13 @@ export default function DeckStatsPanel({
     const rarityCounts: Record<TrackedRarity | "other", number> = {
       C: 0, UC: 0, R: 0, SR: 0, SEC: 0, SP: 0, L: 0, other: 0,
     };
+    // Role counts — heuristic, see ROLE_FOR_RARITY above.
+    const roleCounts: Record<DeckRole, number> = {
+      core: 0, support: 0, midgame: 0, finisher: 0, other: 0,
+    };
     for (const e of entries) {
       rarityCounts[bucket(e.card.rarity)] += e.quantity;
+      roleCounts[roleOf(e.card.rarity)] += e.quantity;
     }
 
     // Set mix
@@ -78,6 +123,7 @@ export default function DeckStatsPanel({
 
     return {
       rarityCounts,
+      roleCounts,
       setMix,
       uniqueCount: entries.length,
     };
@@ -144,6 +190,49 @@ export default function DeckStatsPanel({
               <span className="text-neutral-500">{stats.rarityCounts.other}</span>
             </span>
           )}
+        </div>
+      </div>
+
+      {/* Role coverage — Phase 3 (Tier-3 guided build) of the rookie flow.
+          Heuristic by rarity since the catalog doesn't yet carry card
+          cost or color. See ROLE_FOR_RARITY above + the methodology
+          page at /methodology/starter-decks. */}
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+            Role coverage
+          </p>
+          <p className="text-[10px] text-neutral-600">
+            heuristic — by rarity
+          </p>
+        </div>
+        <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900">
+          {(["core", "support", "midgame", "finisher", "other"] as DeckRole[]).map((r) => {
+            const n = stats.roleCounts[r];
+            if (n === 0) return null;
+            const pct = (n / Math.max(1, totalCards)) * 100;
+            return (
+              <div
+                key={r}
+                className={`${ROLE_META[r].color} h-full`}
+                style={{ width: `${pct}%` }}
+                title={`${ROLE_META[r].label}: ${n} (${pct.toFixed(1)}%) — ${ROLE_META[r].description}`}
+              />
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[10px]">
+          {(["core", "support", "midgame", "finisher", "other"] as DeckRole[]).map((r) => {
+            const n = stats.roleCounts[r];
+            if (n === 0) return null;
+            return (
+              <span key={r} className="flex items-center gap-1" title={ROLE_META[r].description}>
+                <span className={`w-2 h-2 rounded-sm ${ROLE_META[r].color}`} />
+                <span className="text-neutral-300">{ROLE_META[r].label}</span>
+                <span className="text-neutral-500">{n}</span>
+              </span>
+            );
+          })}
         </div>
       </div>
 

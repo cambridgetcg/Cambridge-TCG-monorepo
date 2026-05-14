@@ -35,6 +35,7 @@ interface StarterTile {
   one_paragraph: string;
   complexity: 1 | 2 | 3 | 4 | 5;
   era: string;
+  tier: 1 | 2 | 3;
   decklist_source: "bandai-official" | "ctcg-minimal-playable";
   source_url: string | null;
   main_deck_cards: number;
@@ -100,6 +101,7 @@ export default function StartersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showTier2, setShowTier2] = useState(false);
 
   // ── Load the catalog ────────────────────────────────────────────────
   useEffect(() => {
@@ -252,13 +254,13 @@ export default function StartersPage() {
         </div>
       ) : (
         <>
-          {/* ── 6-tile color picker ───────────────────────────────── */}
+          {/* ── Tier-1: 6-tile color picker ──────────────────────────── */}
           <section
             role="radiogroup"
             aria-label="Pick a starter color"
             className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-8"
           >
-            {tiles.map((tile) => {
+            {tiles.filter((t) => t.tier === 1).map((tile) => {
               const palette = COLOR_PALETTE[tile.color];
               const isSelected = tile.id === selectedId;
               return (
@@ -294,6 +296,78 @@ export default function StartersPage() {
               );
             })}
           </section>
+
+          {/* ── Tier-2: "Next-step starters" — collapsed by default ─── */}
+          {tiles.some((t) => t.tier === 2) && (
+            <section className="mb-8" aria-label="Next-step starters">
+              {!showTier2 ? (
+                <div className="text-center">
+                  <button
+                    onClick={() => setShowTier2(true)}
+                    className="text-sm text-neutral-400 hover:text-white underline underline-offset-4"
+                  >
+                    Show next-step starters →
+                  </button>
+                  <p className="mt-1 text-[11px] text-neutral-600">
+                    {tiles.filter((t) => t.tier === 2).length} more decks — slightly
+                    more complex, recommended after your first match
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-400">
+                      Next-step starters
+                    </h2>
+                    <button
+                      onClick={() => setShowTier2(false)}
+                      className="text-[11px] text-neutral-500 hover:text-neutral-300 underline"
+                    >
+                      Hide
+                    </button>
+                  </div>
+                  <div
+                    role="radiogroup"
+                    aria-label="Pick a next-step starter"
+                    className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                  >
+                    {tiles.filter((t) => t.tier === 2).map((tile) => {
+                      const palette = COLOR_PALETTE[tile.color];
+                      const isSelected = tile.id === selectedId;
+                      return (
+                        <button
+                          key={tile.id}
+                          role="radio"
+                          aria-checked={isSelected}
+                          onClick={() => setSelectedId(tile.id)}
+                          className={
+                            "text-left rounded-xl border p-4 transition-all " +
+                            `${palette.bg} ${palette.hoverBg} ${palette.border} ` +
+                            (isSelected ? `ring-2 ring-offset-2 ring-offset-neutral-950 ${palette.ringSelected}` : "")
+                          }
+                        >
+                          <div className="flex items-baseline justify-between mb-1.5">
+                            <h2 className={`text-sm font-bold ${palette.text}`}>
+                              {tile.color_label} · {tile.playstyle_short}
+                            </h2>
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+                              {tile.product_code}
+                            </span>
+                          </div>
+                          <p className="text-sm text-white font-semibold mb-2">
+                            {tile.leader_name}
+                          </p>
+                          <p className="text-xs text-neutral-500 leading-relaxed">
+                            {tile.one_paragraph}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
 
           {/* ── Expanded view for the selected starter ─────────────── */}
           {selectedId && (

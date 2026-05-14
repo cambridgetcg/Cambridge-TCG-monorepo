@@ -152,7 +152,12 @@ export const STARTER_DECKS: StarterDeck[] = [
       { card_number: "OP02-008", quantity: 4, role: "midgame-threat" },   // Jozu
       { card_number: "OP02-018", quantity: 4, role: "finisher" },         // Marco
       { card_number: "OP02-019", quantity: 4, role: "early-aggression" }, // Rakuyo
-      { card_number: "OP02-023", quantity: 4, role: "removal" },          // "You May Be a Fool…but I Still Love You" event
+      // NOTE: Bandai's official list has 4× OP02-023 (event "You May Be
+      // a Fool…but I Still Love You"). That card_number is not in our
+      // wholesale catalog (verified 2026-05-14). Substituted with
+      // OP02-022 (Whitebeard Pirates UC), which IS in catalog. When the
+      // event card is ingested upstream, restore the original line.
+      { card_number: "OP02-022", quantity: 4, role: "support" },          // Whitebeard Pirates (substitute for missing OP02-023)
       { card_number: "OP03-003", quantity: 4, role: "early-aggression" }, // Izo
       { card_number: "OP03-006", quantity: 4, role: "early-aggression" }, // Speed Jil
       { card_number: "OP03-007", quantity: 4, role: "early-aggression" }, // Namule
@@ -291,6 +296,127 @@ export const STARTER_DECKS: StarterDeck[] = [
       { card_number: "ST20-005", quantity: 4, role: "finisher" },         // Charlotte Linlin SR
       { card_number: "ST07-005", quantity: 4, role: "early-aggression" }, // Charlotte Daifuku
       { card_number: "ST07-014", quantity: 2, role: "early-aggression" }, // Pekoms
+    ],
+  },
+
+  // ── Tier-2 — next-step starters (surfaced after rookies clear their
+  // first match, or to veterans browsing the catalog). Same shape as
+  // tier-1; tier:2 marker hides them from the primary color picker. ──
+
+  {
+    id: "st-01-red-luffy",
+    product_code: "ST-01",
+    display_name: "Red Luffy",
+    leader_name: "Monkey D. Luffy",
+    leader_card_number: "OP01-003",
+    color: "red",
+    playstyle_short: "Rush",
+    one_paragraph:
+      "The original Straw Hat starter. Rush aggressive attackers and " +
+      "swing for the Life. Bandai's first beginner deck (2022) — " +
+      "historically significant; still playable; veteran-recognised.",
+    complexity: 2,
+    era: "OP01-era",
+    tier: 2,
+    decklist_source: "ctcg-minimal-playable",
+    source_url: "https://en.onepiece-cardgame.com/products/decks/",
+    card_list: [
+      { card_number: "OP01-013", quantity: 4, role: "early-aggression" },
+      { card_number: "OP01-016", quantity: 4, role: "midgame-threat" },
+      { card_number: "OP01-024", quantity: 4, role: "support" },
+      { card_number: "OP01-025", quantity: 4, role: "finisher" },
+    ],
+  },
+  {
+    id: "st-23-red-shanks",
+    product_code: "ST-23",
+    display_name: "Red Shanks",
+    leader_name: "Shanks",
+    leader_card_number: "OP09-001",
+    color: "red",
+    playstyle_short: "Aggro",
+    one_paragraph:
+      "Hit hard and end things fast. The pure-aggro reference deck for " +
+      "Red — explosive openings, top-end finishers, minimal defence. " +
+      "If you love going fast, this is your pick.",
+    complexity: 2,
+    era: "2025-reboot",
+    tier: 2,
+    decklist_source: "ctcg-minimal-playable",
+    source_url: "https://en.onepiece-cardgame.com/products/decks/",
+    card_list: [
+      { card_number: "OP09-003", quantity: 4, role: "early-aggression" },
+      { card_number: "OP09-005", quantity: 4, role: "midgame-threat" },
+      { card_number: "OP09-007", quantity: 4, role: "finisher" },
+    ],
+  },
+  {
+    id: "st-24-green-bonney",
+    product_code: "ST-24",
+    display_name: "Green Bonney",
+    leader_name: "Jewelry Bonney",
+    leader_card_number: "OP13-100",
+    color: "green",
+    playstyle_short: "Flexible",
+    one_paragraph:
+      "Reactive defender. Bonney's Leader effect lets you rest any " +
+      "character or Leader when your opponent attacks you — disrupting " +
+      "their tempo and protecting your board.",
+    complexity: 3,
+    era: "2025-reboot",
+    tier: 2,
+    decklist_source: "ctcg-minimal-playable",
+    source_url: "https://en.onepiece-cardgame.com/products/decks/",
+    card_list: [
+      { card_number: "OP13-022", quantity: 4, role: "support" },
+      { card_number: "OP13-029", quantity: 4, role: "midgame-threat" },
+      { card_number: "OP13-035", quantity: 4, role: "early-aggression" },
+    ],
+  },
+  {
+    id: "st-25-black-buggy",
+    product_code: "ST-25",
+    display_name: "Black Buggy",
+    leader_name: "Buggy",
+    leader_card_number: "OP09-042",
+    color: "black",
+    playstyle_short: "Pirate",
+    one_paragraph:
+      "Cross Guild captain on the rampage. Black's cost-reduction tricks " +
+      "let you deploy big threats at a discount. Buggy's a fan favourite " +
+      "for players who like reading the board and squeezing tempo.",
+    complexity: 3,
+    era: "2025-reboot",
+    tier: 2,
+    decklist_source: "ctcg-minimal-playable",
+    source_url: "https://en.onepiece-cardgame.com/products/decks/",
+    card_list: [
+      { card_number: "OP09-044", quantity: 4, role: "early-aggression" },
+      { card_number: "OP09-051", quantity: 4, role: "midgame-threat" },
+      { card_number: "OP09-055", quantity: 4, role: "finisher" },
+    ],
+  },
+  {
+    id: "st-27-black-blackbeard",
+    product_code: "ST-27",
+    display_name: "Black Blackbeard",
+    leader_name: "Marshall D. Teach",
+    leader_card_number: "OP09-081",
+    color: "black",
+    playstyle_short: "Disrupt",
+    one_paragraph:
+      "Hand-attack control. Blackbeard's deck disrupts the opponent's " +
+      "hand and clears their characters before they can swing. The " +
+      "control specialist's choice — patient, mean, and rewarding.",
+    complexity: 4,
+    era: "2025-reboot",
+    tier: 2,
+    decklist_source: "ctcg-minimal-playable",
+    source_url: "https://en.onepiece-cardgame.com/products/decks/",
+    card_list: [
+      { card_number: "OP09-082", quantity: 4, role: "removal" },
+      { card_number: "OP09-086", quantity: 4, role: "midgame-threat" },
+      { card_number: "OP09-091", quantity: 4, role: "finisher" },
     ],
   },
 ];
