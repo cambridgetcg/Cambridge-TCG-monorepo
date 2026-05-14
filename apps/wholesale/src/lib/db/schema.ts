@@ -660,6 +660,10 @@ export const channelApiKeys = pgTable("channel_api_keys", {
   label: text("label"),
   createdAt: timestamp("created_at").defaultNow(),
   lastUsedAt: timestamp("last_used_at"),
+  // Migration 0017 — soft-delete revocation. authenticateApiKey filters
+  // WHERE revoked_at IS NULL; setting this stops auth without losing
+  // the row's audit history.
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });
 
 // DB-backed login rate limiter. Migration 0016. One row per attempt;

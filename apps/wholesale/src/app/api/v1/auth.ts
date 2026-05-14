@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { channelApiKeys } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { createHash } from "crypto";
 
 function hashKey(raw: string): string {
@@ -19,12 +19,11 @@ export async function authenticateApiKey(req: NextRequest) {
   const [row] = await db
     .select()
     .from(channelApiKeys)
-    .where(eq(channelApiKeys.keyHash, keyHash))
+    .where(and(eq(channelApiKeys.keyHash, keyHash), isNull(channelApiKeys.revokedAt)))
     .limit(1);
 
   if (!row) return null;
 
-  // Update lastUsedAt (fire-and-forget)
   db.update(channelApiKeys)
     .set({ lastUsedAt: new Date() })
     .where(eq(channelApiKeys.id, row.id))
