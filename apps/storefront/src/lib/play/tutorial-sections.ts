@@ -308,6 +308,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
 ];
 
 export const PLAYER_KINDS = [
+  "human-absolute-beginner",
   "human-beginner",
   "human-returning",
   "human-from-other-tcg",

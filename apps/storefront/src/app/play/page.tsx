@@ -707,20 +707,27 @@ export default function PlayPage() {
         {/*  Utility row — quick links                                   */}
         {/* ============================================================ */}
 
-        <section className="grid sm:grid-cols-3 gap-3 text-sm">
+        <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+          <Link
+            href="/play/tutorial"
+            className="block bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 rounded-lg px-4 py-3 transition-colors"
+          >
+            <div className="font-semibold mb-0.5 text-amber-400">Never played a TCG?</div>
+            <div className="text-xs text-neutral-400">Start here — 10-min walkthrough, no sign-in.</div>
+          </Link>
           <Link
             href="/play/welcome"
             className="block bg-neutral-900/50 hover:bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 transition-colors"
           >
-            <div className="font-semibold mb-0.5">New here?</div>
-            <div className="text-xs text-neutral-500">Pick the path that fits why you&apos;re here.</div>
+            <div className="font-semibold mb-0.5">Pick your path</div>
+            <div className="text-xs text-neutral-500">Hobbyist / collector / competitor.</div>
           </Link>
           <Link
             href="/guides/how-to-play"
             className="block bg-neutral-900/50 hover:bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 transition-colors"
           >
-            <div className="font-semibold mb-0.5">Learn the rules</div>
-            <div className="text-xs text-neutral-500">15-minute beginner&apos;s guide.</div>
+            <div className="font-semibold mb-0.5">Quick rules</div>
+            <div className="text-xs text-neutral-500">15-minute reference for returning players.</div>
           </Link>
           <Link
             href="/play/deck-check"
