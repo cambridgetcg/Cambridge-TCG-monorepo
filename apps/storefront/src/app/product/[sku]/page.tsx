@@ -315,7 +315,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                 {hasBids && (
                   <div className="text-sm text-neutral-400">
                     Highest buy offer:{" "}
-                    <span className="text-white font-medium">{formatPrice(market.best_bid!)}</span>
+                    <MoneyDisplay value={market.best_bid!} className="text-white font-medium" />
                     {" "}&nbsp;
                     <Link
                       href={`/market/${sku}`}
