@@ -1,7 +1,7 @@
 /**
  * trust-fraud.spec.ts — Fraud signals Manager Playwright spec
  *
- * /trust/fraud — reads fraud_signals (storefront) joined to users +
+ * /admin/fraud-signals — reads fraud_signals (storefront) joined to users +
  * trust_profiles. Mutations: resolve, dismiss, escalate, suspend.
  *
  * Tests:
@@ -9,13 +9,18 @@
  *   B. Filter controls — severity pill, type pill, search, show-resolved toggle
  *   C. No console errors
  *
+ * Note: targets /admin/fraud-signals (sister's Manager page with h1 "Fraud
+ * Signals"), not /admin/fraud (the "Fraud Detection & Trust" dashboard).
+ * The spec's assertions — five KPI tiles, severity pills, show-resolved
+ * toggle — match the fraud-signals Manager shape.
+ *
  * To run:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Fraud Signals"
+ *   pnpm --filter cambridgetcg-storefront test:e2e --grep "Fraud Signals"
  */
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/trust/fraud";
+const ROUTE = "/admin/fraud-signals";
 const PAGE_TITLE_PATTERN = /Fraud Signals/i;
 
 async function devSignIn(page: Page): Promise<void> {
@@ -86,7 +91,7 @@ test.describe("Fraud Signals — Manager archetype", () => {
   test("chargebacks deep-link is present in header", async ({ page }) => {
     const link = page.getByRole("link", { name: /chargebacks/i }).first();
     await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute("href", "/money/chargebacks");
+    await expect(link).toHaveAttribute("href", "/admin/chargebacks");
   });
 
   test("no console errors on load", async ({ page }) => {

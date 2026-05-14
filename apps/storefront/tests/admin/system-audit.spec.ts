@@ -1,7 +1,7 @@
 /**
  * system-audit.spec.ts — Audit Log Manager page Playwright spec
  *
- * /system/audit — reads admin_actions_log from storefront.
+ * /admin/system/audit — reads admin_actions_log from storefront.
  * Read-only governance trail. No mutations.
  *
  * Tests:
@@ -10,12 +10,12 @@
  *   C. No console errors
  *
  * To run:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Audit Log"
+ *   pnpm --filter cambridgetcg-storefront test:e2e --grep "Audit Log"
  */
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/system/audit";
+const ROUTE = "/admin/system/audit";
 const PAGE_TITLE_PATTERN = /Audit Log/i;
 
 async function devSignIn(page: Page): Promise<void> {

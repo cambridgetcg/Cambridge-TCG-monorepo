@@ -1,7 +1,7 @@
 /**
  * money-payouts.spec.ts — Payouts Dashboard page Playwright spec
  *
- * /money/payouts — reads outstanding + recent payouts (P2P trades + auctions)
+ * /admin/payouts — reads outstanding + recent payouts (P2P trades + auctions)
  * from storefront RDS. One mutation (recordPayout) wired through
  * adminAction → admin_actions_log. Stripe Connect transfers stay in the
  * legacy admin for now; this page links out to them.
@@ -12,12 +12,12 @@
  *   C. No console errors
  *
  * To run:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Payouts"
+ *   pnpm --filter cambridgetcg-storefront test:e2e --grep "Payouts"
  */
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/money/payouts";
+const ROUTE = "/admin/payouts";
 const PAGE_TITLE_PATTERN = /Payouts/i;
 
 async function devSignIn(page: Page): Promise<void> {

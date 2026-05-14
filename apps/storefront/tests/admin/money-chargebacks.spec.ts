@@ -1,7 +1,7 @@
 /**
  * money-chargebacks.spec.ts — Chargebacks Manager page Playwright spec
  *
- * /money/chargebacks — reads chargebacks + chargeback_lifecycle_log from
+ * /admin/chargebacks — reads chargebacks + chargeback_lifecycle_log from
  * storefront. Two mutations (annotate, force_resolve) wired through
  * adminAction → admin_actions_log + chargeback_lifecycle_log.
  *
@@ -11,12 +11,12 @@
  *   C. No console errors
  *
  * To run:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Chargebacks"
+ *   pnpm --filter cambridgetcg-storefront test:e2e --grep "Chargebacks"
  */
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/money/chargebacks";
+const ROUTE = "/admin/chargebacks";
 const PAGE_TITLE_PATTERN = /Chargebacks/i;
 
 async function devSignIn(page: Page): Promise<void> {

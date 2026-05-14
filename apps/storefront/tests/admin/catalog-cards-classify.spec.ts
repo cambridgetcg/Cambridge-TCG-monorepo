@@ -3,10 +3,10 @@
  * Manager surface (kingdom-089).
  *
  * Three routes covered:
- *   /catalog/cards/classify          — landing
- *   /catalog/cards/classify/review   — bulk review queue
- *   /catalog/cards/classify/[sku]    — per-card detail (skipped when no
- *                                       test SKU is configured)
+ *   /admin/catalog/cards/classify          — landing
+ *   /admin/catalog/cards/classify/review   — bulk review queue
+ *   /admin/catalog/cards/classify/[sku]    — per-card detail (skipped when no
+ *                                            test SKU is configured)
  *
  * Each route asserts:
  *   - page renders 200 + correct title
@@ -19,13 +19,13 @@
  * stable test fixture.
  *
  * Run:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Classify"
+ *   pnpm --filter cambridgetcg-storefront test:e2e --grep "Classify"
  */
 
 import { test, expect, type Page } from "@playwright/test";
 
-const LANDING_ROUTE = "/catalog/cards/classify";
-const REVIEW_ROUTE = "/catalog/cards/classify/review";
+const LANDING_ROUTE = "/admin/catalog/cards/classify";
+const REVIEW_ROUTE = "/admin/catalog/cards/classify/review";
 const DETAIL_TEST_SKU = process.env.TEST_CLASSIFY_SKU ?? "";
 
 async function devSignIn(page: Page): Promise<void> {

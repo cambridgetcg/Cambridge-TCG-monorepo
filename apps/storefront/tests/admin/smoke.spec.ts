@@ -1,7 +1,7 @@
 /**
- * smoke.spec.ts — Generated route smoke test
+ * smoke.spec.ts — Generated route smoke test for storefront /admin/* routes
  *
- * Discovers every /(dashboard)/* route from the filesystem and asserts:
+ * Discovers every /admin/* route from the filesystem and asserts:
  *   1. The page returns HTTP 200
  *   2. No Next.js error boundary is visible ("Application error" or
  *      "Internal Server Error" text on-screen)
@@ -11,9 +11,9 @@
  *   production (where the endpoint returns 404).
  *
  * To run:
- *   pnpm --filter @cambridge-tcg/admin test:e2e
+ *   STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e
  * Or for a single route:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "/trust/disputes"
+ *   STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e --grep "/admin/trust"
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -22,14 +22,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
-// Route discovery (mirrors smoke-admin.ts logic)
+// Route discovery — walks apps/storefront/src/app/admin/ for page.tsx files
 // ---------------------------------------------------------------------------
-const DASHBOARD_DIR = join(
+const ADMIN_DIR = join(
   fileURLToPath(import.meta.url),
-  "../../src/app/(dashboard)",
+  "../../../src/app/admin",
 );
 
-function discoverRoutes(dir: string, prefix = ""): string[] {
+function discoverRoutes(dir: string, prefix = "/admin"): string[] {
   const routes: string[] = [];
   let entries: string[] = [];
   try {
@@ -41,9 +41,12 @@ function discoverRoutes(dir: string, prefix = ""): string[] {
     const full = join(dir, entry);
     try {
       if (statSync(full).isDirectory()) {
+        // Skip route-group directories (parenthesised) and dynamic segments
+        // ([param]) — dynamic routes need seeded data and are not smoke-tested
+        if (entry.startsWith("[")) continue;
         const segment = entry.startsWith("(") && entry.endsWith(")") ? "" : `/${entry}`;
         routes.push(...discoverRoutes(full, `${prefix}${segment}`));
-      } else if (entry === "page.tsx" && prefix !== "") {
+      } else if (entry === "page.tsx" && prefix !== "/admin") {
         routes.push(prefix);
       }
     } catch {
@@ -53,7 +56,7 @@ function discoverRoutes(dir: string, prefix = ""): string[] {
   return routes;
 }
 
-const ROUTES = [...new Set(discoverRoutes(DASHBOARD_DIR))].sort();
+const ROUTES = [...new Set(discoverRoutes(ADMIN_DIR))].sort();
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -67,7 +70,7 @@ async function devSignIn(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------
 // Smoke tests — one per route
 // ---------------------------------------------------------------------------
-test.describe("Admin smoke — all routes", () => {
+test.describe("Admin smoke — all /admin/* routes", () => {
   for (const route of ROUTES) {
     test(`${route} → 200, no error boundary`, async ({ page }) => {
       await devSignIn(page);
@@ -90,8 +93,8 @@ test.describe("Admin smoke — all routes", () => {
       // Page has a <title> (catches blank / mis-wired pages)
       const title = await page.title();
       expect(title, `${route} has no page title`).not.toBe("");
-      expect(title, `${route} title is generic "Cambridge TCG Admin"`)
-        .not.toBe("Cambridge TCG Admin");
+      expect(title, `${route} title is generic "Cambridge TCG"`)
+        .not.toBe("Cambridge TCG");
     });
   }
 });

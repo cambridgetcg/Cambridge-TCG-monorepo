@@ -1,8 +1,8 @@
 /**
  * money-membership.spec.ts — Membership Dashboard page Playwright spec
  *
- * /money/membership — read-only viewer for the tiers table + per-tier user
- * counts and spend breakdown. No mutations on this chapel; tier perk
+ * /admin/money/membership — read-only viewer for the tiers table + per-tier
+ * user counts and spend breakdown. No mutations on this chapel; tier perk
  * editing still happens in the legacy admin (linked out from the header).
  *
  * Tests:
@@ -13,7 +13,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/money/membership";
+const ROUTE = "/admin/money/membership";
 const PAGE_TITLE_PATTERN = /Membership/i;
 
 async function devSignIn(page: Page): Promise<void> {

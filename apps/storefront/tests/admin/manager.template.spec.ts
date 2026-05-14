@@ -10,11 +10,11 @@
  *   2. Click a row — assert drill-down renders (if applicable)
  *   3. Run a reversible state transition — assert list refreshes + audit row added
  *
- * This file ships as a WORKING EXAMPLE against /trust/disputes.
+ * This file ships as a WORKING EXAMPLE against /admin/disputes.
  * When copying, replace the route, selectors, and assertions for your module.
  *
  * To run this example:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Disputes"
+ *   STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e --grep "Disputes"
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -22,7 +22,7 @@ import { test, expect, type Page } from "@playwright/test";
 // ---------------------------------------------------------------------------
 // ⬇️  Edit these for your module
 // ---------------------------------------------------------------------------
-const ROUTE = "/trust/disputes";
+const ROUTE = "/admin/disputes";
 const PAGE_TITLE_PATTERN = /Disputes/i;
 // ---------------------------------------------------------------------------
 

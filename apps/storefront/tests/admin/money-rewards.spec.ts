@@ -1,7 +1,7 @@
 /**
  * money-rewards.spec.ts — Rewards (prize fulfilment) page Playwright spec
  *
- * /money/rewards — unified prize fulfilment queue across raffles, mystery
+ * /admin/rewards — unified prize fulfilment queue across raffles, mystery
  * boxes, and reward packs. Three sections (ready-to-ship clusters,
  * shipped-awaiting-confirm, awaiting-address) and three mutations
  * (shipPrize, bulkShipCluster, markFulfilled). Undo is deep-linked to the
@@ -15,7 +15,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/money/rewards";
+const ROUTE = "/admin/rewards";
 const PAGE_TITLE_PATTERN = /Rewards/i;
 
 async function devSignIn(page: Page): Promise<void> {

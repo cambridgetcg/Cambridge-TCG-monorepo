@@ -1,7 +1,7 @@
 /**
  * trust-reviews.spec.ts — Reviews moderation page Playwright spec
  *
- * /trust/reviews — three-tab Manager (flagged / appealed / hidden) over
+ * /admin/reviews — three-tab Manager (flagged / appealed / hidden) over
  * trade_reviews. Three mutations (hideReview, unhideReview, resolveAppeal)
  * wired through adminAction.
  *
@@ -14,7 +14,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/trust/reviews";
+const ROUTE = "/admin/reviews";
 const PAGE_TITLE_PATTERN = /Reviews/i;
 
 async function devSignIn(page: Page): Promise<void> {

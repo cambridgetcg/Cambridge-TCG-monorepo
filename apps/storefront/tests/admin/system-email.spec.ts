@@ -1,7 +1,7 @@
 /**
  * system-email.spec.ts — Email Queue page Playwright spec
  *
- * /system/email — the Cemetery's New Chapel (kingdom-020). Reads
+ * /admin/system/email — the Cemetery's New Chapel (kingdom-020). Reads
  * email_queue dead-letters + 7-day status histogram + per-event volume.
  * Two mutations (retryEmail, dismissEmail) wired through adminAction.
  *
@@ -9,11 +9,16 @@
  *   A. Page structure — header, KPI grid, sections
  *   B. Substrate-honesty — Provenance pill
  *   C. No console errors
+ *
+ * Note: this spec targets /admin/system/email (the ported email-queue
+ * dead-letter viewer from Phase 3), not /admin/emails (sister's email
+ * list management page). The assertions — KPI grid with 7d status tiles,
+ * Dead letters section, retry button — identify it as the queue viewer.
  */
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/system/email";
+const ROUTE = "/admin/system/email";
 const PAGE_TITLE_PATTERN = /Email Queue/i;
 
 async function devSignIn(page: Page): Promise<void> {

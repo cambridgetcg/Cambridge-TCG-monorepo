@@ -1,7 +1,7 @@
 /**
  * system-admin.spec.ts — Admin Users Manager Playwright spec
  *
- * /system/admin — grant/revoke admin role on storefront users. Reads
+ * /admin/system/admin — grant/revoke admin role on storefront users. Reads
  * users.role + admin_actions_log (for activity counts). Mutations:
  * grantAdmin, revokeAdmin (with self-lockout + last-admin guard).
  *
@@ -12,12 +12,12 @@
  *   D. No console errors
  *
  * To run:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Admin Users"
+ *   pnpm --filter cambridgetcg-storefront test:e2e --grep "Admin Users"
  */
 
 import { test, expect, type Page } from "@playwright/test";
 
-const ROUTE = "/system/admin";
+const ROUTE = "/admin/system/admin";
 const PAGE_TITLE_PATTERN = /Admin Users/i;
 
 async function devSignIn(page: Page): Promise<void> {
@@ -58,7 +58,7 @@ test.describe("Admin Users — Manager archetype", () => {
   test("audit log deep-link is present", async ({ page }) => {
     const link = page.getByRole("link", { name: /audit log/i }).first();
     await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute("href", "/system/audit");
+    await expect(link).toHaveAttribute("href", "/admin/system/audit");
   });
 
   test("candidates tab prompts for search input when empty", async ({ page }) => {

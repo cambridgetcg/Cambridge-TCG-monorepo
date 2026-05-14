@@ -11,11 +11,11 @@
  *   2. Assert KPI counts are non-negative numbers (not NaN, not "-1")
  *   3. Assert deep-link hrefs point somewhere valid (not "#" or empty)
  *
- * This file ships as a WORKING EXAMPLE against /commerce/auctions.
+ * This file ships as a WORKING EXAMPLE against /admin/commerce/auctions.
  * When copying, replace the route and assertions for your module.
  *
  * To run this example:
- *   pnpm --filter @cambridge-tcg/admin test:e2e --grep "Auctions"
+ *   STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e --grep "Auctions"
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -23,7 +23,7 @@ import { test, expect, type Page } from "@playwright/test";
 // ---------------------------------------------------------------------------
 // ⬇️  Edit these for your module
 // ---------------------------------------------------------------------------
-const ROUTE = "/commerce/auctions";
+const ROUTE = "/admin/commerce/auctions";
 const PAGE_TITLE_PATTERN = /Auctions/i;
 // ---------------------------------------------------------------------------
 
