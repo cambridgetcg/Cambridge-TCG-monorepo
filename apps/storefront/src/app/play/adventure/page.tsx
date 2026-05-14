@@ -243,7 +243,7 @@ export default function AdventureModePage() {
           <p className="text-neutral-400 text-lg max-w-2xl mx-auto mb-2">
             Set sail on the Grand Line and prove your strength against legendary opponents.
             Each victory brings you closer to becoming the Pirate King — earning Berries
-            and store credit along the way.
+            along the way.
           </p>
           <div className="flex items-center justify-center gap-4 mt-6">
             <Link
@@ -498,11 +498,6 @@ export default function AdventureModePage() {
                           <span className="text-amber-400">&#11088;</span>
                           <span className="text-neutral-300">
                             First clear: {level.first_clear_points} Berries
-                            {level.first_clear_credit > 0 && (
-                              <span className="text-green-400 ml-1">
-                                + &pound;{Number(level.first_clear_credit).toFixed(2)} store credit
-                              </span>
-                            )}
                           </span>
                           {isCleared && (
                             <span className="text-green-400/60 text-xs">(claimed)</span>

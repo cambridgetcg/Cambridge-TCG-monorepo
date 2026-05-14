@@ -1088,12 +1088,10 @@ export default function PVEGameBoard() {
                 );
               })()}
 
-              {victoryResult.creditEarned > 0 && (
-                <div className="flex items-center justify-center gap-2 text-lg">
-                  <span>&#128176;</span>
-                  <span className="text-green-400 font-bold">+&pound;{Number(victoryResult.creditEarned).toFixed(2)} store credit</span>
-                </div>
-              )}
+              {/* Yu 2026-05-14: store-credit reward removed from victory
+                  screen — play module is fun-only. The server may still
+                  emit creditEarned for backwards compatibility, but it's
+                  no longer surfaced on the play surface. */}
 
               {victoryResult.pullTokenEarned && (
                 <div className="flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-amber-500/20 to-fuchsia-500/20 border border-amber-500/30 rounded-lg py-2 px-3">

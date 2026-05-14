@@ -113,7 +113,9 @@ export default function PublicDeckPage() {
     : null;
   const mainDeck = deck?.entries.filter((e) => e.sku !== deck?.leader_sku) ?? [];
   const totalCards = mainDeck.reduce((s, e) => s + e.quantity, 0);
-  const totalValue = deck?.entries.reduce((s, e) => s + e.card.spot_price * e.quantity, 0) ?? 0;
+  // Yu 2026-05-14: play module is fun-only. Deck pages no longer surface
+  // spot value. The catalog response may still carry spot_price; we just
+  // don't aggregate or render it on play surfaces.
 
   async function copyAsText() {
     if (!deck) return;
@@ -221,15 +223,9 @@ export default function PublicDeckPage() {
                     </div>
                   </div>
                 )}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 grid grid-cols-2 gap-3 text-center">
-                  <div>
-                    <p className="text-2xl font-bold text-white">{totalCards}</p>
-                    <p className="text-[10px] text-neutral-500">Cards</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-amber-400">£{totalValue.toFixed(2)}</p>
-                    <p className="text-[10px] text-neutral-500">Spot value</p>
-                  </div>
+                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-white">{totalCards}</p>
+                  <p className="text-[10px] text-neutral-500">Cards</p>
                 </div>
               </div>
 
@@ -255,7 +251,6 @@ export default function PublicDeckPage() {
                         <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
                           <span>{e.card.card_number}</span>
                           {rarityBadge(e.card.rarity)}
-                          <span className="text-amber-400">£{e.card.spot_price.toFixed(2)}</span>
                         </div>
                       </div>
                       <span className="text-amber-400 font-bold text-sm w-10 text-right">

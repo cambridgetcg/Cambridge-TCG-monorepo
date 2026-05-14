@@ -3,6 +3,13 @@
 import { useMemo } from "react";
 
 // Loose type so the component doesn't drag the full page types over.
+//
+// Yu 2026-05-14: the play module is fun-first. Spot price is intentionally
+// NOT a property of a deck-stat card here — the deck builder is a play
+// surface and must not surface monetary value. The interface used to
+// carry `spot_price`; it was removed when the price-stats block was
+// stripped. See docs/principles/cosmology.md §game-economy vs
+// real-economy: deck building lives in the game-economy.
 export interface StatsCard {
   sku: string;
   card_number: string;
@@ -10,7 +17,6 @@ export interface StatsCard {
   set_code: string;
   rarity: string | null;
   image_url: string | null;
-  spot_price: number;
 }
 export interface StatsEntry {
   card: StatsCard;
@@ -45,12 +51,8 @@ function bucket(rarity: string | null): TrackedRarity | "other" {
   return "other";
 }
 
-function formatGbp(n: number): string {
-  return `£${n.toFixed(2)}`;
-}
-
 export default function DeckStatsPanel({
-  leader,
+  leader: _leader,
   entries,
   totalCards,
   maxDeckSize,
@@ -60,28 +62,9 @@ export default function DeckStatsPanel({
     const rarityCounts: Record<TrackedRarity | "other", number> = {
       C: 0, UC: 0, R: 0, SR: 0, SEC: 0, SP: 0, L: 0, other: 0,
     };
-    let totalValue = 0;
-    const prices: number[] = [];
     for (const e of entries) {
       rarityCounts[bucket(e.card.rarity)] += e.quantity;
-      totalValue += e.card.spot_price * e.quantity;
-      for (let i = 0; i < e.quantity; i++) prices.push(e.card.spot_price);
     }
-    const avg = totalCards > 0 ? totalValue / totalCards : 0;
-    const sortedPrices = prices.slice().sort((a, b) => a - b);
-    const median = sortedPrices.length === 0
-      ? 0
-      : sortedPrices.length % 2 === 0
-        ? (sortedPrices[sortedPrices.length / 2 - 1] + sortedPrices[sortedPrices.length / 2]) / 2
-        : sortedPrices[(sortedPrices.length - 1) / 2];
-    const min = sortedPrices[0] ?? 0;
-    const max = sortedPrices[sortedPrices.length - 1] ?? 0;
-
-    // Top 5 by spot
-    const topByValue = entries
-      .slice()
-      .sort((a, b) => b.card.spot_price - a.card.spot_price)
-      .slice(0, 5);
 
     // Set mix
     const setCounts = new Map<string, number>();
@@ -95,18 +78,10 @@ export default function DeckStatsPanel({
 
     return {
       rarityCounts,
-      totalValue,
-      avg,
-      median,
-      min,
-      max,
-      topByValue,
       setMix,
       uniqueCount: entries.length,
     };
-  }, [entries, totalCards]);
-
-  const fullDeckValue = stats.totalValue + (leader?.spot_price ?? 0);
+  }, [entries]);
 
   if (entries.length === 0) {
     return (
@@ -171,67 +146,6 @@ export default function DeckStatsPanel({
           )}
         </div>
       </div>
-
-      {/* Price stats */}
-      <div>
-        <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
-          Spot price
-        </p>
-        <div className="grid grid-cols-4 gap-2 text-center">
-          <div className="bg-neutral-900 rounded-lg p-2">
-            <p className="text-[10px] text-neutral-500">Total</p>
-            <p className="text-sm font-bold text-amber-400">{formatGbp(fullDeckValue)}</p>
-          </div>
-          <div className="bg-neutral-900 rounded-lg p-2">
-            <p className="text-[10px] text-neutral-500">Avg/card</p>
-            <p className="text-sm font-bold text-neutral-200">{formatGbp(stats.avg)}</p>
-          </div>
-          <div className="bg-neutral-900 rounded-lg p-2">
-            <p className="text-[10px] text-neutral-500">Median</p>
-            <p className="text-sm font-bold text-neutral-200">{formatGbp(stats.median)}</p>
-          </div>
-          <div className="bg-neutral-900 rounded-lg p-2">
-            <p className="text-[10px] text-neutral-500">Range</p>
-            <p className="text-[11px] font-bold text-neutral-200 leading-tight">
-              {formatGbp(stats.min)}
-              <span className="text-neutral-500 mx-1">–</span>
-              {formatGbp(stats.max)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Top cards by value */}
-      {stats.topByValue.length > 0 && (
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
-            Top cards by spot
-          </p>
-          <div className="space-y-1">
-            {stats.topByValue.map((e) => (
-              <div
-                key={e.card.sku}
-                className="flex items-center justify-between gap-2 text-xs"
-              >
-                <div className="min-w-0 flex items-center gap-2">
-                  <span className="text-neutral-500 text-[10px] font-mono w-5 text-right flex-shrink-0">
-                    ×{e.quantity}
-                  </span>
-                  <span className="text-neutral-300 truncate">{e.card.name}</span>
-                  {e.card.rarity && (
-                    <span className="text-[9px] text-neutral-500 flex-shrink-0">
-                      {e.card.rarity}
-                    </span>
-                  )}
-                </div>
-                <span className="text-amber-400 font-semibold flex-shrink-0">
-                  {formatGbp(e.card.spot_price)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Set mix */}
       {stats.setMix.length > 0 && (

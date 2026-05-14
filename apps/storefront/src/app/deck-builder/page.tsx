@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { formatPrice } from "@/lib/format";
-import { Money } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/Toast";
 import HandSimulator from "@/components/deck-builder/HandSimulator";
@@ -21,8 +19,10 @@ interface CatalogCard {
   set_name: string;
   rarity: string | null;
   image_url: string | null;
-  spot_price: number;
-  tradein_credit: number | null;
+  // Yu 2026-05-14: the play module is fun-only. Catalog responses may
+  // still carry spot_price + tradein_credit; we deliberately don't
+  // surface them anywhere on this surface. The deck builder lives in
+  // the game-economy, not the real-economy.
 }
 
 interface SetInfo {
@@ -160,14 +160,6 @@ export default function DeckBuilderPage() {
     () => deckEntries.reduce((sum, e) => sum + e.quantity, 0),
     [deckEntries]
   );
-
-  const totalValue = useMemo(
-    () => deckEntries.reduce((sum, e) => sum + e.card.spot_price * e.quantity, 0),
-    [deckEntries]
-  );
-
-  const leaderValue = leader ? leader.spot_price : 0;
-  const fullDeckValue = totalValue + leaderValue;
 
   const deckWarnings = useMemo(() => {
     const warns: string[] = [];
@@ -517,7 +509,6 @@ export default function DeckBuilderPage() {
     }
     lines.push("");
     lines.push(`// Total: ${totalCards}/${MAX_DECK_SIZE} cards`);
-    lines.push(`// Value: ${formatPrice(fullDeckValue)}`);
 
     const text = lines.join("\n");
     navigator.clipboard.writeText(text).then(
@@ -637,9 +628,6 @@ export default function DeckBuilderPage() {
                   {leader.card_number} &middot; {leader.set_code}
                 </p>
                 {rarityBadge(leader.rarity)}
-                <p className="text-sm text-amber-400 font-semibold mt-1">
-                  <Money value={leader.spot_price} />
-                </p>
               </div>
             </div>
           ) : (
@@ -850,9 +838,6 @@ export default function DeckBuilderPage() {
                       </p>
                       <div className="flex items-center gap-1 mb-2">
                         {rarityBadge(card.rarity)}
-                        <span className="text-xs font-bold text-amber-400">
-                          <Money value={card.spot_price} />
-                        </span>
                       </div>
 
                       {/* Action buttons */}
@@ -943,7 +928,6 @@ export default function DeckBuilderPage() {
                 <span>
                   Deck ({totalCards}/{MAX_DECK_SIZE})
                 </span>
-                <span className="text-amber-400"><Money value={fullDeckValue} /></span>
                 <svg
                   width="12"
                   height="12"
@@ -1048,10 +1032,6 @@ export default function DeckBuilderPage() {
                     <span className="text-neutral-400">
                       DON!! {DON_COUNT}/{DON_COUNT}
                     </span>
-                    <span className="text-neutral-500">|</span>
-                    <span className="text-amber-400 font-semibold">
-                      <Money value={fullDeckValue} />
-                    </span>
                   </div>
                 </div>
 
@@ -1121,8 +1101,7 @@ export default function DeckBuilderPage() {
                               {entry.card.name}
                             </p>
                             <p className="text-[10px] text-neutral-500">
-                              {entry.card.card_number} &middot;{" "}
-                              <Money value={entry.card.spot_price * entry.quantity} />
+                              {entry.card.card_number} &middot; {entry.card.set_code}
                             </p>
                           </div>
 
@@ -1150,20 +1129,6 @@ export default function DeckBuilderPage() {
                     </div>
                   )}
                 </div>
-
-                {/* Deck value summary */}
-                {deckEntries.length > 0 && (
-                  <div className="px-4 py-3 border-t border-neutral-800 bg-neutral-900">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-neutral-400">
-                        Deck value{leader ? " (incl. Leader)" : ""}
-                      </span>
-                      <span className="text-amber-400 font-bold">
-                        <Money value={fullDeckValue} />
-                      </span>
-                    </div>
-                  </div>
-                )}
 
                 {/* Action buttons */}
                 <div className="px-4 py-3 border-t border-neutral-800 space-y-2">
@@ -1225,9 +1190,6 @@ export default function DeckBuilderPage() {
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-sm font-bold text-white shrink-0">
                   {totalCards}/{MAX_DECK_SIZE}
-                </span>
-                <span className="text-xs text-amber-400 font-semibold">
-                  <Money value={fullDeckValue} />
                 </span>
               </div>
               <button
@@ -1324,7 +1286,7 @@ export default function DeckBuilderPage() {
             )}
 
             <p className="text-xs text-neutral-500 mt-4">
-              {totalCards} cards &middot; <Money value={fullDeckValue} />
+              {totalCards} cards
               {leader ? ` · Leader: ${leader.name}` : ""}
             </p>
 
