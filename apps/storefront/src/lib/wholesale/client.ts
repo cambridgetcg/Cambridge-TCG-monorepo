@@ -798,6 +798,101 @@ export async function fetchQuarantine(opts: {
   }
 }
 
+// ── Movers ──────────────────────────────────────────────────────────
+//
+// Companion to /prices/[game]/movers. Calls wholesale's bearer-gated
+// /api/v1/prices/movers endpoint. On any failure (timeout, !ok, parse
+// error) returns an empty MoversResponse so the page degrades visibly
+// to the most-valuable fallback rather than throwing.
+//
+// Spec: docs/superpowers/specs/2026-05-14-movers-feature-design.md
+
+export interface MoverItem {
+  sku: string;
+  card_number: string;
+  name: string | null;
+  name_en: string | null;
+  set_code: string | null;
+  set_name: string | null;
+  rarity: string | null;
+  image_url: string | null;
+  category: string;
+  price_then: number;
+  price_now: number;
+  channel_price: number;
+  pct_change: number;
+  then_date: string;
+  now_date: string;
+}
+
+export interface MoversResponse {
+  window: "7d";
+  window_days: number;
+  window_tolerance_days: number;
+  min_price_floor: number;
+  source: "cardrush";
+  source_license: "internal-only";
+  channel: string;
+  game_code: string;
+  computed_at: string | null;
+  count: number;
+  movers: MoverItem[];
+}
+
+function emptyMovers(game: string): MoversResponse {
+  return {
+    window: "7d",
+    window_days: 7,
+    window_tolerance_days: 2,
+    min_price_floor: 10,
+    source: "cardrush",
+    source_license: "internal-only",
+    channel: "cambridgetcg",
+    game_code: game,
+    computed_at: null,
+    count: 0,
+    movers: [],
+  };
+}
+
+export async function fetchMovers(opts: {
+  game: string;
+  window?: "7d";
+  min_price?: number;
+  limit?: number;
+  category?: "singles" | "sealed";
+}): Promise<MoversResponse> {
+  const url = new URL(WHOLESALE_URL + "/api/v1/prices/movers");
+  url.searchParams.set("game", opts.game);
+  if (opts.window) url.searchParams.set("window", opts.window);
+  if (opts.min_price !== undefined)
+    url.searchParams.set("min_price", String(opts.min_price));
+  if (opts.limit !== undefined)
+    url.searchParams.set("limit", String(opts.limit));
+  if (opts.category) url.searchParams.set("category", opts.category);
+
+  let res: Response;
+  try {
+    res = await wholesaleFetch(url.toString(), {
+      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
+      next: { revalidate: 300 },
+    });
+  } catch (err) {
+    console.error("[wholesale] movers fetch error", err);
+    return emptyMovers(opts.game);
+  }
+  if (!res.ok) {
+    console.error("[wholesale] movers error", res.status);
+    return emptyMovers(opts.game);
+  }
+  try {
+    return (await res.json()) as MoversResponse;
+  } catch (err) {
+    console.error("[wholesale] movers parse error", err);
+    return emptyMovers(opts.game);
+  }
+}
+
 export async function reportSale(sale: {
   channel: string;
   order_ref: string;
