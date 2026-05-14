@@ -66,8 +66,27 @@ export default function Nav() {
               <Link href="/admin" className="hover:text-brand-500 transition">
                 Dashboard
               </Link>
+              {/* kingdom-095 — admin sub-nav surfacing 15 admin routes */}
+              <Link href="/admin/stock" className="hover:text-brand-500 transition">
+                Stock
+              </Link>
+              <Link href="/admin/to-order" className="hover:text-brand-500 transition">
+                To Order
+              </Link>
+              <Link href="/admin/purchases" className="hover:text-brand-500 transition">
+                Purchases
+              </Link>
+              <Link href="/admin/orders" className="hover:text-brand-500 transition">
+                Orders
+              </Link>
+              <Link href="/admin/prices" className="hover:text-brand-500 transition">
+                Prices
+              </Link>
+              <Link href="/admin/games" className="hover:text-brand-500 transition">
+                Catalog
+              </Link>
               <a href={storefrontUrl} className="hover:text-brand-500 transition">
-                Storefront
+                Storefront →
               </a>
             </>
           ) : (

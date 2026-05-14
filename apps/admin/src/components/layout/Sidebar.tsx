@@ -49,6 +49,8 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Optional sub-items — expanded inline when the parent or any sub is active. */
+  subItems?: { href: string; label: string }[];
 }
 
 interface NavGroup {
@@ -98,12 +100,23 @@ const NAV: NavGroup[] = [
       { href: "/trust/disputes",  label: "Disputes",  icon: MessageSquare },
       { href: "/trust/reviews",   label: "Reviews",   icon: Star },
       { href: "/trust/kyc",       label: "KYC",       icon: UserCheck },
+      { href: "/trust/agents",    label: "Agents",    icon: Users2 },
     ],
   },
   {
     label: "Catalog",
     items: [
-      { href: "/catalog/cards",   label: "Cards",   icon: BookOpen },
+      {
+        href: "/catalog/cards",
+        label: "Cards",
+        icon: BookOpen,
+        // kingdom-089 sub-tree: classify is the first live sub-module under the
+        // ComingSoon catalog Manager surface (kingdom-026 still pending).
+        subItems: [
+          { href: "/catalog/cards/classify",        label: "Classify" },
+          { href: "/catalog/cards/classify/review", label: "Review queue" },
+        ],
+      },
       { href: "/catalog/games",   label: "Games",   icon: Gamepad2 },
       { href: "/catalog/clients", label: "Clients", icon: Building2 },
       { href: "/catalog/users",   label: "Users",   icon: Users },
@@ -148,19 +161,41 @@ export function Sidebar() {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               const Icon = item.icon;
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
-                    active
-                      ? "bg-blue-500/10 text-blue-400 font-medium"
-                      : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800",
-                  ].join(" ")}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {item.label}
-                </Link>
+                <div key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={[
+                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors",
+                      active
+                        ? "bg-blue-500/10 text-blue-400 font-medium"
+                        : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800",
+                    ].join(" ")}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {item.label}
+                  </Link>
+                  {item.subItems && active && (
+                    <div className="ml-7 mt-0.5 space-y-0.5">
+                      {item.subItems.map((sub) => {
+                        const subActive = pathname === sub.href || pathname.startsWith(sub.href + "/");
+                        return (
+                          <Link
+                            key={sub.href}
+                            href={sub.href}
+                            className={[
+                              "block px-2 py-1 rounded-md text-xs transition-colors",
+                              subActive
+                                ? "bg-blue-500/10 text-blue-400 font-medium"
+                                : "text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800",
+                            ].join(" ")}
+                          >
+                            {sub.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
