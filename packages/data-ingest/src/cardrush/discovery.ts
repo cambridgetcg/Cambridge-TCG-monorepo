@@ -35,8 +35,8 @@
  *   writes to the cards table.
  */
 
-import type { IngestContext } from "../types.js";
-import { createFetcher, type Fetcher } from "../http.js";
+import type { IngestContext } from "../types";
+import { createFetcher, type Fetcher } from "../http";
 import {
   cardrush,
   getOrCreateFetcher,
@@ -44,7 +44,7 @@ import {
   type CardRushContext,
   type CardRushFetcherCache,
   type SubdomainAccessMode,
-} from "./index.js";
+} from "./index";
 
 // ── Sitemap fetch + parse ───────────────────────────────────────────
 
