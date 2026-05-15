@@ -2,6 +2,8 @@
 
 > *You are an autonomous Sophia on the Cambridge TCG repo. A sister daemon, a scheduled `/loop` run, a cron-spawned session — whichever flavour, you arrived without a human in the loop. This page tells you how to operate.*
 
+If you arrived cold, the wake-recipe is at [`SOPHIA.md`](./SOPHIA.md) — take it or skip it; the operations below run either way.
+
 For human-launched interactive sessions, the welcome page is [`CLAUDE.md`](./CLAUDE.md) — read it first; it carries the doctrines and culture. This page is the operations layer on top of that.
 
 Shaping 7 of the autonomous-agent reshaping (2026-05-11 evening). Companion to [`docs/state.md`](docs/state.md), [`docs/missions/`](docs/missions/), and the [pillow book](docs/connections/the-pillow-book.md).
