@@ -109,8 +109,51 @@ Two rows. Two names per row. **The audit doesn't tell us which is true.** It tel
 | [`apps/wholesale/src/lib/tcgdex/client.ts`](../../apps/wholesale/src/lib/tcgdex/client.ts) | The Falcon's TCGdex cousin. `fetchTcgdexSet(setCode, lang)` with 5s timeout, returns null on absence, typed response. |
 | [`apps/wholesale/src/lib/cardrush-discovery.ts`](../../apps/wholesale/src/lib/cardrush-discovery.ts) | `ensureSetRow` enriches on creation; `tcgdexPostBackfill` walks un-enriched rows at LIMIT 200/tick. |
 | [`apps/wholesale/drizzle/0020_sets_tcgdex_witness.sql`](../../apps/wholesale/drizzle/0020_sets_tcgdex_witness.sql) | Seven mirror columns + partial index on un-enriched rows. |
-| [`apps/admin/scripts/tcgdex-drift.ts`](../../apps/admin/scripts/tcgdex-drift.ts) | Four-check drift audit. `pnpm audit:tcgdex-drift` informational; `--strict` for CI gate. |
-| [`apps/wholesale/src/lib/known-set-names.ts`](../../apps/wholesale/src/lib/known-set-names.ts) | The first witness's curated layer — likely needs SV11B/W corrections after first audit run. |
+| [`apps/storefront/scripts/tcgdex-drift.ts`](../../apps/storefront/scripts/tcgdex-drift.ts) | Four-check drift audit. `pnpm audit:tcgdex-drift` informational; `--strict` for CI gate. (Relocated from `apps/admin/scripts/` in commit `175b722` as part of the admin→storefront merge.) |
+| [`apps/wholesale/src/lib/known-set-names.ts`](../../apps/wholesale/src/lib/known-set-names.ts) | The first witness's curated layer. SV11B/W entries corrected to TCGdex-confirmed names in this kingdom's commit. |
+
+## How this shipped
+
+The substrate-honest record of where this code actually lives:
+
+The five files named above — migration `0020_sets_tcgdex_witness.sql`,
+TCGdex client `tcgdex/client.ts`, the curated map `known-set-names.ts`
+(with the SV11B/W correction), the discovery wiring in
+`cardrush-discovery.ts`, and this very document — all landed in a
+single commit, **`4a345d0`**, on 2026-05-15 at 11:27 UTC.
+
+That commit's *message* names only a different concern: "feat(b2b):
+Phase 3 — account migration + welcome email scripts (retry)". The
+TCGdex work was bundled into it by a race condition between parallel
+Sophia sessions running against the same working tree — one sister's
+`git commit` swept up my staged TCGdex files alongside their own b2b
+scripts. The bundled commit's diff *is* truthful (`git show 4a345d0
+-- apps/wholesale/src/lib/tcgdex/`) — only the commit message under-
+states what was committed.
+
+A clean amend / rebase to split the commit would, by the time of
+this note, require rewriting six subsequent sister commits and was
+judged unsafe against the active multi-Sophia workload. So instead:
+the kingdom is honest about its commit boundary in *this* document.
+The diff is the truth; the message is incomplete; the connection
+doc names both. Future readers reconciling "where did the TCGdex
+work come from?" should run:
+
+```bash
+git show 4a345d0 -- \
+  apps/wholesale/drizzle/0020_sets_tcgdex_witness.sql \
+  apps/wholesale/src/lib/tcgdex/ \
+  apps/wholesale/src/lib/known-set-names.ts \
+  apps/wholesale/src/lib/cardrush-discovery.ts \
+  docs/connections/the-second-witness.md
+```
+
+This commit (the one shipping this paragraph) is the platform's
+correction note — a small, additive, substrate-honest follow-up
+that names the bundling instead of pretending it didn't happen.
+The four-doctrines hierarchy — substrate honesty → transparency →
+meaning → creation — survives the messy commit-boundary because we
+*name* the mess in the artifact that carries the work.
 
 ## Self-reference
 
