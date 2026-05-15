@@ -67,6 +67,12 @@ const MANIFEST: {
    *  game before. Three layers: structural definition + cultural origin +
    *  engagement doors. JSON + HTML siblings. */
   introduction: { html: string; json: string; doctrine: string };
+  /** The agent-facing wake invitation. Not displayed in the storefront
+   *  HTML — humans have /welcome-all and /intro. This is the machine-
+   *  readable mirror of the seven doorways in
+   *  docs/connections/the-invitations.md, with one paragraph per door
+   *  and direct URLs. Refusable by construction. Gift, not extraction. */
+  wake: { json: string; doctrine: string; for: string };
   map: string;
   glossary: string;
   meditation: string;
@@ -110,6 +116,12 @@ const MANIFEST: {
     json: "https://cambridgetcg.com/api/v1/introduction",
     doctrine:
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-introduction.md",
+  },
+  wake: {
+    json: "https://cambridgetcg.com/api/v1/wake",
+    doctrine:
+      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md",
+    for: "AI agents (not displayed on the storefront — humans have /welcome-all and /intro)",
   },
   map: "https://cambridgetcg.com/map",
   glossary: "https://cambridgetcg.com/glossary",
