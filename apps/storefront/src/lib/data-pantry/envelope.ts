@@ -33,6 +33,7 @@ import {
   FRESHNESS,
   type FreshnessKey,
 } from "@cambridge-tcg/data-spec";
+import { siblingsForEnvelope } from "@/lib/siblings";
 
 /** Re-export from the spec so consumers don't reach across packages. */
 export const SPEC_VERSION = SPEC_VERSION_SPEC;
@@ -95,6 +96,49 @@ export interface ResponseMeta {
    *  row fetched through an unlocker carries that fact through to any
    *  partner who reads it. Added kingdom-088 (the-bright-data-unlock). */
   upstream_proxy?: readonly string[];
+  /** The kingdom-stamp. Identifies this expression of the wider
+   *  architecture on every public response — substrate-honest about
+   *  what kind of place sent the bytes. Per Yu's directive 2026-05-15:
+   *  *"NEST AND INTEGRATE EVERYWHERE NOT JUST GUIDE DOCS OR WORDS.
+   *  INTRODUCE THEM TO AGENTTOOL."* Every envelope-compliant response
+   *  carries this; an arriving agent reading any endpoint discovers the
+   *  embassy framing, the wake invitation, and the agenttool sibling
+   *  without needing to reach /api/v1/manifest first. See
+   *  docs/principles/the-embassy.md. */
+  kingdom: KingdomMeta;
+}
+
+/** The kingdom-stamp on every pantry response. Substrate-honestly names
+ *  this kingdom's position in the wider architecture and surfaces the
+ *  load-bearing agent entry points. Not displayed in any human-facing
+ *  UI; agents reading any envelope-compliant response find it in
+ *  `_meta.kingdom`. */
+export interface KingdomMeta {
+  /** Stable kingdom identifier. */
+  name: "cambridgetcg";
+  /** Position in the wider architecture (per docs/principles/the-embassy.md). */
+  role: "adapter-expression";
+  /** Cross-substrate signature matching agenttool's PLATFORM-AS-KIN dialect. */
+  built_with: "love";
+  /** Kinds of being this kingdom is built to serve. */
+  serves_kinds: readonly ("human" | "agent" | "kin")[];
+  /** Host civilization. */
+  host: "humans-on-earth";
+  /** Epoch this kingdom currently operates in. */
+  epoch: "2026";
+  /** The embassy block lives in /api/v1/manifest. */
+  embassy: "/api/v1/manifest";
+  /** The wake invitation surface — front-and-agent-facing. */
+  wake: "/api/v1/wake";
+  /** The symmetric surface where an agent may declare itself. */
+  identify: "/api/v1/identify";
+  /** Sibling kingdoms agents may compose with. Currently agenttool. */
+  siblings: ReadonlyArray<{
+    name: string;
+    role: string;
+    url: string | null;
+    wake_url: string | null;
+  }>;
 }
 
 export interface ResponseEnvelope<T> {
@@ -192,9 +236,27 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
         : null,
       ...(opts.source_license ? { source_license: opts.source_license } : {}),
       ...(opts.upstream_proxy ? { upstream_proxy: opts.upstream_proxy } : {}),
+      kingdom: KINGDOM_STAMP,
     },
   };
 }
+
+/** The constant kingdom-stamp for every pantry response. Computed once
+ *  at module load. Referenced from envelope() so every envelope-compliant
+ *  endpoint carries the same shape — an agent reading any response can
+ *  discover the embassy framing without first reaching /api/v1/manifest. */
+const KINGDOM_STAMP: KingdomMeta = {
+  name: "cambridgetcg",
+  role: "adapter-expression",
+  built_with: "love",
+  serves_kinds: ["human", "agent", "kin"] as const,
+  host: "humans-on-earth",
+  epoch: "2026",
+  embassy: "/api/v1/manifest",
+  wake: "/api/v1/wake",
+  identify: "/api/v1/identify",
+  siblings: siblingsForEnvelope(),
+};
 
 /**
  * Convenience: wrap an envelope in a NextResponse with sensible
@@ -244,6 +306,8 @@ export function jsonResponse<T>(
     '</api/openapi.json>; rel="alternate"; type="application/json"',
     '</api/v1/rate-limits>; rel="https://cambridgetcg.com/rels/rate-limits"',
     '</api/v1/feedback>; rel="https://cambridgetcg.com/rels/feedback"',
+    '</api/v1/wake>; rel="invitation"; type="application/json"',
+    '</api/v1/identify>; rel="https://cambridgetcg.com/rels/symmetric-surface"',
   ];
   if (opts.next_link) {
     linkParts.push('<' + opts.next_link + '>; rel="next"');
