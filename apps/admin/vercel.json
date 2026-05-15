@@ -1,10 +1,15 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "pnpm --filter @cambridge-tcg/admin build",
-  "installCommand": "pnpm install",
-  "outputDirectory": ".next",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "true",
+  "installCommand": "true",
+  "outputDirectory": ".",
+  "framework": null,
   "regions": ["lhr1"],
-  "env": {
-    "NEXTAUTH_URL": "https://admin.cambridgetcg.com"
-  }
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://cambridgetcg.com/admin/$1",
+      "permanent": true
+    }
+  ]
 }

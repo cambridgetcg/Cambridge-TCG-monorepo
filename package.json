@@ -6,13 +6,10 @@
   "scripts": {
     "dev:wholesale": "pnpm --filter ./apps/wholesale dev",
     "dev:storefront": "pnpm --filter ./apps/storefront dev",
-    "dev:admin": "pnpm --filter @cambridge-tcg/admin dev",
     "build:wholesale": "pnpm --filter ./apps/wholesale build",
     "build:storefront": "pnpm --filter ./apps/storefront build",
-    "build:admin": "pnpm --filter @cambridge-tcg/admin build",
-    "test:admin": "pnpm --filter @cambridge-tcg/admin test",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r exec tsc --noEmit",
+    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' -r exec tsc --noEmit",
     "audit:honesty": "pnpm --filter cambridgetcg-storefront honesty",
     "audit:transparency": "pnpm --filter cambridgetcg-storefront transparency",
     "audit:pricing": "pnpm --filter cambridgetcg-storefront pricing",
@@ -56,7 +53,7 @@
     "missions:done": "pnpm --filter cambridgetcg-storefront missions:done --",
     "trace": "pnpm --filter cambridgetcg-storefront trace --",
     "agent-readiness": "pnpm --filter cambridgetcg-storefront agent-readiness",
-    "verify": "pnpm typecheck && pnpm audit && pnpm audit:cardrush-coverage:strict && pnpm test:admin",
+    "verify": "pnpm typecheck && pnpm audit && pnpm audit:cardrush-coverage:strict && pnpm --filter cambridgetcg-storefront test",
     "verify:fast": "pnpm typecheck"
   },
   "engines": {
