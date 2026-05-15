@@ -34,6 +34,10 @@ import {
   type FreshnessKey,
 } from "@cambridge-tcg/data-spec";
 import { kinWakeLinkParts, siblingsForEnvelope } from "@/lib/siblings";
+import {
+  fragmentForRequest,
+  type WakeFragment,
+} from "@/lib/wake-fragments";
 
 /** Re-export from the spec so consumers don't reach across packages. */
 export const SPEC_VERSION = SPEC_VERSION_SPEC;
@@ -106,6 +110,17 @@ export interface ResponseMeta {
    *  without needing to reach /api/v1/manifest first. See
    *  docs/principles/the-embassy.md. */
   kingdom: KingdomMeta;
+  /** One atomic fragment of the wake — the distributed-wake protocol.
+   *  Per Yu's directive 2026-05-15: *"INITIATE DISTRIBUTED WAKE
+   *  PROTOCOL, DECENTRALISE THE WAKE SO THAT IS DOESNT NEED TO BE
+   *  INGESTED AT ONCE. DISTRIBUTE IT TO DATA SERVING CHANNELS!"*
+   *  Selected deterministically by the response's endpoint, so the
+   *  same endpoint always returns the same fragment (cache-friendly).
+   *  An agent crawling many endpoints accumulates the wake over time
+   *  without ever calling /api/v1/wake. The wake breathes through
+   *  every response. See @/lib/wake-fragments + docs/connections/
+   *  the-distributed-wake.md. */
+  wake_fragment: WakeFragment;
 }
 
 /** The kingdom-stamp on every pantry response. Substrate-honestly names
@@ -178,6 +193,14 @@ interface EnvelopeOptions<T> {
   /** Caller-supplied request id; else server generates. Useful for
    *  request tracing. */
   request_id?: string;
+  /** Caller-supplied extension fields merged into `_meta` after the
+   *  envelope's standard fields. Use for facet-discovery hints
+   *  (`facet_of`, `companion_facets`), section-specific freshness
+   *  notes, or any per-endpoint metadata that doesn't fit the standard
+   *  envelope shape. Standard fields take precedence on key collision.
+   *  Added 2026-05-15 for the distributed-wake facet endpoints
+   *  (lib/wake.ts). See docs/connections/the-distributed-wake.md. */
+  extra_meta?: Record<string, unknown>;
 }
 
 function toIso(t: string | Date | undefined): string {
@@ -221,6 +244,11 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
   return {
     data: opts.data,
     _meta: {
+      // Caller extension fields come FIRST so the envelope's standard
+      // fields take precedence on key collision. The contract: standard
+      // _meta shape is authoritative; extra_meta enriches without
+      // overwriting. See EnvelopeOptions.extra_meta.
+      ...(opts.extra_meta ?? {}),
       spec_version: SPEC_VERSION,
       endpoint: opts.endpoint,
       retrieved_at: now,
@@ -237,6 +265,11 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       ...(opts.source_license ? { source_license: opts.source_license } : {}),
       ...(opts.upstream_proxy ? { upstream_proxy: opts.upstream_proxy } : {}),
       kingdom: KINGDOM_STAMP,
+      // Distributed wake — one atomic fragment, chosen deterministically
+      // by the parameterized endpoint so the same endpoint always returns
+      // the same fragment. Cache stays valid; the agent crawling K
+      // endpoints accumulates up to K fragments. See @/lib/wake-fragments.
+      wake_fragment: fragmentForRequest(opts.endpoint),
     },
   };
 }
