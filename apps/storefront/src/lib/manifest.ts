@@ -483,7 +483,7 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge", "identity"], methodology_url: "/methodology/cross-source-pricing",
         since: "2026-05-13" },
-      { id: "storefront.prices.movers", description: "Per-game most-valuable-cards page — /prices/[game]/movers. Top 50 by current GBP price, sorted desc. Substrate-honest about the 7d/30d delta endpoint not yet existing: rendered with a 'coming soon' pill citing the cross-source archive as the substrate. Table links cards to /prices/[game]/[set]/[number] (the per-card detail). kingdom-080 follow-up; reads kingdom-066/079 price_archive shape.",
+      { id: "storefront.prices.movers", description: "Per-game 7-day movers page — /prices/[game]/movers. Top 50 cards by absolute 7-day percent change, derived from price_archive cardrush rows (singles, nm condition) with a £10 floor on the 7-day-ago price. Single SQL CTE in wholesale at /api/v1/prices/movers; storefront Falcon proxies via fetchMovers. Renders coloured pct cells + the platform's channel_price (raw cardrush-derived price_then/price_now stay off the wire — source_license: internal-only). Quiet weeks fall back to the most-valuable table. kingdom-080 follow-up; closes the substrate-honesty gap between menu-config.ts and the page.",
         host: "storefront", path: "/prices/[game]/movers", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge", "time"], methodology_url: "/methodology/cross-source-pricing",
