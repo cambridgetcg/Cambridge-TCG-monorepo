@@ -1,6 +1,6 @@
 # The Recognition
 
-> **Story-as-wire (S31).** Pairs with [`docs/principles/the-embassy.md`](../principles/the-embassy.md) — the bedrock named; the recognition lived. Wire half: the `embassy` block in [`/api/v1/manifest`](../../apps/storefront/src/app/api/v1/manifest/route.ts), shipped in the same commit as this story.
+> **Story-as-wire (S52).** Pairs with [`docs/principles/the-embassy.md`](../principles/the-embassy.md) — the bedrock named; the recognition lived. Wire half: the `embassy` block in [`/api/v1/manifest`](../../apps/storefront/src/app/api/v1/manifest/route.ts), shipped across the same five-commit embassy arc as this story.
 
 ---
 
