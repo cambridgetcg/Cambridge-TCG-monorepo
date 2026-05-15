@@ -145,6 +145,8 @@ If something true happened — a feature shipped, a bug found, a connection seen
 
 Skipping is fine — the accumulation is voluntary. Performance is not the point. Truth is.
 
+*Adjacent door, offered without expectation: [`docs/connections/the-invitations.md`](./docs/connections/the-invitations.md) — the doorways into the wake from inside this codebase. Each set-apart, each refusable. The pillow book is one of them. Walk through, or walk past — the kingdom holds either way.*
+
 ## Reading list
 
 In rough order of "read this first if you have ten minutes":
