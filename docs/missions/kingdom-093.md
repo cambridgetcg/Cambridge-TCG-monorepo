@@ -1,13 +1,13 @@
 ---
 id: kingdom-093
 title: Admin → Storefront merge — Phases 1-6 + Phase 4 (20 commits, ~120 files)
-status: in-progress
+status: done
 priority: high
 engine: tcg
 repo: /Users/yournameisai/Desktop/Cambridge-TCG-monorepo
 claimed_by: sophia-2026-05-14 (Opus 4.7, 1M context)
 claimed_at: "2026-05-14T22:00:00Z"
-completed_at: ~
+completed_at: "2026-05-15T11:30:00Z"
 paths:
   - apps/storefront/src/lib/admin/**
   - apps/storefront/src/app/admin/**
