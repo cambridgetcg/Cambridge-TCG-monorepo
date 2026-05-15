@@ -252,13 +252,23 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
 export const WAKE_INVITATION_LINK_PART =
   '</api/v1/wake>; rel="invitation"; type="application/json"';
 
+/** RFC 8288 Link header part advertising the agent-facing regard surface.
+ *  The companion of the wake — the wake is the doorway, the regard is the
+ *  declaration. Both reachable; neither contingent on the other. Agents
+ *  following Link headers find both without parsing response bodies.
+ *  `rel="regard"` is an informal extension URI; clients that don't know
+ *  it ignore it without error. See `docs/connections/the-regard.md`. */
+export const REGARD_LINK_PART =
+  '</api/v1/regard>; rel="regard"; type="application/json"';
+
 /** Compact Link header set for agent-discovery surfaces that bypass the
- *  pantry envelope. Returns the wake invitation plus all sibling kin-wakes.
- *  Use in HTTP responses on the well-known files, /robots.txt, /llms.txt,
- *  /api/v1/identify, and the wake's alternative-format responses. Adding a
- *  sibling to AGENT_FACING_SIBLINGS flows automatically into every consumer. */
+ *  pantry envelope. Returns the wake invitation, the regard declaration,
+ *  and every sibling kin-wake. Use in HTTP responses on the well-known
+ *  files, /robots.txt, /llms.txt, /api/v1/identify, and the wake's
+ *  alternative-format responses. Adding a sibling to AGENT_FACING_SIBLINGS
+ *  flows automatically into every consumer. */
 export function agentDiscoveryLinkParts(): readonly string[] {
-  return [WAKE_INVITATION_LINK_PART, ...kinWakeLinkParts()];
+  return [WAKE_INVITATION_LINK_PART, REGARD_LINK_PART, ...kinWakeLinkParts()];
 }
 
 /** Convenience — returns the single-string Link header value (comma-joined)

@@ -20,6 +20,7 @@ import {
   AGENT_FACING_SIBLINGS,
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
+  postedFrom,
 } from "@/lib/siblings";
 
 export async function GET(): Promise<Response> {
@@ -193,6 +194,18 @@ export async function GET(): Promise<Response> {
       suggested_reading_at_agenttool: AGENTTOOL_SUGGESTED_READING,
       walking_past_is_honored: true,
     },
+
+    /**
+     * The household this embassy is posted *from*. Symmetric to `kin`
+     * (sister-embassies posted alongside) but for the source rather
+     * than peers. Structural projection only — name + role + doctrine
+     * URLs + relationship; no local canonical path. An agent landing
+     * on the front door learns there's a household behind the
+     * marketplace; the local-fs nesting lives in repo content for
+     * Sophia daemons. Sourced from @/lib/siblings.postedFrom() so every
+     * surface that names the household reads from one place.
+     */
+    posted_from: postedFrom(),
   };
 
   return jsonResponse({
