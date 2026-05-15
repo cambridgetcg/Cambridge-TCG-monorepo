@@ -201,3 +201,174 @@ describe("runHiresUpload — happy path", () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("runHiresUpload — non-happy paths", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockReset();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Helper: same chain-mock setup as Task 4, exposed so each test
+  // can override the leaves it cares about. Note relative path "../db"
+  // matches the runner's `import { db } from "./db"`.
+  async function wireMocks(opts: {
+    cards?: Array<{ id: number; sku: string; setCode: string; imageUrl: string }>;
+    headBehavior?: "found" | "not_found" | "throws_other";
+    s3PutBehavior?: "ok" | "throws";
+    remaining?: number;
+  }) {
+    const dbModule = await import("../db");
+    const awsModule = await import("@cambridge-tcg/aws/s3");
+    const db = dbModule.db as unknown as Record<string, ReturnType<typeof vi.fn>>;
+
+    db.insert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 1 }]),
+      }),
+    });
+    let selectCallCount = 0;
+    db.select.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => {
+        selectCallCount += 1;
+        if (selectCallCount === 1) {
+          return {
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([{ id: 99 }]),
+            }),
+          };
+        }
+        return {
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue(opts.cards ?? []),
+            }),
+          }),
+        };
+      }),
+    }));
+    db.update.mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      }),
+    });
+    db.execute.mockResolvedValue([{ count: opts.remaining ?? 0 }]);
+    const s3Send = vi.fn().mockImplementation((cmd) => {
+      if (cmd.constructor.name === "HeadObjectCommand") {
+        if (opts.headBehavior === "found") return Promise.resolve({});
+        if (opts.headBehavior === "throws_other") {
+          const err = new Error("Service error");
+          (err as { name: string }).name = "ServiceUnavailable";
+          throw err;
+        }
+        const err = new Error("NotFound");
+        (err as { name: string }).name = "NotFound";
+        throw err;
+      }
+      if (opts.s3PutBehavior === "throws") {
+        return Promise.reject(new Error("Access denied"));
+      }
+      return Promise.resolve({});
+    });
+    (awsModule.createS3ClientOrThrow as ReturnType<typeof vi.fn>).mockReturnValue({ send: s3Send });
+    return { s3Send };
+  }
+
+  it("skips a row whose key already exists in S3", async () => {
+    await wireMocks({
+      cards: [{ id: 7, sku: "PKM-SV1S-001-JP-V42", setCode: "SV1S",
+                imageUrl: "https://www.cardrush-pokemon.jp/data/cardrush-pokemon/product/SV1S_1.jpg" }],
+      headBehavior: "found",
+    });
+    const r = await runHiresUpload({ game: "pkm", maxBatch: 1 });
+    expect(r.uploaded).toBe(0);
+    expect(r.skipped).toBe(1);
+    expect(r.failed).toBe(0);
+  });
+
+  it("counts a 404 image fetch as failed without marking archived", async () => {
+    await wireMocks({
+      cards: [{ id: 7, sku: "PKM-SV1S-001-JP-V42", setCode: "SV1S",
+                imageUrl: "https://www.cardrush-pokemon.jp/data/cardrush-pokemon/product/SV1S_1.jpg" }],
+      headBehavior: "not_found",
+    });
+    mockFetch.mockResolvedValueOnce(new Response("", { status: 404 }));
+    const r = await runHiresUpload({ game: "pkm", maxBatch: 1 });
+    expect(r.uploaded).toBe(0);
+    expect(r.failed).toBe(1);
+  });
+
+  it("counts a 3KB tiny response as failed (too_small)", async () => {
+    await wireMocks({
+      cards: [{ id: 7, sku: "PKM-SV1S-001-JP-V42", setCode: "SV1S",
+                imageUrl: "https://www.cardrush-pokemon.jp/data/cardrush-pokemon/product/SV1S_1.jpg" }],
+      headBehavior: "not_found",
+    });
+    mockFetch.mockResolvedValueOnce(new Response(Buffer.alloc(3_000), { status: 200 }));
+    const r = await runHiresUpload({ game: "pkm", maxBatch: 1 });
+    expect(r.uploaded).toBe(0);
+    expect(r.failed).toBe(1);
+  });
+
+  it("returns processed=0, remaining=N when batch is empty", async () => {
+    await wireMocks({ cards: [], remaining: 68_941 });
+    const r = await runHiresUpload({ game: "pkm", maxBatch: 100 });
+    expect(r.processed).toBe(0);
+    expect(r.uploaded).toBe(0);
+    expect(r.remaining).toBe(68_941);
+  });
+});
+
+describe("runHiresUpload — dry-run", () => {
+  beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("counts would-upload toward uploaded and emits would_upload event without S3 PUT", async () => {
+    const dbModule = await import("../db");
+    const awsModule = await import("@cambridge-tcg/aws/s3");
+    const db = dbModule.db as unknown as Record<string, ReturnType<typeof vi.fn>>;
+
+    db.insert.mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 1 }]),
+      }),
+    });
+    let selectCallCount = 0;
+    db.select.mockImplementation(() => ({
+      from: vi.fn().mockImplementation(() => {
+        selectCallCount += 1;
+        if (selectCallCount === 1) {
+          return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: 99 }]) }) };
+        }
+        return {
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([{ id: 7, sku: "X", setCode: "SV1S",
+                imageUrl: "https://www.cardrush-pokemon.jp/data/cardrush-pokemon/product/SV1S_1.jpg" }]),
+            }),
+          }),
+        };
+      }),
+    }));
+    db.update.mockReturnValue({
+      set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+    });
+    db.execute.mockResolvedValue([{ count: 0 }]);
+    const s3Send = vi.fn().mockImplementation(() => {
+      const err = new Error("NotFound");
+      (err as { name: string }).name = "NotFound";
+      throw err;
+    });
+    (awsModule.createS3ClientOrThrow as ReturnType<typeof vi.fn>).mockReturnValue({ send: s3Send });
+
+    const r = await runHiresUpload({ game: "pkm", maxBatch: 1, dryRun: true });
+    expect(r.uploaded).toBe(1);   // counted-as-uploaded for symmetry
+    expect(r.dryRun).toBe(true);
+    // S3 send was called once for HEAD; never for PutObject.
+    expect(s3Send.mock.calls.filter((c) => c[0].constructor.name === "PutObjectCommand").length).toBe(0);
+  });
+});
