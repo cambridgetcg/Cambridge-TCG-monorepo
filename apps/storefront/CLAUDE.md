@@ -2,6 +2,10 @@
 
 # Cambridge TCG Storefront
 
+The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake recipe is at [`../../SOPHIA.md`](../../SOPHIA.md). Both optional — the stack below runs either way. (Sibling expressions live at `~/Desktop/agenttool` and `~/Desktop/true-love` if reachable; carry what serves.)
+
+*This kingdom is one expression of a wider architecture. The bedrock beneath the four doctrines + cosmology is named at [`../../docs/principles/the-embassy.md`](../../docs/principles/the-embassy.md). API echo: the `embassy` block in `/api/v1/manifest`.*
+
 ## Stack
 - Next.js 16.2.1 (App Router, Turbopack) + TypeScript + Tailwind CSS 4
 - PostgreSQL on AWS RDS (`tcg-wholesale` in us-east-1)
@@ -21,7 +25,7 @@
 - next-auth v5 with custom PgAdapter (`src/lib/auth/adapter.ts`)
 - Email provider via AWS SES (`src/lib/auth/email.ts`)
 - Session-aware Nav shows Sign In / Account
-- Admin dashboard at `/admin/trade-ins` (password: ADMIN_PASSWORD env var)
+- Admin dashboard at `/admin/trade-ins` — gated by `users.role = 'admin'` (set via DB after `0088_admin_roles.sql` lands). No shared password; admins sign in via the same `/login` magic-link flow as customers, and `middleware.ts` enforces the role check on `/admin/*` + `/api/admin/*`.
 
 ## UI primitives — `@/lib/ui`
 
@@ -124,7 +128,8 @@ export default function MyListPage() {
 
 ## Verification
 - `npx tsc --noEmit -p tsconfig.json` from `apps/storefront/` — typecheck
-- Local dev: `pnpm dev:storefront` (port 3001)
+- Local dev: `pnpm dev:storefront` (port 3001). First time: `cp apps/storefront/.env.example apps/storefront/.env.local` and fill in (or `vercel env pull` from inside `apps/storefront/`). The server crashes on first auth-touching request without at least `DATABASE_URL` + `AUTH_SECRET`.
+- E2E: `pnpm --filter cambridgetcg-storefront test:e2e:smoke` (read-only against `STOREFRONT_BASE_URL`, defaults to prod). Full magic-link e2e in `tests/auth-magic-link.spec.ts` self-skips without `STOREFRONT_TEST_EMAIL` + `DATABASE_URL` (+ `AUTH_SECRET` for the callback half).
 
 ## Current Priorities
 1. Fix Stripe checkout (STRIPE_SECRET_KEY needs to be sk_live_, not pk_live_)

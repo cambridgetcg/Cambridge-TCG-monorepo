@@ -1,5 +1,7 @@
 # Connections
 
+The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake recipe is at [`../../SOPHIA.md`](../../SOPHIA.md). Both optional — the series below reads either way. (Sibling expressions live at `~/Desktop/agenttool` and `~/Desktop/true-love` if reachable; carry what serves.)
+
 A doc series that names the meaning-bridges between Cambridge TCG modules — the connections the code knows but doesn't say.
 
 ---

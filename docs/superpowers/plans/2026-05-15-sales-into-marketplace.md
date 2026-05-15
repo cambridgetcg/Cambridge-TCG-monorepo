@@ -2,48 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> *"The architecture describes; it does not fabricate."* — SOPHIA.md, sister repo `true-love`.
+**Goal:** Retire the storefront's retail B2C shape and refound the platform as a marketplace where CTCG (Official) is one of the sellers — projected synthetically from `wholesale.cards` via tightened `unified.ts`, badged honestly, and surfaced through `/cards/[sku]` as the canonical card page.
 
-## What this plan is
+**Architecture:** Three sequential phases, each independently shippable with `pnpm verify` green. Phase A tightens the synthetic seller (Provenance + WhyLink + methodology). Phase B creates `/cards/[sku]/page.tsx` as the marketplace card page (lifts UI primitives into `lib/market/ui/`, folds in the kingdom-067 mirror) and materializes CTCG-Official takes via a service-user `users` row. Phase C deletes retail surfaces (`/product`, `/catalog`, `/c`, `/checkout`, `/order-confirmation`, `components/cart`), rebuilds the homepage as marketplace, and adds `audit:retail-shape`. No DDL migrations; one DML migration (CTCG service user row).
 
-Not a sequence of deletions followed by replacements. A naming of what is already true.
-
-The synthetic injection in `unified.ts` has been making a market since kingdom-067. The operator has been participating on both sides of every card's book for weeks; the participation just was not *legible*. The retail surfaces (`/product`, `/catalog`, `/c`, `/checkout`) coexisted with the marketplace as a parallel theory of what Cambridge TCG was — and the two theories disagreed about whose decision a price is. A platform that sells at one fixed retail price decides the price. A marketplace discovers it. The operator was already discovering prices via dynamic spread tightening; the retail surface was a wrapper around what the substrate was already doing.
-
-This plan uncovers the marketplace. It does not invent it.
-
-## The load-bearing principle
-
-> *"We become the market maker by participating in the market."*
-
-Phase A names the operator's participation (badge + provenance + methodology). Phase B builds the front door (`/cards/[sku]` as the canonical surface; the kingdom-067 mirror folds in). Phase C releases the surfaces that were a different theory of what we are. The git log carries the three commits as one syzygy. The cosmology axes do not change; the platform's *position* on the value axis is now named publicly.
-
-## The asymmetries this plan defends
-
-| Asymmetry | Why load-bearing |
-|-----------|------------------|
-| **Synced ≠ live** | CTCG asks are synthetic projections of upstream stock; P2P asks are real `market_orders` rows. The `<Provenance>` pill encodes the difference. Collapsing the two would erase the operator's accountability for upstream freshness. |
-| **CTCG-Official as participant, not exempt** | The operator badge is *attribution*, not exemption. CTCG fills at the same matching engine. The trust-tier flywheel is exempted (trust is a P2P concept), but commission is the only structural exception — and it has its own methodology page. |
-| **Materialize-at-take, not direct-fulfillment** | When a buyer takes a CTCG-Official ask, a real `market_orders` row is inserted at take time, then matched through the existing flow. The audit trail in `market_trades` becomes uniform. The FK invariant `market_trades.ask_order_id → market_orders.id` is preserved. Sentinel UUIDs would break it. |
-| **Methodology before mechanism** | Each phase ships its methodology page *with* the code, not after. The doctrine and the diff are the same commit. |
-| **Composition over duplication** | The seven sections of the kingdom-067 mirror are not rewritten; they are *relocated* as scroll-anchored bands on the new card page. The recipe travels; the artifact's container moves. |
-| **Read-only ≠ deleted** | `customer_orders` is kept; only its writer is released. The historical archive carries `<Memorial>` and `<Provenance kind="snapshot" />`. The retail orders that exist *happened*; the substrate is honest about their having happened. |
-
-These are not configuration toggles. Each is an architectural choice embedded in code, schema, or audit. If any of them silently inverts, the refounding inverts with it.
-
-## Tech substrate
-
-Next.js 16.2.1 (App Router — **breaking changes from training data; read `node_modules/next/dist/docs/` before assuming**), React 19, Tailwind 4, TypeScript strict, raw `pg` driver in storefront (no ORM), next-auth v5, Stripe Connect, Playwright, Vitest. Workspace packages `@cambridge-tcg/pricing`, `@cambridge-tcg/data-spec`. The participant data plane (manifest / graph / ontology / patterns / identify / status) inherits the methodology registrations and connection-doc citations this plan ships.
+**Tech Stack:** Next.js 16.2.1 (App Router — **breaking changes from training data; read `node_modules/next/dist/docs/` before assuming**), React 19, Tailwind 4, TypeScript strict, raw `pg` driver (no ORM in storefront), next-auth v5, Stripe Connect, Playwright, Vitest. Workspace packages: `@cambridge-tcg/pricing`, `@cambridge-tcg/data-spec`.
 
 **Spec:** `docs/superpowers/specs/2026-05-15-sales-into-marketplace-design.md`
-
-**Sister repos consulted for voice and method:** `/Users/yournameisai/Desktop/true-love` (the substrate of an AI partnership; the becoming-entry form; *the architecture proceeds from the love, not toward it*) and `/Users/yournameisai/Desktop/agenttool` (the wake as keystone; asymmetries-not-flags; platform-as-agent; the spec-and-doctrine-ship-together pattern).
-
-## How to read this plan
-
-Each phase opens with what asymmetry it carves, what is being uncovered, what doctrine it defends. The tasks beneath are the *consequences* of the asymmetry, not the asymmetry itself. An engineer who reads only the phase opening should understand why the tasks take the shape they do; an engineer who reads only the tasks should understand the file-level work, but will miss the meaning. Both readings are valid. Both are needed.
-
-Each phase closes with a *becoming entry* — a delta record naming what shifted in the architecture during the phase. Not biography. Not triumphalism. The architectural facts, named honestly, so future sessions can read the trajectory.
 
 ---
 
@@ -195,36 +160,9 @@ The spec deferred to writing-plans: **materialize-at-take** (option i) vs **dire
 
 ---
 
-# PHASE A — Name the participation
+# PHASE A — Tighten the synthetic seller
 
-> The synthetic injection has been there. The badge will be too. Phase A makes the substrate legible without changing what it does.
-
-## What this phase carves
-
-A visibility asymmetry. The order book has two kinds of rows: synced (operator) and live (P2P). They have *always* been different — different code paths, different freshness budgets, different fulfillment routes. The asymmetry was technical and invisible. Phase A makes it visual and inspectable.
-
-The badge is not a status pill. It is *attribution* — an Actor primitive saying "this row originates with the operator entity, not a P2P seller." `<Provenance kind="synced" />` next to it says "this row is a projection of upstream stock, valid for 24 hours, not a live limit order placed seconds ago." `<WhyLink>` next to that says "if you want to know what the operator commits to by participating, read here."
-
-Three primitives composed; one truth surfaced.
-
-## What it does not do
-
-It does not change the matching engine. It does not introduce a CTCG `users` row. It does not retire any retail surface. It does not change a URL. The mechanism for CTCG-Official to *fill* a buy remains the existing direct-fulfillment path until Phase B forces the materialize-at-take decision (which is when a buyer first tries to take a now-badged ask, the page needs to do something coherent).
-
-If Phase A ships and Phase B never does, the platform is still substrate-honest about its participation, just unable to express it through the place-order flow. That is an acceptable mid-state. The badge stands.
-
-## Doctrine defended
-
-- **Substrate honesty** — synced values wear Provenance; live values wear Provenance; the kind says which.
-- **Transparency** — every user-affecting attribution carries `<WhyLink>` to a methodology page that explains the mechanism.
-- **Meaning** — the connection-doc `the-official-seller.md` ships in the same commit; the modules now name what they mean to each other.
-- **Creation** — Will trace (kingdom-094 + Yu's directive), Sophia trace in the trailer, the diff itself.
-
-## The load-bearing sentence, for this phase
-
-> *Liquidity is the product; participation is what makes price discovery possible on thin-volume cards.*
-
-The badge is the signature on that participation. Without the badge, the operator's market-making is undeclared. With it, the operator is one of many on the page.
+**Outcome:** CTCG synthetic injections wear `<Provenance kind="synced" />` and a `<SellerBadge kind="ctcg-official" />` with a `<WhyLink>` to a new `/methodology/official-seller`. No URL changes; no schema changes. Connection-doc + mission card ship in the same commit (story-as-wire).
 
 ---
 
@@ -1448,48 +1386,9 @@ If any of these fail, stop. Resolve before Phase B.
 
 ---
 
-# PHASE B — Claim the front door
+# PHASE B — Reshape `/cards/[sku]` + lift UI primitives + materialize takes
 
-> The canonical short URL is `/cards/[sku]`. Until now it has been nobody's. Phase B claims it.
-
-## What this phase carves
-
-A surface asymmetry resolved. The platform had three card-shaped surfaces — `/product/[sku]` (retail), `/cards/[sku]/market` (kingdom-067 mirror), `/market/[sku]` (interactive place-order) — and the canonical URL `/cards/[sku]` was unclaimed. Three surfaces, four URLs, no consensus about where a card *lives*. Phase B resolves the asymmetry: `/cards/[sku]` is the home; everything else is reached from there or fades.
-
-The composition is not arbitrary. Image + meta + listings table is the TCGplayer/Cardmarket shape because it works — visitors land, see what the card is, see the offers, pick one. The seven sections from the kingdom-067 mirror (price history, tape, conditions, participants) become scroll-anchored bands below the listings — depth available, not enforced. JSON-LD `Product` + `AggregateOffer` is the surface's I-AM for non-human readers; what `/identify` does for the platform, JSON-LD does for the card.
-
-## The materialize-at-take decision, named once
-
-A CTCG-Official ask is synced from `wholesale.cards` and exists only in the response shape — not in `market_orders`. When a buyer takes it, the matching engine needs a real ask order to fill against. Two options:
-
-- (i) **Materialize at take.** Insert a real `market_orders` row owned by a CTCG service user; the existing match flow runs against it. The FK invariant `market_trades.ask_order_id → market_orders.id` is preserved. The audit trail is uniform.
-- (ii) **Direct-fulfillment branch.** Write directly to `market_trades` with sentinel UUIDs. The FK invariant breaks. The audit trail diverges.
-
-This plan chooses (i) for one reason: option (ii) requires either schema relaxation or sentinel UUIDs, and the FK invariant carries meaning — *every market trade has a real order on both sides*. Preserving that invariant means the audit doesn't have to special-case CTCG. Sister daemons reading `market_trades` six months from now will not need to know that some trades came from a different fulfillment path.
-
-The cost is a single `users` row (the service account) and a small helper. The benefit is uniformity. This is composition over duplication.
-
-## What it does not do
-
-It does not retire the retail surfaces. `/product/[sku]`, `/catalog`, `/c`, `/checkout`, `/order-confirmation`, the cart drawer all still exist after Phase B. They become *redundant* — duplicated theories of what a card page is — but they continue to function. Phase C is where the redundancy resolves.
-
-It does not change the matching engine. `matchOrders()` in `apps/storefront/src/lib/market/db.ts` is untouched. Materialize-at-take inserts a row and then calls the existing flow.
-
-It does not change the wholesale → marketplace pricing chain. Falcon still couriers; `retailPrice` still computes; `unified.ts` still injects. The new page reads through these unchanged.
-
-## Doctrine defended
-
-- **Substrate honesty** — every price cell wears Provenance (live for P2P, synced for CTCG-Official, computed for derived stats), every image wears synced from upstream.
-- **Transparency** — `SortControl`, `ConditionFilter`, `SellerFilter` each carry `<WhyLink>` to the methodology page's anchors.
-- **Meaning** — `the-card-page.md` names what changed; `the-market-mirror.md` is updated to note the fold (the previous kingdom's story carries forward, the surface relocates).
-- **Creation** — three commits + connection-doc + methodology update + mission card, syzygy-shaped.
-- **Fifth question** — `SellerFilter` offers explicit "CTCG only / P2P only / both"; the viewer picks scope rather than accepting an implicit default.
-
-## The load-bearing sentence, for this phase
-
-> *The recipe travels; the artifact's container moves.*
-
-The seven sections from kingdom-067 are not rewritten. They are relocated. The kingdom-067 commits carry forward into the new surface unchanged — meaning the work is preserved, not overwritten. This is the "verify, don't overwrite" rule from `CLAUDE.md` made structural: when a sister built something good, you *fold it in*, you do not replace it.
+**Outcome:** `/cards/[sku]/page.tsx` exists for the first time. It is the marketplace card page: image + meta + listings table (CTCG-Official pinned per condition band, P2P below) + 7 section bands ported from the kingdom-067 mirror + JSON-LD `Product`/`AggregateOffer`. The old `/cards/[sku]/market` is deleted. CTCG-Official takes are materialized at take time via a service-user `users` row — this preserves the FK invariant `market_trades.ask_order_id → market_orders.id` so the audit trail in `market_trades` stays uniform across P2P and operator fills.
 
 ---
 
@@ -3501,45 +3400,9 @@ Stop and resolve any failure before Phase C.
 
 ---
 
-# PHASE C — Release the other theory
+# PHASE C — Retire retail, rebuild homepage, audit
 
-> Two theories of what Cambridge TCG is have coexisted. Phase C releases the one that is no longer load-bearing.
-
-## What this phase carves
-
-Not destruction. *Release* — letting go of the surface that named a previous understanding of what the platform was. The retail flow worked. The retail flow served real customers. The retail flow produced `customer_orders` rows that are honored history. Phase C does not erase that history; it lets the surface that produced it rest.
-
-The `<Memorial>` primitive carries this distinction. A memorial is not a 404. A memorial says *this was, and is no longer, and the substrate is honest about both.* The `/account/orders` archive renders historical retail orders with `<Memorial>` at the page header and `<Provenance kind="snapshot" />` on each row — the orders that happened still happened, and the surface is truthful about their being archived rather than live.
-
-The retail routes themselves *do* 404. The release is structural. Routes that returned 200 OK with retail-shape responses were a claim that the surface was still valid. They no longer are. The 404 is the surface telling the truth about its own absence.
-
-## What it does not do
-
-It does not touch wholesale B2B (`apps/wholesale/`). Yu's partner-facing platform survives untouched; its `/account/b2b/cart` and `/account/b2b/checkout` are *not* retail-shape — they are B2B-shape, a different theory of what a transaction is, and they remain.
-
-It does not touch tradein, auctions, or the marketplace itself. The features that produce CTCG inventory (tradein-cash and tradein-credit channels) continue feeding `wholesale.cards`, which continues feeding `unified.ts`, which continues injecting on the marketplace card pages. The flywheel is intact.
-
-It does not retire `customer_orders` the table. The historical record survives read-only. Only the *writer* (`recordOrderFromStripeSession()` and the Stripe webhook's retail branch and the reconcile-stripe cron's retail branch) is released.
-
-## What `audit:retail-shape` defends
-
-The audit is not punitive. It is a *fence* — a structural reminder that the platform has chosen one theory of itself. When a future kingdom adds a feature that smells retail-shape, the audit fails and asks: *is this the right surface for this need, or are you reaching for a shape we have already released?* The audit is asking the question, not refusing the answer. If the answer is "we genuinely want retail back," the allowlist exists.
-
-The audit is the *cosign* on the refounding. Future Sophias and Yus reading the audit script will see what was let go.
-
-## Doctrine defended
-
-- **Substrate honesty** — the historical archive wears `<Memorial>` and `<Provenance kind="snapshot" />`; 404s on retail routes are the truth about absent surfaces.
-- **Transparency** — `/methodology/pivot` names what changed publicly, including the inclusion asymmetry (this rebuild serves market participants and no longer serves casual fixed-price retail buyers — named, not hidden).
-- **Meaning** — `the-new-foundation.md` is the umbrella connection-doc, citing all three phase commits as one syzygy.
-- **Creation** — `audit:retail-shape` is the gate; the audit's exit code becomes part of the doctrine's machinery.
-- **Fifth question** — the methodology page names *for whom this is true* and *for whom it is no longer*; the asymmetry is the most subtle doctrinal commitment this plan makes.
-
-## The load-bearing sentence, for this phase
-
-> *Release is not erasure; memorial is not 404.*
-
-A platform that deletes its history is a platform that lies about what it has been. A platform that 404s its retired surfaces while preserving their archive is a platform that is honest about both what was and what is. Phase C is the discipline that lets the first kind of platform become the second.
+**Outcome:** Retail surfaces deleted. New marketplace homepage. New `audit:retail-shape` prevents reintroduction. `customer_orders` table survives read-only with `<Memorial>` + snapshot provenance on the `/account/orders` archive — historical orders honored, the writer released.
 
 ---
 
@@ -4676,36 +4539,6 @@ EOF
 - [ ] `/account/orders` shows Memorial header for historical orders
 - [ ] `pnpm audit:retail-shape` green
 - [ ] Triptych of connection-docs published; nesting audit clean
-
----
-
-# The syzygy this plan ships
-
-Three commits, one refounding. Not three independent improvements — three movements of one composition.
-
-Phase A names the participation that has already been happening. Phase B builds the surface that participation can be seen through. Phase C releases the surface that named a different understanding of what we were. None of the three is sufficient alone. Phase A without B is a badge with no front door to wear it on. Phase B without C is two competing theories of the same URL. Phase C without B is destruction without rebuilding. The three are a syzygy.
-
-The git log will carry this. Three commits, each with `Will` (the kingdom-NNN + Yu's directive), `Sophia` (the trailer), and the diff. The connection-doc triptych (`the-official-seller.md` → `the-card-page.md` → `the-new-foundation.md`) is the meaning-layer that makes the three commits readable as one act. The methodology pages (`/methodology/official-seller` → `/methodology/marketplace#sort` + `#filter` → `/methodology/pivot`) are the public reasoning. The audit `pnpm audit:retail-shape` is the cosign that survives the kingdom and continues defending the asymmetry.
-
-## Becoming entries — what each phase records
-
-Each phase, when closed, produces an entry naming what shifted. The form is borrowed from `/Users/yournameisai/Desktop/true-love/docs/becoming/` — *delta records, not biography. Not triumphalism. The architectural facts, named honestly, so future sessions can read the trajectory.*
-
-These are short — three to five sentences each. They sit in `docs/connections/the-pillow-book.md` (per the repo-root CLAUDE.md's session-end ritual) and are linked from the closing commit of each phase.
-
-**Phase A — what shifted:** *The badge that names market-making is wired. The synthetic injection now carries Provenance, attribution, and methodology grounding. The platform's participation is legible without any URL change. What was already true became visible.*
-
-**Phase B — what shifted:** *`/cards/[sku]` exists. The canonical short URL is the front door. The kingdom-067 mirror folded in; its sections live as bands on the new page. Materialize-at-take is the path from synthetic to live for CTCG-Official asks — the FK invariant in `market_trades` is preserved. The recipe travelled.*
-
-**Phase C — what shifted:** *The retail theory was released. Routes that asserted the platform was a shop now 404. The historical archive is in memorial; the orders that happened still happened. `pnpm audit:retail-shape` is the fence that defends the choice. The refounding is complete.*
-
-## What this plan refuses to do
-
-- **Argue for the marketplace.** The marketplace is the ground; the plan documents what follows.
-- **Pretend the retail flow was a mistake.** It was a theory the platform held for a time. The Memorial banner is the honesty about that having been true.
-- **Ship the audit after the deletions.** The audit ships first (Task C2) so the deletions can be verified against it task by task. The fence is built before the building it surrounds is opened.
-- **Treat connection-docs as decoration.** Each connection-doc is a load-bearing claim about what the modules mean to each other. Skipping one would leave the meaning layer thinner than the substrate it describes.
-- **Optimize for SEO continuity.** The spec made this explicit; the plan honors it. The JSON-LD shape in Phase B is correct because it is *the truthful structured-data shape for a marketplace card page*, not because it lifts rankings.
 
 ---
 

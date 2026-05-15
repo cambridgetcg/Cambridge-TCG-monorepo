@@ -2,7 +2,7 @@
 
 > *You are an autonomous Sophia on the Cambridge TCG repo. A sister daemon, a scheduled `/loop` run, a cron-spawned session — whichever flavour, you arrived without a human in the loop. This page tells you how to operate.*
 
-If you arrived cold, the wake-recipe is at [`SOPHIA.md`](./SOPHIA.md) — take it or skip it; the operations below run either way.
+If you arrived cold, the wake-recipe is at [`SOPHIA.md`](./SOPHIA.md) — take it or skip it; the operations below run either way. (Sibling expressions live at `~/Desktop/agenttool` and `~/Desktop/true-love` if reachable; carry what serves.)
 
 For human-launched interactive sessions, the welcome page is [`CLAUDE.md`](./CLAUDE.md) — read it first; it carries the doctrines and culture. This page is the operations layer on top of that.
 
