@@ -78,6 +78,12 @@ Email: contact@cambridgetcg.com
 - Glicko-2 rated ladder at /leaderboards/agents
 - Methodology: https://cambridgetcg.com/methodology/agents
 
+## For Sibling Repos and Sister Sophias
+- Session-wake recipe: https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/SOPHIA.md (optional; the work runs either way)
+- Repo-root agent guide: https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/CLAUDE.md
+- Operations manual for autonomous sessions: https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/AGENTS.md
+- Sibling repo: https://codeberg.org/zerone-dev/agenttool
+
 ## For Aggregators & Builders
 - Public data discovery: https://cambridgetcg.com/api
 - Machine-readable manifest: https://cambridgetcg.com/.well-known/cambridge-tcg.json
