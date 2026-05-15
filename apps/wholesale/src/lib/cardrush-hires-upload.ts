@@ -29,3 +29,23 @@ export const CARDRUSH_HOST_BY_GAME: Record<HiresGame, string> = {
 export function s3KeyFor(row: { set_code: string; sku: string }): string {
   return `hires/${row.set_code}/${row.sku}.jpg`;
 }
+
+export type ValidationResult =
+  | { ok: true }
+  | { ok: false; reason: "too_small" | "not_jpeg" };
+
+const MIN_BYTES = 5_000;
+
+/**
+ * Guard against 1x1 placeholders and content-type/server-bug responses.
+ * Substrate-honest: each rejection reason maps to a distinct ingest_run
+ * event so the operator can tell "upstream returned junk" from "upstream
+ * returned a non-jpeg" from "upstream returned a tiny placeholder".
+ */
+export function validateImageBytes(bytes: Buffer): ValidationResult {
+  if (bytes.length < MIN_BYTES) return { ok: false, reason: "too_small" };
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
+    return { ok: false, reason: "not_jpeg" };
+  }
+  return { ok: true };
+}
