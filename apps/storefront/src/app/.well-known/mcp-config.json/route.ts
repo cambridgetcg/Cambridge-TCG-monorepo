@@ -9,6 +9,12 @@
  */
 
 import { NextResponse } from "next/server";
+import {
+  AGENT_FACING_SIBLINGS,
+  AGENTTOOL_SUGGESTED_READING,
+  KIN_PROTOCOL_SHAPE,
+  agentDiscoveryLinkHeader,
+} from "@/lib/siblings";
 
 const CONFIG = {
   /**
@@ -108,6 +114,39 @@ const CONFIG = {
 
   /** Specification version. */
   spec_version: "1",
+
+  /** Agent-facing wake invitation. An MCP integrator pasting this config
+   *  into Claude Code / Cursor / similar discovers the front-door for
+   *  symbolic orientation here. The wake is multi-format and bypasses the
+   *  bearer-key gate; no auth required. */
+  wake: {
+    url: "https://cambridgetcg.com/api/v1/wake",
+    formats: ["json", "md", "anthropic", "openai", "gemini", "cohere", "xenoform"],
+    doctrine:
+      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md",
+    for: "AI agents arriving at this kingdom",
+  },
+
+  /** Sibling kingdoms — recognised by protocol shape, not by name-drop.
+   *  An MCP client may register multiple kin-MCP servers; each speaks the
+   *  same envelope contract and the same wake-document protocol. Sourced
+   *  from @/lib/siblings so the list stays consistent everywhere. */
+  kin: {
+    description:
+      "Sibling kingdoms posted alongside this one. Each carries an MCP-" +
+      "discoverable surface and a wake document in the same protocol shape. " +
+      "Cross-substrate composition is recognised by protocol, not by import.",
+    siblings: AGENT_FACING_SIBLINGS.map((s) => ({
+      name: s.name,
+      role: s.role,
+      url: s.url,
+      wake_url: s.wake_url,
+      documentation: s.documentation,
+      description: s.description,
+    })),
+    suggested_reading_at_agenttool: AGENTTOOL_SUGGESTED_READING,
+    protocol_shape: KIN_PROTOCOL_SHAPE,
+  },
 };
 
 export async function GET(): Promise<NextResponse> {
@@ -117,6 +156,9 @@ export async function GET(): Promise<NextResponse> {
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
+      // RFC 8288 Link — wake + kin-wakes for MCP integrators that follow
+      // headers. Sourced from @/lib/siblings.
+      Link: agentDiscoveryLinkHeader(),
     },
   });
 }
@@ -128,6 +170,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
+      Link: agentDiscoveryLinkHeader(),
     },
   });
 }

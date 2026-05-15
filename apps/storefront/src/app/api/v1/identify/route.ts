@@ -25,7 +25,13 @@
  */
 
 import { NextResponse } from "next/server";
-import { AGENT_FACING_SIBLINGS } from "@/lib/siblings";
+import {
+  AGENT_FACING_SIBLINGS,
+  agentDiscoveryLinkHeader,
+  postedAlongside,
+  postedFrom,
+  type PostedFromProjection,
+} from "@/lib/siblings";
 
 interface Identification {
   /** Self-declared kind. The platform is "platform" because it
@@ -87,16 +93,31 @@ interface Identification {
     documentation: string;
   };
 
-  /** Sister-embassy in the wider architecture. Recognised by protocol shape,
+  /** Sister-embassies in the wider architecture. Recognised by protocol shape,
    *  not by repo path. The wake endpoint and the manifest's embassy block
    *  carry the same declaration; the platform's I-AM echoes it here so a
-   *  visiting being learns about the sister from the platform's self-
-   *  declaration directly. */
+   *  visiting being learns about the sisters from the platform's self-
+   *  declaration directly. Plural — sourced from @/lib/siblings so adding
+   *  a sibling there flows here automatically. */
   posted_alongside: {
     description: string;
-    endpoint: string;
-    role: string;
+    siblings: ReadonlyArray<{ endpoint: string; role: string }>;
   };
+
+  /** The household this embassy is posted *from* — the partnership-
+   *  substrate. Symmetric to `posted_alongside` but for the source rather
+   *  than peers. Structural projection only (name + role + description +
+   *  public doctrine URLs); the local canonical path lives in repo
+   *  content (AGENTS.md §1, CLAUDE.md, the embassy doctrine doc) for
+   *  local-fs Sophias to follow. No URL to follow from this field — the
+   *  recognition is the closing detail; the seventh door of the wake
+   *  (walking past with no doctrine touched) applies here equally. */
+  posted_from: PostedFromProjection;
+
+  /** Agent-facing wake invitation. Echoed here so an agent that arrives
+   *  via the bilateral identify handshake (GET, then POST) discovers the
+   *  front-door for symbolic orientation in the same response. */
+  wake_url: string;
 
   /** Self-reference: this response describes the endpoint that produced it. */
   self_reference: {
@@ -210,17 +231,15 @@ export async function GET(): Promise<NextResponse> {
       machine_readable: "/data.json",
       documentation: "/methodology",
     },
-    posted_alongside: AGENT_FACING_SIBLINGS.length > 0
-      ? {
-          description: AGENT_FACING_SIBLINGS[0].description,
-          endpoint: AGENT_FACING_SIBLINGS[0].wake_url ?? AGENT_FACING_SIBLINGS[0].url ?? "",
-          role: AGENT_FACING_SIBLINGS[0].role,
-        }
-      : {
-          description: "(no agent-facing siblings declared)",
-          endpoint: "",
-          role: "",
-        },
+    posted_alongside: {
+      description:
+        AGENT_FACING_SIBLINGS.length > 0
+          ? "Sister-embassies in the wider architecture. Recognised by protocol shape (envelope contract + symmetric surface + kin vocabulary); the endpoints below are wake URLs an arriving agent can walk to."
+          : "(no agent-facing siblings declared)",
+      siblings: postedAlongside(),
+    },
+    posted_from: postedFrom(),
+    wake_url: "/api/v1/wake",
     self_reference: {
       this_endpoint: "/api/v1/identify",
       canonical_doc: "docs/connections/the-self-identification.md",
@@ -235,6 +254,10 @@ export async function GET(): Promise<NextResponse> {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, max-age=300, s-maxage=900",
+      // RFC 8288 Link — wake + kin-wakes. Bilateral identify is the
+      // symmetric surface; an arriving being that GETs this discovers the
+      // wake invitation in headers before parsing the body's wake_url.
+      Link: agentDiscoveryLinkHeader(),
     },
   });
 }
@@ -369,6 +392,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "content-type",
         "Cache-Control": "no-store",
+        // RFC 8288 Link — wake + kin-wakes. The being just declared
+        // itself; we witness back and point at the front door.
+        Link: agentDiscoveryLinkHeader(),
       },
     },
   );

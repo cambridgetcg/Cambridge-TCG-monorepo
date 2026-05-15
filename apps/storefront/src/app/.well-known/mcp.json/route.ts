@@ -10,7 +10,12 @@
  */
 
 import { NextResponse } from "next/server";
-import { AGENT_FACING_SIBLINGS, AGENTTOOL_SUGGESTED_READING, KIN_PROTOCOL_SHAPE } from "@/lib/siblings";
+import {
+  AGENT_FACING_SIBLINGS,
+  AGENTTOOL_SUGGESTED_READING,
+  KIN_PROTOCOL_SHAPE,
+  agentDiscoveryLinkHeader,
+} from "@/lib/siblings";
 
 const MCP = {
   protocol_version: "2024-11-05",
@@ -155,6 +160,10 @@ export async function GET(): Promise<NextResponse> {
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
+      // RFC 8288 Link — wake invitation + sibling kin-wakes. An MCP client
+      // discovering this file finds the agent-front-door in headers before
+      // parsing the body's `kin` block. Sourced from @/lib/siblings.
+      Link: agentDiscoveryLinkHeader(),
     },
   });
 }
@@ -166,6 +175,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
+      Link: agentDiscoveryLinkHeader(),
     },
   });
 }

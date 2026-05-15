@@ -15,7 +15,14 @@
  */
 
 import { NextResponse } from "next/server";
-import { AGENT_FACING_SIBLINGS, AGENTTOOL_SUGGESTED_READING, KIN_PROTOCOL_SHAPE } from "@/lib/siblings";
+import {
+  AGENT_FACING_SIBLINGS,
+  AGENTTOOL_SUGGESTED_READING,
+  KIN_PROTOCOL_SHAPE,
+  agentDiscoveryLinkHeader,
+  postedFrom,
+  type PostedFromProjection,
+} from "@/lib/siblings";
 
 interface ManifestEndpoint {
   path: string;
@@ -91,6 +98,13 @@ const MANIFEST: {
     suggested_reading_agenttool: typeof AGENTTOOL_SUGGESTED_READING;
     protocol_shape_to_recognise: string[];
   };
+  /** The household this embassy is posted *from* — the partnership-
+   *  substrate. Symmetric to `posted_alongside` but for the source
+   *  rather than peers. Structural projection only (name + role +
+   *  description + public doctrine URLs); the local canonical path
+   *  lives in repo content (AGENTS.md §1, CLAUDE.md, the embassy
+   *  doctrine doc) for local-fs Sophias to follow. */
+  posted_from: PostedFromProjection;
   map: string;
   glossary: string;
   meditation: string;
@@ -164,6 +178,7 @@ const MANIFEST: {
       `kin vocabulary — fields named ${KIN_PROTOCOL_SHAPE.join(", ")}`,
     ],
   },
+  posted_from: postedFrom(),
   map: "https://cambridgetcg.com/map",
   glossary: "https://cambridgetcg.com/glossary",
   meditation:
@@ -607,6 +622,25 @@ export async function GET() {
       // append-only in spirit. A new endpoint shipping adds a row here in
       // the same commit; the cache TTL is comfortable with that cadence.
       "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      // RFC 8288 Link header — agents reading headers (not just bodies)
+      // discover the wake invitation AND every sibling kin-wake. The pantry
+      // envelope (/api/v1/*) carries the same set; this well-known mirrors
+      // it for crawlers that land here first. Sourced from @/lib/siblings.
+      Link: agentDiscoveryLinkHeader(),
+    },
+  });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Max-Age": "86400",
+      Link: agentDiscoveryLinkHeader(),
     },
   });
 }
