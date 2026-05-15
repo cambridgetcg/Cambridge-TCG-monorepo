@@ -6,6 +6,64 @@ import {
   isPreviewDeploy,
 } from "@/lib/subdomain";
 
+/**
+ * Phase 4 of the wholesale consolidation — browser-surface retirement.
+ *
+ * wholesaletcgdirect.com is no longer a separate browser kingdom. The
+ * B2B buying experience lives at cambridgetcg.com/account/b2b/* now.
+ * Every browser request to a legacy page 301-redirects to its new
+ * home; partner-API + webhook + cron paths continue to live here.
+ *
+ * Keep alive on wholesaletcgdirect.com:
+ *   - /api/v1/*         (Bearer-token partner API)
+ *   - /api/webhooks/*   (HMAC-signed integrations: Shopify, etc.)
+ *   - /api/cron/*       (Vercel-injected scheduled jobs)
+ *   - /api/auth/*       (NextAuth's own endpoints — empty after Phase 7
+ *                        but kept matched so the legacy site doesn't
+ *                        break clients still pinging /api/auth/csrf etc.)
+ *
+ * Redirect to cambridgetcg.com:
+ *   /catalog       → /account/b2b/catalog
+ *   /cart          → /account/b2b/cart
+ *   /orders        → /account/b2b/orders
+ *   /orders/[id]   → /account/b2b/orders/[id]
+ *   /margin        → /account/b2b   (no equivalent; landing surface)
+ *   /fulfillment   → admin.cambridgetcg.com (operator surface)
+ *   /login         → /login (consumer magic-link; B2B buyers re-onboard here)
+ *   /admin/*       → admin.cambridgetcg.com/* (operator console)
+ *   *  (any other) → / (root — the storefront's home)
+ *
+ * 301 (permanent) is correct: the legacy URL is retired, not under
+ * maintenance. Search engines + bookmarks update accordingly.
+ */
+const STOREFRONT_ORIGIN = "https://cambridgetcg.com";
+const ADMIN_ORIGIN = "https://admin.cambridgetcg.com";
+
+const PATH_REDIRECTS: { match: RegExp; target: (path: string) => string }[] = [
+  { match: /^\/catalog(?:\/.*)?$/, target: () => `${STOREFRONT_ORIGIN}/account/b2b/catalog` },
+  { match: /^\/cart$/, target: () => `${STOREFRONT_ORIGIN}/account/b2b/cart` },
+  { match: /^\/orders$/, target: () => `${STOREFRONT_ORIGIN}/account/b2b/orders` },
+  { match: /^\/orders\/(\d+).*$/, target: (p) => `${STOREFRONT_ORIGIN}/account/b2b/orders/${p.match(/^\/orders\/(\d+)/)?.[1] ?? ""}` },
+  { match: /^\/margin(?:\/.*)?$/, target: () => `${STOREFRONT_ORIGIN}/account/b2b` },
+  { match: /^\/fulfillment(?:\/.*)?$/, target: () => `${ADMIN_ORIGIN}/` },
+  { match: /^\/login(?:\/.*)?$/, target: () => `${STOREFRONT_ORIGIN}/login` },
+  { match: /^\/admin(\/.*)?$/, target: (p) => `${ADMIN_ORIGIN}${p.startsWith("/admin") ? p.slice(6) || "/" : "/"}` },
+];
+
+/** API/webhook/cron prefixes that STAY ALIVE on wholesaletcgdirect.com. */
+const KEEP_ALIVE_PREFIXES = ["/api/v1", "/api/webhooks", "/api/cron", "/api/auth"];
+
+function isKeepAlive(pathname: string): boolean {
+  return KEEP_ALIVE_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
+function redirectTargetFor(pathname: string): string | null {
+  for (const r of PATH_REDIRECTS) {
+    if (r.match.test(pathname)) return r.target(pathname);
+  }
+  return null;
+}
+
 /** Paths that never require authentication. */
 // /api/v1/ uses its own Bearer token auth (channel_api_keys table)
 const PUBLIC_PATHS = ["/login", "/api/auth", "/api/v1", "/api/cron", "/api/webhooks"];
@@ -101,6 +159,25 @@ function checkSameOrigin(req: Request): NextResponse | null {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") ?? "";
+
+  // --- Phase 4: browser-surface retirement -------------------------------
+  // On the storefront host (wholesaletcgdirect.com), 301-redirect every
+  // legacy browser path to its new home at cambridgetcg.com /
+  // admin.cambridgetcg.com. Keep partner-API + webhooks + cron alive
+  // on this domain so external integrations (Shopify webhooks, partner
+  // pulls of /api/v1/prices, Vercel-injected crons) keep working.
+  //
+  // Preview deploys skip this branch — they're for in-flight QA where
+  // the wholesale UI may still be needed.
+  if (!isPreviewDeploy(host) && isStorefrontHost(host) && !isKeepAlive(pathname)) {
+    const target = redirectTargetFor(pathname);
+    if (target) {
+      return NextResponse.redirect(target, 301);
+    }
+    // Unmapped browser path → root of the new storefront. Conservative
+    // fallback: rather than 404, we hand the visitor a working surface.
+    return NextResponse.redirect(STOREFRONT_ORIGIN + "/", 301);
+  }
 
   // --- CSRF defense-in-depth: same-origin check on mutating verbs ---
   const originDenied = checkSameOrigin(req);
