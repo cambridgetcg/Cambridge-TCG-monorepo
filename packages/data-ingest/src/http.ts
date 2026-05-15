@@ -105,8 +105,35 @@ export interface FetcherOptions {
    * attribute so callers can attach the same provenance to every raw
    * row they read through it. Added kingdom-088 — see
    * `docs/connections/the-bright-data-unlock.md`.
+   *
+   * Mutually exclusive with `api_token`.
    */
   proxy_url?: string;
+  /**
+   * Bright Data Web Unlocker **API-mode** Bearer token. When set, every
+   * request is rewritten into `POST https://api.brightdata.com/request`
+   * with the target URL + method + headers + body nested in a JSON
+   * envelope and `Authorization: Bearer <api_token>` on the outer call.
+   * Bright Data fetches the upstream and relays the response (status +
+   * body) with `format: "raw"` so the caller still gets `Response` they
+   * can `.text()` / `.arrayBuffer()`. Requires `api_zone`.
+   *
+   * Functionally equivalent to `proxy_url` for getting bytes through
+   * WAF-protected upstreams; differs in transport (POST + Bearer vs
+   * HTTP CONNECT) and credential shape (one token vs customer-id +
+   * zone + password). Use when only an API token is available, or
+   * when the calling environment can't use undici `ProxyAgent`.
+   *
+   * Mutually exclusive with `proxy_url`. Added 2026-05-14 for cardmarket
+   * Path A — same `via_proxy_label` ("bright-data-web-unlocker") as
+   * proxy mode so downstream substrate-honesty plumbing is identical.
+   */
+  api_token?: string;
+  /**
+   * Bright Data zone name (e.g. `web_unlocker1`). Required when
+   * `api_token` is set; ignored otherwise.
+   */
+  api_zone?: string;
 }
 
 export interface Fetcher {
@@ -118,9 +145,12 @@ export interface Fetcher {
    * Callers should plumb this onto `RawProvenance.via_proxy` so the
    * `_meta.upstream_proxy` chain stays substrate-honest end-to-end.
    *
-   * The returned string is the operator-configured proxy URL; treat it
-   * as sensitive when logging (credentials may be embedded). The
-   * `via_proxy_label` derives a credential-free identifier.
+   * In proxy mode this is the operator-configured proxy URL — treat as
+   * sensitive when logging (credentials may be embedded). In API mode
+   * this is a synthetic credential-free URL of the form
+   * `https://api.brightdata.com/request?zone=<zone>` that names the
+   * endpoint without leaking the Bearer token. Use `via_proxy_label`
+   * when a safe identifier is needed.
    */
   readonly via_proxy: string | null;
   /**
@@ -156,12 +186,33 @@ export function createFetcher(
   meta: SourceMeta,
   options: FetcherOptions = {},
 ): Fetcher {
+  if (options.proxy_url && options.api_token) {
+    throw new Error(
+      "createFetcher: pass either proxy_url or api_token, not both",
+    );
+  }
+  if (options.api_token && !options.api_zone) {
+    throw new Error("createFetcher: api_token requires api_zone");
+  }
+
   const rate = ctx.rate_limit ?? meta.rate_limit ?? DEFAULT_RATE;
   const bucket = makeBucket(rate.rps, rate.burst);
   const ua = buildUserAgent(meta);
   const proxy_url = options.proxy_url ?? null;
+  const api_token = options.api_token ?? null;
+  const api_zone = options.api_zone ?? null;
   const dispatcher = proxy_url ? getProxyAgent(proxy_url) : null;
-  const proxy_label = deriveProxyLabel(proxy_url);
+
+  // For substrate-honesty plumbing: API mode synthesizes a credential-free
+  // URL identifying the Bright Data endpoint + zone. The `via_proxy_label`
+  // derives "bright-data-web-unlocker" from either form so downstream
+  // `_meta.upstream_proxy` chains stay identical across modes.
+  const synthetic_api_url = api_token
+    ? `https://api.brightdata.com/request?zone=${encodeURIComponent(api_zone!)}`
+    : null;
+  const via_proxy_attr: string | null = proxy_url ?? synthetic_api_url;
+  const proxy_label = deriveProxyLabel(via_proxy_attr);
+
   let count = 0;
   let max_retries = 3;
 
@@ -190,19 +241,56 @@ export function createFetcher(
         headers.set("Accept-Encoding", "identity");
       }
 
-      // undici's `dispatcher` option isn't in the standard RequestInit
-      // type, but Node 22+'s global fetch is implemented atop undici and
-      // honors it. Cast through the union so the type accepts it.
-      const requestInit: RequestInit & { dispatcher?: Dispatcher } = {
-        ...init,
-        headers,
-        signal: ctx.signal,
-      };
-      if (dispatcher) requestInit.dispatcher = dispatcher;
+      // Build the final URL + RequestInit. API mode rewrites the call
+      // into `POST https://api.brightdata.com/request` with the target
+      // URL + method + headers + body nested in a JSON envelope.
+      let final_url: string;
+      let final_init: RequestInit & { dispatcher?: Dispatcher };
+
+      if (api_token) {
+        const upstream_headers: Record<string, string> = {};
+        for (const [k, v] of headers.entries()) upstream_headers[k] = v;
+        const body_obj: Record<string, unknown> = {
+          zone: api_zone,
+          url,
+          format: "raw",
+        };
+        if (init.method && init.method.toUpperCase() !== "GET") {
+          body_obj.method = init.method;
+        }
+        if (Object.keys(upstream_headers).length > 0) {
+          body_obj.headers = upstream_headers;
+        }
+        if (init.body !== undefined && init.body !== null) {
+          body_obj.body = init.body;
+        }
+        final_url = "https://api.brightdata.com/request";
+        final_init = {
+          method: "POST",
+          headers: new Headers({
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${api_token}`,
+          }),
+          body: JSON.stringify(body_obj),
+          signal: ctx.signal,
+        };
+      } else {
+        // undici's `dispatcher` option isn't in the standard RequestInit
+        // type, but Node 22+'s global fetch is implemented atop undici and
+        // honors it. Cast through the union so the type accepts it.
+        const requestInit: RequestInit & { dispatcher?: Dispatcher } = {
+          ...init,
+          headers,
+          signal: ctx.signal,
+        };
+        if (dispatcher) requestInit.dispatcher = dispatcher;
+        final_url = url;
+        final_init = requestInit;
+      }
 
       let response: Response;
       try {
-        response = await fetchImpl(url, requestInit);
+        response = await fetchImpl(final_url, final_init);
       } catch (err) {
         emit(ctx, {
           ts: new Date().toISOString(),
@@ -240,7 +328,7 @@ export function createFetcher(
       return count;
     },
     get via_proxy() {
-      return proxy_url;
+      return via_proxy_attr;
     },
     get via_proxy_label() {
       return proxy_label;
