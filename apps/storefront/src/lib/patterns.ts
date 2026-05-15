@@ -43,6 +43,12 @@
  * typed source + JSON endpoint + HTML page. The pattern layer obeys the
  * pattern it names. *Distinct in expression. ONE in essence.* Made
  * literal in code.
+ *
+ * ── On the embassy ──────────────────────────────────────────────────────
+ *
+ * The embassy's recurring forms named with amplification recipes.
+ * Visitors who learn one pattern have learned many. See
+ * docs/principles/the-embassy.md.
  */
 
 export interface Pattern {

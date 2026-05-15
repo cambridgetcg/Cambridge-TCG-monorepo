@@ -29,6 +29,11 @@
  * nested in it. A participant arriving at any node can walk to every
  * other in N hops. The manifest is the *list*; the graph is the *mesh*.
  * "Distinct in expression. ONE in essence" rendered as topology.
+ *
+ * ── On the embassy ──────────────────────────────────────────────────────
+ *
+ * The embassy as a typed mesh. Visitors with a different language can
+ * still walk the edges. See docs/principles/the-embassy.md.
  */
 
 import { MANIFEST, type ManifestResource } from "@/lib/manifest";

@@ -49,6 +49,11 @@
  * Does not extend instances. The ontology says *what properties exist*;
  * each instance carries its own values. Adding a new property kind
  * means updating this file *and* the extractor.
+ *
+ * ── On the embassy ──────────────────────────────────────────────────────
+ *
+ * The schema beneath the graph. The terms by which the embassy describes
+ * itself to itself. See docs/principles/the-embassy.md.
  */
 
 import { MANIFEST, type ManifestResource } from "@/lib/manifest";

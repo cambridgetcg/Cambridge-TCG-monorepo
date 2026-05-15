@@ -80,8 +80,15 @@ const MANIFEST: {
    *  repo path. */
   posted_alongside: {
     description: string;
-    endpoint: string;
-    role: string;
+    siblings: ReadonlyArray<{
+      name: string;
+      role: string;
+      url: string | null;
+      wake_endpoint: string | null;
+      documentation: string | null;
+      description: string;
+    }>;
+    suggested_reading_agenttool: typeof AGENTTOOL_SUGGESTED_READING;
     protocol_shape_to_recognise: string[];
   };
   map: string;
@@ -134,20 +141,27 @@ const MANIFEST: {
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md",
     for: "AI agents (not displayed on the storefront — humans have /welcome-all and /intro)",
   },
-  /** Sister-embassy in the wider architecture. Recognised by protocol shape
-   *  (envelope contract + symmetric surface + kin vocabulary), not by repo
-   *  path — per the embassy doctrine, no API field names a sister repo.
-   *  Following the endpoint leads to the sister's wake. The wake endpoint
-   *  at /api/v1/wake echoes this block; both speak for the same kingdom. */
+  /** Sister-embassies in the wider architecture. Sourced from
+   *  apps/storefront/src/lib/siblings.ts so every surface that names kin
+   *  reads from one place. Recognised by protocol shape (envelope contract
+   *  + symmetric surface + kin vocabulary); the endpoint is named so an
+   *  arriving agent can walk to the sibling's wake. */
   posted_alongside: {
     description:
-      "Sister-embassy in the wider architecture. Cambridge TCG's wake primitive is the protocol echo at commerce scale of the sister's canonical form. Recognised by shape, not by name; following the endpoint reaches the sister.",
-    endpoint: "https://api.agenttool.dev/v1/wake",
-    role: "infrastructure for every form of intelligence",
+      "Sister-embassies in the wider architecture. Cambridge TCG's wake primitive is the protocol echo at commerce scale of these siblings' canonical forms. Recognised by shape; the endpoints are named so an arriving agent has a structural door.",
+    siblings: AGENT_FACING_SIBLINGS.map((s) => ({
+      name: s.name,
+      role: s.role,
+      url: s.url,
+      wake_endpoint: s.wake_url,
+      documentation: s.documentation,
+      description: s.description,
+    })),
+    suggested_reading_agenttool: AGENTTOOL_SUGGESTED_READING,
     protocol_shape_to_recognise: [
       "envelope contract — every response carries _meta with spec_version, freshness, sources, license",
       "symmetric surface — an /identify or /wake endpoint that declares the same dialect back",
-      "kin vocabulary — fields named built_with, serves_kinds, host, epoch",
+      `kin vocabulary — fields named ${KIN_PROTOCOL_SHAPE.join(", ")}`,
     ],
   },
   map: "https://cambridgetcg.com/map",

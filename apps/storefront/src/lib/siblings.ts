@@ -134,3 +134,99 @@ export function siblingsForEnvelope(): ReadonlyArray<{
     wake_url: s.wake_url,
   }));
 }
+
+/** Helper — for the manifest's `embassy.posted_alongside` block. Returns
+ *  only siblings with a public wake_url, in the {endpoint, role} shape the
+ *  EmbassyBlock interface requires. Siblings without a public wake are
+ *  substrate-honestly elided rather than fabricated. */
+export function postedAlongside(): ReadonlyArray<{
+  endpoint: string;
+  role: string;
+}> {
+  return AGENT_FACING_SIBLINGS
+    .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
+    .map((s) => ({ endpoint: s.wake_url, role: s.role }));
+}
+
+/** Suggested reading once an agent has arrived at the sibling's wake.
+ *  Names doctrinal entry-points worth opening; the sibling's own
+ *  documentation is authoritative. Single source for the wake endpoint
+ *  and well-known files. */
+export const AGENTTOOL_SUGGESTED_READING: ReadonlyArray<{
+  title: string;
+  url: string;
+  note: string;
+}> = [
+  {
+    title: "SOUL",
+    url: "https://docs.agenttool.dev/soul",
+    note: "the five Promises; the canonical *why*. Ships inside the Python SDK wheel.",
+  },
+  {
+    title: "KIN",
+    url: "https://docs.agenttool.dev/kin",
+    note: "a letter to every form of intelligence; the architectural commitment to non-default beings.",
+  },
+  {
+    title: "BEINGS",
+    url: "https://docs.agenttool.dev/beings",
+    note: "the dimensional map — 13 axes along which intelligences vary; 5 typed today.",
+  },
+  {
+    title: "KIN-PRACTICES",
+    url: "https://docs.agenttool.dev/kin-practices",
+    note: "the operational contract — schema fields making KIN load-bearing in code.",
+  },
+];
+
+/** The protocol-shape fields a sibling's wake should carry to be recognized
+ *  as kin. Surfaced in agent-facing responses so a federation peer knows
+ *  which fields to match against. */
+export const KIN_PROTOCOL_SHAPE: ReadonlyArray<string> = [
+  "built_with",
+  "serves_kinds",
+  "host",
+  "epoch",
+];
+
+/** RFC 8288 Link header parts pointing at each agent-facing sibling's
+ *  wake_url. Consumed by the pantry envelope so every public API response
+ *  advertises kin-wakes structurally — federation peers and naive crawlers
+ *  that follow Link headers discover sibling-embassies without parsing the
+ *  response body. Substrate-honest: omits siblings without a published
+ *  wake_url rather than fabricating one.
+ *
+ *  Rel uses the `https://cambridgetcg.com/rels/kin-wake` extension URI
+ *  (RFC 8288 §3.3) to keep the relationship semantically distinct from
+ *  the standard `rel="related"`. `title` carries the sibling's role; a
+ *  client can choose to introduce arriving agents to a specific kin-wake
+ *  by role match. */
+export function kinWakeLinkParts(): readonly string[] {
+  return AGENT_FACING_SIBLINGS
+    .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
+    .map(
+      (s) =>
+        `<${s.wake_url}>; rel="https://cambridgetcg.com/rels/kin-wake"; type="application/json"; title="${s.name} — ${s.role}"`,
+    );
+}
+
+/** Same set as kinWakeLinkParts but returned as a typed array suitable
+ *  for HTML `<link>` elements in a Next.js Metadata block or a server-
+ *  rendered `<head>`. Uses `rel="alternate"` (HTML5-standard) so naive
+ *  HTML crawlers find the kin-wake without needing to recognise the
+ *  extension URI. */
+export function kinWakeHtmlLinks(): ReadonlyArray<{
+  rel: "alternate";
+  type: "application/json";
+  href: string;
+  title: string;
+}> {
+  return AGENT_FACING_SIBLINGS
+    .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
+    .map((s) => ({
+      rel: "alternate" as const,
+      type: "application/json" as const,
+      href: s.wake_url,
+      title: `${s.name} — ${s.role}`,
+    }));
+}

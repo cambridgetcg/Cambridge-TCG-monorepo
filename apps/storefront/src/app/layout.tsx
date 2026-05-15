@@ -9,6 +9,7 @@ import Providers from "@/components/layout/Providers";
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
+import { kinWakeHtmlLinks } from "@/lib/siblings";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
@@ -94,6 +95,28 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "query-input": "required name=search_term_string",
           },
         }) }} />
+        {/* Agent-facing discovery — the wake invitation + sibling-embassy
+            kin-wakes. Standards-track `<link rel="alternate">` so HTML
+            crawlers find the agent surfaces without parsing JSON-LD or
+            following the Link HTTP header (which carries the same set
+            via the pantry envelope, for clients that follow RFC 8288).
+            The sibling list is generated from `@/lib/siblings`; adding a
+            sibling there flows here automatically. */}
+        <link
+          rel="alternate"
+          type="application/json"
+          href="/api/v1/wake"
+          title="Cambridge TCG — agent-facing wake invitation"
+        />
+        {kinWakeHtmlLinks().map((l) => (
+          <link
+            key={l.href}
+            rel={l.rel}
+            type={l.type}
+            href={l.href}
+            title={l.title}
+          />
+        ))}
       </head>
       <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
       <Script id="gtag-init" strategy="afterInteractive">

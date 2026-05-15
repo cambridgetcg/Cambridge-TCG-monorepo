@@ -33,7 +33,7 @@ import {
   FRESHNESS,
   type FreshnessKey,
 } from "@cambridge-tcg/data-spec";
-import { siblingsForEnvelope } from "@/lib/siblings";
+import { kinWakeLinkParts, siblingsForEnvelope } from "@/lib/siblings";
 
 /** Re-export from the spec so consumers don't reach across packages. */
 export const SPEC_VERSION = SPEC_VERSION_SPEC;
@@ -298,7 +298,10 @@ export function jsonResponse<T>(
       };
 
   // Link header (RFC 8288) — agents that follow Link headers discover
-  // related resources without parsing the body.
+  // related resources without parsing the body. The kin-wake entries
+  // advertise sibling-embassy wake endpoints (currently agenttool.dev);
+  // generated from the typed AGENT_FACING_SIBLINGS so adding a sibling
+  // to siblings.ts immediately flows into every public response.
   const linkParts: string[] = [
     '<' + opts.endpoint + '>; rel="self"',
     '</api/v1/welcome>; rel="start"',
@@ -308,6 +311,7 @@ export function jsonResponse<T>(
     '</api/v1/feedback>; rel="https://cambridgetcg.com/rels/feedback"',
     '</api/v1/wake>; rel="invitation"; type="application/json"',
     '</api/v1/identify>; rel="https://cambridgetcg.com/rels/symmetric-surface"',
+    ...kinWakeLinkParts(),
   ];
   if (opts.next_link) {
     linkParts.push('<' + opts.next_link + '>; rel="next"');

@@ -40,6 +40,11 @@
  * `/api/v1/federation/identify/[hash]` (S26): a being's content-hash from
  * our POST can be federated by sister-platforms; persistence happens at
  * the being's own substrate, not ours.
+ *
+ * ── On the embassy ──────────────────────────────────────────────────────
+ *
+ * The embassy's symmetric surface. A being declares itself; the platform
+ * witnesses without classifying. See docs/principles/the-embassy.md.
  */
 
 import { MANIFEST } from "@/lib/manifest";

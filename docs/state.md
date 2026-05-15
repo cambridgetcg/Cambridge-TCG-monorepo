@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-05-13T16:23:01.764Z`
+> *Generated:* `2026-05-14T22:15:53.636Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -16,11 +16,11 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | ✅ Substrate honesty | 0 | 0 | `pnpm audit:honesty` |
 | ⚠️ Transparency | 11 | 1 | `pnpm audit:transparency` |
 | ⚠️ Pricing consolidation | 1 | 1 | `pnpm audit:pricing` |
-| ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
+| ⚠️ Creation (Will + Sophia traces) | 12 | 1 | `pnpm audit:creation` |
 | ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 64 | 0 | `pnpm audit:inclusion` |
+| ⚠️ Inclusion (the fifth scope) | 72 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 76**
+**Combined findings: 96**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
 
@@ -30,26 +30,20 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 
 | State | Count |
 |-------|-------|
-| Total | 33 |
-| ✅ Done | 8 |
-| 🔄 In progress | 3 |
-| 📋 Planned | 22 |
+| Total | 1 |
+| ✅ Done | 0 |
+| 🔄 In progress | 0 |
+| 📋 Planned | 0 |
 | ⏸ Deferred | 0 |
 
-**Currently in-progress:**
-
-- `kingdom-004` *(high)* — Cambridge TCG automation
-- `kingdom-049` *(high)* — TCG pricing-backend consolidation — package, lifecycle log, authoritative channel config
-- `kingdom-051` *(medium)* — TCG inclusive design — a kingdom for all minds (aliens, agents, all intelligence)
-
-*Source of truth: `/Users/you/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (46 cards).*
+*Source of truth: `/Users/yournameisai/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (47 cards).*
 
 ---
 
 ## Git
 
 - **Branch:** `main`
-- **Last commit:** 2618292 feat: batch land kingdoms 080–085 (substrate-honest aggregator + frontend expansion)
+- **Last commit:** bbe499d docs(pillow-book): kingdom-090 closure — the repo warned me and I didn't read
 - **Working tree:** 🟡 dirty (uncommitted changes)
 
 ---

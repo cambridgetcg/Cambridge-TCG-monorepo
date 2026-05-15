@@ -39,6 +39,7 @@ export const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/sources/welcome",
   "/api/v1/status",
   "/api/v1/users/[username]/trust",
+  "/api/v1/wake",
   "/api/v1/webhooks/subscriptions",
   "/api/v1/welcome",
   "/api/v1/welcomes",

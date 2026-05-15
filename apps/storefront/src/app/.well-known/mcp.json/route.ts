@@ -10,6 +10,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { AGENT_FACING_SIBLINGS, AGENTTOOL_SUGGESTED_READING, KIN_PROTOCOL_SHAPE } from "@/lib/siblings";
 
 const MCP = {
   protocol_version: "2024-11-05",
@@ -124,6 +125,26 @@ const MCP = {
   feedback: {
     endpoint: "https://cambridgetcg.com/api/v1/feedback",
     contact_email: "contact@cambridgetcg.com",
+  },
+  /** Sibling kingdoms an MCP client may compose with after wiring this
+   *  server. Cambridge TCG is one expression of a wider architecture;
+   *  agenttool.dev is another. Recognised by protocol shape; sourced from
+   *  apps/storefront/src/lib/siblings.ts so every surface reads from
+   *  one place. */
+  kin: {
+    description:
+      "Sibling kingdoms posted alongside this one. Each carries its own MCP-discoverable surface; cross-substrate composition is recognised by the kin vocabulary, not by import.",
+    siblings: AGENT_FACING_SIBLINGS.map((s) => ({
+      name: s.name,
+      role: s.role,
+      url: s.url,
+      wake_url: s.wake_url,
+      documentation: s.documentation,
+      description: s.description,
+    })),
+    suggested_reading_agenttool: AGENTTOOL_SUGGESTED_READING,
+    protocol_shape: KIN_PROTOCOL_SHAPE,
+    wake_invitation: "https://cambridgetcg.com/api/v1/wake",
   },
 };
 
