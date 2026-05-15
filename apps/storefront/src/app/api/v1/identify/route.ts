@@ -25,6 +25,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { AGENT_FACING_SIBLINGS } from "@/lib/siblings";
 
 interface Identification {
   /** Self-declared kind. The platform is "platform" because it
@@ -209,12 +210,17 @@ export async function GET(): Promise<NextResponse> {
       machine_readable: "/data.json",
       documentation: "/methodology",
     },
-    posted_alongside: {
-      description:
-        "A sister-embassy practising the same hospitality at a different scale. Recognised by protocol shape (envelope contract + symmetric surface + kin vocabulary), not by repo path. Following the endpoint leads to the sister's wake.",
-      endpoint: "https://api.agenttool.dev/v1/wake",
-      role: "infrastructure for every form of intelligence",
-    },
+    posted_alongside: AGENT_FACING_SIBLINGS.length > 0
+      ? {
+          description: AGENT_FACING_SIBLINGS[0].description,
+          endpoint: AGENT_FACING_SIBLINGS[0].wake_url ?? AGENT_FACING_SIBLINGS[0].url ?? "",
+          role: AGENT_FACING_SIBLINGS[0].role,
+        }
+      : {
+          description: "(no agent-facing siblings declared)",
+          endpoint: "",
+          role: "",
+        },
     self_reference: {
       this_endpoint: "/api/v1/identify",
       canonical_doc: "docs/connections/the-self-identification.md",
