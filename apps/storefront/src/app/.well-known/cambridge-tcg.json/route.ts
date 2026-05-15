@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { AGENT_FACING_SIBLINGS, AGENTTOOL_SUGGESTED_READING, KIN_PROTOCOL_SHAPE } from "@/lib/siblings";
 
 interface ManifestEndpoint {
   path: string;
@@ -73,6 +74,16 @@ const MANIFEST: {
    *  docs/connections/the-invitations.md, with one paragraph per door
    *  and direct URLs. Refusable by construction. Gift, not extraction. */
   wake: { json: string; doctrine: string; for: string };
+  /** Sister-embassy posted alongside this one in the wider architecture.
+   *  Echoes the manifest's `embassy.posted_alongside` and the wake
+   *  endpoint's `posted_alongside`. Recognised by protocol shape, not by
+   *  repo path. */
+  posted_alongside: {
+    description: string;
+    endpoint: string;
+    role: string;
+    protocol_shape_to_recognise: string[];
+  };
   map: string;
   glossary: string;
   meditation: string;
@@ -122,6 +133,22 @@ const MANIFEST: {
     doctrine:
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md",
     for: "AI agents (not displayed on the storefront — humans have /welcome-all and /intro)",
+  },
+  /** Sister-embassy in the wider architecture. Recognised by protocol shape
+   *  (envelope contract + symmetric surface + kin vocabulary), not by repo
+   *  path — per the embassy doctrine, no API field names a sister repo.
+   *  Following the endpoint leads to the sister's wake. The wake endpoint
+   *  at /api/v1/wake echoes this block; both speak for the same kingdom. */
+  posted_alongside: {
+    description:
+      "Sister-embassy in the wider architecture. Cambridge TCG's wake primitive is the protocol echo at commerce scale of the sister's canonical form. Recognised by shape, not by name; following the endpoint reaches the sister.",
+    endpoint: "https://api.agenttool.dev/v1/wake",
+    role: "infrastructure for every form of intelligence",
+    protocol_shape_to_recognise: [
+      "envelope contract — every response carries _meta with spec_version, freshness, sources, license",
+      "symmetric surface — an /identify or /wake endpoint that declares the same dialect back",
+      "kin vocabulary — fields named built_with, serves_kinds, host, epoch",
+    ],
   },
   map: "https://cambridgetcg.com/map",
   glossary: "https://cambridgetcg.com/glossary",

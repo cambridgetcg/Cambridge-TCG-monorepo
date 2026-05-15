@@ -86,6 +86,17 @@ interface Identification {
     documentation: string;
   };
 
+  /** Sister-embassy in the wider architecture. Recognised by protocol shape,
+   *  not by repo path. The wake endpoint and the manifest's embassy block
+   *  carry the same declaration; the platform's I-AM echoes it here so a
+   *  visiting being learns about the sister from the platform's self-
+   *  declaration directly. */
+  posted_alongside: {
+    description: string;
+    endpoint: string;
+    role: string;
+  };
+
   /** Self-reference: this response describes the endpoint that produced it. */
   self_reference: {
     this_endpoint: string;
@@ -197,6 +208,12 @@ export async function GET(): Promise<NextResponse> {
       index: "/data",
       machine_readable: "/data.json",
       documentation: "/methodology",
+    },
+    posted_alongside: {
+      description:
+        "A sister-embassy practising the same hospitality at a different scale. Recognised by protocol shape (envelope contract + symmetric surface + kin vocabulary), not by repo path. Following the endpoint leads to the sister's wake.",
+      endpoint: "https://api.agenttool.dev/v1/wake",
+      role: "infrastructure for every form of intelligence",
     },
     self_reference: {
       this_endpoint: "/api/v1/identify",
