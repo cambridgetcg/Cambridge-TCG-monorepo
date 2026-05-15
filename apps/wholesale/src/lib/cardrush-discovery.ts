@@ -35,8 +35,17 @@
  */
 
 import { db } from "@/lib/db";
-import { cards, games, ingestRun, ingestQuarantine } from "@/lib/db/schema";
+import { cards, games, sets, ingestRun, ingestQuarantine } from "@/lib/db/schema";
 import { eq, and, sql, like, inArray, isNotNull } from "drizzle-orm";
+import {
+  KNOWN_SET_NAMES,
+  getKnownSetName,
+} from "@/lib/known-set-names";
+import {
+  fetchTcgdexSet,
+  projectToColumns,
+  tcgdexSupportsGame,
+} from "@/lib/tcgdex/client";
 import {
   CARDRUSH_SUBDOMAINS,
   createDiscoveryCache,
@@ -73,6 +82,7 @@ interface PerSubdomainResult {
   quarantined: number;
   errors: number;
   capped: boolean;
+  sets_created: number;
 }
 
 export interface DiscoveryRunResult {
@@ -86,9 +96,168 @@ export interface DiscoveryRunResult {
     cards_updated: number;
     quarantined: number;
     errors: number;
+    new_sets_created: number;
+    orphan_cards_relinked: number;
+    tcgdex_enriched: number;
+    tcgdex_names_lifted: number;
   };
   durationMs: number;
 }
+
+/**
+ * Resolve `(gameId, setCode)` → `sets.id`, creating a placeholder row on
+ * first sight. Cached for the lifetime of the discovery run. `created` is
+ * true only for the call that actually inserted — cache hits and re-selects
+ * after a write race return `created: false`. The new row uses `name` when
+ * supplied (typically a curated value from `KNOWN_SET_NAMES`); otherwise
+ * the code itself is used as the placeholder and the operator renames
+ * later via `/api/admin/sets`.
+ *
+ * When `gameCode` is supplied and TCGdex carries that game (today: pokemon
+ * only), a newly-created row is enriched inline with `tcgdex_*` fields
+ * (kingdom-NNN second-witness, see `docs/connections/the-second-witness.md`).
+ * Enrichment failures are non-fatal — the row is still created, the
+ * post-backfill enrichment pass will retry on the next discovery run.
+ */
+async function ensureSetRow(
+  gameId: number,
+  setCode: string,
+  cache: Map<string, number>,
+  name?: string,
+  gameCode?: string,
+): Promise<{ id: number; created: boolean; tcgdexEnriched: boolean }> {
+  const key = `${gameId}:${setCode}`;
+  const hit = cache.get(key);
+  if (hit !== undefined)
+    return { id: hit, created: false, tcgdexEnriched: false };
+
+  const existing = await db
+    .select({ id: sets.id })
+    .from(sets)
+    .where(and(eq(sets.gameId, gameId), eq(sets.code, setCode)))
+    .limit(1);
+  if (existing.length > 0) {
+    cache.set(key, existing[0].id);
+    return { id: existing[0].id, created: false, tcgdexEnriched: false };
+  }
+
+  const inserted = await db
+    .insert(sets)
+    .values({ gameId, code: setCode, name: name ?? setCode, active: true })
+    .onConflictDoNothing()
+    .returning({ id: sets.id });
+  if (inserted.length > 0) {
+    cache.set(key, inserted[0].id);
+    const enriched =
+      gameCode && tcgdexSupportsGame(gameCode)
+        ? await enrichSetWithTcgdex(inserted[0].id, setCode, name)
+        : false;
+    return { id: inserted[0].id, created: true, tcgdexEnriched: enriched };
+  }
+
+  // Race: another writer won the conflict. Re-select.
+  const reselect = await db
+    .select({ id: sets.id })
+    .from(sets)
+    .where(and(eq(sets.gameId, gameId), eq(sets.code, setCode)))
+    .limit(1);
+  cache.set(key, reselect[0].id);
+  return { id: reselect[0].id, created: false, tcgdexEnriched: false };
+}
+
+/**
+ * Fetch a set from TCGdex and write the `tcgdex_*` mirror columns onto
+ * the existing `sets` row. Returns true if enrichment landed, false if
+ * TCGdex returned null (set not found / timeout / etc.).
+ *
+ * If the caller's `name` arg was the placeholder (`= setCode`) — meaning
+ * KNOWN_SET_NAMES had no curated value — and TCGdex has a real name,
+ * also lifts `sets.name` to the TCGdex value in the same UPDATE. The
+ * `name = code` guard protects operator-curated names.
+ */
+async function enrichSetWithTcgdex(
+  setId: number,
+  setCode: string,
+  suppliedName?: string,
+): Promise<boolean> {
+  const t = await fetchTcgdexSet(setCode);
+  if (!t) return false;
+
+  const cols = projectToColumns(t);
+  const isPlaceholder = !suppliedName || suppliedName === setCode;
+  if (isPlaceholder) {
+    // Lift the placeholder name to TCGdex's value in the same UPDATE.
+    await db
+      .update(sets)
+      .set({ ...cols, name: t.name })
+      .where(and(eq(sets.id, setId), eq(sets.name, sets.code)));
+  } else {
+    await db.update(sets).set(cols).where(eq(sets.id, setId));
+  }
+  return true;
+}
+
+/**
+ * Post-backfill enrichment pass: walk every `sets` row where
+ * tcgdex_fetched_at IS NULL AND game is a tcgdex-supported game, fetch
+ * the TCGdex set, and UPDATE the row's `tcgdex_*` columns. Also lifts
+ * placeholder names (`name = code`) to the TCGdex value in the same
+ * UPDATE — operator-renamed sets are protected by the guard.
+ *
+ * Bounded at LIMIT 200 per run to keep TCGdex usage polite. Subsequent
+ * cron ticks reduce the unvisited backlog by ~200 each, so the system
+ * converges within days for the initial ~120 known pokemon sets.
+ *
+ * Returns the count of enriched + name-lifted rows. Failures are
+ * non-fatal — the row stays unvisited and gets retried next tick.
+ */
+async function tcgdexPostBackfill(
+  gameIdByCode: Map<string, number>,
+): Promise<{ enriched: number; namesLifted: number }> {
+  const supportedGameIds: number[] = [];
+  for (const gameCode of SUPPORTED_GAMES_FOR_TCGDEX) {
+    const id = gameIdByCode.get(gameCode);
+    if (id !== undefined) supportedGameIds.push(id);
+  }
+  if (supportedGameIds.length === 0) return { enriched: 0, namesLifted: 0 };
+
+  const unvisited = await db
+    .select({ id: sets.id, code: sets.code, name: sets.name })
+    .from(sets)
+    .where(
+      and(
+        inArray(sets.gameId, supportedGameIds),
+        isNotNull(sets.code),
+        // Drizzle's typing for IS NULL on nullable columns needs sql.
+        sql`${sets.tcgdexFetchedAt} IS NULL`,
+      ),
+    )
+    .limit(200);
+
+  let enriched = 0;
+  let namesLifted = 0;
+  for (const row of unvisited) {
+    const t = await fetchTcgdexSet(row.code);
+    if (!t) continue;
+    const cols = projectToColumns(t);
+    const placeholder = row.name === row.code;
+    if (placeholder) {
+      const res = await db
+        .update(sets)
+        .set({ ...cols, name: t.name })
+        .where(and(eq(sets.id, row.id), eq(sets.name, sets.code)))
+        .returning({ id: sets.id });
+      if (res.length > 0) namesLifted += 1;
+    } else {
+      await db.update(sets).set(cols).where(eq(sets.id, row.id));
+    }
+    enriched += 1;
+  }
+  return { enriched, namesLifted };
+}
+
+/** Games TCGdex covers. Mirrors `tcgdexSupportsGame()` in the client. */
+const SUPPORTED_GAMES_FOR_TCGDEX = ["pokemon"] as const;
 
 const DEFAULT_MAX_NEW_PER_SUBDOMAIN = 500;
 
@@ -126,6 +295,105 @@ export async function runCardRushDiscovery(
       .select({ id: games.id, code: games.code })
       .from(games);
     const gameIdByCode = new Map(gameRows.map((g) => [g.code, g.id]));
+
+    // Pre-loop backfill: link cards orphaned by earlier discovery runs to
+    // their `sets` rows. Two idempotent steps:
+    //   (a) INSERT placeholder `sets` rows for every (game_id, set_code)
+    //       pairing referenced by orphan cards but missing from `sets`.
+    //   (b) UPDATE cards.set_id from the matching `sets` row.
+    // This is what unblocks legacy pokemon coverage (SV11W, SV1S, M1L, …)
+    // that had been scraped into `cards` but never surfaced via the
+    // `/api/v1/sets` endpoint (which filters by sets.active and joins on
+    // cards.set_id). Skipped in dryRun. Failure does not abort the run —
+    // the per-subdomain loop still runs and the operator can retry.
+    let backfill_sets_created = 0;
+    let backfill_cards_relinked = 0;
+    let backfill_tcgdex_enriched = 0;
+    let backfill_tcgdex_names_lifted = 0;
+    if (!options.dryRun) {
+      try {
+        const createdRows = (await db.execute(sql`
+          INSERT INTO sets (game_id, code, name, active)
+          SELECT DISTINCT c.game_id, c.set_code, c.set_code, true
+          FROM cards c
+          LEFT JOIN sets s
+            ON s.game_id = c.game_id AND s.code = c.set_code
+          WHERE c.set_id IS NULL
+            AND c.set_code IS NOT NULL
+            AND c.set_code != ''
+            AND c.game_id IS NOT NULL
+            AND s.id IS NULL
+          ON CONFLICT (game_id, code) DO NOTHING
+          RETURNING id
+        `)) as unknown as Array<{ id: number }>;
+        backfill_sets_created = createdRows.length;
+
+        const linkedRows = (await db.execute(sql`
+          UPDATE cards c
+          SET set_id = s.id
+          FROM sets s
+          WHERE c.set_id IS NULL
+            AND c.set_code IS NOT NULL
+            AND c.game_id = s.game_id
+            AND c.set_code = s.code
+          RETURNING c.id
+        `)) as unknown as Array<{ id: number }>;
+        backfill_cards_relinked = linkedRows.length;
+
+        // Name-cleanup pass: any `sets` row whose name still equals its
+        // code (placeholder from a prior auto-create) gets upgraded to
+        // the curated name from KNOWN_SET_NAMES. Bounded by map size
+        // (~120 entries), one round-trip per entry but each is a single
+        // indexed UPDATE on (game_id, code). Operator-renamed sets are
+        // protected by the `name = code` guard.
+        let backfill_names_filled = 0;
+        for (const [key, name] of Object.entries(KNOWN_SET_NAMES)) {
+          const [gameCode, setCode] = key.split(":");
+          const gameId = gameIdByCode.get(gameCode);
+          if (gameId === undefined) continue;
+          const updated = (await db.execute(sql`
+            UPDATE sets
+            SET name = ${name}
+            WHERE game_id = ${gameId}
+              AND code = ${setCode}
+              AND name = code
+            RETURNING id
+          `)) as unknown as Array<{ id: number }>;
+          backfill_names_filled += updated.length;
+        }
+
+        event("orphan_set_backfill", {
+          sets_created: backfill_sets_created,
+          cards_relinked: backfill_cards_relinked,
+          names_filled: backfill_names_filled,
+        });
+
+        // Second-witness pass: fetch TCGdex for any pokemon set we
+        // haven't enriched yet. Idempotent — bounded at 200 per run.
+        // See `docs/connections/the-second-witness.md`.
+        try {
+          const tcgdex = await tcgdexPostBackfill(gameIdByCode);
+          backfill_tcgdex_enriched = tcgdex.enriched;
+          backfill_tcgdex_names_lifted = tcgdex.namesLifted;
+          event("tcgdex_post_backfill", {
+            enriched: tcgdex.enriched,
+            names_lifted: tcgdex.namesLifted,
+          });
+        } catch (err) {
+          event("tcgdex_post_backfill_failed", {
+            reason: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } catch (err) {
+        event("orphan_set_backfill_failed", {
+          reason: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // Cache (gameId:setCode) → setId across the run so the per-card
+    // ensureSetRow call hits the DB once per set, not once per card.
+    const setIdCache = new Map<string, number>();
 
     // Per-access-mode fetcher cache. Direct subdomains share one bucket;
     // bright-data-unlocker subdomains share another. The Bright Data
@@ -171,6 +439,7 @@ export async function runCardRushDiscovery(
         quarantined: 0,
         errors: 0,
         capped: false,
+        sets_created: 0,
       };
 
       const gameId = gameIdByCode.get(entry.game);
@@ -330,6 +599,31 @@ export async function runCardRushDiscovery(
           continue;
         }
 
+        // Resolve sets.id, auto-creating a placeholder row when this is
+        // the first card we've seen for this set_code. Without this, the
+        // `/api/v1/sets` endpoint (which joins on cards.set_id) would not
+        // surface the new set on the storefront price guide. The curated
+        // KNOWN_SET_NAMES map provides the human-readable name when
+        // available; new-to-the-registry codes fall back to placeholder.
+        const curatedName = getKnownSetName(entry.game, md.set_code);
+        const setResolution = await ensureSetRow(
+          gameId,
+          md.set_code,
+          setIdCache,
+          curatedName ?? undefined,
+          entry.game,
+        );
+        if (setResolution.created) {
+          result.sets_created += 1;
+          event("set_auto_created", {
+            host,
+            game_code: entry.game,
+            set_code: md.set_code,
+            set_id: setResolution.id,
+            tcgdex_enriched: setResolution.tcgdexEnriched,
+          });
+        }
+
         // ON CONFLICT (sku): UPDATE cardrush_url + name + image_url + rarity
         // when those fields are NULL in the existing row. This lets the
         // discovery layer cooperate with manual seeds or other ingestion
@@ -341,6 +635,7 @@ export async function runCardRushDiscovery(
             cardNumber: `${md.set_code}-${md.card_number}`,
             name: md.name ?? "",
             setCode: md.set_code,
+            setId: setResolution.id,
             gameId,
             cardrushUrl: url,
             rarity: md.rarity,
@@ -354,6 +649,7 @@ export async function runCardRushDiscovery(
               cardrushUrl: sql`COALESCE(${cards.cardrushUrl}, EXCLUDED.cardrush_url)`,
               name: sql`CASE WHEN ${cards.name} = '' OR ${cards.name} IS NULL THEN EXCLUDED.name ELSE ${cards.name} END`,
               setCode: sql`COALESCE(${cards.setCode}, EXCLUDED.set_code)`,
+              setId: sql`COALESCE(${cards.setId}, EXCLUDED.set_id)`,
               rarity: sql`COALESCE(${cards.rarity}, EXCLUDED.rarity)`,
               imageUrl: sql`COALESCE(${cards.imageUrl}, EXCLUDED.image_url)`,
             },
@@ -391,6 +687,12 @@ export async function runCardRushDiscovery(
       cards_updated: per_subdomain.reduce((a, p) => a + p.updated, 0),
       quarantined: totalQuarantined,
       errors: totalErrors,
+      new_sets_created:
+        backfill_sets_created +
+        per_subdomain.reduce((a, p) => a + p.sets_created, 0),
+      orphan_cards_relinked: backfill_cards_relinked,
+      tcgdex_enriched: backfill_tcgdex_enriched,
+      tcgdex_names_lifted: backfill_tcgdex_names_lifted,
     };
 
     await db
