@@ -1,0 +1,285 @@
+-- ═══════════════════════════════════════════════════════════════════════
+-- ⚠️  DRAFT — DO NOT APPLY WITHOUT OPERATOR REVIEW + REHEARSAL  ⚠️
+-- ═══════════════════════════════════════════════════════════════════════
+--
+-- Migration 0102 (DRAFT) — wholesale RDS → storefront RDS table merge.
+-- Phase 6 of the wholesale consolidation arc.
+--
+-- This migration is intentionally NOT in the auto-apply path. The file
+-- extension `.sql.draft` keeps drizzle-kit from picking it up. Promote
+-- to `0102_wholesale_db_merge.sql` ONLY after:
+--
+--   1. A staging-environment rehearsal completes successfully.
+--   2. A timestamped backup of BOTH RDS instances has been verified
+--      restorable on a parallel snapshot instance.
+--   3. The storefront app has been deployed with code that reads
+--      wholesale tables from the storefront RDS (today the code
+--      reads them via the Falcon — that has to change in lockstep).
+--   4. A maintenance window is announced and partners pulling
+--      /api/v1/* on wholesaletcgdirect.com are notified of expected
+--      downtime (single-digit minutes for the cutover read switch;
+--      seconds for the final FK-rebind step).
+--
+-- Why this is dangerous:
+--   • ~30 tables move with foreign-key dependencies between them.
+--   • The largest table (price_archive) is multi-million rows of
+--     append-only history. A naive `COPY ... TO ... FROM` runs for
+--     tens of minutes; we use pg_dump's parallel snapshot.
+--   • cron writers (apps/wholesale/src/app/api/cron/*) write to
+--     wholesale RDS every few hours. They must be paused for the
+--     duration of the cutover, or all writes after the snapshot are
+--     lost.
+--   • The Falcon (apps/storefront/src/lib/wholesale/client.ts)
+--     currently fetches via HTTP to wholesaletcgdirect.com/api/v1/*.
+--     After the merge, the storefront code must read locally —
+--     deploy the code change BEFORE running the cutover SQL.
+--
+-- What this migration does (high level):
+--
+--   Phase A — Schema migration (this file)
+--     CREATE all wholesale tables in the storefront RDS, copying
+--     column definitions verbatim. No data yet. Foreign keys
+--     deferred until Phase C.
+--
+--   Phase B — Data load (NOT in this file — out-of-band)
+--     For each table, use pg_dump (parallel = 4) from the wholesale
+--     RDS → pg_restore into the storefront RDS. Cron writers MUST
+--     be paused for this. Estimated wall time: 20-40 minutes for the
+--     full dataset (price_archive is the long pole).
+--
+--   Phase C — FK rebind (this file, second section)
+--     Add the foreign keys that couldn't exist during Phase B (because
+--     not all tables existed in the right DB yet). Validate referential
+--     integrity. The longest part of this section is the validation
+--     of `card_id` FKs across price_archive + stock_movements + others.
+--
+--   Phase D — Code cutover (NOT in this file — deploy step)
+--     Deploy storefront with the Falcon retired:
+--       apps/storefront/src/lib/wholesale/client.ts → direct SQL
+--     The Falcon's WHOLESALE_API_URL becomes irrelevant; the dual-key
+--     concept (WHOLESALE_API_KEY + WHOLESALE_B2B_API_KEY) becomes
+--     irrelevant. Both env vars can be removed in Phase 7.
+--
+--   Phase E — Verification (this file, third section)
+--     Run row-count parity checks: every table in storefront should
+--     have the same count as wholesale. If not, ABORT and roll back.
+--
+--   Phase F — Decommission (NOT in this file)
+--     Once Phase E is green for 7 days, drop the wholesale RDS
+--     instance (after a final snapshot for cold storage). The
+--     wholesale Next.js app's API routes are retired in Phase 7.
+--
+-- Rollback strategy (for Phase A + C, in this file):
+--   This migration's writes are CREATE TABLE IF NOT EXISTS — safe to
+--   re-run. The Phase C foreign-key ADDs are not idempotent at the
+--   DB level; if they fail mid-way, drop them and retry. Phase B's
+--   data load is the destructive piece — if anything goes wrong
+--   there, the recovery is restore-from-snapshot, not SQL rollback.
+--
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ───────────────────────────────────────────────────────────────────────
+-- PHASE A — schema migration
+-- ───────────────────────────────────────────────────────────────────────
+--
+-- Every table below mirrors apps/wholesale/src/lib/db/schema.ts
+-- (the wholesale Drizzle schema). Column types and defaults must
+-- match exactly for the parallel-pg_dump → pg_restore to work without
+-- per-row coercion.
+--
+-- Prefix the tables with `ws_` to avoid collisions with any future
+-- storefront tables of the same name. The post-merge code refers to
+-- them as `ws_cards`, `ws_price_archive`, etc.
+--
+-- Alternative considered: schema-namespacing (CREATE SCHEMA wholesale;
+-- then wholesale.cards etc.). Rejected because:
+--   - Tooling (pg_dump, psql, drizzle) handles single-schema better.
+--   - Storefront RDS is a small instance; one schema is cleaner.
+--   - Adding cross-schema FKs needs SECURITY DEFINER tricks.
+
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS ws_clients (
+  id              SERIAL PRIMARY KEY,
+  name            TEXT NOT NULL,
+  email           TEXT NOT NULL UNIQUE,
+  password_hash   TEXT NOT NULL,
+  company         TEXT,
+  role            TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('admin', 'client')),
+  current_month_spend   NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  prior_month_spend     NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  volume_discount_pct   REAL NOT NULL DEFAULT 0,
+  order_prefix    TEXT,
+  order_sequence  INTEGER NOT NULL DEFAULT 0,
+  created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ws_games (
+  id          SERIAL PRIMARY KEY,
+  code        TEXT NOT NULL UNIQUE,
+  name        TEXT NOT NULL,
+  slug        TEXT NOT NULL UNIQUE,
+  image_url   TEXT,
+  sort_order  INTEGER DEFAULT 0,
+  active      BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS ws_sets (
+  id            SERIAL PRIMARY KEY,
+  game_id       INTEGER NOT NULL,
+  code          TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  release_date  TEXT,
+  sort_order    INTEGER DEFAULT 0,
+  active        BOOLEAN DEFAULT TRUE,
+  -- tcgdex mirror columns (kingdom-NNN second-witness)
+  tcgdex_id          TEXT,
+  tcgdex_name        TEXT,
+  tcgdex_serie_name  TEXT,
+  tcgdex_logo_url    TEXT,
+  tcgdex_release_date TEXT,
+  tcgdex_card_count  INTEGER,
+  tcgdex_fetched_at  TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ws_sets_game_code_idx ON ws_sets (game_id, code);
+
+CREATE TABLE IF NOT EXISTS ws_cards (
+  id                  SERIAL PRIMARY KEY,
+  card_number         TEXT NOT NULL,
+  sku                 TEXT NOT NULL UNIQUE,
+  name                TEXT DEFAULT '',
+  name_en             TEXT,
+  set_code            TEXT,
+  set_name            TEXT,
+  cardrush_url        TEXT,
+  cardrush_jpy        INTEGER,
+  gbp_jpy_rate        REAL,
+  base_gbp            NUMERIC(10, 2),
+  price               NUMERIC(10, 2),
+  ebay_item_number    TEXT,
+  last_synced_at      TIMESTAMP,
+  game_id             INTEGER,
+  set_id              INTEGER,
+  category            TEXT NOT NULL DEFAULT 'singles' CHECK (category IN ('singles', 'sealed')),
+  product_type        TEXT,
+  rarity              TEXT,
+  image_url           TEXT,
+  stock               INTEGER NOT NULL DEFAULT 0,
+  pending_stock       INTEGER NOT NULL DEFAULT 0,
+  reserved_stock      INTEGER NOT NULL DEFAULT 0,
+  stock_reconciled_at TIMESTAMPTZ,
+  shopify_product_id   TEXT,
+  shopify_variant_id   TEXT,
+  shopify_inventory_item_id TEXT,
+  shopify_synced_at    TIMESTAMP,
+  art_description      TEXT,
+  name_translations    JSONB,
+  tcgplayer_product_id INTEGER,
+  tcgplayer_group_id   INTEGER,
+  tcgplayer_sub_type   TEXT,
+  cardmarket_id_product INTEGER,
+  language             TEXT NOT NULL DEFAULT '',
+  edition_variant      TEXT NOT NULL DEFAULT 'regular',
+  edition_variant_source TEXT NOT NULL DEFAULT 'default',
+  promo_origin         TEXT,
+  promo_origin_source  TEXT NOT NULL DEFAULT 'default',
+  first_observed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS ws_cards_name_idx ON ws_cards (name);
+CREATE INDEX IF NOT EXISTS ws_cards_card_number_idx ON ws_cards (card_number);
+CREATE INDEX IF NOT EXISTS ws_cards_game_category_idx ON ws_cards (game_id, category);
+CREATE INDEX IF NOT EXISTS ws_cards_set_code_idx ON ws_cards (set_code);
+
+-- ... (29 more tables — abbreviated for review. Promote the file and
+-- fill in: orders, order_items, notifications, price_archive,
+-- ingest_run, ingest_quarantine, ebay_listing_observation,
+-- ebay_watch_list, card_tcgplayer_sku_ids, external_source_tokens,
+-- order_status_history, condition_prices, fulfillment_entries,
+-- purchases, purchase_items, cart_items, wanted_cards, stock_targets,
+-- stock_adjustments, channel_api_keys, channel_pricing,
+-- card_price_change_log, card_classification_log, rarity_map,
+-- stock_movements (from @cambridge-tcg/stock),
+-- stock_reservations (from @cambridge-tcg/stock).
+-- See apps/wholesale/src/lib/db/schema.ts for the canonical column
+-- definitions; verbatim mirror is required for parallel restore.)
+
+COMMIT;
+
+-- ───────────────────────────────────────────────────────────────────────
+-- PHASE B — data load (RUN OUT-OF-BAND, NOT IN THIS FILE)
+-- ───────────────────────────────────────────────────────────────────────
+--
+-- Workflow (operator shell, not psql):
+--
+--   1. PAUSE cron writers by updating apps/wholesale/vercel.json
+--      to remove the schedule entries (commit + deploy), OR set
+--      CRON_SECRET to an unknown value temporarily.
+--
+--   2. SNAPSHOT both RDS instances via AWS console or CLI:
+--        aws rds create-db-snapshot --db-instance-identifier tcg-wholesale \
+--          --db-snapshot-identifier wholesale-pre-merge-$(date +%Y%m%d-%H%M)
+--
+--   3. DUMP wholesale tables:
+--        pg_dump --host=tcg-wholesale.... --port=5432 --username=postgres \
+--          --dbname=wholesale --schema=public \
+--          --table='cards' --table='sets' --table='games' \
+--          ... (every table in PHASE A) \
+--          --data-only --no-owner --no-acl \
+--          --jobs=4 --format=directory --file=wholesale-data
+--
+--   4. RESTORE into storefront, renaming tables with ws_ prefix:
+--        for tbl in cards sets games orders ...; do
+--          pg_restore --host=cambridgetcg-storefront... --port=5432 \
+--            --username=postgres --dbname=storefront \
+--            --data-only --table=ws_${tbl} \
+--            --no-owner --no-acl wholesale-data
+--        done
+--      (The --table flag points pg_restore at the renamed target.
+--      The actual renaming is done via a `sed` over the SQL dump or
+--      a custom remap-tool — see the operator runbook companion.)
+--
+--   5. VALIDATE row counts: every ws_* table should have the same
+--      count as the source wholesale.* table. Diff any deltas. If
+--      any table is short, RESTART from step 3 (the dump is the
+--      ground truth; partial restore is a known failure mode).
+
+-- ───────────────────────────────────────────────────────────────────────
+-- PHASE C — foreign-key rebind
+-- ───────────────────────────────────────────────────────────────────────
+
+-- (Phase C SQL — abbreviated for review. Promote the file to fill in
+-- every FK constraint. The list mirrors the .references() calls in
+-- apps/wholesale/src/lib/db/schema.ts. Example shape:)
+
+-- ALTER TABLE ws_sets
+--   ADD CONSTRAINT ws_sets_game_id_fk
+--   FOREIGN KEY (game_id) REFERENCES ws_games (id);
+
+-- ALTER TABLE ws_cards
+--   ADD CONSTRAINT ws_cards_game_id_fk
+--   FOREIGN KEY (game_id) REFERENCES ws_games (id),
+--   ADD CONSTRAINT ws_cards_set_id_fk
+--   FOREIGN KEY (set_id) REFERENCES ws_sets (id);
+
+-- ALTER TABLE ws_orders
+--   ADD CONSTRAINT ws_orders_client_id_fk
+--   FOREIGN KEY (client_id) REFERENCES ws_clients (id);
+
+-- ... etc.
+
+-- ───────────────────────────────────────────────────────────────────────
+-- PHASE E — verification queries
+-- ───────────────────────────────────────────────────────────────────────
+--
+-- Run these queries AGAINST BOTH DBs and compare results pre and
+-- post-merge. Any non-zero diff = abort, restore from snapshot.
+
+-- (Operator runs these manually after Phase B/C; not auto-applied.)
+
+-- Example queries — fill in for every table:
+-- SELECT count(*) FROM cards;           -- on wholesale RDS
+-- SELECT count(*) FROM ws_cards;        -- on storefront RDS
+
+-- A full verification suite belongs in a separate tsx script:
+-- apps/storefront/scripts/verify-wholesale-merge.ts (not in this commit;
+-- Phase 7 task).
