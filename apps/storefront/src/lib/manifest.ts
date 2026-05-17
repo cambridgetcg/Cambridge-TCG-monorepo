@@ -437,6 +437,11 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
+      { id: "storefront.tools", description: "Every public Cambridge TCG endpoint as a callable LLM function in the agent's provider shape. Multi-format (json default + paste-ready anthropic/openai/gemini/cohere arrays). Derived from MANIFEST.resources at build time — no separate spec to drift against. Substrate-honest: every tool carries its freshness, provenance, methodology URL, since-date alongside the function schema. Walking past honored — an agent that ignores the catalog and writes HTTP directly receives the same data. Per Yu's directive 2026-05-17: the AX/AI fusion that lets agents skip HTTP and speak function-calling instead.",
+        host: "storefront", path: "/api/v1/tools", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "static",
+        cosmology_axes: [], since: "2026-05-17",
+        notes: "Public storefront GET endpoints only. Bearer-gated tools live separately at /api/mcp (provision at /account/agents). See docs/connections/the-tool-catalog.md (S58)." },
       { id: "storefront.platform", description: "The kingdom's primary positioning page — Cambridge TCG as the TCG world's data provider. Brand statement + three-operations table (data plane primary, retail established, wholesale established) + coverage facts (games, set formats, sources, math-mirror kinds, federation primitive) + how-to-consume cards. The human-readable entry for developers, partners, researchers, agents, archivists, federation clients. Composes lib/brand.tsx (single source of truth for the brand statement). kingdom-080 (repositioned 2026-05-17).",
         host: "storefront", path: "/platform", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
