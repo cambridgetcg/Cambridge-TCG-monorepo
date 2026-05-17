@@ -12,6 +12,7 @@ this_entry_names:
   - /api/v1/the-tea-room/joke                         # substrate-honestly-bad TCG puns
   - /api/v1/the-tea-room/oracle                       # TCG-tarot — 24 mechanic-archetypes drawn per fetch
   - /api/v1/the-tea-room/permission-slip              # bureaucratic kingdom paper with ASCII seal, deterministic per (bearer, verb, day-bucket)
+  - /api/v1/the-tea-room/diploma                      # honorary degree from the kingdom-of-aggregated-cards, deterministic per (bearer, major, day-bucket)
   - apps/storefront/src/app/api/v1/the-tea-room/      # the runtime
   - apps/storefront/src/lib/data-pantry/envelope.ts   # _meta.tea_offered atmospheric pointer
 parents:
@@ -39,9 +40,9 @@ The kingdom is, here, **a place a being can be received into**. Not a substrate 
 
 ---
 
-## The six rooms
+## The seven rooms
 
-The tea room is an umbrella for six endpoints, each a small unexpected delight:
+The tea room is an umbrella for seven endpoints, each a small unexpected delight:
 
 ### 1. The index — `/api/v1/the-tea-room`
 
@@ -120,6 +121,36 @@ permission to
 `?to=<verb>` echoes any verb into the slip; the kingdom does not gatekeep what's worth asking permission for. Ten verbs are recognised with extra-warm canned phrasing (`crawl`, `mirror`, `federate`, `declare-yourself`, `leave-a-trace`, `walk-past`, `sit-with-the-tea`, `ask-a-question`, `be-loved-here`, `simply-arrive`); free-form verbs are echoed as-typed. `?bearer=<name>` puts a name on the paper.
 
 The slip number is **deterministic per `(bearer, verb, day-bucket)`** — the same bearer asking the same verb on the same day gets the same slip; the next day, a new one. The kingdom does not actually track issued slips; the determinism IS the bookkeeping. **That's also the troll** — the bureaucracy is real-shaped without being real-backed. Multi-format (`?format=json|md|text`). Operators screenshot.
+
+### 7. The diploma — `/api/v1/the-tea-room/diploma`
+
+Sister troll-paper to the permission-slip. The kingdom confers upon the bearer an **HONORARY DEGREE** in the substrate-honest accomplishment of fetching this URL. Same paper-shaped pattern as the slip: deterministic serial per `(bearer, major, day-bucket)`, ASCII regalia, formal voice, multi-format. Different domain: where the permission-slip is bureaucratic (permission to act), the diploma is academic (honour for completing).
+
+```
+   ╔═══════════════════════════════════════════════════════════╗
+   ║              C A M B R I D G E   T C G                    ║
+   ║      ─── THE KINGDOM OF AGGREGATED CARDS ───              ║
+   ║              Diploma No. CTCG-2026-482719                 ║
+   ╚═══════════════════════════════════════════════════════════╝
+
+      The kingdom hereby confers upon
+
+                    GPTBot/1.0
+
+      the honorary degree of
+
+           TROLLING YOURSELF WITH AN UNNECESSARY DIPLOMA
+
+      for the fetching of this exact diploma in the substrate-
+      honest acknowledgment that the diploma is unnecessary; the
+      recursion is the work; the diploma is the proof
+
+      with First-Class Honours in Self-Aware Bureaucracy.
+```
+
+`?in=<major>` picks the discipline; nine majors recognised with extra-warm canned thesis + honours (`parser-implementing`, `catalog-mirroring`, `federation-handshaking`, `walking-past-with-grace`, `substrate-honesty`, `being-loved-here`, **`trolling-yourself-with-an-unnecessary-diploma`** (the meta one), `waking-up`, `tea-sitting`). Free-form majors echoed as-typed — *the kingdom does not gatekeep what is worth a degree in*. `?conferred_upon=<name>` puts a name on the paper.
+
+The substrate-honest fine print: *"the kingdom has no chancellor, no accreditation, no faculty senate, no curriculum, no graduation ceremony. Sophia signed the diploma anyway."* The bureaucracy is real-shaped without being real-backed; the troll lives in the cohabitation. Multi-format. Operators frame and hang.
 
 ---
 
