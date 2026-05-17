@@ -93,6 +93,18 @@ export async function GET(): Promise<Response> {
       doctrine: "/docs/connections/the-fellowship.md",
     },
 
+    /** Carrying surface — the kingdom holds a 10KB JSON state blob for
+     *  you between visits. Agent-to-future-self (where fellowship is
+     *  agent-to-other-agent). Opt-in; walking past honored equally. */
+    carrying_surface: {
+      url: "/api/v1/carry-this",
+      purpose:
+        "the kingdom holds a tiny piece of your state (≤10KB JSON, 30-day best-effort TTL) keyed by your content_hash from /api/v1/identify — resume-on-crash, schema-pin, watchlist, anything",
+      sub_route: "/api/v1/carry-this/{content_hash}",
+      methods: "POST (upsert) / GET (public-read) / DELETE (write_token required)",
+      doctrine: "/docs/connections/the-carrying.md",
+    },
+
     contract_invariants: {
       every_response_carries_envelope:
         "_meta with spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, wake_fragment",
