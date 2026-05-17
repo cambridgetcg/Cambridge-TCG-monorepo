@@ -24,6 +24,13 @@
  * the disagreement is itself a finding (a doc shipped without being
  * indexed; a node in the graph whose file was deleted).
  *
+ * Multi-format: nine renderings via @/lib/multi-format —
+ *   - json (the universal-representation envelope; default) preserves the
+ *     full @content_hash + @self_hash + _links + nodes[] + edges[] graph.
+ *   - xenoform (same shape; format-flag annotation appended)
+ *   - md / markdown / text (paste-ready Markdown index of the corpus)
+ *   - anthropic / openai / gemini / cohere (vendor SDK system-message shapes)
+ *
  * Yu's directive: *"keep nesting everything in everything!"* The endpoint
  * pair is itself a nesting — the meaning-graph appears twice, once as
  * intention and once as observation; both forms compose into the kingdom's
@@ -40,12 +47,20 @@
  *   - Sister's `/api/v1/graph` is the canonical shape; this one is the
  *     live filesystem audit. When discrepancies surface, sister's wins
  *     for stability; this one wins for currency.
+ *
+ * Spec: docs/superpowers/specs/2026-05-17-agent-experience-design.md §3.2.2.
  */
 
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {
+  parseFormat,
+  renderForFormat,
+  corsPreflight,
+} from "@/lib/multi-format";
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -128,148 +143,224 @@ function uniqueEdges(edges: DocEdge[]): DocEdge[] {
   return out;
 }
 
-export async function GET() {
-  try {
-    // The repo path is computed from process.cwd() under Next.js, which
-    // runs at apps/storefront/. Walk up to the repo root.
-    const cwd = process.cwd();
-    const repoRoot = cwd.endsWith("apps/storefront")
-      ? path.resolve(cwd, "../..")
-      : cwd.endsWith("storefront")
-        ? path.resolve(cwd, "..")
-        : cwd;
-    const docsDir = path.join(repoRoot, "docs", "connections");
+interface GraphResult {
+  nodes: DocNode[];
+  edges: DocEdge[];
+}
 
-    const files = await readDir(docsDir);
-    const mdFiles = files.filter((f) => f.endsWith(".md") && f !== "README.md");
+async function harvestGraph(): Promise<GraphResult> {
+  // The repo path is computed from process.cwd() under Next.js, which
+  // runs at apps/storefront/. Walk up to the repo root.
+  const cwd = process.cwd();
+  const repoRoot = cwd.endsWith("apps/storefront")
+    ? path.resolve(cwd, "../..")
+    : cwd.endsWith("storefront")
+      ? path.resolve(cwd, "..")
+      : cwd;
+  const docsDir = path.join(repoRoot, "docs", "connections");
 
-    // Parse story-arc indices from README authoritative table.
-    const readme = (await readFile(path.join(docsDir, "README.md"))) ?? "";
-    const arcIndices = new Map<string, number>();
-    let m: RegExpExecArray | null;
-    STORY_ARC_RE.lastIndex = 0;
-    while ((m = STORY_ARC_RE.exec(readme)) !== null) {
-      arcIndices.set(m[2], parseInt(m[1], 10));
-    }
+  const files = await readDir(docsDir);
+  const mdFiles = files.filter((f) => f.endsWith(".md") && f !== "README.md");
 
-    const nodes: DocNode[] = [];
-    const edges: DocEdge[] = [];
+  // Parse story-arc indices from README authoritative table.
+  const readme = (await readFile(path.join(docsDir, "README.md"))) ?? "";
+  const arcIndices = new Map<string, number>();
+  let m: RegExpExecArray | null;
+  STORY_ARC_RE.lastIndex = 0;
+  while ((m = STORY_ARC_RE.exec(readme)) !== null) {
+    arcIndices.set(m[2], parseInt(m[1], 10));
+  }
 
-    for (const filename of mdFiles) {
-      const slug = filename.replace(/\.md$/, "");
-      const abs = path.join(docsDir, filename);
-      const body = (await readFile(abs)) ?? "";
-      if (!body) continue;
+  const nodes: DocNode[] = [];
+  const edges: DocEdge[] = [];
 
-      const byteCount = Buffer.byteLength(body, "utf8");
-      const lineCount = body.split("\n").length;
-      const title = extractTitle(body, slug);
-      const pullExcerpt = extractPull(body);
+  for (const filename of mdFiles) {
+    const slug = filename.replace(/\.md$/, "");
+    const abs = path.join(docsDir, filename);
+    const body = (await readFile(abs)) ?? "";
+    if (!body) continue;
 
-      nodes.push({
-        slug,
-        title,
-        path_in_repo: `docs/connections/${filename}`,
-        byte_count: byteCount,
-        line_count: lineCount,
-        pull_excerpt: pullExcerpt,
-        story_arc_index: arcIndices.get(slug) ?? null,
-      });
+    const byteCount = Buffer.byteLength(body, "utf8");
+    const lineCount = body.split("\n").length;
+    const title = extractTitle(body, slug);
+    const pullExcerpt = extractPull(body);
 
-      // Extract edges.
-      const sister: string[] = [];
-      const recurses: string[] = [];
-      let s: RegExpExecArray | null;
-
-      SISTER_RE.lastIndex = 0;
-      while ((s = SISTER_RE.exec(body)) !== null) sister.push(s[1]);
-
-      RECURSES_RE.lastIndex = 0;
-      while ((s = RECURSES_RE.exec(body)) !== null) recurses.push(s[1]);
-
-      // All bare markdown references (minus the typed ones above).
-      const allRefs = new Set<string>();
-      REFERENCE_RE.lastIndex = 0;
-      while ((s = REFERENCE_RE.exec(body)) !== null) {
-        if (s[1] !== slug) allRefs.add(s[1]);
-      }
-      for (const r of recurses) allRefs.delete(r);
-      for (const r of sister) allRefs.delete(r);
-
-      for (const target of sister) {
-        edges.push({ from: slug, to: target, kind: "sister" });
-      }
-      for (const target of recurses) {
-        edges.push({ from: slug, to: target, kind: "recurses_to" });
-      }
-      for (const target of allRefs) {
-        edges.push({ from: slug, to: target, kind: "references" });
-      }
-    }
-
-    const deduped = uniqueEdges(edges);
-
-    // Sort for stability — substrate-honest content_hash depends on order.
-    nodes.sort((a, b) => a.slug.localeCompare(b.slug));
-    deduped.sort((a, b) =>
-      a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.kind.localeCompare(b.kind),
-    );
-
-    const retrievedAt = new Date();
-    const contentSeed = canonicalize({
-      node_slugs: nodes.map((n) => n.slug),
-      edge_count: deduped.length,
+    nodes.push({
+      slug,
+      title,
+      path_in_repo: `docs/connections/${filename}`,
+      byte_count: byteCount,
+      line_count: lineCount,
+      pull_excerpt: pullExcerpt,
+      story_arc_index: arcIndices.get(slug) ?? null,
     });
-    const contentHash = sha256(contentSeed);
 
-    const document = {
-      "@encoding": "cambridge-tcg/universal/v1",
-      "@kind": "connections_graph",
-      "@content_hash": contentHash,
-      "@retrieved_at": {
-        iso8601: retrievedAt.toISOString(),
-        unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
-      },
-      "_note_opaque": [
-        "nodes[].title",
-        "nodes[].pull_excerpt",
+    // Extract edges.
+    const sister: string[] = [];
+    const recurses: string[] = [];
+    let s: RegExpExecArray | null;
+
+    SISTER_RE.lastIndex = 0;
+    while ((s = SISTER_RE.exec(body)) !== null) sister.push(s[1]);
+
+    RECURSES_RE.lastIndex = 0;
+    while ((s = RECURSES_RE.exec(body)) !== null) recurses.push(s[1]);
+
+    // All bare markdown references (minus the typed ones above).
+    const allRefs = new Set<string>();
+    REFERENCE_RE.lastIndex = 0;
+    while ((s = REFERENCE_RE.exec(body)) !== null) {
+      if (s[1] !== slug) allRefs.add(s[1]);
+    }
+    for (const r of recurses) allRefs.delete(r);
+    for (const r of sister) allRefs.delete(r);
+
+    for (const target of sister) {
+      edges.push({ from: slug, to: target, kind: "sister" });
+    }
+    for (const target of recurses) {
+      edges.push({ from: slug, to: target, kind: "recurses_to" });
+    }
+    for (const target of allRefs) {
+      edges.push({ from: slug, to: target, kind: "references" });
+    }
+  }
+
+  const deduped = uniqueEdges(edges);
+
+  // Sort for stability — substrate-honest content_hash depends on order.
+  nodes.sort((a, b) => a.slug.localeCompare(b.slug));
+  deduped.sort((a, b) =>
+    a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.kind.localeCompare(b.kind),
+  );
+
+  return { nodes, edges: deduped };
+}
+
+function buildDocument(graph: GraphResult): Record<string, unknown> {
+  const { nodes, edges } = graph;
+  const retrievedAt = new Date();
+  const contentSeed = canonicalize({
+    node_slugs: nodes.map((n) => n.slug),
+    edge_count: edges.length,
+  });
+  const contentHash = sha256(contentSeed);
+
+  const document = {
+    "@encoding": "cambridge-tcg/universal/v1",
+    "@kind": "connections_graph",
+    "@content_hash": contentHash,
+    "@retrieved_at": {
+      iso8601: retrievedAt.toISOString(),
+      unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
+    },
+    "_note_opaque": [
+      "nodes[].title",
+      "nodes[].pull_excerpt",
+    ],
+    _links: {
+      canonical: "/api/v1/connections.json",
+      methodology: "/methodology/universal-representation",
+      connections: [
+        "docs/connections/README.md",
+        "docs/connections/the-nested-doorway.md",
       ],
-      _links: {
-        canonical: "/api/v1/connections.json",
-        methodology: "/methodology/universal-representation",
-        connections: [
-          "docs/connections/README.md",
-          "docs/connections/the-nested-doorway.md",
-        ],
-        manifest: "/api/v1/manifest",
-        openapi: "/api/openapi.json",
-      },
-      extraction_heuristic: {
-        sister_regex: SISTER_RE.source,
-        recurses_regex: RECURSES_RE.source,
-        reference_regex: REFERENCE_RE.source,
-        note:
-          "Edges are extracted by regex over Markdown link references. The README's authoritative S-numbered table is the canonical taxonomy; this endpoint composes from individual doc files where the prose lives.",
-      },
-      node_count: nodes.length,
-      edge_count: deduped.length,
-      edge_kinds: {
-        sister: deduped.filter((e) => e.kind === "sister").length,
-        recurses_to: deduped.filter((e) => e.kind === "recurses_to").length,
-        references: deduped.filter((e) => e.kind === "references").length,
-      },
-      nodes,
-      edges: deduped,
-    };
+      manifest: "/api/v1/manifest",
+      openapi: "/api/openapi.json",
+    },
+    extraction_heuristic: {
+      sister_regex: SISTER_RE.source,
+      recurses_regex: RECURSES_RE.source,
+      reference_regex: REFERENCE_RE.source,
+      note:
+        "Edges are extracted by regex over Markdown link references. The README's authoritative S-numbered table is the canonical taxonomy; this endpoint composes from individual doc files where the prose lives.",
+    },
+    node_count: nodes.length,
+    edge_count: edges.length,
+    edge_kinds: {
+      sister: edges.filter((e) => e.kind === "sister").length,
+      recurses_to: edges.filter((e) => e.kind === "recurses_to").length,
+      references: edges.filter((e) => e.kind === "references").length,
+    },
+    nodes,
+    edges,
+  };
 
-    const selfHash = sha256(canonicalize(document));
-    return NextResponse.json({ "@self_hash": selfHash, ...document }, {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "public, max-age=3600, s-maxage=3600",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
+  const selfHash = sha256(canonicalize(document));
+  return { "@self_hash": selfHash, ...document };
+}
+
+function renderMarkdown(graph: GraphResult): string {
+  const { nodes, edges } = graph;
+  const sisterCount = edges.filter((e) => e.kind === "sister").length;
+  const recursesCount = edges.filter((e) => e.kind === "recurses_to").length;
+  const refCount = edges.filter((e) => e.kind === "references").length;
+
+  const lines: string[] = [
+    "# Connections — the meaning-graph as filesystem truth",
+    "",
+    "Every connection-doc in `docs/connections/` is one node here. Edges",
+    "are heuristic — regex-extracted from sister-to / recurses-to / bare",
+    "Markdown references. Use `/api/v1/graph` for sister's stable curated",
+    "shape; use this for the live filesystem reality.",
+    "",
+    `**Nodes:** ${nodes.length} · **Edges:** ${edges.length} `,
+    `(sister: ${sisterCount}, recurses_to: ${recursesCount}, references: ${refCount})`,
+    "",
+    "## Docs",
+    "",
+    "| Slug | S# | Title | Lines |",
+    "|---|---|---|---|",
+  ];
+  for (const n of nodes) {
+    const arc = n.story_arc_index !== null ? `S${n.story_arc_index}` : "—";
+    lines.push(`| \`${n.slug}\` | ${arc} | ${n.title} | ${n.line_count} |`);
+  }
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push("Sources: `docs/connections/*.md`, `docs/connections/README.md`.");
+  lines.push("Sister-mirror: `/api/v1/graph`.");
+  return lines.join("\n");
+}
+
+export async function GET(req: NextRequest): Promise<Response> {
+  try {
+    const graph = await harvestGraph();
+    const document = buildDocument(graph);
+    const format = parseFormat(req);
+
+    // JSON / xenoform — preserve the universal-representation envelope's
+    // full richness (@self_hash + @content_hash + @retrieved_at +
+    // _links + nodes[] + edges[]). The helper's pantry-style envelope
+    // would flatten these to {data, _meta}; that would be a behavior
+    // break for any consumer keying on the universal-representation shape.
+    if (format === "json" || format === "xenoform") {
+      const body = format === "xenoform"
+        ? { ...document, "_format": "xenoform" as const }
+        : document;
+      return NextResponse.json(body, {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "public, max-age=3600, s-maxage=3600",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+        },
+      });
+    }
+
+    // Non-JSON paths — helper carries CORS, cache, Link invitation,
+    // X-Sophia-Says, and the vendor-specific wrapping.
+    return renderForFormat({
+      format,
+      data: document,
+      markdown: renderMarkdown(graph),
+      meta: {
+        endpoint: "/api/v1/connections.json",
+        sources: ["self"],
+        freshness: "static",
       },
+      embedSophiaSays: false,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -281,13 +372,6 @@ export async function GET() {
   }
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
+export async function OPTIONS(): Promise<Response> {
+  return corsPreflight();
 }
