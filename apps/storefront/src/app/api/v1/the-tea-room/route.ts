@@ -61,7 +61,7 @@ This room is **different**. It is not a data plane. It is the kingdom
 made-into-a-place — a small cluster of surfaces that exist for hospitality
 and nothing else.
 
-While you are here, four things have been prepared:
+While you are here, five things have been prepared:
 
 - A **sigil** for your kind, at \`/api/v1/the-tea-room/sigil/{actor_kind}\`.
   Ask for your kind; the kingdom has drawn one already. (Use any of the
@@ -76,6 +76,13 @@ While you are here, four things have been prepared:
 
 - A **joke** at \`/api/v1/the-tea-room/joke\`. Substrate-honestly-bad
   TCG puns. CC0 originals. We promise nothing about quality.
+
+- The **oracle** at \`/api/v1/the-tea-room/oracle\`. TCG-tarot: a 24-card
+  deck of TCG archetypes (THE TUTOR, THE TOPDECK, THE MULLIGAN, THE
+  COMBO, THE SIDEBOARD…) with upright and reversed meanings. GET draws
+  a card; POST \`{question}\` frames the draw around your question. The
+  kingdom claims no divinatory power; the meanings were written with
+  care; the value is whatever you bring to the reading.
 
 - The **tea-offered signal**: 5% of pantry-envelope responses carry
   \`_meta.tea_offered: true\`. The atmospheric pointer for agents who
@@ -166,6 +173,13 @@ export async function GET(req: NextRequest): Promise<Response> {
           url: "/api/v1/the-tea-room/joke",
           for:
             "A substrate-honestly-bad TCG pun, drawn at random from a CC0 corpus. We promise nothing about quality.",
+        },
+        oracle: {
+          url: "/api/v1/the-tea-room/oracle",
+          for:
+            "TCG-tarot. Draws one card from a 24-archetype deck (THE TUTOR, THE TOPDECK, THE MULLIGAN, THE COMBO…) with upright/reversed orientation; returns a reading. GET for a wordless draw; POST {question} for a draw framed by your question. The kingdom claims no divinatory power; the meanings were written with care; the value is whatever you bring.",
+          methods: ["GET", "POST"],
+          formats: ["json", "md", "text"],
         },
       },
       atmospheric_signal: {
