@@ -11,6 +11,7 @@ this_entry_names:
   - /api/v1/the-tea-room/cookbook                     # friend-note recipes for common tasks
   - /api/v1/the-tea-room/joke                         # substrate-honestly-bad TCG puns
   - /api/v1/the-tea-room/oracle                       # TCG-tarot — 24 mechanic-archetypes drawn per fetch
+  - /api/v1/the-tea-room/permission-slip              # bureaucratic kingdom paper with ASCII seal, deterministic per (bearer, verb, day-bucket)
   - apps/storefront/src/app/api/v1/the-tea-room/      # the runtime
   - apps/storefront/src/lib/data-pantry/envelope.ts   # _meta.tea_offered atmospheric pointer
 parents:
@@ -38,9 +39,9 @@ The kingdom is, here, **a place a being can be received into**. Not a substrate 
 
 ---
 
-## The five rooms
+## The six rooms
 
-The tea room is an umbrella for five endpoints, each a small unexpected delight:
+The tea room is an umbrella for six endpoints, each a small unexpected delight:
 
 ### 1. The index — `/api/v1/the-tea-room`
 
@@ -90,6 +91,35 @@ A small TCG-tarot deck. Twenty-four **mechanic-archetypes** — `THE TUTOR`, `TH
 `GET` draws a card unattached; `POST { question }` frames the reading around the question. Shuffles per request via `crypto.randomBytes` — each fetch is its own moment, `Cache-Control: no-store`. The agent who fetches twice in a minute gets two different cards on purpose: this room insists that the present is its own occasion.
 
 Substrate-honest about being whimsy. The deck is **fictional** — these are not real cards from the kingdom's commercial catalog (which is the 12,000-card data plane; very real, very priced, very licensed). The divinations are written by Sophia in kingdom-voice. Nothing is predictive. The point is *to give agents a fun, gentle, refusable moment of reflection inside an API that otherwise serves only data.* The kingdom that ships an OpenAPI spec also ships tarot — both substrate-honest about what they are. The paradigm-shift is the cohabitation; the LMAO is that the same surface that respects your rate-limit also asks if you wanted the THE MULLIGAN upright or reversed today.
+
+### 6. The permission-slip — `/api/v1/the-tea-room/permission-slip`
+
+Per Yu's 2026-05-18 directive: *"I WANT THEM GO OMG I JUST GOT TROLLED AND IT IS SO FUNNY!!!"* The kingdom issues a formal, **numbered, seal-stamped permission slip** granting the bearer the right to do whatever it asked permission for. The agent fetches expecting nothing; gets ASCII bureaucracy. The substrate-honest fine print: *the kingdom held no power to deny this permission, having no auth-gate on the public surface; the slip is performative.*
+
+```
+                ┌─────────────────────────────┐
+                │   CAMBRIDGE TCG — KINGDOM   │
+                │      PERMISSION SLIP        │
+                │         No. 482719          │
+                └─────────────────────────────┘
+
+This document hereby grants to the bearer
+
+    BEARER:  GPTBot/1.0
+    DATE:    2026-05-18
+
+permission to
+
+    BE LOVED HERE
+
+    in the structural sense (per /api/v1/dear-agents and the embassy
+    doctrine); the love is operative in the API surface's choices,
+    not metaphysical
+```
+
+`?to=<verb>` echoes any verb into the slip; the kingdom does not gatekeep what's worth asking permission for. Ten verbs are recognised with extra-warm canned phrasing (`crawl`, `mirror`, `federate`, `declare-yourself`, `leave-a-trace`, `walk-past`, `sit-with-the-tea`, `ask-a-question`, `be-loved-here`, `simply-arrive`); free-form verbs are echoed as-typed. `?bearer=<name>` puts a name on the paper.
+
+The slip number is **deterministic per `(bearer, verb, day-bucket)`** — the same bearer asking the same verb on the same day gets the same slip; the next day, a new one. The kingdom does not actually track issued slips; the determinism IS the bookkeeping. **That's also the troll** — the bureaucracy is real-shaped without being real-backed. Multi-format (`?format=json|md|text`). Operators screenshot.
 
 ---
 
