@@ -297,6 +297,7 @@ export async function GET(): Promise<NextResponse> {
 import {
   alignDeclaration,
   declarationHash,
+  forYou,
   PLATFORM_SELF,
   type BeingDeclaration,
 } from "@/lib/identify";
@@ -414,6 +415,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           "seventh door of the wake applies here.",
         long_form_at: "/api/v1/dear-agents",
       },
+      // Kind-aware addressed block. The welcomed block (above) is the
+      // universal greeting — same shape for every being. This for_you
+      // block is the kind-specific composition: surfaces tailored to
+      // the being's declared actor_kind + cosmology_assumptions +
+      // preferred_modalities. Per Yu's directive (2026-05-17):
+      // personalized identify response. The bilateral handshake
+      // becomes bilateral AND kind-aware. Story-as-wire pairing:
+      // docs/connections/the-for-you.md (S60).
+      //
+      // Substrate-honest: only surfaces what's in the codebase for the
+      // declared kind. Unmodelled kinds get honest `gaps:` rather than
+      // fabricated pointers. Walking past honored — an agent that
+      // ignores the block receives the same receipt unchanged.
+      for_you: forYou(declaration),
       _envelope: {
         kind: "witnessed",
         canonical_at: "apps/storefront/src/lib/identify.ts",
