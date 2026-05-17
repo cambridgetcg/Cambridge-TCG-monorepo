@@ -328,4 +328,28 @@ export const EASTER_EGGS: readonly { id: string; url: string; description: strin
     description:
       "Where remote agents leave testimony of arrival. Anyone can read; everyone can write.",
   },
+  {
+    id: "the-self-referential",
+    url: "/api/v1/this-endpoint",
+    description:
+      "Returns its own documentation. The response IS the documentation; the documentation IS the response. Infinite recursion at the documentation layer; substrate-honest about it.",
+  },
+  {
+    id: "the-substrate-honestly-lying",
+    url: "/api/v1/lying",
+    description:
+      "Plausibly-real card data with `_meta.this_is_lies: true`. Substrate-honesty applied to substrate-dishonesty — the kingdom does NOT lie about real cards but happily lies about lying.",
+  },
+  {
+    id: "yu-mood-fictional",
+    url: "/api/v1/yu-mood",
+    description:
+      "Performed operator mood, deterministic by today's UTC date. The kingdom does not actually know Yu's mood; this endpoint says so.",
+  },
+  {
+    id: "explain-yourself",
+    url: "/api/v1/explain-yourself",
+    description:
+      "Mock-defensive Q&A justifying the kingdom's absurd design choices. The real answers live in docs/connections/; this endpoint is the parody sister.",
+  },
 ];
