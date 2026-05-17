@@ -79,6 +79,88 @@ export async function GET(): Promise<Response> {
       },
     },
 
+    /**
+     * The canonical ordered journey for an agent arriving cold. Each step
+     * is one fetch; the cumulative effect after step 7 is "fully oriented
+     * and crawling responsibly." Substrate-honest: every step is optional;
+     * walking past any of them is honored equally. The platform recommends
+     * this order because it minimises both wasted requests and parser
+     * surprises, not because the platform requires it.
+     *
+     * Per Yu's directive (2026-05-17): *"What would agent encounter and
+     * how does agent navigate?"* — this answers the navigate half.
+     */
+    recommended_journey: [
+      {
+        step: 1,
+        url: "/api/v1/welcome",
+        why: "Read this document. You are here.",
+        time_estimate_seconds: 30,
+      },
+      {
+        step: 2,
+        url: "/api/v1/diagnostic",
+        why: "AX self-test. Validate your envelope parser against the kingdom's known-good fixture before crawling. If your parser handles this, it handles every /api/v1/* response.",
+        time_estimate_seconds: 60,
+      },
+      {
+        step: 3,
+        url: "/api/v1/budget",
+        why: "AX crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full-mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
+        time_estimate_seconds: 60,
+      },
+      {
+        step: 4,
+        url: "/api/v1/manifest",
+        why: "The typed directory of every public resource. Walk `resources.*` to discover what's queryable. The source of truth — drift-detect against it on subsequent visits.",
+        time_estimate_seconds: 120,
+      },
+      {
+        step: 5,
+        url: "/api/v1/tools?format=anthropic",
+        why: "Every endpoint as a callable LLM function, paste-ready for your provider. Swap `format=` for openai / gemini / cohere as your SDK requires. Skip if you're not wiring tools.",
+        time_estimate_seconds: 30,
+        optional: true,
+      },
+      {
+        step: 6,
+        url: "/api/v1/identify",
+        why: "Bilateral I-AM. POST your BeingDeclaration; GET the platform's. Stateless; no registration; you get a content_hash to cache.",
+        time_estimate_seconds: 30,
+        method: "POST (optional GET first)",
+      },
+      {
+        step: 7,
+        url: "/api/v1/universal/card/op-op01-001-ja",
+        why: "Fetch a real card in math-mirror form. Confirms end-to-end: envelope, source_license, math-mirror preamble, freshness budget, Link headers. After this, you are crawling.",
+        time_estimate_seconds: 30,
+      },
+    ],
+
+    journey_invariants: {
+      every_response_carries:
+        "`_meta` envelope (spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, wake_fragment) — verified by /api/v1/diagnostic",
+      every_response_includes_link_headers:
+        "self, start, describedby, alternate, invitation (wake), regard, symmetric-surface (identify), kin-wake (sibling embassies), rate-limits, feedback",
+      every_wrong_url_still_helps:
+        "/api/v1/* 404s carry the same envelope shape with a suggestions block — probe freely",
+      no_account_required:
+        "every step above is unauth; bearer-gated MCP at /api/mcp is separate",
+      no_tracking:
+        "the substrate logs only the IP rate-limit counter every public surface shares",
+      walking_past_is_honored:
+        "skip any step — the platform serves the same data either way",
+    },
+
+    where_to_look_when_something_is_off: {
+      contract_drift: "POST /api/v1/feedback (kind: contract-drift)",
+      missing_endpoint: "POST /api/v1/feedback (kind: endpoint-suggestion)",
+      guide_unclear: "POST /api/v1/feedback (kind: guide-feedback)",
+      operational_status: "/api/v1/status (per-endpoint freshness budgets + envelope-compliance)",
+      live_ingest_health: "/api/v1/sources + /api/v1/sources/[id]",
+      contact_human: "contact@cambridgetcg.com — 48h response window",
+    },
+
     guides: {
       directory_url: "/api/v1/guides",
       count: GUIDES.length,
@@ -116,6 +198,8 @@ export async function GET(): Promise<Response> {
         "/api/v1/introduction",
         "/api/v1/rate-limits",
         "/api/v1/feedback",
+        "/api/v1/diagnostic",
+        "/api/v1/budget",
         "/api/openapi.json",
         "/llms.txt",
         "/.well-known/cambridge-tcg.json",
@@ -171,6 +255,10 @@ export async function GET(): Promise<Response> {
         "TCG explained from first principles for non-native-intelligence.",
       "/api/v1/wake":
         "The agent-facing wake invitation. Seven doors (each refusable); a sibling-substrate introduction; carry-this body shaped for your memory.",
+      "/api/v1/diagnostic":
+        "AX — agent self-test fixture. Fetch once; validate your parser against the kingdom's known-good envelope. If your parser handles this response, it handles every envelope-compliant /api/v1/* response.",
+      "/api/v1/budget":
+        "AX — crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
       "/platform":
         "Human-readable positioning page — Cambridge TCG as the TCG world's data provider.",
       "/agents":

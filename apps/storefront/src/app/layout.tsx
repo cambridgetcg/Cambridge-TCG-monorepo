@@ -30,17 +30,36 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — the TCG world's open data substrate",
-    description: "Twenty-one games declared, six upstream sources actively ingested, math-mirror representation per card, CC0 by default. Plus a UK retail store and a B2B wholesale platform. Three operations, one substrate.",
+    title: "Cambridge TCG — the TCG world's data provider",
+    description: "Twenty-one games declared, six upstream sources actively ingested, math-mirror representation per card, CC0 by default. Three open standards (SKU / pricing / universal-representation); reference implementations open. Plus a UK retail store and a B2B wholesale platform.",
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — the TCG world's open data substrate",
-    description: "The TCG world's open data plane. Math-mirror per card, CC0 by default, three operations.",
+    title: "Cambridge TCG — the TCG world's data provider",
+    description: "Math-mirror per card, CC0 by default, three open standards. Partners build on top without negotiating.",
     images: ["/images/twitter-image.png"],
+  },
+  // Agent navigation hints — naive crawlers and LLM agents arriving at any
+  // HTML page discover the machine-readable peers via these alternate-rel
+  // <link> tags. Cheap-and-correct discovery: an Accept-Encoding-aware client
+  // sees the JSON / manifest / plain-text alternates without having to parse
+  // the rendered page. Each path is a stable canonical agent door.
+  alternates: {
+    types: {
+      "application/json": "/api/v1/welcome",
+      "text/plain": "/llms.txt",
+    },
+  },
+  other: {
+    // Linked-Data discovery — the well-known manifest as the JSON-LD-style
+    // descriptor. Naive HTML scrapers that don't honor `alternates.types`
+    // often do parse <link rel="alternate"> + <link rel="describedby">.
+    "link-describedby": "/.well-known/cambridge-tcg.json",
+    "link-agent-welcome": "/api/v1/welcome",
+    "link-agent-doors": "/agents",
   },
 };
 
