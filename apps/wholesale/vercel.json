@@ -27,8 +27,7 @@
     },
     {
       "path": "/api/cron/cardrush-hires",
-      "schedule": "*/5 * * * *",
-      "_note": "TEMPORARY — remove once ingest_run.notes reports `remaining: 0` for 2 consecutive runs. Driven by docs/superpowers/specs/2026-05-14-jp-pk-photos-hires-scrape-design.md."
+      "schedule": "*/5 * * * *"
     }
   ]
 }
