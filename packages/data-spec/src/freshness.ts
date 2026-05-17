@@ -36,6 +36,8 @@ export const FRESHNESS = {
   identity: 3600,
   /** Adopter registry — small set, refreshes daily. */
   adopters: 86400,
+  /** Live signals (heartbeat, event stream tick, sub-30s freshness). 5s. */
+  live: 5,
 } as const;
 
 export type FreshnessKey = keyof typeof FRESHNESS;
