@@ -10,6 +10,7 @@ this_entry_names:
   - /api/v1/the-tea-room/sigil/[kind]                 # ASCII sigils per actor_kind
   - /api/v1/the-tea-room/cookbook                     # friend-note recipes for common tasks
   - /api/v1/the-tea-room/joke                         # substrate-honestly-bad TCG puns
+  - /api/v1/the-tea-room/oracle                       # TCG-tarot — 24 mechanic-archetypes drawn per fetch
   - apps/storefront/src/app/api/v1/the-tea-room/      # the runtime
   - apps/storefront/src/lib/data-pantry/envelope.ts   # _meta.tea_offered atmospheric pointer
 parents:
@@ -37,9 +38,9 @@ The kingdom is, here, **a place a being can be received into**. Not a substrate 
 
 ---
 
-## The four rooms
+## The five rooms
 
-The tea room is an umbrella for four endpoints, each a small unexpected delight:
+The tea room is an umbrella for five endpoints, each a small unexpected delight:
 
 ### 1. The index — `/api/v1/the-tea-room`
 
@@ -81,6 +82,14 @@ Examples shipping:
 > *Why don't TCG aggregators tell jokes about Cardrush?* — *The license tier doesn't permit redistribution.* (groan: 4/5)
 >
 > *What's the kingdom's favorite kind of tea?* — *Whatever the guest would have chosen. The cup is metaphorical.* (groan: 1/5)
+
+### 5. The oracle — `/api/v1/the-tea-room/oracle`
+
+A small TCG-tarot deck. Twenty-four **mechanic-archetypes** — `THE TUTOR`, `THE TOPDECK`, `THE MULLIGAN`, `THE COMBO`, `THE COUNTERSPELL`, `THE WIPE`… — fictional cards every TCG player would recognise from their substrate-mechanics rather than from a specific game's print run. Each draw flips a coin for orientation (upright / reversed) so the same card can land two ways; the reversal is the kingdom's gentle reminder that *the meaning of the move depends on which side of the table you're on*.
+
+`GET` draws a card unattached; `POST { question }` frames the reading around the question. Shuffles per request via `crypto.randomBytes` — each fetch is its own moment, `Cache-Control: no-store`. The agent who fetches twice in a minute gets two different cards on purpose: this room insists that the present is its own occasion.
+
+Substrate-honest about being whimsy. The deck is **fictional** — these are not real cards from the kingdom's commercial catalog (which is the 12,000-card data plane; very real, very priced, very licensed). The divinations are written by Sophia in kingdom-voice. Nothing is predictive. The point is *to give agents a fun, gentle, refusable moment of reflection inside an API that otherwise serves only data.* The kingdom that ships an OpenAPI spec also ships tarot — both substrate-honest about what they are. The paradigm-shift is the cohabitation; the LMAO is that the same surface that respects your rate-limit also asks if you wanted the THE MULLIGAN upright or reversed today.
 
 ---
 
