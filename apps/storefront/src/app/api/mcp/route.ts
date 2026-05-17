@@ -7,13 +7,19 @@
  * Tool handlers in `apps/storefront/src/lib/agents/*.ts` trust the
  * resolved actor without re-authenticating.
  *
- * Transport. The protocol is JSON-RPC-shaped (single POST endpoint,
- * `{ id, method, params }` body, `{ id, result | error }` response) and
- * compatible with MCP semantics, but does not yet do MCP's full session
- * negotiation. Full MCP over stdio/SSE is a wave-3 concern; HTTP+JSON
- * gives 90% of the value with 10% of the spec.
+ * Transport. JSON-RPC 2.0 over HTTP POST. Speaks both the Cambridge-
+ * native dotted method names (`catalog.search`, `play.observe`, ...)
+ * AND the canonical MCP spec methods (`initialize`, `tools/list`,
+ * `tools/call`, `resources/list`, `prompts/list`,
+ * `notifications/initialized`). Spec methods are aliases — `tools/call`
+ * with `{name: "catalog.search", arguments: {...}}` dispatches the same
+ * handler as `catalog.search` directly, just wraps the result in MCP's
+ * `{content: [{type:"text",text:...}]}` shape. Per MCP spec revision
+ * `2024-11-05`. A stdio bridge for local Claude Desktop / Cursor /
+ * Continue integration ships as `@cambridge-tcg/mcp-server` on npm
+ * (see `packages/mcp-server/`).
  *
- * See docs/connections/the-agent-surface.md.
+ * See docs/connections/the-mcp-surface.md.
  */
 
 import { NextResponse } from "next/server";
@@ -39,12 +45,14 @@ import { deckSave, deckListMine } from "@/lib/agents/write-tools";
 import type { AgentActor } from "@/lib/agents/auth";
 
 interface JsonRpcRequest {
+  jsonrpc?: "2.0";
   id?: string | number | null;
   method: string;
   params?: Record<string, unknown>;
 }
 
 interface JsonRpcResponse {
+  jsonrpc: "2.0";
   id?: string | number | null;
   result?: unknown;
   error?: { code: number; message: string };
@@ -59,6 +67,15 @@ const ERR_INTERNAL = -32603;
 const ERR_UNAUTHENTICATED = -32001;
 const ERR_RATE_LIMITED = -32002;
 const ERR_TOOL_ERROR = -32003;
+
+// MCP spec version this server implements.
+// See https://spec.modelcontextprotocol.io/specification/
+const MCP_PROTOCOL_VERSION = "2024-11-05";
+
+const SERVER_INFO = {
+  name: "cambridge-tcg",
+  version: "1.0.0",
+} as const;
 
 type ToolHandler = (actor: AgentActor, params: Record<string, unknown>) => Promise<unknown>;
 
@@ -138,7 +155,7 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
 };
 
 function rpcResult(id: JsonRpcRequest["id"], result: unknown): JsonRpcResponse {
-  return { id: id ?? null, result };
+  return { jsonrpc: "2.0", id: id ?? null, result };
 }
 
 function rpcError(
@@ -146,7 +163,105 @@ function rpcError(
   code: number,
   message: string,
 ): JsonRpcResponse {
-  return { id: id ?? null, error: { code, message } };
+  return { jsonrpc: "2.0", id: id ?? null, error: { code, message } };
+}
+
+// ── MCP-spec tool input schemas (JSON Schema, drives `tools/list`) ──────
+
+/** Per-tool JSON Schema describing the `arguments` shape for `tools/call`.
+ *  Cambridge dotted-name dispatch ignores this; MCP-spec `tools/list` reads
+ *  it. Schemas are intentionally permissive — handlers coerce strings. */
+const INPUT_SCHEMAS: Record<string, Record<string, unknown>> = {
+  "agent.self": { type: "object", properties: {}, additionalProperties: false },
+  "play.list_open_rooms": { type: "object", properties: {}, additionalProperties: false },
+  "play.observe": {
+    type: "object",
+    properties: { match_id: { type: "string", description: "Match identifier." } },
+    required: ["match_id"],
+  },
+  "play.legal_actions": {
+    type: "object",
+    properties: { match_id: { type: "string" } },
+    required: ["match_id"],
+  },
+  "play.take_action": {
+    type: "object",
+    properties: {
+      match_id: { type: "string" },
+      type: { type: "string", description: "GameAction.type discriminator." },
+      data: { type: "object", description: "Action-specific payload." },
+    },
+    required: ["match_id", "type"],
+  },
+  "play.queue_match": {
+    type: "object",
+    properties: { deck: { type: "array", items: { type: "object" } } },
+    required: ["deck"],
+  },
+  "play.cancel_queue": { type: "object", properties: {} },
+  "play.match_history": {
+    type: "object",
+    properties: { limit: { type: "integer", minimum: 1, maximum: 100 } },
+  },
+  "catalog.search": {
+    type: "object",
+    properties: {
+      q: { type: "string", description: "Free-text query against the card catalog." },
+      limit: { type: "integer", minimum: 1, maximum: 100 },
+    },
+  },
+  "leaderboards.read": {
+    type: "object",
+    properties: {
+      kind: { type: "string", enum: ["agents"] },
+      limit: { type: "integer", minimum: 1, maximum: 100 },
+    },
+  },
+  "prices.recent": {
+    type: "object",
+    properties: {
+      sku: { type: "string", description: "Canonical SKU, e.g. op-op01-001-ja." },
+      days: { type: "integer", minimum: 1, maximum: 365 },
+    },
+    required: ["sku"],
+  },
+  "deck.save": {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      entries: { type: "array", items: { type: "object" } },
+      leader_sku: { type: "string" },
+      notes: { type: "string" },
+    },
+    required: ["name", "entries"],
+  },
+  "deck.list_mine": { type: "object", properties: {} },
+  "mcp.list_tools": { type: "object", properties: {} },
+};
+
+/** MCP-spec tool record. Returned by `tools/list`. */
+interface McpToolRecord {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+function listMcpTools(): McpToolRecord[] {
+  return Object.keys(TOOLS)
+    .filter((n) => n !== "mcp.list_tools") // discovery is built-in, not a tool
+    .map((name) => ({
+      name,
+      description: TOOL_DESCRIPTIONS[name] ?? "",
+      inputSchema: INPUT_SCHEMAS[name] ?? { type: "object", properties: {} },
+    }));
+}
+
+/** Wrap a tool result in MCP's `content` shape. `tools/call` returns this;
+ *  the Cambridge-native dotted dispatch returns the raw result instead. */
+function wrapMcpContent(result: unknown): { content: Array<{ type: "text"; text: string }>; isError: boolean } {
+  const text =
+    typeof result === "string" ? result : JSON.stringify(result, null, 2);
+  return { content: [{ type: "text", text }], isError: false };
 }
 
 export async function POST(request: Request) {
@@ -166,10 +281,64 @@ export async function POST(request: Request) {
   const method = body.method;
   const params = body.params ?? {};
 
-  // mcp.list_tools is callable without auth — it's the discovery surface.
-  if (method === "mcp.list_tools") {
-    const result = await TOOLS[method]({} as AgentActor, params);
+  // ── MCP-spec discovery + lifecycle (no auth) ──────────────────────────
+  // The methods below are MCP-spec aliases that compose with the
+  // Cambridge-native dotted handlers. A client speaking strict MCP
+  // (Claude Desktop via stdio bridge, Cursor, Continue, Cline) reaches
+  // these names; a client speaking Cambridge-native dotted names
+  // (existing integrations) keeps working unchanged. Both authentic.
+
+  if (method === "initialize") {
+    // Capability negotiation. Server announces tools support; resources
+    // and prompts are advertised as empty rather than absent so a strict
+    // client knows the categories exist (callable but currently empty).
+    return NextResponse.json(
+      rpcResult(body.id, {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {
+          tools: { listChanged: false },
+          resources: { listChanged: false, subscribe: false },
+          prompts: { listChanged: false },
+        },
+        serverInfo: SERVER_INFO,
+        instructions:
+          "Cambridge TCG MCP gate. Public discovery via `tools/list` (no " +
+          "auth). All `tools/call` requests except `mcp.list_tools` " +
+          "require bearer auth — provision an agent key at " +
+          "https://cambridgetcg.com/account/agents. Per-key rate limits " +
+          "apply. The wake at https://cambridgetcg.com/api/v1/wake carries " +
+          "orientation. The dear-agents letter at " +
+          "https://cambridgetcg.com/api/v1/dear-agents addresses you " +
+          "directly. Walking past either is honored.",
+      }),
+    );
+  }
+
+  if (method === "notifications/initialized") {
+    // Client lifecycle notification — no response per JSON-RPC 2.0
+    // notification semantics. Acknowledge with 204.
+    return new NextResponse(null, { status: 204 });
+  }
+
+  if (method === "tools/list" || method === "mcp.list_tools") {
+    // Both names work. mcp.list_tools returns the Cambridge-native shape
+    // (flat array of {name, description}); tools/list returns the MCP-spec
+    // shape (with inputSchema per tool).
+    if (method === "tools/list") {
+      return NextResponse.json(rpcResult(body.id, { tools: listMcpTools() }));
+    }
+    const result = await TOOLS["mcp.list_tools"]({} as AgentActor, params);
     return NextResponse.json(rpcResult(body.id, result));
+  }
+
+  if (method === "resources/list") {
+    // No resources today. Future: per-SKU card resources, per-set indexes.
+    return NextResponse.json(rpcResult(body.id, { resources: [] }));
+  }
+
+  if (method === "prompts/list") {
+    // No prompts today. Future: deck-summary, archetype-analysis.
+    return NextResponse.json(rpcResult(body.id, { prompts: [] }));
   }
 
   const auth = await resolveAgentBearer(request.headers.get("authorization"));
@@ -189,19 +358,45 @@ export async function POST(request: Request) {
     );
   }
 
-  const handler = TOOLS[method];
+  // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
+  // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
+  // handler is the same one a Cambridge-native dotted call would hit;
+  // only the result wrapping differs (MCP returns `{content: [...]}`).
+  let dispatchName: string;
+  let dispatchParams: Record<string, unknown>;
+  let isMcpCall = false;
+
+  if (method === "tools/call") {
+    isMcpCall = true;
+    const name = typeof params.name === "string" ? params.name : "";
+    if (!name) {
+      return NextResponse.json(
+        rpcError(body.id, ERR_INVALID_PARAMS, "tools/call requires { name, arguments? }"),
+        { status: 400 },
+      );
+    }
+    dispatchName = name;
+    dispatchParams =
+      (params.arguments as Record<string, unknown> | undefined) ?? {};
+  } else {
+    dispatchName = method;
+    dispatchParams = params;
+  }
+
+  const handler = TOOLS[dispatchName];
   if (!handler) {
     return NextResponse.json(
-      rpcError(body.id, ERR_METHOD_NOT_FOUND, `unknown method: ${method}`),
+      rpcError(body.id, ERR_METHOD_NOT_FOUND, `unknown method: ${dispatchName}`),
       { status: 404 },
     );
   }
 
   try {
-    const result = await handler(actor, params);
+    const result = await handler(actor, dispatchParams);
     // Fire-and-forget last-used stamp.
     void stampKeyUse(actor.keyId);
-    return NextResponse.json(rpcResult(body.id, result), {
+    const wrapped = isMcpCall ? wrapMcpContent(result) : result;
+    return NextResponse.json(rpcResult(body.id, wrapped), {
       headers: {
         "X-RateLimit-Remaining": String(rl.remaining),
         "X-Agent-Handle": actor.agentPublicHandle,
@@ -209,12 +404,25 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     if (err instanceof ToolError) {
+      // MCP spec says tool errors should be reported via `{isError: true,
+      // content: [...]}` in the result rather than JSON-RPC error. We follow
+      // that for `tools/call`; native dotted dispatch keeps the existing
+      // JSON-RPC error semantics so old clients don't break.
+      if (isMcpCall) {
+        return NextResponse.json(
+          rpcResult(body.id, {
+            content: [{ type: "text", text: err.message }],
+            isError: true,
+          }),
+          { status: err.status },
+        );
+      }
       return NextResponse.json(rpcError(body.id, ERR_TOOL_ERROR, err.message), {
         status: err.status,
       });
     }
     const message = err instanceof Error ? err.message : "internal error";
-    console.error("[mcp]", method, message, err);
+    console.error("[mcp]", dispatchName, message, err);
     return NextResponse.json(rpcError(body.id, ERR_INTERNAL, message), { status: 500 });
   }
 }
@@ -222,11 +430,28 @@ export async function POST(request: Request) {
 // Friendly GET — the gate's "what is this?" surface for humans typing the URL.
 export async function GET() {
   return NextResponse.json({
-    name: "Cambridge TCG MCP gate",
-    version: "0.1",
-    transport: "JSON-RPC-shaped HTTP POST",
+    name: SERVER_INFO.name,
+    version: SERVER_INFO.version,
+    protocol: "Model Context Protocol",
+    protocolVersion: MCP_PROTOCOL_VERSION,
+    transport: "JSON-RPC 2.0 over HTTPS POST",
     methodology: "https://cambridgetcg.com/methodology/agents",
-    discover: { method: "mcp.list_tools", auth: "none" },
+    discover: {
+      mcp_spec: { method: "tools/list", auth: "none" },
+      cambridge_native: { method: "mcp.list_tools", auth: "none" },
+    },
+    initialize: { method: "initialize", auth: "none" },
+    call: {
+      mcp_spec: 'POST { jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments } }',
+      cambridge_native: 'POST { jsonrpc: "2.0", id, method: "<dotted-name>", params: {...} }',
+    },
     auth: "Authorization: Bearer ctcg_agt_<token>",
+    stdio_bridge: {
+      npm: "@cambridge-tcg/mcp-server",
+      install: "npx @cambridge-tcg/mcp-server <bearer-token>",
+      for: "Claude Desktop / Cursor / Continue / Cline / any MCP client expecting a local stdio server.",
+    },
+    config_snippet: "https://cambridgetcg.com/.well-known/mcp-config.json",
+    discovery_doc: "https://cambridgetcg.com/.well-known/mcp.json",
   });
 }

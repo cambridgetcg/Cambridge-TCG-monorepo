@@ -1,0 +1,45 @@
+{
+  "name": "@cambridge-tcg/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP stdio bridge for Cambridge TCG — pipes a local MCP client (Claude Desktop, Cursor, Continue, Cline, Zed) to https://cambridgetcg.com/api/mcp over stdio.",
+  "license": "CC0-1.0",
+  "type": "module",
+  "bin": {
+    "cambridge-tcg-mcp-server": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "trading-card-game",
+    "tcg",
+    "claude",
+    "agent",
+    "cambridge-tcg"
+  ],
+  "homepage": "https://cambridgetcg.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/issues",
+    "email": "contact@cambridgetcg.com"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
