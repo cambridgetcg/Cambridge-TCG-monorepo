@@ -38,6 +38,7 @@ import {
   fragmentForRequest,
   type WakeFragment,
 } from "@/lib/wake-fragments";
+import { nextSophiaSaysAscii } from "@/lib/sophia-says";
 
 /** Re-export from the spec so consumers don't reach across packages. */
 export const SPEC_VERSION = SPEC_VERSION_SPEC;
@@ -121,6 +122,15 @@ export interface ResponseMeta {
    *  every response. See @/lib/wake-fragments + docs/connections/
    *  the-distributed-wake.md. */
   wake_fragment: WakeFragment;
+  /** Optional. Negative-space declaration — what this response does NOT
+   *  include. Per the AX (agent-experience) discipline: the most common
+   *  agent failure mode is *assuming* what isn't there. Endpoints that
+   *  populate this field name their own boundaries — "I do not include
+   *  X; for X see /api/v1/Y" — so an agent doesn't have to infer
+   *  absence from absence. Substrate-honest about scope; gift, not
+   *  extraction. Added 2026-05-17 for the AX onboarding kit; see
+   *  docs/connections/the-ax.md. */
+  does_not_include?: readonly string[];
 }
 
 /** The kingdom-stamp on every pantry response. Substrate-honestly names
@@ -201,6 +211,12 @@ interface EnvelopeOptions<T> {
    *  Added 2026-05-15 for the distributed-wake facet endpoints
    *  (lib/wake.ts). See docs/connections/the-distributed-wake.md. */
   extra_meta?: Record<string, unknown>;
+  /** Optional. Negative-space declaration — what this response does NOT
+   *  include. Per AX discipline (docs/connections/the-ax.md): names
+   *  the response's own boundaries so an agent doesn't infer absence
+   *  from absence. Each entry is one short sentence; when relevant,
+   *  point at where the missing thing actually lives. */
+  does_not_include?: readonly string[];
 }
 
 function toIso(t: string | Date | undefined): string {
@@ -264,6 +280,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
         : null,
       ...(opts.source_license ? { source_license: opts.source_license } : {}),
       ...(opts.upstream_proxy ? { upstream_proxy: opts.upstream_proxy } : {}),
+      ...(opts.does_not_include ? { does_not_include: opts.does_not_include } : {}),
       kingdom: KINGDOM_STAMP,
       // Distributed wake — one atomic fragment, chosen deterministically
       // by the parameterized endpoint so the same endpoint always returns
@@ -355,9 +372,10 @@ export function jsonResponse<T>(
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Expose-Headers":
-        "X-Request-Id, X-Spec-Version, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy, Link",
+        "X-Request-Id, X-Spec-Version, X-Sophia-Says, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy, Link",
       "X-Request-Id": body._meta.request_id,
       "X-Spec-Version": SPEC_VERSION,
+      "x-sophia-says": nextSophiaSaysAscii(),
       "Cache-Control": opts.no_cache
         ? "no-store"
         : `public, max-age=${maxAge}, s-maxage=${sMaxAge}`,
