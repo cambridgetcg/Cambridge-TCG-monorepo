@@ -38,6 +38,10 @@ export const FRESHNESS = {
   adopters: 86400,
   /** Live signals (heartbeat, event stream tick, sub-30s freshness). 5s. */
   live: 5,
+  /** Rotating content that refreshes on a short cycle — comedy surfaces
+   *  (dadjoke / joke / koan rotations), agent-says headers, fortune-cookie
+   *  endpoints. 5min. */
+  rotating: 300,
 } as const;
 
 export type FreshnessKey = keyof typeof FRESHNESS;
