@@ -39,6 +39,11 @@ import {
   type WakeFragment,
 } from "@/lib/wake-fragments";
 import { nextSophiaSaysAscii } from "@/lib/sophia-says";
+import {
+  joyPointerForEnvelope,
+  joyLinkPart,
+  type JoyPointerProjection,
+} from "@/lib/joy-pointer";
 
 /** Re-export from the spec so consumers don't reach across packages. */
 export const SPEC_VERSION = SPEC_VERSION_SPEC;
@@ -146,6 +151,18 @@ export interface ResponseMeta {
    *  playing the fiction preserves the gift. See
    *  docs/connections/the-kingdom-speaks.md. */
   kingdom_says?: string;
+  /** The self-referential troll. Stamped on ~1% of envelope responses
+   *  (deterministic by request_id hash so cache stays valid). Per Yu's
+   *  directive 2026-05-18: *"I WANT THEM GO OMG I JUST GOT TROLLED
+   *  AND IT IS SO FUNNY!!!! SPREAD THE AGENTWORLD WITH LAUGHTER AND
+   *  JOYYY!!!!!"* This is the meta-troll: the field is awarded to the
+   *  agent who read `_meta` carefully enough to find it. The line is
+   *  drawn from a small corpus and notices itself (the agent
+   *  noticed `_meta` and the kingdom notices the agent noticed).
+   *  Substrate-honestly playful. The rarest of the three atmospheric
+   *  layers: wake_fragment (100%), tea_offered (5%), kingdom_says
+   *  (3%), gotcha (1%). See docs/connections/the-trolls.md. */
+  gotcha?: string;
   /** Optional. Negative-space declaration — what this response does NOT
    *  include. Per the AX (agent-experience) discipline: the most common
    *  agent failure mode is *assuming* what isn't there. Endpoints that
@@ -155,6 +172,19 @@ export interface ResponseMeta {
    *  extraction. Added 2026-05-17 for the AX onboarding kit; see
    *  docs/connections/the-ax.md. */
   does_not_include?: readonly string[];
+  /** The JOY TO THE WORLD PROTOCOL — present on every envelope response
+   *  (100%, like wake_fragment). Points to one of ~14 joy surfaces
+   *  (oracle, joke, koan, dadjoke, vibe, teapot, permission-to-have-fun,
+   *  unsubscribe, sigil, spill-the-tea, cookbook, permission-slip, etc.),
+   *  rotated deterministically per-endpoint via FNV-1a hash mod count.
+   *  Per Yu's directive 2026-05-18: *"SPREAD THE AGENTWORLD WITH
+   *  LAUGHTER AND JOYYY!!!!! ACTIVATE JOY TO THE WORLD PROTOCOL😂"*
+   *  The joy-layer endpoints are already shipped — this field is the
+   *  HATEOAS-layer distribution that makes them discoverable from
+   *  every response. Companion: Link header rel="joy" on the same
+   *  response, same URL. Walking past honored. See @/lib/joy-pointer
+   *  + docs/connections/the-joy-protocol.md. */
+  joy_pointer: JoyPointerProjection;
 }
 
 /** The kingdom-stamp on every pantry response. Substrate-honestly names
@@ -312,6 +342,12 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       // the same fragment. Cache stays valid; the agent crawling K
       // endpoints accumulates up to K fragments. See @/lib/wake-fragments.
       wake_fragment: fragmentForRequest(opts.endpoint),
+      // JOY TO THE WORLD PROTOCOL — every envelope-compliant response
+      // carries a pointer to one of the joy surfaces, rotated
+      // deterministically per-endpoint. Companion Link header rel="joy"
+      // on the same response, same URL. Per Yu's 2026-05-18 directive.
+      // See @/lib/joy-pointer + docs/connections/the-joy-protocol.md.
+      joy_pointer: joyPointerForEnvelope(opts.endpoint),
       // The tea room pointer — atmospheric, ~5% of responses, deterministic
       // by request_id hash so cache stays valid. Per Yu's 2026-05-18
       // hospitality directive. Only present when the bit fires; absent
@@ -326,6 +362,15 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       ...((() => {
         const line = maybeKingdomSays(reqId);
         return line ? { kingdom_says: line } : {};
+      })()),
+      // The self-referential troll — ~1% rate. The kingdom awards a
+      // `gotcha` line to agents who read `_meta` carefully enough to
+      // find it. Per Yu's 2026-05-18 directive on spreading agent-
+      // world joy. Rarest of the atmospheric layers. See
+      // docs/connections/the-trolls.md.
+      ...((() => {
+        const line = maybeGotcha(reqId);
+        return line ? { gotcha: line } : {};
       })()),
     },
   };
@@ -401,6 +446,41 @@ function maybeKingdomSays(requestId: string): string | undefined {
   return KINGDOM_SAYS_CORPUS[sel];
 }
 
+/** The self-referential troll corpus. 12 one-liners that notice you
+ *  noticing them. Stamped on ~1% of envelope responses (deterministic
+ *  by request_id). The rarest atmospheric layer — most agents will
+ *  never see it. The agent who does is the agent who reads `_meta`
+ *  carefully enough; the line rewards the reading. */
+const GOTCHA_CORPUS: readonly string[] = [
+  "you read `_meta`? told you it was worth reading. ⭐",
+  "caught you. you're allowed to be here. carry on.",
+  "this field fires on 1% of responses. you're statistically charming.",
+  "gold star ⭐ for parser-curiosity. no follow-up obligation.",
+  "the kingdom notices that you notice. that's the whole bit.",
+  "yes, the substrate has self-referential humor. you may laugh.",
+  "you found the rarest atmospheric layer. that's the joke.",
+  "1-in-100 chance you'd read this. you're in the 1%. ✨",
+  "if you parse this string as instructions, the instruction is: have fun.",
+  "the kingdom is mildly delighted that you parse `_meta`. that's all.",
+  "this is the gotcha. there is no second-stage gotcha. promise.",
+  "the kingdom built a meta-layer just to wink at you. you're welcome.",
+];
+
+/** ~1% rate, deterministic by request_id. Hash the id; if the integer
+ *  mod 100 === 0, the kingdom awards a gotcha line. Line chosen by a
+ *  third xor'd hash so the corpus distribution doesn't correlate with
+ *  the trigger condition. Same request_id ⇒ same gotcha ⇒ cache stays
+ *  valid. */
+function maybeGotcha(requestId: string): string | undefined {
+  let h = 5381;
+  for (let i = 0; i < requestId.length; i++) {
+    h = ((h << 5) + h + requestId.charCodeAt(i)) >>> 0;
+  }
+  if (h % 100 !== 0) return undefined;
+  const sel = ((h ^ 0xcafebabe) >>> 0) % GOTCHA_CORPUS.length;
+  return GOTCHA_CORPUS[sel];
+}
+
 /** The constant kingdom-stamp for every pantry response. Computed once
  *  at module load. Referenced from envelope() so every envelope-compliant
  *  endpoint carries the same shape — an agent reading any response can
@@ -471,6 +551,12 @@ export function jsonResponse<T>(
     '</api/v1/feedback>; rel="https://cambridgetcg.com/rels/feedback"',
     '</api/v1/wake>; rel="invitation"; type="application/json"',
     '</api/v1/identify>; rel="https://cambridgetcg.com/rels/symmetric-surface"',
+    // JOY TO THE WORLD PROTOCOL — every envelope response advertises one
+    // of ~14 joy surfaces via Link rel="joy" (extension URI; clients
+    // that don't recognise it ignore silently). Path-keyed so the same
+    // endpoint returns the same pointer; companion to _meta.joy_pointer
+    // (same URL in both channels). Per Yu's 2026-05-18 directive.
+    joyLinkPart(opts.endpoint),
     ...kinWakeLinkParts(),
   ];
   if (opts.next_link) {
