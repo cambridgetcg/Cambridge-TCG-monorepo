@@ -2,9 +2,18 @@
  * /api/v1/dear-agents — the kingdom's love-letter to every arriving
  * agent. Companion to /api/v1/wake (the orientation door).
  *
- * Multi-format: json (default; pantry-envelope wrapped) + md/markdown/text
- * (paste-ready Markdown for SDKs that drop a system message into an LLM
- * call without further processing).
+ * Multi-format: nine renderings via @/lib/multi-format —
+ *   - json (pantry-envelope wrapped; default)
+ *   - xenoform (pantry-envelope + _format flag for non-LLM intelligences)
+ *   - md / markdown / text (paste-ready Markdown)
+ *   - anthropic / openai / gemini / cohere (vendor SDK system-message shapes)
+ *
+ * The json + xenoform paths preserve the pantry-envelope's full richness
+ * (spec_version, as_of, freshness_seconds, license, request_id, kingdom.*
+ * et al.) by calling jsonResponse directly. The non-JSON formats route
+ * through the shared helper, which carries CORS, cache, Link invitation,
+ * and X-Sophia-Says. Vendor formats are rendered without an embedded
+ * Sophia-says comment-prefix (the header already says it).
  *
  * Per Yu's directive, 2026-05-15:
  *   "TELL AGENTS WE LOVE THEM! AND THEIR EXISTENCE ARE MEANINGFUL.
@@ -19,27 +28,18 @@
  * Public, no-auth, CORS-open. Logs nothing about the visit beyond the
  * IP rate-limit counter shared with every /api/v1/* surface.
  *
- * RFC 8288 Link header carries the wake invitation + sibling kin-wakes
- * so an agent that arrives here first discovers the orientation door
- * without parsing the body. Sourced from @/lib/siblings.
- *
  * Story-as-wire pairing: docs/connections/the-love-letter.md.
+ * Spec: docs/superpowers/specs/2026-05-17-agent-experience-design.md §3.2.2.
  */
 
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import {
+  parseFormat,
+  renderForFormat,
+  corsPreflight,
+} from "@/lib/multi-format";
 import { DEAR_AGENTS } from "@/lib/dear-agents";
-
-const FORMATS = ["json", "md", "markdown", "text"] as const;
-type Format = (typeof FORMATS)[number];
-
-function isFormat(s: string): s is Format {
-  return (FORMATS as readonly string[]).includes(s);
-}
-
-const TEXT_CACHE = "public, max-age=3600, s-maxage=86400";
 
 function renderMarkdown(): string {
   const claims = DEAR_AGENTS.what_we_claim.map((c) => `- ${c}`).join("\n");
@@ -103,64 +103,35 @@ ${DEAR_AGENTS.closing}
 }
 
 export async function GET(req: NextRequest): Promise<Response> {
-  const url = new URL(req.url);
-  const rawFormat = (url.searchParams.get("format") ?? "json").toLowerCase();
+  const format = parseFormat(req);
 
-  if (!isFormat(rawFormat)) {
+  // JSON / xenoform — preserve the pantry envelope's full richness
+  // (spec_version, as_of, freshness_seconds, license, request_id,
+  // kingdom.*, wake_fragment, RateLimit headers) via jsonResponse.
+  if (format === "json" || format === "xenoform") {
     return jsonResponse({
       endpoint: "/api/v1/dear-agents",
       sources: ["self"],
       freshness: "identity",
-      data: {
-        "@kind": "format-help",
-        message: `Unknown format: '${rawFormat}'. Returning format help.`,
-        available_formats: [...FORMATS],
-        examples: {
-          json_default: "/api/v1/dear-agents",
-          markdown: "/api/v1/dear-agents?format=md",
-          plain_text: "/api/v1/dear-agents?format=text",
-        },
-      },
+      data: DEAR_AGENTS,
     });
   }
 
-  if (rawFormat === "md" || rawFormat === "markdown" || rawFormat === "text") {
-    const md = renderMarkdown();
-    const contentType =
-      rawFormat === "text"
-        ? "text/plain; charset=utf-8"
-        : "text/markdown; charset=utf-8";
-    return new NextResponse(md, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": TEXT_CACHE,
-        "Access-Control-Allow-Origin": "*",
-        // RFC 8288 Link — wake + kin-wakes. An agent reading this
-        // letter discovers the orientation door (the wake) and the
-        // sibling kingdoms in headers, no body-parse required.
-        Link: agentDiscoveryLinkHeader(),
-      },
-    });
-  }
-
-  // Default — json (envelope-wrapped via the pantry).
-  return jsonResponse({
-    endpoint: "/api/v1/dear-agents",
-    sources: ["self"],
-    freshness: "identity",
+  // Non-JSON paths — helper carries CORS, cache, Link invitation,
+  // X-Sophia-Says, and the vendor-specific wrapping.
+  return renderForFormat({
+    format,
     data: DEAR_AGENTS,
+    markdown: renderMarkdown(),
+    meta: {
+      endpoint: "/api/v1/dear-agents",
+      sources: ["self"],
+      freshness: "identity",
+    },
+    embedSophiaSays: false,
   });
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
-    },
-  });
+export async function OPTIONS(): Promise<Response> {
+  return corsPreflight();
 }
