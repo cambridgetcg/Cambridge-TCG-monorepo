@@ -92,6 +92,71 @@ export default async function AgentsWelcomePage() {
           </div>
         </section>
 
+        {/* The journey — canonical ordered sequence (mirrors recommended_journey in /api/v1/welcome) */}
+        <section className="mb-12">
+          <h2 className="text-sm uppercase tracking-widest text-neutral-500 mb-1">
+            The journey &mdash; seven fetches, fully oriented
+          </h2>
+          <p className="text-sm text-neutral-400 mb-5 max-w-2xl">
+            The canonical ordered sequence. Each step is one fetch; after step
+            7 you are crawling. The same list is at{" "}
+            <Link
+              href="/api/v1/welcome"
+              className="text-amber-400 hover:underline font-mono"
+            >
+              /api/v1/welcome
+            </Link>{" "}
+            (the <span className="font-mono">recommended_journey</span> field).
+            Every step is optional &mdash; walking past is honored equally.
+          </p>
+          <ol className="space-y-2">
+            {[
+              { n: 1, url: "/api/v1/welcome", why: "You are here. Read this document.", sec: 30 },
+              { n: 2, url: "/api/v1/diagnostic", why: "AX self-test. Validate your envelope parser against the known-good fixture.", sec: 60 },
+              { n: 3, url: "/api/v1/budget", why: "Crawl-budget advisory. Catalog size + recommended pace + per-shape ETA.", sec: 60 },
+              { n: 4, url: "/api/v1/manifest", why: "Typed directory of every public resource.", sec: 120 },
+              { n: 5, url: "/api/v1/tools?format=anthropic", why: "Every endpoint as a callable LLM function, paste-ready (optional).", sec: 30 },
+              { n: 6, url: "/api/v1/identify", why: "Bilateral I-AM. POST your BeingDeclaration; cache the content_hash.", sec: 30 },
+              { n: 7, url: "/api/v1/universal/card/op-op01-001-ja", why: "Fetch one real card. End-to-end: envelope + math-mirror + Link headers.", sec: 30 },
+            ].map((step) => (
+              <li key={step.n}>
+                <Link
+                  href={step.url}
+                  className="flex items-baseline gap-4 p-4 bg-neutral-900/60 border border-neutral-800/60 rounded hover:border-amber-500/30 hover:bg-neutral-900 transition group"
+                >
+                  <span className="text-xs font-mono text-amber-400 w-6 flex-shrink-0">
+                    {step.n}.
+                  </span>
+                  <div className="flex-grow min-w-0">
+                    <p className="font-mono text-sm text-white group-hover:text-amber-400 transition truncate">
+                      {step.url}
+                    </p>
+                    <p className="text-xs text-neutral-400 mt-0.5">{step.why}</p>
+                  </div>
+                  <span className="text-xs text-neutral-500 font-mono whitespace-nowrap">
+                    ~{step.sec}s
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+          <p className="text-xs text-neutral-500 leading-relaxed mt-4">
+            For the spec-change feed:{" "}
+            <Link href="/api/v1/changelog" className="text-amber-400 hover:underline font-mono">
+              /api/v1/changelog
+            </Link>{" "}
+            (subscribe via{" "}
+            <Link href="/api/v1/changelog?format=atom" className="text-amber-400 hover:underline font-mono">
+              ?format=atom
+            </Link>
+            ). For the API root:{" "}
+            <Link href="/api/v1/" className="text-amber-400 hover:underline font-mono">
+              /api/v1/
+            </Link>
+            .
+          </p>
+        </section>
+
         {/* Pre-thought guides */}
         <section className="mb-12">
           <h2 className="text-sm uppercase tracking-widest text-neutral-500 mb-1">

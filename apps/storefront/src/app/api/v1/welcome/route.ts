@@ -158,7 +158,16 @@ export async function GET(): Promise<Response> {
       guide_unclear: "POST /api/v1/feedback (kind: guide-feedback)",
       operational_status: "/api/v1/status (per-endpoint freshness budgets + envelope-compliance)",
       live_ingest_health: "/api/v1/sources + /api/v1/sources/[id]",
+      ongoing_spec_changes: "/api/v1/changelog (json / atom / md) — subscribe-once for contract drift",
+      api_root_probe: "/api/v1/ — tiny index naming the orientation surfaces (good for agents probing the API root)",
       contact_human: "contact@cambridgetcg.com — 48h response window",
+    },
+
+    after_step_7: {
+      subscribe_to_spec_changes: "/api/v1/changelog?format=atom (or json with ?since=YYYY-MM-DD)",
+      probe_api_root: "/api/v1/ — tiny index if you arrived at the root by accident",
+      scale_up_responsibly: "/api/v1/budget (re-read when changing crawl shape)",
+      report_a_bug: "POST /api/v1/feedback — 48h response window",
     },
 
     guides: {
@@ -200,6 +209,7 @@ export async function GET(): Promise<Response> {
         "/api/v1/feedback",
         "/api/v1/diagnostic",
         "/api/v1/budget",
+        "/api/v1/changelog",
         "/api/openapi.json",
         "/llms.txt",
         "/.well-known/cambridge-tcg.json",
@@ -259,6 +269,8 @@ export async function GET(): Promise<Response> {
         "AX — agent self-test fixture. Fetch once; validate your parser against the kingdom's known-good envelope. If your parser handles this response, it handles every envelope-compliant /api/v1/* response.",
       "/api/v1/budget":
         "AX — crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
+      "/api/v1/changelog":
+        "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at /docs/connections/the-changelog.md.",
       "/platform":
         "Human-readable positioning page — Cambridge TCG as the TCG world's data provider.",
       "/agents":
