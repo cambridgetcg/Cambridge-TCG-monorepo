@@ -27,6 +27,7 @@ export type SourceId =
   | "scryfall"
   | "cardrush"
   | "tcgplayer"
+  | "tcgcollector"
   | "cardmarket"
   | "cardtrader"
   | "ebay"

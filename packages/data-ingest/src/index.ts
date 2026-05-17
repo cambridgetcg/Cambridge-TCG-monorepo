@@ -199,6 +199,25 @@ export {
   type TcgplayerWatchlistEntry,
 } from "./tcgplayer/index";
 export { cardmarket } from "./cardmarket/index";
+// kingdom: sitemap+JSON-LD discovery — first vendor TCGCollector.
+// Public sitemap-index → per-page Schema.org Product/Offer JSON-LD →
+// typed TcgCollectorProduct shape. Mirrors the cardrush discovery
+// pattern; when a second sitemap+JSON-LD vendor lands, the shared
+// parts can be extracted to a generic discovery/ module.
+// Doctrine: docs/connections/the-sitemap-discovery.md.
+export {
+  tcgcollector,
+  scrapeOne,
+  getOrCreateFetcher as getOrCreateTcgcollectorFetcher,
+  resetFetcher as resetTcgcollectorFetcher,
+  fetchSitemap as fetchTcgcollectorSitemap,
+  extractJsonLd,
+  normalizeProduct,
+  type TcgCollectorContext,
+  type TcgCollectorRaw,
+  type TcgCollectorProduct,
+  type SitemapFetchResult as TcgCollectorSitemapFetchResult,
+} from "./tcgcollector/index";
 export {
   ebay,
   normalizeEbay,

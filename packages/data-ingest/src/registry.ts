@@ -13,6 +13,7 @@ import { cardrush } from "./cardrush/index";
 import { pokemonTcgApi } from "./pokemon-tcg-api/index";
 import { ygoprodeck } from "./ygoprodeck/index";
 import { tcgplayer } from "./tcgplayer/index";
+import { tcgcollector } from "./tcgcollector/index";
 import { cardmarket } from "./cardmarket/index";
 import { ebay } from "./ebay/index";
 
@@ -35,6 +36,7 @@ export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
   "pokemon-tcg-api": pokemonTcgApi,  // shipped
   ygoprodeck,                // shipped
   tcgplayer,                 // partial — read+normalize shipped (kingdom-NNN); writer wires the watchlist
+  tcgcollector,              // partial — sitemap+JSON-LD discovery; wholesale cron wires the writer
   cardmarket,                // planned (stub)
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
   // ── unregistered (no module yet — slot reserved) ──

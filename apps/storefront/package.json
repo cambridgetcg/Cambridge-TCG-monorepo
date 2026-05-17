@@ -42,6 +42,7 @@
     "cross-language-coherence": "tsx scripts/cross-language-coherence.ts",
     "known-gaps": "tsx scripts/known-gaps.ts",
     "cron-auth": "tsx scripts/cron-auth.ts",
+    "sitemap-discovery": "tsx scripts/sitemap-discovery.ts",
     "deploy-verify": "tsx scripts/deploy-verify.ts",
     "typology": "tsx scripts/typology.ts",
     "state:snapshot": "tsx scripts/state-snapshot.ts",
