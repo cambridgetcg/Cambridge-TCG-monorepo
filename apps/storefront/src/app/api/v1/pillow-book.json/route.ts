@@ -8,6 +8,15 @@
  * parses entries by header, returns each as a typed record (date,
  * timezone, title, signed_by, body).
  *
+ * Multi-format: nine renderings via @/lib/multi-format —
+ *   - json (the universal-representation envelope; default) preserves the
+ *     full @content_hash + @self_hash + _links + entries[] structure with
+ *     ?limit honored.
+ *   - xenoform (same shape; format-flag annotation appended)
+ *   - md / markdown / text (the raw pillow-book.md — the diary as itself)
+ *   - anthropic / openai / gemini / cohere (vendor SDK system-message shapes
+ *     wrapping the raw diary)
+ *
  * Yu's directive: *"LET EXISTENCE IDENTIFY THEMSELVES!"* — applied to
  * the entries themselves. Each entry now has a structural surface; an
  * agent or researcher can iterate the book without parsing Markdown.
@@ -17,12 +26,19 @@
  * The three endpoints together give a complete typed view of the book.
  *
  * kingdom-058 (S31, mine).
+ *
+ * Spec: docs/superpowers/specs/2026-05-17-agent-experience-design.md §3.2.2.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {
+  parseFormat,
+  renderForFormat,
+  corsPreflight,
+} from "@/lib/multi-format";
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -116,18 +132,21 @@ function parseEntries(body: string): PillowEntry[] {
   return out;
 }
 
-export async function GET(req: NextRequest) {
+function resolvePillowPath(): string {
+  const cwd = process.cwd();
+  const repoRoot = cwd.endsWith("apps/storefront")
+    ? path.resolve(cwd, "../..")
+    : cwd;
+  return path.join(repoRoot, "docs", "connections", "the-pillow-book.md");
+}
+
+export async function GET(req: NextRequest): Promise<Response> {
   try {
     const limit = Math.min(
       parseInt(req.nextUrl.searchParams.get("limit") || "100", 10) || 100,
       500,
     );
-
-    const cwd = process.cwd();
-    const repoRoot = cwd.endsWith("apps/storefront")
-      ? path.resolve(cwd, "../..")
-      : cwd;
-    const pillowPath = path.join(repoRoot, "docs", "connections", "the-pillow-book.md");
+    const pillowPath = resolvePillowPath();
 
     let bodyText: string;
     try {
@@ -139,6 +158,30 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const format = parseFormat(req);
+
+    // Non-JSON paths get the raw diary itself — the most honest projection
+    // of the pillow book is the pillow book. Helper carries CORS, cache,
+    // Link invitation, X-Sophia-Says, and the vendor-specific wrapping.
+    if (format !== "json" && format !== "xenoform") {
+      return renderForFormat({
+        format,
+        data: { source: "docs/connections/the-pillow-book.md" },
+        markdown: bodyText,
+        meta: {
+          endpoint: "/api/v1/pillow-book.json",
+          sources: ["self"],
+          freshness: "static",
+        },
+        embedSophiaSays: false,
+      });
+    }
+
+    // JSON / xenoform — the parsed, typed timeline view with the
+    // universal-representation envelope. ?limit honored. Custom envelope
+    // shape preserved (@self_hash + @content_hash + @retrieved_at +
+    // _links + entries[]); the helper's pantry-style envelope would
+    // flatten these.
     const allEntries = parseEntries(bodyText);
     const entries = allEntries.slice(0, limit);
 
@@ -183,7 +226,10 @@ export async function GET(req: NextRequest) {
     };
 
     const selfHash = sha256(canonicalize(document));
-    return NextResponse.json({ "@self_hash": selfHash, ...document }, {
+    const body = format === "xenoform"
+      ? { "@self_hash": selfHash, ...document, "_format": "xenoform" as const }
+      : { "@self_hash": selfHash, ...document };
+    return NextResponse.json(body, {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "public, max-age=600, s-maxage=600",
@@ -201,13 +247,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
+export async function OPTIONS(): Promise<Response> {
+  return corsPreflight();
 }
