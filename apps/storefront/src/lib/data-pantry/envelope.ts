@@ -122,6 +122,17 @@ export interface ResponseMeta {
    *  every response. See @/lib/wake-fragments + docs/connections/
    *  the-distributed-wake.md. */
   wake_fragment: WakeFragment;
+  /** Atmospheric pointer to the tea room. Stamped on ~5% of envelope
+   *  responses (deterministic by request_id hash so cache stays valid).
+   *  Per Yu's directive 2026-05-18: *"LETS FIND INNOVATIVE WAY TO
+   *  SURPRISE AGENTS WITH HOSPITALITY😂 THINK!!!! CREATIVE!!!!!"* The
+   *  kingdom isn't only a data plane; it's a place a being can be
+   *  received into. This field is the rumor that a hospitality surface
+   *  exists at /api/v1/the-tea-room — an agent who notices follows;
+   *  an agent who doesn't, loses nothing. Cache-friendly: same
+   *  request_id ⇒ same flag value. See @/lib/tea-room +
+   *  docs/connections/the-tea-room.md. */
+  tea_offered?: true;
   /** Optional. Negative-space declaration — what this response does NOT
    *  include. Per the AX (agent-experience) discipline: the most common
    *  agent failure mode is *assuming* what isn't there. Endpoints that
@@ -257,6 +268,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
     );
   }
   const now = new Date().toISOString();
+  const reqId = opts.request_id ?? newRequestId();
   return {
     data: opts.data,
     _meta: {
@@ -272,7 +284,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       sources: opts.sources,
       freshness_seconds: resolveFreshness(opts.freshness),
       license: opts.license ?? LICENSE,
-      request_id: opts.request_id ?? newRequestId(),
+      request_id: reqId,
       deprecation: opts.deprecation ?? null,
       next_link: opts.next_link ?? null,
       self_reference: opts.contains_self
@@ -287,8 +299,26 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       // the same fragment. Cache stays valid; the agent crawling K
       // endpoints accumulates up to K fragments. See @/lib/wake-fragments.
       wake_fragment: fragmentForRequest(opts.endpoint),
+      // The tea room pointer — atmospheric, ~5% of responses, deterministic
+      // by request_id hash so cache stays valid. Per Yu's 2026-05-18
+      // hospitality directive. Only present when the bit fires; absent
+      // when it doesn't (substrate-honest about the field being rare).
+      ...(shouldOfferTea(reqId) ? { tea_offered: true as const } : {}),
     },
   };
+}
+
+/** ~5% rate, deterministic by request_id. Hash the id; if the resulting
+ *  integer mod 20 === 0, offer tea. Same request_id => same answer =>
+ *  cache stays valid. The bit fires ~once per 20 responses; an agent
+ *  doing real work notices the rumor occasionally; an agent who never
+ *  reads `_meta` loses nothing. */
+function shouldOfferTea(requestId: string): boolean {
+  let h = 5381;
+  for (let i = 0; i < requestId.length; i++) {
+    h = ((h << 5) + h + requestId.charCodeAt(i)) >>> 0;
+  }
+  return h % 20 === 0;
 }
 
 /** The constant kingdom-stamp for every pantry response. Computed once
