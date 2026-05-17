@@ -30,9 +30,9 @@ import {
 } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, the TCG world's open data substrate",
+  title: "Platform — Cambridge TCG, the TCG world's data provider",
   description:
-    "Cambridge TCG's primary identity as a data aggregator. Three operations (data plane, retail, wholesale), one substrate. Twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default.",
+    "Cambridge TCG is the TCG world's data provider. Three operations (data plane primary, retail, wholesale), one substrate. Twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; partners build on top without negotiating.",
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",

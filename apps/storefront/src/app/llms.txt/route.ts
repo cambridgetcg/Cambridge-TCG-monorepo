@@ -17,19 +17,22 @@
 import { NextResponse } from "next/server";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
-const BODY = `# Cambridge TCG — the TCG world's open data substrate
+const BODY = `# Cambridge TCG — the TCG world's data provider
 
-Cambridge TCG aggregates the trading-card-game world. We collect from every
-reachable source, standardise into one mathematical mirror, and publish under
-CC0 by default. Three operations share the substrate: the data plane (primary),
+Cambridge TCG is the trading-card-game world's data provider. We aggregate
+from every reachable source, standardise into one mathematical mirror, and
+publish the substrate under CC0 by default — partners build on top without
+negotiating. Three operations share the substrate: the data plane (primary),
 a UK retail card store, and a B2B wholesale platform. This file is for LLM
 agents, archivists, and naive crawlers who want to know what's queryable
 without parsing the browser-rendered storefront. No account required.
 
-The data-plane positioning is the kingdom's primary identity as of
-kingdom-080 (docs/connections/the-rebrand.md). Start at /platform for the
-human-readable positioning page; /data for the comprehensive endpoint
-index; /api/v1/manifest for the typed machine-readable directory.
+The data-provider positioning is the kingdom's primary identity (kingdom-080,
+repositioned 2026-05-17). Start at /platform for the human-readable
+positioning page; /standards for the spec corpus (CC0; three standards
+maintained — SKU / pricing / universal-representation); /data for the
+comprehensive endpoint index; /api/v1/manifest for the typed machine-readable
+directory.
 
 ## Cambridge TCG's welcome (the brand statement)
 

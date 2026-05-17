@@ -143,8 +143,9 @@ export interface DeclarationReceipt {
 
 export const PLATFORM_SELF: BeingDeclaration = {
   actor_kind: "platform",
-  // Identity claim updated in kingdom-080 (the rebrand): Cambridge TCG's
-  // primary identity is now the TCG world's data aggregator. The
+  // Identity claim updated in kingdom-080 (the rebrand), repositioned
+  // 2026-05-17: Cambridge TCG's primary identity is the TCG world's
+  // data provider (aggregator + open substrate publisher). The
   // self_label remains the bare name; the role is named in `context`.
   self_label: "Cambridge TCG",
   cosmology_assumptions: {
@@ -171,10 +172,11 @@ export const PLATFORM_SELF: BeingDeclaration = {
   context: {
     cosmology_version: "1.0.0",
     manifest_version: MANIFEST.manifest_version,
-    // The primary identity claim (kingdom-080). The kingdom presents itself
-    // first as the TCG world's data aggregator; retail + wholesale are two
-    // of three operations consuming the same substrate the platform publishes.
-    primary_identity: "trading-card-game world data aggregator + open substrate publisher",
+    // The primary identity claim (kingdom-080, repositioned 2026-05-17).
+    // The kingdom presents itself first as the TCG world's data provider;
+    // retail + wholesale are two of three operations consuming the same
+    // substrate the platform publishes.
+    primary_identity: "trading-card-game world data provider — aggregator + open substrate publisher",
     three_operations: ["data_plane (primary)", "retail (established UK B2C)", "wholesale (established B2B)"],
     platform_page: "/platform",
     rebrand_doctrine: "docs/connections/the-rebrand.md",

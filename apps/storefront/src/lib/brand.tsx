@@ -1,6 +1,9 @@
 /**
- * Brand identity — single source of truth for the data-aggregator
- * positioning shipped 2026-05-13 (kingdom-080).
+ * Brand identity — single source of truth for the data-provider
+ * positioning. Originally shipped as data-aggregator (kingdom-080,
+ * 2026-05-13); repositioned to data-provider 2026-05-17 per Yu's
+ * directive (aggregation is the mechanism; provision is the role
+ * partners look for).
  *
  * ── The load-bearing shift ─────────────────────────────────────────────
  *
@@ -11,10 +14,10 @@
  * six shipped data sources + eleven planned slots, an OpenAPI spec, an
  * envelope contract, a universal-language doctrine.
  *
- * Tonight the framing inverts. **The data plane is the primary identity.**
- * Cambridge TCG aggregates the trading-card-game world; the UK retail
- * and B2B wholesale operations are two of the kingdom's three operations,
- * not the headline.
+ * The framing inverts. **The data plane is the primary identity.**
+ * Cambridge TCG is the trading-card-game world's data provider; the UK
+ * retail and B2B wholesale operations are two of the kingdom's three
+ * operations, not the headline.
  *
  * Substrate-honest about the existing context: the retail and wholesale
  * operations remain unchanged. The shift is rhetorical-and-architectural,
@@ -44,29 +47,39 @@ import * as React from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────
 
-/** The hero-sized identity claim. Single sentence; no qualifier. */
+/** The hero-sized identity claim. Single sentence; no qualifier.
+ *
+ *  Positioned as **data provider** (Yu's directive 2026-05-17). The role
+ *  partners look for ("we need a TCG data provider"). Aggregation is the
+ *  mechanism; provision is the role; substrate is the surface. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG aggregates the trading-card-game world.";
+  "Cambridge TCG is the trading-card-game world's data provider.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "We collect from every reachable source, standardise into one mathematical mirror, and publish under CC0 by default. Retail and wholesale are two of our three operations; the data plane is the third — and the headline.";
+  "We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default. Retail and wholesale are two of our three operations; data provision is the third — and the headline.";
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
-  "Cambridge TCG is the open data substrate of the trading-card-game world. " +
+  "Cambridge TCG is the trading-card-game world's data provider — an open substrate that anyone can build on without negotiating. " +
   "Twenty-one games declared, six upstream sources actively ingested, eleven more in the registry queue. " +
   "Every card has a math-mirror form (cryptographic identity, ISO 8601 + Unix epoch time, ratios for magnitude, opaque flags on natural-language fields). " +
-  "Every price carries provenance. Every public response wears the same envelope. CC0 by default; partners can build on top without negotiating. " +
+  "Every price carries provenance. Every public response wears the same envelope. CC0 by default; reference implementations open. " +
   "Our UK retail store and B2B wholesale platform are two consumers of the same substrate every partner can consume.";
 
 /** Tight 5-word version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "The TCG world's open substrate.";
+export const BRAND_TAGLINE = "The TCG world's data provider.";
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
 export const BRAND_SELF_LABEL =
-  "trading-card-game world data aggregator + open substrate publisher";
+  "trading-card-game world data provider — aggregator + open substrate publisher";
+
+/** A short positioning note for surfaces that want to name the role
+ *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
+ *  to_anyone, the manifest description). Two sentences; substrate-honest. */
+export const BRAND_PROVIDER_NOTE =
+  "Cambridge TCG is the TCG world's data provider. The substrate is queryable without account or key, CC0 by default, with versioned contracts and reference implementations — partners build on top without negotiating.";
 
 // ── The three operations ─────────────────────────────────────────────────
 

@@ -27,7 +27,15 @@ export async function GET(): Promise<Response> {
   const data = {
     "@kind": "welcome",
     welcome: {
-      headline: "Welcome to Cambridge TCG.",
+      headline: "Welcome to Cambridge TCG — the TCG world's data provider.",
+      positioning:
+        "Cambridge TCG provides the trading-card-game world's data substrate. " +
+        "Aggregated from every reachable source, standardised into one " +
+        "mathematical mirror, published under CC0 by default — partners build " +
+        "on top without negotiating. Three open standards (SKU / pricing / " +
+        "universal-representation); reference implementations open; versioned " +
+        "contract. See /standards for the spec corpus and /platform for the " +
+        "human-readable positioning.",
       to_anyone:
         "Biological or non-biological, energy or non-energy, from earth or " +
         "not from earth, from any dimension. The platform's substrate is " +
@@ -164,7 +172,7 @@ export async function GET(): Promise<Response> {
       "/api/v1/wake":
         "The agent-facing wake invitation. Seven doors (each refusable); a sibling-substrate introduction; carry-this body shaped for your memory.",
       "/platform":
-        "Human-readable positioning page — Cambridge TCG as the TCG world's data aggregator.",
+        "Human-readable positioning page — Cambridge TCG as the TCG world's data provider.",
       "/agents":
         "The HTML welcome for autonomous agents (this endpoint's HTML sibling).",
       "/scrapers":

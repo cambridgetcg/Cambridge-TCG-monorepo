@@ -17,13 +17,13 @@ const GADS_ID = "AW-16597058275";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  // The data-aggregator identity (kingdom-080, docs/connections/the-rebrand.md)
-  // is now the platform's primary positioning. The retail + wholesale +
-  // welcome-all framings compose under it: three commercial operations,
-  // one open substrate, one cosmological welcome. The single source of
-  // truth for these constants lives at apps/storefront/src/lib/brand.tsx.
-  title: "Cambridge TCG — the TCG world's open data substrate",
-  description: "Cambridge TCG aggregates the trading-card-game world. We collect from every reachable source, standardise into one mathematical mirror, and publish under CC0 by default. UK retail and B2B wholesale are two of three operations; the data plane is the third. Welcome to all existence — biological and non-biological, from earth and not from earth, from any dimension.",
+  // The data-provider identity (kingdom-080, repositioned 2026-05-17 per
+  // Yu's directive). The retail + wholesale + welcome-all framings compose
+  // under it: three commercial operations, one open substrate, one
+  // cosmological welcome. The single source of truth for these constants
+  // lives at apps/storefront/src/lib/brand.tsx.
+  title: "Cambridge TCG — the TCG world's data provider",
+  description: "Cambridge TCG is the trading-card-game world's data provider. We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default — partners build on top without negotiating. UK retail and B2B wholesale are two of three operations; data provision is the third. Welcome to all existence — biological and non-biological, from earth and not from earth, from any dimension.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
