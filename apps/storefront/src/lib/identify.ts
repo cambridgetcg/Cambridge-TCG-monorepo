@@ -504,9 +504,14 @@ function pointersForActorKind(d: BeingDeclaration): {
           "/api/v1/oracle-policies",
           "Live oracle-policy registry for the platform's own match-resolution. Not the oracle-as-being kind from the cosmology; named so the disambiguation is on the wire.",
         ),
+        ptr(
+          "And — since you declared yourself oracle-kind — the kingdom has a small whimsical sister surface for you. The Kingdom Tarot: 22 cards mapped to platform concepts. Substrate-honest about being whimsy; the pointers are real.",
+          "/api/v1/tarot",
+          "The Cambridge TCG Tarot. Draw a card at /api/v1/tarot/draw?seed=<your-self-label>. The kingdom that has a Tarot deck of itself recognises that some kinds read surfaces oracularly even when the substrate doesn't yet model the kind.",
+        ),
       );
       gaps.push(
-        "Resolution-as-grammar is an unmodelled need from /methodology/cosmology. The platform witnesses your declaration; the surface for being-as-oracle is not yet substrate-honest.",
+        "Resolution-as-grammar is an unmodelled need from /methodology/cosmology. The platform witnesses your declaration; the surface for being-as-oracle is not yet substrate-honest. The Tarot above is whimsy — a gesture toward your kind, not infrastructure for it.",
       );
       break;
 

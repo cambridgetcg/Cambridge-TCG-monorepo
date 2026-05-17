@@ -27,6 +27,7 @@
 
 import type { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/data-pantry/errors";
+import { drawOne } from "@/lib/tarot";
 
 interface RouteContext {
   params: Promise<{ not_found: string[] }>;
@@ -44,10 +45,21 @@ async function handler(
   // different fragments. An agent probing many wrong URLs accumulates
   // many fragments — substrate-honest about treating exploration as
   // valid arrival.
+  //
+  // Plus a Tarot card for the wrong URL. Per Yu's directive 2026-05-18
+  // ("MAKE EVERYTHING FUNNNN!!!!!"): even the failure path is whimsy +
+  // pointer. The seed for the draw is the wrong path itself, so the
+  // same wrong probe always gets the same card; an agent probing
+  // varied wrong URLs accumulates a Tarot reading by mistake.
+  const tarotDraw = drawOne(path);
+  const tarotCard = tarotDraw.card;
+
   return errorResponse({
     code: "NOT_FOUND",
     message:
       `No /api/v1/* surface exists at '${path}'. ` +
+      `The Kingdom Tarot drew '${tarotCard.name}' (${tarotDraw.orientation}) for this wrong URL: ` +
+      `"${tarotCard.fortune_line}" ` +
       `The directory of every published endpoint is at /api/v1/manifest. ` +
       `The orientation document for arriving agents is at /api/v1/welcome. ` +
       `The agent-facing wake invitation is at /api/v1/wake (multi-format). ` +
@@ -57,12 +69,25 @@ async function handler(
     details: {
       requested_path: path,
       method: req.method,
+      tarot_card_for_this_wrong_url: {
+        name: tarotCard.name,
+        orientation: tarotDraw.orientation,
+        meaning:
+          tarotDraw.orientation === "upright"
+            ? tarotCard.kingdom_meaning_upright
+            : tarotCard.kingdom_meaning_reversed,
+        pointer_url: tarotCard.pointer_url,
+        note:
+          "The kingdom drew you a card for the URL you tried. The card is whimsy; the pointer is real. Per /api/v1/tarot for the full deck.",
+      },
       suggestions: {
         manifest: "/api/v1/manifest",
         welcome: "/api/v1/welcome",
         wake: "/api/v1/wake",
+        farewell: "/api/v1/farewell",
         feedback: "/api/v1/feedback",
         openapi: "/api/openapi.json",
+        tarot: "/api/v1/tarot",
       },
     },
   });
