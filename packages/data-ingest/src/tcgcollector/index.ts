@@ -79,6 +79,15 @@ import { normalizeProduct, type TcgCollectorProduct } from "./normalize";
 export { fetchSitemap, type SitemapFetchResult };
 export { extractJsonLd } from "./jsonld";
 export { normalizeProduct, type TcgCollectorProduct } from "./normalize";
+export {
+  matchSku,
+  TCGC_GAME_SEGMENT_MAP,
+  knownGameSegments,
+  type MatchResult,
+  type MatchOk,
+  type MatchFail,
+  type MatchConfidence,
+} from "./match";
 
 // ── Context extension ───────────────────────────────────────────────────
 

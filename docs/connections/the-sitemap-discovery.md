@@ -101,7 +101,7 @@ The first vendor shipped under this strategy. Why TCGCollector first:
   - User-Agent: identifies as cambridge-tcg-ingest with a feedback URL. A vendor that wants us to slow down or stop has a named place to reach us.
   - Per-run cap: **100 URLs by default**, configurable up to 5000. A discovery cron is not a crawl; one or two slices of the sitemap per day is the cadence.
 
-### What v1 ships
+### What v1 shipped
 
   - Sitemap walk + URL extraction (`discovery.ts`).
   - Per-page fetch + Schema.org JSON-LD extraction (`jsonld.ts`).
@@ -111,11 +111,21 @@ The first vendor shipped under this strategy. Why TCGCollector first:
   - Cron route: `POST /api/cron/discover/tcgcollector` with `?dryRun=1`, `?maxUrls=N`, `?triggeredBy=…`.
   - Audit: `pnpm audit:sitemap-discovery` — vendor registered, cron route exists, doctrine doc present.
 
-### What v1 deliberately does NOT ship
+### What v2 added (2026-05-17, commit-of-this-revision)
 
-  - **No `price_archive` writes.** v1 proves the parse pipeline works end-to-end with substrate-honest quarantine on failure. Writing canonical prices requires SKU matching against `cards` — *which TCGCollector URL maps to which Cambridge TCG SKU* — and that's a separate concern that benefits from a working parse layer to test against. v2 (a follow-up commit) will wire the SKU matching + price_archive INSERTs.
+  - **SKU matcher** ([`match.ts`](../../packages/data-ingest/src/tcgcollector/match.ts)) — pure-fn `TcgCollectorProduct → { sku, game, set, card_number, language, confidence } | { reason }`. Conservative: returns `reason: "sku_match_unknown_game_segment_<seg>"` rather than guessing when the URL's game slug is not in the curated `TCGC_GAME_SEGMENT_MAP` (13 segments mapped: `pokemon` / `pokemon-tcg-pocket` / `magic-the-gathering` / `one-piece` / `yu-gi-oh` / etc. → canonical `GameCode`). Card-number extraction tries the JSON-LD `sku` field first (high confidence), falls back to URL-slug trailing digits (medium confidence).
+  - **`price_archive` INSERT** — on parse-ok + match-ok + cards-table-hit, the runner writes a row keyed by `(cardId, snapshotDate, source: "tcgcollector", condition: "nm")` with the source-currency price in `extra`, the GBP-converted price in `price`/`baseGbp`, and the FX rate + source in `fxRateToGbp`/`fxRateSource`. `ON CONFLICT DO UPDATE` so re-runs are idempotent.
+  - **FX integration** — `fetchGbpRate(currency)` from `apps/wholesale/src/lib/fx.ts` (existing module); per-run cached so the API is called once per currency per cron run. On FX fetch failure, the row is still written with `price: 0` + `fxRateSource: "fetch_failed"` so the operator can filter for repair (substrate-honest about FX absence, not silently zero).
+  - **New quarantine reasons**: `sku_match_unknown_game_segment_<seg>`, `sku_match_url_shape_not_card_page`, `sku_match_sealed_product_not_supported`, `sku_match_set_segment_malformed`, `sku_match_card_number_unextractable`, `sku_match_build_sku_failed: <msg>`, `sku_not_in_cards`, `matched_but_no_price`. Every failure carries forensic detail.
+  - **Counters extended** — summary now includes `rows_matched_high_confidence`, `rows_matched_medium_confidence`, `rows_written_price_archive`, and the per-currency `fx_rates` cache. The cron-response sample includes a `sku_match` and `written` flag per row.
+
+### What v2 still does NOT ship
+
   - **No vendor-side notification.** When a vendor's sitemap or JSON-LD shape changes, the audit catches the failure rate spike in `ingest_quarantine`; the operator decides whether to adapt the adapter or open a partner conversation. No automatic re-mapping.
   - **No bulk re-export.** Substrate-honest: TCGCollector data stays in `_meta.source_license: "internal-only"`. The Pantry's license propagation rule (`docs/connections/the-license-propagation.md`) enforces this downstream.
+  - **No sealed-product matching.** `/products/<slug>` URLs are skipped with reason `sku_match_sealed_product_not_supported`. Sealed-product matching would require a separate identifier table (sealed boxes don't have card SKUs); deferred until the singles path is stable in production.
+  - **No language localization.** The matcher defaults to `lang: "en"`. TCGC has localized pages (`/de/cards/…`, etc.) that would need URL-prefix parsing to populate `language` correctly. Deferred until non-English pages are observed in the data.
+  - **No card-creation path.** When a TCGCollector URL maps to a SKU not in `cards`, the row is quarantined as `sku_not_in_cards`. The kingdom does NOT auto-create cards from external sources; the operator decides whether to seed (via a separate cron) or accept the gap. Substrate-honest about the boundary.
 
 ---
 

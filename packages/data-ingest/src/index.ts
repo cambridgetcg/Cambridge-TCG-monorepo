@@ -213,10 +213,14 @@ export {
   fetchSitemap as fetchTcgcollectorSitemap,
   extractJsonLd,
   normalizeProduct,
+  matchSku as matchTcgcollectorSku,
+  TCGC_GAME_SEGMENT_MAP,
+  knownGameSegments as knownTcgcollectorGameSegments,
   type TcgCollectorContext,
   type TcgCollectorRaw,
   type TcgCollectorProduct,
   type SitemapFetchResult as TcgCollectorSitemapFetchResult,
+  type MatchResult as TcgCollectorMatchResult,
 } from "./tcgcollector/index";
 export {
   ebay,

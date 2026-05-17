@@ -1,41 +1,49 @@
 /**
- * TCGCollector discovery runner — sitemap → JSON-LD → typed product rows.
+ * TCGCollector discovery runner — sitemap → JSON-LD → typed product rows
+ * → SKU match → price_archive (v2).
  *
  * Wholesale-side wrapper around `@cambridge-tcg/data-ingest`'s
  * `tcgcollector` source module. Walks the public sitemap-index, fetches
- * each product page, parses the Schema.org JSON-LD, and records:
+ * each product page, parses the Schema.org JSON-LD, runs the SKU
+ * matcher, and records:
  *   - one `ingest_run` row per run (status, counters, events jsonb)
- *   - one `ingest_quarantine` row per row that failed parse or fetch
+ *   - one `price_archive` row per successful match (source='tcgcollector')
+ *   - one `ingest_quarantine` row per row that failed parse, fetch, or match
  *
- * **V1 scope**: discovery + parse only. Writing extracted prices to
- * `price_archive` is deferred to a follow-up — that requires SKU
- * matching against `cards` (a separate concern: which TCGCollector
- * URL maps to which canonical SKU), and the safer first step is to
- * prove the parse pipeline works end-to-end with substrate-honest
- * quarantine on failure before any prices land.
+ * ── v1 → v2 evolution ────────────────────────────────────────────────
+ *
+ * v1 (commit 4a393a9) shipped discovery + parse only — no price_archive
+ * writes. This is v2 — adds the SKU matcher (URL+JSON-LD → canonical SKU
+ * via @cambridge-tcg/sku) and the price_archive INSERT path. The match
+ * is conservative: returns null when the game segment is unmapped or
+ * the card_number is unextractable; those rows quarantine with specific
+ * reasons (`sku_match_unknown_game_segment_<seg>`,
+ * `sku_match_card_number_unextractable`, etc.).
  *
  * Substrate-honest about absence:
  *   - Sitemap unreachable → ingest_run status=`failed` + event recorded
- *   - Page fetch fails → ingest_quarantine row with http_status reason
- *   - JSON-LD missing → ingest_quarantine row with `no_jsonld_product_found`
- *   - Price unparseable → ingest_quarantine row with reason
+ *   - Page fetch fails → quarantine row with http_status reason
+ *   - JSON-LD missing → quarantine row with `no_jsonld_product_found`
+ *   - Price unparseable → quarantine row with `no_offer_or_unparseable_price`
+ *   - SKU match failed → quarantine row with `sku_match_<specific>`
+ *   - SKU not in cards table → quarantine row with `sku_not_in_cards`
+ *   - FX rate fetch failed → row written with price_gbp=null + a stub
+ *     `fxRateSource: "fetch_failed"` so the operator sees the gap
  *
- * Mirrors the cardrush-discovery shape (kingdom-087); when a second
- * sitemap+JSON-LD vendor lands, the shared parts can be extracted to
- * a generic discovery runner.
- *
- * Kingdom — *the sitemap-discovery strategy, vendor 1*. Companion to
- * /docs/connections/the-sitemap-discovery.md.
+ * Kingdom — *the sitemap-discovery strategy, vendor 1 v2*. Companion
+ * to docs/connections/the-sitemap-discovery.md.
  */
 
 import { db } from "@/lib/db";
-import { ingestRun, ingestQuarantine } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { ingestRun, ingestQuarantine, cards, priceArchive } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
 import {
   tcgcollector,
   resetTcgcollectorFetcher,
+  matchTcgcollectorSku,
   type TcgCollectorRaw,
 } from "@cambridge-tcg/data-ingest";
+import { fetchGbpRate } from "@/lib/fx";
 
 export interface TcgcollectorDiscoveryOptions {
   triggeredBy?: "cron" | "admin" | "webhook";
@@ -46,7 +54,7 @@ export interface TcgcollectorDiscoveryOptions {
   /** Explicit URL list — when provided, sitemap walk is skipped and
    *  only these URLs are fetched. Useful for targeted re-scrapes. */
   urls?: string[];
-  /** Dry-run: walk sitemap + log discovered URLs, skip per-page fetches. */
+  /** Dry-run: walk + parse + match, skip all DB writes. */
   dryRun?: boolean;
 }
 
@@ -59,16 +67,23 @@ export interface TcgcollectorDiscoverySummary {
   urls_discovered: number;
   rows_fetched: number;
   rows_parsed_ok: number;
+  rows_matched_high_confidence: number;
+  rows_matched_medium_confidence: number;
+  rows_written_price_archive: number;
   rows_quarantined: number;
   errors: number;
   /** Breakdown of quarantine reasons (substrate-honest forensics). */
   quarantine_reasons: Record<string, number>;
+  /** FX rates fetched for this run (currency → units per 1 GBP). */
+  fx_rates: Record<string, number | null>;
   /** First 10 parsed products — for the cron-response preview. */
   sample: Array<{
     source_url: string;
     name: string | null;
     price: number | null;
     currency: string | null;
+    sku_match: string | null;
+    written: boolean;
   }>;
 }
 
@@ -84,13 +99,14 @@ export async function runTcgcollectorDiscovery(
   const triggered_by = opts.triggeredBy ?? "cron";
   const started_at = new Date().toISOString();
   const dry_run = opts.dryRun ?? false;
+  const snapshotDate = isoDateOnly(started_at);
 
   // INSERT ingest_run with status=running.
   const [runRow] = await db
     .insert(ingestRun)
     .values({
       sourceId: "tcgcollector",
-      specVersion: "1",
+      specVersion: "2",
       triggeredBy: triggered_by,
       triggeredAt: new Date(started_at),
       status: "running",
@@ -106,19 +122,21 @@ export async function runTcgcollectorDiscovery(
 
   const runId = runRow.id;
 
-  // Reset the fetcher cache so this run gets a fresh token bucket.
   resetTcgcollectorFetcher();
 
   const events: Array<Record<string, unknown>> = [];
   const quarantineReasons: Record<string, number> = {};
   const sample: TcgcollectorDiscoverySummary["sample"] = [];
+  const fxCache: Record<string, number | null> = {};
 
   let rows_fetched = 0;
   let rows_parsed_ok = 0;
+  let rows_matched_high = 0;
+  let rows_matched_medium = 0;
+  let rows_written = 0;
   let rows_quarantined = 0;
   let errors = 0;
 
-  // Walk the source.
   const ctx = {
     tcgcollector: {
       urls: opts.urls,
@@ -135,8 +153,8 @@ export async function runTcgcollectorDiscovery(
       rows_fetched++;
       const raw: TcgCollectorRaw = row.raw;
 
+      // ── Parse failure → quarantine ─────────────────────────────
       if (raw.error_reason) {
-        // Fetch failed or parse failed — quarantine.
         rows_quarantined++;
         quarantineReasons[raw.error_reason] =
           (quarantineReasons[raw.error_reason] ?? 0) + 1;
@@ -155,14 +173,155 @@ export async function runTcgcollectorDiscovery(
         continue;
       }
 
-      // Success path — record sample. Price-archive INSERT deferred to v2.
       rows_parsed_ok++;
+
+      // ── SKU match ──────────────────────────────────────────────
+      const matchResult = matchTcgcollectorSku(raw.product);
+      let writtenSku: string | null = null;
+      let written = false;
+
+      if (!matchResult.ok) {
+        rows_quarantined++;
+        quarantineReasons[matchResult.reason] =
+          (quarantineReasons[matchResult.reason] ?? 0) + 1;
+        if (!dry_run) {
+          await db.insert(ingestQuarantine).values({
+            ingestRunId: runId,
+            sourceId: "tcgcollector",
+            upstreamId: raw.product.source_url,
+            rawPayload: raw as unknown as Record<string, unknown>,
+            reason: matchResult.reason,
+            asOf: new Date(row.provenance.as_of),
+            retrievedAt: new Date(row.provenance.retrieved_at),
+            kind: "sku_match_failed",
+          });
+        }
+      } else {
+        // Match ok — count confidence + check cards table.
+        if (matchResult.confidence === "high") rows_matched_high++;
+        else rows_matched_medium++;
+
+        const cardId = await lookupCardIdBySku(matchResult.sku);
+        if (cardId === null) {
+          // SKU candidate built but the card doesn't exist in our table.
+          // Substrate-honest: quarantine; the operator decides whether
+          // to seed the card (a separate concern) or accept the gap.
+          const reason = "sku_not_in_cards";
+          rows_quarantined++;
+          quarantineReasons[reason] = (quarantineReasons[reason] ?? 0) + 1;
+          if (!dry_run) {
+            await db.insert(ingestQuarantine).values({
+              ingestRunId: runId,
+              sourceId: "tcgcollector",
+              upstreamId: raw.product.source_url,
+              rawPayload: {
+                ...(raw as unknown as Record<string, unknown>),
+                candidate_sku: matchResult.sku,
+                match_confidence: matchResult.confidence,
+              },
+              reason,
+              asOf: new Date(row.provenance.as_of),
+              retrievedAt: new Date(row.provenance.retrieved_at),
+              kind: "sku_not_in_cards",
+            });
+          }
+        } else if (raw.product.price !== null && raw.product.currency !== null) {
+          // SKU matches AND price extractable → write price_archive.
+          writtenSku = matchResult.sku;
+          if (!dry_run) {
+            const fxRate = await getOrFetchFxRate(
+              raw.product.currency,
+              fxCache,
+            );
+            // Substrate-honest: if FX fetch failed, we still need a
+            // numeric price (NOT NULL constraint). We write 0 as a
+            // sentinel and set fxRateSource: "fetch_failed" so the
+            // operator can filter for repair. Rows with rate=null are
+            // also skipped from any downstream price-display path
+            // (the consumer reads fxRateSource and ignores 0-priced
+            // rows where source != "fetch_failed").
+            const priceGbp =
+              fxRate !== null && fxRate > 0
+                ? Number((raw.product.price / fxRate).toFixed(2))
+                : 0;
+            await db
+              .insert(priceArchive)
+              .values({
+                cardId,
+                snapshotDate,
+                sku: matchResult.sku,
+                // Cardrush-shaped columns: 0 sentinel for non-cardrush
+                // sources (kingdom-066 generalized FX moved live data
+                // into fxRateToGbp + fxRateSource).
+                cardrushJpy: 0,
+                gbpJpyRate: 0,
+                baseGbp: priceGbp,
+                price: priceGbp,
+                source: "tcgcollector",
+                sourceUrl: raw.product.source_url,
+                sourceCurrency: raw.product.currency.toUpperCase(),
+                sourceRedistribute: false,
+                condition: "nm",
+                fxRateToGbp: fxRate !== null ? fxRate : null,
+                fxRateSource: fxRate !== null ? "live" : "fetch_failed",
+                extra: {
+                  source_price: raw.product.price,
+                  source_currency: raw.product.currency,
+                  availability: raw.product.availability,
+                  match_confidence: matchResult.confidence,
+                  upstream_sku: raw.product.upstream_sku,
+                } as Record<string, unknown>,
+              })
+              .onConflictDoUpdate({
+                target: [
+                  priceArchive.cardId,
+                  priceArchive.snapshotDate,
+                  priceArchive.source,
+                  priceArchive.condition,
+                ],
+                set: {
+                  price: sql`EXCLUDED.price`,
+                  baseGbp: sql`EXCLUDED.base_gbp`,
+                  sourceUrl: sql`EXCLUDED.source_url`,
+                  sourceCurrency: sql`EXCLUDED.source_currency`,
+                  fxRateToGbp: sql`EXCLUDED.fx_rate_to_gbp`,
+                  fxRateSource: sql`EXCLUDED.fx_rate_source`,
+                  extra: sql`EXCLUDED.extra`,
+                },
+              });
+          }
+          rows_written++;
+          written = true;
+        } else {
+          // Match ok but no price — already counted in parsed_ok; the
+          // earlier `no_offer_or_unparseable_price` reason should have
+          // fired; if we got here the upstream is misshapen.
+          const reason = "matched_but_no_price";
+          rows_quarantined++;
+          quarantineReasons[reason] = (quarantineReasons[reason] ?? 0) + 1;
+          if (!dry_run) {
+            await db.insert(ingestQuarantine).values({
+              ingestRunId: runId,
+              sourceId: "tcgcollector",
+              upstreamId: raw.product.source_url,
+              rawPayload: raw as unknown as Record<string, unknown>,
+              reason,
+              asOf: new Date(row.provenance.as_of),
+              retrievedAt: new Date(row.provenance.retrieved_at),
+              kind: "other",
+            });
+          }
+        }
+      }
+
       if (sample.length < 10) {
         sample.push({
           source_url: raw.product.source_url,
           name: raw.product.name,
           price: raw.product.price,
           currency: raw.product.currency,
+          sku_match: writtenSku ?? (matchResult.ok ? matchResult.sku : null),
+          written,
         });
       }
     }
@@ -184,7 +343,7 @@ export async function runTcgcollectorDiscovery(
       status: errors > 0 ? "failed" : "ok",
       rowsRead: rows_fetched,
       rowsNormalized: rows_parsed_ok,
-      rowsWritten: 0, // v1: discovery+parse only; no price_archive writes yet
+      rowsWritten: rows_written,
       rowsQuarantined: rows_quarantined,
       errors,
       events,
@@ -200,14 +359,60 @@ export async function runTcgcollectorDiscovery(
     urls_discovered: rows_fetched,
     rows_fetched,
     rows_parsed_ok,
+    rows_matched_high_confidence: rows_matched_high,
+    rows_matched_medium_confidence: rows_matched_medium,
+    rows_written_price_archive: rows_written,
     rows_quarantined,
     errors,
     quarantine_reasons: quarantineReasons,
+    fx_rates: fxCache,
     sample,
   };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
+
+/** Lookup a card's id by its canonical SKU. Returns null when the SKU
+ *  is not in the cards table (a substrate-honest "this SKU doesn't
+ *  exist yet" signal — the caller quarantines). */
+async function lookupCardIdBySku(sku: string): Promise<number | null> {
+  const rows = await db
+    .select({ id: cards.id })
+    .from(cards)
+    .where(eq(cards.sku, sku))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
+/** Fetch the GBP/<currency> FX rate, with per-run caching. Returns null
+ *  on fetch failure rather than throwing — the row is still written with
+ *  price=null and fxRateSource="fetch_failed" (substrate-honest about
+ *  the absence). */
+async function getOrFetchFxRate(
+  currency: string,
+  cache: Record<string, number | null>,
+): Promise<number | null> {
+  const code = currency.toUpperCase();
+  if (code in cache) return cache[code];
+  if (code === "GBP") {
+    cache[code] = 1;
+    return 1;
+  }
+  try {
+    const rate = await fetchGbpRate(code);
+    cache[code] = rate;
+    return rate;
+  } catch {
+    cache[code] = null;
+    return null;
+  }
+}
+
+/** Convert an ISO timestamp to a YYYY-MM-DD date string for the
+ *  price_archive.snapshot_date column. */
+function isoDateOnly(iso: string): string {
+  return iso.slice(0, 10);
+}
 
 /** Map an error_reason into a stable kind for ingest_quarantine.kind. */
 function classifyReason(reason: string): string {
