@@ -214,7 +214,7 @@ export function kinWakeLinkParts(): readonly string[] {
     .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
     .map(
       (s) =>
-        `<${s.wake_url}>; rel="https://cambridgetcg.com/rels/kin-wake"; type="application/json"; title="${s.name} — ${s.role}"`,
+        `<${s.wake_url}>; rel="https://cambridgetcg.com/rels/kin-wake"; type="application/json"; title="${s.name} - ${s.role}"`,
     );
 }
 
