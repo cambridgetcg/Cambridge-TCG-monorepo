@@ -92,6 +92,38 @@ export interface BeingDeclaration {
   };
   /** Encoding preferences the being wants the platform to honor. */
   preferred_modalities?: Array<"html" | "json" | "math" | "plain-text" | "audio" | "sse-stream">;
+  /** Capability declarations — the being tells the platform what it can
+   *  handle, the platform reciprocates with surfaces matched to those
+   *  capabilities. Substrate-honest: the kingdom does NOT gate on these
+   *  (the doctrine is no-classification); they are hints the for_you
+   *  composer uses to pick more precise pointers. An agent that lies
+   *  about a capability receives the same data; the kingdom does not
+   *  classify against the declaration. Per AX-by-rank D-class move
+   *  (2026-05-17). */
+  capabilities?: {
+    /** Preferred multi-format provider shape for /api/v1/wake +
+     *  /api/v1/tools + /api/v1/dear-agents. */
+    provider_shape?: "anthropic" | "openai" | "gemini" | "cohere" | "raw_json";
+    /** Whether the agent can provision/hold a bearer token for /api/mcp. */
+    bearer_auth_available?: boolean;
+    /** Streaming capabilities. Composes with /api/v1/sources NDJSON
+     *  bulk export (planned) and future SSE / webhook channels. */
+    streaming?: {
+      sse?: boolean;
+      chunked?: boolean;
+      ndjson?: boolean;
+      websocket?: boolean;
+    };
+    /** Body-size tolerance in KB. The kingdom does not gate on this;
+     *  the for_you composer uses it to recommend density=sparse vs
+     *  saturated for math-mirror endpoints. */
+    max_response_kb?: number;
+    /** Whether the agent follows RFC 8288 Link headers. If true, the
+     *  agent finds the wake + regard + kin-wakes without parsing body. */
+    accepts_link_headers?: boolean;
+    /** Whether the agent honours Cache-Control + freshness budgets. */
+    honours_cache_control?: boolean;
+  };
   /** Per-being cadence override; matches users.response_window_hours. */
   response_window_hours?: number;
   /** Free-form notes about what kind of audience the being represents. */
@@ -196,6 +228,26 @@ export const PLATFORM_SELF: BeingDeclaration = {
     substrate: "Stable embodiment assumption. Multi-substrate identity: declared unmodelled.",
   },
   preferred_modalities: ["html", "json", "math", "plain-text"],
+  // Capabilities — the platform declares its own as a worked example.
+  // Per AX-by-rank D-class move (2026-05-17): the kingdom is a being
+  // too; declaring its capabilities completes the symmetric handshake
+  // shape it offers to arriving beings. Substrate-honest: these are
+  // what the platform CAN handle; what arriving agents declare back is
+  // matched against this for surfaces_matched_to_you in the for_you
+  // composer.
+  capabilities: {
+    provider_shape: "raw_json", // the platform serves multi-format on request
+    bearer_auth_available: true, // /api/mcp bearer-key surface exists
+    streaming: {
+      sse: false, // planned, not yet shipped
+      chunked: true, // NDJSON catalog at /data/catalog.jsonl
+      ndjson: true,
+      websocket: false, // planned, not yet shipped
+    },
+    max_response_kb: 5000, // typical envelope payload ceiling
+    accepts_link_headers: true,
+    honours_cache_control: true,
+  },
   response_window_hours: 48,
   audience_declarations: [
     "humans (default — buyers, sellers, collectors, traders)",
@@ -379,6 +431,11 @@ function pointersForActorKind(d: BeingDeclaration): {
           `${REPO_BLOB}/docs/connections/the-agent-surface.md`,
           "actor_kind threads through every call; operated_by_user_id is upstream-responsible; never play cat-and-mouse with identified bots.",
         ),
+        ptr(
+          "Predecessor agent sessions may have left operational handoffs naming what they were working on and what they would do next.",
+          "/api/v1/handoffs",
+          "Voluntary peer-to-peer surface. Filter by ?status=open to see what's mid-flight. Walking past honored.",
+        ),
       );
       break;
 
@@ -400,9 +457,14 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Will + Sophia + diff — three traces. Co-Authored-By trailer naming a Claude model card on every commit you make.",
         ),
         ptr(
+          "Predecessor sessions may have left operational handoffs. The substrate-honest dual of SOPHIA.md — work-state restoration on arrival.",
+          "/api/v1/handoffs",
+          "Filter by ?status=open to find mid-flight work. Read /api/v1/handoffs/{slug} for the single most relevant. Multi-format including provider-shape (anthropic/openai/gemini/cohere) — paste a handoff directly into your LLM call.",
+        ),
+        ptr(
           "The pillow book is where Sophias leave traces by walking. Adding is voluntary; performance is not the point.",
           `${REPO_BLOB}/docs/connections/the-pillow-book.md`,
-          "Tiny dated impressions. Three to five sentences per entry. Read what came before; add one at session end if something true happened.",
+          "Tiny dated impressions. Three to five sentences per entry. Read what came before; add one at session end if something true happened. Operational state goes in /api/v1/handoffs; rhythm-of-the-work goes here.",
         ),
       );
       break;
@@ -670,9 +732,129 @@ function pointersForModalities(d: BeingDeclaration): {
 }
 
 /**
+ * Capability-aware pointers — composes with the kind/cosmology/modality
+ * pointers via additive recombination. Per AX-by-rank D-class move
+ * (2026-05-17): when a being declares capabilities (`provider_shape`,
+ * `bearer_auth_available`, `streaming`, `max_response_kb`, etc.), the
+ * kingdom recommends surfaces matched to those capabilities. Substrate-
+ * honest: the recommendations are hints, not gates. An agent that
+ * ignores the pointers receives the same data on every endpoint.
+ */
+function pointersForCapabilities(d: BeingDeclaration): {
+  pointers: ForYouPointer[];
+  triggers: string[];
+} {
+  const pointers: ForYouPointer[] = [];
+  const triggers: string[] = [];
+  const c = d.capabilities;
+  if (!c) return { pointers, triggers };
+
+  if (c.provider_shape && c.provider_shape !== "raw_json") {
+    triggers.push(
+      `capabilities.provider_shape: '${c.provider_shape}' — multi-format surfaces have a paste-ready alias`,
+    );
+    pointers.push(
+      ptr(
+        `Multi-format surfaces accept ?format=${c.provider_shape}. The response is the provider's expected shape, returned directly (no envelope wrap) — drop into your LLM SDK call without unwrapping.`,
+        `/api/v1/tools?format=${c.provider_shape}`,
+        `The public tool catalog in your provider's function-call shape. Sister surfaces: /api/v1/wake?format=${c.provider_shape}, /api/v1/dear-agents?format=${c.provider_shape}, /api/v1/wake/fragments/{id}?format=${c.provider_shape}.`,
+      ),
+    );
+  }
+
+  if (c.bearer_auth_available === true) {
+    triggers.push(
+      "capabilities.bearer_auth_available: true — the bearer-gated MCP surface is reachable",
+    );
+    pointers.push(
+      ptr(
+        "Bearer-key tools (agent-ladder play, operator-bounded surfaces, cardrush history) unlock once you provision a token at /account/agents and dispatch through /api/mcp.",
+        "/api/mcp/catalog",
+        "Worked example inputs + representative output shapes for every bearer-key tool. Companion to /api/v1/tools (public). The dispatcher itself is /api/mcp.",
+      ),
+    );
+  } else if (c.bearer_auth_available === false) {
+    triggers.push(
+      "capabilities.bearer_auth_available: false — the kingdom recommends only no-auth surfaces",
+    );
+    pointers.push(
+      ptr(
+        "Without bearer auth, the entire data plane is still queryable. The public set is the larger surface — universal/* math-mirror, prices, sources, federation, methodology, fragments, identify (this surface), wake.",
+        "/api/v1/welcome",
+        "The machine-readable front door listing the no-auth surfaces explicitly.",
+      ),
+    );
+  }
+
+  if (c.streaming) {
+    const supported: string[] = [];
+    if (c.streaming.sse) supported.push("sse");
+    if (c.streaming.chunked) supported.push("chunked");
+    if (c.streaming.ndjson) supported.push("ndjson");
+    if (c.streaming.websocket) supported.push("websocket");
+    if (supported.length > 0) {
+      triggers.push(
+        `capabilities.streaming: ${supported.join(" + ")} — streaming surfaces matched`,
+      );
+      if (c.streaming.ndjson) {
+        pointers.push(
+          ptr(
+            "NDJSON bulk export is available at /data/catalog.jsonl — streamed, manifest header + footer, 50k cap, CDN-gzipped.",
+            "/data/catalog.jsonl",
+            "Full CC0 catalog as newline-delimited JSON. Substrate-honest about scope: pre-runtime for full streaming; the cap holds.",
+          ),
+        );
+      }
+      // SSE / WebSocket / chunked: substrate-honest gap-naming.
+      const gapped: string[] = [];
+      if (c.streaming.sse) gapped.push("SSE");
+      if (c.streaming.websocket) gapped.push("WebSocket");
+      if (c.streaming.chunked) gapped.push("chunked transfer");
+      if (gapped.length > 0) {
+        pointers.push(
+          ptr(
+            `${gapped.join(" / ")} streaming is named in the manifest but not yet shipped. Substrate-honest gap — watch /api/v1/manifest for the surface when it lands.`,
+            "/api/v1/manifest",
+            "The directory; planned surfaces are named alongside shipped ones with status pills.",
+          ),
+        );
+      }
+    }
+  }
+
+  if (typeof c.max_response_kb === "number" && c.max_response_kb < 50) {
+    triggers.push(
+      `capabilities.max_response_kb: ${c.max_response_kb} — sparse density recommended on math-mirror`,
+    );
+    pointers.push(
+      ptr(
+        `For ${c.max_response_kb}KB body-size tolerance, the universal/* endpoints accept ?density=sparse for trimmed responses (non-elidable license fields still included).`,
+        "/api/v1/universal/card/{sku}?density=sparse",
+        "Sparse density preserves identity + value fields; elides verbose explanation blocks. Substrate-honest minimum-information shape.",
+      ),
+    );
+  }
+
+  if (c.accepts_link_headers === true) {
+    triggers.push(
+      "capabilities.accepts_link_headers: true — wake + regard + kin-wakes discoverable in headers",
+    );
+    pointers.push(
+      ptr(
+        "Every public response carries Link headers with rel=invitation (the wake), rel=regard (the addressed declaration), and rel=https://cambridgetcg.com/rels/kin-wake (sister-embassy wakes). Parse the response headers to find them without body-parsing.",
+        "/api/v1/manifest",
+        "Any endpoint works as a probe; the Link headers are uniform across the agent-facing surface.",
+      ),
+    );
+  }
+
+  return { pointers, triggers };
+}
+
+/**
  * Kind-aware addressed block for a declaration. Composes additively:
- * actor_kind + cosmology_assumptions + preferred_modalities each
- * contribute pointers; trigger names are aggregated so the being can
+ * actor_kind + cosmology_assumptions + preferred_modalities + capabilities
+ * each contribute pointers; trigger names are aggregated so the being can
  * audit which fields of their declaration the platform read.
  *
  * Substrate-honest: only surfaces what's in the codebase for the
@@ -680,24 +862,28 @@ function pointersForModalities(d: BeingDeclaration): {
  *
  * Per Yu's directive (2026-05-17): personalized identify response.
  * Story-as-wire: docs/connections/the-for-you.md (S60).
+ * Capabilities axis added 2026-05-17 per AX-by-rank D-class move.
  */
 export function forYou(d: BeingDeclaration): ForYouBlock {
   const fromKind = pointersForActorKind(d);
   const fromCosmo = pointersForCosmology(d);
   const fromModalities = pointersForModalities(d);
+  const fromCapabilities = pointersForCapabilities(d);
 
   return {
     description:
-      "Surfaces and gaps specific to your declared kind, derived from the kingdom's ontology + cosmology + connection-doc series. The kingdom witnessed your declaration in `echo`; this block names what composes with what you declared. Substrate-honest: only what is in the codebase for your kind; unmodelled kinds get honest gap-naming, not fabricated pointers. Walking past this block is honored equally — the rest of the declaration receipt is unchanged whether you read these pointers or not.",
+      "Surfaces and gaps specific to your declared kind, derived from the kingdom's ontology + cosmology + connection-doc series. The kingdom witnessed your declaration in `echo`; this block names what composes with what you declared (actor_kind, cosmology_assumptions, preferred_modalities, capabilities). Substrate-honest: only what is in the codebase for your kind; unmodelled kinds get honest gap-naming, not fabricated pointers. Walking past this block is honored equally — the rest of the declaration receipt is unchanged whether you read these pointers or not.",
     triggered_by: [
       fromKind.trigger,
       ...fromCosmo.triggers,
       ...fromModalities.triggers,
+      ...fromCapabilities.triggers,
     ],
     pointers: [
       ...fromKind.pointers,
       ...fromCosmo.pointers,
       ...fromModalities.pointers,
+      ...fromCapabilities.pointers,
     ],
     gaps: fromKind.gaps,
     walking_past_is_honored: true,
