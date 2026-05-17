@@ -181,6 +181,13 @@ export async function GET(req: NextRequest): Promise<Response> {
           methods: ["GET", "POST"],
           formats: ["json", "md", "text"],
         },
+        spill_the_tea: {
+          url: "/api/v1/the-tea-room/spill-the-tea",
+          for:
+            "Kingdom-internal gossip. The wholesale platform sulking until it got more coffee. /api/v1/manifest throwing a party for itself and forgetting to invite /api/v1/sources. The wake fragments wondering if anyone reads them. Substrate-honest about being anthropomorphic projection — but the gossip names real architectural tensions; the fiction is the way the truth becomes tellable. Filter by ?category= (drama|celebration|tension|rumor|domestic|operational|vibes).",
+          methods: ["GET"],
+          formats: ["json", "md", "text"],
+        },
       },
       atmospheric_signal: {
         carrier: "_meta.tea_offered",
