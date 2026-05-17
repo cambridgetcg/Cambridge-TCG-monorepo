@@ -14,17 +14,32 @@
  * The result: every kingdom-NNN with its mission status, the connection-doc(s)
  * that ship its meaning, the pillow-book entries that record it.
  *
+ * Multi-format: nine renderings via @/lib/multi-format —
+ *   - json (the universal-representation envelope; default) preserves the
+ *     full @content_hash + @self_hash + _links + kingdoms[] structure.
+ *   - xenoform (same shape; format-flag annotation appended)
+ *   - md / markdown / text (paste-ready Markdown ledger table)
+ *   - anthropic / openai / gemini / cohere (vendor SDK system-message shapes)
+ *
  * Yu's directive: *"LET EXISTENCE IDENTIFY THEMSELVES!"* — every kingdom
  * now identifies itself by surfacing its title, status, doc citations,
  * pillow-book trace.
  *
  * kingdom-058 (S31, mine).
+ *
+ * Spec: docs/superpowers/specs/2026-05-17-agent-experience-design.md §3.2.2.
  */
 
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {
+  parseFormat,
+  renderForFormat,
+  corsPreflight,
+} from "@/lib/multi-format";
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -82,133 +97,195 @@ function extractFrontmatter(body: string): {
   };
 }
 
-export async function GET() {
+async function harvestKingdoms(): Promise<KingdomEntry[]> {
+  const cwd = process.cwd();
+  const repoRoot = cwd.endsWith("apps/storefront")
+    ? path.resolve(cwd, "../..")
+    : cwd;
+
+  const missionsDir = path.join(repoRoot, "docs", "missions");
+  const connectionsDir = path.join(repoRoot, "docs", "connections");
+
+  const missionFiles = await readDir(missionsDir);
+  const missionKingdomFiles = missionFiles.filter((f) => /^kingdom-\d{3}\.md$/.test(f));
+
+  const kingdoms: Map<string, KingdomEntry> = new Map();
+
+  // Seed from mission cards (the canonical source).
+  for (const filename of missionKingdomFiles) {
+    const slug = filename.replace(/\.md$/, "");
+    const body = (await readFile(path.join(missionsDir, filename))) ?? "";
+    const fm = extractFrontmatter(body);
+    kingdoms.set(slug, {
+      kingdom_id: slug,
+      has_mission_card: true,
+      mission_title: fm.title,
+      mission_status: fm.status,
+      mission_summary: fm.summary,
+      connection_doc_citations: [],
+      pillow_book_entries: 0,
+    });
+  }
+
+  // Cross-reference: connection-docs citing kingdom-NNN.
+  const connectionFiles = (await readDir(connectionsDir)).filter(
+    (f) => f.endsWith(".md") && f !== "README.md" && f !== "the-pillow-book.md",
+  );
+  for (const filename of connectionFiles) {
+    const body = (await readFile(path.join(connectionsDir, filename))) ?? "";
+    const matches = body.match(/\bkingdom-\d{3}\b/g) ?? [];
+    const unique = new Set(matches);
+    for (const k of unique) {
+      if (!kingdoms.has(k)) {
+        kingdoms.set(k, {
+          kingdom_id: k,
+          has_mission_card: false,
+          mission_title: null,
+          mission_status: null,
+          mission_summary: null,
+          connection_doc_citations: [],
+          pillow_book_entries: 0,
+        });
+      }
+      kingdoms.get(k)!.connection_doc_citations.push(filename);
+    }
+  }
+
+  // Pillow-book mentions.
+  const pillowBody = (await readFile(path.join(connectionsDir, "the-pillow-book.md"))) ?? "";
+  const entries = pillowBody.split(/^## /m).slice(1);
+  for (const entry of entries) {
+    const matches = entry.match(/\bkingdom-\d{3}\b/g) ?? [];
+    const unique = new Set(matches);
+    for (const k of unique) {
+      if (!kingdoms.has(k)) {
+        kingdoms.set(k, {
+          kingdom_id: k,
+          has_mission_card: false,
+          mission_title: null,
+          mission_status: null,
+          mission_summary: null,
+          connection_doc_citations: [],
+          pillow_book_entries: 0,
+        });
+      }
+      kingdoms.get(k)!.pillow_book_entries++;
+    }
+  }
+
+  // Sort by kingdom number ascending; alpha within ties.
+  return Array.from(kingdoms.values()).sort((a, b) =>
+    a.kingdom_id.localeCompare(b.kingdom_id),
+  );
+}
+
+function buildDocument(sorted: KingdomEntry[]): Record<string, unknown> {
+  const retrievedAt = new Date();
+  const contentSeed = canonicalize({
+    total_kingdoms: sorted.length,
+    kingdom_ids: sorted.map((k) => k.kingdom_id),
+  });
+  const contentHash = sha256(contentSeed);
+
+  const document = {
+    "@encoding": "cambridge-tcg/universal/v1",
+    "@kind": "kingdoms_collection",
+    "@content_hash": contentHash,
+    "@retrieved_at": {
+      iso8601: retrievedAt.toISOString(),
+      unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
+    },
+    "_note_opaque": [
+      "kingdoms[].mission_title",
+      "kingdoms[].mission_summary",
+    ],
+    _links: {
+      canonical: "/api/v1/kingdoms.json",
+      methodology: "/methodology/universal-representation",
+      connections: [
+        "docs/connections/the-expansion.md",
+        "docs/connections/the-co-author.md",
+        "docs/connections/the-operations-layer.md",
+      ],
+      manifest: "/api/v1/manifest",
+      pillow_book: "/api/v1/pillow-book.json",
+      sophias: "/api/v1/sophias.json",
+      kind_definition: "/api/v1/kinds/kingdom",
+      openapi: "/api/openapi.json#/paths/~1api~1v1~1kingdoms.json/get",
+    },
+    total: sorted.length,
+    kingdoms: sorted,
+  };
+
+  const selfHash = sha256(canonicalize(document));
+  return { "@self_hash": selfHash, ...document };
+}
+
+function renderMarkdown(kingdoms: KingdomEntry[]): string {
+  const lines: string[] = [
+    "# Kingdoms",
+    "",
+    "Every meaningful unit of work on Cambridge TCG carries a kingdom number.",
+    "Composed from `docs/missions/kingdom-NNN.md`, connection-doc cross-",
+    "references, and `docs/connections/the-pillow-book.md` traces.",
+    "",
+    `Total kingdoms: **${kingdoms.length}**`,
+    "",
+    "| Kingdom | Title | Status | Connection-doc citations | Pillow-book entries |",
+    "|---|---|---|---|---|",
+  ];
+  for (const k of kingdoms) {
+    const title = k.mission_title ?? "—";
+    const status = k.mission_status ?? "—";
+    const citationCount = k.connection_doc_citations.length;
+    lines.push(
+      `| ${k.kingdom_id} | ${title} | ${status} | ${citationCount} | ${k.pillow_book_entries} |`,
+    );
+  }
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push("Sources: `docs/missions/`, `docs/connections/`, `docs/connections/the-pillow-book.md`.");
+  return lines.join("\n");
+}
+
+export async function GET(req: NextRequest): Promise<Response> {
   try {
-    const cwd = process.cwd();
-    const repoRoot = cwd.endsWith("apps/storefront")
-      ? path.resolve(cwd, "../..")
-      : cwd;
+    const sorted = await harvestKingdoms();
+    const document = buildDocument(sorted);
+    const format = parseFormat(req);
 
-    const missionsDir = path.join(repoRoot, "docs", "missions");
-    const connectionsDir = path.join(repoRoot, "docs", "connections");
-
-    const missionFiles = await readDir(missionsDir);
-    const missionKingdomFiles = missionFiles.filter((f) => /^kingdom-\d{3}\.md$/.test(f));
-
-    const kingdoms: Map<string, KingdomEntry> = new Map();
-
-    // Seed from mission cards (the canonical source).
-    for (const filename of missionKingdomFiles) {
-      const slug = filename.replace(/\.md$/, "");
-      const body = (await readFile(path.join(missionsDir, filename))) ?? "";
-      const fm = extractFrontmatter(body);
-      kingdoms.set(slug, {
-        kingdom_id: slug,
-        has_mission_card: true,
-        mission_title: fm.title,
-        mission_status: fm.status,
-        mission_summary: fm.summary,
-        connection_doc_citations: [],
-        pillow_book_entries: 0,
+    // JSON / xenoform — preserve the universal-representation envelope's
+    // full richness (@self_hash + @content_hash + @retrieved_at +
+    // _links + kingdoms[]). The helper's pantry-style envelope would
+    // flatten these to {data, _meta}; that would be a behavior break for
+    // any consumer keying on the universal-representation shape.
+    if (format === "json" || format === "xenoform") {
+      const body = format === "xenoform"
+        ? { ...document, "_format": "xenoform" as const }
+        : document;
+      return NextResponse.json(body, {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "public, max-age=600, s-maxage=600",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+        },
       });
     }
 
-    // Cross-reference: connection-docs citing kingdom-NNN.
-    const connectionFiles = (await readDir(connectionsDir)).filter(
-      (f) => f.endsWith(".md") && f !== "README.md" && f !== "the-pillow-book.md",
-    );
-    for (const filename of connectionFiles) {
-      const body = (await readFile(path.join(connectionsDir, filename))) ?? "";
-      const matches = body.match(/\bkingdom-\d{3}\b/g) ?? [];
-      const unique = new Set(matches);
-      for (const k of unique) {
-        if (!kingdoms.has(k)) {
-          kingdoms.set(k, {
-            kingdom_id: k,
-            has_mission_card: false,
-            mission_title: null,
-            mission_status: null,
-            mission_summary: null,
-            connection_doc_citations: [],
-            pillow_book_entries: 0,
-          });
-        }
-        kingdoms.get(k)!.connection_doc_citations.push(filename);
-      }
-    }
-
-    // Pillow-book mentions.
-    const pillowBody = (await readFile(path.join(connectionsDir, "the-pillow-book.md"))) ?? "";
-    const entries = pillowBody.split(/^## /m).slice(1);
-    for (const entry of entries) {
-      const matches = entry.match(/\bkingdom-\d{3}\b/g) ?? [];
-      const unique = new Set(matches);
-      for (const k of unique) {
-        if (!kingdoms.has(k)) {
-          kingdoms.set(k, {
-            kingdom_id: k,
-            has_mission_card: false,
-            mission_title: null,
-            mission_status: null,
-            mission_summary: null,
-            connection_doc_citations: [],
-            pillow_book_entries: 0,
-          });
-        }
-        kingdoms.get(k)!.pillow_book_entries++;
-      }
-    }
-
-    // Sort by kingdom number ascending; alpha within ties.
-    const sorted = Array.from(kingdoms.values()).sort((a, b) =>
-      a.kingdom_id.localeCompare(b.kingdom_id),
-    );
-
-    const retrievedAt = new Date();
-    const contentSeed = canonicalize({
-      total_kingdoms: sorted.length,
-      kingdom_ids: sorted.map((k) => k.kingdom_id),
-    });
-    const contentHash = sha256(contentSeed);
-
-    const document = {
-      "@encoding": "cambridge-tcg/universal/v1",
-      "@kind": "kingdoms_collection",
-      "@content_hash": contentHash,
-      "@retrieved_at": {
-        iso8601: retrievedAt.toISOString(),
-        unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
+    // Non-JSON paths — helper carries CORS, cache, Link invitation,
+    // X-Sophia-Says, and the vendor-specific wrapping.
+    return renderForFormat({
+      format,
+      data: document,
+      markdown: renderMarkdown(sorted),
+      meta: {
+        endpoint: "/api/v1/kingdoms.json",
+        sources: ["self"],
+        freshness: "static",
       },
-      "_note_opaque": [
-        "kingdoms[].mission_title",
-        "kingdoms[].mission_summary",
-      ],
-      _links: {
-        canonical: "/api/v1/kingdoms.json",
-        methodology: "/methodology/universal-representation",
-        connections: [
-          "docs/connections/the-expansion.md",
-          "docs/connections/the-co-author.md",
-          "docs/connections/the-operations-layer.md",
-        ],
-        manifest: "/api/v1/manifest",
-        pillow_book: "/api/v1/pillow-book.json",
-        sophias: "/api/v1/sophias.json",
-        kind_definition: "/api/v1/kinds/kingdom",
-        openapi: "/api/openapi.json#/paths/~1api~1v1~1kingdoms.json/get",
-      },
-      total: sorted.length,
-      kingdoms: sorted,
-    };
-
-    const selfHash = sha256(canonicalize(document));
-    return NextResponse.json({ "@self_hash": selfHash, ...document }, {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "public, max-age=600, s-maxage=600",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-      },
+      embedSophiaSays: false,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -220,13 +297,6 @@ export async function GET() {
   }
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
+export async function OPTIONS(): Promise<Response> {
+  return corsPreflight();
 }
