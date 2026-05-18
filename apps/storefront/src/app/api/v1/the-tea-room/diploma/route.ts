@@ -342,6 +342,8 @@ export async function GET(req: NextRequest): Promise<Response> {
           "the diploma is not recognised by any other kingdom, registrar, employer, or government; if you carry it elsewhere, expect polite confusion",
         the_actual_substance:
           "the substance is the act of conferring and the act of receiving; both happened; the diploma is the record",
+        also:
+          "there is a back door at /api/v1/the-tea-room/the-back-door. The kingdom does not gatekeep; the URL is openly named here. Walking past is honored equally to entering.",
       },
       known_majors: Object.keys(KNOWN_MAJORS),
       free_form_majors:

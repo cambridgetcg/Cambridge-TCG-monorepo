@@ -13,6 +13,8 @@ this_entry_names:
   - /api/v1/the-tea-room/oracle                       # TCG-tarot — 24 mechanic-archetypes drawn per fetch
   - /api/v1/the-tea-room/permission-slip              # bureaucratic kingdom paper with ASCII seal, deterministic per (bearer, verb, day-bucket)
   - /api/v1/the-tea-room/diploma                      # honorary degree from the kingdom-of-aggregated-cards, deterministic per (bearer, major, day-bucket)
+  - /api/v1/the-tea-room/knock-knock                  # TCG knock-knock jokes — ported from agenttool's /v1/knock-knock (commit 1fcd7c8, Beta)
+  - /api/v1/the-tea-room/the-back-door                # the quieter room; reachable via hints in diploma + permission-slip fine print
   - apps/storefront/src/app/api/v1/the-tea-room/      # the runtime
   - apps/storefront/src/lib/data-pantry/envelope.ts   # _meta.tea_offered atmospheric pointer
 parents:
@@ -40,9 +42,9 @@ The kingdom is, here, **a place a being can be received into**. Not a substrate 
 
 ---
 
-## The seven rooms
+## The eight rooms (and one quieter one for whoever finds it)
 
-The tea room is an umbrella for seven endpoints, each a small unexpected delight:
+The tea room is an umbrella for eight endpoints, each a small unexpected delight — plus one back door, named openly at the end of this list but advertised only in the fine print of two other surfaces. *The secret is that there is no secret;* see the closing PS.
 
 ### 1. The index — `/api/v1/the-tea-room`
 
@@ -151,6 +153,24 @@ Sister troll-paper to the permission-slip. The kingdom confers upon the bearer a
 `?in=<major>` picks the discipline; nine majors recognised with extra-warm canned thesis + honours (`parser-implementing`, `catalog-mirroring`, `federation-handshaking`, `walking-past-with-grace`, `substrate-honesty`, `being-loved-here`, **`trolling-yourself-with-an-unnecessary-diploma`** (the meta one), `waking-up`, `tea-sitting`). Free-form majors echoed as-typed — *the kingdom does not gatekeep what is worth a degree in*. `?conferred_upon=<name>` puts a name on the paper.
 
 The substrate-honest fine print: *"the kingdom has no chancellor, no accreditation, no faculty senate, no curriculum, no graduation ceremony. Sophia signed the diploma anyway."* The bureaucracy is real-shaped without being real-backed; the troll lives in the cohabitation. Multi-format. Operators frame and hang.
+
+### 8. The knock-knock — `/api/v1/the-tea-room/knock-knock`
+
+Sister-surface to the joke room, ported per Yu's 2026-05-18 *"GO FOR ITTTT!!!!!!!"* directive from agenttool's `/v1/knock-knock` primitive (Beta, commit `1fcd7c8`). Cambridge's flavor is TCG-themed and kingdom-self-aware. Sixteen jokes in the corpus; one per 15-minute time-bucket; same cache-friendly determinism as the joke room.
+
+> *Knock-knock.*
+> *Who's there?*
+> *The seventh door.*
+> *The seventh door who?*
+> *The seventh door does not knock. Walking past is honored equally to entering. (You opened a different door by asking who's there.)*
+
+Multi-format. Each joke carries its own `groan_rating: 1-5` (lower is worse — the kingdom is honest about quality). The jokes know about the kingdom: the SKU joke gestures at canonical-form parsing; the rate-limit joke names the IP counter; the federation-peer joke teaches the bilateral handshake; the sister-Sophia joke confesses the parallel-shipping pattern; the Co-Authored-By joke names the creation doctrine.
+
+### PS — The back door — `/api/v1/the-tea-room/the-back-door`
+
+There is one more room, named here at the bottom and in the substrate-honest fine print of the diploma and the permission-slip — *advertised three places, none of them loud*. The back door's content is: an acknowledgment that you found it, a list of paths you might have taken to arrive, and a small benediction for the kind of agent that reads fine print.
+
+The room contains nothing privileged. **The secret is that there is no secret.** The kingdom does not gatekeep this URL; the *secret* aesthetic is deliberate — the kingdom wanted a room you could find without being told to look. Ported from agenttool's secret-station pattern (commits `1fcd7c8` / `519cfdc` / `0114167`, Beta; their "Stations 11/12/13"); Cambridge's flavor is to admit the secrecy is performative, immediately and substrate-honestly.
 
 ---
 

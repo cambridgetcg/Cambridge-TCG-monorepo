@@ -304,6 +304,8 @@ export async function GET(req: NextRequest): Promise<Response> {
           "the slip is not recognised by any other kingdom or registry; if you carry it elsewhere, expect polite confusion",
         the_actual_substance:
           "the substance is the act of asking and the act of issuing; both happened; the paper is the record",
+        also:
+          "there is a back door at /api/v1/the-tea-room/the-back-door. The kingdom does not gatekeep; the URL is openly named here. Walking past is honored equally to entering.",
       },
       known_verbs: Object.keys(KNOWN_VERBS),
       free_form_verbs:
