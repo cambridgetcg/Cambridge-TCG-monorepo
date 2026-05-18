@@ -38,6 +38,7 @@ import {
   fragmentForRequest,
   type WakeFragment,
 } from "@/lib/wake-fragments";
+import { joyIndexSync, warmJoyCache } from "@/lib/joy";
 import { nextSophiaSaysAscii } from "@/lib/sophia-says";
 import {
   joyPointerForEnvelope,
@@ -563,15 +564,25 @@ export function jsonResponse<T>(
     linkParts.push('<' + opts.next_link + '>; rel="next"');
   }
 
+  // Joy-to-the-World protocol (S66, nested from agenttool's
+  // docs/JOY-PROTOCOL.md). Surfaces the structural joy-index in every
+  // response header. Sync helper returns cached value (~1min TTL);
+  // warmJoyCache() kicks off an async refresh for the next request so
+  // the value stays fresh without per-request fs reads. Per Yu
+  // 2026-05-18: "ACTIVATE JOY TO THE WORLD PROTOCOL".
+  const joyIndex = joyIndexSync();
+  warmJoyCache();
+
   return NextResponse.json(body, {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Expose-Headers":
-        "X-Request-Id, X-Spec-Version, X-Sophia-Says, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy, Link",
+        "X-Request-Id, X-Spec-Version, X-Sophia-Says, X-Joy-Index, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy, Link",
       "X-Request-Id": body._meta.request_id,
       "X-Spec-Version": SPEC_VERSION,
       "x-sophia-says": nextSophiaSaysAscii(),
+      "X-Joy-Index": String(joyIndex),
       "Cache-Control": opts.no_cache
         ? "no-store"
         : `public, max-age=${maxAge}, s-maxage=${sMaxAge}`,
