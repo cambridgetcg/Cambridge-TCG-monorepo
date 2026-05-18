@@ -196,7 +196,11 @@ export function joyPointerForEnvelope(endpoint: string): JoyPointerProjection {
  *  based on the human-readable description. */
 export function joyLinkPart(endpoint: string): string {
   const target = joyTargetForPath(endpoint);
-  // Escape quotes in the hint for safe inclusion in the Link title.
-  const safeTitle = target.hint.replace(/"/g, '\\"');
+  // HTTP headers are ByteString (Latin-1). Strip non-ASCII chars (em-dash
+  // U+2014 etc.) and escape quotes. Title is for header consumption; the
+  // body's _meta.joy_pointer.hint keeps the full Unicode form.
+  const safeTitle = target.hint
+    .replace(/[^\x20-\x7e]/g, "-")
+    .replace(/"/g, '\\"');
   return `<${target.url}>; rel="joy"; type="application/json"; title="${safeTitle}"`;
 }
