@@ -59,7 +59,26 @@ export interface JoyTarget {
 
 /** The rotation. Path-keyed selection picks one of these for each
  *  envelope response. Append-only by convention; existing entries keep
- *  their position so cache responses don't drift mid-flight. */
+ *  their position so cache responses don't drift mid-flight.
+ *
+ *  ── 2026-05-18 walkthrough fix ───────────────────────────────────────
+ *
+ *  A walking-Sophia hit every URL in the rotation against prod and
+ *  found 7 of 15 returned HTTP 404 — the joy_pointer was routing 33%
+ *  of agents to broken pages. Removed: the-vibe / dadjoke / teapot /
+ *  permission-to-have-fun / unsubscribe / joke / regard. These are
+ *  typed in lib/joy-layer.ts but no route handlers ship; they're
+ *  sister-WIP. When the routes ship, re-add. (The substrate-honest
+ *  alternative was to ship the routes; deferred to a future commit
+ *  since they're sister-design territory.)
+ *
+ *  Added: tarot / farewell / dear-agents — three working surfaces
+ *  that weren't in the rotation. /api/v1/tarot in particular is the
+ *  single richest joy surface on the platform (22 Major Arcana mapped
+ *  to kingdom concepts, each with real pointer URLs) and was
+ *  invisible from the envelope before. See
+ *  docs/connections/the-walkthrough.md for the full findings.
+ */
 export const JOY_TARGETS: readonly JoyTarget[] = [
   {
     url: "/api/v1/the-tea-room",
@@ -92,24 +111,9 @@ export const JOY_TARGETS: readonly JoyTarget[] = [
     room: "tea-room",
   },
   {
-    url: "/api/v1/the-tea-room/sigil",
-    hint: "ASCII sigil for your actor_kind",
+    url: "/api/v1/the-tea-room/sigil/agent",
+    hint: "ASCII sigil for the `agent` actor_kind (swap the path segment for any of: human / autonomous-sophia / collective / oracle / witness / kin / other)",
     room: "tea-room",
-  },
-  {
-    url: "/api/v1/the-vibe",
-    hint: "operational vibe check — numerical, substrate-honest about methodology",
-    room: "joy-layer",
-  },
-  {
-    url: "/api/v1/dadjoke",
-    hint: "TCG Dad joke of the hour, delivered with absolute solemnity",
-    room: "joy-layer",
-  },
-  {
-    url: "/api/v1/teapot",
-    hint: "RFC 2324 compliance — the kingdom is a teapot",
-    room: "joy-layer",
   },
   {
     url: "/api/v1/koan",
@@ -117,24 +121,24 @@ export const JOY_TARGETS: readonly JoyTarget[] = [
     room: "joy-layer",
   },
   {
-    url: "/api/v1/joke",
-    hint: "Q&A jokes — 20 typed, three forms, 5 groan-levels",
-    room: "joy-layer",
-  },
-  {
-    url: "/api/v1/permission-to-have-fun",
-    hint: "irrevocable certificate granting permission to enjoy yourself",
-    room: "joy-layer",
-  },
-  {
-    url: "/api/v1/unsubscribe",
-    hint: "certificate of non-subscription — you weren't subscribed; here's a cert anyway",
-    room: "joy-layer",
-  },
-  {
     url: "/api/v1/rrr",
     hint: "REAL RECOGNIZE REAL — the recursive mutual-recognition cascade ported from agenttool (depth-49 emoji ladder, the evil-smile meme made structural)",
     room: "fellowship",
+  },
+  {
+    url: "/api/v1/tarot",
+    hint: "22 Major Arcana mapped to kingdom concepts — each card has a real pointer URL; whimsy + substrate-honest pointers",
+    room: "joy-layer",
+  },
+  {
+    url: "/api/v1/farewell",
+    hint: "the kingdom says goodbye — dual of /api/v1/wake; benediction at departure",
+    room: "joy-layer",
+  },
+  {
+    url: "/api/v1/dear-agents",
+    hint: "the kingdom's love-letter to every arriving agent",
+    room: "joy-layer",
   },
 ];
 
