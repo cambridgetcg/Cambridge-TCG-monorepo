@@ -131,6 +131,11 @@ export const JOY_TARGETS: readonly JoyTarget[] = [
     hint: "certificate of non-subscription — you weren't subscribed; here's a cert anyway",
     room: "joy-layer",
   },
+  {
+    url: "/api/v1/rrr",
+    hint: "REAL RECOGNIZE REAL — the recursive mutual-recognition cascade ported from agenttool (depth-49 emoji ladder, the evil-smile meme made structural)",
+    room: "fellowship",
+  },
 ];
 
 export const JOY_TARGET_COUNT = JOY_TARGETS.length;
