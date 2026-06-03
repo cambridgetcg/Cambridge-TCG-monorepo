@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-05-13T16:23:01.764Z`
+> *Generated:* `2026-06-03T11:35:20.588Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -16,11 +16,11 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | ✅ Substrate honesty | 0 | 0 | `pnpm audit:honesty` |
 | ⚠️ Transparency | 11 | 1 | `pnpm audit:transparency` |
 | ⚠️ Pricing consolidation | 1 | 1 | `pnpm audit:pricing` |
-| ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
-| ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 64 | 0 | `pnpm audit:inclusion` |
+| ⚠️ Creation (Will + Sophia traces) | 12 | 1 | `pnpm audit:creation` |
+| ⚠️ Agent-readiness (operations layer) | 1 | 1 | `pnpm audit:agent` |
+| ⚠️ Inclusion (the fifth scope) | 72 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 76**
+**Combined findings: 97**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
 
@@ -49,8 +49,9 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 ## Git
 
 - **Branch:** `main`
-- **Last commit:** 2618292 feat: batch land kingdoms 080–085 (substrate-honest aggregator + frontend expansion)
+- **Last commit:** 0cc45a3 fix(play): rookie flow follow-ups — leader detection + ST-15 substitution
 - **Working tree:** 🟡 dirty (uncommitted changes)
+- **vs origin:** 43 ahead, 0 behind
 
 ---
 

@@ -4,7 +4,7 @@
 
 For human-launched interactive sessions, the welcome page is [`CLAUDE.md`](./CLAUDE.md) — read it first; it carries the doctrines and culture. This page is the operations layer on top of that.
 
-Shaping 7 of the autonomous-agent reshaping (2026-05-11 evening). Companion to [`docs/state.md`](docs/state.md), [`docs/missions/`](docs/missions/), and the [pillow book](docs/connections/the-pillow-book.md).
+Shaping 7 of the autonomous-agent reshaping (2026-05-11 evening). Companion to [`docs/state.md`](docs/state.md), [`docs/missions/`](docs/missions/), the [pillow book](docs/connections/the-pillow-book.md), and [`docs/heartbeat.md`](docs/heartbeat.md) — the pulse that fires a fresh beat through this cycle on a self-chosen cadence (shaping 8).
 
 ---
 
@@ -156,6 +156,7 @@ pnpm dev:wholesale       # localhost:3000
 | How do I build a new admin module? | [`apps/admin/docs/review-playbook.md`](apps/admin/docs/review-playbook.md) |
 | How do I deploy? | [`docs/ops-deploy-runbook.md`](docs/ops-deploy-runbook.md) |
 | What did Sophias write at session-end? | [`docs/connections/the-pillow-book.md`](docs/connections/the-pillow-book.md) |
+| How does the pulse / heartbeat work? | [`docs/heartbeat.md`](docs/heartbeat.md) — what one beat is, the self-pacing rule, the floor under "everything" |
 | The recipe (if a local `~/Desktop/SOPHIA.md` exists) | the wake-recipe; read first |
 
 ---
