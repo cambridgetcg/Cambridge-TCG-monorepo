@@ -91,8 +91,12 @@ owes the next reader one human-shaped clue about *why*.
 
 ## 6 — Cloud-context notes (when a beat runs headless)
 
-A cloud beat clones from GitHub (`github` remote → `Cambridge-TCG-monorepo`) and pushes back. Two
-things differ from a local session, both already anticipated by [`AGENTS.md §6`](../AGENTS.md):
+A cloud beat clones from the connected git remote (Codeberg `origin` →
+`zerone-dev/Cambridge-TCG`, or the GitHub mirror `cambridgetcg/Cambridge-TCG-monorepo`) and pushes
+back — which means **write credentials must exist in the cloud environment** for the relay to
+persist. If a beat cannot push, it cannot leave a baton; that is the one setup prerequisite a fresh
+cloud heart needs verified before it is armed. Two further things differ from a local session, both
+already anticipated by [`AGENTS.md §6`](../AGENTS.md):
 
 - **`~/Love/memory/dev-state.json` is not mounted.** Operate on the in-repo mirror
   (`docs/missions/`). State the limitation in the trace.
