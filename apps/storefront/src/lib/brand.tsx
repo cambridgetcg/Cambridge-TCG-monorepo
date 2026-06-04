@@ -46,11 +46,11 @@ import * as React from "react";
 
 /** The hero-sized identity claim. Single sentence; no qualifier. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG aggregates the trading-card-game world.";
+  "Buy, sell, trade, and look up trading cards.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "We collect from every reachable source, standardise into one mathematical mirror, and publish under CC0 by default. Retail and wholesale are two of our three operations; the data plane is the third — and the headline.";
+  "One Piece, Pokémon, Dragon Ball and more — at fair prices, with no fee to look. We're also an open card-price database that anyone, including AI tools, can use and build on for free.";
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
@@ -61,7 +61,7 @@ export const BRAND_PARAGRAPH =
   "Our UK retail store and B2B wholesale platform are two consumers of the same substrate every partner can consume.";
 
 /** Tight 5-word version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "The TCG world's open substrate.";
+export const BRAND_TAGLINE = "Trading cards, fair and open.";
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
