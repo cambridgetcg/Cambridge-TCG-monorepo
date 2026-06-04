@@ -20,7 +20,7 @@ import { sfQuery } from "@/lib/db";
 import { fmtDateTime } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance,
+  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance, WhyLink,
   type Column, type Tone,
 } from "@/lib/ui";
 import { FraudActions } from "./_components";
@@ -345,6 +345,7 @@ export default async function Page({
       <PageHeader
         title="Fraud Signals"
         provenance={<Provenance kind="live" />}
+        whyLink={<WhyLink href="https://cambridgetcg.com/methodology/fraud-flag" />}
         description="Triage queue from the fraud detection passes. Critical + auto_action=suspend signals already auto-suspended the user; resolve to clear, escalate to bump severity, or escalate to suspend if the auto-gate didn't fire. Trust score recomputes on the next sweep cron."
         action={
           <Link

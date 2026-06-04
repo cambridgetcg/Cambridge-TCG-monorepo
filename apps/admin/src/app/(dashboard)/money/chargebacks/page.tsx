@@ -24,7 +24,7 @@ import { sfQuery } from "@/lib/db";
 import { fmtDate, fmtDateTime, fmtGBP } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance, Verifiability,
+  KpiGrid, KpiCard, StatusBadge, SectionHeading, Provenance, Verifiability, WhyLink,
   type Column, type Tone,
 } from "@/lib/ui";
 import { ChargebackActions } from "./_components";
@@ -322,6 +322,7 @@ export default async function Page({
       <PageHeader
         title="Chargebacks"
         provenance={<Provenance kind="synced" source="Stripe" />}
+        whyLink={<WhyLink href="https://cambridgetcg.com/methodology/fraud-flag" />}
         description="Stripe disputes. Critical-severity auto-suspends the user via the fraud pipeline. Webhook handler in storefront; this is the triage queue. Stripe is authoritative; this view is reconciled — admin actions update our row, not Stripe."
         action={
           <Link

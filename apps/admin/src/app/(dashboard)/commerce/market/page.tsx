@@ -17,7 +17,7 @@
  */
 
 import { sfQuery } from "@/lib/db";
-import { Provenance } from "@/lib/ui";
+import { Provenance, WhyLink } from "@/lib/ui";
 
 const STOREFRONT_ADMIN = process.env.STOREFRONT_URL ?? "https://cambridgetcg.com";
 
@@ -473,6 +473,7 @@ export default async function MarketPage() {
           <p className="text-sm text-neutral-400 mt-1">
             {d.total} total trades · {fmtGBP(d.totalVolume)} volume ·{" "}
             {fmtGBP(d.totalCommission)} commission earned
+            <WhyLink href="https://cambridgetcg.com/methodology/commission-rate" />
             {hasUrgent ? " — action required." : "."}
           </p>
         </div>
