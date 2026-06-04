@@ -333,14 +333,20 @@ export async function getActiveEvents(
 }
 
 /**
- * Get the bonus multiplier for an order
+ * Get the bonus multiplier for an order.
  *
- * @deprecated Points are no longer earned from orders. Only caller was processPointsEarning (now removed).
- * Kept for reference only.
+ * @deprecated Points are no longer earned from orders. The last caller
+ *   (`processPointsEarning`) was removed; grep confirms no live callers
+ *   remain in 2026-04-23. Throws so any resurrected caller — a stale job,
+ *   an ops script, a future import — fails loudly rather than silently
+ *   returning a multiplier that's no longer meaningful.
+ *
+ * If order-based points earning ever comes back, rebuild against the
+ * current points-bonus-events contract (`getActiveEvents`) directly.
  */
 export async function getOrderBonusMultiplier(
-  shop: string,
-  context: {
+  _shop: string,
+  _context: {
     tierId?: string;
     categoryIds?: string[];
     productIds?: string[];
@@ -351,12 +357,11 @@ export async function getOrderBonusMultiplier(
   multiplier: number;
   appliedEvents: string[];
 }> {
-  const result = await getActiveEvents(shop, context);
-
-  return {
-    multiplier: result.combinedMultiplier,
-    appliedEvents: result.eventNames,
-  };
+  throw new Error(
+    "points-bonus-events.server.getOrderBonusMultiplier() is deprecated " +
+    "and disabled. Points are no longer earned from orders; rewrite against " +
+    "getActiveEvents() if you need bonus-event context for a new flow."
+  );
 }
 
 // ============================================

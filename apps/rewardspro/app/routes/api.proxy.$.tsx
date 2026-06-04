@@ -27,6 +27,7 @@ import { getEnabledFeatures, getCurrencyBranding } from "../services/points-conf
 import { purchaseRaffleEntries, claimDailyFreeEntry } from "../services/raffle-entry.server";
 import { getRaffleStreakInfo } from "../services/raffle-streak.server";
 import { claimChallengeReward } from "../services/challenge-claim.server";
+import { joinChallenge } from "../services/challenge-management.server";
 import { openMysteryBox } from "../services/mystery-box-open.server";
 // Mission gamification imports
 import { getMissionsForCustomer, getPlayerStats } from "../services/mission-stats.server";
@@ -69,6 +70,58 @@ function proxyError(
     { success: false as const, error: msg, message: msg },
     { status: opts?.status, headers: opts?.headers }
   );
+}
+
+/**
+ * SECURITY: Resolve the authenticated customer ID from the SIGNED URL query params.
+ * Shopify App Proxy HMAC covers URL + query string but NOT the body, so trusting
+ * `logged_in_customer_id` from a POST body allowed horizontal authorization bypass
+ * (a logged-in customer could swap the ID to impersonate another). Always read from
+ * the signed query string; body is ignored for identity.
+ */
+export function getProxyCustomerId(request: Request): string | null {
+  const v = new URL(request.url).searchParams.get("logged_in_customer_id");
+  if (!v || v === "" || v === "null" || v === "undefined") return null;
+  return v;
+}
+
+/**
+ * Idempotency guard for mutating proxy POSTs.
+ * Clients send a unique `Idempotency-Key` header (UUID per user action). The first
+ * request for a given key proceeds; duplicates within the TTL window are rejected
+ * with a clear message. Prevents double-spend on rapid clicks / retries / replays.
+ * Falls back to an in-memory map when Vercel KV is not configured (local dev).
+ */
+const idempotencyMemory = new Map<string, number>();
+const IDEMPOTENCY_TTL_SECONDS = 120;
+async function claimIdempotencyKey(
+  scope: string,
+  shop: string,
+  customerId: string,
+  request: Request
+): Promise<{ ok: true } | { ok: false; reason: "missing" | "duplicate" }> {
+  const key = request.headers.get("idempotency-key");
+  if (!key || key.length < 8 || key.length > 128) return { ok: false, reason: "missing" };
+  const storeKey = `idem:${scope}:${shop}:${customerId}:${key}`;
+
+  try {
+    const { kv } = await import("@vercel/kv");
+    const kvConfigured = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+    if (kvConfigured) {
+      const claimed = await kv.set(storeKey, "1", { nx: true, ex: IDEMPOTENCY_TTL_SECONDS });
+      return claimed === "OK" ? { ok: true } : { ok: false, reason: "duplicate" };
+    }
+  } catch (err) {
+    log.warn("Idempotency KV unavailable, using memory fallback:", (err as Error).message);
+  }
+
+  const now = Date.now();
+  for (const [k, expiry] of idempotencyMemory) {
+    if (expiry < now) idempotencyMemory.delete(k);
+  }
+  if (idempotencyMemory.has(storeKey)) return { ok: false, reason: "duplicate" };
+  idempotencyMemory.set(storeKey, now + IDEMPOTENCY_TTL_SECONDS * 1000);
+  return { ok: true };
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -1778,21 +1831,27 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return proxyError("Authentication required", { status: 401, headers });
     }
 
+    const loggedInCustomerId = getProxyCustomerId(request);
+    if (!loggedInCustomerId) {
+      return proxyError("Please sign in to enter raffles", { status: 401, headers });
+    }
+
     try {
       const body = await request.json();
-      const { intent, raffleId, quantity = 1, logged_in_customer_id } = body;
-
-      if (!logged_in_customer_id) {
-        return proxyError("Please sign in to enter raffles", { status: 401, headers });
-      }
+      const { intent, raffleId, quantity = 1 } = body;
 
       if (!raffleId) {
         return proxyError("Raffle ID is required", { status: 400, headers });
       }
 
-      // Resolve internal customer ID from Shopify customer ID
+      const idem = await claimIdempotencyKey("raffle-entry", shop, loggedInCustomerId, request);
+      if (!idem.ok && idem.reason === "duplicate") {
+        return proxyError("Duplicate request — entry already being processed", { status: 409, headers });
+      }
+
+      // Resolve internal customer ID from Shopify customer ID (from signed URL, not body)
       const customer = await prisma.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        where: { shop, shopifyCustomerId: loggedInCustomerId },
         select: { id: true, pointsBalance: true },
       });
 
@@ -1856,13 +1915,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return proxyError("Authentication required", { status: 401, headers });
     }
 
+    const loggedInCustomerId = getProxyCustomerId(request);
+    if (!loggedInCustomerId) {
+      return proxyError("Please sign in", { status: 401, headers });
+    }
+
     try {
       const body = await request.json();
-      const { eventIds, logged_in_customer_id } = body;
-
-      if (!logged_in_customer_id) {
-        return proxyError("Please sign in", { status: 401, headers });
-      }
+      const { eventIds } = body;
 
       if (!eventIds || !Array.isArray(eventIds) || eventIds.length === 0) {
         return proxyError("Event IDs are required", { status: 400, headers });
@@ -1888,20 +1948,26 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return proxyError("Authentication required", { status: 401, headers });
     }
 
+    const loggedInCustomerId = getProxyCustomerId(request);
+    if (!loggedInCustomerId) {
+      return proxyError("Please sign in to enter raffles", { status: 401, headers });
+    }
+
     try {
       const body = await request.json();
-      const { raffleId, quantity = 1, logged_in_customer_id } = body;
+      const { raffleId, quantity = 1 } = body;
 
       if (!raffleId) {
         return proxyError("Raffle ID is required", { status: 400, headers });
       }
 
-      if (!logged_in_customer_id) {
-        return proxyError("Please sign in to enter raffles", { status: 401, headers });
+      const idem = await claimIdempotencyKey("raffle-enter", shop, loggedInCustomerId, request);
+      if (!idem.ok && idem.reason === "duplicate") {
+        return proxyError("Duplicate request — entry already being processed", { status: 409, headers });
       }
 
       const customer = await prisma.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        where: { shop, shopifyCustomerId: loggedInCustomerId },
         select: { id: true, pointsBalance: true },
       });
 
@@ -1944,20 +2010,26 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return proxyError("Authentication required", { status: 401, headers });
     }
 
+    const loggedInCustomerId = getProxyCustomerId(request);
+    if (!loggedInCustomerId) {
+      return proxyError("Please sign in to claim rewards", { status: 401, headers });
+    }
+
     try {
       const body = await request.json();
-      const { challengeId, logged_in_customer_id } = body;
+      const { challengeId } = body;
 
       if (!challengeId) {
         return proxyError("Challenge ID is required", { status: 400, headers });
       }
 
-      if (!logged_in_customer_id) {
-        return proxyError("Please sign in to claim rewards", { status: 401, headers });
+      const idem = await claimIdempotencyKey("challenge-claim", shop, loggedInCustomerId, request);
+      if (!idem.ok && idem.reason === "duplicate") {
+        return proxyError("Duplicate request — reward already being claimed", { status: 409, headers });
       }
 
       const customer = await prisma.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        where: { shop, shopifyCustomerId: loggedInCustomerId },
         select: { id: true },
       });
 
@@ -2010,110 +2082,51 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return proxyError("Authentication required", { status: 401, headers });
     }
 
+    const loggedInCustomerId = getProxyCustomerId(request);
+    if (!loggedInCustomerId) {
+      return proxyError("Please sign in to join challenges", { status: 401, headers });
+    }
+
     try {
       const body = await request.json();
-      const { challengeId, logged_in_customer_id } = body;
+      const { challengeId } = body;
 
       if (!challengeId) {
         return proxyError("Challenge ID is required", { status: 400, headers });
       }
 
-      if (!logged_in_customer_id) {
-        return proxyError("Please sign in to join challenges", { status: 401, headers });
-      }
-
+      // Resolve internal customer ID from Shopify customer ID.
       const customer = await prisma.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
-        select: { id: true, currentTierId: true },
+        where: { shop, shopifyCustomerId: loggedInCustomerId },
+        select: { id: true },
       });
-
       if (!customer) {
         return proxyError("Customer not found", { status: 404, headers });
       }
 
-      const now = new Date();
-      const challenge = await prisma.challenge.findFirst({
-        where: {
-          id: challengeId,
-          shop,
-          status: "ACTIVE",
-          isPublic: true,
-          startsAt: { lte: now },
-          endsAt: { gte: now },
-        },
-        include: { reward: true },
-      });
+      // All eligibility + idempotent-join + counter-increment logic lives
+      // in `joinChallenge`. This handler is just the HTTP boundary.
+      const result = await joinChallenge(shop, customer.id, challengeId);
 
-      if (!challenge) {
-        return proxyError("Challenge not found or not available", { headers });
+      if (!result.success) {
+        // Map the service's error codes to HTTP statuses.
+        const status =
+          result.error === "challenge_not_found" ? 404 :
+          result.error === "tier_not_allowed" ? 403 :
+          result.error === "customer_not_found" ? 404 :
+          400;
+        return proxyError(result.message ?? "Unable to join challenge", { status, headers });
       }
 
-      if (challenge.tierRestrictions) {
-        const restrictions = challenge.tierRestrictions as { allowedTierIds?: string[] };
-        if (restrictions.allowedTierIds?.length &&
-            (!customer.currentTierId || !restrictions.allowedTierIds.includes(customer.currentTierId))) {
-          return proxyError("This challenge is not available for your tier", { headers });
-        }
-      }
-
-      const existing = await prisma.challengeParticipant.findUnique({
-        where: {
-          challengeId_customerId: { challengeId, customerId: customer.id },
-        },
-      });
-
-      if (existing) {
-        return json({
+      return json(
+        {
           success: true,
-          alreadyJoined: true,
-          participant: {
-            id: existing.id,
-            status: existing.status,
-            currentProgress: existing.currentProgress,
-            progressPercent: existing.progressPercent,
-          },
-        }, { headers });
-      }
-
-      const participant = await prisma.challengeParticipant.create({
-        data: {
-          challengeId,
-          customerId: customer.id,
-          shop,
-          currentProgress: 0,
-          progressPercent: 0,
-          status: "IN_PROGRESS",
+          alreadyJoined: !!result.alreadyJoined,
+          participant: result.participant,
+          challenge: result.challenge,
         },
-      });
-
-      await prisma.challenge.update({
-        where: { id: challengeId },
-        data: { totalParticipants: { increment: 1 } },
-      });
-
-      log.info(`Customer ${customer.id} joined challenge ${challengeId}`);
-
-      return json({
-        success: true,
-        alreadyJoined: false,
-        participant: {
-          id: participant.id,
-          status: participant.status,
-          currentProgress: participant.currentProgress,
-          progressPercent: participant.progressPercent,
-        },
-        challenge: {
-          id: challenge.id,
-          name: challenge.name,
-          targetValue: challenge.targetValue,
-          objectiveType: challenge.objectiveType,
-          reward: challenge.reward ? {
-            type: challenge.reward.rewardType,
-            description: challenge.reward.description,
-          } : null,
-        },
-      }, { headers });
-
+        { headers }
+      );
     } catch (error: any) {
       log.error("Challenge join error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
       return proxyError("Failed to join challenge. Please try again.", { status: 500, headers });
@@ -2130,20 +2143,26 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return proxyError("Authentication required", { status: 401, headers });
     }
 
+    const loggedInCustomerId = getProxyCustomerId(request);
+    if (!loggedInCustomerId) {
+      return proxyError("Please sign in to open mystery boxes", { status: 401, headers });
+    }
+
     try {
       const body = await request.json();
-      const { boxId, logged_in_customer_id } = body;
+      const { boxId } = body;
 
       if (!boxId) {
         return proxyError("Box ID is required", { status: 400, headers });
       }
 
-      if (!logged_in_customer_id) {
-        return proxyError("Please sign in to open mystery boxes", { status: 401, headers });
+      const idem = await claimIdempotencyKey("mystery-box-open", shop, loggedInCustomerId, request);
+      if (!idem.ok && idem.reason === "duplicate") {
+        return proxyError("Duplicate request — box already being opened", { status: 409, headers });
       }
 
       const customer = await prisma.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        where: { shop, shopifyCustomerId: loggedInCustomerId },
         select: { id: true, pointsBalance: true },
       });
 
@@ -2191,15 +2210,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
       return proxyError("Authentication required", { status: 401, headers });
     }
 
+    const loggedInCustomerId = getProxyCustomerId(request);
+    if (!loggedInCustomerId) {
+      return proxyError("Please sign in to redeem gift cards", { status: 401, headers });
+    }
+
     try {
       const body = await request.json();
-      const { bundleId, customerId: shopifyCustomerId } = body;
+      const { bundleId } = body;
 
       if (!bundleId) {
         return proxyError("Bundle ID is required", { status: 400, headers });
       }
-      if (!shopifyCustomerId) {
-        return proxyError("Please sign in to redeem gift cards", { status: 401, headers });
+
+      const idem = await claimIdempotencyKey("gift-card-convert", shop, loggedInCustomerId, request);
+      if (!idem.ok && idem.reason === "duplicate") {
+        return proxyError("Duplicate request — redemption already being processed", { status: 409, headers });
       }
 
       // Look up bundle and config in parallel
@@ -2215,9 +2241,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
         return proxyError("Gift cards are not enabled for this store", { status: 403, headers });
       }
 
-      // Look up internal customer
+      // Look up internal customer (ID from signed URL, never body)
       const customer = await prisma.customer.findFirst({
-        where: { shop, shopifyCustomerId: String(shopifyCustomerId) },
+        where: { shop, shopifyCustomerId: loggedInCustomerId },
         select: { id: true, storeCredit: true },
       });
 

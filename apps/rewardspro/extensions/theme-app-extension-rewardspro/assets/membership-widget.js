@@ -1,98 +1,36 @@
 /**
- * RewardsPro Membership Widget - Dynamic Version
- * Fetches real-time customer data from proxy API
- * Handles authentication, caching, and error states
+ * RewardsPro Membership Widget
  *
- * Security: CSS injection protection via sanitizeColor/sanitizeNumber/sanitizeFontFamily
- * Performance: LocalStorage caching with shop-specific keys
- * Accessibility: Keyboard handlers on interactive elements, ARIA attributes
+ * Fetches real-time customer data from the Shopify App Proxy, caches it,
+ * and renders the floating tier + store-credit badge. Serves as the
+ * reference implementation for other widgets: all shared helpers
+ * (sanitize, fetch+retry, cache, escapeHtml, logger) come from
+ * `window.RPUtils` — loaded by the `rp_utils_loader` Liquid snippet.
  */
 
 (function() {
   'use strict';
 
-  // ============================================
-  // CONFIGURATION CONSTANTS
-  // Document magic numbers for maintainability
-  // ============================================
+  // ────────────────────────────────────────────────────────────────────────
+  // Shared utilities
+  // ────────────────────────────────────────────────────────────────────────
+  if (!window.RPUtils || !window.RPUtils.VERSION) {
+    // Fail loudly but don't crash the page. The widget simply won't render.
+    console.error('[RewardsWidget] window.RPUtils is missing. Ensure the ' +
+      '`rp_utils_loader` snippet is rendered before this script. See the ' +
+      'extension README for details.');
+    return;
+  }
+  var RP = window.RPUtils;
+  var log = RP.logger('RewardsWidget');
+  var sanitizeColor = RP.sanitize.color;
+  var sanitizeNumber = RP.sanitize.number;
+  var sanitizeFontFamily = RP.sanitize.fontFamily;
+
+  // Widget-specific tuning. Anything numerical that only this widget cares
+  // about lives here; shared HTTP/cache defaults come from RPUtils.
   const CONFIG = {
-    API_TIMEOUT_MS: 10000,        // API request timeout (10 seconds)
-    API_MAX_RETRIES: 3,           // Max retry attempts for failed requests
-    API_RETRY_BASE_MS: 1000,      // Base delay for exponential backoff (1s)
-    API_RETRY_MAX_MS: 10000,      // Max retry delay (10s)
-    DEFAULT_CACHE_DURATION_S: 30, // Default cache TTL (30 seconds - reduced for faster theme updates)
-    CACHE_VERSION: 2              // Cache schema version for invalidation (bump to force re-fetch)
-  };
-
-  // ============================================
-  // DEBUG UTILITY
-  // Enable via: localStorage.setItem('rp-debug', 'true')
-  // ============================================
-  const DEBUG = (() => {
-    try {
-      return localStorage.getItem('rp-debug') === 'true';
-    } catch {
-      return false;
-    }
-  })();
-
-  const log = {
-    debug: (...args) => DEBUG && console.log('[RewardsWidget]', ...args),
-    info: (...args) => DEBUG && console.log('[RewardsWidget]', ...args),
-    warn: (...args) => console.warn('[RewardsWidget]', ...args),
-    error: (...args) => console.error('[RewardsWidget]', ...args)
-  };
-
-  // ============================================
-  // SECURITY UTILITIES
-  // Validates inputs to prevent XSS via CSS injection
-  // ============================================
-
-  /**
-   * Validate CSS color value to prevent injection attacks
-   * Only allows hex, rgb, rgba, hsl, hsla, and named colors
-   */
-  const isValidColor = (color) => {
-    if (!color || typeof color !== 'string') return false;
-    const trimmed = color.trim();
-    // Hex: #RGB, #RRGGBB, #RRGGBBAA
-    if (/^#[0-9a-f]{3,8}$/i.test(trimmed)) return true;
-    // rgb/rgba
-    if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*[\d.]+)?\s*\)$/i.test(trimmed)) return true;
-    // hsl/hsla
-    if (/^hsla?\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*(,\s*[\d.]+)?\s*\)$/i.test(trimmed)) return true;
-    // Named colors (common subset)
-    const namedColors = ['transparent', 'inherit', 'currentcolor', 'white', 'black', 'red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'gray', 'grey'];
-    if (namedColors.includes(trimmed.toLowerCase())) return true;
-    return false;
-  };
-
-  /**
-   * Sanitize color value - returns validated color or default
-   */
-  const sanitizeColor = (color, defaultColor) => {
-    return isValidColor(color) ? color.trim() : defaultColor;
-  };
-
-  /**
-   * Validate numeric value within range
-   */
-  const sanitizeNumber = (value, defaultValue, min = 0, max = 100) => {
-    const num = parseFloat(value);
-    if (isNaN(num) || num < min || num > max) return defaultValue;
-    return num;
-  };
-
-  /**
-   * Sanitize font family - only allows safe font values
-   */
-  const sanitizeFontFamily = (font, defaultFont = 'inherit') => {
-    if (!font || typeof font !== 'string') return defaultFont;
-    // Only allow alphanumeric, spaces, quotes, commas, hyphens
-    if (!/^[a-zA-Z0-9\s'",-]+$/.test(font)) return defaultFont;
-    // Block anything that looks like CSS injection
-    if (/[{}:;]/.test(font)) return defaultFont;
-    return font;
+    DEFAULT_CACHE_DURATION_S: 30
   };
 
   class MembershipWidget {
@@ -154,6 +92,39 @@
           message: dataset.message || '',
           ctaText: dataset.ctaText || 'Sign In',
           ctaUrl: dataset.ctaUrl || '/account/login'
+        },
+
+        // i18n strings sourced from Liquid `| t` filter (data-i18n-* attrs).
+        // Fallbacks match locales/en.default.json so widgets keep working on
+        // Liquid templates that predate the i18n pass (or when a merchant's
+        // theme strips the attributes).
+        i18n: {
+          loading: dataset.i18nLoading || 'Loading rewards…',
+          guestFallback: dataset.i18nGuestFallback || 'Sign in to view rewards',
+          unavailableTitle: dataset.i18nUnavailableTitle || 'Rewards',
+          unavailableSubtitle: dataset.i18nUnavailableSubtitle || "We'll be back in a moment",
+          unavailableMessage: dataset.i18nUnavailableMessage || "We couldn't reach our rewards service. Your points and credit are safe — we just need a moment to reconnect.",
+          retry: dataset.i18nRetry || 'Try again',
+          viewAccount: dataset.i18nViewAccount || 'View account',
+          collapse: dataset.i18nCollapse || 'Collapse widget',
+          expand: dataset.i18nExpand || 'Expand widget',
+          memberBenefits: dataset.i18nMemberBenefits || 'Earn on every order',
+          perkStoreCredit: dataset.i18nPerkStoreCredit || 'Cashback on every order',
+          perkTierStatus: dataset.i18nPerkTierStatus || 'Unlock higher tiers',
+          perkProgress: dataset.i18nPerkProgress || 'Track your progress',
+          storeCreditBalance: dataset.i18nStoreCreditBalance || 'Your credit',
+          tierLabel: dataset.i18nTierLabel || 'Tier',
+          cashbackLabel: dataset.i18nCashbackLabel || 'Cashback',
+          progressLabel: dataset.i18nProgressLabel || 'Progress',
+          // Patterns — use interpolate() to substitute {{placeholders}}.
+          cashbackRate: dataset.i18nCashbackRate || '{{percent}}% back on every order',
+          creditWithRate: dataset.i18nCreditWithRate || '{{credit}} credit · {{percent}}% back',
+          maxTier: dataset.i18nMaxTier || 'Max tier reached',
+          maxTierTitle: dataset.i18nMaxTierTitle || '✨ Top tier',
+          maxTierMessage: dataset.i18nMaxTierMessage || "You're earning the max cashback rate on every order.",
+          progressUnlocks: dataset.i18nProgressUnlocks || 'Unlocks {{percent}}% back',
+          notFoundTitle: dataset.i18nNotfoundTitle || 'Setting up your rewards',
+          notFoundMessage: dataset.i18nNotfoundMessage || "We're getting your account ready. This usually takes a few minutes — check back soon, or get in touch with the store if you've been waiting a while."
         }
       };
     }
@@ -253,44 +224,11 @@
       this.applyTheme({ ...baseTheme, mode });
     }
 
-    /**
-     * FERMENTATION: Fetch with exponential backoff retry
-     * The volatile Mercury spirit is multiplied through repeated cycles
-     */
-    async fetchWithRetry(url, options, attempt = 0) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
-
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        return response;
-      } catch (error) {
-        // Don't retry on abort or if we've exhausted retries
-        if (error.name === 'AbortError' || attempt >= CONFIG.API_MAX_RETRIES - 1) {
-          throw error;
-        }
-
-        // Calculate exponential backoff delay: 1s, 2s, 4s... capped at 10s
-        const delay = Math.min(
-          CONFIG.API_RETRY_BASE_MS * Math.pow(2, attempt),
-          CONFIG.API_RETRY_MAX_MS
-        );
-
-        log.debug(`Retry ${attempt + 1}/${CONFIG.API_MAX_RETRIES} after ${delay}ms`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-
-        return this.fetchWithRetry(url, options, attempt + 1);
-      }
+    /** Thin wrapper so callers inside the class can still do `this.fetchWithRetry(...)`.
+     *  Retry + timeout + backoff logic lives in RPUtils so every widget behaves
+     *  identically under flaky networks. */
+    fetchWithRetry(url, options) {
+      return RP.fetchWithRetry(url, options);
     }
 
     /**
@@ -301,7 +239,7 @@
 
       if (!this.config.api.endpoint || !this.config.customer?.id) {
         log.error('Missing API endpoint or customer ID');
-        this.handleError('Configuration error');
+        this.handleError("We're having trouble loading this right now. Please refresh the page.");
         return;
       }
 
@@ -371,7 +309,7 @@
         log.error('Fetch error:', error.message);
 
         if (error.name === 'AbortError') {
-          this.handleError('Request timed out');
+          this.handleError("We're slow today — try again in a moment.");
         } else {
           this.handleError(error.message);
         }
@@ -392,87 +330,26 @@
       }
     }
 
-    /**
-     * MULTIPLICATION: Get cached data if available, fresh, and correct version
-     * The fixed Salt body is multiplied to preserve across transformations
-     */
+    /** Cache key parts: widget scope + shop + customer. RPUtils.cache handles
+     *  the `rp:` prefix, joins the parts, and wraps/unwraps the versioned
+     *  envelope. Scope prevents collisions with other widgets' caches. */
+    cacheKeyParts() {
+      return ['membership', this.config.shop.domain, this.config.customer && this.config.customer.id];
+    }
+
     getCachedData() {
-      if (!this.config.customer?.id) return null;
-
-      try {
-        // SECURITY: Include shop domain in cache key to prevent cross-shop data leakage
-        const key = `rp-widget-${this.config.shop.domain}-${this.config.customer.id}`;
-        const cached = localStorage.getItem(key);
-
-        if (!cached) return null;
-
-        const { data, timestamp, version } = JSON.parse(cached);
-
-        // MULTIPLICATION: Invalidate cache if version mismatch (schema changed)
-        if (version !== CONFIG.CACHE_VERSION) {
-          log.debug('Cache version mismatch, invalidating (cached:', version, 'current:', CONFIG.CACHE_VERSION, ')');
-          this.clearCache();
-          return null;
-        }
-
-        const age = (Date.now() - timestamp) / 1000; // Age in seconds
-
-        // Check if cache is still fresh
-        if (age < this.config.api.cacheDuration) {
-          log.debug('Cache hit (age: ' + Math.round(age) + 's, version:', version, ')');
-          return data;
-        }
-
-        log.debug('Cache expired (age: ' + Math.round(age) + 's)');
-        return null;
-
-      } catch (error) {
-        log.error('Cache read error:', error.message);
-        // Clear corrupted cache
-        try {
-          localStorage.removeItem(`rp-widget-${this.config.shop.domain}-${this.config.customer.id}`);
-        } catch (e) {}
-        return null;
-      }
+      if (!this.config.customer || !this.config.customer.id) return null;
+      return RP.cache.read(this.cacheKeyParts(), this.config.api.cacheDuration);
     }
 
-    /**
-     * MULTIPLICATION: Cache data with timestamp and version
-     * The Salt preserves the essence for future transformations
-     */
     cacheData(data) {
-      if (!this.config.customer?.id) return;
-
-      try {
-        // SECURITY: Include shop domain in cache key to prevent cross-shop data leakage
-        const key = `rp-widget-${this.config.shop.domain}-${this.config.customer.id}`;
-        const cache = {
-          data: data,
-          timestamp: Date.now(),
-          version: CONFIG.CACHE_VERSION,  // MULTIPLICATION: Version for future invalidation
-          // Store theme version for cache invalidation when merchant updates settings
-          themeVersion: data.theme?.version || 0
-        };
-        localStorage.setItem(key, JSON.stringify(cache));
-        log.debug('Data cached (version:', CONFIG.CACHE_VERSION, ', themeVersion:', cache.themeVersion, ')');
-      } catch (error) {
-        log.error('Cache write error:', error.message);
-      }
+      if (!this.config.customer || !this.config.customer.id) return;
+      RP.cache.write(this.cacheKeyParts(), data);
     }
 
-    /**
-     * Clear cached data for current customer
-     */
     clearCache() {
-      if (!this.config.customer?.id) return;
-
-      try {
-        const key = `rp-widget-${this.config.shop.domain}-${this.config.customer.id}`;
-        localStorage.removeItem(key);
-        log.debug('Cache cleared');
-      } catch (error) {
-        log.error('Cache clear error:', error.message);
-      }
+      if (!this.config.customer || !this.config.customer.id) return;
+      RP.cache.bust(this.cacheKeyParts());
     }
 
     /**
@@ -494,6 +371,7 @@
     renderUnavailable() {
       const expandedClass = this.state.isExpanded ? 'rp-auth--expanded' : 'rp-auth--collapsed';
 
+      const t = this.config.i18n;
       this.root.innerHTML = `
         <div class="rp-auth ${expandedClass}">
           <div class="rp-auth__header" role="button" tabindex="0" aria-expanded="${this.state.isExpanded}">
@@ -505,11 +383,11 @@
               </svg>
             </div>
             <div class="rp-auth__text">
-              <h3 class="rp-auth__title">Rewards</h3>
-              <p class="rp-auth__subtitle">Temporarily unavailable</p>
+              <h3 class="rp-auth__title">${this.escapeHtml(t.unavailableTitle)}</h3>
+              <p class="rp-auth__subtitle">${this.escapeHtml(t.unavailableSubtitle)}</p>
             </div>
             <div class="rp-auth__actions">
-              <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+              <button class="rp-auth__toggle" aria-label="${this.escapeHtml(this.state.isExpanded ? t.collapse : t.expand)}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M6 9l6 6 6-6"/>
                 </svg>
@@ -518,17 +396,17 @@
           </div>
           <div class="rp-auth__body">
             <div class="rp-unavailable">
-              <p class="rp-unavailable__message">
-                We couldn't load your rewards data right now.
-                Your rewards are still safe - please try again.
-              </p>
-              <button class="rp-unavailable__retry rp-btn-secondary" data-retry="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                  <path d="M23 4v6h-6M1 20v-6h6"/>
-                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-                </svg>
-                Try Again
-              </button>
+              <p class="rp-unavailable__message">${this.escapeHtml(t.unavailableMessage)}</p>
+              <div class="rp-unavailable__actions">
+                <button class="rp-unavailable__retry rp-btn rp-btn--secondary" data-retry="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                  </svg>
+                  ${this.escapeHtml(t.retry)}
+                </button>
+                <a class="rp-btn-link" href="/account">${this.escapeHtml(t.viewAccount)}</a>
+              </div>
             </div>
           </div>
         </div>
@@ -594,6 +472,7 @@
       const escapedCtaText = this.escapeHtml(ctaText);
       const expandedClass = this.state.isExpanded ? 'rp-guest-b--expanded' : 'rp-guest-b--collapsed';
 
+      const t = this.config.i18n;
       this.root.innerHTML = `
         <div class="rp-guest-b ${expandedClass}">
           <div class="rp-guest-b__header" role="button" tabindex="0" aria-expanded="${this.state.isExpanded}">
@@ -604,11 +483,11 @@
               </svg>
             </div>
             <div class="rp-guest-b__text">
-              <h3 class="rp-guest-b__title">Member Benefits</h3>
+              <h3 class="rp-guest-b__title">${this.escapeHtml(t.memberBenefits)}</h3>
               <p class="rp-guest-b__subtitle">${escapedMessage}</p>
             </div>
             <div class="rp-guest-b__actions">
-              <button class="rp-guest-b__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+              <button class="rp-guest-b__toggle" aria-label="${this.escapeHtml(this.state.isExpanded ? t.collapse : t.expand)}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M6 9l6 6 6-6"/>
                 </svg>
@@ -621,19 +500,19 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                Store Credit
+                ${this.escapeHtml(t.perkStoreCredit)}
               </span>
               <span class="rp-guest-b__perk rp-badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                Tier Status
+                ${this.escapeHtml(t.perkTierStatus)}
               </span>
               <span class="rp-guest-b__perk rp-badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                Progress
+                ${this.escapeHtml(t.perkProgress)}
               </span>
             </div>
             <a href="${escapedCtaUrl}" class="rp-guest-b__cta rp-btn-primary">
@@ -679,13 +558,44 @@
       }
     }
 
+    /** Replace `{{token}}` placeholders in an i18n pattern.
+     *  Keeps us out of template-literal hell while the strings stay translatable. */
+    interpolate(pattern, vars) {
+      var out = String(pattern || '');
+      var keys = Object.keys(vars || {});
+      for (var i = 0; i < keys.length; i++) {
+        var re = new RegExp('\\{\\{\\s*' + keys[i] + '\\s*\\}\\}', 'g');
+        out = out.replace(re, String(vars[keys[i]] == null ? '' : vars[keys[i]]));
+      }
+      return out;
+    }
+
+    /** Skeleton loader that matches the shape of the final content so the
+     *  layout doesn't jump once data arrives. Visually communicates "I'm
+     *  loading" without the old "Loading rewards…" text. */
     renderLoading() {
+      var expanded = this.state.isExpanded ? 'rp-auth--expanded' : 'rp-auth--collapsed';
       this.root.innerHTML = `
-        <div class="rp-widget rp-widget--loading">
-          <div class="rp-widget__content">
-            <div class="rp-widget__spinner"></div>
-            <p class="rp-widget__loading-text">Loading rewards...</p>
+        <div class="rp-auth rp-auth--skeleton ${expanded}" aria-busy="true" aria-live="polite">
+          <div class="rp-auth__header">
+            <div class="rp-skel rp-skel--circle rp-auth__icon"></div>
+            <div class="rp-auth__text">
+              <div class="rp-skel rp-skel--bar rp-skel--bar-md"></div>
+              <div class="rp-skel rp-skel--bar rp-skel--bar-sm"></div>
+            </div>
+            <div class="rp-skel rp-skel--circle rp-skel--circle-sm rp-auth__toggle-placeholder"></div>
           </div>
+          <div class="rp-auth__body">
+            <div class="rp-auth-c__balance-hero">
+              <div class="rp-skel rp-skel--bar rp-skel--bar-sm rp-skel--center"></div>
+              <div class="rp-skel rp-skel--bar rp-skel--bar-xl rp-skel--center"></div>
+            </div>
+            <div class="rp-auth-c__progress">
+              <div class="rp-skel rp-skel--bar rp-skel--bar-md"></div>
+              <div class="rp-skel rp-skel--bar rp-skel--bar-full"></div>
+            </div>
+          </div>
+          <span class="rp-sr-only">${this.escapeHtml(this.config.i18n.loading)}</span>
         </div>
       `;
     }
@@ -695,7 +605,7 @@
         <div class="rp-widget rp-widget--error">
           <div class="rp-widget__content">
             <p class="rp-widget__error-message">Unable to load rewards data</p>
-            <button class="rp-widget__retry rp-btn-secondary" data-retry="true">
+            <button class="rp-widget__retry rp-btn rp-btn--secondary" data-retry="true">
               Try Again
             </button>
           </div>
@@ -720,70 +630,78 @@
 
       log.debug('Rendering authenticated state');
 
-      const { balance, membership, tierProgress } = this.state.data;
+      var t = this.config.i18n;
+      var data = this.state.data || {};
+      var balance = data.balance || {};
+      var membership = data.membership || {};
+      var tierProgress = data.tierProgress || null;
 
-      const expandedClass = this.state.isExpanded ? 'rp-widget--expanded' : 'rp-widget--collapsed';
+      // Pre-format values defensively so a malformed field can't take out the
+      // whole widget. Individual failures degrade to safe defaults.
+      var tierName = 'Member';
+      var cashbackPercent = 0;
+      var storeCreditFormatted = this.formatCurrency(0);
+      try { tierName = membership.tier && membership.tier.name ? membership.tier.name : 'Member'; } catch (e) {}
+      try { cashbackPercent = (membership.tier && membership.tier.cashbackPercent) != null ? membership.tier.cashbackPercent : 0; } catch (e) {}
+      try { storeCreditFormatted = this.formatCurrency(balance.storeCredit); } catch (e) {}
 
-      // Pre-format values with error handling
-      let tierName, cashbackPercent, storeCreditFormatted;
-      try {
-        tierName = this.escapeHtml(membership?.tier?.name || 'Member');
-      } catch (e) {
-        log.error('Error formatting tier name:', e.message);
-        tierName = 'Member';
-      }
-
-      try {
-        cashbackPercent = membership?.tier?.cashbackPercent ?? 0;
-      } catch (e) {
-        log.error('Error getting cashback percent:', e.message);
-        cashbackPercent = 0;
-      }
-
-      try {
-        storeCreditFormatted = this.formatCurrency(balance?.storeCredit);
-      } catch (e) {
-        log.error('Error formatting store credit:', e.message);
-        storeCreditFormatted = this.formatCurrency(0);
-      }
-
-      // Calculate tier progress values
-      let progressPercent = 0;
-      let nextTierName = '';
-      let isMaxTier = false;
-      let progressStats = '';
-      let amountRemaining = 0;
-      let showTierProgress = false;
-      let nextTierTarget = 0;
-
+      // Tier progress — show when the shopper either owns the top tier or has
+      // a meaningful target to aim at.
+      var progressPercent = 0, nextTierName = '', nextTierCashback = null;
+      var amountRemaining = 0, isMaxTier = false, showTierProgress = false;
       try {
         if (tierProgress) {
           progressPercent = tierProgress.progressPercent || 0;
-          const currentSpending = tierProgress.currentSpending || 0;
-          nextTierTarget = tierProgress.nextTierTarget || 0;
           nextTierName = tierProgress.nextTierName || '';
-          isMaxTier = tierProgress.isMaxTier || false;
+          nextTierCashback = tierProgress.nextTierCashbackPercent != null ? tierProgress.nextTierCashbackPercent : null;
+          isMaxTier = !!tierProgress.isMaxTier;
           amountRemaining = tierProgress.amountRemaining || 0;
-
-          // Only show tier progress if there are meaningful tiers configured
-          // Show when: max tier achieved OR there's a valid next tier to progress toward
-          showTierProgress = isMaxTier || (nextTierTarget > 0 && nextTierName);
-
-          // Format progress stats for display
-          const currentSpendingFormatted = this.formatCurrency(currentSpending);
-          const nextTierTargetFormatted = this.formatCurrency(nextTierTarget);
-
-          progressStats = isMaxTier
-            ? 'Max tier reached'
-            : `${currentSpendingFormatted} / ${nextTierTargetFormatted}`;
-
-          log.debug('Tier progress calculated', { progressPercent, nextTierName, isMaxTier, showTierProgress });
+          showTierProgress = isMaxTier || (tierProgress.nextTierTarget > 0 && nextTierName);
         }
-      } catch (e) {
-        log.error('Error calculating tier progress:', e.message);
-      }
+      } catch (e) { log.error('Error calculating tier progress:', e.message); }
 
-      const authExpandedClass = this.state.isExpanded ? 'rp-auth--expanded' : 'rp-auth--collapsed';
+      // Collapsed subtitle: pack BOTH the credit balance AND the cashback
+      // rate into the header so shoppers see the one number they care about
+      // (their credit) without expanding. On expand, the hero below owns the
+      // big balance; this subtitle becomes secondary info.
+      var collapsedSubtitle = this.interpolate(t.creditWithRate, {
+        credit: storeCreditFormatted,
+        percent: cashbackPercent
+      });
+
+      var authExpandedClass = this.state.isExpanded ? 'rp-auth--expanded' : 'rp-auth--collapsed';
+      var toggleLabel = this.state.isExpanded ? t.collapse : t.expand;
+
+      // Progress section: either a celebratory max-tier panel or a
+      // single progress bar with "X more to Tier — unlocks Y% back".
+      var progressBlock = '';
+      if (showTierProgress) {
+        if (isMaxTier) {
+          progressBlock = `
+            <div class="rp-auth__maxtier" role="status">
+              <span class="rp-auth__maxtier-title">${this.escapeHtml(t.maxTierTitle)}</span>
+              <span class="rp-auth__maxtier-message">${this.escapeHtml(t.maxTierMessage)}</span>
+            </div>`;
+        } else {
+          var progressLabel = this.interpolate(t.progressTo || '{{amount}} more to {{tierName}}', {
+            amount: this.formatCurrency(amountRemaining),
+            tierName: nextTierName
+          });
+          var unlocks = nextTierCashback != null
+            ? this.interpolate(t.progressUnlocks, { percent: nextTierCashback })
+            : '';
+          progressBlock = `
+            <div class="rp-auth-c__progress">
+              <div class="rp-auth-c__progress-header">
+                <span class="rp-auth-c__progress-label">${this.escapeHtml(progressLabel)}</span>
+                ${unlocks ? `<span class="rp-auth-c__progress-value">${this.escapeHtml(unlocks)}</span>` : ''}
+              </div>
+              <div class="rp-auth-c__progress-bar">
+                <div class="rp-auth-c__progress-fill" style="width: ${progressPercent}%"></div>
+              </div>
+            </div>`;
+        }
+      }
 
       this.root.innerHTML = `
         <div class="rp-auth ${authExpandedClass}">
@@ -794,11 +712,11 @@
               </svg>
             </div>
             <div class="rp-auth__text">
-              <h3 class="rp-auth__title">${tierName}</h3>
-              <p class="rp-auth__subtitle">${cashbackPercent}% Cashback</p>
+              <h3 class="rp-auth__title">${this.escapeHtml(tierName)}</h3>
+              <p class="rp-auth__subtitle">${this.escapeHtml(collapsedSubtitle)}</p>
             </div>
             <div class="rp-auth__actions">
-              <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+              <button class="rp-auth__toggle" aria-label="${this.escapeHtml(toggleLabel)}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M6 9l6 6 6-6"/>
                 </svg>
@@ -806,57 +724,13 @@
             </div>
           </div>
           <div class="rp-auth__body">
-            <!-- Variation C: Card Stack Layout -->
             <div class="rp-auth-c__balance-hero">
-              <div class="rp-auth-c__balance-label">Store Credit Balance</div>
-              <div class="rp-auth-c__balance-amount">${storeCreditFormatted}</div>
+              <div class="rp-auth-c__balance-label">${this.escapeHtml(t.storeCreditBalance)}</div>
+              <div class="rp-auth-c__balance-amount">${this.escapeHtml(storeCreditFormatted)}</div>
+              <div class="rp-auth__balance-rate">${this.escapeHtml(this.interpolate(t.cashbackRate, { percent: cashbackPercent }))}</div>
             </div>
-            <div class="rp-auth-c__cards">
-              <div class="rp-auth-c__card">
-                <div class="rp-auth-c__card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                  </svg>
-                </div>
-                <div class="rp-auth-c__card-value">${tierName}</div>
-                <div class="rp-auth-c__card-label">Tier</div>
-              </div>
-              <div class="rp-auth-c__card">
-                <div class="rp-auth-c__card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 6v6l4 2"/>
-                  </svg>
-                </div>
-                <div class="rp-auth-c__card-value">${cashbackPercent}%</div>
-                <div class="rp-auth-c__card-label">Cashback</div>
-              </div>
-              ${showTierProgress ? `
-              <div class="rp-auth-c__card">
-                <div class="rp-auth-c__card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 20V10M18 20V4M6 20v-4"/>
-                  </svg>
-                </div>
-                <div class="rp-auth-c__card-value">${progressPercent}%</div>
-                <div class="rp-auth-c__card-label">Progress</div>
-              </div>
-              ` : ''}
-            </div>
-            ${showTierProgress ? `
-            <div class="rp-auth-c__progress">
-              <div class="rp-auth-c__progress-header">
-                <span class="rp-auth-c__progress-label">${isMaxTier ? 'Max Tier Achieved' : `Progress to ${nextTierName}`}</span>
-                <span class="rp-auth-c__progress-value">${isMaxTier ? '100%' : this.formatCurrency(amountRemaining) + ' to go'}</span>
-              </div>
-              <div class="rp-auth-c__progress-bar">
-                <div class="rp-auth-c__progress-fill" style="width: ${progressPercent}%"></div>
-              </div>
-            </div>
-            ` : ''}
-
+            ${progressBlock}
             ${this.renderPointsSection()}
-
           </div>
         </div>
       `;
@@ -950,10 +824,10 @@
           </div>
           <div class="rp-points__balance">
             <span class="rp-points__balance-icon">${currencyIcon}</span>
-            <span class="rp-points__balance-value">${pointsBalance.toLocaleString()}</span>
+            <span class="rp-points__balance-value">${RP.format.number(pointsBalance)}</span>
           </div>
           <div class="rp-points__lifetime">
-            Lifetime: ${lifetimePoints.toLocaleString()} ${currencyIcon}
+            Lifetime: ${RP.format.number(lifetimePoints)} ${currencyIcon}
           </div>
           ${streakHtml}
         </div>
@@ -966,24 +840,23 @@
     renderNotFound() {
       log.debug('Rendering not found state');
 
+      const t = this.config.i18n;
+      // Switched icon to an hourglass so the visual mood matches the new copy
+      // ("Setting up your rewards" — an in-progress state, not an error).
       this.root.innerHTML = `
         <div class="rp-widget rp-widget--not-found rp-widget--expanded">
           <div class="rp-widget__not-found-header">
-            <span class="rp-widget__not-found-label">Rewards</span>
+            <span class="rp-widget__not-found-label">${this.escapeHtml(t.unavailableTitle)}</span>
           </div>
           <div class="rp-widget__not-found">
             <div class="rp-widget__not-found-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 3h14M5 21h14M6 3v3a6 6 0 0 0 12 0V3M6 21v-3a6 6 0 0 1 12 0v3"/>
               </svg>
             </div>
-            <h3 class="rp-widget__not-found-title">No Rewards Data Available</h3>
-            <p class="rp-widget__not-found-message">
-              Your rewards account hasn't been synced to the database yet.
-              Please contact the store or wait for the merchant to complete customer synchronization.
-            </p>
+            <h3 class="rp-widget__not-found-title">${this.escapeHtml(t.notFoundTitle)}</h3>
+            <p class="rp-widget__not-found-message">${this.escapeHtml(t.notFoundMessage)}</p>
+            <a class="rp-btn-link" href="/account">${this.escapeHtml(t.viewAccount)}</a>
           </div>
         </div>
       `;
@@ -1086,49 +959,20 @@
       log.debug('Theme applied:', themeClass);
     }
 
-    /**
-     * Get the currency symbol for the store's configured currency (e.g., $, €, £)
-     */
+    /** Delegates to RP.format.currencySymbol so every widget extracts
+     *  the `$` / `€` / `¥` glyph the same way. */
     getCurrencySymbol() {
-      try {
-        const parts = new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: this.config.shop.currency
-        }).formatToParts(0);
-        const symbolPart = parts.find(p => p.type === 'currency');
-        return symbolPart ? symbolPart.value : '$';
-      } catch {
-        return '$';
-      }
+      return RP.format.currencySymbol(this.config.shop.currency);
     }
 
-    /**
-     * Format currency
-     */
+    /** Delegates to RPUtils so every widget formats money the same way. */
     formatCurrency(amount) {
-      try {
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: this.config.shop.currency
-        }).format(amount || 0);
-      } catch (error) {
-        log.error('Intl.NumberFormat failed, using fallback');
-        const numericAmount = Number(amount || 0);
-        const symbol = this.getCurrencySymbol();
-        if (isNaN(numericAmount)) {
-          return symbol + '0.00';
-        }
-        return symbol + numericAmount.toFixed(2);
-      }
+      return RP.format.currency(amount || 0, this.config.shop.currency, 'en-US');
     }
 
-    /**
-     * Escape HTML to prevent XSS
-     */
+    /** Delegates to RPUtils.escapeHtml (textContent→innerHTML round-trip). */
     escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text || '';
-      return div.innerHTML;
+      return RP.escapeHtml(text);
     }
 
 

@@ -1,5 +1,6 @@
 <!-- MOBILE-REVIEWED: 2026-03-22 -->
 <!-- Membership Widget Block -->
+{%- render 'rp_utils_loader' -%}
 {% comment %}
   Enhanced Dynamic Widget:
   - Detects customer login status automatically
@@ -14,6 +15,40 @@
   rather than forcing myshopify.com domain which triggers redirects and breaks CORS preflight.
 {% endcomment %}
 
+{%- comment -%}
+  i18n: Translatable strings are resolved in Liquid via `| t` and passed to JS
+  through `data-i18n-*` attributes. JS reads them at render time; if a key is
+  missing, the JS falls back to its hardcoded English default. This lets us
+  localize without a full client-side i18n runtime in the widget.
+{%- endcomment -%}
+{%- capture i18n_data -%}
+  data-i18n-loading="{{ 'widget.membership.loading' | t }}"
+  data-i18n-guest-fallback="{{ 'widget.membership.guestFallback' | t }}"
+  data-i18n-unavailable-title="{{ 'widget.membership.unavailableTitle' | t }}"
+  data-i18n-unavailable-subtitle="{{ 'widget.membership.unavailableSubtitle' | t }}"
+  data-i18n-unavailable-message="{{ 'widget.membership.unavailableMessage' | t }}"
+  data-i18n-retry="{{ 'widget.membership.retry' | t }}"
+  data-i18n-view-account="{{ 'widget.membership.viewAccount' | t }}"
+  data-i18n-collapse="{{ 'widget.membership.collapse' | t }}"
+  data-i18n-expand="{{ 'widget.membership.expand' | t }}"
+  data-i18n-member-benefits="{{ 'widget.membership.memberBenefits' | t }}"
+  data-i18n-perk-store-credit="{{ 'widget.membership.perkStoreCredit' | t }}"
+  data-i18n-perk-tier-status="{{ 'widget.membership.perkTierStatus' | t }}"
+  data-i18n-perk-progress="{{ 'widget.membership.perkProgress' | t }}"
+  data-i18n-store-credit-balance="{{ 'widget.membership.storeCreditBalance' | t }}"
+  data-i18n-tier-label="{{ 'widget.membership.tierLabel' | t }}"
+  data-i18n-cashback-label="{{ 'widget.membership.cashbackLabel' | t }}"
+  data-i18n-progress-label="{{ 'widget.membership.progressLabel' | t }}"
+  data-i18n-cashback-rate="{{ 'widget.membership.cashbackRate' | t }}"
+  data-i18n-credit-with-rate="{{ 'widget.membership.creditWithRate' | t }}"
+  data-i18n-max-tier="{{ 'widget.membership.maxTierReached' | t }}"
+  data-i18n-max-tier-title="{{ 'widget.membership.maxTierTitle' | t }}"
+  data-i18n-max-tier-message="{{ 'widget.membership.maxTierMessage' | t }}"
+  data-i18n-progress-unlocks="{{ 'widget.membership.progressUnlocks' | t }}"
+  data-i18n-notfound-title="{{ 'widget.membership.notFoundTitle' | t }}"
+  data-i18n-notfound-message="{{ 'widget.membership.notFoundMessage' | t }}"
+{%- endcapture -%}
+
 {% if customer %}
   {% comment %} AUTHENTICATED STATE - Customer is logged in {% endcomment %}
   <div id="membership-widget-root"
@@ -27,9 +62,10 @@
        data-shop-currency="{{ shop.currency }}"
        data-api-endpoint="/apps/rewardspro/membership"
        data-enable-api="{{ block.settings.enable_api_calls | default: true }}"
-       data-cache-duration="{{ block.settings.cache_duration | default: 30 }}">
+       data-cache-duration="{{ block.settings.cache_duration | default: 30 }}"
+       {{ i18n_data }}>
     {% comment %} Loading placeholder - replaced by JavaScript {% endcomment %}
-    <div class="rp-widget-loading">Loading rewards...</div>
+    <div class="rp-widget-loading">{{ 'widget.membership.loading' | t }}</div>
   </div>
 {% else %}
   {% comment %} GUEST STATE - Customer is NOT logged in {% endcomment %}
@@ -40,9 +76,10 @@
        data-shop-currency="{{ shop.currency }}"
        data-message="{{ block.settings.guest_message | default: 'Join our rewards program!' }}"
        data-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
-       data-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
+       data-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}"
+       {{ i18n_data }}>
     {% comment %} Guest placeholder - replaced by JavaScript {% endcomment %}
-    <div class="rp-widget-guest">Sign in to view rewards</div>
+    <div class="rp-widget-guest">{{ 'widget.membership.guestFallback' | t }}</div>
   </div>
 {% endif %}
 
@@ -50,10 +87,10 @@
 <noscript>
   <div class="rp-widget-noscript">
     {% if customer %}
-      Welcome back, {{ customer.first_name }}!
-      <a href="/account">Visit your account</a> to view rewards.
+      {{ 'widget.membership.noscriptAuthed' | t: name: customer.first_name }}
+      <a href="/account">{{ 'widget.membership.perkStoreCredit' | t }}</a>
     {% else %}
-      <a href="/account/login">Sign in</a> to view your rewards.
+      <a href="/account/login">{{ 'widget.membership.guestFallback' | t }}</a>
     {% endif %}
   </div>
 </noscript>

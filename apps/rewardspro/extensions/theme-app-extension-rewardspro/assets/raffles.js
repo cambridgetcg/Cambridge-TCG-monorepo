@@ -1,11 +1,12 @@
 // @ts-check
 /**
  * RewardsPro Raffles Widget
- * Standalone section block for raffle display and entry
+ * Standalone section block for raffle display and entry.
  *
- * Security: CSS injection protection via sanitizeColor/sanitizeNumber, XSS via escapeHtml
- * Performance: LocalStorage caching with shop-specific keys
- * Accessibility: Keyboard handlers on interactive elements, ARIA attributes
+ * Shared helpers (sanitize/fetch/cache/escapeHtml/logger/format) come from
+ * `window.RPUtils` — loaded by the `rp_utils_loader` Liquid snippet. Widget
+ * doesn't render if RPUtils is missing; the page gets a console error
+ * explaining what to fix.
  */
 
 /**
@@ -29,60 +30,29 @@
 (function() {
   'use strict';
 
-  // ============================================
-  // CONFIGURATION CONSTANTS
-  // ============================================
+  // ────────────────────────────────────────────────────────────────────────
+  // Shared utilities (window.RPUtils, from rp-utils.js)
+  // ────────────────────────────────────────────────────────────────────────
+  if (!window.RPUtils || !window.RPUtils.VERSION) {
+    console.error('[RafflesWidget] window.RPUtils is missing. Ensure the ' +
+      '`rp_utils_loader` snippet is rendered before this script. See the ' +
+      'extension README for details.');
+    return;
+  }
+  var RP = window.RPUtils;
+  var log = RP.logger('RafflesWidget');
+  var sanitizeColor = RP.sanitize.color;
+  var sanitizeNumber = RP.sanitize.number;
+
+  // Widget-specific tuning. HTTP defaults come from RP.fetchWithRetry;
+  // raffles passes `{ extractErrorMessage: true }` so non-OK responses
+  // carry the server's validation message through the thrown Error.
   const CONFIG = {
-    API_TIMEOUT_MS: 10000,
-    API_MAX_RETRIES: 3,
-    API_RETRY_BASE_MS: 1000,
-    API_RETRY_MAX_MS: 10000,
     DEFAULT_CACHE_DURATION_S: 60,
-    CACHE_VERSION: 1,
     TOAST_DURATION_MS: 4000,
     COUNTDOWN_INTERVAL_MS: 1000,
     COUNTDOWN_URGENT_THRESHOLD_MS: 3600000, // 1 hour
     COUNTDOWN_CRITICAL_THRESHOLD_MS: 300000  // 5 minutes
-  };
-
-  // ============================================
-  // DEBUG UTILITY
-  // Enable via: localStorage.setItem('rp-debug', 'true')
-  // ============================================
-  const DEBUG = (() => {
-    try {
-      return localStorage.getItem('rp-debug') === 'true';
-    } catch {
-      return false;
-    }
-  })();
-
-  const log = {
-    debug: (...args) => DEBUG && console.log('[RafflesWidget]', ...args),
-    info: (...args) => DEBUG && console.log('[RafflesWidget]', ...args),
-    warn: (...args) => console.warn('[RafflesWidget]', ...args),
-    error: (...args) => console.error('[RafflesWidget]', ...args)
-  };
-
-  // ============================================
-  // SECURITY UTILITIES
-  // ============================================
-
-  const sanitizeColor = (color, defaultColor) => {
-    if (!color || typeof color !== 'string') return defaultColor;
-    const trimmed = color.trim();
-    if (/^#[0-9a-f]{3,8}$/i.test(trimmed)) return trimmed;
-    if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*[\d.]+)?\s*\)$/i.test(trimmed)) return trimmed;
-    if (/^hsla?\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*(,\s*[\d.]+)?\s*\)$/i.test(trimmed)) return trimmed;
-    const named = ['transparent', 'inherit', 'currentcolor', 'white', 'black'];
-    if (named.includes(trimmed.toLowerCase())) return trimmed;
-    return defaultColor;
-  };
-
-  const sanitizeNumber = (value, defaultValue, min = 0, max = 100) => {
-    const num = parseFloat(value);
-    if (isNaN(num) || num < min || num > max) return defaultValue;
-    return num;
   };
 
   // ============================================
@@ -198,59 +168,16 @@
 
     // ──────────────────────────────────────────
     // API: FETCH WITH RETRY
+    //
+    // Delegates to RP.fetchWithRetry with `extractErrorMessage: true` so
+    // the server-side validation message surfaces in the thrown Error
+    // (e.g., "HTTP 400: Raffle entry limit reached"). Raffles originally
+    // carried a custom local copy for this feature; as of rp-utils v1.1
+    // the shared retry supports it via an option flag.
     // ──────────────────────────────────────────
 
-    async fetchWithRetry(url, options, attempt = 0) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
-
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          // Read response body for server error details
-          let serverMessage = '';
-          try {
-            const errorBody = await response.json();
-            serverMessage = errorBody.message || errorBody.error || '';
-            log.error('Server error response:', {
-              status: response.status,
-              body: errorBody
-            });
-          } catch (e) {
-            // Body wasn't JSON
-            try {
-              serverMessage = await response.text();
-              serverMessage = serverMessage.substring(0, 200);
-            } catch (e2) { /* ignore */ }
-          }
-          const errMsg = serverMessage
-            ? `HTTP ${response.status}: ${serverMessage}`
-            : `HTTP ${response.status}: ${response.statusText}`;
-          throw new Error(errMsg);
-        }
-
-        return response;
-      } catch (error) {
-        if (error.name === 'AbortError' || attempt >= CONFIG.API_MAX_RETRIES - 1) {
-          throw error;
-        }
-
-        const delay = Math.min(
-          CONFIG.API_RETRY_BASE_MS * Math.pow(2, attempt),
-          CONFIG.API_RETRY_MAX_MS
-        );
-
-        log.warn(`Retry ${attempt + 1}/${CONFIG.API_MAX_RETRIES} after ${delay}ms`, error.message);
-        await new Promise(resolve => setTimeout(resolve, delay));
-
-        return this.fetchWithRetry(url, options, attempt + 1);
-      }
+    async fetchWithRetry(url, options) {
+      return RP.fetchWithRetry(url, options, { extractErrorMessage: true });
     }
 
     // ──────────────────────────────────────────
@@ -263,7 +190,7 @@
           endpoint: this.config.api.endpoint,
           customerId: this.config.customer?.id
         });
-        this.renderError('Configuration error');
+        this.renderError("We're having trouble loading this right now. Please refresh the page.");
         return;
       }
 
@@ -306,7 +233,7 @@
         });
 
         if (!data.success) {
-          throw new Error(data.message || 'Failed to load raffles');
+          throw new Error(data.message || "We couldn't load the raffles. Try again in a moment.");
         }
 
         this.state.data = data;
@@ -338,7 +265,7 @@
         } else {
           log.error('No cache available, showing error state');
           this.state.error = error.message;
-          this.renderError(error.name === 'AbortError' ? 'Request timed out' : error.message);
+          this.renderError(error.name === 'AbortError' ? "We're slow today — try again in a moment." : error.message);
         }
       } finally {
         this.state.isLoading = false;
@@ -358,12 +285,16 @@
       try {
         const url = new URL(this.config.api.endpoint, window.location.origin);
 
+        const idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const response = await this.fetchWithRetry(url.toString(), {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Idempotency-Key': idemKey
           },
           credentials: 'same-origin',
           body: JSON.stringify({
@@ -438,12 +369,16 @@
       try {
         const url = new URL(this.config.api.endpoint, window.location.origin);
 
+        const idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const response = await this.fetchWithRetry(url.toString(), {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Idempotency-Key': idemKey
           },
           credentials: 'same-origin',
           body: JSON.stringify({
@@ -458,7 +393,7 @@
         const data = await response.json();
 
         if (!data.success) {
-          const serverError = data.error || data.message || 'Failed to claim free entry';
+          const serverError = data.error || data.message || "We couldn't claim your free entry. Try again in a moment.";
           log.error('Free entry rejected by server:', { success: data.success, error: data.error, message: data.message, status: response.status });
           throw new Error(serverError);
         }
@@ -481,7 +416,7 @@
 
       } catch (error) {
         log.error('Free entry error:', error.message, { raffleId, stack: error.stack });
-        this.showToast(error.message || 'Failed to claim free entry', 'error');
+        this.showToast(error.message || "We couldn't claim your free entry. Try again in a moment.", 'error');
       } finally {
         this.state.purchasing[raffleId] = false;
         this.updateCardButtonState(raffleId, false);
@@ -489,65 +424,26 @@
     }
 
     // ──────────────────────────────────────────
-    // CACHE LAYER
+    // CACHE LAYER (delegates to RP.cache — shop + customer scoped)
     // ──────────────────────────────────────────
 
+    cacheKeyParts() {
+      return ['raffles', this.config.shop.domain, this.config.customer && this.config.customer.id];
+    }
+
     getCachedData() {
-      if (!this.config.customer?.id) return null;
-
-      try {
-        const key = `rp-raffles-${this.config.shop.domain}-${this.config.customer.id}`;
-        const cached = localStorage.getItem(key);
-        if (!cached) return null;
-
-        const { data, timestamp, version } = JSON.parse(cached);
-
-        if (version !== CONFIG.CACHE_VERSION) {
-          log.debug('Cache version mismatch, invalidating');
-          this.clearCache();
-          return null;
-        }
-
-        const age = (Date.now() - timestamp) / 1000;
-        if (age < this.config.api.cacheDuration) {
-          log.debug('Cache hit (age: ' + Math.round(age) + 's)');
-          return data;
-        }
-
-        log.debug('Cache expired (age: ' + Math.round(age) + 's)');
-        return null;
-      } catch (error) {
-        log.error('Cache read error:', error.message);
-        this.clearCache();
-        return null;
-      }
+      if (!this.config.customer || !this.config.customer.id) return null;
+      return RP.cache.read(this.cacheKeyParts(), this.config.api.cacheDuration);
     }
 
     cacheData(data) {
-      if (!this.config.customer?.id) return;
-
-      try {
-        const key = `rp-raffles-${this.config.shop.domain}-${this.config.customer.id}`;
-        localStorage.setItem(key, JSON.stringify({
-          data: data,
-          timestamp: Date.now(),
-          version: CONFIG.CACHE_VERSION
-        }));
-        log.debug('Data cached');
-      } catch (error) {
-        log.error('Cache write error:', error.message);
-      }
+      if (!this.config.customer || !this.config.customer.id) return;
+      RP.cache.write(this.cacheKeyParts(), data);
     }
 
     clearCache() {
-      if (!this.config.customer?.id) return;
-
-      try {
-        const key = `rp-raffles-${this.config.shop.domain}-${this.config.customer.id}`;
-        localStorage.removeItem(key);
-      } catch (error) {
-        log.error('Cache clear error:', error.message);
-      }
+      if (!this.config.customer || !this.config.customer.id) return;
+      RP.cache.bust(this.cacheKeyParts());
     }
 
     // ──────────────────────────────────────────
@@ -555,18 +451,18 @@
     // ──────────────────────────────────────────
 
     escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text || '';
-      return div.innerHTML;
+      return RP.escapeHtml(text);
     }
 
     findRaffle(raffleId) {
       return this.state.data?.raffles?.find(r => r.id === raffleId) || null;
     }
 
+    /** Delegates to RP.format.number so every widget renders counts with
+     *  the same thousands-separator treatment (e.g., `1,234` on en-US). */
     formatNumber(num) {
       if (num === null || num === undefined) return '0';
-      return Number(num).toLocaleString();
+      return RP.format.number(num);
     }
 
     formatPrizeValue(prize) {
@@ -778,7 +674,7 @@
 
       this.root.innerHTML = `
         <div class="rp-raffles__header">
-          <h2 class="rp-raffles__heading">${this.escapeHtml(this.config.display.heading)}</h2>
+          <h2 class="rp-section-title rp-raffles__heading">${this.escapeHtml(this.config.display.heading)}</h2>
           <div class="rp-raffle-skeleton__balance-pill"></div>
         </div>
         <div class="rp-raffles__grid">${skeletons}</div>
@@ -846,7 +742,7 @@
       // Header with heading and balance
       let html = `
         <div class="rp-raffles__header">
-          <h2 class="rp-raffles__heading">${this.escapeHtml(heading)}</h2>
+          <h2 class="rp-section-title rp-raffles__heading">${this.escapeHtml(heading)}</h2>
           <div class="rp-raffles__balance" data-balance>
             <svg class="rp-raffles__balance-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -1081,15 +977,18 @@
     // ──────────────────────────────────────────
 
     renderEmptyHtml() {
+      // Uses the shared `.rp-empty-state` affordance from rp-shared.css so
+      // every widget's "nothing yet" moment looks the same.
       return `
-        <div class="rp-raffles__empty">
-          <div class="rp-raffles__empty-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+        <div class="rp-raffles__empty rp-empty-state">
+          <div class="rp-empty-state__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" aria-hidden="true">
               <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>
               <path d="M9 21V9"/>
             </svg>
           </div>
-          <p class="rp-raffles__empty-message">${this.escapeHtml(this.config.display.emptyMessage)}</p>
+          <h3 class="rp-empty-state__title">No raffles right now</h3>
+          <p class="rp-empty-state__message">${this.escapeHtml(this.config.display.emptyMessage)}</p>
         </div>`;
     }
 
@@ -1099,28 +998,33 @@
 
     renderError(message) {
       const heading = this.config.display.heading;
-
+      // Friendly + actionable: retry stays primary, /account gives the
+      // shopper somewhere to go if the widget is stuck.
       this.root.innerHTML = `
         <div class="rp-raffles__header">
-          <h2 class="rp-raffles__heading">${this.escapeHtml(heading)}</h2>
+          <h2 class="rp-section-title rp-raffles__heading">${this.escapeHtml(heading)}</h2>
         </div>
         <div class="rp-raffles__grid">
-          <div class="rp-raffles__error">
-            <div class="rp-raffles__error-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+          <div class="rp-raffles__error rp-empty-state" role="status">
+            <div class="rp-empty-state__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" aria-hidden="true">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
             </div>
-            <p class="rp-raffles__error-message">${this.escapeHtml(message || 'Something went wrong')}</p>
-            <button class="rp-raffles__retry-btn" data-action="retry">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                <path d="M23 4v6h-6M1 20v-6h6"/>
-                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-              </svg>
-              Try Again
-            </button>
+            <h3 class="rp-empty-state__title">Raffles are taking a moment</h3>
+            <p class="rp-empty-state__message">${this.escapeHtml(message || "We couldn't load raffles right now. Your points are safe — try again in a moment.")}</p>
+            <div class="rp-empty-state__actions">
+              <button class="rp-btn rp-btn--secondary" data-action="retry">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
+                  <path d="M23 4v6h-6M1 20v-6h6"/>
+                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Try again
+              </button>
+              <a class="rp-btn-link" href="/account">View account</a>
+            </div>
           </div>
         </div>
       `;
@@ -1272,112 +1176,125 @@
 
     // ──────────────────────────────────────────
     // COUNTDOWN TIMERS
+    //
+    // One interval, not N. Previously each raffle card ran its own
+    // setInterval(update, 1000) — a page with 12 live raffles triggered
+    // 12 DOM-writing timers every second. Now a single tick walks the
+    // active countdown list and updates them all at once.
     // ──────────────────────────────────────────
 
     startCountdown(raffleId, endsAt) {
-      const endTime = new Date(endsAt).getTime();
-      const pad = (n) => String(n).padStart(2, '0');
-
-      const update = () => {
-        const now = Date.now();
-        const diff = endTime - now;
-        const wrapperEl = this.root.querySelector(`[data-countdown="${raffleId}"]`);
-        const card = this.root.querySelector(`[data-raffle-card="${raffleId}"]`);
-
-        // Segment elements
-        const daysEl = this.root.querySelector(`[data-countdown-days="${raffleId}"]`);
-        const hoursEl = this.root.querySelector(`[data-countdown-hours="${raffleId}"]`);
-        const minutesEl = this.root.querySelector(`[data-countdown-minutes="${raffleId}"]`);
-        const secondsEl = this.root.querySelector(`[data-countdown-seconds="${raffleId}"]`);
-
-        if (!daysEl && !hoursEl) {
-          this.stopCountdown(raffleId);
-          return;
-        }
-
-        if (diff <= 0) {
-          // Set all segments to 00
-          if (daysEl) daysEl.textContent = '00';
-          if (hoursEl) hoursEl.textContent = '00';
-          if (minutesEl) minutesEl.textContent = '00';
-          if (secondsEl) secondsEl.textContent = '00';
-
-          // Disable card
-          if (card) {
-            card.classList.add('rp-raffle--ended');
-            card.classList.remove('rp-raffle--urgent', 'rp-raffle--critical');
-            const enterBtn = card.querySelector(`[data-enter-btn="${raffleId}"]`);
-            if (enterBtn) enterBtn.disabled = true;
-            const freeBtn = card.querySelector(`[data-free-btn="${raffleId}"]`);
-            if (freeBtn) freeBtn.disabled = true;
-
-            // Update badge
-            const badge = card.querySelector('.rp-raffle__badge');
-            if (badge) {
-              badge.className = 'rp-raffle__badge rp-raffle__badge--ended';
-              badge.textContent = 'Ended';
-            }
-          }
-
-          this.stopCountdown(raffleId);
-          return;
-        }
-
-        // Compute time parts
-        const days = Math.floor(diff / 86400000);
-        const hours = Math.floor((diff % 86400000) / 3600000);
-        const minutes = Math.floor((diff % 3600000) / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-
-        // Populate segment elements
-        if (daysEl) daysEl.textContent = pad(days);
-        if (hoursEl) hoursEl.textContent = pad(hours);
-        if (minutesEl) minutesEl.textContent = pad(minutes);
-        if (secondsEl) secondsEl.textContent = pad(seconds);
-
-        // Urgency classes on countdown wrapper and card
-        if (diff < CONFIG.COUNTDOWN_CRITICAL_THRESHOLD_MS) {
-          // Critical (< 5 min)
-          if (wrapperEl) {
-            wrapperEl.classList.remove('rp-raffle__countdown-hero--urgent');
-            wrapperEl.classList.add('rp-raffle__countdown-hero--critical');
-          }
-          if (card) {
-            card.classList.remove('rp-raffle--urgent');
-            card.classList.add('rp-raffle--critical');
-          }
-        } else if (diff < CONFIG.COUNTDOWN_URGENT_THRESHOLD_MS) {
-          // Urgent (< 1 hr)
-          if (wrapperEl) {
-            wrapperEl.classList.add('rp-raffle__countdown-hero--urgent');
-            wrapperEl.classList.remove('rp-raffle__countdown-hero--critical');
-          }
-          if (card) {
-            card.classList.add('rp-raffle--urgent');
-            card.classList.remove('rp-raffle--critical');
-          }
-        }
-      };
-
-      // Initial update
-      update();
-
-      // Set interval
-      this.countdownIntervals[raffleId] = setInterval(update, CONFIG.COUNTDOWN_INTERVAL_MS);
+      this.countdownIntervals[raffleId] = new Date(endsAt).getTime();
+      this.tickCountdown(raffleId);     // initial paint — no 1s delay
+      this.ensureCountdownPump();
     }
 
     stopCountdown(raffleId) {
-      if (this.countdownIntervals[raffleId]) {
-        clearInterval(this.countdownIntervals[raffleId]);
-        delete this.countdownIntervals[raffleId];
+      delete this.countdownIntervals[raffleId];
+      if (Object.keys(this.countdownIntervals).length === 0) {
+        this.stopCountdownPump();
       }
     }
 
     clearCountdowns() {
-      for (const id of Object.keys(this.countdownIntervals)) {
-        clearInterval(this.countdownIntervals[id]);
-      }
       this.countdownIntervals = {};
+      this.stopCountdownPump();
+    }
+
+    /** Global 1Hz tick — re-enters once per widget instance; when the set of
+     *  tracked raffles drains, the pump stops. */
+    ensureCountdownPump() {
+      if (this._countdownPump) return;
+      this._countdownPump = setInterval(() => {
+        for (const id of Object.keys(this.countdownIntervals)) {
+          this.tickCountdown(id);
+        }
+      }, CONFIG.COUNTDOWN_INTERVAL_MS);
+    }
+
+    stopCountdownPump() {
+      if (this._countdownPump) {
+        clearInterval(this._countdownPump);
+        this._countdownPump = null;
+      }
+    }
+
+    /** Update one raffle's countdown digits + urgency classes. */
+    tickCountdown(raffleId) {
+      const endTime = this.countdownIntervals[raffleId];
+      if (!endTime) return;
+
+      const pad = (n) => String(n).padStart(2, '0');
+      const now = Date.now();
+      const diff = endTime - now;
+      const wrapperEl = this.root.querySelector(`[data-countdown="${raffleId}"]`);
+      const card = this.root.querySelector(`[data-raffle-card="${raffleId}"]`);
+
+      const daysEl = this.root.querySelector(`[data-countdown-days="${raffleId}"]`);
+      const hoursEl = this.root.querySelector(`[data-countdown-hours="${raffleId}"]`);
+      const minutesEl = this.root.querySelector(`[data-countdown-minutes="${raffleId}"]`);
+      const secondsEl = this.root.querySelector(`[data-countdown-seconds="${raffleId}"]`);
+
+      if (!daysEl && !hoursEl) {
+        // Card was re-rendered away — drop this countdown from the pump.
+        this.stopCountdown(raffleId);
+        return;
+      }
+
+      if (diff <= 0) {
+        if (daysEl) daysEl.textContent = '00';
+        if (hoursEl) hoursEl.textContent = '00';
+        if (minutesEl) minutesEl.textContent = '00';
+        if (secondsEl) secondsEl.textContent = '00';
+
+        if (card) {
+          card.classList.add('rp-raffle--ended');
+          card.classList.remove('rp-raffle--urgent', 'rp-raffle--critical');
+          const enterBtn = card.querySelector(`[data-enter-btn="${raffleId}"]`);
+          if (enterBtn) enterBtn.disabled = true;
+          const freeBtn = card.querySelector(`[data-free-btn="${raffleId}"]`);
+          if (freeBtn) freeBtn.disabled = true;
+
+          const badge = card.querySelector('.rp-raffle__badge');
+          if (badge) {
+            badge.className = 'rp-raffle__badge rp-raffle__badge--ended';
+            badge.textContent = 'Ended';
+          }
+        }
+
+        this.stopCountdown(raffleId);
+        return;
+      }
+
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+
+      if (daysEl) daysEl.textContent = pad(days);
+      if (hoursEl) hoursEl.textContent = pad(hours);
+      if (minutesEl) minutesEl.textContent = pad(minutes);
+      if (secondsEl) secondsEl.textContent = pad(seconds);
+
+      if (diff < CONFIG.COUNTDOWN_CRITICAL_THRESHOLD_MS) {
+        if (wrapperEl) {
+          wrapperEl.classList.remove('rp-raffle__countdown-hero--urgent');
+          wrapperEl.classList.add('rp-raffle__countdown-hero--critical');
+        }
+        if (card) {
+          card.classList.remove('rp-raffle--urgent');
+          card.classList.add('rp-raffle--critical');
+        }
+      } else if (diff < CONFIG.COUNTDOWN_URGENT_THRESHOLD_MS) {
+        if (wrapperEl) {
+          wrapperEl.classList.add('rp-raffle__countdown-hero--urgent');
+          wrapperEl.classList.remove('rp-raffle__countdown-hero--critical');
+        }
+        if (card) {
+          card.classList.add('rp-raffle--urgent');
+          card.classList.remove('rp-raffle--critical');
+        }
+      }
     }
 
     // ──────────────────────────────────────────

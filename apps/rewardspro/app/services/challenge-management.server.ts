@@ -683,3 +683,171 @@ export async function getActiveEligibleChallenges(
       : null,
   }));
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// JOIN / PARTICIPATION
+//
+// Moved out of `app/routes/api.proxy.$.tsx` (`challenges/join` handler)
+// 2026-04-23. The proxy route is an HTTP adapter; eligibility rules,
+// idempotent-join logic, and the participant+counter mutation are
+// domain concerns that belong in the service layer.
+//
+// `joinChallenge` is idempotent:
+//   - If the customer has already joined, it returns that participant
+//     record unmodified (alreadyJoined=true). Safe to call multiple times.
+//   - The participant create + challenge.totalParticipants increment run
+//     in a single transaction so we never bump the counter for a
+//     participant row that failed to create.
+// ════════════════════════════════════════════════════════════════════════
+
+export type JoinChallengeError =
+  | "challenge_not_found"
+  | "tier_not_allowed"
+  | "customer_not_found";
+
+export interface JoinChallengeResult {
+  success: boolean;
+  alreadyJoined?: boolean;
+  participant?: {
+    id: string;
+    status: ChallengeParticipantStatus;
+    currentProgress: number;
+    progressPercent: number;
+  };
+  challenge?: {
+    id: string;
+    name: string;
+    targetValue: number;
+    objectiveType: ChallengeObjectiveType;
+    reward: {
+      type: ChallengeRewardType;
+      description: string | null;
+    } | null;
+  };
+  error?: JoinChallengeError;
+  message?: string;
+}
+
+/**
+ * Enroll a customer in a challenge.
+ *
+ * @param shop       Shopify domain (scope for all queries).
+ * @param customerId Internal (Prisma) customer ID — NOT the Shopify GID.
+ * @param challengeId Challenge to join.
+ */
+export async function joinChallenge(
+  shop: string,
+  customerId: string,
+  challengeId: string
+): Promise<JoinChallengeResult> {
+  // 1. Resolve the customer's current tier for the eligibility check.
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, shop },
+    select: { id: true, currentTierId: true },
+  });
+  if (!customer) {
+    return { success: false, error: "customer_not_found", message: "Customer not found" };
+  }
+
+  // 2. Load the challenge; must be live NOW and publicly joinable.
+  const now = new Date();
+  const challenge = await prisma.challenge.findFirst({
+    where: {
+      id: challengeId,
+      shop,
+      status: "ACTIVE",
+      isPublic: true,
+      startsAt: { lte: now },
+      endsAt: { gte: now },
+    },
+    include: { reward: true },
+  });
+  if (!challenge) {
+    return {
+      success: false,
+      error: "challenge_not_found",
+      message: "Challenge not found or not available",
+    };
+  }
+
+  // 3. Tier gate. `tierRestrictions.allowedTierIds` empty/missing = open.
+  if (challenge.tierRestrictions) {
+    const restrictions = challenge.tierRestrictions as { allowedTierIds?: string[] };
+    const allowed = restrictions.allowedTierIds ?? [];
+    if (
+      allowed.length > 0 &&
+      (!customer.currentTierId || !allowed.includes(customer.currentTierId))
+    ) {
+      return {
+        success: false,
+        error: "tier_not_allowed",
+        message: "This challenge is not available for your tier",
+      };
+    }
+  }
+
+  // 4. Idempotent join — if the customer is already enrolled, return their
+  //    existing record without touching the counter.
+  const existing = await prisma.challengeParticipant.findUnique({
+    where: { challengeId_customerId: { challengeId, customerId: customer.id } },
+  });
+  if (existing) {
+    return {
+      success: true,
+      alreadyJoined: true,
+      participant: {
+        id: existing.id,
+        status: existing.status as ChallengeParticipantStatus,
+        currentProgress: Number(existing.currentProgress),
+        progressPercent: Number(existing.progressPercent),
+      },
+    };
+  }
+
+  // 5. Enroll. Participant insert + challenge counter increment in one
+  //    transaction so a partial failure leaves neither side half-written.
+  const { participant } = await prisma.$transaction(async (tx) => {
+    const participant = await tx.challengeParticipant.create({
+      data: {
+        challengeId,
+        customerId: customer.id,
+        shop,
+        currentProgress: 0,
+        progressPercent: 0,
+        status: "IN_PROGRESS",
+      },
+    });
+
+    await tx.challenge.update({
+      where: { id: challengeId },
+      data: { totalParticipants: { increment: 1 } },
+    });
+
+    return { participant };
+  });
+
+  console.log(`${LOG_PREFIX} Customer ${customer.id} joined challenge ${challengeId}`);
+
+  return {
+    success: true,
+    alreadyJoined: false,
+    participant: {
+      id: participant.id,
+      status: participant.status as ChallengeParticipantStatus,
+      currentProgress: Number(participant.currentProgress),
+      progressPercent: Number(participant.progressPercent),
+    },
+    challenge: {
+      id: challenge.id,
+      name: challenge.name,
+      targetValue: Number(challenge.targetValue),
+      objectiveType: challenge.objectiveType as ChallengeObjectiveType,
+      reward: challenge.reward
+        ? {
+            type: challenge.reward.rewardType as ChallengeRewardType,
+            description: challenge.reward.description,
+          }
+        : null,
+    },
+  };
+}

@@ -5,70 +5,8 @@
  * All classes prefixed .rp-missions- to avoid conflicts.
  */
 
-/* ============================================
-   REWARDSPRO SHARED DESIGN TOKENS (v2)
-   KEEP IDENTICAL across all widget CSS files:
-     raffles.css, missions-widget.css, mystery-boxes-widget.css
-   ============================================ */
-
-:root {
-  /* SPACING SCALE (4px base) */
-  --rp-space-xs: 4px;
-  --rp-space-sm: 8px;
-  --rp-space-md: 12px;
-  --rp-space-lg: 16px;
-  --rp-space-xl: 24px;
-  --rp-space-2xl: 32px;
-
-  /* TYPOGRAPHY SCALE */
-  --rp-font-xs: 11px;
-  --rp-font-sm: 12px;
-  --rp-font-md: 14px;
-  --rp-font-lg: 16px;
-  --rp-font-xl: 20px;
-  --rp-font-2xl: 24px;
-
-  /* BORDER RADIUS */
-  --rp-radius-sm: 4px;
-  --rp-radius-md: 8px;
-  --rp-radius-lg: 12px;
-  --rp-radius-full: 999px;
-
-  /* SHADOWS */
-  --rp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --rp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --rp-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --rp-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.2);
-
-  /* TRANSITIONS */
-  --rp-duration-fast: 150ms;
-  --rp-duration-normal: 200ms;
-  --rp-duration-slow: 300ms;
-  --rp-easing: cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* SEMANTIC COLORS */
-  --rp-text-color: #212B36;
-  --rp-text-secondary: #637381;
-  --rp-background-color: #ffffff;
-  --rp-background-subtle: #f8f9fa;
-  --rp-border-color: rgba(0, 0, 0, 0.08);
-
-  /* STATE COLORS */
-  --rp-color-success: #22c55e;
-  --rp-color-error: #ef4444;
-  --rp-color-warning: #f59e0b;
-
-  /* RARITY COLORS */
-  --rp-rarity-common: #6B7280;
-  --rp-rarity-uncommon: #22c55e;
-  --rp-rarity-rare: #3b82f6;
-  --rp-rarity-epic: #a855f7;
-  --rp-rarity-legendary: #f59e0b;
-}
-
-/* ============================================
-   MISSIONS MODULE TOKENS
-   ============================================ */
+/* Shared tokens come from assets/rp-shared.css; only missions-specific
+ * tokens live here. */
 
 :root {
   --rp-missions-primary: #4f46e5;

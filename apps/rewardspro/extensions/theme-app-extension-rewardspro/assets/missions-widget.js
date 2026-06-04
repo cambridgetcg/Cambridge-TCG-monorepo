@@ -6,6 +6,10 @@
  * Security: HTML escaping on all dynamic content
  * Performance: LocalStorage caching with shop-specific keys
  * Accessibility: Keyboard handlers on interactive elements, ARIA attributes
+ *
+ * MIGRATION NOTE: Local helpers (escapeHtml, sanitizeNumber, fetchWithRetry,
+ * cache) should move to `window.RPUtils.*` — rp-utils.js is loaded via the
+ * rp_utils_loader snippet. See membership-widget.js for the port pattern.
  */
 
 /**
@@ -24,62 +28,24 @@
 (function() {
   'use strict';
 
-  // ============================================
-  // CONFIGURATION CONSTANTS
-  // ============================================
+  // ────────────────────────────────────────────────────────────────────────
+  // Shared utilities (window.RPUtils, from rp-utils.js)
+  // ────────────────────────────────────────────────────────────────────────
+  if (!window.RPUtils || !window.RPUtils.VERSION) {
+    console.error('[MissionsWidget] window.RPUtils is missing. Ensure the ' +
+      '`rp_utils_loader` snippet is rendered before this script.');
+    return;
+  }
+  var RP = window.RPUtils;
+  var log = RP.logger('MissionsWidget');
+  var escapeHtml = RP.escapeHtml;
+  var sanitizeNumber = RP.sanitize.number;
+
   const CONFIG = {
-    API_TIMEOUT_MS: 10000,
-    API_MAX_RETRIES: 3,
-    API_RETRY_BASE_MS: 1000,
-    API_RETRY_MAX_MS: 10000,
     DEFAULT_CACHE_DURATION_S: 30,
-    CACHE_VERSION: 1,
     CELEBRATION_DURATION_MS: 4000,
     CONFETTI_PARTICLE_COUNT: 60
   };
-
-  // ============================================
-  // DEBUG UTILITY
-  // Enable via: localStorage.setItem('rp-missions-debug', 'true')
-  // ============================================
-  const DEBUG = (() => {
-    try {
-      return localStorage.getItem('rp-missions-debug') === 'true';
-    } catch {
-      return false;
-    }
-  })();
-
-  const log = {
-    debug: (...args) => DEBUG && console.log('[MissionsWidget]', ...args),
-    info: (...args) => DEBUG && console.log('[MissionsWidget]', ...args),
-    warn: (...args) => console.warn('[MissionsWidget]', ...args),
-    error: (...args) => console.error('[MissionsWidget]', ...args)
-  };
-
-  // ============================================
-  // SECURITY UTILITIES
-  // ============================================
-
-  /**
-   * Escape HTML to prevent XSS
-   */
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-  }
-
-  /**
-   * Validate numeric value within range
-   */
-  function sanitizeNumber(value, defaultValue, min, max) {
-    if (min === undefined) min = 0;
-    if (max === undefined) max = Infinity;
-    const num = parseFloat(value);
-    if (isNaN(num) || num < min || num > max) return defaultValue;
-    return num;
-  }
 
   // ============================================
   // RARITY CONFIGURATION
@@ -189,43 +155,10 @@
     // API METHODS
     // ============================================
 
-    /**
-     * Fetch with exponential backoff retry
-     */
-    async fetchWithRetry(url, options, attempt) {
-      if (attempt === undefined) attempt = 0;
-
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
-
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-        }
-
-        return response;
-      } catch (error) {
-        if (error.name === 'AbortError' || attempt >= CONFIG.API_MAX_RETRIES - 1) {
-          throw error;
-        }
-
-        const delay = Math.min(
-          CONFIG.API_RETRY_BASE_MS * Math.pow(2, attempt),
-          CONFIG.API_RETRY_MAX_MS
-        );
-
-        log.debug('Retry ' + (attempt + 1) + '/' + CONFIG.API_MAX_RETRIES + ' after ' + delay + 'ms');
-        await new Promise(function(resolve) { setTimeout(resolve, delay); });
-
-        return this.fetchWithRetry(url, options, attempt + 1);
-      }
+    /** Delegates to RP.fetchWithRetry. Missions has no custom error-body
+     *  handling; the shared implementation is a direct replacement. */
+    fetchWithRetry(url, options) {
+      return RP.fetchWithRetry(url, options);
     }
 
     /**
@@ -234,7 +167,7 @@
     async fetchMissionsData() {
       if (!this.config.customerId) {
         log.error('Missing customer ID');
-        this.renderError('Configuration error');
+        this.renderError("We're having trouble loading this right now. Please refresh the page.");
         return;
       }
 
@@ -262,7 +195,7 @@
         log.debug('Missions response', { success: data.success, enabled: data.enabled });
 
         if (!data.success) {
-          throw new Error(data.error || data.message || 'Failed to load missions');
+          throw new Error(data.error || data.message || "We couldn't load your missions. Your progress is saved — try again in a moment.");
         }
 
         // Missions disabled — show nothing
@@ -295,7 +228,7 @@
           this.state.data = cachedData;
           this.render();
         } else {
-          this.renderError(error.name === 'AbortError' ? 'Request timed out' : 'Failed to load missions');
+          this.renderError(error.name === 'AbortError' ? "We're slow today — try again in a moment." : "We couldn't load your missions. Your progress is saved — try again in a moment.");
         }
       } finally {
         this.state.isLoading = false;
@@ -320,12 +253,16 @@
       try {
         const url = new URL(this.config.api.claimEndpoint, window.location.origin);
 
+        const idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const response = await this.fetchWithRetry(url.toString(), {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Idempotency-Key': idemKey
           },
           credentials: 'same-origin',
           body: JSON.stringify({
@@ -338,7 +275,7 @@
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || data.message || 'Failed to claim reward');
+          throw new Error(data.error || data.message || "We couldn't claim that reward. Your progress is saved — try again in a moment.");
         }
 
         log.debug('Reward claimed', data.reward);
@@ -358,7 +295,7 @@
           btn.classList.remove('rp-missions-btn--loading');
         }
 
-        this.showToast('Failed to claim reward. Please try again.');
+        this.showToast("We couldn't claim that reward. Your progress is saved — try again in a moment.");
       } finally {
         this.state.claimingId = null;
       }
@@ -394,66 +331,26 @@
     }
 
     // ============================================
-    // CACHE METHODS
+    // CACHE METHODS (via RP.cache — shop+customer scoped)
     // ============================================
+
+    cacheKeyParts() {
+      return ['missions', this.config.shopDomain, this.config.customerId];
+    }
 
     getCachedData() {
       if (!this.config.customerId) return null;
-
-      try {
-        var key = 'rp-missions-' + this.config.shopDomain + '-' + this.config.customerId;
-        var cached = localStorage.getItem(key);
-        if (!cached) return null;
-
-        var parsed = JSON.parse(cached);
-        if (parsed.version !== CONFIG.CACHE_VERSION) {
-          this.clearCache();
-          return null;
-        }
-
-        var age = (Date.now() - parsed.timestamp) / 1000;
-        if (age < this.config.api.cacheDuration) {
-          log.debug('Cache hit (age: ' + Math.round(age) + 's)');
-          return parsed.data;
-        }
-
-        log.debug('Cache expired (age: ' + Math.round(age) + 's)');
-        return null;
-      } catch (error) {
-        log.error('Cache read error:', error.message);
-        try {
-          localStorage.removeItem('rp-missions-' + this.config.shopDomain + '-' + this.config.customerId);
-        } catch (e) {}
-        return null;
-      }
+      return RP.cache.read(this.cacheKeyParts(), this.config.api.cacheDuration);
     }
 
     cacheData(data) {
       if (!this.config.customerId) return;
-
-      try {
-        var key = 'rp-missions-' + this.config.shopDomain + '-' + this.config.customerId;
-        localStorage.setItem(key, JSON.stringify({
-          data: data,
-          timestamp: Date.now(),
-          version: CONFIG.CACHE_VERSION
-        }));
-        log.debug('Data cached');
-      } catch (error) {
-        log.error('Cache write error:', error.message);
-      }
+      RP.cache.write(this.cacheKeyParts(), data);
     }
 
     clearCache() {
       if (!this.config.customerId) return;
-
-      try {
-        var key = 'rp-missions-' + this.config.shopDomain + '-' + this.config.customerId;
-        localStorage.removeItem(key);
-        log.debug('Cache cleared');
-      } catch (error) {
-        log.error('Cache clear error:', error.message);
-      }
+      RP.cache.bust(this.cacheKeyParts());
     }
 
     // ============================================
@@ -593,10 +490,13 @@
         html += ' ' + (visible ? '' : 'hidden') + '>';
 
         if (missionList.length === 0) {
-          html += '<div class="rp-missions-empty">';
-          html += '<span class="rp-missions-empty__icon">&#x1F50D;</span>';
-          html += '<p>No ' + escapeHtml(cad) + ' missions right now.</p>';
-          html += '<p class="rp-missions-empty__sub">Check back soon!</p>';
+          // Shared empty-state shell (rp-empty-state) for layout parity
+          // with raffles/mystery-boxes/gift-cards. Keeps the original
+          // rp-missions-empty class so widget-scoped CSS still matches.
+          html += '<div class="rp-missions-empty rp-empty-state">';
+          html += '<span class="rp-empty-state__icon" aria-hidden="true">&#x1F50D;</span>';
+          html += '<h3 class="rp-empty-state__title">No ' + escapeHtml(cad) + ' missions right now</h3>';
+          html += '<p class="rp-empty-state__message">New missions drop on a rolling basis — check back soon.</p>';
           html += '</div>';
         } else {
           html += '<div class="rp-missions-cards">';
@@ -627,7 +527,7 @@
       var rewardDesc = escapeHtml(mission.reward ? mission.reward.description : '');
       var timeRemaining = escapeHtml(mission.timeRemaining || '');
 
-      var html = '<div class="rp-missions-card ' + rarity.cssClass + '">';
+      var html = '<div class="rp-card rp-missions-card ' + rarity.cssClass + '">';
 
       // Card header: icon + name + XP badge
       html += '<div class="rp-missions-card__header">';
@@ -743,16 +643,18 @@
      * Error state with retry button
      */
     renderError(message) {
-      var escapedMsg = escapeHtml(message || 'Something went wrong');
+      var escapedMsg = escapeHtml(message || "We couldn't load your missions right now. Your XP is safe — try again in a moment.");
 
       this.root.innerHTML =
         '<div class="rp-missions-widget rp-missions-widget--error">' +
-          '<div class="rp-missions-error">' +
-            '<span class="rp-missions-error__icon">&#x26A0;</span>' +
-            '<p>' + escapedMsg + '</p>' +
-            '<button class="rp-missions-btn rp-missions-btn--secondary" data-retry>' +
-              'Try Again' +
-            '</button>' +
+          '<div class="rp-missions-error rp-empty-state" role="status">' +
+            '<span class="rp-empty-state__icon" aria-hidden="true">&#x26A0;</span>' +
+            '<h3 class="rp-empty-state__title">Missions are taking a moment</h3>' +
+            '<p class="rp-empty-state__message">' + escapedMsg + '</p>' +
+            '<div class="rp-empty-state__actions">' +
+              '<button class="rp-btn rp-btn--secondary" data-retry>Try again</button>' +
+              '<a class="rp-btn-link" href="/account">View account</a>' +
+            '</div>' +
           '</div>' +
         '</div>';
 

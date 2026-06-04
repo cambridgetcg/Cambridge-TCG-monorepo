@@ -1,6 +1,6 @@
 import type { ApiResponse } from '../types/session';
 import { logger } from './logger';
-import { API_TIMEOUT, DEBUG_MODE } from '../config';
+import { API_TIMEOUT, DEBUG_MODE, APP_HOST } from '../config';
 
 /**
  * Configuration for API client
@@ -29,11 +29,12 @@ export class ApiClient {
   }
 
   /**
-   * Constructs absolute URL for API calls
-   * Customer account extensions need absolute URLs, not relative paths
+   * Constructs absolute URL for API calls.
+   * Customer account extensions need absolute URLs, not relative paths — the
+   * app is hosted on Vercel, not on the shop domain.
    *
-   * The app is hosted on Vercel, not on the shop domain.
-   * We always call rewardspro-production.vercel.app
+   * Host comes from config.APP_HOST (not hardcoded here) so preview/staging
+   * builds can override by editing one constant rather than searching the tree.
    */
   private getFullUrl(endpoint: string): string {
     // If baseUrl is already absolute, use it directly
@@ -41,11 +42,8 @@ export class ApiClient {
       return `${this.baseUrl}${endpoint}`;
     }
 
-    // Always use production Vercel URL for the app
-    // The app is NOT hosted on shop domains (myshopify.com)
-    const appDomain = 'rewardspro-production.vercel.app';
     const path = this.baseUrl || '';
-    const fullUrl = `https://${appDomain}${path}${endpoint}`;
+    const fullUrl = `https://${APP_HOST}${path}${endpoint}`;
 
     if (this.enableDebugLogs) {
       logger.debug(`Constructed URL: ${fullUrl}`);

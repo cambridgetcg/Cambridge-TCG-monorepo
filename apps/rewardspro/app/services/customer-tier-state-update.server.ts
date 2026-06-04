@@ -168,10 +168,15 @@ export async function updateCustomerTierState(
   customerId: string,
   options?: UpdateOptions
 ): Promise<CustomerTierStateUpdateResult> {
-  const prisma = options?.tx || prisma;
+  // Rebind to `db` — the previous `const prisma = options?.tx || prisma;`
+  // shadowed the module-level import with an uninitialized local (TS7022 +
+  // TS2448). That inference collapse propagated `any` through every
+  // prisma.* access in this function, silently erasing tier-state type
+  // safety. Fix is trivial; the consequences were widespread.
+  const db = options?.tx || prisma;
 
   // 1. Get customer with spending data
-  const customer = await prisma.customer.findUnique({
+  const customer = await db.customer.findUnique({
     where: { id: customerId },
     select: {
       id: true,
@@ -191,12 +196,12 @@ export async function updateCustomerTierState(
     resolution = options.existingResolution;
   } else {
     resolution = await resolveEffectiveTier(shop, customerId, {
-      tx: prisma as TransactionClient,
+      tx: db as TransactionClient,
     });
   }
 
   // 3. Get all tiers for progress calculation
-  const allTiers = await prisma.tier.findMany({
+  const allTiers = await db.tier.findMany({
     where: { shop },
     select: { id: true, name: true, minSpend: true },
     orderBy: { minSpend: 'asc' }
@@ -222,7 +227,7 @@ export async function updateCustomerTierState(
   const tierSource = tierSourceMap[resolution.effectiveSource] || 'NONE';
 
   // 6. Upsert CustomerTierState with all pre-computed values
-  await prisma.customerTierState.upsert({
+  await db.customerTierState.upsert({
     where: { customerId },
     create: {
       customerId,
@@ -264,7 +269,7 @@ export async function updateCustomerTierState(
   // 7. Also update Customer.currentTierId for backwards compatibility
   // This keeps the existing Customer.currentTierId in sync
   if (resolution.effectiveTierId !== customer.id) {
-    await prisma.customer.update({
+    await db.customer.update({
       where: { id: customerId },
       data: { currentTierId: resolution.effectiveTierId }
     });

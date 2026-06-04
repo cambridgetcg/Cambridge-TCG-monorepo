@@ -6,6 +6,11 @@
  * Security: HTML escaping on all user-provided content
  * Performance: LocalStorage caching with version + TTL
  * Accessibility: Keyboard support, ARIA attributes, focus management
+ *
+ * MIGRATION NOTE: Local helpers (fetchWithRetry, cache, escapeHtml) predate
+ * the shared `window.RPUtils` module. rp-utils.js is already loaded on this
+ * page via the rp_utils_loader snippet. See membership-widget.js for the
+ * port pattern — this widget is next in line.
  */
 
 /**
@@ -24,13 +29,19 @@
 (function() {
   'use strict';
 
+  // ────────────────────────────────────────────────────────────────────────
+  // Shared utilities (window.RPUtils, from rp-utils.js)
+  // ────────────────────────────────────────────────────────────────────────
+  if (!window.RPUtils || !window.RPUtils.VERSION) {
+    console.error('[MysteryBoxes] window.RPUtils is missing. Ensure the ' +
+      '`rp_utils_loader` snippet is rendered before this script.');
+    return;
+  }
+  var RP = window.RPUtils;
+  var log = RP.logger('MysteryBoxes');
+
   const CONFIG = {
-    API_TIMEOUT_MS: 10000,
-    API_MAX_RETRIES: 3,
-    API_RETRY_BASE_MS: 1000,
-    API_RETRY_MAX_MS: 10000,
     DEFAULT_CACHE_DURATION_S: 60,
-    CACHE_VERSION: 1,
     ANIMATION_SPEEDS: { fast: 1500, normal: 2500, slow: 3500 }
   };
 
@@ -43,17 +54,6 @@
   };
 
   const RARITY_ORDER = ['LEGENDARY', 'EPIC', 'RARE', 'UNCOMMON', 'COMMON'];
-
-  // Debug utility
-  const DEBUG = (() => {
-    try { return localStorage.getItem('rp-debug') === 'true'; } catch { return false; }
-  })();
-
-  const log = {
-    debug: (...args) => DEBUG && console.log('[MysteryBoxes]', ...args),
-    warn: (...args) => console.warn('[MysteryBoxes]', ...args),
-    error: (...args) => console.error('[MysteryBoxes]', ...args)
-  };
 
   class MysteryBoxesWidget {
     constructor(rootElement) {
@@ -118,28 +118,18 @@
     }
 
     // ─── Network ───────────────────────────────────────────
+    // Delegate to RP.fetchWithRetry (timeout + exponential backoff, skips
+    // AbortError retries). This widget has no custom error-body extraction,
+    // so the shared implementation is a direct replacement.
 
-    async fetchWithRetry(url, options, attempt = 0) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
-        const response = await fetch(url, { ...options, signal: controller.signal });
-        clearTimeout(timeout);
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        return response;
-      } catch (error) {
-        if (error.name === 'AbortError' || attempt >= CONFIG.API_MAX_RETRIES - 1) throw error;
-        const delay = Math.min(CONFIG.API_RETRY_BASE_MS * Math.pow(2, attempt), CONFIG.API_RETRY_MAX_MS);
-        log.debug(`Retry ${attempt + 1}/${CONFIG.API_MAX_RETRIES} after ${delay}ms`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return this.fetchWithRetry(url, options, attempt + 1);
-      }
+    fetchWithRetry(url, options) {
+      return RP.fetchWithRetry(url, options);
     }
 
     async fetchBoxes() {
       if (!this.config.apiEndpoint || !this.config.customerId) {
         log.error('Missing API endpoint or customer ID');
-        this.renderError('Configuration error');
+        this.renderError("We're having trouble loading this right now. Please refresh the page.");
         return;
       }
 
@@ -160,7 +150,7 @@
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || data.message || 'Failed to load mystery boxes');
+          throw new Error(data.error || data.message || "We couldn't load the mystery boxes. Try again in a moment.");
         }
 
         if (!data.enabled) {
@@ -181,7 +171,7 @@
         log.error('Fetch error:', error.message);
 
         if (!this.state.data) {
-          this.renderError(error.name === 'AbortError' ? 'Request timed out' : 'Failed to load mystery boxes');
+          this.renderError(error.name === 'AbortError' ? "We're slow today — try again in a moment." : "We couldn't load the mystery boxes. Try again in a moment.");
         }
       } finally {
         this.state.isLoading = false;
@@ -194,12 +184,16 @@
 
       try {
         const url = new URL(this.config.openEndpoint, window.location.origin);
+        const idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const response = await this.fetchWithRetry(url.toString(), {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Idempotency-Key': idemKey
           },
           credentials: 'same-origin',
           body: JSON.stringify({
@@ -213,7 +207,7 @@
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || data.message || 'Failed to open mystery box');
+          throw new Error(data.error || data.message || "We couldn't open the box. Your points are safe — try again.");
         }
 
         // Update local state optimistically
@@ -266,44 +260,21 @@
     }
 
     // ─── Cache ─────────────────────────────────────────────
+    // RP.cache keys as `rp:mystery-boxes:<shop>:<customer>` so a shared
+    // device can't leak one shopper's recently-viewed boxes to the next.
+
+    cacheKeyParts() {
+      return ['mystery-boxes', this.config.shopDomain, this.config.customerId];
+    }
 
     getCachedData() {
       if (!this.config.customerId) return null;
-      try {
-        const key = `rp-mb-${this.config.shopDomain}-${this.config.customerId}`;
-        const cached = localStorage.getItem(key);
-        if (!cached) return null;
-
-        const { data, timestamp, version } = JSON.parse(cached);
-        if (version !== CONFIG.CACHE_VERSION) {
-          localStorage.removeItem(key);
-          return null;
-        }
-
-        const age = (Date.now() - timestamp) / 1000;
-        if (age < this.config.cacheDuration) {
-          log.debug('Cache hit (age: ' + Math.round(age) + 's)');
-          return data;
-        }
-        return null;
-      } catch (error) {
-        log.error('Cache read error:', error.message);
-        return null;
-      }
+      return RP.cache.read(this.cacheKeyParts(), this.config.cacheDuration);
     }
 
     cacheData(data) {
       if (!this.config.customerId) return;
-      try {
-        const key = `rp-mb-${this.config.shopDomain}-${this.config.customerId}`;
-        localStorage.setItem(key, JSON.stringify({
-          data,
-          timestamp: Date.now(),
-          version: CONFIG.CACHE_VERSION
-        }));
-      } catch (error) {
-        log.error('Cache write error:', error.message);
-      }
+      RP.cache.write(this.cacheKeyParts(), data);
     }
 
     // ─── Render: States ────────────────────────────────────
@@ -365,7 +336,7 @@
         <div class="rp-mb-container">
           <div class="rp-mb-guest">
             <div class="rp-mb-guest__header">
-              <h2 class="rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
+              <h2 class="rp-section-title rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
               <p class="rp-mb-guest__message">${this.escapeHtml(message)}</p>
               <a href="${this.escapeHtml(ctaUrl)}" class="rp-mb-btn rp-mb-btn--primary rp-mb-guest__cta">
                 ${this.escapeHtml(ctaText)}
@@ -386,15 +357,21 @@
     renderError(message) {
       this.root.innerHTML = `
         <div class="rp-mb-container">
-          <h2 class="rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
-          <div class="rp-mb-error">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <p class="rp-mb-error__message">${this.escapeHtml(message)}</p>
-            <button class="rp-mb-btn rp-mb-btn--secondary" data-action="retry">Try Again</button>
+          <h2 class="rp-section-title rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
+          <div class="rp-mb-error rp-empty-state" role="status">
+            <div class="rp-empty-state__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <h3 class="rp-empty-state__title">Boxes are taking a moment</h3>
+            <p class="rp-empty-state__message">${this.escapeHtml(message || "We couldn't load the mystery boxes right now. Your points are safe — try again in a moment.")}</p>
+            <div class="rp-empty-state__actions">
+              <button class="rp-btn rp-btn--secondary" data-action="retry">Try again</button>
+              <a class="rp-btn-link" href="/account">View account</a>
+            </div>
           </div>
         </div>
       `;
@@ -408,12 +385,15 @@
     renderEmpty(message) {
       this.root.innerHTML = `
         <div class="rp-mb-container">
-          <h2 class="rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
-          <div class="rp-mb-empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-              <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-            </svg>
-            <p class="rp-mb-empty__message">${this.escapeHtml(message || 'No mystery boxes available right now. Check back later!')}</p>
+          <h2 class="rp-section-title rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
+          <div class="rp-mb-empty rp-empty-state">
+            <div class="rp-empty-state__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" aria-hidden="true">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
+            </div>
+            <h3 class="rp-empty-state__title">No boxes right now</h3>
+            <p class="rp-empty-state__message">${this.escapeHtml(message || 'New mystery boxes drop regularly — check back soon.')}</p>
           </div>
         </div>
       `;
@@ -434,10 +414,10 @@
       this.root.innerHTML = `
         <div class="rp-mb-container">
           <div class="rp-mb-header">
-            <h2 class="rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
+            <h2 class="rp-section-title rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
             <div class="rp-mb-balance">
               <span class="rp-mb-balance__label">Your Balance:</span>
-              <span class="rp-mb-balance__value">${balance.toLocaleString()} ${currencyName}</span>
+              <span class="rp-mb-balance__value">${RP.format.number(balance)} ${currencyName}</span>
             </div>
           </div>
           <div class="rp-mb-grid">
@@ -482,7 +462,7 @@
             ${rarityHtml}
             <div class="rp-mb-card__footer">
               <div class="rp-mb-card__cost">
-                <span class="rp-mb-card__cost-value">${(box.pointsCost || 0).toLocaleString()}</span>
+                <span class="rp-mb-card__cost-value">${RP.format.number(box.pointsCost || 0)}</span>
                 <span class="rp-mb-card__cost-label">${currencyName}</span>
               </div>
               <div class="rp-mb-card__meta">
@@ -507,11 +487,14 @@
       const label = rarityItem.rarity.charAt(0) + rarityItem.rarity.slice(1).toLowerCase();
       const pct = Math.round(rarityItem.chance * 100);
 
+      // Colorblind-friendly: label text is present alongside the color dot,
+      // and the decorative color chip is hidden from screen readers so they
+      // announce the rarity name + percentage only.
       return `
-        <div class="rp-mb-rarity">
-          <span class="rp-mb-rarity__dot" style="background:${color}"></span>
+        <div class="rp-mb-rarity" role="group" aria-label="${label} ${pct}%">
+          <span class="rp-mb-rarity__dot" aria-hidden="true" style="background:${color}"></span>
           <span class="rp-mb-rarity__label">${label}</span>
-          <div class="rp-mb-rarity__track">
+          <div class="rp-mb-rarity__track" aria-hidden="true">
             <div class="rp-mb-rarity__fill" style="width:${pct}%;background:${color}"></div>
           </div>
         </div>
@@ -537,16 +520,16 @@
           <div class="rp-mb-modal__cost-breakdown">
             <div class="rp-mb-modal__row">
               <span>Cost</span>
-              <span>${cost.toLocaleString()} ${currencyName}</span>
+              <span>${RP.format.number(cost)} ${currencyName}</span>
             </div>
             <div class="rp-mb-modal__row">
               <span>Your balance</span>
-              <span>${balance.toLocaleString()} ${currencyName}</span>
+              <span>${RP.format.number(balance)} ${currencyName}</span>
             </div>
             <div class="rp-mb-modal__divider"></div>
             <div class="rp-mb-modal__row rp-mb-modal__row--result">
               <span>After opening</span>
-              <span>${remaining.toLocaleString()} ${currencyName}</span>
+              <span>${RP.format.number(remaining)} ${currencyName}</span>
             </div>
           </div>
           <div class="rp-mb-modal__actions">
@@ -716,9 +699,7 @@
     // ─── Utilities ─────────────────────────────────────────
 
     escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text || '';
-      return div.innerHTML;
+      return RP.escapeHtml(text);
     }
   }
 

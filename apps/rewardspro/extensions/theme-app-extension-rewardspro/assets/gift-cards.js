@@ -3,96 +3,69 @@
  * Displays purchasable gift card bundles and the customer's issued cards.
  *
  * Security: CSS color/number sanitization, textContent for API strings
- * Performance: LocalStorage caching (60s TTL, shop-keyed)
+ * Performance: LocalStorage caching (60s TTL, shop+customer-keyed since v2)
  * Accessibility: ARIA labels, keyboard handlers, live regions
  * Debug: localStorage.setItem('rp-debug', 'true')
+ *
+ * MIGRATION NOTE: Local helpers (sanitizeColor, sanitizeNumber, txt,
+ * fetchWithRetry, cache) should delegate to `window.RPUtils.*`. rp-utils.js
+ * is already loaded via the rp_utils_loader snippet. Follow the
+ * membership-widget.js port pattern.
  */
 (function () {
   'use strict';
 
-  const CONFIG = {
-    TIMEOUT_MS: 10000,
-    MAX_RETRIES: 3,
-    RETRY_BASE_MS: 1000,
-    CACHE_KEY_PREFIX: 'rp_giftcards_v1_',
-    CACHE_VERSION: 1,
-  };
-
-  const DEBUG = (() => {
-    try { return localStorage.getItem('rp-debug') === 'true'; } catch { return false; }
-  })();
-  const log = {
-    debug: (...a) => DEBUG && console.log('[RP:GiftCards]', ...a),
-    warn: (...a) => console.warn('[RP:GiftCards]', ...a),
-    error: (...a) => console.error('[RP:GiftCards]', ...a),
-  };
-
-  // ── Security ──────────────────────────────────────────────────────────────
-  function sanitizeColor(val, fallback) {
-    if (!val || typeof val !== 'string') return fallback;
-    const v = val.trim();
-    if (/^#[0-9a-fA-F]{3,8}$/.test(v)) return v;
-    if (/^rgba?\(/.test(v)) return v;
-    return fallback;
+  // ────────────────────────────────────────────────────────────────────────
+  // Shared utilities (window.RPUtils, from rp-utils.js)
+  // ────────────────────────────────────────────────────────────────────────
+  if (!window.RPUtils || !window.RPUtils.VERSION) {
+    console.error('[RP:GiftCards] window.RPUtils is missing. Ensure the ' +
+      '`rp_utils_loader` snippet is rendered before this script.');
+    return;
   }
-  function sanitizeNumber(val, fallback, min = 0, max = 9999999) {
-    const n = Number(val);
-    return isFinite(n) && n >= min && n <= max ? n : fallback;
-  }
-  function txt(val) {
-    // Safe text — use this when building innerHTML from API data
-    const d = document.createElement('span');
-    d.textContent = String(val ?? '');
-    return d.innerHTML;
-  }
+  const RP = window.RPUtils;
+  const log = RP.logger('RP:GiftCards');
+  const sanitizeColor = RP.sanitize.color;
+  const sanitizeNumber = RP.sanitize.number;
+  const txt = RP.escapeHtml;
 
   // ── Cache ─────────────────────────────────────────────────────────────────
-  function cacheKey(shopDomain) {
-    return `${CONFIG.CACHE_KEY_PREFIX}${CONFIG.CACHE_VERSION}_${shopDomain}`;
+  // RP.cache keys as `rp:gift-cards:<shop>:<customer|guest>` — shop+customer
+  // scoped so a shared device never leaks one shopper's cards to the next.
+  function cacheParts(shopDomain, customerId) {
+    return ['gift-cards', shopDomain, customerId || 'guest'];
   }
-  function readCache(shopDomain, ttl) {
-    try {
-      const raw = localStorage.getItem(cacheKey(shopDomain));
-      if (!raw) return null;
-      const { ts, data } = JSON.parse(raw);
-      if (Date.now() - ts < ttl * 1000) return data;
-    } catch { /* ignore */ }
-    return null;
+  function readCache(shopDomain, customerId, ttl) {
+    return RP.cache.read(cacheParts(shopDomain, customerId), ttl);
   }
-  function writeCache(shopDomain, data) {
-    try {
-      localStorage.setItem(cacheKey(shopDomain), JSON.stringify({ ts: Date.now(), data }));
-    } catch { /* ignore */ }
+  function writeCache(shopDomain, customerId, data) {
+    RP.cache.write(cacheParts(shopDomain, customerId), data);
   }
-  function bustCache(shopDomain) {
-    try { localStorage.removeItem(cacheKey(shopDomain)); } catch { /* ignore */ }
+  function bustCache(shopDomain, customerId) {
+    RP.cache.bust(cacheParts(shopDomain, customerId));
   }
 
   // ── HTTP ──────────────────────────────────────────────────────────────────
-  async function fetchWithRetry(url, opts = {}, retries = CONFIG.MAX_RETRIES) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), CONFIG.TIMEOUT_MS);
+  // Thin local wrapper: RP.fetchWithRetry returns the Response; gift-cards
+  // historically returned JSON from fetchWithRetry. Preserve that contract
+  // so call sites don't change — just proxy through to the shared retrier.
+  async function fetchWithRetry(url, opts = {}) {
     try {
-      const res = await fetch(url, { ...opts, signal: ctrl.signal });
-      clearTimeout(timer);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await RP.fetchWithRetry(url, opts);
       return await res.json();
     } catch (err) {
-      clearTimeout(timer);
-      if (retries <= 0) throw err;
-      await new Promise(r => setTimeout(r, CONFIG.RETRY_BASE_MS * (CONFIG.MAX_RETRIES - retries + 1)));
-      return fetchWithRetry(url, opts, retries - 1);
+      // For parity with the old impl, rethrow after logging.
+      log.debug('fetchWithRetry failed:', err.message);
+      throw err;
     }
   }
 
   // ── Formatters ────────────────────────────────────────────────────────────
+  // Delegate to RP.format.currency so gift-cards renders money the same
+  // way every other widget does. Previously this widget inlined its own
+  // Intl.NumberFormat wrapper; the only difference was a fallback glyph.
   function fmtCurrency(amount, currency) {
-    try {
-      return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' })
-        .format(Number(amount) || 0);
-    } catch {
-      return `${currency || '$'}${(Number(amount) || 0).toFixed(2)}`;
-    }
+    return RP.format.currency(amount, currency || 'USD');
   }
   function fmtDate(iso) {
     if (!iso) return '';
@@ -112,16 +85,21 @@
     card.setAttribute('role', 'article');
     card.setAttribute('aria-label', `${bundle.name} — ${value} for ${cost} store credit`);
 
+    // Use CSS custom props so colors adapt to light/dark themes. The
+    // hard-coded `#aaa`/`#888` contrast was failing WCAG AA on light
+    // storefronts; `--rp-text-*` vars auto-switch with system theme.
     card.innerHTML = `
       <div class="rp-gc-bundle-value" style="color:${primary}">${txt(value)}</div>
-      <div class="rp-gc-bundle-name" style="color:#fff">${txt(bundle.name)}</div>
-      <div class="rp-gc-bundle-cost" style="color:#aaa">Cost: ${txt(cost)} store credit</div>
-      ${bundle.description ? `<div class="rp-gc-bundle-desc" style="color:#888">${txt(bundle.description)}</div>` : ''}
+      <div class="rp-gc-bundle-name">${txt(bundle.name)}</div>
+      <div class="rp-gc-bundle-cost">Cost: ${txt(cost)} store credit</div>
+      ${bundle.description ? `<div class="rp-gc-bundle-desc">${txt(bundle.description)}</div>` : ''}
       <div class="rp-gc-bundle-status" aria-live="polite" aria-atomic="true"></div>`;
 
     const btn = document.createElement('button');
     btn.className = 'rp-gc-btn';
-    btn.style.cssText = `background:${canAfford ? primary : '#444'};color:${canAfford ? bg : '#888'}`;
+    // `aria-disabled` is set below when unaffordable; the CSS-var-driven
+    // :disabled selectors in gift-cards.css carry the muted styling.
+    btn.style.cssText = canAfford ? `background:${primary};color:${bg}` : '';
     btn.textContent = canAfford ? `Redeem for ${cost}` : `Need ${fmtCurrency(bundle.cashbackCost - storeCredit, currency)} more`;
     btn.disabled = !canAfford;
     btn.setAttribute('aria-label', `Redeem ${bundle.name} gift card for ${cost} store credit`);
@@ -134,17 +112,20 @@
       statusEl.textContent = '';
       try {
         const convertEndpoint = apiEndpoint.replace('/gift-cards', '/gift-cards/convert');
+        const idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const res = await fetch(convertEndpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bundleId: bundle.id, customerId }),
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idemKey },
+          body: JSON.stringify({ bundleId: bundle.id }),
         });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
         statusEl.textContent = '✓ Gift card issued! Check your email.';
         statusEl.style.color = primary;
         btn.textContent = '✓ Redeemed';
-        bustCache(shopDomain);
+        bustCache(shopDomain, customerId);
       } catch (err) {
         log.error('Redemption failed', err);
         btn.disabled = false;
@@ -200,7 +181,7 @@
     const header = document.createElement('div');
     header.className = 'rp-gc-header';
     header.innerHTML = `
-      <h2 class="rp-gc-title" style="color:#fff">${txt(cfg.heading || 'Gift Cards')}</h2>
+      <h2 class="rp-section-title rp-gc-title">${txt(cfg.heading || 'Gift Cards')}</h2>
       <span class="rp-gc-credit-badge" style="color:${primary};border-color:${primary}">
         ${txt(fmtCurrency(credit, currency))} credit
       </span>`;
@@ -210,10 +191,23 @@
     const hasIssued  = cfg.showIssued  !== 'false' && data.issuedGiftCards && data.issuedGiftCards.length > 0;
 
     if (!hasBundles && !hasIssued) {
+      // Shared empty-state shell so the tone matches the other widgets.
       const empty = document.createElement('div');
-      empty.className = 'rp-gc-empty';
-      empty.style.color = '#aaa';
-      empty.textContent = cfg.emptyMessage || 'No gift cards yet. Earn store credit to redeem one!';
+      empty.className = 'rp-gc-empty rp-empty-state';
+      empty.innerHTML = `
+        <div class="rp-empty-state__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+            <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/>
+            <line x1="12" y1="22" x2="12" y2="7"/>
+            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+          </svg>
+        </div>
+        <h3 class="rp-empty-state__title">No gift cards yet</h3>`;
+      const msg = document.createElement('p');
+      msg.className = 'rp-empty-state__message';
+      msg.textContent = cfg.emptyMessage || 'Earn store credit on your orders to unlock gift cards you can share or save.';
+      empty.appendChild(msg);
       el.appendChild(empty);
       return;
     }
@@ -263,10 +257,10 @@
     const bg      = sanitizeColor(cfg.bgColor,      '#1a1a2e');
     el.innerHTML = `
       <div class="rp-gc-header">
-        <h2 class="rp-gc-title" style="color:#fff">${txt(cfg.heading || 'Gift Cards')}</h2>
+        <h2 class="rp-section-title rp-gc-title">${txt(cfg.heading || 'Gift Cards')}</h2>
       </div>
       <div class="rp-gc-guest">
-        <p style="color:#aaa">${txt(cfg.guestMessage || 'Sign in to view gift cards.')}</p>
+        <p class="rp-gc-guest__message">${txt(cfg.guestMessage || 'Sign in to view gift cards.')}</p>
         <a href="${cfg.guestUrl || '/account/login'}" class="rp-gc-btn"
            style="background:${primary};color:${bg};width:auto;display:inline-flex"
            aria-label="${txt(cfg.guestCta || 'Sign In')}">
@@ -297,8 +291,8 @@
 
     if (state === 'guest') { renderGuest(el, cfg); return; }
 
-    // Cache hit
-    const cached = readCache(shopDomain, ttl);
+    // Cache hit (per-customer key — not leaked across users on shared devices)
+    const cached = readCache(shopDomain, customerId, ttl);
     if (cached) { log.debug('Cache hit'); render(el, cached, cfg); return; }
 
     // Fetch
@@ -309,11 +303,26 @@
         el.innerHTML = ''; // feature disabled — render nothing
         return;
       }
-      writeCache(shopDomain, data);
+      writeCache(shopDomain, customerId, data);
       render(el, data, cfg);
     } catch (err) {
       log.error('Failed to load gift card data', err);
-      el.innerHTML = `<p class="rp-gc-error">Gift cards temporarily unavailable.</p>`;
+      // Match the tone + layout of the other widgets' error states.
+      el.innerHTML = `
+        <div class="rp-gc-error rp-empty-state" role="status">
+          <div class="rp-empty-state__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <h3 class="rp-empty-state__title">Gift cards are taking a moment</h3>
+          <p class="rp-empty-state__message">We couldn't load your gift cards right now. Your balance is safe — try again in a moment.</p>
+          <div class="rp-empty-state__actions">
+            <a class="rp-btn-link" href="/account">View account</a>
+          </div>
+        </div>`;
     }
   }
 

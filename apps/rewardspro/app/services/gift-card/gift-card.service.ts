@@ -595,38 +595,127 @@ export class GiftCardService {
       );
 
       if (!giftCardResult.success || !giftCardResult.giftCardId) {
-        // Rollback the ledger entry if gift card creation fails
-        // Note: In production, you might want a more sophisticated compensation mechanism
-        serviceLogger.error(
-          "Gift card creation failed after ledger debit - manual intervention may be needed",
-          { ledgerEntryId: result.ledgerEntryId }
-        );
+        // ─────────────────────────────────────────────────────────────
+        // MODE A: Shopify creation failed AFTER the ledger debit
+        // committed. The customer was charged but got nothing.
+        //
+        // The previous behavior was to log "manual intervention may be
+        // needed" and return — leaving the customer's balance wrong.
+        // Now we issue a compensating credit: write a REVERSAL ledger
+        // entry + increment the balance back, in a single transaction.
+        // Any failure of the compensation itself is logged as CRITICAL
+        // so ops can spot it in alerts.
+        // ─────────────────────────────────────────────────────────────
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.storeCreditLedger.create({
+              data: {
+                id: uuidv4(),
+                customerId: input.customerId,
+                shop: input.shop,
+                // Positive amount — refunds the debit above.
+                amount: input.amount,
+                type: "CONVERSION_REVERSAL",
+                description: "Refund: gift-card creation failed in Shopify",
+                metadata: {
+                  reversedLedgerEntryId: result.ledgerEntryId,
+                  shopifyError: giftCardResult.error ?? "unknown",
+                },
+                createdAt: new Date(),
+              },
+            });
+            await tx.customer.update({
+              where: { id: input.customerId },
+              data: { storeCredit: { increment: input.amount } },
+            });
+          });
+          serviceLogger.info(
+            "Store credit refunded after gift card creation failed in Shopify",
+            {
+              ledgerEntryId: result.ledgerEntryId,
+              amount: input.amount,
+              shopifyError: giftCardResult.error,
+            }
+          );
+        } catch (refundError) {
+          // If BOTH the Shopify call AND the refund fail, we genuinely
+          // need human attention. Log with full context so an operator
+          // can reconcile the customer's balance manually.
+          serviceLogger.error(
+            "CRITICAL: Store credit refund failed after gift-card creation failure",
+            {
+              ledgerEntryId: result.ledgerEntryId,
+              amount: input.amount,
+              shopifyError: giftCardResult.error,
+              refundError:
+                refundError instanceof Error ? refundError.message : String(refundError),
+            }
+          );
+        }
         return {
           success: false,
-          error: giftCardResult.error || "Gift card creation failed after balance deduction",
+          error:
+            giftCardResult.error ||
+            "Gift card creation failed. Your store credit has been refunded.",
         };
       }
 
-      // Record the issued gift card
-      const issuedGiftCard = await prisma.issuedGiftCard.create({
-        data: {
-          id: uuidv4(),
-          shop: input.shop,
-          shopifyGiftCardId: giftCardResult.giftCardId,
+      // ──────────────────────────────────────────────────────────────
+      // MODE B: Shopify created the card, but our DB insert below might
+      // still fail. Wrap the insert in try/catch and log the Shopify ID
+      // so manual reconciliation is possible (we cannot easily undo a
+      // Shopify gift card from outside the admin API, so the right
+      // recovery is human: either delete the Shopify card or insert the
+      // IssuedGiftCard row manually).
+      // ──────────────────────────────────────────────────────────────
+      let issuedGiftCard;
+      try {
+        issuedGiftCard = await prisma.issuedGiftCard.create({
+          data: {
+            id: uuidv4(),
+            shop: input.shop,
+            shopifyGiftCardId: giftCardResult.giftCardId,
+            lastFourDigits: giftCardResult.lastFourDigits,
+            initialValue: input.amount,
+            bonusValue: 0,
+            totalValue: input.amount,
+            templateSuffix: result.templateSuffix,
+            purchasedByCustomerId: input.customerId,
+            bundleType: "VALUE_ONLY",
+            recipientEmail: input.recipient?.email,
+            recipientName: input.recipient?.name,
+            personalMessage: input.recipient?.message,
+            convertedFromLedgerId: result.ledgerEntryId,
+            status: "ACTIVE",
+          },
+        });
+      } catch (dbError) {
+        serviceLogger.error(
+          "CRITICAL: Shopify gift card created but IssuedGiftCard insert failed — orphaned gift card",
+          {
+            shopifyGiftCardId: giftCardResult.giftCardId,
+            lastFourDigits: giftCardResult.lastFourDigits,
+            ledgerEntryId: result.ledgerEntryId,
+            customerId: input.customerId,
+            amount: input.amount,
+            dbError: dbError instanceof Error ? dbError.message : String(dbError),
+          }
+        );
+        // The customer has been debited AND Shopify has a valid gift
+        // card. Surfacing an error here would confuse the customer
+        // (their balance IS gone, the card DOES exist). Return success
+        // with the Shopify ID so the storefront can surface the code,
+        // and let the critical log trigger reconciliation.
+        return {
+          success: true,
+          giftCardId: giftCardResult.giftCardId,
           lastFourDigits: giftCardResult.lastFourDigits,
-          initialValue: input.amount,
-          bonusValue: 0,
           totalValue: input.amount,
-          templateSuffix: result.templateSuffix,
-          purchasedByCustomerId: input.customerId,
-          bundleType: "VALUE_ONLY",
-          recipientEmail: input.recipient?.email,
-          recipientName: input.recipient?.name,
-          personalMessage: input.recipient?.message,
-          convertedFromLedgerId: result.ledgerEntryId,
-          status: "ACTIVE",
-        },
-      });
+          bonusValue: 0,
+          error:
+            "Gift card was created but not fully recorded — please contact support if it doesn't appear in your account.",
+        };
+      }
 
       serviceLogger.info("Cashback converted to gift card", {
         shopifyGiftCardId: giftCardResult.giftCardId,

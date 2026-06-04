@@ -9,6 +9,7 @@
 import prisma from "../db.server";
 import { earnPoints } from "./points-ledger.server";
 import { createClaimEvent } from "./mission-events.server";
+import { assignCustomerToTier } from "./manual-tier-assignment.server";
 import type { ChallengeRewardType, RewardValue } from "./challenge-management.server";
 
 const LOG_PREFIX = "[ChallengeClaim]";
@@ -315,7 +316,19 @@ async function deliverPointsReward(
 }
 
 /**
- * Deliver store credit reward
+ * Deliver store credit reward.
+ *
+ * The ledger insert and the customer balance increment are executed in a
+ * single Prisma transaction so a failure on either side rolls the other
+ * back — we never want an unbacked ledger row (credit "awarded" but
+ * balance not moved) or a balance change with no audit trail.
+ *
+ * The balance increment uses `{ increment: N }` which Prisma compiles to
+ * an atomic `UPDATE storeCredit = storeCredit + N`, so concurrent claims
+ * from multiple challenges on the same customer add correctly without
+ * lost updates. The returned row (`.storeCredit`) is the post-commit
+ * value for *this* transaction; we surface it as `newBalance` instead of
+ * reading with a separate query that could observe intervening writes.
  */
 async function deliverStoreCreditReward(
   shop: string,
@@ -329,37 +342,32 @@ async function deliverStoreCreditReward(
     `${LOG_PREFIX} Delivering $${amountInDollars} store credit to customer ${customerId}`
   );
 
-  // Create store credit ledger entry
-  const ledgerEntry = await prisma.storeCreditLedger.create({
-    data: {
-      shop,
-      customerId,
-      type: "CHALLENGE_REWARD",
-      amount: amountInDollars,
-      description: `Challenge reward: ${challengeName}`,
-      metadata: { challengeId },
-    },
-  });
+  const { ledgerEntry, updated } = await prisma.$transaction(async (tx) => {
+    const ledgerEntry = await tx.storeCreditLedger.create({
+      data: {
+        shop,
+        customerId,
+        type: "CHALLENGE_REWARD",
+        amount: amountInDollars,
+        description: `Challenge reward: ${challengeName}`,
+        metadata: { challengeId },
+      },
+    });
 
-  // Update customer store credit balance
-  await prisma.customer.update({
-    where: { id: customerId },
-    data: {
-      storeCredit: { increment: amountInDollars },
-    },
-  });
+    const updated = await tx.customer.update({
+      where: { id: customerId },
+      data: { storeCredit: { increment: amountInDollars } },
+      select: { storeCredit: true },
+    });
 
-  // Get updated balance
-  const customer = await prisma.customer.findFirst({
-    where: { id: customerId, shop },
-    select: { storeCredit: true },
+    return { ledgerEntry, updated };
   });
 
   return {
     success: true,
     rewardValue: amountInDollars,
     deliveryId: ledgerEntry.id,
-    newBalance: customer ? Number(customer.storeCredit) : undefined,
+    newBalance: Number(updated.storeCredit),
     message: `Earned $${amountInDollars.toFixed(2)} store credit`,
   };
 }
@@ -422,7 +430,30 @@ async function deliverDiscountReward(
 }
 
 /**
- * Deliver tier upgrade reward
+ * Deliver tier upgrade reward.
+ *
+ * Previously this wrote `Customer.currentTierId` directly and created its
+ * own (broken — wrong field names) TierChangeLog entry, skipping the tier
+ * resolution system. That meant:
+ *   • CustomerTierState.tierSource was never updated, so other tier
+ *     sources (subscription, manual admin override, spending) could
+ *     silently win on the next recalc and undo the challenge award.
+ *   • Duration (`config.durationDays`) was calculated but never enforced —
+ *     the expiry lived only in a log note.
+ *   • The log insert used fields (`newTierId`, `newTierName`, `source`)
+ *     that don't exist in the schema; it only compiled because the Data
+ *     API adapter has permissive types.
+ *
+ * Now: delegate to `assignCustomerToTier`, which performs the whole
+ * transition correctly — Customer.currentTierId, CustomerTierState upsert
+ * with tierSource=MANUAL_OVERRIDE + expiry, TierChangeLog with valid
+ * schema fields, and idempotent "already in this tier" handling.
+ *
+ * Challenge context (challengeId, challengeName) is embedded in the
+ * `processedBy` identifier and `note`, so tier-change reports can
+ * distinguish "earned by clearing challenge X" from a hand-toggled admin
+ * override without needing a new TierTriggerType enum value (which would
+ * require a migration).
  */
 async function deliverTierUpgradeReward(
   shop: string,
@@ -432,61 +463,55 @@ async function deliverTierUpgradeReward(
   config: RewardValue
 ): Promise<ClaimResult> {
   console.log(
-    `${LOG_PREFIX} Upgrading tier for customer ${customerId} to ${config.tierId}`
+    `${LOG_PREFIX} Upgrading tier for customer ${customerId} to ${config.tierId} (challenge ${challengeId})`
   );
 
   if (!config.tierId) {
-    return {
-      success: false,
-      error: "No tier specified for upgrade",
-    };
+    return { success: false, error: "No tier specified for upgrade" };
   }
 
-  // Verify the tier exists
-  const tier = await prisma.tier.findFirst({
-    where: { id: config.tierId, shop },
-  });
+  const result = await assignCustomerToTier(
+    shop,
+    customerId,
+    config.tierId,
+    // Synthetic "admin user" identifier so reports can filter to
+    // challenge-awarded tiers without reading the note blob.
+    `system:challenge-reward:${challengeId}`,
+    `Challenge reward: ${challengeName}`,
+    {
+      // If the challenge grants a time-limited tier, the tier-resolution
+      // system will honor the expiry; automatic recalc on the expiry
+      // date will move the customer back to their spending-based tier.
+      overrideDuration: config.durationDays,
+      // Duration absent = permanent override (until another source wins).
+      permanentOverride: !config.durationDays,
+    }
+  );
 
-  if (!tier) {
+  if (!result.success) {
+    // "Already in this tier" returns success=false with a message; treat
+    // that as a no-op success so the shopper isn't shown an error for a
+    // challenge they legitimately claimed.
+    if (result.message === "Customer is already in this tier") {
+      return {
+        success: true,
+        rewardValue: result.newTierName ?? "tier maintained",
+        deliveryId: `tier-upgrade-${challengeId}`,
+        message: result.message,
+      };
+    }
     return {
       success: false,
-      error: "Target tier not found",
+      error: result.error ?? "Tier upgrade failed",
     };
   }
-
-  // Calculate expiration if temporary
-  const expiresAt = config.durationDays
-    ? new Date(Date.now() + config.durationDays * 24 * 60 * 60 * 1000)
-    : null;
-
-  // Update the customer's tier
-  // Note: This is a simplified implementation
-  // A full implementation would use the tier resolution service
-  await prisma.customer.update({
-    where: { id: customerId },
-    data: {
-      currentTierId: config.tierId,
-    },
-  });
-
-  // Log the tier change
-  await prisma.tierChangeLog.create({
-    data: {
-      shop,
-      customerId,
-      newTierId: config.tierId,
-      newTierName: tier.name,
-      changeType: "UPGRADE",
-      source: "CHALLENGE_REWARD",
-      note: `Challenge reward: ${challengeName}${expiresAt ? ` (expires ${expiresAt.toISOString()})` : ""}`,
-    },
-  });
 
   return {
     success: true,
-    rewardValue: tier.name,
+    rewardValue: result.newTierName ?? "upgraded",
     deliveryId: `tier-upgrade-${challengeId}`,
-    message: `Upgraded to ${tier.name}${config.durationDays ? ` for ${config.durationDays} days` : ""}`,
+    message: result.message
+      ?? `Upgraded to ${result.newTierName}${config.durationDays ? ` for ${config.durationDays} days` : ""}`,
   };
 }
 

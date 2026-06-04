@@ -37,6 +37,139 @@ import type { MysteryBoxReward, MysteryBoxOpen, MysteryBoxWinner, MysteryBoxRari
 
 const LOG_PREFIX = "[MysteryBoxOpen]";
 
+// ════════════════════════════════════════════════════════════════════════
+// SHARED TRANSACTION HELPER
+//
+// Before this refactor, `openMysteryBox` and `openMysteryBoxEnhanced` each
+// carried a copy of the same critical-path transaction (atomic stock claim
+// → open record → winner record → box stats → sentinel-error handling),
+// differing only in which psychology columns they populated on the open
+// row. Two copies is two places to keep the stock-lock invariant correct
+// and two places to fix when the transaction body changes. Consolidated.
+//
+// The helper owns:
+//   - The conditional `updateMany` stock claim (quantity limits, nullable = unlimited).
+//   - Creation of the `mysteryBoxOpen` row with ANY psychology columns the
+//     caller wants to record (all of them have nullable types or defaults,
+//     so the basic caller omits them and schema defaults apply).
+//   - The `mysteryBoxWinner` row.
+//   - `mysteryBox` stats increment.
+//   - Translation of the depletion sentinel into a customer-facing error.
+//
+// Point spend still runs OUTSIDE the transaction (deliberate: records
+// first, points second — a post-commit `spendPoints` failure is a free
+// open, which is reconcilable; the reverse would lose points with no
+// prize).
+// ════════════════════════════════════════════════════════════════════════
+
+interface OpenTransactionInput {
+  shop: string;
+  boxId: string;
+  customerId: string;
+  /** The reward to award. `quantity === null` means unlimited stock. */
+  reward: { id: string; quantity: number | null };
+  /** Points to record on `pointsSpent` of the open row (0 for free opens). */
+  pointsSpent: number;
+  /** Whether this customer is opening this box for the first time. */
+  isNewOpener: boolean;
+  /** Stat increment — enhanced path uses `discountedCost`, basic uses `pointsSpent`. */
+  boxTotalSpentDelta: number;
+
+  // Optional psychology metadata. Fields the caller omits default to
+  // the schema defaults (null / 0 / false).
+  streakDay?: number | null;
+  streakBonusApplied?: number | null;
+  luckyStreakCount?: number;
+  luckyStreakBonus?: number | null;
+  bonusEventId?: string | null;
+  discountApplied?: number;
+  isFreeOpen?: boolean;
+  pityTriggered?: boolean;
+  nearMissRewardId?: string | null;
+}
+
+interface OpenTransactionResult {
+  open: { id: string };
+  winner: { id: string };
+}
+
+async function createOpenTransaction(
+  input: OpenTransactionInput
+): Promise<OpenTransactionResult> {
+  let depleted = false;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Atomic stock claim — conditional updateMany serializes at the DB.
+      // If another concurrent open took the last unit, count === 0 and we
+      // abort by throwing; the rest of the transaction never runs.
+      const gatedWhere =
+        input.reward.quantity === null
+          ? { id: input.reward.id }
+          : { id: input.reward.id, quantityWon: { lt: input.reward.quantity } };
+      const claim = await tx.mysteryBoxReward.updateMany({
+        where: gatedWhere,
+        data: { quantityWon: { increment: 1 } },
+      });
+      if (claim.count === 0) {
+        depleted = true;
+        throw new Error("MYSTERY_BOX_REWARD_DEPLETED");
+      }
+
+      const open = await tx.mysteryBoxOpen.create({
+        data: {
+          boxId: input.boxId,
+          customerId: input.customerId,
+          shop: input.shop,
+          pointsSpent: input.pointsSpent,
+          // Psychology columns — all optional in the schema. Undefined
+          // lets Prisma apply the default; explicit null/value overrides.
+          streakDay: input.streakDay,
+          streakBonusApplied: input.streakBonusApplied,
+          luckyStreakCount: input.luckyStreakCount,
+          luckyStreakBonus: input.luckyStreakBonus,
+          bonusEventId: input.bonusEventId,
+          discountApplied: input.discountApplied,
+          isFreeOpen: input.isFreeOpen,
+          pityTriggered: input.pityTriggered,
+          nearMissRewardId: input.nearMissRewardId,
+        },
+      });
+
+      const winner = await tx.mysteryBoxWinner.create({
+        data: {
+          boxId: input.boxId,
+          openId: open.id,
+          rewardId: input.reward.id,
+          customerId: input.customerId,
+          shop: input.shop,
+          deliveryStatus: "PENDING",
+        },
+      });
+
+      await tx.mysteryBox.update({
+        where: { id: input.boxId },
+        data: {
+          totalOpens: { increment: 1 },
+          uniqueOpeners: input.isNewOpener ? { increment: 1 } : undefined,
+          totalSpent: { increment: input.boxTotalSpentDelta },
+          updatedAt: new Date(),
+        },
+      });
+
+      return { open, winner };
+    });
+  } catch (err) {
+    if (depleted) {
+      // Translate the sentinel into a customer-facing message; identical
+      // across both entry points now.
+      throw new Error(
+        "The selected reward was just claimed by another customer. Please try opening again."
+      );
+    }
+    throw err;
+  }
+}
+
 // ============================================
 // TYPES
 // ============================================
@@ -226,57 +359,18 @@ export async function openMysteryBox(
       Object.assign(reward, alternateReward);
     }
 
-    // 7. Process opening — wrap record creation in transaction for atomicity.
-    // spendPoints has its own internal transaction, so it stays outside.
-    // Order: create records first, THEN deduct points. If points deduction
-    // fails after records are created, it's a "free open" (reconcilable).
-    // The reverse (points deducted, records fail) would lose customer points
-    // with no prize — unacceptable.
+    // 7. Delegate to the shared transaction helper. Basic open = no
+    // psychology / no pity / no bonus event, so we omit those fields and
+    // schema defaults apply.
     const isNewOpener = existingOpens === 0;
-
-    const { open, winner } = await prisma.$transaction(async (tx) => {
-      // Create opening record
-      const open = await tx.mysteryBoxOpen.create({
-        data: {
-          boxId,
-          customerId,
-          shop,
-          pointsSpent: box.openCost,
-        },
-      });
-
-      // Create winner record
-      const winner = await tx.mysteryBoxWinner.create({
-        data: {
-          boxId,
-          openId: open.id,
-          rewardId: reward.id,
-          customerId,
-          shop,
-          deliveryStatus: "PENDING",
-        },
-      });
-
-      // Update reward quantity won
-      await tx.mysteryBoxReward.update({
-        where: { id: reward.id },
-        data: {
-          quantityWon: { increment: 1 },
-        },
-      });
-
-      // Update box statistics
-      await tx.mysteryBox.update({
-        where: { id: boxId },
-        data: {
-          totalOpens: { increment: 1 },
-          uniqueOpeners: isNewOpener ? { increment: 1 } : undefined,
-          totalSpent: { increment: box.openCost },
-          updatedAt: new Date(),
-        },
-      });
-
-      return { open, winner };
+    const { open, winner } = await createOpenTransaction({
+      shop,
+      boxId,
+      customerId,
+      reward: { id: reward.id, quantity: reward.quantity },
+      pointsSpent: box.openCost,
+      boxTotalSpentDelta: box.openCost,
+      isNewOpener,
     });
 
     // Spend points (separate transaction — spendPoints manages its own)
@@ -885,60 +979,30 @@ export async function openMysteryBoxEnhanced(input: {
       reward.name
     );
 
-    // 11. Create all records atomically, then spend points separately.
-    // Same rationale as openMysteryBox: records first, points after.
+    // 11. Delegate to the shared transaction helper with ALL psychology
+    // metadata populated for the enhanced path.
     const isNewOpener = existingOpens === 0;
-
-    const { open, winner } = await prisma.$transaction(async (tx) => {
-      const open = await tx.mysteryBoxOpen.create({
-        data: {
-          boxId,
-          customerId,
-          shop,
-          pointsSpent: discountedCost,
-          streakDay: psychologyResult.streakInfo.currentStreak,
-          streakBonusApplied: psychologyResult.bonuses.streak.applied
-            ? psychologyResult.bonuses.streak.multiplier
-            : null,
-          luckyStreakCount: psychologyResult.bonuses.luckyStreak.count,
-          luckyStreakBonus: psychologyResult.bonuses.luckyStreak.applied
-            ? psychologyResult.bonuses.luckyStreak.multiplier
-            : null,
-          bonusEventId: psychologyResult.bonusEventId,
-          discountApplied: box.openCost - discountedCost,
-          isFreeOpen,
-          pityTriggered,
-          nearMissRewardId: nearMiss?.rewardId || null,
-        },
-      });
-
-      const winner = await tx.mysteryBoxWinner.create({
-        data: {
-          boxId,
-          openId: open.id,
-          rewardId: reward.id,
-          customerId,
-          shop,
-          deliveryStatus: "PENDING",
-        },
-      });
-
-      await tx.mysteryBoxReward.update({
-        where: { id: reward.id },
-        data: { quantityWon: { increment: 1 } },
-      });
-
-      await tx.mysteryBox.update({
-        where: { id: boxId },
-        data: {
-          totalOpens: { increment: 1 },
-          uniqueOpeners: isNewOpener ? { increment: 1 } : undefined,
-          totalSpent: { increment: discountedCost },
-          updatedAt: new Date(),
-        },
-      });
-
-      return { open, winner };
+    const { open, winner } = await createOpenTransaction({
+      shop,
+      boxId,
+      customerId,
+      reward: { id: reward.id, quantity: reward.quantity },
+      pointsSpent: discountedCost,
+      boxTotalSpentDelta: discountedCost,
+      isNewOpener,
+      streakDay: psychologyResult.streakInfo.currentStreak,
+      streakBonusApplied: psychologyResult.bonuses.streak.applied
+        ? psychologyResult.bonuses.streak.multiplier
+        : null,
+      luckyStreakCount: psychologyResult.bonuses.luckyStreak.count,
+      luckyStreakBonus: psychologyResult.bonuses.luckyStreak.applied
+        ? psychologyResult.bonuses.luckyStreak.multiplier
+        : null,
+      bonusEventId: psychologyResult.bonusEventId,
+      discountApplied: box.openCost - discountedCost,
+      isFreeOpen,
+      pityTriggered,
+      nearMissRewardId: nearMiss?.rewardId || null,
     });
 
     // 12. Spend points (separate transaction — spendPoints manages its own)

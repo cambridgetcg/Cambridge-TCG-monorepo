@@ -252,7 +252,13 @@ export async function getManualOverride(
   tx?: TransactionClient,
   options?: { clearIfExpired?: boolean }
 ): Promise<ManualOverrideInfo> {
-  const prisma = tx || prisma;
+  // Use the transaction client when one is passed, otherwise the module-
+  // scope prisma. The previous form `const prisma = tx || prisma;`
+  // shadowed the import with an uninitialized local — TypeScript inferred
+  // the whole function's prisma accesses as `any` (TS7022 + TS2448), and
+  // runtime was a temporal-dead-zone ReferenceError for tx-less callers.
+  // Renaming to `db` unbreaks both.
+  const db = tx || prisma;
   const noOverride: ManualOverrideInfo = {
     hasOverride: false,
     tierId: null,
@@ -267,7 +273,7 @@ export async function getManualOverride(
     console.log(`[getManualOverride] Checking override for customer: ${customerId}`);
 
     // Check CustomerTierState first (O(1) lookup)
-    const tierState = await prisma.customerTierState.findUnique({
+    const tierState = await db.customerTierState.findUnique({
       where: { customerId },
       select: {
         hasManualOverride: true,
@@ -299,7 +305,7 @@ export async function getManualOverride(
           try {
             // Use non-transactional update since we're just cleaning up
             // and this is a best-effort operation
-            await prisma.customerTierState.update({
+            await db.customerTierState.update({
               where: { customerId },
               data: {
                 hasManualOverride: false,
@@ -338,7 +344,7 @@ export async function getManualOverride(
     // LEGACY FALLBACK: Scan TierChangeLog for manual overrides
     console.log(`[getManualOverride] CustomerTierState not found, falling back to TierChangeLog`);
 
-    const lastManualEntry = await prisma.tierChangeLog.findFirst({
+    const lastManualEntry = await db.tierChangeLog.findFirst({
       where: {
         customerId,
         triggerType: 'MANUAL_ADMIN'
@@ -370,7 +376,7 @@ export async function getManualOverride(
     // Check permanent override
     if (metadata?.permanentOverride === true) {
       // Verify no removal after this
-      const removalAfter = await prisma.tierChangeLog.findFirst({
+      const removalAfter = await db.tierChangeLog.findFirst({
         where: {
           customerId,
           createdAt: { gt: lastManualEntry.createdAt },

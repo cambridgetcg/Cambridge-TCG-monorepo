@@ -1,201 +1,125 @@
-# RewardsPro Theme Extension
+# RewardsPro Theme App Extension
 
-This is a Shopify Theme App Extension that provides both app blocks and app embed blocks for the RewardsPro membership program.
+Storefront surface for the RewardsPro loyalty app. Injects six widgets into
+Shopify themes via app blocks and app embeds. **No build step** — assets
+under `assets/` are hand-written vanilla JavaScript and CSS, loaded directly
+by Shopify when a merchant enables a block.
 
-## Features
-
-### 1. Star Rating Block (Section)
-- Displays star ratings for products
-- Configurable star color
-- Shows recommendation text for highly-rated products
-
-### 2. Membership Widget (App Embed)
-- 🌟 Displays customer membership tier
-- 💰 Shows available store credit balance
-- 🎨 Beautiful, modern UI with gradient header
-- 📱 Fully responsive (mobile & desktop)
-- ♿ Accessible (WCAG compliant)
-- 🌗 Dark mode support
-- ⚡ Collapsible widget to save screen space
-- 🎯 Positioned floating widget (customizable via theme editor)
-
-## Structure
+## Layout
 
 ```
 extensions/theme-app-extension-rewardspro/
-├── assets/                          # Compiled assets
-│   ├── membership-widget.js         # Bundled React app (448KB)
-│   ├── membership-widget.css        # Widget styles (3.7KB)
-│   └── thumbs-up.png               # Star rating image
-├── blocks/
-│   ├── star_rating.liquid          # Star rating section block
-│   └── membership_widget.liquid    # Membership widget app embed
-├── src/                            # Source files for widget
-│   ├── main.tsx                    # Entry point
-│   ├── MembershipWidget.tsx        # Main React component
-│   ├── types.ts                    # TypeScript definitions
-│   └── styles.css                  # Component styles
+├── assets/
+│   ├── rp-utils.js                 # SHARED — window.RPUtils (see below)
+│   ├── membership-widget.{js,css}  # Floating tier + store-credit badge
+│   ├── raffles.{js,css}            # Raffle grid (section block)
+│   ├── mystery-boxes-widget.{js,css}
+│   ├── missions-widget.{js,css}
+│   └── gift-cards.{js,css}
+├── blocks/                         # Liquid templates (one per widget)
 ├── snippets/
-│   └── stars.liquid                # Star rating snippet
-├── locales/
-│   └── en.default.json             # Translations
-├── shopify.extension.toml          # Extension configuration
-├── package.json                    # Dependencies
-├── tsconfig.json                   # TypeScript config
-└── vite.config.ts                  # Build configuration
+│   ├── rp_utils_loader.liquid      # Loads rp-utils.js before any widget
+│   └── stars.liquid                # Star rating helper
+├── locales/                        # Translatable strings (| t in Liquid)
+└── shopify.extension.toml          # Extension manifest
 ```
 
-## Development
+## Shared module — `assets/rp-utils.js` (`window.RPUtils`)
 
-### Prerequisites
-- Node.js 18+
-- npm or yarn
+The file exports an IIFE that attaches a versioned `window.RPUtils` bag with
+the primitives every widget needs. **Consume from here instead of copying
+helpers into each widget.** Current surface (v1.0.0):
 
-### Setup
+| Namespace | Purpose |
+|---|---|
+| `RP.VERSION` | Semver of the shared module. Bumped on breaking changes. |
+| `RP.logger(scope)` | `{ debug, info, warn, error }` gated by `localStorage['rp-debug']`. |
+| `RP.sanitize.color(v, fb)` | Accepts hex/rgb/rgba/hsl/hsla + named; blocks CSS injection. |
+| `RP.sanitize.number(v, fb, min?, max?)` | Parses + clamps to range or returns fallback. |
+| `RP.sanitize.fontFamily(v, fb?)` | Blocks `:{};` and non-ASCII-safe input. |
+| `RP.escapeHtml(text)` | DOM-safe `textContent → innerHTML` round-trip. |
+| `RP.fetchWithRetry(url, opts?, cfg?)` | Timeout + exponential-backoff retries. Skips retry on `AbortError`. |
+| `RP.idempotencyKey()` | UUID for `Idempotency-Key` headers (see security section). |
+| `RP.cache.{key, read, write, bust}` | Versioned `localStorage` envelope. Keys: `rp:<parts…>`. |
+| `RP.format.currency(amount, currency, locale?)` | `Intl.NumberFormat` with safe fallback. |
+| `RP.readTranslations(dataset, schema)` | Resolves `data-i18n-*` values with fallbacks. |
 
-1. Install dependencies:
-```bash
-cd extensions/theme-app-extension-rewardspro
-npm install
+Every Liquid block already ships with `{% render 'rp_utils_loader' %}` at
+the top, so `window.RPUtils` is defined before widget JS runs. The browser
+dedupes identical script tags — multiple widgets on the same page cost one
+HTTP request.
+
+### Reference implementation
+
+`assets/membership-widget.js` is the canonical consumer. It has no local
+sanitize/fetch/cache helpers — everything comes from `RP.*`. Use it as the
+template when porting the other four widgets (they each carry a
+`MIGRATION NOTE` comment pointing here).
+
+## Security model
+
+- **Auth**: Each widget targets a Shopify App Proxy endpoint
+  (`/apps/rewardspro/<widget>`). The backend verifies the HMAC signature and
+  reads `logged_in_customer_id` from the signed URL — never from the POST
+  body. See `app/routes/api.proxy.$.tsx` and `test/routes/api.proxy.auth.test.ts`.
+- **Idempotency**: State-changing POSTs (raffle entry, mystery-box open,
+  challenge claim, gift-card conversion) send an `Idempotency-Key` header.
+  Server dedupes via Vercel KV (`SET NX EX 120`) so double-clicks, network
+  retries, and replays are safe.
+- **Cache keys**: Always include the customer ID so a shared device can't
+  leak one customer's data to the next. Use `RP.cache.key(['<widget>', shop, customerId])`.
+
+## Data flow
+
+1. Liquid gates on `{% if customer %}` and emits a container with `data-*`
+   attributes plus the `rp_utils_loader` snippet.
+2. Widget JS reads `element.dataset`, fetches from its proxy endpoint
+   (`RP.fetchWithRetry`), caches in localStorage (`RP.cache.write`), and
+   renders via `innerHTML` using `RP.escapeHtml` for dynamic values.
+3. Merchant theme editor settings (colors, cache duration, copy) flow
+   through `data-*` and are sanitized on the client before inline
+   `style=` / text interpolation.
+
+## Debug mode
+
+```js
+localStorage.setItem('rp-debug', 'true'); // enable
+localStorage.removeItem('rp-debug');      // disable
 ```
 
-2. Build the widget:
-```bash
-npm run build
+Reload. All widgets emit scoped `[WidgetName]` console logs for cache
+hits, fetch URLs, retries, and render branches.
+
+## Enabling in a theme
+
+1. Online Store → Themes → Customize.
+2. Theme settings → App embeds (for membership/missions) or section target
+   for raffles/mystery-boxes/gift-cards.
+3. Toggle the RewardsPro block on and configure settings.
+4. Save.
+
+## Tests
+
+`test/extensions/rp-utils.test.ts` covers the entire `window.RPUtils`
+surface (50 tests, jsdom + vitest). Run:
+
+```sh
+npm test -- test/extensions/rp-utils.test.ts
 ```
 
-This compiles the TypeScript/React code into:
-- `assets/membership-widget.js` - Main JavaScript bundle
-- `assets/membership-widget.css` - Styles
-
-### Development Commands
-
-```bash
-npm run dev       # Start development server with hot reload
-npm run build     # Build for production
-npm run typecheck # Check TypeScript types
-```
-
-## How It Works
-
-### Membership Widget Data Flow
-
-1. **Liquid reads customer metafields** (server-side):
-   - `customer.metafields.rewards_pro.membership_tier` - Tier name (e.g., "Gold", "Silver")
-   - `customer.metafields.rewards_pro.store_credit` - Balance amount
-   - `customer.metafields.rewards_pro.store_currency` - Currency code
-
-2. **Liquid outputs HTML container** with data attributes:
-```liquid
-<div id="membership-widget-root"
-     data-tier="Gold"
-     data-balance="50.00"
-     data-currency="USD">
-</div>
-```
-
-3. **React app mounts** and reads data from attributes
-4. **Widget renders** with the membership information
-
-### Required Metafields
-
-The widget requires these customer metafields to be set:
-
-| Namespace | Key | Type | Example |
-|-----------|-----|------|---------|
-| `rewards_pro` | `membership_tier` | `single_line_text_field` | "Gold" |
-| `rewards_pro` | `store_credit` | `number_decimal` | 50.00 |
-| `rewards_pro` | `store_currency` | `single_line_text_field` | "USD" |
-
-## Enabling the App Embed
-
-After installing the app:
-
-1. Go to **Online Store > Themes > Customize**
-2. Click **Theme Settings** (gear icon)
-3. Navigate to **App embeds**
-4. Find "Membership Widget" and toggle it **ON**
-5. Click **Save**
-
-The widget will now appear for logged-in customers who have membership data.
-
-## Customization
-
-### Theme Editor Settings
-
-Merchants can customize the widget via the Theme Editor:
-
-- **Widget Position**: Bottom Right, Bottom Left, Top Right, Top Left
-- **Show on Mobile**: Toggle mobile visibility
-- **Make Collapsible**: Allow users to minimize the widget
-
-### Developer Customization
-
-**Styling**: Edit `src/styles.css` and rebuild
-
-**Component Logic**: Modify `src/MembershipWidget.tsx` and rebuild
-
-**Position & Behavior**: Update the Liquid schema in `blocks/membership_widget.liquid`
-
-## Browser Support
-
-- Modern browsers (Chrome, Firefox, Safari, Edge)
-- Mobile browsers (iOS Safari, Chrome Mobile)
-- Supports ES2020+ features
-
-## Accessibility Features
-
-- ✅ Keyboard navigation
-- ✅ ARIA labels and roles
-- ✅ Focus indicators
-- ✅ Screen reader friendly
-- ✅ Reduced motion support
-
-## Performance
-
-- **Bundle Size**:
-  - JavaScript: 448KB (138KB gzipped)
-  - CSS: 3.7KB (1.17KB gzipped)
-- **Load Time**: Async loading (non-blocking)
-- **Runtime**: React 18 with optimized rendering
+`test/routes/api.proxy.auth.test.ts` locks in the proxy auth contract
+(body-tampering regression guard + idempotency requirement).
 
 ## Troubleshooting
 
-### Widget not appearing?
+**Widget isn't rendering** — check `localStorage.setItem('rp-debug', 'true')`
+and reload; the console log shows whether the cache fired, the fetch URL,
+and any HTTP error.
 
-1. Check if customer is logged in
-2. Verify customer has `membership_tier` metafield set
-3. Check browser console for errors
-4. Ensure app embed is enabled in Theme Editor
+**"Duplicate request" error** — the idempotency guard is rejecting a
+replay. In normal usage this means the user double-clicked; the first
+request is still in flight. Wait and retry.
 
-### Build errors?
-
-```bash
-# Clean and rebuild
-rm -rf node_modules assets
-npm install
-npm run build
-```
-
-### Metafield not found?
-
-Ensure the metafield definition exists in the store:
-```graphql
-mutation {
-  metafieldDefinitionCreate(definition: {
-    name: "Membership Tier"
-    namespace: "rewards_pro"
-    key: "membership_tier"
-    type: "single_line_text_field"
-    ownerType: CUSTOMER
-  }) {
-    createdDefinition {
-      id
-    }
-  }
-}
-```
-
-## License
-
-Proprietary - RewardsPro App
+**`window.RPUtils is missing` in console** — the `rp_utils_loader` snippet
+wasn't rendered before the widget's schema-injected script. Confirm each
+Liquid block starts with `{% render 'rp_utils_loader' %}`.

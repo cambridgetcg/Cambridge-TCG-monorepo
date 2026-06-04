@@ -257,19 +257,20 @@ export async function isPointsEnabled(shop: string): Promise<boolean> {
 }
 
 /**
- * Get the points earning rate for a shop (points per dollar)
+ * Get the points earning rate for a shop (points per dollar).
  *
- * @deprecated Points are no longer earned from orders. This function is kept for backward compatibility.
- * @param shop - Shop domain
- * @returns Points per dollar
+ * @deprecated Points are no longer earned from orders. No live caller
+ *   exists as of 2026-04-23; throws to prevent a resurrected job or
+ *   ops script from quietly acting on a value that doesn't drive
+ *   anything anymore. If order-based earning returns, wire new code to
+ *   PointsConfig directly — don't revive this accessor.
  */
-export async function getPointsPerDollar(shop: string): Promise<number> {
-  const config = await prisma.pointsConfig.findUnique({
-    where: { shop },
-    select: { pointsPerDollar: true },
-  });
-
-  return config?.pointsPerDollar ?? DEFAULT_CONFIG.pointsPerDollar;
+export async function getPointsPerDollar(_shop: string): Promise<number> {
+  throw new Error(
+    "points-config.server.getPointsPerDollar() is deprecated and disabled. " +
+    "Points are no longer earned from orders; read PointsConfig directly " +
+    "if you're building a new flow that needs this value."
+  );
 }
 
 /**
