@@ -5,7 +5,7 @@
  * monitoring metrics, and debugging capabilities
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 // Log levels
 export enum LogLevel {

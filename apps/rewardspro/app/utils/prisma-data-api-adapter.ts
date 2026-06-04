@@ -7,7 +7,7 @@
 
 import { AuroraDataAPI, getAuroraClient } from "./aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 /**
  * Convert a Prisma TemplateStringsArray-shaped sql object into a Data API

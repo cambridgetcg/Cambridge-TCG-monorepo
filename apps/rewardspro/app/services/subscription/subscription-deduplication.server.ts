@@ -8,7 +8,7 @@
  */
 
 import { db } from '~/db.server';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { subscriptionLogger } from './subscription-correlation.server';
 import { SUBSCRIPTION_NEURAL_CONFIG } from './subscription-neural-config.server';
 

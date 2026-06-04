@@ -12,7 +12,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "node:crypto";
 import {
   runExpiryCheckJob,
   type ExpiryCheckResult,

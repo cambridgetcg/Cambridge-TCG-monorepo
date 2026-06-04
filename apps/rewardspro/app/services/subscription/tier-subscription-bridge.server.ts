@@ -13,7 +13,7 @@ import type {
   TierTriggerType,
   Prisma
 } from "@prisma/client";
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { withRetry } from "~/utils/retry";
 import { validatePrice } from "~/utils/price-validation";
 import { updateCustomerToEffectiveTier } from "../tier-resolution.server";

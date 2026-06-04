@@ -7,7 +7,7 @@
  * Format: "enc:v1:<iv_hex>:<auth_tag_hex>:<ciphertext_hex>"
  */
 
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 const ENCRYPTION_PREFIX = "enc:v1:";
 const ALGORITHM = "aes-256-gcm";

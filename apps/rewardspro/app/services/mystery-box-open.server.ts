@@ -8,7 +8,7 @@
  * - Customer queries for available boxes and history
  */
 
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 import prisma from "../db.server";
 
 /**

@@ -20,7 +20,7 @@ import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { executeRaffleDraw } from "../services/raffle-drawing.server";
 import { verifyCronAuth } from "../utils/cron-auth.server";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export async function loader({ request }: LoaderFunctionArgs) {

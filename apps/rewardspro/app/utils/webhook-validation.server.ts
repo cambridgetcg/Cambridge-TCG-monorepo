@@ -5,7 +5,7 @@
  * using HMAC-SHA256 signature verification.
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Verify a Shopify webhook HMAC signature

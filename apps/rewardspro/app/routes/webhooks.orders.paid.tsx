@@ -30,7 +30,7 @@ import { SentryService } from "../services/monitoring/sentry.service";
 import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 // Create scoped logger for this webhook
 const webhookLogger = createLogger('OrderPaid');

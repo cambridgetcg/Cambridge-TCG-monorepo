@@ -7,7 +7,7 @@
  * @see https://developers.klaviyo.com/en/reference/api-overview
  */
 
-import { createHmac } from "crypto";
+import { createHmac } from "node:crypto";
 import { BaseIntegrationAdapter } from "../base-adapter.server";
 import { registerAdapter } from "../integration-manager.server";
 import {

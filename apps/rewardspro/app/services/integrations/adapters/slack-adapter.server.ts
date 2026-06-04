@@ -14,7 +14,7 @@
  * - Full: OAuth 2.0 with bot token
  */
 
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { BaseIntegrationAdapter } from "../base-adapter.server";
 import { registerAdapter } from "../integration-manager.server";
 import type { Integration } from "@prisma/client";

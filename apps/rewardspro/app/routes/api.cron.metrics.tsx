@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "node:crypto";
 import { MetricsService } from "~/services/monitoring/metrics.service";
 import { Logger, CorrelationId } from "~/services/logger.service";
 import { DatadogService } from "~/services/monitoring/datadog.service";

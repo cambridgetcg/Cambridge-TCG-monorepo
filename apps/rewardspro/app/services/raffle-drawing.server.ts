@@ -8,7 +8,7 @@
  * - FIFO: First entries win (early bird advantage)
  */
 
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 import prisma from "../db.server";
 import type { RaffleDrawType, RafflePrizeDeliveryStatus } from "./raffle-management.server";
 

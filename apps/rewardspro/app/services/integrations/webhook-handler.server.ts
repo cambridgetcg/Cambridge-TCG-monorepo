@@ -5,7 +5,7 @@
  * Provides signature verification, idempotency, and event processing.
  */
 
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import {

@@ -5,7 +5,7 @@
  * for third-party integrations.
  */
 
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash } from "node:crypto";
 import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { getAdapter, hasAdapter, storeOAuthTokens } from "./integration-manager.server";

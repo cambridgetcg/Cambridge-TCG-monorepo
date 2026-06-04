@@ -5,7 +5,7 @@
  * This is the most common source of verification failures.
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Verify HMAC signature for Shopify App Proxy requests

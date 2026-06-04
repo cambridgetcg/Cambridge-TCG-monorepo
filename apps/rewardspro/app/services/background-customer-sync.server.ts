@@ -1,5 +1,5 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import prisma from "../db.server";
 
 /**

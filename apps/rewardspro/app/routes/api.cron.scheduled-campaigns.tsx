@@ -16,7 +16,7 @@ import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { sendCampaignEmails } from "../services/email-notifications.server";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const startTime = Date.now();

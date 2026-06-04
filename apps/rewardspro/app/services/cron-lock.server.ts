@@ -19,7 +19,7 @@
  */
 
 import prisma from "~/db.server";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 import { getAWSConfig } from "~/utils/aws-clients.server";
 
 export interface CronLockResult {

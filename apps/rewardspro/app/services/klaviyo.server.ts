@@ -16,7 +16,7 @@ import {
 } from "klaviyo-api";
 import prisma from "~/db.server";
 import type { Customer, Tier } from "@prisma/client";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { decryptSecret } from "~/utils/encryption.server";
 
 // ============================================

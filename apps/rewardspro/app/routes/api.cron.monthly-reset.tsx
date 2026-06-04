@@ -8,7 +8,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";

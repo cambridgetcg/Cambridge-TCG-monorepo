@@ -13,7 +13,7 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
 import { getIntegration } from "~/services/integrations/integration-manager.server";

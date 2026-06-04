@@ -14,7 +14,7 @@
  * @see https://developers.klaviyo.com/en/docs/set_up_oauth
  */
 
-import crypto from "crypto";
+import crypto from "node:crypto";
 import prisma from "~/db.server";
 import { encrypt, decrypt } from "~/utils/encryption";
 

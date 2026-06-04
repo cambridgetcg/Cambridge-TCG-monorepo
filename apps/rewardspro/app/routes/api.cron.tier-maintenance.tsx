@@ -20,7 +20,7 @@ import {
   sendTierExpirationWarningEmail,
   sendTierExpiredEmail,
 } from "../services/email-notifications.server";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 import { Decimal } from "decimal.js";
 
 // Configuration

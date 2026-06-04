@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { refreshEntitlements } from "~/services/entitlements.server";

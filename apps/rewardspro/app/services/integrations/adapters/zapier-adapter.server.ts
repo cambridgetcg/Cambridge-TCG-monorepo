@@ -11,7 +11,7 @@
  * Authentication: API Key based (per shop)
  */
 
-import { createHmac, randomBytes } from "crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { ApiKeyIntegrationAdapter } from "../base-adapter.server";
 import { registerAdapter } from "../integration-manager.server";
 import type { Integration } from "@prisma/client";

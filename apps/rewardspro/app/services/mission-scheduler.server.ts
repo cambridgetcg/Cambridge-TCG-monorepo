@@ -10,7 +10,7 @@
 
 import prisma from "~/db.server";
 import type { MissionCadence, MissionTemplate, Challenge } from "@prisma/client";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 interface ScheduleResult {
   generated: number;

@@ -16,7 +16,7 @@ import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { recalculateTiersSmart, refreshAnnualSpending } from "../services/tier-management.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 // Configuration
 type RecalculationFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";

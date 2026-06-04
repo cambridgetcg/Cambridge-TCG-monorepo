@@ -5,7 +5,7 @@
  * Provides common functionality for OAuth, API requests, and event handling.
  */
 
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { encrypt, decrypt } from "~/utils/encryption";
 import { createLogger } from "~/services/logger.server";

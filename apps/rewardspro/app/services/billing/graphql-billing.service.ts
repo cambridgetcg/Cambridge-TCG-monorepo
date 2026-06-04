@@ -18,7 +18,7 @@ import {
   logTrialAttempt,
   type TrialEligibilityResult
 } from "./trial-eligibility.server";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 
 // GraphQL Mutations

@@ -14,7 +14,7 @@ import designSystemStyles from "./styles/design-system.css?url";
 // REMOVED: design-tokens.css (~8KB) and renaissance-components.css (~21KB)
 // Renaissance design system was deprecated and unused. See:
 // .claude/ui-consistency-audit-2026-01-24.md for details
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 /**
  * VERCEL ANALYTICS & SPEED INSIGHTS

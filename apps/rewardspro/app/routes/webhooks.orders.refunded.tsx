@@ -9,7 +9,7 @@ import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import TierProductCache from "../services/tier-product-cache.server";
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 import { Decimal } from '@prisma/client/runtime/library';
 import { v4 as uuidv4 } from 'uuid';
 import { invalidateShopCache } from "~/utils/analytics-cache.server";

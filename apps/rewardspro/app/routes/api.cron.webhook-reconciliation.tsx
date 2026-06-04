@@ -6,7 +6,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "node:crypto";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
@@ -432,4 +432,4 @@ async function processReconciliationOrder(shop: string, order: any): Promise<voi
 }
 
 // Make crypto available
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';

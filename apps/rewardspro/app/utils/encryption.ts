@@ -5,7 +5,7 @@
  * Provides encryption and decryption for sensitive data like access tokens
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 // Algorithm configuration
 const ALGORITHM = 'aes-256-gcm';

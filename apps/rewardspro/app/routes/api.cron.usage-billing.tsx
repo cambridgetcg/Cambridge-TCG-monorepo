@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import * as crypto from "crypto";
-import { timingSafeEqual } from "crypto";
+import * as crypto from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import prisma from "../db.server";
 import { UsageRecordService } from "../services/billing/usage-record.service";
 import { shopifyApi, ApiVersion } from "@shopify/shopify-api";

@@ -21,7 +21,7 @@ import type {
   SubscriptionStatus,
   Prisma,
 } from "@prisma/client";
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 import {
   SUBSCRIPTION_NEURAL_CONFIG,

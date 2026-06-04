@@ -17,7 +17,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import prisma from "~/db.server";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 // ============================================
 // TYPES

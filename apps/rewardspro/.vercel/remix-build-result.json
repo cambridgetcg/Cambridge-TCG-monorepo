@@ -61,7 +61,6 @@
       "routes/webhooks.products.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.credit-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.exchange-rates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.cron.klaviyo-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.mission-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.session-health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -122,7 +121,6 @@
       "routes/app.points_.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.additional": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.monitoring": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics.export.csv": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -632,15 +630,6 @@
         "parentId": "root",
         "file": "app/routes/api.cron.exchange-rates.tsx",
         "path": "api/cron/exchange-rates",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.cron.klaviyo-events": {
-        "id": "routes/api.cron.klaviyo-events",
-        "parentId": "root",
-        "file": "app/routes/api.cron.klaviyo-events.tsx",
-        "path": "api/cron/klaviyo-events",
         "config": {
           "runtime": "nodejs"
         }
@@ -1176,15 +1165,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.additional": {
-        "id": "routes/app.additional",
-        "parentId": "routes/app",
-        "file": "app/routes/app.additional.tsx",
-        "path": "additional",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/app.monitoring": {
         "id": "routes/app.monitoring",
         "parentId": "routes/app",
@@ -1639,9 +1619,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "/Users/yournameisai/Desktop/rewardspro/app",
+    "appDirectory": "/Users/you/Desktop/rewardspro-production/app",
     "basename": "/",
-    "buildDirectory": "/Users/yournameisai/Desktop/rewardspro/build",
+    "buildDirectory": "/Users/you/Desktop/rewardspro-production/build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,
@@ -1964,12 +1944,6 @@
         "parentId": "root",
         "file": "routes/api.cron.exchange-rates.tsx",
         "path": "api/cron/exchange-rates"
-      },
-      "routes/api.cron.klaviyo-events": {
-        "id": "routes/api.cron.klaviyo-events",
-        "parentId": "root",
-        "file": "routes/api.cron.klaviyo-events.tsx",
-        "path": "api/cron/klaviyo-events"
       },
       "routes/api.cron.mission-status": {
         "id": "routes/api.cron.mission-status",
@@ -2336,12 +2310,6 @@
         "parentId": "routes/app",
         "file": "routes/app.orders-sync.tsx",
         "path": "orders-sync"
-      },
-      "routes/app.additional": {
-        "id": "routes/app.additional",
-        "parentId": "routes/app",
-        "file": "routes/app.additional.tsx",
-        "path": "additional"
       },
       "routes/app.monitoring": {
         "id": "routes/app.monitoring",

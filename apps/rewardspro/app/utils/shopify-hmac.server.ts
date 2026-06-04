@@ -5,7 +5,7 @@
  * by validating the HMAC signature against the app's shared secret.
  */
 
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 /**
  * Verify HMAC signature from Shopify request

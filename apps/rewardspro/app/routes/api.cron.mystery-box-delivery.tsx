@@ -17,7 +17,7 @@ import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../servic
 import { deliverAllPendingRewards } from "../services/mystery-box-delivery.server";
 import { unauthenticated } from "../shopify.server";
 import { verifyCronAuth } from "../utils/cron-auth.server";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export async function loader({ request }: LoaderFunctionArgs) {
