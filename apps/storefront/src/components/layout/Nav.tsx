@@ -62,6 +62,12 @@ export default function Nav() {
             <MegaMenu key={menu.l1} menu={menu} loggedIn={loggedIn} />
           ))}
           <Link
+            href="/catalog"
+            className="text-sm text-neutral-300 hover:text-white transition py-2"
+          >
+            Browse cards
+          </Link>
+          <Link
             href={loggedIn ? "/account" : "/login"}
             className="text-sm text-neutral-300 hover:text-white transition py-2"
           >

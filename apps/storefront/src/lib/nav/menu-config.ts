@@ -211,7 +211,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
 
   // ── Discover ▾ — closes the discovery gap ───────────────────────────
   {
-    l1: "Discover",
+    l1: "Data & API",
     l1_href: "/map",
     columns: [
       {

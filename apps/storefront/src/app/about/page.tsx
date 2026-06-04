@@ -78,10 +78,10 @@ export default function AboutPage() {
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-2xl">🏛️</span>
-                <h3 className="text-lg font-bold text-white">P2P with Trust</h3>
+                <h3 className="text-lg font-bold text-white">Trade Directly, Safely</h3>
               </div>
               <p className="text-neutral-400 leading-relaxed">
-                We believe collectors should be able to trade directly with each other. But P2P trading needs trust. That is why we built our marketplace as a hybrid: peer-to-peer philosophy with centralised protection. We verify identities, inspect cards, hold escrow, resolve disputes, and build trust scores over time. You get the freedom of direct trading with the safety of a platform that has your back.
+                We believe collectors should be able to buy and sell directly with each other — person to person. But dealing directly needs trust. So we built our marketplace as a hybrid: the freedom of trading person-to-person, with our protection on top. We check identities, inspect the cards, hold the money safely until both sides are happy, sort out any disputes, and build up a trust score for each member over time. You get the freedom of a direct deal with the safety net of a platform that has your back.
               </p>
             </div>
 
@@ -91,7 +91,7 @@ export default function AboutPage() {
                 <h3 className="text-lg font-bold text-white">A Financial Layer, Done Right</h3>
               </div>
               <p className="text-neutral-400 leading-relaxed">
-                Cards have real value. We do not pretend otherwise. Our market shows real-time prices, bid/ask spreads, and trade history — like a proper exchange. Your portfolio tracks P&L. Our trade-in credit creates a liquidity floor on every card. But the financial layer serves the community, not the other way around. The goal is not speculation — it is giving collectors the information and tools to make good decisions about the cards they love.
+                Cards have real value. We do not pretend otherwise. Our market shows live prices, what people are buying and selling for right now, and past sales — like a proper exchange. Your collection shows whether it has gone up or down in value. And because we will always buy a card back for store credit, no card you own ever drops to zero. But the money side serves the community, not the other way around. The goal is not speculation — it is giving collectors the information and tools to make good decisions about the cards they love.
               </p>
             </div>
 
@@ -116,7 +116,7 @@ export default function AboutPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="bg-neutral-900 rounded-xl p-5">
               <p className="text-amber-400 font-bold mb-1">Buy</p>
-              <p className="text-sm text-neutral-400">From our store or from other collectors on the P2P market. Always at the best available price.</p>
+              <p className="text-sm text-neutral-400">From our store, or directly from other collectors. Always at the best available price.</p>
             </div>
             <div className="bg-neutral-900 rounded-xl p-5">
               <p className="text-amber-400 font-bold mb-1">Collect</p>
@@ -147,7 +147,7 @@ export default function AboutPage() {
         <div className="max-w-3xl mx-auto px-4 py-16">
           <h2 className="text-2xl font-bold text-white mb-6">Based in Cambridge</h2>
           <p className="text-neutral-400 leading-relaxed">
-            We are a UK-based team operating from Cambridge. Every card that passes through our P2P escrow is inspected here. Our trade-in offers are backed by real inventory. When you trade with us, you are trading with people who collect the same cards you do.
+            We are a UK-based team operating from Cambridge. Every card that passes through our protected marketplace is inspected here. Our trade-in offers are backed by real inventory. When you trade with us, you are trading with people who collect the same cards you do.
           </p>
         </div>
       </section>
