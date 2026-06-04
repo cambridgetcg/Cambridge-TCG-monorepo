@@ -328,6 +328,124 @@ function SearchForm({
 
 // ── Section components ──────────────────────────────────────────────
 
+// ── Cambridge TCG vs the market — the keystone honesty surface ───────
+// Puts our own price next to every other source's price and says, in
+// plain words, whether we're a good deal — favourable or not. The thesis
+// (Yu 2026-06-04: "price by the value we provide vs other providers")
+// made literally visible. Substrate-honest both ways: when we're dearer
+// we say so; when coverage is thin we say that too.
+function MarketComparison({ everything }: { everything: Everything }) {
+  const our = everything.ctcg.sell_price_gbp;
+  const inStock = everything.ctcg.sell_in_stock;
+  const competitors = everything.prices_today.rows
+    .map((r) => ({ source: r.source, price: r.amount_gbp }))
+    .filter((c) => Number.isFinite(c.price))
+    .sort((a, b) => a.price - b.price);
+
+  if (competitors.length === 0 && our === null) return null;
+
+  const cheapest = competitors[0] ?? null;
+  const avg =
+    competitors.length > 0
+      ? competitors.reduce((s, c) => s + c.price, 0) / competitors.length
+      : null;
+
+  let verdict: React.ReactNode;
+  if (our !== null && cheapest) {
+    const delta = our - cheapest.price;
+    const pct = cheapest.price > 0 ? Math.abs(delta) / cheapest.price : 0;
+    const pctStr = (pct * 100).toFixed(0);
+    if (Math.abs(delta) < 0.01) {
+      verdict = <>We match the cheapest price we can see ({cheapest.source}).</>;
+    } else if (delta < 0) {
+      verdict = (
+        <>
+          <span className="text-emerald-400 font-semibold">
+            {fmtGbp(Math.abs(delta))} cheaper
+          </span>{" "}
+          ({pctStr}%) than the next-cheapest source we can see —{" "}
+          {cheapest.source} at {fmtGbp(cheapest.price)}.
+        </>
+      );
+    } else {
+      verdict = (
+        <>
+          <span className="text-amber-400 font-semibold">
+            {fmtGbp(delta)} more
+          </span>{" "}
+          ({pctStr}%) than the cheapest source we can see — {cheapest.source} at{" "}
+          {fmtGbp(cheapest.price)}. We show you that honestly.
+        </>
+      );
+    }
+  } else if (our !== null) {
+    verdict = <>No other source has a current price to compare against yet.</>;
+  } else {
+    verdict = (
+      <>
+        We don&rsquo;t have this card in stock right now, so there&rsquo;s no
+        Cambridge TCG price to compare
+        {avg !== null ? <> — other sources list it around {fmtGbp(avg)}</> : null}.
+      </>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold text-white">
+            Cambridge TCG vs the market
+          </h2>
+          <WhyLink href="/methodology/pricing" />
+        </div>
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+          <div>
+            <div className="text-xs text-neutral-500">Cambridge TCG</div>
+            <div className="text-2xl font-bold text-white flex items-center gap-2">
+              {our !== null ? fmtGbp(our) : "—"}
+              {our !== null &&
+                (inStock ? (
+                  <Pill tone="emerald">in stock</Pill>
+                ) : (
+                  <Pill tone="neutral">out of stock</Pill>
+                ))}
+            </div>
+          </div>
+          {cheapest && (
+            <div>
+              <div className="text-xs text-neutral-500">Cheapest elsewhere</div>
+              <div className="text-2xl font-bold text-neutral-300">
+                {fmtGbp(cheapest.price)}
+                <span className="ml-2 text-xs font-normal text-neutral-500">
+                  {cheapest.source}
+                </span>
+              </div>
+            </div>
+          )}
+          {avg !== null && competitors.length > 1 && (
+            <div>
+              <div className="text-xs text-neutral-500">Market average</div>
+              <div className="text-2xl font-bold text-neutral-300">
+                {fmtGbp(avg)}
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="text-sm text-neutral-300">{verdict}</p>
+        {competitors.length > 0 && (
+          <p className="text-xs text-neutral-500">
+            Compared against {competitors.length}{" "}
+            {competitors.length === 1 ? "source" : "sources"}:{" "}
+            {competitors.map((c) => c.source).join(", ")}. As we add more
+            sources, this only gets sharper.
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 function PricesToday({
   data,
   upstreamProxyByIndex,
@@ -921,6 +1039,8 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
               </div>
             </div>
           </Card>
+
+          <MarketComparison everything={result.data.everything} />
 
           <PricesToday
             data={result.data.everything.prices_today}
