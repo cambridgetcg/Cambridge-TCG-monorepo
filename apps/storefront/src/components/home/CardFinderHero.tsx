@@ -65,6 +65,17 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
             Find →
           </button>
         </form>
+        <p className="mt-2.5 text-xs text-neutral-500">
+          The card number is the small code on the card — usually bottom-left,
+          like <span className="text-neutral-400">OP01-001</span>. Don&rsquo;t
+          have it?{" "}
+          <a
+            href="/prices"
+            className="text-amber-400 hover:text-amber-300 underline"
+          >
+            browse by game →
+          </a>
+        </p>
       </div>
     </section>
   );

@@ -31,6 +31,7 @@ import {
   ErrorAlert,
 } from "@/lib/ui";
 import { headers } from "next/headers";
+import { fetchGames, type GameItem } from "@/lib/wholesale/client";
 
 /**
  * Local one-status pill used by this page. The shared <Badge> primitive
@@ -244,63 +245,84 @@ function SearchForm({
   game,
   q,
   lang,
+  games,
 }: {
   game: string;
   q: string;
   lang: string;
+  games: GameItem[];
 }) {
+  const sorted = [...games].sort((a, b) => b.card_count - a.card_count);
   return (
-    <form
-      action="/prices/search"
-      method="get"
-      className="grid grid-cols-1 md:grid-cols-[160px_1fr_120px_auto] gap-3 items-end"
-    >
-      <div>
-        <label className="block text-xs font-medium text-neutral-400 mb-1">
-          Game
-        </label>
-        <input
-          type="text"
-          name="game"
-          required
-          defaultValue={game}
-          placeholder="op, pkm, mtg…"
-          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-neutral-400 mb-1">
-          Card number
-        </label>
-        <input
-          type="text"
-          name="q"
-          required
-          autoFocus
-          defaultValue={q}
-          placeholder="OP01-001 or just 001"
-          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-neutral-400 mb-1">
-          Lang (opt.)
-        </label>
-        <input
-          type="text"
-          name="lang"
-          defaultValue={lang}
-          placeholder="ja / en"
-          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        />
-      </div>
-      <button
-        type="submit"
-        className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition"
+    <div className="space-y-2">
+      <form
+        action="/prices/search"
+        method="get"
+        className="grid grid-cols-1 md:grid-cols-[180px_1fr_120px_auto] gap-3 items-end"
       >
-        Search →
-      </button>
-    </form>
+        <div>
+          <label className="block text-xs font-medium text-neutral-400 mb-1">
+            Game
+          </label>
+          <select
+            name="game"
+            defaultValue={game || sorted[0]?.code || ""}
+            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+          >
+            {sorted.map((g) => (
+              <option key={g.code} value={g.code}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-400 mb-1">
+            Card number
+          </label>
+          <input
+            type="text"
+            name="q"
+            required
+            autoFocus
+            defaultValue={q}
+            placeholder="e.g. OP01-001"
+            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-400 mb-1">
+            Language
+          </label>
+          <select
+            name="lang"
+            defaultValue={lang}
+            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+          >
+            <option value="">Any language</option>
+            <option value="en">English</option>
+            <option value="ja">Japanese</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition"
+        >
+          Search →
+        </button>
+      </form>
+      <p className="text-xs text-neutral-500">
+        The card number is the small code printed on the card — usually
+        bottom-left, like <span className="text-neutral-300">OP01-001</span>.
+        Don&rsquo;t have it?{" "}
+        <Link
+          href="/prices"
+          className="text-amber-400 hover:text-amber-300 underline"
+        >
+          Browse by game instead →
+        </Link>
+      </p>
+    </div>
   );
 }
 
@@ -446,9 +468,9 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
     <Card>
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-white">
-          History summary
+          Past prices
           <span className="ml-2 text-sm font-normal text-neutral-400">
-            · Phase 1 (sparkline stats only; raw tape gated to authenticated tier-2)
+            · a summary of what we&rsquo;ve recorded so far
           </span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -715,6 +737,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
   const game = (sp.game ?? "").trim();
   const q = (sp.q ?? "").trim();
   const lang = (sp.lang ?? "").trim().toLowerCase();
+  const games = await fetchGames().catch(() => []);
 
   // Build the origin from the incoming request so server-to-server
   // fetch hits the local route (works on both dev and Vercel prod).
@@ -745,8 +768,45 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       />
 
       <Card>
-        <SearchForm game={game} q={q} lang={lang} />
+        <SearchForm game={game} q={q} lang={lang} games={games} />
       </Card>
+
+      {/* Plain-language decoder — additive clarity for newcomers. Native
+          <details>, no JS, closed by default so it never clutters. The
+          substrate-honest labels below stay exactly as they are; this just
+          says what they mean in plain words. (Yu 2026-06-04: make everything
+          easy to understand.) */}
+      <details className="rounded-lg border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-sm">
+        <summary className="cursor-pointer text-neutral-300 hover:text-white select-none">
+          New here? What do these results mean?
+        </summary>
+        <div className="mt-3 space-y-2 text-neutral-400">
+          <p>
+            <span className="text-white">Today&rsquo;s prices</span> — what
+            each shop or price guide lists this card for right now, all
+            converted to £ so you can compare at a glance.
+          </p>
+          <p>
+            <span className="text-white">Source</span> is where a price comes
+            from. <span className="text-white">Tier</span> is how freely
+            we&rsquo;re allowed to re-share that source&rsquo;s number (green =
+            open, blue = partner, amber = look-but-don&rsquo;t-copy).{" "}
+            <span className="text-white">Door</span> says whether we read it
+            straight from the shop (&ldquo;direct&rdquo;) or through a relay
+            (&ldquo;proxy&rdquo;).
+          </p>
+          <p>
+            <span className="text-white">Spread</span> is how far apart the
+            cheapest and dearest sources are — small means everyone agrees, big
+            means it&rsquo;s worth shopping around.
+          </p>
+          <p>
+            <span className="text-white">Variants</span> are other versions of
+            the same card — different languages, alternate art, foils, promos.
+            Same card, different print.
+          </p>
+        </div>
+      </details>
 
       {/* No input yet — landing state */}
       {(!game || !q) && (
