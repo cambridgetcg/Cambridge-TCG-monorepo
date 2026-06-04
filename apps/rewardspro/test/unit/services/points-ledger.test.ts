@@ -85,7 +85,9 @@ describe('Points Ledger Service (mocked DB)', () => {
         metadata: null,
       });
 
-      mockDb.customer.update.mockResolvedValue({});
+      // Refactored earn path: atomic { increment } on both balances via update,
+      // selecting { pointsBalance, shop } — the shop is a cross-shop write guard.
+      mockDb.customer.update.mockResolvedValue({ pointsBalance: 75, shop: TEST_SHOP });
 
       const result = await earnPoints({
         customerId: TEST_CUSTOMER_ID,
@@ -100,12 +102,12 @@ describe('Points Ledger Service (mocked DB)', () => {
       expect(result.balance).toBe(75);
       expect(result.type).toBe('ORDER_EARNED');
 
-      // Should update customer with incremented lifetime
+      // Earn increments both balances atomically at the DB layer (no read-modify-write).
       expect(mockDb.customer.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: TEST_CUSTOMER_ID },
           data: expect.objectContaining({
-            pointsBalance: 75,
+            pointsBalance: { increment: 25 },
             lifetimePoints: { increment: 25 },
           }),
         }),
@@ -126,6 +128,11 @@ describe('Points Ledger Service (mocked DB)', () => {
     });
 
     it('should throw when customer not found', async () => {
+      // Refactored earn has no pre-read: a missing customer makes `update`
+      // throw Prisma P2025, which is caught and surfaced as "Customer not found".
+      mockDb.customer.update.mockRejectedValue(
+        Object.assign(new Error('No record was found for an update.'), { code: 'P2025' }),
+      );
       mockDb.customer.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -156,7 +163,10 @@ describe('Points Ledger Service (mocked DB)', () => {
         metadata: null,
       });
 
-      mockDb.customer.update.mockResolvedValue({});
+      // Refactored spend path: atomic conditional decrement via updateMany
+      // (returns { count }), then read the committed balance via findUnique.
+      mockDb.customer.updateMany.mockResolvedValue({ count: 1 });
+      mockDb.customer.findUnique.mockResolvedValue({ pointsBalance: 70 });
 
       const result = await spendPoints({
         customerId: TEST_CUSTOMER_ID,
@@ -169,15 +179,21 @@ describe('Points Ledger Service (mocked DB)', () => {
       expect(result.amount).toBe(-30);
       expect(result.balance).toBe(70);
 
-      // Customer balance should NOT increment lifetimePoints
-      expect(mockDb.customer.update).toHaveBeenCalledWith(
+      // Spend is an atomic conditional decrement guarded by the live balance,
+      // and must NEVER touch lifetimePoints — a debit cannot inflate lifetime totals.
+      expect(mockDb.customer.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { pointsBalance: 70 },
+          where: expect.objectContaining({ pointsBalance: { gte: 30 } }),
+          data: { pointsBalance: { decrement: 30 } },
         }),
       );
     });
 
     it('should throw on insufficient balance', async () => {
+      // updateMany matches zero rows when the live balance is below the
+      // requested spend (the `gte` guard fails), so count === 0 → the
+      // insufficient branch re-reads via findFirst for an accurate message.
+      mockDb.customer.updateMany.mockResolvedValue({ count: 0 });
       mockDb.customer.findFirst.mockResolvedValue({
         pointsBalance: 20,
       });
@@ -211,7 +227,7 @@ describe('Points Ledger Service (mocked DB)', () => {
         metadata: { adjustedBy: 'admin' },
       });
 
-      mockDb.customer.update.mockResolvedValue({});
+      mockDb.customer.update.mockResolvedValue({ pointsBalance: 100, shop: TEST_SHOP });
 
       const result = await adjustPoints(TEST_SHOP, TEST_CUSTOMER_ID, 100, 'Admin bonus', 'admin');
 
@@ -235,7 +251,9 @@ describe('Points Ledger Service (mocked DB)', () => {
         metadata: { adjustedBy: 'admin' },
       });
 
-      mockDb.customer.update.mockResolvedValue({});
+      // Negative adjust dispatches to spendPoints (atomic conditional decrement).
+      mockDb.customer.updateMany.mockResolvedValue({ count: 1 });
+      mockDb.customer.findUnique.mockResolvedValue({ pointsBalance: 150 });
 
       const result = await adjustPoints(TEST_SHOP, TEST_CUSTOMER_ID, -50, 'Error correction', 'admin');
 
