@@ -229,6 +229,40 @@ export const COMMISSION_RATE_BY_TRUST_TIER = {
 export const DEFAULT_P2P_COMMISSION_RATE = COMMISSION_RATE_BY_TRUST_TIER.New;
 export const DEFAULT_AUCTION_COMMISSION_RATE = 0.12;
 
+// ── Per-item commission cap (the fairness fix) ───────────────────────────
+//
+// Yu's mandate: "Minimum fees, maximum value. We don't charge unfairly; we
+// price according to the value we provide vs other service providers."
+//
+// A percentage-only commission grows without bound as the sale price grows.
+// On a four-figure card an uncapped rate (8% = £80+ on a £1,000 card) takes
+// *more* than every incumbent — because each incumbent caps the absolute fee:
+//
+//   TCGplayer  — $75 / item   (raised from $50 on 2026-02-10)   ≈ £59
+//   Cardmarket — €100 / article                                 ≈ £85
+//   Whatnot    — taper above ~$1,500
+//   eBay UK    — no per-item cap (category-dependent % only)
+//
+// We cap the per-item commission in absolute GBP at or below every named
+// incumbent. £50 is a clean, human-legible figure that sits under all of
+// them — strictly the most generous on high-value cards — and equals the
+// pre-2026 TCGplayer cap the market accepted as fair for years. The work we
+// perform to broker a £50 sale and a £5,000 sale (escrow, verification,
+// payout, dispute cover) does not scale linearly with price, so neither
+// should the fee: above the cap, our charge reflects work done, not rent on
+// value.
+//
+// This is the platform's *seed truth*. The runtime-authoritative value lives
+// in the wholesale `channel_pricing` table (column `p2p_commission_cap_gbp`,
+// added in apps/wholesale/drizzle/0016_commission_cap.sql) — the same
+// override pattern every other pricing constant uses. Callers without a DB
+// connection (storefront/admin) read this default; callers with one pass the
+// row value to `computeCommissionAmount(..., capGbp)`.
+//
+// Documented at /methodology/fees. If this number changes, that page and the
+// regression tests in __tests__/pricing.test.ts change in the same PR.
+export const DEFAULT_COMMISSION_CAP_GBP = 50;
+
 /** Resolve trust score → P2P commission rate. Lifts the curve from
  *  apps/storefront/src/lib/market/types.ts so the package owns the
  *  canonical formula. */
@@ -274,4 +308,47 @@ export function resolveCommission(inputs: CommissionInputs): ResolvedCommission 
     source = inputs.trustScore >= 50 ? "trust" : "default";
   }
   return { rate, source, trustRate, membershipRate: inputs.tierRate };
+}
+
+export interface CommissionAmount {
+  /** What the seller is actually charged, in GBP, rounded to the penny. */
+  amount: number;
+  /** What the percentage alone would have charged, before the cap. */
+  uncapped: number;
+  /** True when the cap bound the fee (uncapped would have been higher). */
+  capped: boolean;
+  /** The cap that was applied (GBP). */
+  capGbp: number;
+}
+
+/**
+ * The single place the per-item commission *amount* is computed, including
+ * the fairness cap. Every market/auction/offer write path calls this so the
+ * cap can never be forgotten at one call site and applied at another.
+ *
+ *   commission = min(round(saleValue × rate), capGbp)
+ *
+ * `rate` is the already-resolved rate (trust ↔ membership combine — see
+ * `resolveCommission`); the trust discount is therefore applied *before* the
+ * cap. `capGbp` defaults to `DEFAULT_COMMISSION_CAP_GBP` (seed truth) but a
+ * caller holding a `channel_pricing` row passes the runtime-authoritative
+ * value. The percentage is rounded to the penny first, then clamped — so a
+ * sale whose percentage fee lands exactly on the cap is *not* counted as
+ * capped (the cap did not bind).
+ *
+ * Documented at /methodology/fees.
+ */
+export function computeCommissionAmount(
+  saleValue: number,
+  rate: number,
+  capGbp: number = DEFAULT_COMMISSION_CAP_GBP,
+): CommissionAmount {
+  const uncapped = round2(saleValue * rate);
+  const amount = capGbp > 0 ? Math.min(uncapped, capGbp) : uncapped;
+  return {
+    amount,
+    uncapped,
+    capped: capGbp > 0 && uncapped > capGbp,
+    capGbp,
+  };
 }

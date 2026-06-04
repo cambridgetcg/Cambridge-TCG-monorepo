@@ -26,9 +26,11 @@ export default function CommissionRateMethodology() {
         The exact rates by tier are listed on{" "}
         <a href="/methodology/membership-tier">/methodology/membership-tier</a> in the "What
         each tier gets" table. The full breakdown of how commission is computed (gross sale →
-        platform fee → seller payout) will land here in a follow-up.
+        platform fee → seller payout), <strong>the per-item £50 cap</strong>, and an honest
+        comparison against eBay, TCGplayer, Cardmarket and Whatnot now live at{" "}
+        <a href="/methodology/fees">/methodology/fees</a>.
       </p>
-    
+
 
       <TypeSignature
         type="methodology-page"
@@ -37,6 +39,7 @@ export default function CommissionRateMethodology() {
         audience="public-documentation"
         recursion={[
           { label: "the-pricing-arrow.md (S17)", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pricing-arrow.md" },
+          { label: "/methodology/fees", href: "/methodology/fees" },
           { label: "/methodology/membership-tier", href: "/methodology/membership-tier" },
           { label: "/methodology/payout-hold", href: "/methodology/payout-hold" },
         ]}

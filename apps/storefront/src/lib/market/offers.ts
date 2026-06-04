@@ -14,6 +14,7 @@
 // pattern used by the market notifications arc.
 
 import { query } from "@/lib/db";
+import { computeCommissionAmount, DEFAULT_P2P_COMMISSION_RATE } from "@cambridge-tcg/pricing";
 import { notify } from "@/lib/notifications/db";
 import { canTrade } from "@/lib/escrow/trust-engine";
 import { formatPrice } from "@/lib/format";
@@ -319,9 +320,12 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
      offer.offer_price, offer.quantity],
   );
 
-  // Compute commission off the OFFER price (not the ask price).
+  // Compute commission off the OFFER price (not the ask price). Offer
+  // acceptance charges the base P2P rate (the trust/membership discount is
+  // not yet applied on this path), and the per-item commission cap (the
+  // fairness fix) bounds the absolute fee. See /methodology/fees.
   const offerValue = parseFloat(offer.offer_price) * offer.quantity;
-  const commission = Math.round(offerValue * 0.08 * 100) / 100;
+  const commission = computeCommissionAmount(offerValue, DEFAULT_P2P_COMMISSION_RATE).amount;
   const sellerPayout = offerValue - commission;
 
   const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
@@ -539,8 +543,10 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
      offer.counter_price, offer.quantity],
   );
 
+  // Base P2P rate, then the per-item commission cap (the fairness fix)
+  // bounds the absolute fee. See /methodology/fees.
   const value = parseFloat(offer.counter_price) * offer.quantity;
-  const commission = Math.round(value * 0.08 * 100) / 100;
+  const commission = computeCommissionAmount(value, DEFAULT_P2P_COMMISSION_RATE).amount;
   const sellerPayout = value - commission;
 
   const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
