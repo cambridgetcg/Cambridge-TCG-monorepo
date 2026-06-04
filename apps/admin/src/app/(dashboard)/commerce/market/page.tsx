@@ -474,6 +474,7 @@ export default async function MarketPage() {
             {d.total} total trades · {fmtGBP(d.totalVolume)} volume ·{" "}
             {fmtGBP(d.totalCommission)} commission earned
             <WhyLink href="https://cambridgetcg.com/methodology/commission-rate" />
+            <WhyLink href="https://cambridgetcg.com/methodology/fees" />
             {hasUrgent ? " — action required." : "."}
           </p>
         </div>

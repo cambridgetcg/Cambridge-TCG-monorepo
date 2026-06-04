@@ -1,7 +1,7 @@
 import { query, transaction } from "@/lib/db";
 import type { MarketOrder, MarketTrade, OrderBookEntry, OrderBookSummary, CardOrderBook } from "./types";
 import { COMMISSION_RATE, commissionRateForScore } from "./types";
-import { resolveCommission } from "@cambridge-tcg/pricing";
+import { resolveCommission, computeCommissionAmount } from "@cambridge-tcg/pricing";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { routeTrade } from "@/lib/escrow/service-tiers";
 import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
@@ -311,7 +311,11 @@ export async function placeOrder(data: {
         kind: "p2p",
       });
       void trustRate; // surface for future logging; preserves naming
-      const commission = Math.round(tradeValue * sellerCommissionRate * 100) / 100;
+      // Per-item commission cap (the fairness fix): the absolute cap in
+      // @cambridge-tcg/pricing bounds the fee after the trust/membership
+      // discount, so a four-figure card never pays more than incumbents.
+      // See /methodology/fees.
+      const commission = computeCommissionAmount(tradeValue, sellerCommissionRate).amount;
       const sellerPayout = tradeValue - commission;
 
       const routing = await routeTrade({

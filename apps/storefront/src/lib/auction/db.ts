@@ -1,4 +1,5 @@
 import { query, transaction } from "@/lib/db";
+import { computeCommissionAmount } from "@cambridge-tcg/pricing";
 import type { Auction, AuctionImage, AuctionSummary, AuctionDetail, Bid, CreateAuctionInput, BidResult } from "./types";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
@@ -841,7 +842,10 @@ export async function calculateSellerPayout(auctionId: string): Promise<{ payout
   const storedRate = parseFloat(auction.seller_commission_rate || "0.12");
   const tierRate = auction.tier_rate ? parseFloat(auction.tier_rate) : null;
   const rate = tierRate !== null && tierRate < storedRate ? tierRate : storedRate;
-  const commission = Math.round(salePrice * rate * 100) / 100;
+  // Per-item commission cap (the fairness fix): the absolute cap in
+  // @cambridge-tcg/pricing bounds the auction fee after the tier discount.
+  // See /methodology/fees.
+  const commission = computeCommissionAmount(salePrice, rate).amount;
   const payout = salePrice - commission;
 
   await query(
