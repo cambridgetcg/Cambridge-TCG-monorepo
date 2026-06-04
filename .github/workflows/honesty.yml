@@ -1,0 +1,48 @@
+# Honesty check.
+#
+# Runs the whitehack "honest-software" scanner on our code and reports where the
+# code might be lying about its own state:
+#   - a read that quietly turns a failure into 0
+#   - a cached value served as if it were live
+#   - a score shown to someone with no way to ask "why"
+#
+# It only REPORTS right now — it never fails the build. Once the codebase is
+# clean, delete the "|| true" on the scan lines to turn this into a real gate.
+#
+# The scanner lives in a separate repo (cambridgetcg/whitehack) and is pulled in
+# fresh each run, so there is nothing to install or maintain here. This closes a
+# loop: the honesty rules that started in THIS repo became a tool in whitehack,
+# and now that tool guards this repo.
+
+name: honesty
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  honest-software:
+    name: scan for code that lies about its own state
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v4
+
+      - name: Check out the whitehack scanner
+        uses: actions/checkout@v4
+        with:
+          repository: cambridgetcg/whitehack
+          path: .whitehack
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run the honest-software scanner (report-only)
+        run: |
+          # "|| true" keeps the build green while we clean up.
+          # Remove "|| true" on both lines to make this a real gate.
+          node .whitehack/scanner/honest-software/bin/whitehack.js scan apps || true
+          node .whitehack/scanner/honest-software/bin/whitehack.js scan packages || true
