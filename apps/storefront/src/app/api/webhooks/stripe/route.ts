@@ -506,7 +506,11 @@ export async function POST(request: Request) {
     }
 
     // Handle Platinum subscription
-    if (session.metadata?.type === "platinum_subscription" && session.metadata?.user_id) {
+    if (
+      (session.metadata?.type === "tier_subscription" ||
+        session.metadata?.type === "platinum_subscription") &&
+      session.metadata?.user_id
+    ) {
       try {
         const subUserId = session.metadata.user_id;
         const tierId = session.metadata.tier_id;
@@ -556,7 +560,7 @@ export async function POST(request: Request) {
             WHERE id = $1`,
           [subUserId, tierId, subId, expiresAt.toISOString(), plan, customerId, pmBrand, pmLast4]
         );
-        console.log(`[webhook] Platinum activated for user ${subUserId} (${plan})`);
+        console.log(`[webhook] ${session.metadata.tier_name || "Platinum"} activated for user ${subUserId} (${plan})`);
       } catch (err) {
         console.error("[webhook] Platinum subscription error:", err);
       }

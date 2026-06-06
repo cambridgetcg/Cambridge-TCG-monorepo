@@ -18,9 +18,17 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const plan = body.plan; // "monthly" or "annual"
+  // Which paid tier? Default to Platinum so existing callers are unchanged;
+  // the membership page passes "Pro" for the Pro tier. Any is_paid tier works.
+  const tierName =
+    typeof body.tier === "string" && body.tier.trim() ? body.tier.trim() : "Platinum";
 
-  const tierResult = await query(`SELECT * FROM tiers WHERE name='Platinum' AND is_paid=true`);
-  if (tierResult.rows.length === 0) return NextResponse.json({ error: "Platinum tier not found." }, { status: 404 });
+  const tierResult = await query(
+    `SELECT * FROM tiers WHERE name = $1 AND is_paid = true`,
+    [tierName],
+  );
+  if (tierResult.rows.length === 0)
+    return NextResponse.json({ error: `Paid tier '${tierName}' not found.` }, { status: 404 });
 
   const tier = tierResult.rows[0];
   const price = plan === "annual" ? parseFloat(tier.annual_price) : parseFloat(tier.monthly_price);
@@ -42,8 +50,8 @@ export async function POST(request: Request) {
         price_data: {
           currency: "gbp",
           product_data: {
-            name: `Cambridge TCG Platinum — ${plan === "annual" ? "Annual" : "Monthly"}`,
-            description: "Zero fees, 12% store discount, 3x Berries, 8% cashback, priority everything",
+            name: `Cambridge TCG ${tier.name} — ${plan === "annual" ? "Annual" : "Monthly"}`,
+            description: tier.description || `${tier.name} membership`,
           },
           unit_amount: Math.round(price * 100),
           recurring: { interval: interval as "month" | "year" },
@@ -56,7 +64,11 @@ export async function POST(request: Request) {
         ? { customer: customerId }
         : { customer_email: session.user.email || undefined }),
       metadata: {
-        type: "platinum_subscription",
+        // Generic so any paid tier (Pro, Platinum, future) activates through
+        // the same webhook path. The webhook still honours the legacy
+        // "platinum_subscription" value for any checkout in flight at deploy.
+        type: "tier_subscription",
+        tier_name: tier.name,
         user_id: session.user.id,
         tier_id: tier.id,
         plan,

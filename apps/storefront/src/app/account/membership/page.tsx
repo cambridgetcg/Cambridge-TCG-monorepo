@@ -113,13 +113,13 @@ export default function MembershipPage() {
       });
   }, [router]);
 
-  async function handleSubscribe(plan: "monthly" | "annual") {
+  async function handleSubscribe(plan: "monthly" | "annual", tierName: string = "Platinum") {
     setSubscribing(plan);
     try {
       const res = await fetch("/api/membership/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, tier: tierName }),
       });
       const data = await res.json();
       if (data.url) {
@@ -154,6 +154,12 @@ export default function MembershipPage() {
   const visiblePoints = showAllPoints ? pointsHistory : pointsHistory.slice(0, 5);
   const visibleCredits = showAllCredits ? creditHistory : creditHistory.slice(0, 5);
   const isPlatinum = tier?.name === "Platinum";
+  const isPro = tier?.name === "Pro";
+
+  // Pro tier pricing (for the Go-Pro banner)
+  const proTier = tiers.find(t => t.name === "Pro");
+  const proMonthly = proTier?.monthly_price ? parseFloat(proTier.monthly_price) : 3.99;
+  const proAnnual = proTier?.annual_price ? parseFloat(proTier.annual_price) : 29.99;
 
   // Find Platinum tier from the tiers list for pricing info
   const platinumTier = tiers.find(t => t.name === "Platinum");
@@ -168,6 +174,61 @@ export default function MembershipPage() {
         Membership
         <WhyLink href="/methodology/membership-tier" tooltip="How is my tier assigned?" />
       </h1>
+
+      {/* ── Pro upgrade banner (non-Pro, non-Platinum members) ─────────────── */}
+      {!isPlatinum && !isPro && (
+        <div className="relative rounded-2xl p-6 sm:p-8 overflow-hidden border border-sky-500/30 bg-gradient-to-br from-sky-950/40 via-neutral-900 to-sky-950/30">
+          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-10 bg-sky-400" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-3xl">⭐</span>
+              <h2 className="text-xl font-bold text-white">
+                Go Pro — <Money value={proMonthly} />/mo
+              </h2>
+            </div>
+            <p className="text-neutral-400 mb-2">
+              5% off every order, lower selling fees, and early access to restocks.
+            </p>
+            <p className="text-xs text-neutral-500 mb-6">
+              No catch — nothing free is taken away, and you reach Pro free at £300/yr
+              spend. <WhyLink href="/methodology/pro" tooltip="What is Pro?" />
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2 max-w-md">
+              <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-4 text-center">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Monthly</p>
+                <p className="text-2xl font-bold text-white mb-1">
+                  <Money value={proMonthly} />
+                  <span className="text-sm font-normal text-neutral-500"> /month</span>
+                </p>
+                <button
+                  onClick={() => handleSubscribe("monthly", "Pro")}
+                  disabled={subscribing !== null}
+                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-sky-500 text-neutral-950 hover:bg-sky-400 transition disabled:opacity-50"
+                >
+                  {subscribing === "monthly" ? "Redirecting..." : "Go Pro"}
+                </button>
+              </div>
+              <div className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-4 text-center">
+                <p className="text-xs font-medium uppercase tracking-wider mb-2 text-sky-300">Annual</p>
+                <p className="text-2xl font-bold text-white mb-1">
+                  <Money value={proAnnual} />
+                  <span className="text-sm font-normal text-neutral-500"> /year</span>
+                </p>
+                <p className="text-xs text-emerald-400 font-medium">
+                  Save <Money value={proMonthly * 12 - proAnnual} />
+                </p>
+                <button
+                  onClick={() => handleSubscribe("annual", "Pro")}
+                  disabled={subscribing !== null}
+                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-sky-500 text-neutral-950 hover:bg-sky-400 transition disabled:opacity-50"
+                >
+                  {subscribing === "annual" ? "Redirecting..." : "Go Pro"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 0. PLATINUM UPGRADE BANNER / PLATINUM STATUS ───────────────────── */}
       {isPlatinum ? (
