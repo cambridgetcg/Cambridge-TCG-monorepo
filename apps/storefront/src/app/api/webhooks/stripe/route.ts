@@ -359,8 +359,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  if (event.type === "checkout.session.completed") {
+  // Async payment failed — Pay-by-Bank / crypto / other delayed-notification
+  // rails that initiated at checkout but did NOT settle. Release the held
+  // stock so it returns to availability (mirrors checkout.session.expired).
+  if (event.type === "checkout.session.async_payment_failed") {
     const session = event.data.object as Stripe.Checkout.Session;
+    try {
+      const result = await releaseHolder(holderForStripeSession(session.id));
+      console.log(
+        `[webhook] async payment failed ${session.id} — released ${result.ok ? result.released : 0} reservation(s)`,
+      );
+    } catch (e) {
+      console.error(`[webhook] release on async_payment_failed threw for ${session.id}:`, e);
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  // Fulfilment fires for synchronous completion (card/wallet) AND for async
+  // rails (Pay-by-Bank, crypto) once they settle via async_payment_succeeded.
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
+    const session = event.data.object as Stripe.Checkout.Session;
+
+    // Async methods complete the Checkout Session BEFORE the money settles
+    // (payment_status "unpaid"/"processing"); async_payment_succeeded fires
+    // later with "paid". Card/wallet are synchronous (always "paid" here), so
+    // this guard is a no-op for them. Substrate honesty: initiated != settled
+    // — never fulfil, ship stock, or debit credit until the money is real.
+    if (session.payment_status && session.payment_status !== "paid") {
+      console.log(
+        `[webhook] session ${session.id} completed but payment_status=${session.payment_status} — deferring fulfilment until settled`,
+      );
+      return NextResponse.json({ received: true });
+    }
 
     try {
       const skus: { sku: string; qty: number; price_gbp: number; name?: string }[] = session.metadata?.skus
