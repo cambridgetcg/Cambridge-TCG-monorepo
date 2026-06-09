@@ -142,7 +142,9 @@ export default function CheckoutPage() {
                 <span className="text-neutral-500">Calculated at checkout</span>
               </div>
               <div className="border-t border-neutral-800 pt-2 flex justify-between text-lg font-bold">
-                <span>Cash due</span>
+                {/* "Cash due" only reads right when store credit splits the
+                    bill; with no credit applied it's just the total. */}
+                <span>{creditApplied > 0 ? "Cash due" : "Total"}</span>
                 <span className="text-emerald-400">{"£"}{cashDue.toFixed(2)}</span>
               </div>
             </div>

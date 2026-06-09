@@ -58,7 +58,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "All cards", href: "/catalog", description: "The full catalogue across all games" },
           { label: "By game", href: "/prices", description: "Pick a game to browse its sets" },
           { label: "Search prices", href: "/prices/search", description: "Cross-game price search", badge: "beta" },
-          { label: "Universal lookup", href: "/catalog", description: "By SKU or content hash" },
+          { label: "Search by card or SKU", href: "/catalog", description: "Find a card by its number or SKU" },
           { label: "Glossary", href: "/glossary" },
           { label: "Open data", href: "/data", description: "Bulk catalog dumps (CC0)" },
         ],
@@ -68,7 +68,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "Price guide", href: "/prices", description: "Per-game UK price guides" },
           { label: "Movers", href: "/prices/one-piece/movers", description: "Biggest price changes 7d" },
-          { label: "Coverage map", href: "/prices/coverage", description: "Per-source coverage rollup" },
+          { label: "Coverage map", href: "/prices/coverage", description: "Which sources we have prices from" },
           { label: "How prices work", href: "/methodology/pricing" },
           { label: "Cross-source pricing", href: "/methodology/cross-source-pricing" },
           { label: "FX rates", href: "/methodology/fx-rates" },
@@ -98,7 +98,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "Live market", href: "/market", description: "Real-time peer-to-peer trading" },
           { label: "Market lots", href: "/market/lots" },
-          { label: "Market pulse", href: "/market/pulse", description: "Volume + spread heatmap" },
+          { label: "Market pulse", href: "/market/pulse", description: "What's trading and how prices are moving" },
           { label: "Price guide", href: "/prices" },
           { label: "Price offers", href: "/account/offers", authed_only: true },
         ],
@@ -120,7 +120,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Trust & escrow", href: "/methodology/trust-score" },
           { label: "Watchlist", href: "/account/watchlist", authed_only: true },
           { label: "Saved searches", href: "/account/searches", authed_only: true },
-          { label: "Demand signals", href: "/account/demand", authed_only: true },
+          { label: "What buyers want", href: "/account/demand", authed_only: true },
         ],
       },
     ],
@@ -163,7 +163,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         ],
       },
     ],
-    footer: { label: "Provable fairness on every random outcome →", href: "/verify" },
+    footer: { label: "How we prove every result is fair →", href: "/verify" },
   },
 
   // ── Sell ────────────────────────────────────────────────────────────
@@ -219,7 +219,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "Platform", href: "/platform", description: "The data plane as primary identity" },
           { label: "Open data", href: "/data", description: "Bulk catalog dumps + JSON-LD" },
-          { label: "Bridge", href: "/bridge", description: "Federation bridge surface" },
+          { label: "Bridge", href: "/bridge", description: "Connect another platform" },
           { label: "Manifest", href: "/manifest", description: "Directory of offerings" },
           { label: "Graph", href: "/graph", description: "Typed mesh of meanings" },
           { label: "Ontology", href: "/ontology", description: "Schema beneath the graph" },
