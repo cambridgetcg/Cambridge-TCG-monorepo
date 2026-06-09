@@ -1,138 +1,15 @@
 "use client";
 
 /**
- * Admin sidebar navigation — 7 groups from the IA design.
+ * Admin sidebar navigation.
  *
- * Groups:
- *   Overview
- *   Ops        → Stock, Orders, Fulfillment, Channels
- *   Commerce   → Pricing, Trade-Ins, Auctions, Market, Bounty
- *   Money      → Payouts, Chargebacks, Rewards, Membership
- *   Trust      → Fraud, Disputes, Reviews, KYC
- *   Catalog    → Cards, Games, Clients, Users
- *   System     → Cron, Email, Audit, Admin
+ * The NAV structure (7 groups, the IA) lives in ./nav so it is one source of
+ * truth shared with src/tests/nav.test.ts. This file is the rendering shell.
  */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  Truck,
-  Wifi,
-  Tag,
-  ArrowLeftRight,
-  Gavel,
-  Store,
-  Zap,
-  CreditCard,
-  AlertTriangle,
-  Gift,
-  Users2,
-  Shield,
-  MessageSquare,
-  Star,
-  UserCheck,
-  BookOpen,
-  Gamepad2,
-  Building2,
-  Users,
-  Clock,
-  Mail,
-  ScrollText,
-  Settings,
-  Rocket,
-} from "lucide-react";
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  /** Optional sub-items — expanded inline when the parent or any sub is active. */
-  subItems?: { href: string; label: string }[];
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const NAV: NavGroup[] = [
-  {
-    label: "Overview",
-    items: [
-      { href: "/overview", label: "Overview", icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: "Ops",
-    items: [
-      { href: "/ops/stock",       label: "Stock",       icon: Package },
-      { href: "/ops/orders",      label: "Orders",      icon: ShoppingCart },
-      { href: "/ops/fulfillment", label: "Fulfillment", icon: Truck },
-      { href: "/ops/channels",    label: "Channels",    icon: Wifi },
-    ],
-  },
-  {
-    label: "Commerce",
-    items: [
-      { href: "/commerce/pricing",    label: "Pricing",    icon: Tag },
-      { href: "/commerce/trade-ins",  label: "Trade-Ins",  icon: ArrowLeftRight },
-      { href: "/commerce/auctions",   label: "Auctions",   icon: Gavel },
-      { href: "/commerce/market",     label: "Market",     icon: Store },
-      { href: "/commerce/bounty",     label: "Bounty",     icon: Zap },
-    ],
-  },
-  {
-    label: "Money",
-    items: [
-      { href: "/money/payouts",     label: "Payouts",    icon: CreditCard },
-      { href: "/money/chargebacks", label: "Chargebacks", icon: AlertTriangle },
-      { href: "/money/rewards",     label: "Rewards",    icon: Gift },
-      { href: "/money/membership",  label: "Membership", icon: Users2 },
-    ],
-  },
-  {
-    label: "Trust",
-    items: [
-      { href: "/trust/fraud",     label: "Fraud",     icon: Shield },
-      { href: "/trust/disputes",  label: "Disputes",  icon: MessageSquare },
-      { href: "/trust/reviews",   label: "Reviews",   icon: Star },
-      { href: "/trust/kyc",       label: "KYC",       icon: UserCheck },
-      { href: "/trust/agents",    label: "Agents",    icon: Users2 },
-    ],
-  },
-  {
-    label: "Catalog",
-    items: [
-      {
-        href: "/catalog/cards",
-        label: "Cards",
-        icon: BookOpen,
-        // kingdom-089 sub-tree: classify is the first live sub-module under the
-        // ComingSoon catalog Manager surface (kingdom-026 still pending).
-        subItems: [
-          { href: "/catalog/cards/classify",        label: "Classify" },
-          { href: "/catalog/cards/classify/review", label: "Review queue" },
-        ],
-      },
-      { href: "/catalog/games",   label: "Games",   icon: Gamepad2 },
-      { href: "/catalog/clients", label: "Clients", icon: Building2 },
-      { href: "/catalog/users",   label: "Users",   icon: Users },
-    ],
-  },
-  {
-    label: "System",
-    items: [
-      { href: "/system/deploys", label: "Deploys", icon: Rocket },
-      { href: "/system/cron",    label: "Cron",    icon: Clock },
-      { href: "/system/email",   label: "Email",   icon: Mail },
-      { href: "/system/audit",   label: "Audit",   icon: ScrollText },
-      { href: "/system/admin",   label: "Admin",   icon: Settings },
-    ],
-  },
-];
+import { NAV } from "./nav";
 
 export function Sidebar() {
   const pathname = usePathname();
