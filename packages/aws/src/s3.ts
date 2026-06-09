@@ -84,19 +84,39 @@ export interface PresignedUploadOpts {
   contentType: string;
   /** Seconds until the presigned URL expires (default: 600 = 10 minutes) */
   expiresIn?: number;
+  /**
+   * Region for BOTH the signing client and the public-URL host, so the two
+   * can never disagree. Falls back to `AWS_REGION`, then `us-east-1`.
+   * Wholesale (eu-west-2) should pass its region when `AWS_REGION` may be
+   * unset — otherwise the public URL host silently pins to us-east-1 while
+   * the bucket lives elsewhere, yielding a broken image URL.
+   */
+  defaultRegion?: string;
 }
 
 /**
  * Generate a presigned PUT URL for direct browser uploads.
  *
  * Consolidates the pattern from storefront's auction/s3.ts and market/photos.ts.
+ *
+ * The signing client and the returned `publicUrl` are both built from a single
+ * resolved config, so the region in the URL host always matches the region the
+ * URL was signed for. (Previously the client and the public URL each resolved
+ * config independently and could diverge — or both pin to the us-east-1
+ * default — when `AWS_REGION` was unset for a non-us-east-1 bucket.)
  */
 export async function getPresignedUploadUrl(
   opts: PresignedUploadOpts,
 ): Promise<PresignedUploadResult> {
-  const client = createS3ClientOrThrow();
-  const result = resolveAwsConfig();
+  const result = resolveAwsConfig(opts.defaultRegion);
   if (!result.ok) throw new Error(result.error);
+
+  // Build the client from the resolved config so its region is guaranteed
+  // identical to the one used for `publicUrl` below.
+  const client = new S3Client({
+    region: result.config.region,
+    credentials: result.config.credentials,
+  });
 
   const command = new PutObjectCommand({
     Bucket: opts.bucket,
