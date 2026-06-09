@@ -15,8 +15,11 @@
 import DevBannerDismiss from "./DevBannerDismiss";
 
 // Single source of truth — edit copy here.
+// Orders are genuinely paused right now, so this stays a true "not yet"
+// notice (substrate honesty). It leads with the clear fact, then reassures
+// anyone who already ordered. Shown in full — never truncated (see below).
 export const BANNER_COPY =
-  "Site under active development. Stock counts may not be accurate yet — please hold off on placing new orders for now. If you have already placed an order, it will be processed and sorted as normal. Thank you for your patience.";
+  "Cambridge TCG is still in active development — we're not taking new orders just yet. Feel free to look around; prices and stock counts may still shift. If you've already placed an order, it will be processed and shipped as normal. Thanks for your patience.";
 
 // Must match the cookie name used in DevBannerDismiss.
 export const BANNER_COOKIE = "banner-dev-notice";
@@ -31,12 +34,10 @@ export default function DevBanner() {
       className="w-full bg-amber-400 px-4 py-2.5 text-amber-950"
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-        {/* Single line on desktop (truncates with tooltip); wraps on mobile */}
-        <p
-          className="min-w-0 flex-1 text-sm font-medium leading-snug
-                     sm:truncate sm:whitespace-nowrap"
-          title={BANNER_COPY}
-        >
+        {/* Always shown in full — wraps on every screen size. The previous
+            sm:truncate hid the reassuring "already-placed orders ship as
+            normal" half on desktop, leaving only the scary fragment. */}
+        <p className="min-w-0 flex-1 text-sm font-medium leading-snug">
           {BANNER_COPY}
         </p>
 
