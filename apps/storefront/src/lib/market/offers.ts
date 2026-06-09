@@ -14,7 +14,8 @@
 // pattern used by the market notifications arc.
 
 import { query } from "@/lib/db";
-import { computeCommissionAmount, DEFAULT_P2P_COMMISSION_RATE } from "@cambridge-tcg/pricing";
+import { computeCommissionAmount } from "@cambridge-tcg/pricing";
+import { resolveCommissionRate } from "@/lib/membership/commission";
 import { notify } from "@/lib/notifications/db";
 import { canTrade, getTrustTier } from "@/lib/escrow/trust-engine";
 import { formatPrice } from "@/lib/format";
@@ -330,12 +331,14 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
      offer.offer_price, offer.quantity],
   );
 
-  // Compute commission off the OFFER price (not the ask price). Offer
-  // acceptance charges the base P2P rate (the trust/membership discount is
-  // not yet applied on this path), and the per-item commission cap (the
-  // fairness fix) bounds the absolute fee. See /methodology/fees.
+  // Compute commission off the OFFER price (not the ask price). The seller's
+  // trust/membership discount is resolved the same way the lot and direct-
+  // trade paths do (resolveCommissionRate → min(trustRate, tierRate)), so an
+  // accepted offer charges the same fair rate as an equivalent lot sale; the
+  // per-item commission cap then bounds the absolute fee. See /methodology/fees.
   const offerValue = parseFloat(offer.offer_price) * offer.quantity;
-  const commission = computeCommissionAmount(offerValue, DEFAULT_P2P_COMMISSION_RATE).amount;
+  const { rate: sellerCommissionRate } = await resolveCommissionRate({ sellerId, kind: "p2p" });
+  const commission = computeCommissionAmount(offerValue, sellerCommissionRate).amount;
   const sellerPayout = offerValue - commission;
 
   const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
@@ -553,10 +556,13 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
      offer.counter_price, offer.quantity],
   );
 
-  // Base P2P rate, then the per-item commission cap (the fairness fix)
-  // bounds the absolute fee. See /methodology/fees.
+  // The seller's trust/membership discount is resolved the same way the lot
+  // and direct-trade paths do (resolveCommissionRate), so accepting a counter
+  // charges the same fair rate as an equivalent lot sale; the per-item cap
+  // then bounds the absolute fee. See /methodology/fees.
   const value = parseFloat(offer.counter_price) * offer.quantity;
-  const commission = computeCommissionAmount(value, DEFAULT_P2P_COMMISSION_RATE).amount;
+  const { rate: sellerCommissionRate } = await resolveCommissionRate({ sellerId: offer.seller_id, kind: "p2p" });
+  const commission = computeCommissionAmount(value, sellerCommissionRate).amount;
   const sellerPayout = value - commission;
 
   const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
