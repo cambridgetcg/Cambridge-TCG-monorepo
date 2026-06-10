@@ -1,106 +1,533 @@
-"use client";
+/**
+ * /account — the Overview landing page. The anchor of the account centre.
+ *
+ * Server component (Stage 1 of the account-centre simplification).
+ * Previously a client component that re-fetched /api/auth/session (a
+ * visible "Loading..." flash on every visit, re-confirming what the
+ * layout's auth() gate already proved) and downloaded the FULL order +
+ * trade-in lists just to show two counts. Now the page reads the same
+ * underlying lib functions / SQL the per-domain pages use, directly,
+ * in one server render — no HTTP round-trip through our own API routes.
+ *
+ * Layout, top to bottom: who you are → are you in good standing → what
+ * needs you → what's moving (orders, trade-ins) → membership → sign out.
+ * Calm and scannable; every deeper surface is one link away.
+ *
+ * Degradation contract (the safe() ethos from @/lib/admin/queries):
+ * every read here is optional. A failed read renders nothing — an
+ * attention row simply doesn't appear, the standing strip is omitted
+ * rather than claiming "Good standing" it can't prove — and the page
+ * never crashes because one of seven domains was unreachable.
+ */
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Audience } from "@/lib/ui";
-interface User {
-  name: string | null;
-  email: string;
-  image: string | null;
+import { signOut } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth/realms";
+import { query } from "@/lib/db";
+import { getMemberProfile } from "@/lib/membership/db";
+import type { MemberProfile } from "@/lib/membership/types";
+import { unreadConversationCount } from "@/lib/messages/db";
+import TierBadge from "@/components/membership/TierBadge";
+import {
+  Audience,
+  Badge,
+  Card,
+  EmptyState,
+  MoneyDisplay,
+  PageHeader,
+  Palettes,
+  WhyLink,
+  audienceMetadata,
+} from "@/lib/ui";
+import { formatDate, pluralize } from "@/lib/format";
+
+export const metadata: Metadata = {
+  title: "My Account — Cambridge TCG",
+  description:
+    "Your account at a glance: standing, items that need you, recent orders, trade-ins, and membership.",
+  other: audienceMetadata("consumer", ["account", "overview"]),
+};
+
+// ── safe() — optional reads degrade, never crash ─────────────────────
+//
+// Same ethos as safe() in @/lib/admin/queries (and the local copies in
+// lib/trust/state.ts, lib/auction/state.ts): the overview composes seven
+// domains, and any one failing should cost that section, not the page.
+// No logging — failures on optional reads are expected (schema drift,
+// dev DB missing tables).
+async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    return fallback;
+  }
 }
 
-export default function AccountPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [orderCount, setOrderCount] = useState(0);
-  const [tradeInCount, setTradeInCount] = useState(0);
+/** COUNT helper — `SELECT COUNT(*)::int AS n ...` → number, 0 on failure
+ *  (a failed read hides the row; an absent count is never "urgent"). */
+async function safeCount(sql: string, params: unknown[]): Promise<number> {
+  return safe(async () => {
+    const r = await query(sql, params);
+    const n = Number((r.rows[0] as { n?: number | string } | undefined)?.n ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  }, 0);
+}
 
-  useEffect(() => {
-    fetch("/api/auth/session")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data?.user?.email) {
-          router.push("/login");
-          return;
-        }
-        setUser(data.user);
-        setLoading(false);
+// ── Standing ──────────────────────────────────────────────────────────
+//
+// Mirrors /api/account/standing's reads (trust_profiles + unresolved
+// fraud_signals). Returns null when the read fails: we'd rather show no
+// strip than claim "Good standing" on data we don't have — the strip
+// itself is a substrate-honesty claim.
 
-        // Fetch counts
-        fetch("/api/account/orders")
-          .then((r) => r.json())
-          .then((d) => setOrderCount(d.orders?.length || 0));
-        fetch("/api/account/trade-ins")
-          .then((r) => r.json())
-          .then((d) => setTradeInCount(d.submissions?.length || 0));
-      });
-  }, [router]);
+interface StandingSummary {
+  isSuspended: boolean;
+  flagCount: number;
+}
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-      <Audience kind="consumer" />
-        <p className="text-neutral-500">Loading...</p>
-      </div>
+async function loadStanding(userId: string): Promise<StandingSummary | null> {
+  return safe(async () => {
+    const [profile, flags] = await Promise.all([
+      query(`SELECT is_suspended FROM trust_profiles WHERE user_id = $1`, [userId]),
+      query(
+        `SELECT COUNT(*)::int AS n FROM fraud_signals
+          WHERE user_id = $1 AND resolved = false`,
+        [userId],
+      ),
+    ]);
+    return {
+      isSuspended: (profile.rows[0] as { is_suspended?: boolean } | undefined)?.is_suspended === true,
+      flagCount: Number((flags.rows[0] as { n?: number | string })?.n ?? 0),
+    };
+  }, null);
+}
+
+// ── Needs your attention ──────────────────────────────────────────────
+//
+// Each item is a count over the same table + status vocabulary its
+// destination page reads. Only non-zero items render; a failed count
+// falls back to 0 and the row quietly doesn't exist.
+
+interface AttentionItem {
+  key: string;
+  label: string;
+  href: string;
+}
+
+async function loadAttention(userId: string, email: string): Promise<AttentionItem[]> {
+  const [quotes, awaitingPayment, openReturns, disputed, failedPayments, unreadMessages] =
+    await Promise.all([
+      // Trade-in quotes the customer hasn't answered. Same linkage as
+      // /api/account/trade-ins (user_id OR email so pre-link rows and
+      // changed-email users still surface); the expiry guard matches
+      // the sweep in lib/tradein/db.ts so we never nag about a quote
+      // that's about to read "expired" on the detail page.
+      safeCount(
+        `SELECT COUNT(*)::int AS n FROM tradein_submissions
+          WHERE (user_id = $1 OR lower(customer_email) = lower($2))
+            AND status = 'quoted'
+            AND (quote_expires_at IS NULL OR quote_expires_at > NOW())`,
+        [userId, email],
+      ),
+      // Escrow trades where this user is the buyer and the clock is
+      // running on payment (EscrowStatus 'awaiting_payment').
+      safeCount(
+        `SELECT COUNT(*)::int AS n FROM market_trades
+          WHERE buyer_id = $1 AND escrow_status = 'awaiting_payment'
+            AND (payment_expires_at IS NULL OR payment_expires_at > NOW())`,
+        [userId],
+      ),
+      // Open returns on either side — the active-statuses set matches
+      // listReturnsFor{Buyer,Seller}(activeOnly) in lib/market/returns.ts.
+      safeCount(
+        `SELECT COUNT(*)::int AS n FROM market_returns
+          WHERE (buyer_id = $1 OR seller_id = $1)
+            AND status IN ('requested','accepted','shipping','received')`,
+        [userId],
+      ),
+      // Disputed trades on either side.
+      safeCount(
+        `SELECT COUNT(*)::int AS n FROM market_trades
+          WHERE (buyer_id = $1 OR seller_id = $1) AND escrow_status = 'disputed'`,
+        [userId],
+      ),
+      // Failed payments — the table has no resolved flag (see migration
+      // 0074), so "recent" stands in for "live": a 30-day window matching
+      // the practical retry horizon, not all history.
+      safeCount(
+        `SELECT COUNT(*)::int AS n FROM failed_payments
+          WHERE user_id = $1 AND last_attempt_at > NOW() - INTERVAL '30 days'`,
+        [userId],
+      ),
+      // Unread DM conversations — same source as the bell badge.
+      safe(() => unreadConversationCount(userId), 0),
+    ]);
+
+  const items: AttentionItem[] = [
+    {
+      key: "tradein-quotes",
+      label: `${quotes} trade-in ${pluralize(quotes, "quote")} awaiting your accept or decline`,
+      href: "/account/trade-ins",
+    },
+    {
+      key: "trades-awaiting-payment",
+      label: `${awaitingPayment} ${pluralize(awaitingPayment, "trade")} awaiting your payment`,
+      href: "/account/trades",
+    },
+    {
+      key: "open-returns",
+      label: `${openReturns} open ${pluralize(openReturns, "return")}`,
+      href: "/account/returns",
+    },
+    {
+      key: "disputed-trades",
+      label: `${disputed} disputed ${pluralize(disputed, "trade")}`,
+      href: "/account/trades",
+    },
+    {
+      key: "failed-payments",
+      label: `${failedPayments} failed ${pluralize(failedPayments, "payment")} in the last 30 days`,
+      href: "/account/payment-issues",
+    },
+    {
+      key: "unread-messages",
+      label: `${unreadMessages} unread ${pluralize(unreadMessages, "message")}`,
+      href: "/account/messages",
+    },
+  ];
+
+  // Counts drive visibility: zero (including failed-read zero) = no row.
+  const counts = [quotes, awaitingPayment, openReturns, disputed, failedPayments, unreadMessages];
+  return items.filter((_, i) => counts[i] > 0);
+}
+
+// ── Recent orders ─────────────────────────────────────────────────────
+
+interface RecentOrder {
+  id: number;
+  status: string;
+  total_gbp: string;
+  created_at: string;
+  item_count: number;
+}
+
+async function loadRecentOrders(email: string): Promise<RecentOrder[]> {
+  return safe(async () => {
+    // Same source as /api/account/orders (customer_orders by email),
+    // but only the three newest and only the columns this card shows.
+    const r = await query(
+      `SELECT id, status, total_gbp, created_at, items
+         FROM customer_orders
+        WHERE customer_email = $1
+        ORDER BY created_at DESC
+        LIMIT 3`,
+      [email],
     );
-  }
+    return (r.rows as Array<RecentOrder & { items: unknown }>).map((row) => ({
+      id: row.id,
+      status: row.status,
+      total_gbp: row.total_gbp,
+      created_at: row.created_at,
+      // items is a JSON column; count defensively rather than in SQL so a
+      // malformed row degrades to "0 items", not a failed whole-list read.
+      item_count: Array.isArray(row.items) ? row.items.length : 0,
+    }));
+  }, []);
+}
+
+// ── Trade-ins in progress ─────────────────────────────────────────────
+
+interface TradeInInProgress {
+  reference: string;
+  status: string;
+  created_at: string;
+}
+
+// The non-terminal slice of the trade-in lifecycle. Terminal states
+// (paid, rejected, cancelled, expired) and unsubmitted drafts don't
+// belong on an "in progress" strip.
+const TRADEIN_STEP: Record<string, string> = {
+  submitted: "Submitted — we're preparing your quote",
+  quoted: "Quote ready — accept or decline",
+  received: "Cards received — queued for grading",
+  grading: "Grading in progress",
+  approved: "Approved — payment on its way",
+};
+
+async function loadTradeInsInProgress(
+  userId: string,
+  email: string,
+): Promise<TradeInInProgress[]> {
+  return safe(async () => {
+    const r = await query(
+      `SELECT reference, status, created_at
+         FROM tradein_submissions
+        WHERE (user_id = $1 OR lower(customer_email) = lower($2))
+          AND status IN ('submitted','quoted','received','grading','approved')
+        ORDER BY created_at DESC
+        LIMIT 3`,
+      [userId, email],
+    );
+    return r.rows as TradeInInProgress[];
+  }, []);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PAGE
+// ══════════════════════════════════════════════════════════════════════
+
+export default async function AccountOverviewPage() {
+  // The layout's auth() gate already ran; cache() in getSessionUser
+  // collapses this to the same underlying invocation — no extra roundtrip.
+  const user = (await getSessionUser())!;
+
+  const [standing, attention, recentOrders, tradeIns, membership] = await Promise.all([
+    loadStanding(user.id),
+    loadAttention(user.id, user.email),
+    loadRecentOrders(user.email),
+    loadTradeInsInProgress(user.id, user.email),
+    // Same source as /account/membership (via /api/membership). null on
+    // failure — distinct from "no tier", which is a real profile state.
+    safe<MemberProfile | null>(() => getMemberProfile(user.id), null),
+  ]);
+
+  const goodStanding = standing !== null && !standing.isSuspended && standing.flagCount === 0;
 
   return (
-    <div>
+    <div className="space-y-8">
+      <Audience kind="consumer" />
+
+      {/* ── 1. Who you are ──────────────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-white mb-2">My Account</h1>
-        <p className="text-neutral-400 mb-8">{user?.email}</p>
+        <PageHeader title="My Account" description={user.email} />
 
-        <div className="grid gap-4">
-          <Link
-            href="/account/orders"
-            className="bg-neutral-900 rounded-xl p-5 hover:bg-neutral-800/70 transition group"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-white group-hover:text-amber-400 transition">Orders</h2>
-                <p className="text-sm text-neutral-400 mt-1">
-                  {orderCount === 0 ? "No orders yet" : `${orderCount} order${orderCount !== 1 ? "s" : ""}`}
-                </p>
-              </div>
-              <span className="text-neutral-600 group-hover:text-neutral-400 transition text-lg">&rarr;</span>
-            </div>
-          </Link>
-
-          <Link
-            href="/account/trade-ins"
-            className="bg-neutral-900 rounded-xl p-5 hover:bg-neutral-800/70 transition group"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-white group-hover:text-amber-400 transition">Trade-Ins</h2>
-                <p className="text-sm text-neutral-400 mt-1">
-                  {tradeInCount === 0 ? "No trade-ins yet" : `${tradeInCount} submission${tradeInCount !== 1 ? "s" : ""}`}
-                </p>
-              </div>
-              <span className="text-neutral-600 group-hover:text-neutral-400 transition text-lg">&rarr;</span>
-            </div>
-          </Link>
-
-          {/* Future: membership card */}
-          <div className="bg-neutral-900/50 rounded-xl p-5 border border-dashed border-neutral-800">
-            <h2 className="text-lg font-bold text-neutral-600">Membership</h2>
-            <p className="text-sm text-neutral-600 mt-1">Coming soon</p>
+        {/* ── 2. Standing strip — one line, green or amber ──────────────
+            Omitted entirely when the read failed: "Good standing" is a
+            claim, and we don't make it on data we couldn't fetch. */}
+        {standing !== null && (
+          <div className="flex items-center gap-2 text-sm flex-wrap -mt-2">
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                goodStanding ? "bg-emerald-400" : "bg-amber-400"
+              }`}
+            />
+            {goodStanding ? (
+              <span className="text-emerald-400">Good standing — no active flags</span>
+            ) : (
+              <>
+                <span className="text-amber-400">
+                  {standing.isSuspended
+                    ? `Account suspended${
+                        standing.flagCount > 0
+                          ? ` · ${standing.flagCount} active ${pluralize(standing.flagCount, "flag")}`
+                          : ""
+                      }`
+                    : `${standing.flagCount} active ${pluralize(standing.flagCount, "flag")} on your account`}
+                </span>
+                {/* Transparency Ring 2: a flag is a user-affecting decision —
+                    the affected party gets the methodology, same link the
+                    standing page carries. */}
+                <WhyLink href="/methodology/fraud-flag" tooltip="How does the platform flag accounts?" />
+                <Link
+                  href="/account/standing"
+                  className="text-amber-400 underline underline-offset-2 hover:text-amber-300 transition"
+                >
+                  See details →
+                </Link>
+              </>
+            )}
           </div>
-        </div>
+        )}
+      </div>
 
+      {/* ── 3. Needs your attention — only rendered when something does ─ */}
+      {attention.length > 0 && (
+        <Card variant="elevated" padding="none">
+          <h2 className="text-sm font-bold text-amber-400 px-4 py-3 border-b border-neutral-800">
+            Needs your attention
+          </h2>
+          <ul className="divide-y divide-neutral-800">
+            {attention.map((item) => (
+              <li key={item.key}>
+                <Link
+                  href={item.href}
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-800/50 transition group"
+                >
+                  <span className="text-sm text-neutral-200 group-hover:text-white transition">
+                    {item.label}
+                  </span>
+                  <span className="text-neutral-600 group-hover:text-amber-400 transition shrink-0">
+                    →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* ── 4. Recent orders ────────────────────────────────────────── */}
+      <section>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-semibold text-white">Recent orders</h2>
+          {recentOrders.length > 0 && (
+            <Link href="/account/orders" className="text-sm text-amber-400 hover:underline">
+              View all →
+            </Link>
+          )}
+        </div>
+        {recentOrders.length === 0 ? (
+          <EmptyState
+            title="No orders yet."
+            description="Your purchases will appear here."
+            action={
+              <Link
+                href="/catalog"
+                className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition inline-block"
+              >
+                Browse cards
+              </Link>
+            }
+          />
+        ) : (
+          <div className="space-y-2">
+            {recentOrders.map((order) => (
+              <Link key={order.id} href="/account/orders" className="block group">
+                <Card className="group-hover:border-neutral-700 transition">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-wrap min-w-0">
+                      <Badge
+                        status={order.status}
+                        palette={Palettes.OrderStatusPalette}
+                        labels={Palettes.OrderStatusLabels}
+                      />
+                      <span className="text-xs text-neutral-500 font-mono">#{order.id}</span>
+                      <span className="text-xs text-neutral-500">
+                        {formatDate(order.created_at)}
+                      </span>
+                      <span className="text-xs text-neutral-500">
+                        {order.item_count} {pluralize(order.item_count, "item")}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-white shrink-0">
+                      <MoneyDisplay value={order.total_gbp} />
+                    </span>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── 5. Trade-ins in progress — omitted when none ────────────── */}
+      {tradeIns.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-lg font-semibold text-white">Trade-ins in progress</h2>
+            <Link href="/account/trade-ins" className="text-sm text-amber-400 hover:underline">
+              View all →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {tradeIns.map((sub) => (
+              <Link key={sub.reference} href="/account/trade-ins" className="block group">
+                <Card className="group-hover:border-neutral-700 transition">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-wrap min-w-0">
+                      <span className="text-sm font-mono font-bold text-amber-400">
+                        {sub.reference}
+                      </span>
+                      <Badge status={sub.status} palette={Palettes.TradeInStatusPalette} />
+                      <span className="text-xs text-neutral-400">
+                        {TRADEIN_STEP[sub.status] ?? sub.status.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <span className="text-neutral-600 group-hover:text-amber-400 transition shrink-0">
+                      →
+                    </span>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── 6. Membership — real data from the same source as
+             /account/membership. Three honest states: loaded, no tier
+             yet, and read-failed (which never masquerades as either). ── */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-3">Membership</h2>
+        {membership === null ? (
+          <Card variant="subtle">
+            <p className="text-sm text-neutral-500">
+              Membership details are unavailable right now.{" "}
+              <Link href="/account/membership" className="text-amber-400 hover:underline">
+                Open membership →
+              </Link>
+            </p>
+          </Card>
+        ) : membership.tier === null ? (
+          <Card variant="subtle">
+            <p className="text-sm text-neutral-400">
+              You&rsquo;re not on a membership tier yet.{" "}
+              <Link href="/account/membership" className="text-amber-400 hover:underline">
+                See how tiers and rewards work →
+              </Link>
+            </p>
+          </Card>
+        ) : (
+          <Link href="/account/membership" className="block group">
+            <Card className="group-hover:border-neutral-700 transition">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <TierBadge
+                  name={membership.tier.name}
+                  icon={membership.tier.icon}
+                  color={membership.tier.color}
+                  size="md"
+                />
+                <div className="flex items-center gap-6">
+                  <div>
+                    <p className="text-xs text-neutral-500 uppercase tracking-wider">Berries</p>
+                    <p className="text-lg font-bold text-amber-400">
+                      {membership.points_balance.toLocaleString("en-GB")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-neutral-500 uppercase tracking-wider">
+                      Store credit
+                    </p>
+                    <p className="text-lg font-bold text-emerald-400">
+                      <MoneyDisplay value={membership.store_credit_balance} />
+                    </p>
+                  </div>
+                  <span className="text-neutral-600 group-hover:text-amber-400 transition">→</span>
+                </div>
+              </div>
+            </Card>
+          </Link>
+        )}
+      </section>
+
+      {/* ── 7. Sign out — the same next-auth signout the client version
+             POSTed to, invoked as a server action so no client JS is
+             needed. Lands on "/" like before. ─────────────────────── */}
+      <form
+        action={async () => {
+          "use server";
+          await signOut({ redirectTo: "/" });
+        }}
+      >
         <button
-          onClick={() => {
-            fetch("/api/auth/signout", { method: "POST" }).then(() => router.push("/"));
-          }}
-          className="mt-8 text-sm text-neutral-500 hover:text-red-400 transition"
+          type="submit"
+          className="text-sm text-neutral-500 hover:text-red-400 transition"
         >
           Sign out
         </button>
-      </div>
+      </form>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { formatDateTime } from "@/lib/format";
 import { Badge, Palettes, Money } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -367,6 +368,7 @@ export default function TradesPage() {
                     <th className="text-left p-4 font-medium">Qty</th>
                     <th className="text-left p-4 font-medium">Escrow</th>
                     <th className="text-left p-4 font-medium">Date</th>
+                    <th className="p-4" />
                   </tr>
                 </thead>
                 <tbody>
@@ -379,16 +381,22 @@ export default function TradesPage() {
                     return (
                       <tr key={trade.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition">
                         <td className="p-4">
-                          <div className="flex items-center gap-3">
+                          {/* The detail page (/account/trades/[id]) is the only
+                              path to delivery confirmation, returns, and the
+                              dispute timeline — every row must reach it. */}
+                          <Link
+                            href={`/account/trades/${trade.id}`}
+                            className="flex items-center gap-3 group"
+                          >
                             {trade.image_url ? (
                               <img src={trade.image_url} alt="" className="w-8 h-11 rounded object-cover" />
                             ) : (
                               <div className="w-8 h-11 bg-neutral-800 rounded" />
                             )}
-                            <p className="text-white font-medium text-sm truncate max-w-[160px]">
+                            <p className="text-white font-medium text-sm truncate max-w-[160px] group-hover:text-amber-400 transition">
                               {trade.card_name || trade.sku}
                             </p>
-                          </div>
+                          </Link>
                         </td>
                         <td className="p-4">
                           <span
@@ -450,6 +458,14 @@ export default function TradesPage() {
                           </div>
                         </td>
                         <td className="p-4 text-neutral-500 text-xs">{formatDate(trade.created_at)}</td>
+                        <td className="p-4">
+                          <Link
+                            href={`/account/trades/${trade.id}`}
+                            className="text-xs font-medium text-amber-500 hover:text-amber-400 whitespace-nowrap"
+                          >
+                            Details →
+                          </Link>
+                        </td>
                       </tr>
                     );
                   })}

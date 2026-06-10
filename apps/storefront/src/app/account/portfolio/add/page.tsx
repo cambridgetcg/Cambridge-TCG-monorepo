@@ -80,7 +80,9 @@ export default function AddToPortfolioPage() {
     }
     setSelectedSku(card.sku);
     setQuantity(1);
-    setAcquisitionPrice(card.price != null ? card.price.toFixed(2) : "");
+    // Never pre-fill cost basis from today's retail price — that fabricates
+    // acquisition data the customer didn't give us. Blank means "not told".
+    setAcquisitionPrice("");
     setCondition("NM");
     setAcquiredAt("");
     setNotes("");
@@ -247,7 +249,7 @@ export default function AddToPortfolioPage() {
                         type="text"
                         value={acquisitionPrice}
                         onChange={(e) => setAcquisitionPrice(e.target.value)}
-                        placeholder="0.00"
+                        placeholder="What you paid (optional)"
                         className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
                       />
                     </div>

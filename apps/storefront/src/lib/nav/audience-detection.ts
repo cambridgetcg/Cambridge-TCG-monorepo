@@ -69,7 +69,6 @@ const AUDIENCE_RULES: AudienceRule[] = [
   { prefix: "/auctions/sell", audience: "seller" },
   { prefix: "/account/auctions", audience: "seller" },
   { prefix: "/account/payouts", audience: "seller" },
-  { prefix: "/account/demand", audience: "seller" },
 
   // Player paths
   { prefix: "/play", audience: "player" },

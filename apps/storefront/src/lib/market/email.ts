@@ -188,13 +188,16 @@ export async function sendSellerRestockDigest(d: {
     </tr>`;
   }).join("");
   const subject = `${d.opportunities.length} restock opportunit${d.opportunities.length === 1 ? "y" : "ies"} — Cambridge TCG`;
-  const text = `We spotted ${d.opportunities.length} cards with strong buyer demand and thin supply. Top card: ${d.opportunities[0].cardName} (${d.opportunities[0].watchCount} watchers). Details: ${SITE}/account/demand`;
+  // The account-centre demand page was retired (it showed the same
+  // platform-wide signal to everyone); /market/pulse is the surviving
+  // public surface for what buyers are watching.
+  const text = `We spotted ${d.opportunities.length} cards with strong buyer demand and thin supply. Top card: ${d.opportunities[0].cardName} (${d.opportunities[0].watchCount} watchers). Details: ${SITE}/market/pulse`;
   const html = tpl(
     "Restock opportunities this week",
     `<p>${d.name ? `Hi ${d.name}, ` : ""}here are the cards buyers are watching most that currently have thin supply.</p>
      <table style="width:100%;border-collapse:collapse;margin:16px 0;">${rows}</table>
      <p style="color:#737373;font-size:12px;">Ranked by buyer demand (watchers + active price alerts) against current ask depth.</p>`,
-    "See full demand list", `${SITE}/account/demand`
+    "See market pulse", `${SITE}/market/pulse`
   );
   await send(d.email, subject, html, text);
 }

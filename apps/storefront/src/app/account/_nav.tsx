@@ -1,229 +1,107 @@
 "use client";
 
 /**
- * Account sub-nav (kingdom-093 — Phase 3 of the nav upgrade).
+ * Account sub-nav — Stage 1 of the account-centre simplification.
  *
- * V2: the 41-item flat list is now grouped into 6 collapsible sections.
- * Mobile: horizontal tab scroll preserved (flat); desktop: vertical
- * sidebar with collapsible group headings.
+ * V3: the six collapsible sections (V2, kingdom-093) shrink to a
+ * three-group primary nav — the dozen surfaces members actually live in —
+ * plus a single "More tools" link below a rule. Every page that left the
+ * sidebar keeps working at its URL and gets a front door on the
+ * /account/tools hub, so nothing 404s and old bookmarks survive.
  *
- * The ACCOUNT_NAV_ITEMS export shape is preserved (other modules read
- * it). The grouped structure adds ACCOUNT_NAV_SECTIONS alongside.
+ * Mobile: horizontal tab scroll preserved (flat). Desktop: vertical
+ * sidebar with always-visible group headings — three small groups don't
+ * earn collapse machinery, so V2's expand/collapse state is gone.
+ *
+ * Active-state mechanics carried over from V2 (most-specific-match wins),
+ * with one addition: when the visitor is on a demoted page that no
+ * primary item covers, "More tools" lights up as the catch-all — the
+ * sidebar always tells you which door you came through.
  */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
-export const ACCOUNT_NAV_ITEMS = [
-  { href: "/account/profile", label: "Profile" },
-  { href: "/account/portfolio", label: "Portfolio" },
-  { href: "/account/sets", label: "Set Progress" },
-  { href: "/account/portfolio/value", label: "Collection Value" },
-  { href: "/account/wishlist", label: "Wishlist" },
-  { href: "/account", label: "Overview" },
-  { href: "/account/journey", label: "Activity" },
-  { href: "/account/notifications", label: "Notifications" },
-  { href: "/account/messages", label: "Messages" },
-  { href: "/account/emails", label: "Email Preferences" },
-  { href: "/appearance", label: "Appearance" },
-  { href: "/account/followers", label: "Followers" },
-  { href: "/account/following", label: "Following" },
-  { href: "/account/collectives", label: "Collectives" },
-  { href: "/account/orders", label: "Orders" },
-  { href: "/account/vault", label: "Vault" },
-  { href: "/account/proofs", label: "My Proofs" },
-  { href: "/account/trade-ins", label: "Trade-Ins" },
-  { href: "/account/trades", label: "Trades" },
-  { href: "/account/offers", label: "Offers" },
-  { href: "/account/trade-cancels", label: "Cancellations" },
-  { href: "/account/returns", label: "Returns" },
-  { href: "/account/auctions", label: "My Auctions" },
-  { href: "/account/auctions/won", label: "Auctions Won" },
-  { href: "/account/lots", label: "My Lots" },
-  { href: "/account/vacation", label: "Vacation" },
-  { href: "/account/pricing-rules", label: "Pricing Rules" },
-  { href: "/account/watchlist", label: "Watchlist" },
-  { href: "/account/searches", label: "Saved Searches" },
-  { href: "/account/demand", label: "Demand Signals" },
-  { href: "/account/payouts", label: "Payouts" },
-  { href: "/account/rewards", label: "Prizes" },
-  { href: "/account/verify", label: "Verification" },
-  { href: "/account/trust", label: "Trust Score" },
-  { href: "/account/reviews", label: "Reviews" },
-  { href: "/account/external-rep", label: "External Rep" },
-  { href: "/account/chargebacks", label: "Chargebacks" },
-  { href: "/account/refunds", label: "Refunds" },
-  { href: "/account/payment-issues", label: "Payment Issues" },
-  { href: "/account/standing", label: "Account Standing" },
-  { href: "/account/membership", label: "Membership" },
-  { href: "/account/billing", label: "Billing" },
-  { href: "/account/agents", label: "Agents" },
-  { href: "/account/trader", label: "Trader Dashboard" },
-] as const;
-
-type SectionId =
-  | "overview"
-  | "profile"
-  | "collection"
-  | "activity"
-  | "buysell"
-  | "trader"
-  | "money";
+interface NavItem {
+  href: string;
+  label: string;
+}
 
 interface Section {
-  id: SectionId;
   label: string;
-  items: { href: string; label: string }[];
+  items: NavItem[];
 }
 
 export const ACCOUNT_NAV_SECTIONS: Section[] = [
   {
-    id: "overview",
-    label: "Overview",
-    items: [{ href: "/account", label: "Overview" }],
-  },
-  {
-    id: "profile",
-    label: "Profile & Reputation",
+    label: "Account",
     items: [
-      { href: "/account/profile", label: "Profile" },
-      { href: "/account/trust", label: "Trust Score" },
-      { href: "/account/reviews", label: "Reviews" },
-      { href: "/account/external-rep", label: "External Rep" },
-      { href: "/account/verify", label: "Verification" },
-    ],
-  },
-  {
-    id: "collection",
-    label: "Collection",
-    items: [
-      { href: "/account/portfolio", label: "Portfolio" },
-      { href: "/account/portfolio/value", label: "Collection Value" },
-      { href: "/account/sets", label: "Set Progress" },
-      { href: "/account/wishlist", label: "Wishlist" },
-      { href: "/account/vault", label: "Vault" },
-      { href: "/account/proofs", label: "My Proofs" },
-    ],
-  },
-  {
-    id: "activity",
-    label: "Activity & Social",
-    items: [
-      { href: "/account/journey", label: "Activity" },
+      { href: "/account", label: "Overview" },
       { href: "/account/notifications", label: "Notifications" },
-      { href: "/account/messages", label: "Messages" },
-      { href: "/account/emails", label: "Email Preferences" },
+      { href: "/account/profile", label: "Profile & settings" },
+      // Sister-shipped mid-rebase (kingdom-095, the wardrobe). Self-
+      // expression sits with Profile, first-class — verify, don't overwrite.
       { href: "/appearance", label: "Appearance" },
-      { href: "/account/followers", label: "Followers" },
-      { href: "/account/following", label: "Following" },
-      { href: "/account/collectives", label: "Collectives" },
     ],
   },
   {
-    id: "buysell",
-    label: "Buy & Sell",
+    label: "Shopping & money",
     items: [
       { href: "/account/orders", label: "Orders" },
       { href: "/account/trade-ins", label: "Trade-Ins" },
       { href: "/account/trades", label: "Trades" },
-      { href: "/account/offers", label: "Offers" },
-      { href: "/account/returns", label: "Returns" },
-      { href: "/account/trade-cancels", label: "Cancellations" },
-      { href: "/account/auctions", label: "My Auctions" },
-      { href: "/account/auctions/won", label: "Auctions Won" },
-      { href: "/account/lots", label: "My Lots" },
-      { href: "/account/watchlist", label: "Watchlist" },
-      { href: "/account/searches", label: "Saved Searches" },
-      { href: "/account/demand", label: "Demand Signals" },
-    ],
-  },
-  {
-    id: "trader",
-    label: "Trader operations",
-    items: [
-      { href: "/account/trader", label: "Trader Dashboard" },
-      { href: "/account/pricing-rules", label: "Pricing Rules" },
-      { href: "/account/vacation", label: "Vacation" },
-      { href: "/account/agents", label: "Agents" },
-    ],
-  },
-  {
-    id: "money",
-    label: "Money & Membership",
-    items: [
+      { href: "/account/refunds", label: "Payments & refunds" },
       { href: "/account/payouts", label: "Payouts" },
-      { href: "/account/rewards", label: "Prizes" },
       { href: "/account/membership", label: "Membership" },
-      { href: "/account/billing", label: "Billing" },
-      { href: "/account/chargebacks", label: "Chargebacks" },
-      { href: "/account/refunds", label: "Refunds" },
-      { href: "/account/payment-issues", label: "Payment Issues" },
-      { href: "/account/standing", label: "Account Standing" },
+    ],
+  },
+  {
+    label: "Collection",
+    items: [
+      { href: "/account/portfolio", label: "Portfolio" },
+      { href: "/account/wishlist", label: "Wishlist" },
     ],
   },
 ];
 
+/** The hub link — rendered separated at the bottom of the sidebar. */
+export const MORE_TOOLS_ITEM: NavItem = { href: "/account/tools", label: "More tools" };
+
 /**
- * Pick the section ID whose items contain the current pathname (deepest
- * match wins). Used to auto-expand the right section on mount.
+ * Flat list (groups in order + the hub link) — feeds the mobile tab strip
+ * and any module that wants the primary nav without the grouping. The
+ * export name is preserved from V1/V2; the contents are now the curated
+ * twelve, not the 41-item long tail (that lives on /account/tools).
  */
-function sectionForPath(pathname: string): SectionId | null {
+export const ACCOUNT_NAV_ITEMS: NavItem[] = [
+  ...ACCOUNT_NAV_SECTIONS.flatMap((section) => section.items),
+  MORE_TOOLS_ITEM,
+];
+
+/**
+ * Most-specific-match wins for highlighting: /account/portfolio/value
+ * lights Portfolio, /account/trades/abc lights Trades. When nothing in
+ * the primary nav covers the path (a demoted page — /account/trust,
+ * /account/vault, ...) the hub link lights instead, because that's the
+ * door the visitor came through.
+ */
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/account") return pathname === "/account";
   let bestLen = 0;
-  let best: SectionId | null = null;
-  for (const section of ACCOUNT_NAV_SECTIONS) {
-    for (const item of section.items) {
-      if (pathname === item.href || pathname.startsWith(item.href + "/")) {
-        if (item.href.length > bestLen) {
-          bestLen = item.href.length;
-          best = section.id;
-        }
-      }
+  for (const item of ACCOUNT_NAV_ITEMS) {
+    if (item.href === "/account") continue;
+    if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+      bestLen = Math.max(bestLen, item.href.length);
     }
   }
-  return best;
+  if (bestLen === 0) {
+    return href === MORE_TOOLS_ITEM.href && pathname.startsWith("/account/");
+  }
+  return (pathname === href || pathname.startsWith(href + "/")) && href.length === bestLen;
 }
 
 export function AccountNav() {
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState<Set<SectionId>>(new Set());
-
-  // Auto-expand the section matching the current route (on mount + path change)
-  useEffect(() => {
-    const active = sectionForPath(pathname);
-    if (active) {
-      setExpanded((prev) => {
-        if (prev.has(active)) return prev;
-        const next = new Set(prev);
-        next.add(active);
-        return next;
-      });
-    }
-  }, [pathname]);
-
-  // Most-specific-match wins for highlighting
-  function isActive(href: string) {
-    if (href === "/account") return pathname === "/account";
-    let bestLen = 0;
-    for (const section of ACCOUNT_NAV_SECTIONS) {
-      for (const item of section.items) {
-        if (item.href === "/account") continue;
-        if (pathname === item.href || pathname.startsWith(item.href + "/")) {
-          bestLen = Math.max(bestLen, item.href.length);
-        }
-      }
-    }
-    return (pathname === href || pathname.startsWith(href + "/")) && href.length === bestLen;
-  }
-
-  function toggleSection(id: SectionId) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   return (
     <>
@@ -234,7 +112,7 @@ export function AccountNav() {
             key={item.href}
             href={item.href}
             className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition ${
-              isActive(item.href)
+              isActive(pathname, item.href)
                 ? "bg-amber-500 text-black"
                 : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
             }`}
@@ -244,69 +122,46 @@ export function AccountNav() {
         ))}
       </nav>
 
-      {/* Desktop: grouped vertical sidebar with collapsible sections */}
+      {/* Desktop: three always-visible groups + the hub link below a rule */}
       <aside className="hidden md:block w-56 shrink-0">
         <nav className="flex flex-col gap-1 sticky top-8">
-          {ACCOUNT_NAV_SECTIONS.map((section) => {
-            const isExpanded = expanded.has(section.id);
-            const isOverview = section.id === "overview";
-            // Overview section: render as a single link (no collapse)
-            if (isOverview) {
-              const item = section.items[0];
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-medium transition ${
-                    isActive(item.href)
-                      ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                      : "text-neutral-400 hover:text-white hover:bg-neutral-900"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            }
-            return (
-              <div key={section.id} className="mb-1">
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 hover:text-neutral-300"
-                  aria-expanded={isExpanded}
-                >
-                  <span>{section.label}</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {isExpanded && (
-                  <ul className="space-y-0.5 mt-1">
-                    {section.items.map((item) => (
-                      <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          className={`block px-4 py-2 rounded-lg text-sm font-medium transition ${
-                            isActive(item.href)
-                              ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                              : "text-neutral-400 hover:text-white hover:bg-neutral-900"
-                          }`}
-                        >
-                          {item.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+          {ACCOUNT_NAV_SECTIONS.map((section) => (
+            <div key={section.label} className="mb-1">
+              <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                {section.label}
               </div>
-            );
-          })}
+              <ul className="space-y-0.5">
+                {section.items.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={`block px-4 py-2 rounded-lg text-sm font-medium transition ${
+                        isActive(pathname, item.href)
+                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                          : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+
+          {/* The long tail lives behind one door. */}
+          <div className="border-t border-neutral-800 mt-1 pt-2">
+            <Link
+              href={MORE_TOOLS_ITEM.href}
+              className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition ${
+                isActive(pathname, MORE_TOOLS_ITEM.href)
+                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+              }`}
+            >
+              {MORE_TOOLS_ITEM.label} →
+            </Link>
+          </div>
         </nav>
       </aside>
     </>
