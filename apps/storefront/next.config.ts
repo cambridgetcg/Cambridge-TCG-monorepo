@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
     "@cambridge-tcg/pricing",
     "@cambridge-tcg/sku",
     "@cambridge-tcg/stock",
+    "@cambridge-tcg/visit",
   ],
   // Workspace packages use NodeNext-style `.js` extension imports in TS
   // source. Turbopack honours transpilePackages and resolves `.js` → `.ts`

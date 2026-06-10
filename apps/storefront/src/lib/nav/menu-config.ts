@@ -281,6 +281,8 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Rewards",
         items: [
+          { label: "The Daily Flame", href: "/daily", description: "Check in, open a free daily pack, light badges" },
+          { label: "Daily rules & odds", href: "/rewards/rules", description: "The rules, the published odds, the test" },
           { label: "Rewards hub", href: "/rewards" },
           { label: "Reward packs", href: "/rewards/packs" },
           { label: "Spin wheel", href: "/rewards/spin" },

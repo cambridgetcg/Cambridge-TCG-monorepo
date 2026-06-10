@@ -50,6 +50,7 @@ const KIND_LABEL: Record<string, string> = {
   spin_wheel:  "Spin Wheel",
   mystery_box: "Mystery Boxes",
   raffle_draw: "Raffle Draws",
+  daily_pack:  "Daily Packs",
   custom:      "Other Draws",
 };
 

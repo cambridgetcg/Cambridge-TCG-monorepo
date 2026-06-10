@@ -30,6 +30,7 @@ export type DrawKind =
   | "spin_wheel"
   | "mystery_box"
   | "raffle_draw"
+  | "daily_pack"
   | "custom";
 
 export interface CommittedDraw {

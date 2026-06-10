@@ -19,6 +19,7 @@
     "@cambridge-tcg/pricing": "workspace:^",
     "@cambridge-tcg/sku": "workspace:^",
     "@cambridge-tcg/stock": "workspace:^",
+    "@cambridge-tcg/visit": "workspace:^",
     "@aws-sdk/client-s3": "^3.1029.0",
     "drizzle-orm": "^0.36.0",
     "@aws-sdk/client-ses": "^3.1017.0",

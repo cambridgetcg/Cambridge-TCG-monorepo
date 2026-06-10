@@ -266,3 +266,34 @@ The findings above are organized by app/surface. The doctrine's [four-rings fram
 *Cross-ref:* Substrate-honesty A4.
 *Violation:* `email_queue.status='sent'` means handed to SES; the SES message ID is not stored, and bounce/complaint events don't flow back. Operator cannot follow the message into SES's authoritative record.
 *Fix:* Add `ses_message_id` column on `email_queue`; render via `<Verifiability source="SES" id={ses_message_id} cite />`. Wire SES SNS notifications for delivery state.
+
+---
+
+## Addendum — 2026-06-10: The Daily Flame surfaces (visit-rewards kingdom)
+
+New user-affecting decision surfaces shipped with the visit-rewards loop ([`docs/connections/the-daily-flame.md`](../connections/the-daily-flame.md)). Wire: `packages/visit/` (rules + reward table), `apps/storefront/src/lib/visit/db.ts`, `drizzle/0103_daily_flame.sql`. Compliance assessed against the eight rules at ship time, not retrofitted:
+
+**Compliant from day one:**
+
+- **Daily pack outcome** — every draw runs through the provable-draw substrate with kind `'daily_pack'` (`apps/storefront/src/lib/provable-draw/index.ts:28–34`), landing a `verifiable_draws` row; the pack deliberately has no table of its own, so the proof row IS the record. "Why did I get this reward?" answers with a link to `/verify/draw/[id]` — full commit-reveal replay, and the verify surfaces gained the `daily_pack` label in the same commit (`app/verify/draw/[id]/page.tsx`, `app/verify/fairness/page.tsx`). This is the first RNG surface to *launch* with Ring 2 + Ring 3 transparency rather than acquire it by migration.
+- **Published odds** — `/rewards/rules` renders `DAILY_PACK_TABLE` (`packages/visit/src/index.ts`, integer weights per thousand); `dailyPackWeights()` derives the committed weights from the same array. Single source of truth; published odds and drawn odds cannot drift (the structural closure of the T8 failure shape — odds surfaced at launch, byte-for-byte). When weights change, the page changes in the same commit by construction.
+- **Badge provenance** — `visit_badges.draw_id` FKs the badge to the verifiable draw that earned it; the inspection path is a schema column, not UI discipline.
+- **Streak rules** — check-in cadence, ember mechanics (one per ISO week, automatic), and the reset rule are documented in plain language on `/rewards/rules` (legible-standard style: We hold / the rules / the odds / the test), linked from the flame surfaces. No purchase affects any of them; the page says so: *the flame is for joy, not obligation — it never costs you anything to lose it.*
+
+**Filed this round:**
+
+### T-DF1 — Ember consumption needs a decision-receipt line
+
+**Severity:** P2
+**Where:** `advanceFlame()` (`packages/visit/src/index.ts`) returns the named event `ember_spent`, but `saveFlame()` persists only the resulting state — the event itself is dropped after the response.
+**Violation:** The ember is consumed *automatically* when a day is missed — a decision the platform makes about the user without a click. The user can see their remaining ember and (once) the `ember_saved` badge, but the historical fact "an ember was used on <date> to hold your flame" is not durably inspectable afterwards.
+**Fix:** Persist flame events (or at least ember spends) and render them as explicit lines in a flame history; consider the journey timeline once the flame emits lifecycle events. Pattern: X4-T decision receipts. The rules half is already done — the event is *named* in the type; persistence is the missing half.
+**Owner:** Next rewards iteration (named as recursion target in `the-daily-flame.md`).
+
+### T-DF2 — Quest completion determination is server-judged
+
+**Severity:** P2
+**Where:** `WEEKLY_QUESTS` (`packages/visit/src/index.ts`); progress accrues via route-reported events matched by `questsForEvent()`, persisted as counters in `visit_quests.progress`.
+**Violation:** "Browse three sets" / "price-check a card" completion is determined by server-side event matching; the user sees progress and done/not-done but not which events counted. Bounded stakes (quests gate shards and badges, not money), but the inputs should be inspectable on the quest detail surface.
+**Fix:** Per-quest progress detail listing the counted events with timestamps.
+**Owner:** Next rewards iteration.

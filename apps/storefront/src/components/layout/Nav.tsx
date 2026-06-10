@@ -61,6 +61,15 @@ export default function Nav() {
           {STOREFRONT_PRIMARY_NAV.map((menu) => (
             <MegaMenu key={menu.l1} menu={menu} loggedIn={loggedIn} />
           ))}
+          {/* Quiet link — the Daily Flame. Deliberately no badge, no pulse,
+              no counter: the loop is guilt-free by design and the nav says so
+              by staying quiet. */}
+          <Link
+            href="/daily"
+            className="text-sm text-neutral-300 hover:text-white transition py-2"
+          >
+            Daily
+          </Link>
           <Link
             href={loggedIn ? "/account" : "/login"}
             className="text-sm text-neutral-300 hover:text-white transition py-2"
@@ -232,8 +241,14 @@ export default function Nav() {
               );
             })}
             <Link
-              href={loggedIn ? "/account" : "/login"}
+              href="/daily"
               className="block px-3 py-3 text-sm font-medium text-neutral-200 hover:text-white border-t border-neutral-900 mt-1"
+            >
+              Daily
+            </Link>
+            <Link
+              href={loggedIn ? "/account" : "/login"}
+              className="block px-3 py-3 text-sm font-medium text-neutral-200 hover:text-white border-t border-neutral-900"
             >
               {loggedIn ? "My Account" : "Sign In"}
             </Link>

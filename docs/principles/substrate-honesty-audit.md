@@ -262,4 +262,35 @@ Items above the mid-line shape decisions about money or safety. Items below poli
 
 ---
 
-*Audit revisions: 2026-05-05 (initial). Re-run quarterly. Drift is the natural state — the principle is what you bring back to.*
+## Addendum — 2026-06-10: The Daily Flame surfaces (visit-rewards kingdom)
+
+New surfaces shipped with the visit-rewards loop ([`docs/connections/the-daily-flame.md`](../connections/the-daily-flame.md)). Wire: `packages/visit/` (pure-compute rules), `apps/storefront/src/lib/visit/db.ts` (storage), `drizzle/0103_daily_flame.sql` (visit_checkins / visit_flames / visit_quests / visit_badges). Assessed against the four questions at ship time:
+
+**Compliant from day one:**
+
+- **Flame state is live and says whose clock it keeps** — the flame is computed at request time by the pure `advanceFlame()` (`packages/visit/src/index.ts`) over `visit_flames`; "today" is always the *database's* `CURRENT_DATE` via `getDbToday()` (`lib/visit/db.ts`), never the app server's wall clock. The storage layer's docstring declares the division of labour outright: *"it remembers what happened, it decides nothing."* One clock, one decider, both named in code.
+- **Daily pack outcome carries its provenance structurally** — the pack has no table of its own; the `verifiable_draws` row (kind `'daily_pack'`) IS the record, stamping `committed_at` / `revealed_at` server-side (`drizzle/0061`; declared in `0103`'s header). The result surface shows a revealed outcome with its draw link, never a pre-reveal "rarity" flash (the S3 failure shape, avoided by construction).
+- **Odds table cannot drift from the server** — `/rewards/rules` renders `DAILY_PACK_TABLE` (`packages/visit/src/index.ts`); `dailyPackWeights()` derives the map handed to `commitDraw()` from the same array, and an import-time sum check (`_sum`) throws if the weights stop totalling `WEIGHT_TOTAL`. The honesty is by-identity, not by-discipline: there is no second copy to go stale.
+- **Badge provenance is a column, not a caption** — `visit_badges.draw_id` FKs into `verifiable_draws`; pack-earned and quest/flame-earned badges stay distinct facts (NULL there means a different origin, documented in the column comment).
+
+**Filed this round:**
+
+### S8-DF1 — Two presence-trackers now count the same fact
+
+**Severity:** P2
+**Where:** `visit_flames.length` (advanced by `advanceFlame()`, ember rules) vs `user_streaks.current_streak` (`bumpStreak()` upsert, `lib/membership/streak.ts:65–94` — sharp reset, feeds the points multiplier). Neither file references the other.
+**Violation:** Both columns count consecutive presence under *different* rules; after one ember-shielded miss they legitimately disagree by design. A surface that says an unqualified "your streak" cannot answer "where did this number come from?" — the same drift shape `streak.ts:24–35` already documents between the two multipliers.
+**Fix:** Flame surfaces always say "flame," never "streak"; `/rewards/rules` names the distinction. Coordination (or merge) filed as a recursion target in `the-daily-flame.md`.
+**Owner:** Visit-rewards kingdom (labeling); coordination is a future kingdom.
+
+### S8-DF2 — The day-boundary is named in code but not yet in copy
+
+**Severity:** P2
+**Where:** The clock is substrate-honest at the code level — `0103`'s header states *"a 'day' is the database's CURRENT_DATE (UTC on RDS)"* and `getDbToday()` enforces it. The user-facing flame surface is where the claim must also live.
+**Violation:** A user checking in at 23:50 local time may be told "already checked in today" across a boundary the page never names. "Today" without a timezone is an unfinished sentence.
+**Fix:** Label the rollover on the flame surface and `/rewards/rules` ("days roll over at midnight UTC"). Longer arc: per-being cadence — see the fifth-question coda of `the-daily-flame.md`.
+**Owner:** Visit-rewards kingdom (copy); cadence preference filed as recursion target.
+
+---
+
+*Audit revisions: 2026-05-05 (initial) · 2026-06-10 (Daily Flame addendum). Re-run quarterly. Drift is the natural state — the principle is what you bring back to.*
