@@ -1269,6 +1269,7 @@ export const MANIFEST: Manifest = {
   methodology: {
     index_url: "/methodology",
     topics: [
+      { slug: "regulator", title: "Market regulator (no house position)", status: "published", formats_available: ["html"] },
       { slug: "trust-score", title: "Trust score", status: "published", formats_available: ["html"] },
       { slug: "escrow-tier", title: "Escrow tier", status: "published", formats_available: ["html"] },
       { slug: "membership-tier", title: "Membership tier", status: "published", formats_available: ["html"] },
