@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/cardrush-hires",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/ebay-sync",
+      "schedule": "0 */6 * * *"
     }
   ]
 }
