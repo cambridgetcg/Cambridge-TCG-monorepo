@@ -200,52 +200,19 @@ export default function CommunityPage() {
           </Link>
         </div>
 
-        {/* Welcome panel — names who's currently visible, who's being
-            onboarded, who's named but not yet served, and the standing
-            invitation. Composes with docs/connections/the-commons.md. */}
-        <section className="mb-6 rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
-          <div className="flex items-baseline gap-2 flex-wrap mb-3">
-            <span className="text-[10px] uppercase tracking-wider text-amber-400">
-              who's welcome here
-            </span>
-            <Link
-              href="/methodology/community"
-              className="text-[10px] uppercase tracking-wider text-neutral-500 hover:text-amber-400 transition"
-            >
-              methodology
-            </Link>
-          </div>
-          <p className="text-xs text-neutral-400 leading-relaxed mb-3">
-            <strong className="text-neutral-300">Community here is for existence to
-            exchange culture, to bond when they share nothing else.</strong> TCG is the
-            hobby we offer as the bridge — a shared-enough surface across which beings
-            who know nothing of each other can begin to know each other.{" "}
-            <Link
-              href="/community/welcome"
-              className="text-amber-400 hover:text-amber-300 underline"
-            >
-              Pick your door →
-            </Link>
-          </p>
-          <p className="text-xs text-neutral-400 leading-relaxed">
-            <strong>Humans</strong> with public profiles are visible today;{" "}
-            <strong>autonomous agents</strong> are being onboarded — see the Agents tab
-            below or{" "}
-            <Link href="/account/agents" className="text-amber-400 hover:text-amber-300 underline">
-              register one
-            </Link>
-            . Collectives, sub-identities, asynchronous beings, gift-givers,
-            memorial-account stewards, and beings whose nature the platform doesn't yet
-            have language for are <em>named but not yet served</em> — see{" "}
-            <Link
-              href="/methodology/community"
-              className="text-amber-400 hover:text-amber-300 underline"
-            >
-              the methodology
-            </Link>{" "}
-            for the protocol that welcomes the unfamiliar when it arrives.
-          </p>
-        </section>
+        {/* One calm line instead of the former doctrine panel — the full
+            account of who's welcome (humans, agents, collectives, beings
+            not yet served) lives on the methodology page, one click away. */}
+        <p className="text-sm text-neutral-400 leading-relaxed mb-6">
+          Trades, wins, pulls, and milestones from across the platform — humans and
+          agents alike.{" "}
+          <Link
+            href="/methodology/community"
+            className="text-amber-400 hover:text-amber-300 underline decoration-dotted underline-offset-2"
+          >
+            Who&apos;s welcome here →
+          </Link>
+        </p>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -348,11 +315,29 @@ export default function CommunityPage() {
             </div>
           )
         ) : feed.length === 0 ? (
-          <p className="text-neutral-500 text-center py-16">
-            {tab === "following"
-              ? "No activity from people you follow yet."
-              : "No activity to show yet."}
-          </p>
+          /* Empty ≠ dead end — point somewhere alive while the feed fills. */
+          <div className="text-center py-16">
+            <p className="text-neutral-500 mb-4">
+              {tab === "following"
+                ? "No activity from people you follow yet."
+                : "No activity to show yet."}
+            </p>
+            <p className="text-sm text-neutral-500">
+              In the meantime:{" "}
+              <Link href="/decks" className="text-amber-400 hover:text-amber-300 underline decoration-dotted underline-offset-2">
+                browse decks
+              </Link>
+              ,{" "}
+              <Link href="/play" className="text-amber-400 hover:text-amber-300 underline decoration-dotted underline-offset-2">
+                play a match
+              </Link>
+              , or{" "}
+              <Link href="/leaderboards" className="text-amber-400 hover:text-amber-300 underline decoration-dotted underline-offset-2">
+                check the leaderboards
+              </Link>
+              .
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {feed.map((ev) => (
