@@ -12,6 +12,10 @@
  */
 @plugin "@tailwindcss/typography";
 
+/* The Wardrobe — theme bundles + new tokens (ink, bid/ask, mats, voices).
+ * Spec: docs/superpowers/specs/2026-06-10-the-wardrobe-design.md */
+@import "./themes.css";
+
 /*
  * Storefront design tokens — Tailwind 4 @theme.
  *

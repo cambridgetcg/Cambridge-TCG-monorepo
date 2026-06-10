@@ -55,4 +55,6 @@ export {
   type TypeSignatureProps,
 } from "./TypeSignature";
 
+export { Icon, ICON_NAMES, type IconName } from "./Icon";
+
 export * as Palettes from "./status-palettes";

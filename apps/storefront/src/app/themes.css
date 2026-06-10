@@ -1,0 +1,190 @@
+/*
+ * The Wardrobe — theme bundles for the customisable storefront.
+ *
+ * Spec: docs/superpowers/specs/2026-06-10-the-wardrobe-design.md
+ * Registry (typed source of truth for ids/labels/entitlements):
+ *   src/lib/wardrobe/themes.ts
+ *
+ * How this works: the committed `@theme` block in globals.css emits the
+ * semantic tokens as CSS custom properties, and every semantic utility
+ * (`bg-page`, `text-accent`, …) reads them through var(). A
+ * `[data-theme="…"]` attribute therefore re-binds the whole semantic
+ * vocabulary for its subtree — on <html> when the visitor has chosen,
+ * or on a migrated page's wrapper during the staged rollout (spec §3.3).
+ *
+ * `:root` defaults (in globals.css + the additions below) remain the
+ * terminal-dark values, so pages without a wrapper are unchanged until
+ * the site-wide flip (spec §3.6).
+ *
+ * Raw utilities (`bg-neutral-900`) do not respond to themes by design —
+ * migration to semantic tokens is the unit of adoption.
+ *
+ * text-mode always wins: its overrides carry !important.
+ */
+
+/* ── New tokens (terminal-dark defaults; join the globals.css set) ───── */
+@theme {
+  /* ink — text hierarchy (replaces ad-hoc text-white/neutral-400/500) */
+  --color-ink: #ededed;
+  --color-ink-muted: #a3a3a3; /* neutral-400 */
+  --color-ink-faint: #737373; /* neutral-500 */
+
+  /* accent wash — tinted ground for chips/halos of the accent */
+  --color-accent-wash: rgb(245 158 11 / 0.1);
+
+  /* market semantics — bid/ask are doctrine-narrow: green buys, red sells */
+  --color-bid: #34d399; /* emerald-400 */
+  --color-ask: #f87171; /* red-400 */
+
+  /* the mat — gallery's layered warm shadow; flat in terminal */
+  --shadow-mat: 0 0 #0000;
+
+  /* typographic voices — themes re-bind these; terminal keeps the
+   * existing Inter body and the system mono stack */
+  --font-display: var(--font-inter), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+}
+
+/* ── Terminal — today's look, preserved exactly (the trader's choice) ── */
+/* Explicit bundle so a subtree can opt back to dark inside a gallery page. */
+[data-theme="terminal"] {
+  --color-page: #0a0a0a;
+  --color-surface: #171717;
+  --color-surface-subtle: rgb(23 23 23 / 0.5);
+  --color-surface-elevated: #262626;
+  --color-border-subtle: #262626;
+  --color-border-strong: #404040;
+  --color-accent: #f59e0b;
+  --color-accent-strong: #fbbf24;
+  --color-accent-wash: rgb(245 158 11 / 0.1);
+  --color-secondary: #34d399;
+  --color-danger: #ef4444;
+  --color-warning: #fbbf24;
+  --color-info: #38bdf8;
+  --color-ok: #34d399;
+  --color-ink: #ededed;
+  --color-ink-muted: #a3a3a3;
+  --color-ink-faint: #737373;
+  --color-bid: #34d399;
+  --color-ask: #f87171;
+  --shadow-mat: 0 0 #0000;
+  --font-display: var(--font-inter), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+/* ── Gallery — the card, given room (default-of-record, spec §3.1) ───── */
+[data-theme="gallery"] {
+  --color-page: #f7f3ec;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f1ebe1;
+  --color-surface-elevated: #fffdf9;
+  --color-border-subtle: #e7dfd0;
+  --color-border-strong: #cdc0a8;
+  --color-accent: #9a6b1f;        /* gilt — AA on ivory */
+  --color-accent-strong: #7c5415;
+  --color-accent-wash: #f3e7ce;
+  --color-secondary: #1f6f50;
+  --color-danger: #8c2b2b;        /* oxblood */
+  --color-warning: #92610e;
+  --color-info: #2b5e6e;          /* slate-teal */
+  --color-ok: #1f6f50;
+  --color-ink: #211d16;
+  --color-ink-muted: #6e6557;
+  --color-ink-faint: #988d7b;
+  --color-bid: #1f6f50;
+  --color-ask: #8c2b2b;
+  --shadow-mat: 0 1px 2px rgb(33 29 22 / 0.06), 0 10px 28px rgb(33 29 22 / 0.07);
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-schibsted), system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: light;
+}
+
+/* ── Midnight — members' skin: blue-black ground, moonlight gilt ─────── */
+[data-theme="midnight"] {
+  --color-page: #0b0f1a;
+  --color-surface: #121829;
+  --color-surface-subtle: #0e1422;
+  --color-surface-elevated: #1a2138;
+  --color-border-subtle: #1f2941;
+  --color-border-strong: #2e3b5e;
+  --color-accent: #d9b36c;        /* moonlight gilt */
+  --color-accent-strong: #e6c788;
+  --color-accent-wash: rgb(217 179 108 / 0.12);
+  --color-secondary: #5bbf8f;
+  --color-danger: #e07a6b;
+  --color-warning: #d9b36c;
+  --color-info: #7fb4c9;
+  --color-ok: #5bbf8f;
+  --color-ink: #e9e4d6;
+  --color-ink-muted: #9ba3b8;
+  --color-ink-faint: #5f687e;
+  --color-bid: #5bbf8f;
+  --color-ask: #e07a6b;
+  --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-schibsted), system-ui, sans-serif;
+  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+
+/* ── High contrast — free always; accessibility is never paywalled ───── */
+[data-theme="high-contrast"] {
+  --color-page: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f2f2f2;
+  --color-surface-elevated: #ffffff;
+  --color-border-subtle: #000000;
+  --color-border-strong: #000000;
+  --color-accent: #00309f;
+  --color-accent-strong: #001f6e;
+  --color-accent-wash: #e8eeff;
+  --color-secondary: #00591f;
+  --color-danger: #a80000;
+  --color-warning: #804d00;
+  --color-info: #003d99;
+  --color-ok: #00591f;
+  --color-ink: #000000;
+  --color-ink-muted: #1a1a1a;
+  --color-ink-faint: #333333;
+  --color-bid: #00591f;
+  --color-ask: #a80000;
+  --shadow-mat: 0 0 #0000;
+  --font-display: system-ui, sans-serif;
+  --font-body: system-ui, sans-serif;
+  color-scheme: light;
+}
+
+/* ── Materials ───────────────────────────────────────────────────────── */
+
+/* The ground — page background; gallery adds a whisper of paper grain.
+ * (CSS-only SVG turbulence; sits under content, never over it.) */
+.wardrobe-ground {
+  background-color: var(--color-page);
+}
+[data-theme="gallery"] .wardrobe-ground {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.13 0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The mat — a framed card image: hairline + warm shadow + white mount. */
+.wardrobe-mat {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-mat);
+}
+
+/* Staggered section reveal on load — gallery pages only; the global
+ * prefers-reduced-motion clamp (globals.css) shortens this to 1ms. */
+@keyframes wardrobe-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+[data-theme="gallery"] .wardrobe-rise,
+[data-theme="midnight"] .wardrobe-rise {
+  animation: wardrobe-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+[data-theme] .wardrobe-rise:nth-child(2) { animation-delay: 60ms; }
+[data-theme] .wardrobe-rise:nth-child(3) { animation-delay: 120ms; }
+[data-theme] .wardrobe-rise:nth-child(4) { animation-delay: 180ms; }
+[data-theme] .wardrobe-rise:nth-child(5) { animation-delay: 240ms; }
