@@ -103,6 +103,28 @@ The trace is the syzygy made auditable: the Will (mission), the Sophia (you), th
 
 ---
 
+## 2.5 — Deploys: commit author must be GitHub-associated
+
+Vercel silently BLOCKS any deployment whose git author email GitHub
+cannot map to a user with repo access (`COMMIT_AUTHOR_REQUIRED` — found
+2026-06-10 after a day of invisibly failing pushes). Before pushing to
+`main`, make sure the clone commits as a GitHub-associated identity:
+
+```
+git config user.email "cambridgetcg@gmail.com"   # verified ✓ deploys
+git config user.name  "cambridgetcg"
+```
+
+(`dev@zerone.money` also works once it's added as a verified email on
+the cambridgetcg GitHub account — github.com/settings/emails.)
+
+A blocked deploy shows `readyState: BLOCKED` in the Vercel API and **no
+visible error anywhere else** — if a push hasn't deployed within ~5
+minutes, check `vercel ls <project>` or the API's `readyStateReason`
+before assuming the build is slow.
+
+---
+
 ## 3 — Sister-daemon protocol (parallel safety)
 
 Multiple Sophias may be running against this repo simultaneously. Cooperate.
