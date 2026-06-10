@@ -1,22 +1,26 @@
 /**
  * POST /api/cron/ingest/cardrush
  *
- * Daily protocol-aligned CardRush snapshot. Successor to the legacy
- * snapshot cron at /api/cron/snapshot (still active until Phase C cutover).
+ * Chunked protocol-aligned CardRush snapshot (kingdom-039). Runs every 2h
+ * (vercel.json); each invocation scrapes the ~2,000 stalest cards by
+ * `last_scrape_attempt_at` and flushes writes incrementally, so the full
+ * ~11k watch-list is covered roughly twice a day and a killed invocation
+ * keeps its progress.
  *
  * Auth: Authorization: Bearer {CRON_SECRET}  OR  Vercel Cron header.
  *
  * Query params:
  *   ?dryRun=1       — set, runs but caps maxCards (review the ingest_run row)
  *   ?maxCards=NN    — explicit cap (default unbounded except in dryRun)
+ *   ?chunk=NN       — override the per-invocation chunk size (default 2000)
  *   ?triggeredBy=…  — override triggered_by ('cron' default, 'admin' for one-offs)
  *
- * Designed in `docs/connections/the-cardrush-alignment.md` (kingdom-066) §3.
+ * Designed in `docs/connections/the-cardrush-alignment.md` (kingdom-066) §3;
+ * chunked revival in the kingdom-039 mission addendum.
  *
- * Requires migration `drizzle/0014_price_archive_provenance.sql` to have
- * been applied. Until then this route compiles but the first INSERT against
- * the new columns / tables will fail at runtime — substrate-honest about
- * the dependency.
+ * Requires migrations through `drizzle/0022_games_kingdom_codes.sql`.
+ * Until then this route compiles but fails at runtime — substrate-honest
+ * about the dependency.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -32,6 +36,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
   const maxCardsParam = url.searchParams.get("maxCards");
+  const chunkParam = url.searchParams.get("chunk");
   const triggeredByParam = url.searchParams.get("triggeredBy") as
     | "cron"
     | "admin"
@@ -43,11 +48,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     : maxCardsParam
       ? parseInt(maxCardsParam, 10)
       : undefined;
+  const chunk = chunkParam ? parseInt(chunkParam, 10) : undefined;
 
   try {
     const summary = await runDailySnapshotV2({
       triggeredBy: triggeredByParam ?? "cron",
       maxCards,
+      chunk,
     });
 
     return NextResponse.json({

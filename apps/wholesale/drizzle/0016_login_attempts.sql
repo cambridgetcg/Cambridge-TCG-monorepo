@@ -31,6 +31,9 @@ CREATE INDEX IF NOT EXISTS login_attempts_email_time_idx
   ON login_attempts (email, attempted_at);
 
 -- Cleanup helper: rows older than 24h are useless for rate-limiting.
+-- NOTE (2026-06-10, kingdom-039): the original partial index here used
+-- now() in its predicate, which PostgreSQL rejects (42P17 — predicate
+-- functions must be IMMUTABLE), so this migration could never apply.
+-- A plain index on attempted_at serves the cleanup DELETE's scan.
 CREATE INDEX IF NOT EXISTS login_attempts_old_idx
-  ON login_attempts (attempted_at)
-  WHERE attempted_at < (now() - interval '24 hours');
+  ON login_attempts (attempted_at);

@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 // eBay CSV Generator — queries DB, generates File Exchange CSV for bulk upload
-// Usage: npx tsx tools/ebay-sync.ts [--dry-run] [--game=onepiece] [--set=OP01] [--limit=50]
+// Usage: npx tsx tools/ebay-sync.ts [--dry-run] [--game=op] [--set=OP01] [--limit=50]
+// --game takes the kingdom GameCode (games.code post-migration-0022): op | pkm | dbf
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 

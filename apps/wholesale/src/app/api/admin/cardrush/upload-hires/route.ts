@@ -3,9 +3,9 @@
  *
  * Admin-triggered counterpart to the cardrush-hires cron. Same runner;
  * accepts game / maxBatch / dryRun in the body so the operator can do
- * manual prods, dry-runs against pkm, or kick the op/dbs drains later.
+ * manual prods, dry-runs against pkm, or kick the op/dbf drains later.
  *
- * Body: { game?: "pkm" | "op" | "dbs"; maxBatch?: number; dryRun?: boolean }
+ * Body: { game?: "pkm" | "op" | "dbf"; maxBatch?: number; dryRun?: boolean }
  * Default game = "pkm".
  */
 
@@ -30,7 +30,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const game = body.game ?? "pkm";
-  if (game !== "pkm" && game !== "op" && game !== "dbs") {
+  if (game !== "pkm" && game !== "op" && game !== "dbf") {
     return NextResponse.json(
       { error: `Invalid game: ${game}` },
       { status: 400 },

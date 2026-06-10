@@ -136,7 +136,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     cardNumberPrefixes: ["OP", "ST", "EB", "PRB"],
     sealedListId: 4,
     s3Bucket: "jp-op-photos",
-    dbGameCode: "onepiece",
+    dbGameCode: "op",
     dbGameName: "One Piece",
     dbGameSlug: "one-piece",
     parse: ONEPIECE_PARSE,
@@ -148,7 +148,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     cardNumberPrefixes: ["FB", "FS", "SB"],
     sealedListId: 0, // TODO: discover sealed list ID
     s3Bucket: "jp-db-photos",
-    dbGameCode: "dragonball",
+    dbGameCode: "dbf",
     dbGameName: "Dragon Ball Fusion World",
     dbGameSlug: "dragon-ball-fusion-world",
     parse: DRAGONBALL_PARSE,
@@ -160,7 +160,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     cardNumberPrefixes: [],
     sealedListId: 0, // TODO: discover sealed list ID
     s3Bucket: "jp-pk-photos",
-    dbGameCode: "pokemon",
+    dbGameCode: "pkm",
     dbGameName: "Pokémon",
     dbGameSlug: "pokemon",
     parse: POKEMON_PARSE,
