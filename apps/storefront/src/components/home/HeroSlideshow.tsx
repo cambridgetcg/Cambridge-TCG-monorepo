@@ -4,17 +4,17 @@ import { useState, useEffect, useCallback } from "react";
 
 const slides = [
   {
-    src: "/banners/hero-anime-1.jpg",
+    src: "/banners/v2/hero-1.jpg",
     headline: "Find Your ONE PIECE",
     sub: "Premium Japanese trading cards, sourced direct from Japan",
   },
   {
-    src: "/banners/hero-anime-2.jpg",
+    src: "/banners/v2/hero-2.jpg",
     headline: "Every Card Has a Story",
     sub: "Near Mint condition. Authenticated. Yours.",
   },
   {
-    src: "/banners/hero-anime-3.jpg",
+    src: "/banners/v2/hero-3.jpg",
     headline: "The Treasure Is Real",
     sub: "Cambridge TCG — the collector's choice",
   },
@@ -53,7 +53,7 @@ export default function HeroSlideshow() {
               src={slide.src}
               alt={slide.headline}
               fill
-              className="object-cover"
+              className={`object-cover ${isActive ? "animate-hero-kenburns" : ""}`}
               priority={i === 0}
               sizes="100vw"
             />

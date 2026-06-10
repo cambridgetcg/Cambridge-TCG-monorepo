@@ -3,9 +3,9 @@ import Image from "next/image";
 export default function StorySection() {
   return (
     <section className="relative bg-neutral-950 py-24 px-4 overflow-hidden">
-      {/* Anime background */}
+      {/* Atmospheric background — v2 commissioned series */}
       <Image
-        src="/banners/bg-section-anime.jpg"
+        src="/banners/v2/bg-story.jpg"
         alt=""
         fill
         className="object-cover opacity-30"

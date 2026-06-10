@@ -2,15 +2,15 @@ import Link from "next/link";
 import Image from "next/image";
 import type { GameItem } from "@/lib/wholesale/client";
 
-// Map game slugs to their anime-style background images
+// Map game slugs to their tile art (v2 commissioned series, 1:1 native)
 const gameImages: Record<string, string> = {
-  pokemon: "/banners/game-pokemon-anime.jpg",
-  "one-piece": "/banners/game-onepiece-anime.jpg",
-  dragonball: "/banners/game-dragonball-anime.jpg",
-  "dragon-ball": "/banners/game-dragonball-anime.jpg",
+  pokemon: "/banners/v2/game-pokemon.jpg",
+  "one-piece": "/banners/v2/game-onepiece.jpg",
+  dragonball: "/banners/v2/game-dragonball.jpg",
+  "dragon-ball": "/banners/v2/game-dragonball.jpg",
 };
 
-const fallbackImage = "/banners/game-general-anime.jpg";
+const fallbackImage = "/banners/v2/game-general.jpg";
 
 export default function GameGrid({ games }: { games: GameItem[] }) {
   return (

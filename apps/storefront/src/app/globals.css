@@ -120,6 +120,21 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
 }
 
 /*
+ * Hero Ken Burns — a slow ease-out drift on the active hero slide.
+ * The class is only present while a slide is active, so the animation
+ * restarts each time a slide returns. Runs longer than the 6s
+ * auto-advance so the motion never visibly stops mid-slide.
+ * The prefers-reduced-motion override below clamps it to 1ms.
+ */
+@keyframes hero-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.07); }
+}
+.animate-hero-kenburns {
+  animation: hero-kenburns 9s ease-out forwards;
+}
+
+/*
  * Reduced motion — Wave 1.5 of the All-Aboard plan (kingdom-051).
  *
  * Respects the user's OS-level preference for less motion (System
