@@ -12,7 +12,13 @@ const FROM_EMAIL = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").t
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendVerificationRequest(params: any) {
   const email = params.identifier as string;
-  const url = params.url as string;
+  // Wrap the raw callback URL in the scanner-proof interstitial at
+  // /login/verify: email scanners GET every link and a magic link is
+  // single-use, so linking the callback directly let scanners consume
+  // the token before the human clicked (observed in prod 2026-06-10).
+  const rawUrl = params.url as string;
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/$/, "");
+  const url = `${origin}/login/verify?u=${encodeURIComponent(rawUrl)}`;
   const result = await sendMail(
     {
       from: `Cambridge TCG <${FROM_EMAIL}>`,
