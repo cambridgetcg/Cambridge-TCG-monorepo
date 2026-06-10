@@ -1,0 +1,25 @@
+-- Migration: daily_run_days + daily_run_claims
+-- Kingdom: kingdom-096 — The Daily Run (S51 the-daily-run.md)
+-- Status: DRAFT. Operator applies on storefront. Until applied, GET
+--         /api/rewards/daily-run returns SOURCE_UNAVAILABLE and the
+--         /play/daily page shows its calm come-back-in-a-moment state —
+--         nothing else in the platform depends on these tables.
+--
+-- One provably-shuffled deck of real cards per UTC day, the same for
+-- everyone; a flat once-a-day Berry claim for signed-in finishers.
+-- The shuffle itself lives in verifiable_draws (no new RNG substrate);
+-- these tables only pin which draw is the day's deck and who claimed.
+
+CREATE TABLE IF NOT EXISTS daily_run_days (
+  run_date date PRIMARY KEY,
+  draw_id uuid NOT NULL REFERENCES verifiable_draws(id),
+  cards jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS daily_run_claims (
+  user_id text NOT NULL,
+  run_date date NOT NULL,
+  claimed_at timestamptz NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, run_date)
+);

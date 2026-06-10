@@ -20,6 +20,7 @@ import { runPointsExpirySweep } from "@/lib/membership/points-expiry";
 import { runRaffleAutoDraw, retryWinnerNotifications } from "@/lib/rewards/raffle-sweep";
 import { runPveReconciliationSweep } from "@/lib/game/pve-sweep";
 import { runFairnessDigest } from "@/lib/provable-draw/digest";
+import { revealDailyRunYesterday } from "@/lib/daily-run/db";
 import { runFairnessSelfAudit } from "@/lib/provable-draw/self-audit";
 import { runFairnessDriftCheck } from "@/lib/provable-draw/drift";
 import { runTrustScoreRecompute } from "@/lib/escrow/trust-recompute";
@@ -166,9 +167,21 @@ export async function GET(request: Request) {
     // See docs/architecture/storefront-checkout-flow.md. Appended at the
     // end so the existing positional destructuring below stays aligned.
     releaseExpiredReservations(),
+    // Daily Run reveal — publishes yesterday's deck seed so the shuffle
+    // becomes checkable at /verify/draw/[id]. Idempotent: only stamps
+    // unrevealed rows; a freshly revealed deck joins the Merkle root on
+    // the digest's next pass. Appended at the end (positional rule above).
+    revealDailyRunYesterday(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, dailyRunReveal] = results;
+  if (dailyRunReveal.status === "fulfilled") {
+    if (dailyRunReveal.value.revealed > 0) {
+      console.log(`[cron] daily-run: revealed ${dailyRunReveal.value.revealed} deck seed(s)`);
+    }
+  } else {
+    console.error(`[cron] daily-run: reveal rejected:`, dailyRunReveal.reason);
+  }
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {

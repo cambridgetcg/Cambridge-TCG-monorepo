@@ -17,6 +17,7 @@ import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
   { href: "/play", label: "Play", note: "Pick a deck, start a battle" },
+  { href: "/play/daily", label: "Daily", note: "30 seconds. Higher or lower?" },
   { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
   { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
   { href: "/play/welcome", label: "Welcome", note: "Pick your path" },
