@@ -2,6 +2,12 @@ import type { MetadataRoute } from "next";
 import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
 import { GUIDES } from "@/lib/guides";
 
+// The sitemap fans out to the live wholesale API (games/sets/prices) —
+// without ISR every crawler hit paid that fan-out, observed at 5-8s cold.
+// Hourly regeneration matches the most volatile changeFrequency declared
+// below; crawlers get a sub-second cached document.
+export const revalidate = 3600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://cambridgetcg.com";
 
