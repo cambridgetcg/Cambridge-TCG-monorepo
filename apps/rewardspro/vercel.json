@@ -1,7 +1,7 @@
 {
   "framework": "remix",
   "buildCommand": "pnpm run build",
-  "installCommand": "pnpm install",
+  "installCommand": "pnpm install --prod=false",
   "outputDirectory": "build",
   "regions": ["arn1"],
   "env": {
