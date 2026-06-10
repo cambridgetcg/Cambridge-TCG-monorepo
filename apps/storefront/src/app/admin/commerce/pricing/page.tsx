@@ -23,6 +23,7 @@ import {
   WhyLink,
   type Column,
 } from "@/lib/admin/ui";
+import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
 import { PriceCell } from "./_components";
 
 export const metadata = { title: "Pricing" };
@@ -91,7 +92,7 @@ export default async function Page({
   if (filterClause) where.push(filterClause);
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  const [rowsResult, totalResult, kpiResult, gameResult, recentChangesResult] = await Promise.all([
+  const [rowsResult, totalResult, kpiResult, gameResult, recentChangesResult, ingestRunResult] = await Promise.all([
     wsQuery<CardRow>(
       `SELECT id, sku, card_number, name, set_code,
               cardrush_jpy, base_gbp::text, price::text,
@@ -122,9 +123,9 @@ export default async function Page({
     // Per-game sync coverage — surfaces silent scrape failures (e.g. the
     // Pokémon / Dragon Ball domains failing while One Piece succeeds).
     wsQuery<{
-      id: number; name: string | null; with_url: string; fresh_7d: string;
+      id: number; name: string | null; code: string | null; with_url: string; fresh_7d: string;
     }>(
-      `SELECT g.id, g.name,
+      `SELECT g.id, g.name, g.code,
               COUNT(c.*) FILTER (WHERE c.cardrush_url IS NOT NULL)::text AS with_url,
               COUNT(c.*) FILTER (
                 WHERE c.last_synced_at >= NOW() - INTERVAL '7 days'
@@ -132,7 +133,7 @@ export default async function Page({
          FROM games g
          LEFT JOIN cards c ON c.game_id = g.id
          WHERE g.active = true
-         GROUP BY g.id, g.name
+         GROUP BY g.id, g.name, g.code
         HAVING COUNT(c.*) FILTER (WHERE c.cardrush_url IS NOT NULL) > 0
          ORDER BY COUNT(c.*) FILTER (WHERE c.cardrush_url IS NOT NULL) DESC`,
       [],
@@ -174,6 +175,44 @@ export default async function Page({
       before_value: { price?: number; baseGbp?: number } | null;
       after_value: { price?: number; baseGbp?: number } | null;
       created_at: string;
+    }> })),
+    // Latest cardrush ingest run — the scrape-side truth (kingdom-039
+    // step 3). Complements cards.last_synced_at: that column says "how
+    // fresh is the DB", this row says "what did the last scrape attempt
+    // and why did its failures fail". events JSONB carries the read()
+    // loop's 'done' event with per_game buckets. Degrades to no row when
+    // the table is absent (dev DBs) — absence renders as unavailable,
+    // never as 0%.
+    wsQuery<{
+      id: number;
+      status: string;
+      triggered_at: string;
+      finished_at: string | null;
+      rows_read: number | null;
+      rows_written: number | null;
+      rows_quarantined: number | null;
+      errors: number | null;
+      notes: string | null;
+      events: unknown;
+    }>(
+      `SELECT id, status, triggered_at::text, finished_at::text,
+              rows_read, rows_written, rows_quarantined, errors, notes, events
+         FROM ingest_run
+        WHERE source_id = 'cardrush'
+        ORDER BY triggered_at DESC
+        LIMIT 1`,
+      [],
+    ).catch(() => ({ rows: [] as Array<{
+      id: number;
+      status: string;
+      triggered_at: string;
+      finished_at: string | null;
+      rows_read: number | null;
+      rows_written: number | null;
+      rows_quarantined: number | null;
+      errors: number | null;
+      notes: string | null;
+      events: unknown;
     }> })),
   ]);
 
@@ -263,16 +302,73 @@ export default async function Page({
     href: buildHref({ filter: f, page: "1" }),
   }));
 
+  // ── Latest scrape run, parsed (kingdom-039 step 3) ──────────────────
+  // Success rate must come from the per-game buckets / rows_written, NOT
+  // from ingest_run.status: the runner counts only writer exceptions as
+  // 'errors', so a run where every scrape failed can still be 'done'.
+  interface PerGameRunBucket {
+    attempted: number;
+    succeeded: number;
+    failed: number;
+    failure_reasons: Record<string, number>;
+  }
+  const latestRun = ingestRunResult.rows[0] ?? null;
+  const runPerGame: Record<string, PerGameRunBucket> = (() => {
+    if (!latestRun?.events || !Array.isArray(latestRun.events)) return {};
+    for (let i = latestRun.events.length - 1; i >= 0; i -= 1) {
+      const e = latestRun.events[i] as {
+        kind?: string;
+        detail?: { per_game?: Record<string, PerGameRunBucket> };
+      };
+      if (e?.kind === "done" && e.detail?.per_game) return e.detail.per_game;
+    }
+    return {};
+  })();
+  const runProxySkipped = latestRun?.notes?.includes("proxy_skipped") ?? false;
+  // Games only reachable through the Bright Data unlocker (today: pkm).
+  const unlockerGames = new Set(
+    Object.values(CARDRUSH_SUBDOMAINS)
+      .filter((entry) => entry.access === "bright-data-unlocker")
+      .map((entry) => entry.game as string),
+  );
+
   // Per-game coverage — figure out the urgency for each game.
-  // 0% fresh = critical (scrape is silently broken for this domain).
-  // <50% = warning. ≥50% = ok.
+  // Third state first (mission acceptance #4): a proxy-gated game with no
+  // configured proxy is a NAMED gap (warning + label), not silent
+  // breakage. Otherwise: 0% fresh = critical, <50% = warning, ≥50% = ok.
   const gameCoverage = gameResult.rows.map((g) => {
     const withUrl = parseInt(g.with_url, 10);
     const fresh = parseInt(g.fresh_7d, 10);
     const pct = withUrl > 0 ? Math.round((100 * fresh) / withUrl) : 0;
-    const urgency: "critical" | "warning" | "ok" =
-      withUrl === 0 || fresh === 0 ? "critical" : pct < 50 ? "warning" : "ok";
-    return { id: g.id, name: g.name ?? `Game ${g.id}`, withUrl, fresh, pct, urgency };
+    const code = g.code ?? "";
+    const run = runPerGame[code];
+    const proxyBlocked = runProxySkipped && unlockerGames.has(code) && !run;
+    const urgency: "critical" | "warning" | "ok" = proxyBlocked
+      ? "warning"
+      : withUrl === 0 || fresh === 0
+        ? "critical"
+        : pct < 50
+          ? "warning"
+          : "ok";
+    const topFailure = run && run.failed > 0
+      ? Object.entries(run.failure_reasons).sort((a, b) => b[1] - a[1])[0]?.[0]
+      : null;
+    const runSub = proxyBlocked
+      ? "scrape paused — Bright Data proxy not configured"
+      : run
+        ? `last run: ${run.succeeded}/${run.attempted} ok${topFailure ? ` · top failure: ${topFailure}` : ""}`
+        : latestRun
+          ? "not in last chunk (stalest-first rotation)"
+          : null;
+    return {
+      id: g.id,
+      name: g.name ?? `Game ${g.id}`,
+      withUrl,
+      fresh,
+      pct,
+      urgency,
+      runSub,
+    };
   });
   const anyBroken = gameCoverage.some((g) => g.urgency === "critical");
 
@@ -321,12 +417,12 @@ export default async function Page({
       </KpiGrid>
 
       {anyBroken && (
-        <ActionBanner tone="critical" title="Daily price snapshot is failing for one or more games">
+        <ActionBanner tone="critical" title="Price scrape is failing for one or more games">
           Cards with a CardRush URL exist but ZERO have been refreshed in the last 7 days
-          for at least one active game. The cron at{" "}
-          <code className="text-xs">apps/wholesale/src/app/api/cron/price-snapshot</code>{" "}
-          runs nightly but the per-domain scraper appears to fail silently. See per-game
-          coverage below.
+          for at least one active game. The chunked ingest at{" "}
+          <code className="text-xs">apps/wholesale/src/app/api/cron/ingest/cardrush</code>{" "}
+          runs every 2 hours; check the latest run line below and the{" "}
+          <code className="text-xs">ingest_run</code> notes for the named failure reasons.
         </ActionBanner>
       )}
 
@@ -337,7 +433,7 @@ export default async function Page({
             kind="synced"
             source="CardRush"
             at={kpi.last_sync}
-            cadence="daily"
+            cadence="2-hourly"
           />
         </div>
         <KpiGrid cols={(gameCoverage.length === 1 ? 2 : gameCoverage.length === 2 ? 2 : gameCoverage.length >= 4 ? 4 : 3) as 2 | 3 | 4}>
@@ -347,10 +443,38 @@ export default async function Page({
               label={g.name}
               value={`${g.fresh.toLocaleString()} / ${g.withUrl.toLocaleString()}`}
               urgency={g.urgency}
-              sub={`${g.pct}% fresh in 7d`}
+              sub={g.runSub ? `${g.pct}% fresh in 7d · ${g.runSub}` : `${g.pct}% fresh in 7d`}
             />
           ))}
         </KpiGrid>
+        {/* Run-derived signal (kingdom-039 step 3): what the last scrape
+            attempted, distinct from DB-side freshness. Absence is data —
+            no run row means "never run", not 0%. */}
+        {latestRun ? (
+          <div className="flex items-baseline gap-3 flex-wrap text-xs text-neutral-500">
+            <Provenance
+              kind="snapshot"
+              source={`ingest_run #${latestRun.id}`}
+              at={latestRun.finished_at ?? latestRun.triggered_at}
+              cadence="2-hourly"
+            />
+            <span>
+              Latest scrape run: {latestRun.status}
+              {latestRun.rows_read != null &&
+                ` · ${latestRun.rows_written ?? 0}/${latestRun.rows_read} written`}
+              {(latestRun.rows_quarantined ?? 0) > 0 &&
+                ` · ${latestRun.rows_quarantined} quarantined`}
+            </span>
+            {latestRun.notes && (
+              <span className="text-neutral-600 italic">{latestRun.notes}</span>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-neutral-600 italic">
+            No cardrush ingest_run rows — the chunked scrape has never run
+            against this database.
+          </p>
+        )}
       </section>
 
       {/* S3 sync + CSV upload not yet wired — punch-list item */}

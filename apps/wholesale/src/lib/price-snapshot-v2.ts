@@ -1,10 +1,10 @@
 /**
- * Daily price snapshot — protocol-aligned successor to `price-snapshot.ts`.
+ * Price snapshot — protocol-aligned successor to `price-snapshot.ts`.
  *
  * Built around `runSource()` from `@cambridge-tcg/data-ingest`. Closes
  * 9 of the 12 leaks named in `docs/connections/the-archive.md` Part B:
  *
- *   Leak  1 (failed-scrape reason)    — error_reason persisted to price_archive
+ *   Leak  1 (failed-scrape reason)    — error_reason persisted to quarantine
  *   Leak  3 (token-bucket bypassed)   — runSource shares one fetcher across the watch-list
  *   Leak  4 (no ingest_run row)       — INSERT at start + UPDATE at finish
  *   Leak  5 (raw HTML lost)           — quarantine writer persists raw_payload
@@ -13,21 +13,47 @@
  *   Leak 10 (sequential logPriceChange) — Promise.all per batch
  *   Leak 12 (source_url not archived) — source_url column written per row
  *
- * Remaining leaks (out of scope for this turn): Leak 2 closed by Phase A
- * migration (source column with default 'cardrush'); Leak 7 (cross-day
- * overwrite) partially closed by widened uniqueness; Leak 8 (FX provenance)
- * named in `the-archive.md` as future work; Leak 11 (speculative subdomain
- * promotion) requires the audit check.
+ * ── The chunked revival (kingdom-039, 2026-06-10) ───────────────────────
+ *
+ * The original v2 design scraped the FULL watch-list (~11,430 cards) at the
+ * source's polite 0.5 rps — ~6.3 hours of work against Vercel's 800s
+ * function ceiling — and deferred every DB write until after the scrape
+ * loop. Each nightly run was killed mid-scrape with zero rows written and
+ * its ingest_run row stuck at 'running' forever. Three changes fix it:
+ *
+ *   1. CHUNKED, STALEST-FIRST — each invocation takes the `chunk` cards
+ *      whose `last_scrape_attempt_at` is oldest (NULL first). The cursor
+ *      advances on every ATTEMPT, so dead URLs can't starve the queue.
+ *      The cron runs every 2h (vercel.json); 12 × 2,000 = 24,000 attempts
+ *      per day covers the full list roughly twice.
+ *   2. INCREMENTAL WRITES — archive/cards/price-log writes flush inside
+ *      the runSource write() callback every BATCH_SIZE rows. A killed
+ *      invocation keeps everything scraped so far.
+ *   3. HONEST RATE — ctx.rate_limit {rps: 4, burst: 8} overrides the
+ *      meta default 0.5 rps. The legacy 8-worker pool ran ~26 rps against
+ *      CardRush for a year without complaint; 0.5 rps was an accidental
+ *      50× regression introduced when Leak 3 was closed. 2,000 cards at
+ *      4 rps ≈ 500s — inside the budget with retry headroom.
+ *
+ * Pokémon (cardrush-pokemon.jp) requires the Bright Data unlocker
+ * (kingdom-088); when CARDRUSH_BRIGHT_DATA_PROXY_URL is unset those cards
+ * are EXCLUDED from the chunk at selection time and counted in the run
+ * notes — one honest note instead of thousands of junk quarantine rows.
+ *
+ * Stuck-run hygiene: any prior cardrush ingest_run still 'running' after
+ * 15 minutes is reaped to the (documented but previously never written)
+ * 'aborted' status on entry.
  *
  * ── Runtime dependency ──────────────────────────────────────────────────
  *
- * Requires `apps/wholesale/drizzle/0014_price_archive_provenance.sql` to be
- * applied. Until then this code will compile but fail at runtime on the
- * first INSERT referencing the new columns.
+ * Requires migrations through `0022_games_kingdom_codes.sql` (the
+ * `cards.last_scrape_attempt_at` cursor + `price_archive.condition` from
+ * 0015). Until applied this code compiles but fails at runtime.
  *
  * ── Designed in ─────────────────────────────────────────────────────────
  *
- * `docs/connections/the-cardrush-alignment.md` (kingdom-066) §5.
+ * `docs/connections/the-cardrush-alignment.md` (kingdom-066) §5;
+ * chunked revival in the kingdom-039 mission addendum.
  */
 
 import { db } from "@/lib/db";
@@ -39,11 +65,11 @@ import {
   ingestQuarantine,
 } from "@/lib/db/schema";
 import type { CardRushContext } from "@cambridge-tcg/data-ingest";
-import { cardrush, runSource } from "@cambridge-tcg/data-ingest";
+import { cardrush, runSource, CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
 import { fetchGbpJpyRate } from "@/lib/fx";
 import { calculatePriceByCategory } from "@/lib/pricing";
 import { logPriceChange } from "@/lib/price-change-log";
-import { eq, inArray, isNotNull, isNull, and, sql } from "drizzle-orm";
+import { eq, inArray, isNotNull, isNull, and, sql, asc } from "drizzle-orm";
 
 export interface SnapshotV2Options {
   gameIds?: number[];
@@ -51,6 +77,12 @@ export interface SnapshotV2Options {
   triggeredBy?: "cron" | "admin" | "webhook";
   /** Cap the number of cards scraped (useful for dry-runs). */
   maxCards?: number;
+  /**
+   * Cards per invocation, selected stalest-first by
+   * `last_scrape_attempt_at`. Defaults to CHUNK_DEFAULT. `maxCards`
+   * (dry-run cap) wins when smaller.
+   */
+  chunk?: number;
 }
 
 export interface SnapshotV2Result {
@@ -62,6 +94,8 @@ export interface SnapshotV2Result {
   errors: number;
   /** Cards in active games with `cardrush_url IS NULL` — visible gap, not silent skip. */
   nullUrlCount: number;
+  /** Cards excluded this run because their host needs the unconfigured proxy. */
+  proxySkippedCount: number;
   durationMs: number;
 }
 
@@ -77,9 +111,21 @@ interface CardRow {
 }
 
 const BATCH_SIZE = 100;
+/** Cards per invocation. ~500s at SCRAPE_RATE — fits the 800s ceiling. */
+const CHUNK_DEFAULT = 2000;
+/**
+ * Rate override for the shared fetcher. The legacy worker pool sustained
+ * ~26 rps against CardRush for a year; 4 rps is conservative while still
+ * 8× the meta default that made the watch-list mathematically uncoverable.
+ */
+const SCRAPE_RATE = { rps: 4, burst: 8 };
+/** Scrape budget; leaves ~80s of the 800s ceiling for final flushes. */
+const SCRAPE_BUDGET_MS = 700_000;
+/** A 'running' cardrush run older than this is a corpse — reap to 'aborted'. */
+const STUCK_RUN_REAP_MS = 15 * 60_000;
 
 /**
- * Run the daily snapshot, persisting an ingest_run row so the operator
+ * Run one snapshot chunk, persisting an ingest_run row so the operator
  * can query "did snapshot run today?" from the database.
  */
 export async function runDailySnapshotV2(
@@ -88,6 +134,26 @@ export async function runDailySnapshotV2(
   const startMs = Date.now();
   const snapshotDate = options?.date ?? new Date().toISOString().slice(0, 10);
   const triggeredBy = options?.triggeredBy ?? "cron";
+
+  // ── 0. Reap stuck 'running' rows from prior killed invocations ─────────
+  // Vercel kills over-budget functions without running catch blocks; the
+  // run row stays 'running' forever and the operator can't tell a live run
+  // from a corpse. 'aborted' is the status the public ingest-runs API
+  // documents for exactly this case.
+  await db
+    .update(ingestRun)
+    .set({
+      finishedAt: new Date(),
+      status: "aborted",
+      notes: `reaped by run started ${new Date().toISOString()}: still 'running' past ${STUCK_RUN_REAP_MS / 60_000} min — function was killed before it could finalise`,
+    })
+    .where(
+      and(
+        eq(ingestRun.sourceId, "cardrush"),
+        eq(ingestRun.status, "running"),
+        sql`${ingestRun.triggeredAt} < now() - interval '15 minutes'`,
+      ),
+    );
 
   // ── 1. INSERT ingest_run ────────────────────────────────────────────────
   const [runRow] = await db
@@ -102,18 +168,17 @@ export async function runDailySnapshotV2(
   const ingestRunId = runRow.id;
 
   try {
-    // ── 2. Resolve active games + load watch list + count null-URL gap ───
+    // ── 2. Resolve active games + select the stalest chunk ───────────────
     let gameIds = options?.gameIds;
+    const gameRows = await db
+      .select({ id: games.id, code: games.code, active: games.active })
+      .from(games);
     if (!gameIds || gameIds.length === 0) {
-      const active = await db
-        .select({ id: games.id })
-        .from(games)
-        .where(eq(games.active, true));
-      gameIds = active.map((g) => g.id);
+      gameIds = gameRows.filter((g) => g.active).map((g) => g.id);
     }
+    const codeByGameId = new Map(gameRows.map((g) => [g.id, g.code]));
 
     if (gameIds.length === 0) {
-      // No active games; finalise and return.
       await markRunDone(ingestRunId, {
         rows_read: 0,
         rows_normalized: 0,
@@ -131,11 +196,37 @@ export async function runDailySnapshotV2(
         rowsQuarantined: 0,
         errors: 0,
         nullUrlCount: 0,
+        proxySkippedCount: 0,
         durationMs: Date.now() - startMs,
       };
     }
 
-    const [allCards, nullUrlCount] = await Promise.all([
+    // Hosts that can only be reached through the Bright Data unlocker.
+    // When the operator hasn't supplied the proxy URL, exclude their cards
+    // at selection time: scraping them would produce thousands of
+    // proxy_not_configured quarantine rows per run and burn the chunk on
+    // cards that cannot succeed. The exclusion is counted and noted —
+    // substrate-honest gap, not a silent skip.
+    const proxyConfigured = Boolean(process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL);
+    const unlockerHosts = Object.entries(CARDRUSH_SUBDOMAINS)
+      .filter(([, entry]) => entry.access === "bright-data-unlocker")
+      .map(([host]) => host);
+    const proxyExclusion =
+      !proxyConfigured && unlockerHosts.length > 0
+        ? unlockerHosts.map(
+            (host) => sql`${cards.cardrushUrl} NOT LIKE ${"%" + host + "%"}`,
+          )
+        : [];
+
+    const chunkSize = Math.max(
+      1,
+      Math.min(
+        options?.maxCards ?? Number.POSITIVE_INFINITY,
+        options?.chunk ?? CHUNK_DEFAULT,
+      ),
+    );
+
+    const [chunkCards, nullUrlCount, proxySkippedCount] = await Promise.all([
       db
         .select({
           id: cards.id,
@@ -148,77 +239,85 @@ export async function runDailySnapshotV2(
           previousBaseGbp: cards.baseGbp,
         })
         .from(cards)
-        .where(and(inArray(cards.gameId, gameIds), isNotNull(cards.cardrushUrl))) as Promise<CardRow[]>,
+        .where(
+          and(
+            inArray(cards.gameId, gameIds),
+            isNotNull(cards.cardrushUrl),
+            ...proxyExclusion,
+          ),
+        )
+        .orderBy(
+          sql`${cards.lastScrapeAttemptAt} ASC NULLS FIRST`,
+          asc(cards.id),
+        )
+        .limit(chunkSize) as Promise<CardRow[]>,
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(cards)
         .where(and(inArray(cards.gameId, gameIds), isNull(cards.cardrushUrl)))
         .then((rows) => rows[0]?.count ?? 0),
+      proxyExclusion.length > 0
+        ? db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(cards)
+            .where(
+              and(
+                inArray(cards.gameId, gameIds),
+                isNotNull(cards.cardrushUrl),
+                sql`NOT (${sql.join(
+                  unlockerHosts.map(
+                    (host) =>
+                      sql`${cards.cardrushUrl} NOT LIKE ${"%" + host + "%"}`,
+                  ),
+                  sql` AND `,
+                )})`,
+              ),
+            )
+            .then((rows) => rows[0]?.count ?? 0)
+        : Promise.resolve(0),
     ]);
 
-    const cappedCards = options?.maxCards
-      ? allCards.slice(0, options.maxCards)
-      : allCards;
-
-    const watchList = cappedCards.map((c) => ({ url: c.cardrushUrl, sku: c.sku }));
-    const skuToCard = new Map(cappedCards.map((c) => [c.sku, c]));
+    const watchList = chunkCards.map((c) => ({ url: c.cardrushUrl, sku: c.sku }));
+    const skuToCard = new Map(chunkCards.map((c) => [c.sku, c]));
 
     // ── 3. Fetch FX once per run ──────────────────────────────────────────
     const gbpJpyRate = await fetchGbpJpyRate();
 
-    // ── 4. Run the source through the package's runner ────────────────────
-    const collected: Array<{ canonical: { sku: string; amount: string; upstream_id?: string }; card: CardRow }> = [];
+    // ── 4 + 5. Run the source; flush writes INSIDE the loop ───────────────
+    // Pending successful scrapes flush to price_archive/cards/price-log
+    // every BATCH_SIZE rows so a killed invocation keeps its progress.
+    // Attempted-card ids (success AND failure) flush to
+    // last_scrape_attempt_at in the same cadence — the cursor advances on
+    // attempt, not success, so dead URLs can't pin the queue.
+    let rowsWritten = 0;
     let rowsQuarantined = 0;
+    const perGameDb: Record<string, { attempted: number; succeeded: number; failed: number }> = {};
+    const pending: Array<{ canonical: { sku: string; amount: string; upstream_id?: string }; card: CardRow }> = [];
+    const attemptedIds: number[] = [];
 
-    // Source-specific options (cardrush.urls) live on a typed extension of
-    // IngestContext; the bare runSource() signature uses IngestContext so we
-    // cast through the source's own context shape. See packages/data-ingest/
-    // src/cardrush/index.ts CardRushContext.
-    //
-    // bright_data_proxy_url: forwarded from the deployment env. When set,
-    // cardrush subdomains with access="bright-data-unlocker" (currently
-    // cardrush-pokemon.jp; WAF-blocked on direct egress) route through
-    // the unlocker. When absent, those scrapes return
-    // error_reason="proxy_not_configured" — visible failure, not silent
-    // 403. Added kingdom-088 (the-bright-data-unlock).
-    const ctx: CardRushContext = {
-      cardrush: {
-        urls: watchList,
-        bright_data_proxy_url: process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL,
-      },
-      signal: AbortSignal.timeout(45 * 60_000),
+    const bumpGame = (card: CardRow | undefined, ok: boolean) => {
+      const code = card?.gameId != null ? (codeByGameId.get(card.gameId) ?? "unknown") : "unknown";
+      const bucket = (perGameDb[code] ??= { attempted: 0, succeeded: 0, failed: 0 });
+      bucket.attempted += 1;
+      if (ok) bucket.succeeded += 1;
+      else bucket.failed += 1;
     };
 
-    const summary = await runSource(
-      cardrush,
-      ctx,
-      {
-        write: async (canonical) => {
-          const card = skuToCard.get(canonical.sku);
-          if (!card) return; // shouldn't happen — watch list comes from skuToCard
-          collected.push({ canonical, card });
-        },
-        quarantine: async ({ raw, reason, provenance }) => {
-          rowsQuarantined += 1;
-          await db.insert(ingestQuarantine).values({
-            ingestRunId,
-            sourceId: "cardrush",
-            upstreamId: (raw as { url?: string }).url ?? null,
-            rawPayload: raw as unknown as Record<string, unknown>,
-            reason,
-            asOf: new Date(provenance.as_of),
-            retrievedAt: new Date(provenance.retrieved_at),
-          });
-        },
-      },
-    );
+    const flushAttempts = async () => {
+      if (attemptedIds.length === 0) return;
+      const ids = attemptedIds.splice(0);
+      await db
+        .update(cards)
+        .set({ lastScrapeAttemptAt: new Date() })
+        .where(inArray(cards.id, ids));
+    };
 
-    // ── 5. Batched DB writes — 100 at a time ──────────────────────────────
-    let rowsWritten = 0;
-    const priceChangeQueue: Array<Parameters<typeof logPriceChange>[0]> = [];
+    const flushPending = async () => {
+      if (pending.length === 0) return;
+      const batch = pending.splice(0);
+      const now = new Date();
+      const priceChangeQueue: Array<Parameters<typeof logPriceChange>[0]> = [];
 
-    for (let i = 0; i < collected.length; i += BATCH_SIZE) {
-      const batch = collected.slice(i, i + BATCH_SIZE);
       const archiveRows = batch.map(({ canonical, card }) => {
         const priceJpy = parseInt(canonical.amount, 10);
         const { baseGbp, price } = calculatePriceByCategory(
@@ -242,19 +341,32 @@ export async function runDailySnapshotV2(
           sourceCurrency: "JPY",
           sourceRedistribute: false,
           errorReason: null,
+          // CardRush scrapes are A-condition (状態A-) — our NM equivalent.
+          // Explicit (not the column default 'unspecified') so the archive
+          // time-series stays unified with the 0015 backfill, and the
+          // 4-column conflict target below can match.
+          condition: "nm",
           _previousPrice: card.previousPrice,
           _previousBaseGbp: card.previousBaseGbp,
         };
       });
 
-      // Strip private fields before insert
-      const archiveValues = archiveRows.map(({ _previousPrice, _previousBaseGbp, ...row }) => row);
+      const archiveValues = archiveRows.map(
+        ({ _previousPrice, _previousBaseGbp, ...row }) => row,
+      );
 
+      // Conflict target matches the post-0015 unique index
+      // (card_id, snapshot_date, source, condition).
       await db
         .insert(priceArchive)
         .values(archiveValues)
         .onConflictDoUpdate({
-          target: [priceArchive.cardId, priceArchive.snapshotDate, priceArchive.source],
+          target: [
+            priceArchive.cardId,
+            priceArchive.snapshotDate,
+            priceArchive.source,
+            priceArchive.condition,
+          ],
           set: {
             cardrushJpy: sql`EXCLUDED.cardrush_jpy`,
             gbpJpyRate: sql`EXCLUDED.gbp_jpy_rate`,
@@ -266,7 +378,6 @@ export async function runDailySnapshotV2(
           },
         });
 
-      // Update cards table + queue price-change log entries
       for (const row of archiveRows) {
         await db
           .update(cards)
@@ -275,7 +386,8 @@ export async function runDailySnapshotV2(
             gbpJpyRate: row.gbpJpyRate,
             baseGbp: row.baseGbp,
             price: row.price,
-            lastSyncedAt: new Date(),
+            lastSyncedAt: now,
+            lastScrapeAttemptAt: now,
           })
           .where(eq(cards.id, row.cardId));
 
@@ -303,16 +415,77 @@ export async function runDailySnapshotV2(
         }
       }
 
+      for (let i = 0; i < priceChangeQueue.length; i += BATCH_SIZE) {
+        const logBatch = priceChangeQueue.slice(i, i + BATCH_SIZE);
+        await Promise.all(logBatch.map((row) => logPriceChange(row)));
+      }
+
       rowsWritten += batch.length;
-    }
+    };
 
-    // ── 6. Batch the price-change log writes ──────────────────────────────
-    for (let i = 0; i < priceChangeQueue.length; i += BATCH_SIZE) {
-      const batch = priceChangeQueue.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map((row) => logPriceChange(row)));
-    }
+    // bright_data_proxy_url: forwarded from the deployment env. When set,
+    // cardrush subdomains with access="bright-data-unlocker" (currently
+    // cardrush-pokemon.jp; WAF-blocked on direct egress) route through
+    // the unlocker. Added kingdom-088 (the-bright-data-unlock).
+    const ctx: CardRushContext = {
+      cardrush: {
+        urls: watchList,
+        bright_data_proxy_url: process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL,
+      },
+      rate_limit: SCRAPE_RATE,
+      signal: AbortSignal.timeout(SCRAPE_BUDGET_MS),
+    };
 
-    // ── 7. UPDATE ingest_run finished_at + counts + events ────────────────
+    const summary = await runSource(cardrush, ctx, {
+      write: async (canonical) => {
+        const card = skuToCard.get(canonical.sku);
+        if (!card) return; // shouldn't happen — watch list comes from skuToCard
+        pending.push({ canonical, card });
+        attemptedIds.push(card.id); // lastScrapeAttemptAt set in flushPending too; harmless double-set
+        bumpGame(card, true);
+        if (pending.length >= BATCH_SIZE) {
+          await flushPending();
+          await flushAttempts();
+        }
+      },
+      quarantine: async ({ raw, reason, provenance }) => {
+        rowsQuarantined += 1;
+        const sku = (raw as { inferred_sku?: string | null }).inferred_sku;
+        const card = sku ? skuToCard.get(sku) : undefined;
+        if (card) attemptedIds.push(card.id);
+        bumpGame(card, false);
+        await db.insert(ingestQuarantine).values({
+          ingestRunId,
+          sourceId: "cardrush",
+          upstreamId: (raw as { url?: string }).url ?? null,
+          rawPayload: raw as unknown as Record<string, unknown>,
+          reason,
+          asOf: new Date(provenance.as_of),
+          retrievedAt: new Date(provenance.retrieved_at),
+        });
+        if (attemptedIds.length >= BATCH_SIZE) await flushAttempts();
+      },
+    });
+
+    // Final flush for the tail batch.
+    await flushPending();
+    await flushAttempts();
+
+    // ── 6. UPDATE ingest_run finished_at + counts + events + notes ────────
+    const perGameNote = Object.entries(perGameDb)
+      .map(([code, b]) => `${code} ${b.succeeded}/${b.attempted} ok`)
+      .join(", ");
+    const noteParts = [
+      `chunk=${chunkCards.length}/${chunkSize} (stalest-first by last_scrape_attempt_at)`,
+      perGameNote ? `per-game: ${perGameNote}` : null,
+      proxySkippedCount > 0
+        ? `proxy_skipped=${proxySkippedCount} (hosts ${unlockerHosts.join(", ")} need CARDRUSH_BRIGHT_DATA_PROXY_URL — unset, cards excluded from chunk)`
+        : null,
+      nullUrlCount > 0
+        ? `null_url_count=${nullUrlCount} (cards in active games with cardrush_url IS NULL — not scraped)`
+        : null,
+    ].filter(Boolean);
+
     await markRunDone(ingestRunId, {
       rows_read: summary.rows_read,
       rows_normalized: summary.rows_normalized,
@@ -320,10 +493,7 @@ export async function runDailySnapshotV2(
       rowsQuarantined,
       errors: summary.errors,
       events: summary.events,
-      notes:
-        nullUrlCount > 0
-          ? `null_url_count=${nullUrlCount} (cards in active games with cardrush_url IS NULL — not scraped)`
-          : null,
+      notes: noteParts.length > 0 ? noteParts.join("; ") : null,
     });
 
     return {
@@ -334,6 +504,7 @@ export async function runDailySnapshotV2(
       rowsQuarantined,
       errors: summary.errors,
       nullUrlCount,
+      proxySkippedCount,
       durationMs: Date.now() - startMs,
     };
   } catch (err) {
