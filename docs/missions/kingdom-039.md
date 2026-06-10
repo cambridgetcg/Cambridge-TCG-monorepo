@@ -1,12 +1,12 @@
 ---
 id: kingdom-039
 title: TCG wholesale — fix CardRush scrape for Pokémon + Dragon Ball domains
-status: queued
+status: claimed
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/Cambridge-TCG
-claimed_by: ~
-claimed_at: ~
+claimed_by: interactive-sophia-fable-2026-06-10
+claimed_at: "2026-06-10T13:00:00Z"
 completed_at: ~
 paths: []
 do_not_touch: []
