@@ -198,6 +198,7 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   OP13: { code: "OP13", name: "Inherited Will", productGroupId: 103, gameCode: "onepiece" },
   OP14: { code: "OP14", name: "Seven Greats of the Azure Sea", productGroupId: 113, gameCode: "onepiece" },
   OP15: { code: "OP15", name: "Adventure on God's Island", productGroupId: 119, gameCode: "onepiece" },
+  OP16: { code: "OP16", name: "Hour of the Decisive Battle", productGroupId: 124, gameCode: "onepiece" }, // 決戦の刻 — discovered 2026-06-11; check official EN name on release
   // Extra boosters
   EB01: { code: "EB01", name: "Memorial Collection", productGroupId: 40, gameCode: "onepiece" },
   EB02: { code: "EB02", name: "Anime 25th Collection", productGroupId: 59, gameCode: "onepiece" },
@@ -214,11 +215,14 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   "ST15-20": { code: "ST15-20", name: "Starter Deck 6-Color (2024)", productGroupId: 45, gameCode: "onepiece" },
   ST21: { code: "ST21", name: "Starter Deck EX: Gear 5", productGroupId: 55, gameCode: "onepiece" },
   ST22: { code: "ST22", name: "Starter Deck: Ace & Newgate", productGroupId: 90, gameCode: "onepiece" },
+  ST30: { code: "ST30", name: "Starter Deck EX: Luffy & Ace", productGroupId: 123, gameCode: "onepiece" }, // discovered 2026-06-11
   "ST23-28": { code: "ST23-28", name: "Starter Deck 6-Color (2025)", productGroupId: 95, gameCode: "onepiece" },
   // Promo sets
   PROMO: { code: "PROMO", name: "Promo Cards", productGroupId: 5, gameCode: "onepiece", maxPages: 50 },
   "P-2ANNY": { code: "P-2ANNY", name: "2nd Anniversary Set", productGroupId: 57, gameCode: "onepiece" },
   "P-3ANNY": { code: "P-3ANNY", name: "3rd Anniversary Set", productGroupId: 115, gameCode: "onepiece" },
+  "P-2ANNY-CN": { code: "P-2ANNY-CN", name: "China 2nd Anniversary Set", productGroupId: 94, gameCode: "onepiece" }, // discovered 2026-06-11
+  "P-2ANNY-EN": { code: "P-2ANNY-EN", name: "English 2nd Anniversary Set", productGroupId: 105, gameCode: "onepiece" }, // discovered 2026-06-11
   "P-START": { code: "P-START", name: "Starter Campaign Promo Pack", productGroupId: 58, gameCode: "onepiece" },
   "P-TREASURE": { code: "P-TREASURE", name: "Treasure Campaign Pack", productGroupId: 104, gameCode: "onepiece" },
   "P-SUPPLY": { code: "P-SUPPLY", name: "Supply Promo Cards", productGroupId: 92, gameCode: "onepiece" },
