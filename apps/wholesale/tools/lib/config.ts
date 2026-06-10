@@ -198,6 +198,7 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   OP13: { code: "OP13", name: "Inherited Will", productGroupId: 103, gameCode: "onepiece" },
   OP14: { code: "OP14", name: "Seven Greats of the Azure Sea", productGroupId: 113, gameCode: "onepiece" },
   OP15: { code: "OP15", name: "Adventure on God's Island", productGroupId: 119, gameCode: "onepiece" },
+  OP16: { code: "OP16", name: "Hour of the Decisive Battle", productGroupId: 124, gameCode: "onepiece" }, // 決戦の刻 — discovered 2026-06-11; check official EN name on release
   // Extra boosters
   EB01: { code: "EB01", name: "Memorial Collection", productGroupId: 40, gameCode: "onepiece" },
   EB02: { code: "EB02", name: "Anime 25th Collection", productGroupId: 59, gameCode: "onepiece" },

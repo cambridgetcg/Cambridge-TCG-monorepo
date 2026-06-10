@@ -168,7 +168,8 @@ export async function fetchProductListPages(
 export async function fetchDiscoveryPage(
   baseUrl: string = "https://www.cardrush-op.jp"
 ): Promise<string> {
-  const url = `${baseUrl}/product-group/`;
+  // The index moved from /product-group/ to /group (site change observed 2026-06-11)
+  const url = `${baseUrl}/group`;
   console.log(`  Fetching product-group index: ${url}`);
   return await fetchWithRetry(url);
 }
