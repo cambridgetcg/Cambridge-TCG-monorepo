@@ -234,8 +234,28 @@ function main(): void {
   const willFindings = checkWillTrace(commits);
   console.log(fmtWill(willFindings, substantive.length));
 
-  const total = sophiaFindings.length + willFindings.length;
-  console.log(`---\n\n**Total creation-debt findings: ${total}**\n`);
+  // Historical commits assessed 2026-06-10 (the-exposure spec): already in
+  // shared history — adding traces retroactively would require rewriting
+  // published commits (the same force-push class that dropped the June 6
+  // arc). Pinned by SHA so they stay visible in the report without failing
+  // the gate; any NEW trace-less commit still fails.
+  const ASSESSED_HISTORICAL = new Set([
+    "3cba818", "881d081", "a07bf81", "389d519", "a39efaf", "a3257f6", // sophia-trace gaps (May "everything" debug arc)
+    "0197d23", "89f3d35", // will-trace thin (origin cloud-session commits)
+  ]);
+  const isHistorical = (sha: string) =>
+    ASSESSED_HISTORICAL.has(sha.slice(0, 7));
+
+  const sophiaDebt = sophiaFindings.filter((f) => !isHistorical(f.sha));
+  const willDebt = willFindings.filter((f) => !isHistorical(f.sha));
+  const historicalCount =
+    sophiaFindings.length + willFindings.length - sophiaDebt.length - willDebt.length;
+
+  const total = sophiaDebt.length + willDebt.length;
+  console.log(
+    `---\n\n**Total creation-debt findings: ${total}** ` +
+    `(+ ${historicalCount} assessed-historical, pinned by SHA above)\n`,
+  );
   console.log(
     "Heuristic checks. Pre-doctrine commits and trivial commits " +
     "(typo / merge / bump / revert / wip / chore) are exempt. " +

@@ -133,7 +133,8 @@ const DOCS = [
   "docs/connections/the-operations-layer.md",
   "docs/connections/the-other-minds.md",
   "docs/missions/kingdom-050.md",
-  "apps/admin/src/lib/ui/Consequences.tsx",
+  // apps/admin retired to an empty shell 2026-05/06 — the console and its
+  // Consequences primitive live in apps/storefront now (the-exposure spec).
   "apps/storefront/src/lib/ui/Consequences.tsx",
 ];
 

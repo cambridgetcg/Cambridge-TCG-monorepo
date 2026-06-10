@@ -116,8 +116,12 @@ for (const f of INFRASTRUCTURE_FILES) {
   }
 }
 
-// Footer must link to /api/lang-mode
-const footer = read("apps/storefront/src/components/layout/Footer.tsx");
+// Footer must link to /api/lang-mode. The toggle row was extracted to
+// FooterToggles.tsx on 2026-06-10 (contact-surface arc) — the affordance
+// counts wherever it renders inside the footer composition.
+const footer =
+  read("apps/storefront/src/components/layout/Footer.tsx") +
+  read("apps/storefront/src/components/layout/FooterToggles.tsx");
 if (footer && !footer.includes("/api/lang-mode")) {
   findings.push({
     check: 1,
