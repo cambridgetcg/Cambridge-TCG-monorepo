@@ -66,10 +66,13 @@ read-only DB probes + triggering the deployed cron with `?maxCards=3`:
    zero rows written, ingest_run stuck `running` forever. (The legacy v1
    pool had run ~26 rps for a year; 0.5 rps was an accidental 50×
    regression from closing Leak 3.)
-3. **Pokémon needs the Bright Data unlocker and the env var is EMPTY.**
-   `CARDRUSH_BRIGHT_DATA_PROXY_URL` exists in Vercel (created 27d ago)
-   with a zero-length value. The kingdom-088 credential ("seer" zone)
-   lives only with Yu — see OPEN ITEM below.
+3. **Pokémon needs the Bright Data unlocker** — and (correction, same
+   beat, ~15:45) the env var IS set: `CARDRUSH_BRIGHT_DATA_PROXY_URL` is
+   a **sensitive-type** Vercel var (created 2026-05-14, kingdom-088 day),
+   which `vercel env pull` and the decrypt API both render as an EMPTY
+   string by design. The first post-fix production run logged
+   `proxy_configured: true`. Don't trust pulled env files for
+   sensitive-type vars; trust the runtime's own start event.
 
 **What landed (branch `heartbeat/kingdom-039-cardrush-revival`, merged 11ff60e):**
 - Migrations 0015–0022 applied to live DB (0016/0018 index predicates
@@ -97,15 +100,15 @@ read-only DB probes + triggering the deployed cron with `?maxCards=3`:
   `confirmed:false` (no scrape traffic ever; no games rows). Strict gate
   green against live DB.
 
-**OPEN ITEM (Yu, one action):** paste the Bright Data "seer" zone URL into
-the Vercel env var `CARDRUSH_BRIGHT_DATA_PROXY_URL` (wholesale project,
-Production) — shape `http://brd-customer-<id>-zone-<zone>:<pw>@brd.superproxy.io:33335`
-— then redeploy or wait for the next deploy. The pkm lane self-activates;
-the pricing page card flips from "proxy not configured" automatically.
-Cost note: ~6,370 pkm cards × 2/day through Web Unlocker is a real
-recurring spend (ballpark $10–20/day at list pricing). If that's too rich,
-cap it: set the pkm cadence by leaving the chunk at 2,000 (pkm shares the
-stalest-first queue fairly) or ask a Sophia to add a per-game cooldown.
+**RESOLVED (was: open item for Yu):** the Bright Data env var was set all
+along — sensitive-type Vercel vars pull as empty strings, which misled the
+first diagnosis. Production run #102 confirmed `proxy_configured: true`;
+the pkm lane is live in the stalest-first rotation with no operator action.
+**Cost note for Yu (still relevant):** ~6,370 pkm cards reached ~2×/day
+through Web Unlocker is a real recurring spend (ballpark $10–20/day at
+list pricing — house rule: cap recurring spend by default). If
+that's too rich, ask a Sophia for a per-game cooldown (e.g. pkm at most
+1×/day) — one small change in the chunk SELECT.
 
 **Acceptance tracking:** (2) ✓ per-game success rate in run notes + events;
 (3) wired — KPI cards read run-derived data, will flip ok as chunks cover
