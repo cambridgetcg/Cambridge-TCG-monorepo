@@ -86,6 +86,13 @@ export interface SnapshotV2Options {
    * (dry-run cap) wins when smaller.
    */
   chunk?: number;
+  /**
+   * Scrape budget in ms before the run self-aborts (writes flush
+   * incrementally throughout). Defaults to SCRAPE_BUDGET_MS — sized for
+   * Vercel's 800s ceiling. Local/residential runners (no platform
+   * ceiling) pass something larger.
+   */
+  scrapeBudgetMs?: number;
 }
 
 export interface SnapshotV2Result {
@@ -218,11 +225,16 @@ export async function runDailySnapshotV2(
     // cards that cannot succeed. The exclusion is counted and noted —
     // substrate-honest gap, not a silent skip.
     const proxyConfigured = Boolean(process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL);
+    // Residential egress (operator's machine / local fleet) passes the WAF
+    // directly — unlocker hosts are reachable for free, so neither the
+    // proxy exclusion nor the paid-egress cooldown applies. See
+    // CardRushReadOptions.egress in @cambridge-tcg/data-ingest.
+    const residentialEgress = process.env.CARDRUSH_EGRESS === "residential";
     const unlockerHosts = Object.entries(CARDRUSH_SUBDOMAINS)
       .filter(([, entry]) => entry.access === "bright-data-unlocker")
       .map(([host]) => host);
     const proxyExclusion =
-      !proxyConfigured && unlockerHosts.length > 0
+      !residentialEgress && !proxyConfigured && unlockerHosts.length > 0
         ? unlockerHosts.map(
             (host) => sql`${cards.cardrushUrl} NOT LIKE ${"%" + host + "%"}`,
           )
@@ -233,6 +245,11 @@ export async function runDailySnapshotV2(
     // eligible at most once per PROXY_COOLDOWN_HOURS — direct-access games
     // keep the full 2-hourly rotation. Expressed as: (not on an unlocker
     // host) OR (never attempted) OR (attempt older than the window).
+    // The two lanes self-balance through this clause: the local
+    // residential lane (cooldown-free) advances last_scrape_attempt_at,
+    // which makes the paid datacenter lane find those cards ineligible —
+    // Bright Data degrades to a fallback that only spends when the local
+    // lane has missed a card for >24h.
     const notOnUnlockerHost = sql.join(
       unlockerHosts.map(
         (host) => sql`${cards.cardrushUrl} NOT LIKE ${"%" + host + "%"}`,
@@ -240,7 +257,7 @@ export async function runDailySnapshotV2(
       sql` AND `,
     );
     const proxyCooldown =
-      proxyConfigured && unlockerHosts.length > 0
+      !residentialEgress && proxyConfigured && unlockerHosts.length > 0
         ? [
             sql`((${notOnUnlockerHost}) OR ${cards.lastScrapeAttemptAt} IS NULL OR ${cards.lastScrapeAttemptAt} < now() - make_interval(hours => ${PROXY_COOLDOWN_HOURS}))`,
           ]
@@ -474,7 +491,7 @@ export async function runDailySnapshotV2(
         bright_data_proxy_url: process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL,
       },
       rate_limit: SCRAPE_RATE,
-      signal: AbortSignal.timeout(SCRAPE_BUDGET_MS),
+      signal: AbortSignal.timeout(options?.scrapeBudgetMs ?? SCRAPE_BUDGET_MS),
     };
 
     const summary = await runSource(cardrush, ctx, {

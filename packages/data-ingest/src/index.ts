@@ -145,6 +145,7 @@ export {
   scrapeCardRush,
   CARDRUSH_SUBDOMAINS,
   getOrCreateFetcher,
+  resolveEgress,
   type CardRushContext,
   type CardRushReadOptions,
   type CardRushFetcherCache,

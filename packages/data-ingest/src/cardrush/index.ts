@@ -276,6 +276,21 @@ export interface CardRushReadOptions {
   /** Watch-list of product URLs to scrape this run. */
   urls?: readonly { url: string; sku?: string }[];
   /**
+   * What kind of network this runtime egresses from. The CardRush WAF
+   * blocks DATACENTER fingerprints (Vercel, cloud IPs) on some hosts —
+   * that is the only reason the bright-data-unlocker access mode exists.
+   * A runtime on a RESIDENTIAL connection (the operator's machine, the
+   * local fleet) passes the WAF directly (verified live 2026-06-10,
+   * kingdom-039), so unlocker-gated hosts route direct: free, and
+   * provenance stays truthful (via_proxy: null).
+   *
+   *   "datacenter"  (default) — unlocker hosts require the proxy
+   *   "residential"           — unlocker hosts go direct
+   *
+   * Defaults to `process.env.CARDRUSH_EGRESS` when omitted.
+   */
+  egress?: "datacenter" | "residential";
+  /**
    * Operator-supplied proxy URL used for subdomains whose
    * `SubdomainEntry.access === "bright-data-unlocker"`. The URL must
    * include credentials (Bright Data shape:
@@ -312,6 +327,18 @@ function resolveProxyUrl(ctx: CardRushContext): string | undefined {
   return undefined;
 }
 
+/** Resolve the runtime's egress kind: ctx option → env → "datacenter". */
+export function resolveEgress(ctx: CardRushContext): "datacenter" | "residential" {
+  if (ctx.cardrush?.egress) return ctx.cardrush.egress;
+  if (
+    typeof process !== "undefined" &&
+    process.env?.CARDRUSH_EGRESS === "residential"
+  ) {
+    return "residential";
+  }
+  return "datacenter";
+}
+
 /**
  * Pick (or lazily create) the right fetcher for a subdomain. Returns
  * `null` + a substrate-honest reason when the subdomain can't be reached
@@ -324,7 +351,13 @@ export function getOrCreateFetcher(
   cache: CardRushFetcherCache,
 ): { fetcher: Fetcher | null; reason?: string } {
   const entry = CARDRUSH_SUBDOMAINS[host];
-  const access: SubdomainAccessMode = entry?.access ?? "direct";
+  let access: SubdomainAccessMode = entry?.access ?? "direct";
+
+  // Residential egress passes the WAF that the unlocker exists to beat —
+  // route direct (free; provenance truthfully records via_proxy: null).
+  if (access === "bright-data-unlocker" && resolveEgress(ctx) === "residential") {
+    access = "direct";
+  }
 
   if (access === "blocked") {
     return { fetcher: null, reason: "subdomain_blocked_by_operator" };

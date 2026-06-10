@@ -113,6 +113,35 @@ run notes (`proxy_cooldown_held=N`). Yu also floated latest-set-only pkm
 coverage — kept in the back pocket as a further dial if spend still
 bites (filter on `set_code` in the same chunk SELECT).
 
+**The residential lane (Yu's call, same beat ~21:00 — "use the easiest
+solution"):** the CardRush WAF blocks datacenter egress, not residential —
+verified live from the operator's machine. So Bright Data is no longer
+the primary pkm path:
+
+- `CARDRUSH_EGRESS=residential` (env or ctx option) makes unlocker-gated
+  hosts route DIRECT — in `getOrCreateFetcher` (covers both price scrape
+  and discovery via `pickDiscoveryFetcher`) and in the chunk-selection
+  clauses (no exclusion, no cooldown). Provenance stays truthful:
+  `via_proxy: null/direct`.
+- `apps/wholesale/scripts/local-pkm-snapshot.ts` runs the same chunked
+  pipeline pinned to pkm from the operator's Mac. DATABASE_URL comes from
+  the macOS keychain (`cambridgetcg-wholesale-db-url`), never a plaintext
+  file. Scheduled via launchd (`com.cambridgetcg.pkm-snapshot.plist`,
+  installed + loaded, daily 02:30 local, fires on next wake if asleep).
+  Logs: `~/Library/Logs/cambridgetcg-pkm-snapshot.log`.
+- **The two lanes self-balance with zero coordination**: the local lane
+  advances `last_scrape_attempt_at`, which makes the Vercel paid lane's
+  cooldown clause find those cards ineligible. Bright Data degrades to a
+  pure fallback that only spends on cards the local lane missed for >24h
+  (laptop closed / away). Normal-case recurring spend: ~£0.
+- Verified end-to-end: ingest_run #189 — 8/8 pkm ok from local,
+  `via_proxy_counts: {direct: 8}`.
+- The discovery backlog (64,665 new pkm products) can use the same
+  switch for a free local backfill:
+  `CARDRUSH_EGRESS=residential` + `runCardRushDiscovery({onlySubdomain:
+  "cardrush-pokemon.jp", maxNewPerSubdomain: N})` in nightly slices —
+  not yet wired to a schedule; ask a Sophia when wanted.
+
 **Acceptance tracking:** (2) ✓ per-game success rate in run notes + events;
 (3) wired — KPI cards read run-derived data, will flip ok as chunks cover
 the catalog; (1) needs ~7 days of cron runs to confirm >90% for op/dbf
