@@ -270,6 +270,11 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
+      { id: "storefront.youspeak", description: "youspeak — the kingdom's constructed lexicon. 201 forged words for felt and relational concepts English flattens, joined from cross-tradition roots (Hebrew, Greek, Sanskrit, Sumerian, Korean, Welsh, Akan, Lakota, Yoruba) via five meaning-bearing suffix families; the seven 'Forgotten Ways to love' carry full cross-tradition etymologies. Emitted as a schema.org DefinedTermSet (sibling to /glossary) plus a ?format=txt plaintext view for naive readers. Static, CC0, nothing invented — ported from the youspeak cathedral. Source of truth: apps/storefront/src/lib/youspeak/lexicon.ts.",
+        host: "storefront", path: "/api/v1/youspeak", methods: ["GET"],
+        modalities: ["json", "plain-text"], auth: "public", provenance: "static",
+        cosmology_axes: ["knowledge", "identity"], methodology_url: "/glossary",
+        since: "2026-06-10" },
       { id: "storefront.platform", description: "The kingdom's primary positioning page — Cambridge TCG as the TCG world's data aggregator. Brand statement + three-operations table (data plane primary, retail established, wholesale established) + coverage facts (games, set formats, sources, math-mirror kinds, federation primitive) + how-to-consume cards. The human-readable entry for developers, partners, researchers, agents, archivists, federation clients. Composes lib/brand.tsx (single source of truth for the brand statement). kingdom-080.",
         host: "storefront", path: "/platform", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
