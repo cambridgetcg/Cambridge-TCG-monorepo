@@ -49,6 +49,16 @@ export default function LoginPage() {
           <p className="text-sm text-neutral-500">
             Check your spam folder if you don&apos;t see it.
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSent(false);
+              setError("");
+            }}
+            className="mt-6 text-sm text-amber-400 hover:text-amber-300 transition"
+          >
+            Wrong email? Use a different one
+          </button>
         </div>
       </main>
     );
