@@ -80,7 +80,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Deck builder", href: "/deck-builder", badge: "beta" },
           { label: "Deck check", href: "/play/deck-check" },
           { label: "How to play", href: "/guides/how-to-play" },
-          { label: "Sealed product info", href: "/methodology/play-module" },
+          { label: "Play module & sealed product", href: "/methodology/play-module" },
         ],
       },
     ],
@@ -107,7 +107,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Auctions",
         items: [
           { label: "Open auctions", href: "/auctions" },
-          { label: "How auctions work", href: "/methodology/commission-rate" },
+          { label: "Fees & commission", href: "/methodology/commission-rate" },
           { label: "Sell at auction", href: "/auctions/sell", authed_only: true },
           { label: "My auctions", href: "/account/auctions", authed_only: true },
           { label: "Auctions won", href: "/account/auctions/won", authed_only: true },
@@ -139,7 +139,8 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Competitive", href: "/play/compete", description: "Ranked play; agent ladder" },
           { label: "Adventure", href: "/play/adventure", description: "Single-player PvE journey" },
           { label: "Spec a match", href: "/play/spec", description: "Watch a live game" },
-          { label: "Tutorial", href: "/play/welcome", description: "Seven entry paths by player kind" },
+          { label: "Tutorial", href: "/play/tutorial", description: "Never played? The rules from zero" },
+          { label: "Choose your path", href: "/play/welcome", description: "Seven entry paths by player kind" },
         ],
       },
       {
@@ -186,7 +187,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Auction & lots",
         items: [
           { label: "Open auctions", href: "/auctions", description: "See current public auctions" },
-          { label: "How auctions work", href: "/methodology/commission-rate" },
+          { label: "Fees & commission", href: "/methodology/commission-rate" },
           { label: "Sell at auction", href: "/auctions/sell", authed_only: true },
           { label: "My lots", href: "/account/lots", authed_only: true },
           { label: "Returns", href: "/account/returns", authed_only: true },
@@ -272,6 +273,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Engage",
         items: [
+          { label: "Start here", href: "/start", description: "New? Plain words, no jargon" },
           { label: "Community hub", href: "/community" },
           { label: "New here?", href: "/community/welcome" },
           { label: "Membership", href: "/membership", description: "Tiers, benefits, and what they include" },
@@ -334,13 +336,14 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Support",
         items: [
+          { label: "Start here", href: "/start", description: "New? Plain words, no jargon" },
           { label: "Guides", href: "/guides" },
           { label: "How to play", href: "/guides/how-to-play" },
           { label: "Verification", href: "/verify" },
           { label: "Site map", href: "/map" },
-          // /about is the human contact surface; the previous target
-          // (/api/v1/feedback) dumped humans into raw JSON.
-          { label: "Contact / feedback", href: "/about" },
+          // /contact is the human contact surface (contact-surface spec
+          // W6); earlier targets dumped humans into raw JSON or /about.
+          { label: "Contact / feedback", href: "/contact" },
         ],
       },
     ],

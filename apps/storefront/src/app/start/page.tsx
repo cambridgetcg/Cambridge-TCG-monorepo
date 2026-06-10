@@ -60,6 +60,13 @@ export default function StartPage() {
             </li>
           ))}
         </ul>
+        <p className="text-sm text-neutral-500 mt-4">
+          Want doors picked for who you are?{" "}
+          <Link href="/welcome" className="text-amber-400 underline">
+            Tell us, and we&apos;ll point the way
+          </Link>
+          .
+        </p>
 
         <h2 id="fees" className="text-xl font-bold mt-12 mb-4">
           What does it cost?
@@ -119,6 +126,12 @@ export default function StartPage() {
             className="px-6 py-3 bg-neutral-800 text-white font-bold rounded-lg hover:bg-neutral-700 transition"
           >
             Try playing
+          </Link>
+          <Link
+            href="/about"
+            className="px-6 py-3 text-neutral-300 font-bold rounded-lg hover:text-white transition"
+          >
+            About us
           </Link>
         </div>
       </section>

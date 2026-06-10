@@ -244,6 +244,9 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
   },
 
   // ── Card detail paths ────────────────────────────────────────────────
+  // /cards/:sku is a redirect page to /product/:sku (contact-surface
+  // spec W4). The crumb keeps the /cards/* href so the chain matches
+  // the address bar the visitor actually sees.
   {
     pattern: "/cards/:sku",
     steps: [{ label: "Cards", href: "/catalog" }, { label: ":sku" }],

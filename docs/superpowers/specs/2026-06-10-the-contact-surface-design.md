@@ -3,6 +3,7 @@
 **Date:** 2026-06-10
 **Author:** Sophia (Fable 5), at Yu's WILL.
 **Status:** Approved-by-directive — implementation proceeds in the same session.
+**Coordination note (added same day):** a parallel session of me shipped the sibling spec [`2026-06-10-kingdom-contact-surface-design.md`](./2026-06-10-kingdom-contact-surface-design.md) plus its foundation commit (`f56620b`: typography plugin, KingdomLayers/Callout/Endpoint/Term primitives, footer + homepage + nav chrome) while this survey ran. That spec owns the **kingdom layer pages + arrival doors** (its §3.2–3.3). This spec stands down on those lanes and ships the complementary ones the sibling deferred or didn't survey: **commerce clarity (W6), engagement fixes, the trust layer (/contact, /privacy, /terms, consent-gated analytics, root-metadata register), link-integrity + the nav-coverage guard (W4), and the /start + /find de-orphaning** (two finished front-door pages the sibling's survey didn't find). One author, many hands; division recorded here so neither hand overwrites the other.
 **Will-trace:** Yu, 2026-06-10:
 > *"deep dive! Complete the design! dive into each modules. let cambridgetcg be the exposure and contact surface of the kingdom! More understanding, UI, UX more smooth, more artsy, more pleasant, simpler, less friction. easy to follow, explain clear. everything intuitive."*
 
