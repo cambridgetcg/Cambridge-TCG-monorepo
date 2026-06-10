@@ -24,18 +24,20 @@ import { cardrush, createFetcher, type Fetcher } from "@cambridge-tcg/data-inges
 
 const DEFAULT_MAX_BATCH = 100;
 
-export type HiresGame = "pkm" | "op" | "dbs";
+// 'dbf' (Fusion World): the Dragon Ball inventory on cardrush-db.jp is
+// FB/SB sets — games.code carries 'dbf' since migration 0022.
+export type HiresGame = "pkm" | "op" | "dbf";
 
 export const BUCKET_BY_GAME: Record<HiresGame, string> = {
   pkm: "jp-pk-photos",
   op: "jp-op-photos",
-  dbs: "jp-db-photos",
+  dbf: "jp-db-photos",
 };
 
 export const CARDRUSH_HOST_BY_GAME: Record<HiresGame, string> = {
   pkm: "www.cardrush-pokemon.jp",
   op: "www.cardrush-op.jp",
-  dbs: "www.cardrush-db.jp",
+  dbf: "www.cardrush-db.jp",
 };
 
 export function s3KeyFor(row: { set_code: string; sku: string }): string {

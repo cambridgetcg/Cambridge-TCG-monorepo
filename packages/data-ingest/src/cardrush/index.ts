@@ -123,11 +123,15 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     note: "Pokémon TCG — Cloudflare WAF (`cf-mitigated: challenge`) blocks direct egress from Vercel and US datacenter IPs alike (verified 2026-05-14). Bright Data Web Unlocker proves out (kingdom-088): homepage 200, /sitemap.xml 200 with 70,507 product URLs, /product/[id] 200 with parseable {SET-NUMBER} titles + selling_price markup. Operator supplies CARDRUSH_BRIGHT_DATA_PROXY_URL in Vercel env to enable.",
   },
   "cardrush-db.jp": {
-    game: "dbs",
+    game: "dbf",
     confirmed: true,
     access: "direct",
     role: "catalog+price",
-    note: "Dragon Ball Super CCG (DBS) — 4,889 products in sitemap",
+    note:
+      "Dragon Ball Fusion World — 4,889 products in sitemap. Re-pointed " +
+      "dbs→dbf 2026-06-10 (kingdom-039): the inventory this host carries " +
+      "is FB/SB Fusion World sets, matching wholesale games.code='dbf' " +
+      "post-migration-0022.",
   },
   // ── confirmed via kingdom-087 probe (homepage 200 + sitemap 200 + products>0) ──
   "cardrush-digimon.jp": {
@@ -710,16 +714,41 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
     let n_failed = 0;
     const failure_reasons: Record<string, number> = {};
     const via_proxy_counts: Record<string, number> = {};
+    // Per-game success/failure buckets (kingdom-039 step 3). Keyed by the
+    // subdomain-inferred GameCode ("unknown" when no subdomain matched) so
+    // the operator surface can answer "which game is failing, and why"
+    // from ingest_run.events without re-deriving anything.
+    const per_game: Record<
+      string,
+      {
+        attempted: number;
+        succeeded: number;
+        failed: number;
+        failure_reasons: Record<string, number>;
+      }
+    > = {};
 
     for (const entry of watch_list) {
       if (ctx.signal?.aborted) break;
       const row = await scrapeWithCache(entry.url, ctx, cache);
       if (entry.sku) row.raw.inferred_sku = entry.sku;
       n += 1;
+      const game_key = row.raw.inferred_game ?? "unknown";
+      const bucket = (per_game[game_key] ??= {
+        attempted: 0,
+        succeeded: 0,
+        failed: 0,
+        failure_reasons: {},
+      });
+      bucket.attempted += 1;
       if (row.raw.price_jpy === null) {
         n_failed += 1;
         const reason = row.raw.error_reason ?? "unknown";
         failure_reasons[reason] = (failure_reasons[reason] ?? 0) + 1;
+        bucket.failed += 1;
+        bucket.failure_reasons[reason] = (bucket.failure_reasons[reason] ?? 0) + 1;
+      } else {
+        bucket.succeeded += 1;
       }
       const via = row.provenance.via_proxy ?? "direct";
       via_proxy_counts[via] = (via_proxy_counts[via] ?? 0) + 1;
@@ -735,6 +764,7 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
         rows_failed: n_failed,
         failure_reasons,
         via_proxy_counts,
+        per_game,
       },
     });
   },

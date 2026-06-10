@@ -40,12 +40,14 @@ async function seed() {
     volumeDiscountPct: 0.04,
   }).onConflictDoNothing();
 
-  // Seed games
+  // Seed games — codes are @cambridge-tcg/sku GameCodes (migration 0022
+  // flipped the live rows to match; slugs carry the URL-stable identity).
+  // 'dbf' not 'dbs': the Dragon Ball inventory is Fusion World (FB/SB sets).
   const gameData = [
-    { code: "onepiece", name: "One Piece", slug: "one-piece", sortOrder: 0, active: true },
-    { code: "pokemon", name: "Pokémon", slug: "pokemon", sortOrder: 1, active: false },
-    { code: "yugioh", name: "Yu-Gi-Oh!", slug: "yu-gi-oh", sortOrder: 2, active: false },
-    { code: "dragonball", name: "Dragon Ball", slug: "dragon-ball", sortOrder: 3, active: false },
+    { code: "op", name: "One Piece", slug: "one-piece", sortOrder: 0, active: true },
+    { code: "pkm", name: "Pokémon", slug: "pokemon", sortOrder: 1, active: false },
+    { code: "ygo", name: "Yu-Gi-Oh!", slug: "yu-gi-oh", sortOrder: 2, active: false },
+    { code: "dbf", name: "Dragon Ball", slug: "dragon-ball", sortOrder: 3, active: false },
   ];
 
   for (const g of gameData) {
@@ -56,7 +58,7 @@ async function seed() {
   const [onepieceGame] = await db
     .select({ id: games.id })
     .from(games)
-    .where(eq(games.code, "onepiece"))
+    .where(eq(games.code, "op"))
     .limit(1);
   const onepieceId = onepieceGame!.id;
 

@@ -42,10 +42,16 @@ import type { WholesaleCard } from "./cardrush-mapper";
  */
 export function mapLegacyGameCode(legacy: string): GameCode | null {
   switch (legacy) {
+    // Canonical short codes pass through — config.ts dbGameCode flipped to
+    // GameCodes with migration 0022 (kingdom-039); this shim now mostly
+    // identity-maps and exists for any stray legacy caller.
+    case "op":
     case "onepiece":
       return "op";
+    case "dbf":
     case "dragonball":
       return "dbf"; // Dragon Ball Fusion World per config.ts dbGameName
+    case "pkm":
     case "pokemon":
       return "pkm";
     default:
