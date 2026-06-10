@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-import { Audience } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
 interface Signal {
   id: string;
   user_id: string;
@@ -95,6 +95,7 @@ export default function AdminFraudSignalsPage() {
             <h1 className="text-2xl font-bold">Fraud Signals</h1>
             <p className="text-sm text-neutral-400">
               Triage queue. Critical + suspend-action signals trigger auto-suspend on next cron tick.
+              <WhyLink href="/methodology/fraud-flag" label="how severity works" />
             </p>
           </div>
           <Link href="/admin/governance" className="text-xs text-amber-400 hover:text-amber-300 underline">

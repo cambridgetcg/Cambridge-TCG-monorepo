@@ -6,7 +6,7 @@ import type { MarketTrade, EscrowStatus } from "@/lib/market/types";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import AdminShell from "@/components/admin/AdminShell";
 
-import { Audience } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
 // ── Escrow status config ──
 
 const ESCROW_COLORS: Record<EscrowStatus, string> = {
@@ -719,7 +719,7 @@ function TradeRow({
               <p className="text-white">{trade.quantity}</p>
             </div>
             <div>
-              <span className="text-neutral-500">Commission Rate</span>
+              <span className="text-neutral-500">Commission Rate <WhyLink href="/methodology/commission-rate" /></span>
               <p className="text-white">{(parseFloat(trade.commission_rate) * 100).toFixed(1)}%</p>
             </div>
             <div>

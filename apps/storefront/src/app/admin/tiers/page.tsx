@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 
-import { Audience } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
 interface TierRow {
   id: string;
   name: string;
@@ -99,6 +99,7 @@ export default function AdminTiersPage() {
                   <Stat label="Trade-in bonus" value={pct(t.perks.tradeinBonusPct)} />
                   <Stat label="Store discount" value={pct(t.perks.storeDiscountPct)} />
                   <Stat label="P2P commission" value={rate(t.perks.p2pRate)} />
+                  <WhyLink href="/methodology/commission-rate" label="how commission works" />
                   <Stat label="Auction commission" value={rate(t.perks.auctionRate)} />
                   <Stat label="Priority approval" value={t.perks.priorityApproval ? "Yes" : "No"}
                     accent={t.perks.priorityApproval ? "emerald" : undefined} />

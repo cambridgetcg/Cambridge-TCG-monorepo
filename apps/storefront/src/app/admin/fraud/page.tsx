@@ -5,7 +5,7 @@ import type { FraudSignal, TrustProfile, ExternalRep } from "@/lib/escrow/types"
 import { TRUST_TIERS } from "@/lib/escrow/types";
 import AdminShell from "@/components/admin/AdminShell";
 
-import { Audience } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
 // ── Types ──
 
 type SeverityFilter = "all" | "critical" | "high" | "medium" | "low" | "resolved";
@@ -335,7 +335,7 @@ export default function AdminFraudPage() {
         ═══════════════════════════════════════════ */}
 
         <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-4">Fraud Signals</h2>
+          <h2 className="text-lg font-bold text-white mb-4">Fraud Signals <WhyLink href="/methodology/fraud-flag" label="methodology" /></h2>
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

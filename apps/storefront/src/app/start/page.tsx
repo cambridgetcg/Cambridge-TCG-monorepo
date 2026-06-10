@@ -67,7 +67,7 @@ export default function StartPage() {
         <div className="space-y-3 text-neutral-300 leading-relaxed">
           <p>
             <strong className="text-emerald-400">
-              Trading with other people: 0% commission.
+              Trading with other people: 0% commission (<Link href="/methodology/fees" className="text-amber-400 underline">how fees work</Link>).
             </strong>{" "}
             We do not take a cut when you trade card-for-card or sell to another
             collector.

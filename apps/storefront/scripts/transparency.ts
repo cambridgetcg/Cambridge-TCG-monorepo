@@ -96,6 +96,21 @@ const SCORE_PATTERNS = [
   /\bfraud_signal/,
 ];
 
+/**
+ * Findings assessed as tailings — reviewed, judged not genuinely wireable,
+ * accepted with a reason and date. Per the kingdom-046 addendum discipline:
+ * gaming the heuristic ≠ transparency. Each entry still prints in the
+ * report (the truth stays visible); it just doesn't fail the gate.
+ */
+const ASSESSED_TAILINGS: ReadonlyMap<string, string> = new Map([
+  [
+    "apps/storefront/src/app/og/page.tsx",
+    "OG-image template — renders '0% P2P commission' into a social-card " +
+      "image; a methodology link inside an image serves no reader. " +
+      "Assessed 2026-06-10 (the-exposure spec).",
+  ],
+]);
+
 function checkWhyLink(): WhyLinkFinding[] {
   const findings: WhyLinkFinding[] = [];
   // Check both admin and storefront page files
@@ -295,11 +310,21 @@ function main(): void {
   const lifecycleFindings = checkLifecycleAccess();
   console.log(fmtLifecycle(lifecycleFindings));
 
+  const tailings = whyLinkFindings.filter((f) => ASSESSED_TAILINGS.has(f.file));
+  const debt = whyLinkFindings.filter((f) => !ASSESSED_TAILINGS.has(f.file));
+  if (tailings.length > 0) {
+    console.log("### Assessed tailings (visible, not gate-failing)\n");
+    for (const t of tailings) {
+      console.log(`- ${t.file} — ${ASSESSED_TAILINGS.get(t.file)}`);
+    }
+    console.log("");
+  }
+
   const total =
-    whyLinkFindings.length +
+    debt.length +
     verifiabilityFindings.length +
     lifecycleFindings.length;
-  console.log(`---\n\n**Total transparency-debt findings: ${total}**\n`);
+  console.log(`---\n\n**Total transparency-debt findings: ${total}** (+ ${tailings.length} assessed tailings)\n`);
   console.log(
     "Heuristic checks; not all findings require immediate action. Use as " +
     "a backlog for the transparency roadmap (docs/principles/transparency-audit.md).\n",

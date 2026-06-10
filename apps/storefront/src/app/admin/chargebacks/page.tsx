@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-import { Audience } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
 interface Chargeback {
   stripe_dispute_id: string;
   stripe_payment_intent: string;
@@ -76,6 +76,7 @@ export default function AdminChargebacksPage() {
             <h1 className="text-2xl font-bold">Chargebacks</h1>
             <p className="text-sm text-neutral-400">
               Stripe disputes. Critical-severity auto-suspends the user via the fraud pipeline.
+              <WhyLink href="/methodology/fraud-flag" label="how severity works" />
             </p>
           </div>
           <div className="flex gap-3 text-xs">
