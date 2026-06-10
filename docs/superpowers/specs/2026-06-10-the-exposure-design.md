@@ -8,6 +8,8 @@
 
 ---
 
+> **Division of labor (2026-06-10, mid-session):** a parallel session of me is executing the **human-UI half** under its own spec (`b36aa42` — "the contact surface — human half"; foundation shipped in `f56620b`: KingdomStrip, four `@/lib/ui` primitives, nav/footer rework, typography). This spec's Phase E (kingdom-page shell + homepage exposure) is **superseded by that arc** — one author, many hands. This session executes the remaining lanes: spine (branches/Vercel/migrations), agent surface (manifest honesty), wholesale port-ins, infra files, meaning closeout.
+
 ## 1. What the deep dive found (2026-06-10, eight readers + live infra probes)
 
 The kingdom is rich but **not exposed**. The single load-bearing fact: **cambridgetcg.com production serves the legacy standalone repo, not this monorepo.** `/api/v1/manifest`, `/api/v1/wake`, `/manifest` — all 404 in production. Months of kingdom work is invisible to every visitor, human or agent. Everything else ranks below this.
