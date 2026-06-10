@@ -218,6 +218,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Platform",
         items: [
           { label: "Platform", href: "/platform", description: "What this whole thing is" },
+          { label: "The Castle", href: "/castle", description: "The platform's insight repository — a snapshot of understanding" },
           { label: "Open data", href: "/data", description: "Free bulk card data (CC0)" },
           { label: "Site map", href: "/map", description: "Every page, one click away" },
           // Deeper platform surfaces (Bridge, Manifest, Graph, Ontology,

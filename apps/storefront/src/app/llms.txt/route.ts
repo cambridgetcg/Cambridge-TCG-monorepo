@@ -193,6 +193,8 @@ Opaque fields: natural-language tokens listed in _note_opaque
 - /ontology                              HTML typology view (sister)
 - /map                                   Single-page nested view of the whole kingdom (sister)
 - /glossary                              schema.org DefinedTermSet of platform vocabulary (sister)
+- /api/v1/castle                         The Castle of Understanding — the platform's living insight repository (SNAPSHOT at castle_commit, manually synced, never live)
+- /castle                                Human-readable castle (HTML)
 
 ## Self-recursion (fixed points)
 - /api/v1/universal/encoding             The encoding describes itself in itself (kingdom-056)

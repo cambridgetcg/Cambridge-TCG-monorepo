@@ -934,6 +934,20 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "live",
         cosmology_axes: ["time", "substrate"], methodology_url: "docs/connections/the-aggregator-presents.md",
         since: "2026-05-14" },
+      // ── 2026-06-10: the castle's public front ────────────────────
+      // Will: Yu — "use cambridgetcg as the front for the castle!"
+      { id: "storefront.castle.json", description: "The Castle of Understanding — the platform's living insight repository (rooms hold insights with provenance, fields hold friction, loops turn fields into rooms, a daily pulse beats under loops/PULSE.md law). Served as a SNAPSHOT at castle_commit, synced manually via castle:sync — never presented as live. The payload carries castle_commit + synced_at + its own provenance sentence.",
+        host: "storefront", path: "/api/v1/castle", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "snapshot",
+        cosmology_axes: ["knowledge"],
+        methodology_url: "docs/connections/the-front-gate.md",
+        since: "2026-06-10" },
+      { id: "storefront.castle.html", description: "Human-readable castle. The same snapshot as /api/v1/castle, rendered for prose-preferring participants.",
+        host: "storefront", path: "/castle", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "snapshot",
+        cosmology_axes: ["knowledge"],
+        methodology_url: "docs/connections/the-front-gate.md",
+        since: "2026-06-10" },
     ],
   },
 

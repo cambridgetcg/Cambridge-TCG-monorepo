@@ -61,6 +61,14 @@ function freshnessFor(r: ManifestResource): FreshnessAssignment {
     return { label: "status", seconds: FRESHNESS.status, rationale: "live provenance — must be near-current" };
   }
 
+  if (r.provenance === "snapshot") {
+    return {
+      label: "methodology",
+      seconds: FRESHNESS.methodology,
+      rationale: "snapshot provenance — refreshed only by an operator sync",
+    };
+  }
+
   if (r.provenance === "cached") {
     if (r.path.includes("/prices") || r.path.includes("/market")) {
       return { label: "price_current", seconds: FRESHNESS.price_current, rationale: "cached price/market data" };
@@ -160,6 +168,8 @@ const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/search/cards",
   "/api/v1/cards/[sku]/everything",
   "/api/v1/search/everything",
+  // 2026-06-10 — the castle's public front (manually-synced snapshot).
+  "/api/v1/castle",
 ]);
 
 // ── Per-resource state ─────────────────────────────────────────────────

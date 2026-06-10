@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "castle:sync": "node scripts/castle-sync.mjs"
   },
   "dependencies": {
     "@cambridge-tcg/aws": "workspace:^",
