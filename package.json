@@ -22,6 +22,7 @@
     "audit:set-discovery": "pnpm --filter cambridgetcg-storefront set-discovery",
     "audit:play-resources": "pnpm --filter cambridgetcg-storefront play-resources",
     "audit:play-game-registry": "pnpm --filter cambridgetcg-storefront play-game-registry",
+    "audit:no-house-listing": "pnpm --filter cambridgetcg-storefront no-house-listing",
     "audit:cardrush-coverage": "pnpm --filter cambridgetcg-storefront cardrush-coverage",
     "audit:cardrush-coverage:strict": "pnpm --filter cambridgetcg-storefront cardrush-coverage -- --strict",
     "audit:cardrush-probe": "pnpm --filter cambridgetcg-storefront cardrush-probe",

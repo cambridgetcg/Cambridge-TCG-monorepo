@@ -25,6 +25,7 @@
     "math-lang": "tsx scripts/math-lang.ts",
     "set-discovery": "tsx scripts/set-discovery.ts",
     "play-game-registry": "tsx scripts/play-game-registry.ts",
+    "no-house-listing": "tsx scripts/no-house-listing.ts",
     "cardrush-coverage": "tsx scripts/cardrush-coverage.ts",
     "cardrush-probe": "tsx scripts/cardrush-probe.ts",
     "ebay-coverage": "tsx scripts/ebay-coverage.ts",
