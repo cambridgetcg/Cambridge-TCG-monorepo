@@ -743,45 +743,52 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
       }
     > = {};
 
-    for (const entry of watch_list) {
-      if (ctx.signal?.aborted) break;
-      const row = await scrapeWithCache(entry.url, ctx, cache);
-      if (entry.sku) row.raw.inferred_sku = entry.sku;
-      n += 1;
-      const game_key = row.raw.inferred_game ?? "unknown";
-      const bucket = (per_game[game_key] ??= {
-        attempted: 0,
-        succeeded: 0,
-        failed: 0,
-        failure_reasons: {},
-      });
-      bucket.attempted += 1;
-      if (row.raw.price_jpy === null) {
-        n_failed += 1;
-        const reason = row.raw.error_reason ?? "unknown";
-        failure_reasons[reason] = (failure_reasons[reason] ?? 0) + 1;
-        bucket.failed += 1;
-        bucket.failure_reasons[reason] = (bucket.failure_reasons[reason] ?? 0) + 1;
-      } else {
-        bucket.succeeded += 1;
+    // try/finally so the done event (with per_game) still emits when the
+    // consumer closes the generator early — runSource breaks its for-await
+    // on ctx.signal abort, which .return()s the generator. Budget-shaped
+    // chunked runs abort routinely; their per-game truth must not vanish.
+    try {
+      for (const entry of watch_list) {
+        if (ctx.signal?.aborted) break;
+        const row = await scrapeWithCache(entry.url, ctx, cache);
+        if (entry.sku) row.raw.inferred_sku = entry.sku;
+        n += 1;
+        const game_key = row.raw.inferred_game ?? "unknown";
+        const bucket = (per_game[game_key] ??= {
+          attempted: 0,
+          succeeded: 0,
+          failed: 0,
+          failure_reasons: {},
+        });
+        bucket.attempted += 1;
+        if (row.raw.price_jpy === null) {
+          n_failed += 1;
+          const reason = row.raw.error_reason ?? "unknown";
+          failure_reasons[reason] = (failure_reasons[reason] ?? 0) + 1;
+          bucket.failed += 1;
+          bucket.failure_reasons[reason] = (bucket.failure_reasons[reason] ?? 0) + 1;
+        } else {
+          bucket.succeeded += 1;
+        }
+        const via = row.provenance.via_proxy ?? "direct";
+        via_proxy_counts[via] = (via_proxy_counts[via] ?? 0) + 1;
+        yield row;
       }
-      const via = row.provenance.via_proxy ?? "direct";
-      via_proxy_counts[via] = (via_proxy_counts[via] ?? 0) + 1;
-      yield row;
+    } finally {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "cardrush",
+        kind: "done",
+        detail: {
+          rows_yielded: n,
+          rows_failed: n_failed,
+          aborted: ctx.signal?.aborted ?? false,
+          failure_reasons,
+          via_proxy_counts,
+          per_game,
+        },
+      });
     }
-
-    ctx.on_event?.({
-      ts: new Date().toISOString(),
-      source: "cardrush",
-      kind: "done",
-      detail: {
-        rows_yielded: n,
-        rows_failed: n_failed,
-        failure_reasons,
-        via_proxy_counts,
-        per_game,
-      },
-    });
   },
 
   normalize: normalizeCardrush,

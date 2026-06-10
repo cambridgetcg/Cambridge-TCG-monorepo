@@ -475,8 +475,9 @@ export async function runDailySnapshotV2(
     const perGameNote = Object.entries(perGameDb)
       .map(([code, b]) => `${code} ${b.succeeded}/${b.attempted} ok`)
       .join(", ");
+    const attempted = Object.values(perGameDb).reduce((s, b) => s + b.attempted, 0);
     const noteParts = [
-      `chunk=${chunkCards.length}/${chunkSize} (stalest-first by last_scrape_attempt_at)`,
+      `attempted=${attempted}/${chunkCards.length} selected (stalest-first by last_scrape_attempt_at${attempted < chunkCards.length ? "; budget-aborted, remainder picked up next run" : ""})`,
       perGameNote ? `per-game: ${perGameNote}` : null,
       proxySkippedCount > 0
         ? `proxy_skipped=${proxySkippedCount} (hosts ${unlockerHosts.join(", ")} need CARDRUSH_BRIGHT_DATA_PROXY_URL — unset, cards excluded from chunk)`
