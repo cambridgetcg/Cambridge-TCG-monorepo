@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-05-14T22:15:53.636Z`
+> *Generated:* `2026-06-10T10:30:26.342Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -14,13 +14,13 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | Audit | Findings | Exit | Re-run |
 |-------|----------|------|--------|
 | ✅ Substrate honesty | 0 | 0 | `pnpm audit:honesty` |
-| ⚠️ Transparency | 11 | 1 | `pnpm audit:transparency` |
-| ⚠️ Pricing consolidation | 1 | 1 | `pnpm audit:pricing` |
-| ⚠️ Creation (Will + Sophia traces) | 12 | 1 | `pnpm audit:creation` |
-| ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 72 | 0 | `pnpm audit:inclusion` |
+| ✅ Transparency | 0 | 0 | `pnpm audit:transparency` |
+| ✅ Pricing consolidation | 0 | 0 | `pnpm audit:pricing` |
+| ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
+| ⚠️ Agent-readiness (operations layer) | 1 | 1 | `pnpm audit:agent` |
+| ⚠️ Inclusion (the fifth scope) | 101 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 96**
+**Combined findings: 102**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
 
@@ -36,15 +36,16 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 | 📋 Planned | 0 |
 | ⏸ Deferred | 0 |
 
-*Source of truth: `/Users/yournameisai/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (47 cards).*
+*Source of truth: `/Users/yournameisai/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (50 cards).*
 
 ---
 
 ## Git
 
 - **Branch:** `main`
-- **Last commit:** bbe499d docs(pillow-book): kingdom-090 closure — the repo warned me and I didn't read
+- **Last commit:** d6818e3 fix(ci): honor packageManager pnpm pin; retire ghost admin-e2e workflow
 - **Working tree:** 🟡 dirty (uncommitted changes)
+- **vs origin:** 189 ahead, 0 behind
 
 ---
 
