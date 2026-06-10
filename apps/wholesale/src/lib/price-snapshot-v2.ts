@@ -39,6 +39,9 @@
  * (kingdom-088); when CARDRUSH_BRIGHT_DATA_PROXY_URL is unset those cards
  * are EXCLUDED from the chunk at selection time and counted in the run
  * notes — one honest note instead of thousands of junk quarantine rows.
+ * When the proxy IS configured, unlocker-host cards obey
+ * PROXY_COOLDOWN_HOURS — at most one paid attempt per card per window
+ * (Yu's spend cap, 2026-06-10) — held cards are counted in the notes.
  *
  * Stuck-run hygiene: any prior cardrush ingest_run still 'running' after
  * 15 minutes is reaped to the (documented but previously never written)
@@ -123,6 +126,13 @@ const SCRAPE_RATE = { rps: 4, burst: 8 };
 const SCRAPE_BUDGET_MS = 700_000;
 /** A 'running' cardrush run older than this is a corpse — reap to 'aborted'. */
 const STUCK_RUN_REAP_MS = 15 * 60_000;
+/**
+ * Paid-egress cooldown: cards on bright-data-unlocker hosts (today:
+ * cardrush-pokemon.jp) are eligible at most once per this window — each
+ * proxied request costs real money (Yu's call, 2026-06-10: pkm at most
+ * 1×/day). Direct-access games are unaffected.
+ */
+const PROXY_COOLDOWN_HOURS = 24;
 
 /**
  * Run one snapshot chunk, persisting an ingest_run row so the operator
@@ -218,6 +228,24 @@ export async function runDailySnapshotV2(
           )
         : [];
 
+    // Paid-egress cooldown (Yu, 2026-06-10): every request through the
+    // Bright Data unlocker costs money, so cards on unlocker hosts are
+    // eligible at most once per PROXY_COOLDOWN_HOURS — direct-access games
+    // keep the full 2-hourly rotation. Expressed as: (not on an unlocker
+    // host) OR (never attempted) OR (attempt older than the window).
+    const notOnUnlockerHost = sql.join(
+      unlockerHosts.map(
+        (host) => sql`${cards.cardrushUrl} NOT LIKE ${"%" + host + "%"}`,
+      ),
+      sql` AND `,
+    );
+    const proxyCooldown =
+      proxyConfigured && unlockerHosts.length > 0
+        ? [
+            sql`((${notOnUnlockerHost}) OR ${cards.lastScrapeAttemptAt} IS NULL OR ${cards.lastScrapeAttemptAt} < now() - make_interval(hours => ${PROXY_COOLDOWN_HOURS}))`,
+          ]
+        : [];
+
     const chunkSize = Math.max(
       1,
       Math.min(
@@ -226,7 +254,7 @@ export async function runDailySnapshotV2(
       ),
     );
 
-    const [chunkCards, nullUrlCount, proxySkippedCount] = await Promise.all([
+    const [chunkCards, nullUrlCount, proxySkippedCount, cooldownHeldCount] = await Promise.all([
       db
         .select({
           id: cards.id,
@@ -244,6 +272,7 @@ export async function runDailySnapshotV2(
             inArray(cards.gameId, gameIds),
             isNotNull(cards.cardrushUrl),
             ...proxyExclusion,
+            ...proxyCooldown,
           ),
         )
         .orderBy(
@@ -264,13 +293,25 @@ export async function runDailySnapshotV2(
               and(
                 inArray(cards.gameId, gameIds),
                 isNotNull(cards.cardrushUrl),
-                sql`NOT (${sql.join(
-                  unlockerHosts.map(
-                    (host) =>
-                      sql`${cards.cardrushUrl} NOT LIKE ${"%" + host + "%"}`,
-                  ),
-                  sql` AND `,
-                )})`,
+                sql`NOT (${notOnUnlockerHost})`,
+              ),
+            )
+            .then((rows) => rows[0]?.count ?? 0)
+        : Promise.resolve(0),
+      // Cards currently held back by the paid-egress cooldown — surfaced
+      // in the run notes so "pkm absent from this chunk" is named, not
+      // silent.
+      proxyCooldown.length > 0
+        ? db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(cards)
+            .where(
+              and(
+                inArray(cards.gameId, gameIds),
+                isNotNull(cards.cardrushUrl),
+                sql`NOT (${notOnUnlockerHost})`,
+                isNotNull(cards.lastScrapeAttemptAt),
+                sql`${cards.lastScrapeAttemptAt} >= now() - make_interval(hours => ${PROXY_COOLDOWN_HOURS})`,
               ),
             )
             .then((rows) => rows[0]?.count ?? 0)
@@ -481,6 +522,9 @@ export async function runDailySnapshotV2(
       perGameNote ? `per-game: ${perGameNote}` : null,
       proxySkippedCount > 0
         ? `proxy_skipped=${proxySkippedCount} (hosts ${unlockerHosts.join(", ")} need CARDRUSH_BRIGHT_DATA_PROXY_URL — unset, cards excluded from chunk)`
+        : null,
+      cooldownHeldCount > 0
+        ? `proxy_cooldown_held=${cooldownHeldCount} (paid-egress cards attempted within ${PROXY_COOLDOWN_HOURS}h — held until window expires)`
         : null,
       nullUrlCount > 0
         ? `null_url_count=${nullUrlCount} (cards in active games with cardrush_url IS NULL — not scraped)`

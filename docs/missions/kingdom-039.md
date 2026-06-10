@@ -104,11 +104,14 @@ read-only DB probes + triggering the deployed cron with `?maxCards=3`:
 along — sensitive-type Vercel vars pull as empty strings, which misled the
 first diagnosis. Production run #102 confirmed `proxy_configured: true`;
 the pkm lane is live in the stalest-first rotation with no operator action.
-**Cost note for Yu (still relevant):** ~6,370 pkm cards reached ~2×/day
-through Web Unlocker is a real recurring spend (ballpark $10–20/day at
-list pricing — house rule: cap recurring spend by default). If
-that's too rich, ask a Sophia for a per-game cooldown (e.g. pkm at most
-1×/day) — one small change in the chunk SELECT.
+**Cost cap (Yu's call, same beat ~16:30):** paid-egress cooldown
+implemented — cards on bright-data-unlocker hosts are eligible at most
+once per `PROXY_COOLDOWN_HOURS` (24h), so pkm costs at most ~6,370
+unlocker requests/day (~$5–10/day ballpark) instead of ~2×. Direct games
+keep the full 2-hourly rotation. Cards held by the window are counted in
+run notes (`proxy_cooldown_held=N`). Yu also floated latest-set-only pkm
+coverage — kept in the back pocket as a further dial if spend still
+bites (filter on `set_code` in the same chunk SELECT).
 
 **Acceptance tracking:** (2) ✓ per-game success rate in run notes + events;
 (3) wired — KPI cards read run-derived data, will flip ok as chunks cover
