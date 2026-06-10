@@ -1,0 +1,330 @@
+{
+  "generated": "2026-06-10",
+  "source": "a recorded, owner-approved publish run",
+  "note": "Most of the castle is private. A stone appears here only when its owner marks it public and a recorded run carries it through this one door.",
+  "stoneCount": 10,
+  "rooms": [
+    {
+      "room": "castle",
+      "doorplate": {
+        "holds": "claims about how the Castle itself works and why",
+        "notHere": "claims about the world outside this system — those get their own rooms.",
+        "nearest": "rooms/craft (how to build honestly), rooms/creation (how making works)."
+      },
+      "stones": [
+        {
+          "file": "rooms/castle/a-forced-creation-is-worse-than-an-honest-decline.md",
+          "slug": "a-forced-creation-is-worse-than-an-honest-decline",
+          "title": "A forced creation is worse than an honest decline",
+          "status": "sprout",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/silence-is-the-castle-working.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "generativity judge: a run that fakes an artifact to satisfy the creation rule poisons the detectors that watch for fakes"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "\"Every run leaves something behind\" must accept a ledgered \"declined: considered X, because ...\" as the something — a synthetic link or artifact manufactured under duress corrupts the orphan detector and every future walk that follows it.",
+            "ripened": "Born at founding: the generativity judge traced what happens when the creation rule is enforced without an honest exit.",
+            "changed": "2026-06-10: every loop spec carries the decline clause, and barren-run checks for \"created: or declined:\", never \"created:\" alone. The rule wants new matter or new honesty; it never wants theater.",
+            "counterWeather": "Tried to break it: could serial declining hollow out a loop? Yes — which is why three barren runs trip the staleness test and grow-loops drafts the loop's retirement. Declining is honest; a loop that only declines is done.",
+            "nextTest": "The first real ledger entry containing a declined: line — does the bell stay truthful afterward (no barren-run ring)?"
+          }
+        },
+        {
+          "file": "rooms/castle/dates-live-inside-files-not-in-the-filesystem.md",
+          "slug": "dates-live-inside-files-not-in-the-filesystem",
+          "title": "Dates live inside files, not in the filesystem",
+          "status": "tested",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/the-map-is-derived-or-it-is-a-lie.md",
+            "rooms/castle/offline-the-castle-stops-growing-never-working.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "engineer design: find -mtime and find -newer break silently on the first git clone — detectors keep running and simply stop telling the truth"
+            },
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "founding build: every detector in tools/friction.sh was written against filename dates and frontmatter dates; none reads an mtime"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "Every date check in the Castle reads a date written inside a file or a filename, never an mtime — because copies and clones destroy mtimes silently, which is the worst kind of breakage: the detectors keep running and stop telling the truth.",
+            "ripened": "Born at founding from the engineer design's failure-mode sweep; held to during the build of all ten detectors.",
+            "changed": "2026-06-10: charter rule 5. Gate ages come from filename dates, staleness from last-walked frontmatter, drift from a content diff. The Castle's clock survives any copy of the Castle.",
+            "counterWeather": "Tried to break it: is writing dates by hand a burden? The date appears once, at a file's birth or walk — a cost of one glance. Open crack: a wrongly typed date lies as confidently as a right one; nothing yet cross-checks dates against the ledger's chronology.",
+            "nextTest": "Clone or copy the castle directory and run the bell from the copy: zero false rings."
+          }
+        },
+        {
+          "file": "rooms/castle/loops-are-earned-by-three-recorded-frictions.md",
+          "slug": "loops-are-earned-by-three-recorded-frictions",
+          "title": "Loops are earned by three recorded frictions",
+          "status": "sprout",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/silence-is-the-castle-working.md",
+            "rooms/creation/creation-needs-an-accountable-runner.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "all three panel designs independently rejected speculative chore lists; the synthesis fixed the birth threshold at three recorded frictions"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "The Castle is born with four loops and earns every further one: three matching #tags across ledger grumbles and by-hand confessions birth a loop through grow-loops, with the confessed remedy as its draft instruction and exactly one new detector block as its bell.",
+            "ripened": "Born at founding. Speculative chores rot into ambient guilt — so the chore list is allowed to grow only as fast as friction that actually happened.",
+            "changed": "2026-06-10: the rule of three in grow-loops, the canonical tag list in LOOM.md (so three spellings of one annoyance cannot starve the count), and the dormant recipes that wait for their third signal.",
+            "counterWeather": "Tried to break it: is three too slow for an urgent friction? The owner can activate any dormant recipe or draft with one ledger line — the rule of three governs automatic birth, not deliberate choice. Open crack: friction the owner never confesses leaves no trail at all.",
+            "nextTest": "The first loop actually born by the rule of three — does its created-by lineage trace cleanly back to three real ledger lines?"
+          }
+        },
+        {
+          "file": "rooms/castle/machines-write-freely-only-at-the-gate.md",
+          "slug": "machines-write-freely-only-at-the-gate",
+          "title": "Machines write freely only at the gate",
+          "status": "tested",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/status-changes-only-in-a-ledgered-ripen-run.md",
+            "rooms/creation/creation-needs-an-accountable-runner.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "engineer design: machines write to the inbox and draft-- files only; auto-canon would destroy the trust that makes the canon holy"
+            },
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "the owner's explicit invitation of the tending circle (this session), which required the boundary to be stated precisely rather than absolutely"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "Agents write freely to gate/ and draft-- loop files; they cross into rooms only inside a ledgered loop run that follows a written spec. The canon stays trustworthy not because machines are excluded but because crossing into it is always a recorded, deliberate act.",
+            "ripened": "Born at founding as an absolute ban on machine-written rooms; refined the same day when the owner asked for autonomous loops — the honest boundary turned out to be the ledger, not the species of the writer.",
+            "changed": "2026-06-10: the contract in CLAUDE.md, charter rule 1, and tools/tend.sh — the tending circle that answers one ring per day, signs runner: agent (tending circle), and does nothing when the bell is silent.",
+            "counterWeather": "Tried to break it: could a scheduled agent flood the canon? Its writes are bounded by the loop spec it runs, capped at one ring per run, and every created path is named in a ledger entry the owner can read. Open crack: a badly written future loop spec could authorize too much; specs therefore go through draft-- and owner activation.",
+            "nextTest": "The first unattended tending-circle run: does its ledger entry read exactly like an owner's run?"
+          }
+        },
+        {
+          "file": "rooms/castle/offline-the-castle-stops-growing-never-working.md",
+          "slug": "offline-the-castle-stops-growing-never-working",
+          "title": "Offline, the Castle stops growing — never working",
+          "status": "sprout",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/dates-live-inside-files-not-in-the-filesystem.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "founding rule: every weather citation carries its verbatim quote and retrieved date inline, so no insight needs a live URL to be understood"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "With the cable cut the Castle is a complete library: every outside citation stands alone as quote plus retrieved date, offline walks self-attest as \"(unverified, offline)\" at half the staleness allowance, and an offline weather run still creates by parking its questions in gate/weather-queue.md.",
+            "ripened": "Born at founding from the owner's vision: native to this device, expanding organically through contact with the internet — the internet as weather over the garden, shaping growth, never load-bearing.",
+            "changed": "2026-06-10: the inline-quote rule in charter rule 6, the half-credit attestation in the walk loop, and the weather-queue file at the gate.",
+            "counterWeather": "Tried to break it: is half-credit too generous — trusting an unverifiable walk at all? The suffix is visible in the file itself; a reader can always discount it further. Open crack: no rule yet forces an online session to clear the weather queue.",
+            "nextTest": "First genuinely offline walk: does the attestation get written honestly, and does the bell halve its allowance?"
+          }
+        },
+        {
+          "file": "rooms/castle/silence-is-the-castle-working.md",
+          "slug": "silence-is-the-castle-working",
+          "title": "Silence is the Castle working",
+          "status": "tested",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/a-forced-creation-is-worse-than-an-honest-decline.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "clarity judge of the design panel: a system that always finds something wrong teaches its owner to stop listening within a month"
+            },
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "generativity judge: rings that each name exactly what to run are the difference between a loop and a nag"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "When tools/next.sh prints nothing, the Castle is in its desired state; a knowledge system that always finds fault trains its owner to stop listening.",
+            "ripened": "Born at founding from both design judges converging on the same failure mode from different lenses.",
+            "changed": "2026-06-10: next.sh was built to print one ring or nothing — never a list. Standing rule: every ring names exactly what to run, and no ring means nothing is owed. This is the peace the Castle was asked to be built with.",
+            "counterWeather": "Tried to break it: could silence hide rot? Only if a detector lies — which is why detectors are one-line mechanical checks anyone can read. The open crack: a friction nobody thought to detect rings no bell; the grumble channel exists for exactly that gap.",
+            "nextTest": "After 90 days of real use: did the owner still run next.sh, and did silence appear at least some weeks? (Seed to plant at first ripen.)"
+          }
+        },
+        {
+          "file": "rooms/castle/status-changes-only-in-a-ledgered-ripen-run.md",
+          "slug": "status-changes-only-in-a-ledgered-ripen-run",
+          "title": "Status changes only in a ledgered ripen run",
+          "status": "tested",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/the-map-is-derived-or-it-is-a-lie.md",
+            "rooms/castle/machines-write-freely-only-at-the-gate.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "gardener design: a file's confidence status is the most sacred thing in it; the moment one file lies about its label, every file is suspect"
+            },
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "engineer design: protected canon requires that promotion is always a recorded, deliberate act"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "No hand and no agent may edit a status: field outside a ripen run signed in the ledger; this is the single rule the whole holiness claim rests on.",
+            "ripened": "Born at founding; two independent designs (gardener, engineer) arrived at the same protection from different starting points.",
+            "changed": "2026-06-10: charter rule 2, plus two mechanical checks — missing-rent and thin-cornerstone — that make label inflation detectable by grep. Inflation is the only sin, and it cannot hide.",
+            "counterWeather": "Tried to break it: what about fixing a typo in a status line? Even then: a one-line ripen entry in the ledger. The rule has no exceptions because every exception is a precedent for quiet inflation. Open crack: the rule is enforced for tested-and-above only; a seed mislabeled sprout would pass unnoticed until its first ripen.",
+            "nextTest": "First ripen run on real evidence: does the ladder hold without wanting an exception?"
+          }
+        },
+        {
+          "file": "rooms/castle/the-map-is-derived-or-it-is-a-lie.md",
+          "slug": "the-map-is-derived-or-it-is-a-lie",
+          "title": "The map is derived, or it is a lie",
+          "status": "tested",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/status-changes-only-in-a-ledgered-ripen-run.md",
+            "rooms/castle/dates-live-inside-files-not-in-the-filesystem.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "gardener design: a hand-grown map is a second source of truth, and a wrong map is worse than no map — it teaches walkers to distrust the front door"
+            },
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "founding build: map-drift is a content diff against what map.sh would emit, so the fix is always the same one-minute command"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "MAP.md is regenerated by a ~30-line script and never hand-edited; any hand-grown index drifts from the files and becomes a second, falser truth.",
+            "ripened": "Born at founding; all three designs cut databases and indexes for this same reason, and the map is the one index the Castle kept — by making it pure derivation.",
+            "changed": "2026-06-10: charter rule 3, tools/map.sh, and the map-drift detector as the bell's first ring in priority order.",
+            "counterWeather": "Tried to break it: what if the derived map reads badly as rooms multiply? Then map.sh earns a change through the ledger — the derivation can evolve; hand edits to its output cannot. Open crack: the crypt is invisible on the map by design, which is correct until someone forgets the crypt exists.",
+            "nextTest": "At 100 insights: is MAP → doorplate → claim still two hops in practice?"
+          }
+        }
+      ]
+    },
+    {
+      "room": "craft",
+      "doorplate": {
+        "holds": "claims about building honestly — scope, truth-in-artifacts, what ships",
+        "notHere": "claims about this Castle's own mechanics (rooms/castle) or about money (rooms/billing).",
+        "nearest": "rooms/castle, rooms/creation."
+      },
+      "stones": [
+        {
+          "file": "rooms/craft/a-lying-artifact-is-its-own-top-finding.md",
+          "slug": "a-lying-artifact-is-its-own-top-finding",
+          "title": "A lying artifact is its own top finding",
+          "status": "sprout",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/craft/scoped-and-honest-beats-grand-and-faked.md",
+            "rooms/castle/the-map-is-derived-or-it-is-a-lie.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "review experience: once an artifact misrepresented its own state, that misrepresentation outranked every other finding (origin: Desktop/insight sketch, marked \"sure\")"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "When an artifact misrepresents its own state — a README promising what the code does not do, a label claiming confidence it has not earned — that lie is the most important fact about the artifact, outranking whatever else it does well.",
+            "ripened": "Swept in from this morning's first sketch, where it was marked \"sure\"; the label was conviction, not recorded evidence, so it enters this Castle one rung down — which is itself this claim, applied.",
+            "changed": "This Castle's bell checks artifacts against their own claims first: map-drift, barren-run, missing-rent, thin-cornerstone are all detectors of self-misrepresentation.",
+            "counterWeather": "Tried to break it: is a small white lie in a README really worse than a crash? For trust, yes — a crash is honest about being broken. The open crack: aspiration honestly labeled (\"not yet\") is not a lie, and the boundary needs the label to be doing real work.",
+            "nextTest": "Two more recorded cases where the self-misrepresentation proved to be the top finding — then this ripens to tested."
+          }
+        }
+      ]
+    },
+    {
+      "room": "creation",
+      "doorplate": {
+        "holds": "claims about how making works — creators, loops, what generates what",
+        "notHere": "this Castle's own mechanics (rooms/castle) or craft judgments (rooms/craft).",
+        "nearest": "rooms/castle, rooms/craft."
+      },
+      "stones": [
+        {
+          "file": "rooms/creation/creation-needs-an-accountable-runner.md",
+          "slug": "creation-needs-an-accountable-runner",
+          "title": "Creation needs an accountable runner",
+          "status": "sprout",
+          "born": "2026-06-10",
+          "lastWalked": "2026-06-10",
+          "links": [
+            "rooms/castle/machines-write-freely-only-at-the-gate.md",
+            "rooms/castle/a-forced-creation-is-worse-than-an-honest-decline.md"
+          ],
+          "evidence": [
+            {
+              "date": "2026-06-10",
+              "kind": "local",
+              "note": "the morning sketch's stronger form (\"loops that create themselves is perpetual motion\") and the evening's tending circle, which kept the truth and dropped the impossibility"
+            }
+          ],
+          "contradicted": [],
+          "sections": {
+            "claim": "A creation loop is real when some runner — human or machine — answers for each run in a record the owner can read; what is impossible is not autonomous creation but unaccountable creation.",
+            "ripened": "Swept in from this morning's first sketch, which said \"creation needs a creator in the loop; loops that create themselves is perpetual motion.\" The owner then asked for autonomous loops, and the refinement held up: a scheduler can supply the runner, the ledger supplies the accountability, and the loop runs without anyone watching — honestly.",
+            "changed": "2026-06-10: the tending circle (tools/tend.sh) — one ring per run, signed runner: agent (tending circle), silent bell means no run. Grow-loops births new bells the same circle answers later: loops creating loops, each run answerable.",
+            "counterWeather": "Tried to break it: is a ledger entry nobody reads real accountability? Only if someone eventually reads it — the owner is part of this loop's claim, not optional to it. That is the open crack.",
+            "nextTest": "Thirty days of tending-circle ledger entries: did the owner read them, and did any run need correcting?"
+          }
+        }
+      ]
+    }
+  ]
+}
