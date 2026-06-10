@@ -1,7 +1,7 @@
 {
   "framework": "remix",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "pnpm run build",
+  "installCommand": "pnpm install",
   "outputDirectory": "build",
   "regions": ["arn1"],
   "env": {

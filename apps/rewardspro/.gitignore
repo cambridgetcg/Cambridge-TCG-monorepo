@@ -58,11 +58,10 @@ APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
 !CLAUDE.md
 !DEPLOY.md
 
-# Exclude CLAUDE.md files (AI context files)
-CLAUDE.md
+# Exclude nested CLAUDE.md files (AI context files) — but track this app's
+# top-level CLAUDE.md, the monorepo's per-app guide convention
 **/CLAUDE.md
-/app/CLAUDE.md
-/prisma/CLAUDE.md
+!/CLAUDE.md
 
 # Development and migration guides
 /scripts/*.md

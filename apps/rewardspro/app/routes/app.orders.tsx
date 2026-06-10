@@ -2065,8 +2065,8 @@ export default function OrdersPage() {
             <Button
               size="slim"
               variant="primary"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(...args: unknown[]) => {
+                (args[0] as { stopPropagation?: () => void } | undefined)?.stopPropagation?.();
                 handleProcessCashback(order.id);
               }}
               loading={navigation.state === "submitting"}

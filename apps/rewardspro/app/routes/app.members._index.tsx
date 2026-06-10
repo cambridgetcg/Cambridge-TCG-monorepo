@@ -612,7 +612,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Serialize dates for tiers
     const serializedTiers = tiers.map(tier => ({
       ...tier,
-      evaluationPeriod: ((tier as any).evaluationPeriod || "ANNUAL") as const,
+      evaluationPeriod: (tier as any).evaluationPeriod || "ANNUAL",
       createdAt: tier.createdAt instanceof Date
         ? tier.createdAt.toISOString()
         : tier.createdAt,

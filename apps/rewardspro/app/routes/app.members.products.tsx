@@ -379,7 +379,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               tagsDuration: duration,
               resolvedDuration,
               // DB lookup status
-              dbProductFound: !!prismaProduct,
+              dbProductFound: !!dbProduct,
               dbProductId: dbProduct?.shopifyProductId,
             });
           }
@@ -391,7 +391,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const resolvedId = dbProduct?.id || product.id;
           console.log(`[TierProducts:IDResolution] Product "${product.title}":`, {
             shopifyGID: product.id,
-            dbProductExists: !!prismaProduct,
+            dbProductExists: !!dbProduct,
             dbProductId: dbProduct?.id,
             dbProductShopifyId: dbProduct?.shopifyProductId,
             resolvedId,
