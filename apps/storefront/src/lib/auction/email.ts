@@ -1,5 +1,4 @@
-import { SendEmailCommand } from "@aws-sdk/client-ses";
-import { sesClient as ses } from "@/lib/email/client";
+import { sendMail } from "@cambridge-tcg/email";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/+$/, "");
@@ -21,14 +20,13 @@ function emailTemplate(title: string, body: string, ctaText?: string, ctaUrl?: s
 }
 
 async function send(to: string, subject: string, html: string, text: string) {
-  await ses.send(new SendEmailCommand({
-    Source: FROM,
-    Destination: { ToAddresses: [to] },
-    Message: {
-      Subject: { Data: subject },
-      Body: { Text: { Data: text }, Html: { Data: html } },
-    },
-  }));
+  const result = await sendMail(
+    { from: FROM, to, subject, text, html },
+    { stream: "noreply" }
+  );
+  if (!result.ok) {
+    throw new Error(`Auction email to ${to} failed: ${result.error}`);
+  }
 }
 
 export async function sendOutbidEmail(data: {

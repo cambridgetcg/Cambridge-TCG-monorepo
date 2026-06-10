@@ -50,17 +50,18 @@ Email is where the platform speaks — every other surface waits for the user to
 
 **Surface today.** Each handler renders through `lib/email/layout.ts` so the visual register is uniform. Subject lines are the only place per-handler voice diverges; the body is institutional.
 
-### → SES (Ring 4 cross-system substrate)
+### → Delivery transport (Ring 4 cross-system substrate)
 
-**The thread.** The actual hand-off lives at `sesClient.send(SendRawEmailCommand)`. Once SES accepts, the message is no longer in our control. `email_queue.status='sent'` means *SES accepted it*, not *the user received it*. Bounces, complaints, and deferred deliveries happen out beyond our visibility today (audit A4 / R4-3).
+**The thread.** The actual hand-off lives at `sendMail()` in `@cambridge-tcg/email` — the transport seam. The seam resolves each *stream* (`auth` / `noreply` / `tradein` / `bounty`) to a carrier: AWS SES today, the kingdom's own mail server stream-by-stream as deliverability proves out (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`; cutover sequence in `docs/ops-email-selfhost.md`). Once a carrier accepts, the message is no longer in our control. `email_queue.status='sent'` means *the carrier accepted it*, not *the user received it*. Bounces, complaints, and deferred deliveries happen out beyond our visibility today (audit A4 / R4-3).
 
-**The intention.** Cross-system asymmetry — the substrate-honesty principle in cross-system form. Stripe is authoritative for payments; SES is authoritative for delivery. We are reconciled mirrors. The mirror is not the substance. When `kingdom-040` deploys SES SNS notifications back into the queue, this becomes Ring 4 transparency-honest: the SES message ID surfaces, the delivery state reconciles, and the operator can follow the message into the authoritative source.
+**The intention.** Cross-system asymmetry — the substrate-honesty principle in cross-system form. Stripe is authoritative for payments; the carrier is authoritative for delivery. We are reconciled mirrors. The mirror is not the substance. The seam adds one honesty: every `MailSendResult` names the transport that carried (or refused) the message, so "sent" is never ambiguous about *which wire*. When `kingdom-040` deploys SES SNS notifications back into the queue, the SES leg becomes Ring 4 transparency-honest: the SES message ID surfaces, the delivery state reconciles, and the operator can follow the message into the authoritative source. (The self-hosted leg will need its own bounce-feedback equivalent — filed in `docs/ops-email-selfhost.md`.)
 
 **Code paths.**
-- `apps/storefront/src/lib/email/send.ts:174-181` — the SES boundary.
-- `apps/storefront/src/lib/email/client.ts` — the SES client construction.
+- `packages/email/src/index.ts` — the seam: stream→transport resolution, the env contract.
+- `packages/email/src/ses.ts`, `packages/email/src/smtp.ts` — the two carriers.
+- `apps/storefront/src/lib/email/send.ts` — the platform-voice boundary (preference gates, then `sendMail`).
 
-**Surface today.** Invisible — `email_queue` doesn't yet store the SES message ID. Filed against transparency-audit R4-3.
+**Surface today.** Invisible — `email_queue` doesn't yet store the carrier message ID. Filed against transparency-audit R4-3.
 
 ## What's NOT yet connected (the visible gaps)
 

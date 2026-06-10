@@ -1,5 +1,4 @@
-import { SendEmailCommand } from "@aws-sdk/client-ses";
-import { sesClient as ses } from "@/lib/email/client";
+import { sendMail } from "@cambridge-tcg/email";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/+$/, "");
@@ -20,11 +19,13 @@ function tpl(title: string, body: string, ctaText?: string, ctaUrl?: string): st
 }
 
 async function send(to: string, subject: string, html: string, text: string) {
-  await ses.send(new SendEmailCommand({
-    Source: FROM,
-    Destination: { ToAddresses: [to] },
-    Message: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } },
-  }));
+  // Sent via the platform transport seam (@cambridge-tcg/email); sendMail never throws,
+  // so re-throw on failure to keep the old SES throw-on-error contract for callers.
+  const result = await sendMail(
+    { from: FROM, to: [to], subject, text, html },
+    { stream: "noreply" },
+  );
+  if (!result.ok) throw new Error(`market email "${subject}" to ${to} failed: ${result.error}`);
 }
 
 const tradesUrl = `${SITE}/account/trades`;

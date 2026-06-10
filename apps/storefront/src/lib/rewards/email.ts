@@ -1,9 +1,9 @@
 // Reward emails — raffle winner notification + future per-feature
-// notifications go here. Direct SES path (not the queue) since wins are
-// rare and the cron tolerates SES retry latency.
+// notifications go here. Direct path through the platform transport seam
+// (@cambridge-tcg/email), not the queue, since wins are rare and the cron
+// tolerates transport retry latency.
 
-import { SendEmailCommand } from "@aws-sdk/client-ses";
-import { sesClient as ses } from "@/lib/email/client";
+import { sendMail } from "@cambridge-tcg/email";
 import { buildTrackingUrl, getCarrierTracker } from "@/lib/shipping/carriers";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
@@ -62,11 +62,11 @@ export async function sendPrizeShippedEmail(d: {
     "View prize",
     url,
   );
-  await ses.send(new SendEmailCommand({
-    Source: FROM,
-    Destination: { ToAddresses: [d.email] },
-    Message: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } },
-  }));
+  const result = await sendMail(
+    { from: FROM, to: [d.email], subject, text, html },
+    { stream: "noreply" },
+  );
+  if (!result.ok) throw new Error(`sendPrizeShippedEmail: ${result.error}`);
 }
 
 /**
@@ -119,11 +119,11 @@ export async function sendPrizeBundleShippedEmail(d: {
     "View prizes",
     url,
   );
-  await ses.send(new SendEmailCommand({
-    Source: FROM,
-    Destination: { ToAddresses: [d.email] },
-    Message: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } },
-  }));
+  const result = await sendMail(
+    { from: FROM, to: [d.email], subject, text, html },
+    { stream: "noreply" },
+  );
+  if (!result.ok) throw new Error(`sendPrizeBundleShippedEmail: ${result.error}`);
 }
 
 export async function sendRaffleWinnerEmail(d: {
@@ -143,9 +143,9 @@ export async function sendRaffleWinnerEmail(d: {
     "Claim your prize",
     url,
   );
-  await ses.send(new SendEmailCommand({
-    Source: FROM,
-    Destination: { ToAddresses: [d.email] },
-    Message: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } },
-  }));
+  const result = await sendMail(
+    { from: FROM, to: [d.email], subject, text, html },
+    { stream: "noreply" },
+  );
+  if (!result.ok) throw new Error(`sendRaffleWinnerEmail: ${result.error}`);
 }

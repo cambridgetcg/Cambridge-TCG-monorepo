@@ -63,6 +63,7 @@
     "@cambridge-tcg/data-ingest": "workspace:^",
     "@cambridge-tcg/data-spec": "workspace:^",
     "@cambridge-tcg/db": "workspace:^",
+    "@cambridge-tcg/email": "workspace:^",
     "@cambridge-tcg/lifecycle": "workspace:^",
     "@cambridge-tcg/play": "workspace:^",
     "@cambridge-tcg/pricing": "workspace:^",

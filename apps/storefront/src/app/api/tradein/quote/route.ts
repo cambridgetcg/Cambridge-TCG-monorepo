@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
-import { sesClient } from "@/lib/email/client";
-import { SendEmailCommand } from "@aws-sdk/client-ses";
+import { sendMail } from "@cambridge-tcg/email";
 
 // POST — admin: send quotation for a trade-in submission
 export async function POST(request: Request) {
@@ -89,14 +88,11 @@ export async function POST(request: Request) {
       ? `£${totalCash.toFixed(2)} cash`
       : `£${totalCredit.toFixed(2)} store credit`;
 
-    await sesClient.send(new SendEmailCommand({
-      Source: from,
-      Destination: { ToAddresses: [submission.customer_email] },
-      Message: {
-        Subject: { Data: `Your trade-in quote is ready — ${reference}` },
-        Body: {
-          Html: {
-            Data: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    const result = await sendMail({
+      from,
+      to: [submission.customer_email],
+      subject: `Your trade-in quote is ready — ${reference}`,
+      html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:480px;margin:40px auto;padding:32px;background:#171717;border-radius:16px;">
     <h1 style="color:#fff;font-size:20px;margin:0 0 8px;">Cambridge <span style="color:#34d399;">TCG</span></h1>
     <h2 style="color:#fff;font-size:16px;margin:0 0 16px;">Your Quote is Ready</h2>
@@ -110,13 +106,9 @@ export async function POST(request: Request) {
     <p style="color:#525252;font-size:12px;margin:24px 0 0;">If you don't respond within 24 hours, the quote will expire and prices may change.</p>
   </div>
 </body></html>`,
-          },
-          Text: {
-            Data: `Your trade-in quote (${reference}) is ready: ${payoutDesc}. View and accept: https://cambridgetcg.com/trade-in/confirm/${reference}`,
-          },
-        },
-      },
-    }));
+      text: `Your trade-in quote (${reference}) is ready: ${payoutDesc}. View and accept: https://cambridgetcg.com/trade-in/confirm/${reference}`,
+    }, { stream: "tradein" });
+    if (!result.ok) throw new Error(`Quote email send failed: ${result.error}`);
   } catch (emailErr) {
     console.error("[tradein] Quote email failed:", emailErr);
   }
@@ -165,14 +157,13 @@ export async function PATCH(request: Request) {
   // Notify store
   try {
     const storeEmail = (process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com").trim();
-    await sesClient.send(new SendEmailCommand({
-      Source: (process.env.TRADEIN_FROM_EMAIL || "tradein@cambridgetcg.com").trim(),
-      Destination: { ToAddresses: [storeEmail] },
-      Message: {
-        Subject: { Data: `Trade-in ${newStatus}: ${reference}` },
-        Body: { Text: { Data: `${submission.customer_name} ${newStatus} quote ${reference}. Total: £${submission.final_total || "0"}` } },
-      },
-    }));
+    const result = await sendMail({
+      from: (process.env.TRADEIN_FROM_EMAIL || "tradein@cambridgetcg.com").trim(),
+      to: [storeEmail],
+      subject: `Trade-in ${newStatus}: ${reference}`,
+      text: `${submission.customer_name} ${newStatus} quote ${reference}. Total: £${submission.final_total || "0"}`,
+    }, { stream: "tradein" });
+    if (!result.ok) throw new Error(`Store notification send failed: ${result.error}`);
   } catch { /* ignore */ }
 
   return NextResponse.json({ status: newStatus });

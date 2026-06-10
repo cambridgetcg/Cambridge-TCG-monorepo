@@ -1,5 +1,4 @@
-import { SendEmailCommand } from "@aws-sdk/client-ses";
-import { sesClient as ses } from "@/lib/email/client";
+import { sendMail } from "@cambridge-tcg/email";
 import { formatPrice } from "@/lib/format";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
@@ -22,11 +21,11 @@ function template(title: string, body: string, ctaText?: string, ctaUrl?: string
 }
 
 async function send(to: string, subject: string, html: string, text: string) {
-  await ses.send(new SendEmailCommand({
-    Source: FROM,
-    Destination: { ToAddresses: [to] },
-    Message: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } },
-  }));
+  const result = await sendMail(
+    { from: FROM, to, subject, text, html },
+    { stream: "noreply" },
+  );
+  if (!result.ok) throw new Error(`quote email "${subject}" to ${to}: ${result.error}`);
 }
 
 export async function sendQuoteReceivedEmail(data: {
@@ -111,8 +110,9 @@ export async function sendQuoteAcceptedAdminNotification(data: {
 //
 // Customer-visible milestones after they accept. Internal-only status
 // flips (cancellations, admin notes) don't get emails; those would add
-// noise. Kept in the same SES direct-send style as the other quote
-// templates so we don't have to migrate them to the queue right now.
+// noise. Kept in the same direct-send style — via the platform transport
+// seam (@cambridge-tcg/email) — as the other quote templates so we don't
+// have to migrate them to the queue right now.
 
 const STATUS_COPY: Record<string, { subject: (ref: string) => string; heading: string; body: (ref: string) => string }> = {
   received: {

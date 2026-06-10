@@ -54,8 +54,9 @@
 // ── What this module reaches toward ──────────────────────────────────────
 //
 //   - apps/storefront/src/lib/email/send.ts — the immediate sibling.
-//     Both modules call sesClient ultimately; the difference is in
-//     when the decision-to-send is made (now vs at-drain-time).
+//     Both modules deliver through the transport seam (@cambridge-tcg/
+//     email) ultimately; the difference is in when the decision-to-send
+//     is made (now vs at-drain-time).
 //
 //   - apps/storefront/src/lib/email/handlers/* — the per-event story
 //     library. registerQueueHandler is how a domain hooks its

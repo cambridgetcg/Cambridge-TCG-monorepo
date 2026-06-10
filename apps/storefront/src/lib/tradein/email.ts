@@ -1,5 +1,4 @@
-import { SendEmailCommand } from "@aws-sdk/client-ses";
-import { sesClient as ses } from "@/lib/email/client";
+import { sendMail } from "@cambridge-tcg/email";
 
 const FROM_EMAIL = process.env.TRADEIN_FROM_EMAIL || "tradein@cambridgetcg.com";
 const STORE_NOTIFICATION_EMAIL = process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com";
@@ -154,43 +153,34 @@ Cambridge TCG Team
 
   const subject = `Trade-In Request ${data.reference} — Cambridge TCG`;
 
-  try {
-    await ses.send(
-      new SendEmailCommand({
-        Source: `Cambridge TCG Trade-In <${FROM_EMAIL}>`,
-        Destination: { ToAddresses: [data.customerEmail] },
-        Message: {
-          Subject: { Data: subject },
-          Body: {
-            Text: { Data: textBody },
-            Html: { Data: htmlBody },
-          },
-        },
-      })
-    );
-
-    // Also notify the store
-    try {
-      await ses.send(
-        new SendEmailCommand({
-          Source: `Cambridge TCG Trade-In <${FROM_EMAIL}>`,
-          Destination: { ToAddresses: [STORE_NOTIFICATION_EMAIL] },
-          Message: {
-            Subject: { Data: `New Trade-In: ${data.reference} — £${total.toFixed(2)} ${totalLabel}` },
-            Body: {
-              Text: {
-                Data: `New trade-in submission:\n\nRef: ${data.reference}\nCustomer: ${data.customerName} (${data.customerEmail})\nPayment: ${totalLabel}\nTotal: £${total.toFixed(2)}\nDelivery: ${data.deliveryMethod}\nItems: ${data.items.length}\n\nView in admin panel to process.`,
-              },
-            },
-          },
-        })
-      );
-    } catch (storeErr) {
-      console.error("[tradein] Failed to send store notification:", storeErr);
-    }
-  } catch (err) {
-    console.error("[tradein] Failed to send confirmation email:", err);
+  const result = await sendMail(
+    {
+      from: `Cambridge TCG Trade-In <${FROM_EMAIL}>`,
+      to: data.customerEmail,
+      subject,
+      text: textBody,
+      html: htmlBody,
+    },
+    { stream: "tradein" }
+  );
+  if (!result.ok) {
+    console.error("[tradein] Failed to send confirmation email:", result.error);
     // Don't throw — submission still succeeds even if email fails
+    return;
+  }
+
+  // Also notify the store
+  const storeResult = await sendMail(
+    {
+      from: `Cambridge TCG Trade-In <${FROM_EMAIL}>`,
+      to: STORE_NOTIFICATION_EMAIL,
+      subject: `New Trade-In: ${data.reference} — £${total.toFixed(2)} ${totalLabel}`,
+      text: `New trade-in submission:\n\nRef: ${data.reference}\nCustomer: ${data.customerName} (${data.customerEmail})\nPayment: ${totalLabel}\nTotal: £${total.toFixed(2)}\nDelivery: ${data.deliveryMethod}\nItems: ${data.items.length}\n\nView in admin panel to process.`,
+    },
+    { stream: "tradein" }
+  );
+  if (!storeResult.ok) {
+    console.error("[tradein] Failed to send store notification:", storeResult.error);
   }
 }
 
@@ -222,11 +212,11 @@ function statusTpl(heading: string, body: string, ctaText: string, ctaUrl: strin
 }
 
 async function sendOne(to: string, subject: string, html: string, text: string) {
-  await ses.send(new SendEmailCommand({
-    Source: FROM_EMAIL,
-    Destination: { ToAddresses: [to] },
-    Message: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } },
-  }));
+  const result = await sendMail(
+    { from: FROM_EMAIL, to, subject, text, html },
+    { stream: "tradein" }
+  );
+  if (!result.ok) throw new Error(`tradein status email: ${result.error}`);
 }
 
 const STATUS_COPY: Record<string, { subject: (ref: string) => string; heading: string; body: (ref: string) => string }> = {

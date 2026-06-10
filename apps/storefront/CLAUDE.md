@@ -10,7 +10,7 @@ The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake 
 - Next.js 16.2.1 (App Router, Turbopack) + TypeScript + Tailwind CSS 4
 - PostgreSQL on AWS RDS (`tcg-wholesale` in us-east-1)
 - Stripe (checkout + webhooks)
-- AWS SES (transactional email)
+- Transactional email via the `@cambridge-tcg/email` transport seam — SES today, self-hosted SMTP per stream as cutover proceeds (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`; see `docs/ops-email-selfhost.md`)
 - next-auth v5 (magic link email login)
 - Deployed on Vercel (production: cambridgetcg.com)
 - Wholesale API: wholesaletcgdirect.com (live pricing — see `@cambridge-tcg/pricing` package for the compute, `src/lib/wholesale/client.ts` for the Falcon courier, `docs/connections/the-pricing-arrow.md` for the seven-act story)

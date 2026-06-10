@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
-import { sesClient } from "@/lib/email/client";
-import { SendEmailCommand } from "@aws-sdk/client-ses";
+import { sendMail } from "@cambridge-tcg/email";
 
 // POST — submit OG claim (public) or approve/reject (admin)
 export async function POST(request: Request) {
@@ -43,16 +42,13 @@ export async function POST(request: Request) {
         [claimId, adminNotes || null]
       );
 
-      // Send email notification
-      try {
-        await sesClient.send(new SendEmailCommand({
-          Source: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
-          Destination: { ToAddresses: [claim.rows[0].email] },
-          Message: {
-            Subject: { Data: "👑 Your OG Status is Active — Cambridge TCG" },
-            Body: {
-              Html: {
-                Data: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      // Send email notification via the platform transport seam (@cambridge-tcg/email)
+      {
+        const result = await sendMail({
+          from: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
+          to: [claim.rows[0].email],
+          subject: "👑 Your OG Status is Active — Cambridge TCG",
+          html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <div style="max-width:480px;margin:40px auto;padding:32px;background:#171717;border-radius:16px;">
     <h1 style="color:#fff;font-size:20px;margin:0 0 8px;">Cambridge <span style="color:#34d399;">TCG</span></h1>
     <div style="text-align:center;font-size:48px;margin:16px 0;">👑</div>
@@ -72,12 +68,10 @@ export async function POST(request: Request) {
     <p style="color:#737373;font-size:12px;margin:24px 0 0;font-style:italic;">You were here before the hype. That means everything to us.</p>
   </div>
 </body></html>`,
-              },
-              Text: { Data: "Your OG Status is active on Cambridge TCG. Sign in at https://cambridgetcg.com/login to access your perks." },
-            },
-          },
-        }));
-      } catch (e) { console.error("[og] Email failed:", e); }
+          text: "Your OG Status is active on Cambridge TCG. Sign in at https://cambridgetcg.com/login to access your perks.",
+        }, { stream: "noreply" });
+        if (!result.ok) console.error("[og] Email failed:", result.error);
+      }
 
       return NextResponse.json({ status: "approved", email: claim.rows[0].email });
     }
@@ -114,18 +108,14 @@ export async function POST(request: Request) {
     [email, platform, orderRef?.trim() || null, username?.trim() || null, notes?.trim() || null]
   );
 
-  // Notify store
-  try {
-    const storeEmail = (process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com").trim();
-    await sesClient.send(new SendEmailCommand({
-      Source: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
-      Destination: { ToAddresses: [storeEmail] },
-      Message: {
-        Subject: { Data: `New OG Claim: ${email} (${platform})` },
-        Body: { Text: { Data: `OG claim from ${email}\nPlatform: ${platform}\nOrder: ${orderRef || "—"}\nUsername: ${username || "—"}\nNotes: ${notes || "—"}` } },
-      },
-    }));
-  } catch { /* ignore */ }
+  // Notify store via the platform transport seam (@cambridge-tcg/email) — failures ignored
+  const storeEmail = (process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com").trim();
+  await sendMail({
+    from: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
+    to: [storeEmail],
+    subject: `New OG Claim: ${email} (${platform})`,
+    text: `OG claim from ${email}\nPlatform: ${platform}\nOrder: ${orderRef || "—"}\nUsername: ${username || "—"}\nNotes: ${notes || "—"}`,
+  }, { stream: "noreply" });
 
   return NextResponse.json({ submitted: true });
 }
