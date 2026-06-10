@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Money } from "@/lib/ui";
+import { EmptyState, Icon, Money } from "@/lib/ui";
+import { useVoice } from "@/lib/wardrobe/context";
 
 interface LotRow {
   id: string;
@@ -20,6 +21,7 @@ interface LotRow {
 export default function MarketLotsPage() {
   const [lots, setLots] = useState<LotRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const v = useVoice();
 
   useEffect(() => {
     fetch("/api/market/lots?limit=48")
@@ -29,69 +31,66 @@ export default function MarketLotsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Wardrobe migration (spec §3.4): Gallery tokens, framed lots, mono numerals — behaviour unchanged.
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-black text-white">Bundles &amp; Lots</h1>
-            <p className="text-sm text-neutral-400 mt-1">
-              Buy a whole playset, deck, or collection in one trade.
-            </p>
-          </div>
-          <Link
-            href="/account/lots"
-            className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
-          >
-            List a lot
-          </Link>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-display font-bold tracking-tight text-ink">{v("market.lots.title")}</h1>
+          <p className="text-sm text-ink-muted mt-1">
+            {v("market.lots.subtitle")}
+          </p>
         </div>
+        <Link
+          href="/account/lots"
+          className="px-4 py-2 bg-accent text-white text-sm font-bold rounded-lg hover:bg-accent-strong transition"
+        >
+          List a lot
+        </Link>
+      </div>
 
-        {loading ? (
-          <p className="text-sm text-neutral-500">Loading...</p>
-        ) : lots.length === 0 ? (
-          <div className="bg-neutral-900 rounded-xl p-12 text-center">
-            <p className="text-neutral-400 text-sm">No lots listed yet.</p>
-            <p className="text-xs text-neutral-500 mt-2">
-              Be the first. Bundle a deck, a playset, or a set completion and price it.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {lots.map((lot) => (
-              <Link
-                key={lot.id}
-                href={`/market/lots/${lot.id}`}
-                className="block bg-neutral-900 rounded-xl overflow-hidden hover:ring-2 hover:ring-amber-500/40 transition"
-              >
-                <div className="aspect-[4/3] bg-neutral-800">
-                  {lot.image_url ? (
-                    <img src={lot.image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">
-                      No image
-                    </div>
+      {loading ? (
+        <p className="text-sm text-ink-faint">Loading...</p>
+      ) : lots.length === 0 ? (
+        <EmptyState
+          title={v("market.lots.empty.title")}
+          description={v("market.lots.empty.description")}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {lots.map((lot) => (
+            <Link
+              key={lot.id}
+              href={`/market/lots/${lot.id}`}
+              className="block wardrobe-mat rounded-lg overflow-hidden hover:ring-2 hover:ring-accent/40 transition"
+            >
+              <div className="aspect-[4/3] p-1">
+                {lot.image_url ? (
+                  <img src={lot.image_url} alt="" className="w-full h-full object-cover rounded border border-border-subtle" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center rounded border border-border-subtle bg-surface-subtle text-ink-faint">
+                    <Icon name="lots" size={28} />
+                  </div>
+                )}
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-semibold text-ink truncate">{lot.title}</p>
+                <p className="text-[11px] font-mono tabular-nums text-ink-faint mt-0.5">
+                  {lot.item_count} card{lot.item_count !== 1 ? "s" : ""} &middot; {lot.total_quantity} units
+                </p>
+                <div className="flex items-baseline justify-between mt-2">
+                  <span className="text-base font-mono tabular-nums text-ink font-bold">
+                    <Money value={parseFloat(lot.price)} />
+                  </span>
+                  {lot.seller_username && (
+                    <span className="text-[11px] text-ink-muted">@{lot.seller_username}</span>
                   )}
                 </div>
-                <div className="p-3">
-                  <p className="text-sm font-bold text-white truncate">{lot.title}</p>
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
-                    {lot.item_count} card{lot.item_count !== 1 ? "s" : ""} &middot; {lot.total_quantity} units
-                  </p>
-                  <div className="flex items-baseline justify-between mt-2">
-                    <span className="text-base font-mono text-amber-400 font-bold">
-                      <Money value={parseFloat(lot.price)} />
-                    </span>
-                    {lot.seller_username && (
-                      <span className="text-[11px] text-neutral-500">@{lot.seller_username}</span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
