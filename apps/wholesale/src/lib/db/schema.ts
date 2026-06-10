@@ -739,6 +739,14 @@ export const channelPricing = pgTable("channel_pricing", {
     dataType() { return "numeric(4, 2)"; },
     fromDriver(value: string): number { return Number(value); },
   })("round_to").default(0.01),
+  // Per-item commission cap (the fairness fix). GBP. Applied after the
+  // trust/membership discount: commission = min(rate × sale, cap). Seed
+  // truth is DEFAULT_COMMISSION_CAP_GBP in @cambridge-tcg/pricing. Migration
+  // 0016_commission_cap.sql. Documented at /methodology/fees.
+  p2pCommissionCapGbp: customType<{ data: number; driverData: string }>({
+    dataType() { return "numeric(8, 2)"; },
+    fromDriver(value: string): number { return Number(value); },
+  })("p2p_commission_cap_gbp").default(50.00),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

@@ -11,7 +11,7 @@ import { sfQuery } from "@/lib/admin/db";
 import { fmtGBP, fmtDate } from "@/lib/format";
 import {
   PageHeader, FilterPills, SearchForm, DataTable, Pagination,
-  Provenance,
+  Provenance, WhyLink,
   type Column,
 } from "@/lib/admin/ui";
 
@@ -170,7 +170,12 @@ export default async function Page({
     },
     {
       key: "trust",
-      header: "Trust",
+      header: (
+        <>
+          Trust{" "}
+          <WhyLink href="https://cambridgetcg.com/methodology/trust-score" />
+        </>
+      ),
       align: "right",
       cellClass: "font-mono",
       render: (u) => u.trust_score,

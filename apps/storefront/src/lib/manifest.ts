@@ -1269,6 +1269,7 @@ export const MANIFEST: Manifest = {
       { slug: "membership-tier", title: "Membership tier", status: "published", formats_available: ["html"] },
       { slug: "payout-hold", title: "Payout hold", status: "published", formats_available: ["html"] },
       { slug: "commission-rate", title: "Commission rate", status: "stub", formats_available: ["html"] },
+      { slug: "fees", title: "Fees", status: "published", formats_available: ["html"] },
       { slug: "fraud-flag", title: "Fraud flag", status: "stub", formats_available: ["html"] },
       { slug: "store-credit", title: "Store credit", status: "stub", formats_available: ["html"] },
       { slug: "pricing", title: "Pricing", status: "published", formats_available: ["html"] },

@@ -5,6 +5,7 @@ import GameGrid from "@/components/home/GameGrid";
 import SetGrid from "@/components/home/SetGrid";
 import PriceGuideStrip from "@/components/home/PriceGuideStrip";
 import FeaturedCards from "@/components/home/FeaturedCards";
+import CardFinderHero from "@/components/home/CardFinderHero";
 import StorySection from "@/components/home/StorySection";
 import { Provenance, WhyLink, Audience, WelcomeAll } from "@/lib/ui";
 import { BrandStatement, ThreeOperations } from "@/lib/brand";
@@ -83,6 +84,11 @@ export default async function Home() {
           substrate. See docs/connections/the-rebrand.md (kingdom-080). */}
       <BrandStatement size="hero" />
       <ThreeOperations />
+
+      {/* The front door — find any card by number, any game, no account,
+          no fee to look. Reuses the kingdom-090 search substrate via
+          /prices/search. North star: let people find what they need. */}
+      <CardFinderHero games={allGames} />
 
       {/* Established retail showcase below the new identity. Same
           components as before; reframed by the headers above. Cart,

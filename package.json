@@ -54,7 +54,8 @@
     "missions:done": "pnpm --filter cambridgetcg-storefront missions:done --",
     "trace": "pnpm --filter cambridgetcg-storefront trace --",
     "agent-readiness": "pnpm --filter cambridgetcg-storefront agent-readiness",
-    "verify": "pnpm typecheck && pnpm audit && pnpm audit:cardrush-coverage:strict && pnpm --filter cambridgetcg-storefront test",
+    "audit:deps": "pnpm audit",
+    "verify": "pnpm typecheck && pnpm run audit && pnpm audit:cardrush-coverage:strict && pnpm --filter cambridgetcg-storefront test",
     "verify:fast": "pnpm typecheck"
   },
   "engines": {

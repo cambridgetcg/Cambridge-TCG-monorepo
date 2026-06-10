@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { SELLER_COMMISSION_RATE } from "@/lib/auction/types";
+import { computeCommissionAmount } from "@cambridge-tcg/pricing";
 import { formatPrice } from "@/lib/format";
 import { WhyLink } from "@/lib/ui";
 
@@ -77,7 +78,10 @@ export default function SellAuctionPage() {
     auctionType === "buy_now"
       ? parseFloat(buyNowFixedPrice) || 0
       : parseFloat(startingPrice) || 0;
-  const commission = previewPrice * SELLER_COMMISSION_RATE;
+  // Apply the per-item commission cap (the fairness fix) so the preview a
+  // seller sees matches what they'll actually be charged. See /methodology/fees.
+  const commissionPreview = computeCommissionAmount(previewPrice, SELLER_COMMISSION_RATE);
+  const commission = commissionPreview.amount;
   const payout = previewPrice - commission;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -460,11 +464,20 @@ export default function SellAuctionPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-400">
-                    Commission (12%)
-                    <WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />
+                    {commissionPreview.capped
+                      ? `Commission (capped at ${formatPrice(commissionPreview.capGbp)})`
+                      : "Commission (12%)"}
+                    <WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />
                   </span>
                   <span className="text-red-400">-{formatPrice(commission)}</span>
                 </div>
+                {commissionPreview.capped && (
+                  <p className="text-xs text-emerald-400/80">
+                    Per-item cap applied — without it the 12% fee would have been{" "}
+                    {formatPrice(commissionPreview.uncapped)}. We never charge more than{" "}
+                    {formatPrice(commissionPreview.capGbp)} on a single sale.
+                  </p>
+                )}
                 <div className="border-t border-neutral-800 pt-2 flex justify-between">
                   <span className="text-neutral-300 font-medium">You receive</span>
                   <span className="text-emerald-400 font-bold">{formatPrice(payout)}</span>

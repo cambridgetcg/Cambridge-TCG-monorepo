@@ -3,7 +3,7 @@
 // (fixed-price listing, buy-whole-or-none).
 
 import { query, transaction } from "@/lib/db";
-import { resolveCommission } from "@cambridge-tcg/pricing";
+import { resolveCommission, computeCommissionAmount } from "@cambridge-tcg/pricing";
 import { logLotTransition } from "./lot-lifecycle-log";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 
@@ -215,7 +215,10 @@ export async function beginLotPurchase(data: {
     const { rate } = resolveCommission({ trustScore, tierRate, kind: "p2p" });
     const trust = trustScore; // back-compat for the lifecycle-log metadata below
     const price = parseFloat(lot.price);
-    const commission = Math.round(price * rate * 100) / 100;
+    // Per-item commission cap (the fairness fix): commission never exceeds
+    // the absolute cap in @cambridge-tcg/pricing, applied after the trust
+    // discount. See /methodology/fees.
+    const commission = computeCommissionAmount(price, rate).amount;
     const sellerPayout = price - commission;
     // Buyer-aware payment deadline. response_window_hours overrides the
     // 24h platform default when the buyer has declared a cadence.

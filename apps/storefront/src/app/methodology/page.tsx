@@ -53,6 +53,12 @@ const TOPICS: Topic[] = [
     status: "stub",
   },
   {
+    slug: "fees",
+    title: "Fees",
+    blurb: "Every fee Cambridge can charge, in plain language, with its fair basis — plus the per-item £50 commission cap (the fairness fix) and an honest benchmark against eBay, TCGplayer, Cardmarket and Whatnot. Minimum fees, maximum value: percentages where they reflect work, caps where percentages would become rent.",
+    status: "published",
+  },
+  {
     slug: "fraud-flag",
     title: "Fraud flag",
     blurb: "What the fraud sweep looks at, what severities mean, and how flags clear.",
