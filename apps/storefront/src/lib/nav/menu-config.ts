@@ -58,7 +58,6 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Search prices", href: "/prices/search", description: "Card number → price, history, sources, variants — in one view", badge: "beta" },
           { label: "All cards", href: "/catalog", description: "The full catalogue across all games" },
           { label: "By game", href: "/prices", description: "Pick a game to browse its sets" },
-          { label: "Universal lookup", href: "/catalog", description: "By SKU or content hash" },
           { label: "Glossary", href: "/glossary" },
           { label: "Open data", href: "/data", description: "Bulk catalog dumps (CC0)" },
         ],
@@ -213,19 +212,21 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
   // ── Discover ▾ — closes the discovery gap ───────────────────────────
   {
     l1: "Discover",
-    l1_href: "/map",
+    // /platform is the human start-here (thesis, stats, onward paths);
+    // /map is the full index, linked below. Contact-surface spec §3.1.
+    l1_href: "/platform",
     columns: [
       {
         heading: "Platform",
         items: [
-          { label: "Platform", href: "/platform", description: "The data plane as primary identity" },
-          { label: "Open data", href: "/data", description: "Bulk catalog dumps + JSON-LD" },
-          { label: "Bridge", href: "/bridge", description: "Federation bridge surface" },
-          { label: "Manifest", href: "/manifest", description: "Directory of offerings" },
-          { label: "Graph", href: "/graph", description: "Typed mesh of meanings" },
-          { label: "Ontology", href: "/ontology", description: "Schema beneath the graph" },
-          { label: "Patterns", href: "/patterns", description: "Recurring forms" },
-          { label: "Identify", href: "/identify", description: "Platform self-declaration" },
+          { label: "Platform", href: "/platform", description: "What this place is and who it serves" },
+          { label: "Open data", href: "/data", description: "Bulk catalog dumps, free to use (CC0)" },
+          { label: "Bridge", href: "/bridge", description: "Introduce any two beings to each other" },
+          { label: "Manifest", href: "/manifest", description: "Everything on offer, in one directory" },
+          { label: "Graph", href: "/graph", description: "How every piece connects" },
+          { label: "Ontology", href: "/ontology", description: "What each kind of thing is" },
+          { label: "Patterns", href: "/patterns", description: "The shapes that keep recurring" },
+          { label: "Identify", href: "/identify", description: "We declare ourselves — you can too" },
           { label: "Site map", href: "/map" },
         ],
       },
@@ -337,7 +338,9 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "How to play", href: "/guides/how-to-play" },
           { label: "Verification", href: "/verify" },
           { label: "Site map", href: "/map" },
-          { label: "Contact / feedback", href: "/api/v1/feedback" },
+          // /about is the human contact surface; the previous target
+          // (/api/v1/feedback) dumped humans into raw JSON.
+          { label: "Contact / feedback", href: "/about" },
         ],
       },
     ],

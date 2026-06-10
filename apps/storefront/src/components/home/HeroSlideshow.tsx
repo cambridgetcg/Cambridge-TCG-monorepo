@@ -60,9 +60,12 @@ export default function HeroSlideshow() {
             {/* Dark gradient overlay for text readability */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight drop-shadow-lg">
+              {/* h2, not h1 — the page's single h1 is the BrandStatement
+                  headline; three per-slide h1s broke the heading hierarchy
+                  for screen readers and SEO (contact-surface spec §3.1). */}
+              <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight drop-shadow-lg">
                 {slide.headline}
-              </h1>
+              </h2>
               <p className="mt-4 text-base md:text-lg text-white/80 max-w-xl drop-shadow">
                 {slide.sub}
               </p>

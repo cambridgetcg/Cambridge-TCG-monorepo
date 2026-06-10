@@ -1,4 +1,16 @@
 @import "tailwindcss";
+/*
+ * Typography — the `prose prose-invert` classes used across the
+ * kingdom's long-form pages (/manifest, /graph, /ontology, /patterns,
+ * /identify, /methodology/*, /standards, …) were dead classes until
+ * 2026-06-10: the plugin was never installed, so preflight flattened
+ * every heading, list, and link on 17 exposition pages. Restored per
+ * the contact-surface spec (docs/superpowers/specs/
+ * 2026-06-10-kingdom-contact-surface-design.md §3.1). The text-mode
+ * overrides below still win — they carry !important on the properties
+ * they reset.
+ */
+@plugin "@tailwindcss/typography";
 
 /*
  * Storefront design tokens — Tailwind 4 @theme.

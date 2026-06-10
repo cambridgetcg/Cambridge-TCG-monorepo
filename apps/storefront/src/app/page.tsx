@@ -7,6 +7,7 @@ import PriceGuideStrip from "@/components/home/PriceGuideStrip";
 import FeaturedCards from "@/components/home/FeaturedCards";
 import CardFinderHero from "@/components/home/CardFinderHero";
 import StorySection from "@/components/home/StorySection";
+import KingdomStrip from "@/components/home/KingdomStrip";
 import { Provenance, WhyLink, Audience, WelcomeAll } from "@/lib/ui";
 import { BrandStatement, ThreeOperations } from "@/lib/brand";
 
@@ -70,11 +71,21 @@ export default async function Home() {
           >
             the doors →
           </Link>
+          {/* /welcome asks who you are and routes you; /intro explains the
+              game form itself. The old single "new to TCG?" label sent human
+              novices to the any-intelligence concept cards — exactly wrong
+              (contact-surface spec §3.3, de-orphan /welcome). */}
+          <Link
+            href="/welcome"
+            className="text-neutral-400 hover:text-amber-400 underline"
+          >
+            find your path
+          </Link>
           <Link
             href="/intro"
             className="text-neutral-500 hover:text-amber-400 underline"
           >
-            new to TCG?
+            what&apos;s a TCG?
           </Link>
         </div>
       </div>
@@ -89,6 +100,12 @@ export default async function Home() {
           no fee to look. Reuses the kingdom-090 search substrate via
           /prices/search. North star: let people find what they need. */}
       <CardFinderHero games={allGames} />
+
+      {/* The self-describing layer's homepage door — seven layer cards in
+          human words, derived from KINGDOM_LAYERS. Contact-surface spec
+          §3.1: the kingdom was previously reachable only via the Discover
+          dropdown. */}
+      <KingdomStrip />
 
       {/* Established retail showcase below the new identity. Same
           components as before; reframed by the headers above. Cart,

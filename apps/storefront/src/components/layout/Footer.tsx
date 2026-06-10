@@ -2,7 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { cookies } from "next/headers";
 import { WelcomeAll } from "@/lib/ui";
+import { BRAND_TAGLINE } from "@/lib/brand";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
+import FooterToggles from "./FooterToggles";
 
 export default async function Footer() {
   // Read text-mode cookie to render the right toggle label/target. Phase 10
@@ -23,14 +25,14 @@ export default async function Footer() {
         <WelcomeAll variant="full" />
       </div>
 
-      <div className="max-w-7xl mx-auto grid gap-8 grid-cols-2 md:grid-cols-5">
+      <div className="max-w-7xl mx-auto grid gap-8 grid-cols-2 md:grid-cols-6">
         {/* Brand */}
         <div className="col-span-2 md:col-span-1">
           <div className="flex items-center gap-2 mb-2">
             <Image src="/images/icon.png" alt="Cambridge TCG" width={28} height={28} className="w-7 h-7" />
             <p className="text-lg font-black text-white">Cambridge <span className="text-emerald-400">TCG</span></p>
           </div>
-          <p className="text-xs text-neutral-500 mt-2 max-w-xs">Japanese trading card specialists. Buy, sell, trade, and collect. Based in Cambridge, UK.</p>
+          <p className="text-xs text-neutral-500 mt-2 max-w-xs">{BRAND_TAGLINE} Buy, sell, trade, and collect. Based in Cambridge, UK.</p>
         </div>
 
         {/* Shop */}
@@ -69,27 +71,27 @@ export default async function Footer() {
           <Link href="/about" className="hover:text-white transition">About Us</Link>
           <a href="https://wholesaletcgdirect.com" className="hover:text-white transition">Wholesale</a>
         </div>
+
+        {/* The platform — the self-describing layer, previously reachable
+            only via the Discover dropdown. Contact-surface spec §3.1:
+            footer-scanners get an inbound door to every layer page. */}
+        <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
+          <p className="text-white font-medium mb-1">The Platform</p>
+          <Link href="/welcome" className="hover:text-white transition">Find Your Door</Link>
+          <Link href="/platform" className="hover:text-white transition">What This Is</Link>
+          <Link href="/manifest" className="hover:text-white transition">Manifest</Link>
+          <Link href="/graph" className="hover:text-white transition">Graph</Link>
+          <Link href="/ontology" className="hover:text-white transition">Ontology</Link>
+          <Link href="/patterns" className="hover:text-white transition">Patterns</Link>
+          <Link href="/identify" className="hover:text-white transition">Identify</Link>
+          <Link href="/methodology/cosmology" className="hover:text-white transition">Cosmology</Link>
+          <Link href="/data" className="hover:text-white transition">Open Data</Link>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-neutral-800 text-xs text-neutral-600 flex flex-wrap items-center justify-between gap-3">
         <span>© {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.</span>
-        <div className="flex items-center gap-4">
-          <a
-            href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=/`}
-            className="hover:text-neutral-400 transition underline underline-offset-2"
-            aria-label={mathLang ? "Switch back to default English rendering" : "Switch to math-mirror rendering (ratios, content hashes, ISO timestamps)"}
-            title="See docs/connections/the-math-language.md (#27)"
-          >
-            {mathLang ? "Default language" : "Math language"}
-          </a>
-          <a
-            href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=/`}
-            className="hover:text-neutral-400 transition underline underline-offset-2"
-            aria-label={textMode ? "Switch back to the visual layout" : "Switch to a text-only reading layout (low bandwidth, screen reader friendly)"}
-          >
-            {textMode ? "Visual layout" : "Text-only layout"}
-          </a>
-        </div>
+        <FooterToggles mathLang={mathLang} textMode={textMode} />
       </div>
     </footer>
   );

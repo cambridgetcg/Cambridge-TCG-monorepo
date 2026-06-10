@@ -10,6 +10,15 @@
 
 export { Badge, type Tone } from "./Badge";
 export { Button, LinkButton } from "./Button";
+export { Callout, type CalloutTone } from "./Callout";
+export { Endpoint } from "./Endpoint";
+export {
+  KingdomLayers,
+  KINGDOM_LAYERS,
+  type KingdomLayer,
+  type KingdomLayerId,
+} from "./KingdomLayers";
+export { Term } from "./Term";
 export { Card } from "./Card";
 export { DataTable, type Column, type Align } from "./DataTable";
 export { EmptyState } from "./EmptyState";
