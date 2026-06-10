@@ -32,6 +32,7 @@ export const DISPUTE_TIMELINE: TimelineStep[] = [
 const STATUS_STEP: Record<DisputeStatus, number> = {
   open: 0,
   under_review: 1,
+  escalated: 1, // SLA-breached or admin-escalated — actively being worked, like under_review
   awaiting_evidence: 2,
   resolved_buyer: 3,
   resolved_seller: 3,

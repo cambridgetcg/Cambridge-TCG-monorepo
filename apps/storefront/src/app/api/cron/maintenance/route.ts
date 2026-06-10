@@ -23,6 +23,7 @@ import { runFairnessDigest } from "@/lib/provable-draw/digest";
 import { runFairnessSelfAudit } from "@/lib/provable-draw/self-audit";
 import { runFairnessDriftCheck } from "@/lib/provable-draw/drift";
 import { runTrustScoreRecompute } from "@/lib/escrow/trust-recompute";
+import { runDisputeSlaSweep } from "@/lib/trust/dispute-sla-sweep";
 import { runFraudSweep } from "@/lib/fraud/sweep";
 import { runReviewPatternSweep } from "@/lib/reviews/sweep";
 import { runExternalRepDecaySweep } from "@/lib/external-rep/sweep";
@@ -152,9 +153,14 @@ export async function GET(request: Request) {
     // See docs/architecture/storefront-checkout-flow.md. Appended at the
     // end so the existing positional destructuring below stays aligned.
     releaseExpiredReservations(),
+    // Dispute SLA: auto-escalate 'open' disputes past their response window
+    // (trade dispute_window_hours, default 72h) to the admin priority queue.
+    // Pure status move — never touches escrow or money. Appended at the end to
+    // keep the positional destructuring below aligned.
+    runDisputeSlaSweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -328,6 +334,10 @@ export async function GET(request: Request) {
     vacationSweep:
       vacationSweep.status === "fulfilled"
         ? { status: "fulfilled", ...vacationSweep.value }
+        : { status: "rejected" },
+    disputeSlaSweep:
+      disputeSlaSweep.status === "fulfilled"
+        ? { status: "fulfilled", ...disputeSlaSweep.value }
         : { status: "rejected" },
     durationMs: Date.now() - start,
   };
@@ -505,6 +515,13 @@ export async function GET(request: Request) {
       `[cron] chargeback reconciler: fetched ${chargebackReconciler.value.fetched}, ` +
       `new ${chargebackReconciler.value.newlyIngested}, status-changed ${chargebackReconciler.value.statusChanged}, ` +
       `${chargebackReconciler.value.failures} failures`
+    );
+  }
+  if (disputeSlaSweep.status === "rejected") console.error("[cron] dispute-sla sweep failed:", disputeSlaSweep.reason);
+  else if (disputeSlaSweep.value.escalated > 0) {
+    console.log(
+      `[cron] dispute-sla: escalated ${disputeSlaSweep.value.escalated} stale dispute(s), ` +
+      `oldest ${disputeSlaSweep.value.oldestHoursOpen}h open`
     );
   }
   // Touch unused destructure to satisfy noUnusedLocals if enabled.
