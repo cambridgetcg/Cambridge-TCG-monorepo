@@ -140,7 +140,7 @@ async function main(): Promise<void> {
       Array<{ host: string; card_count: number; last_synced_at: string | null }>
     >`
       SELECT
-        regexp_replace(cardrush_url, '^https?://([^/]+)/?.*$', '\1') AS host,
+        regexp_replace(cardrush_url, '^https?://([^/]+)/?.*$', '\\1') AS host,
         COUNT(*)::int                                                AS card_count,
         MAX(last_synced_at)::text                                    AS last_synced_at
       FROM cards
@@ -160,12 +160,22 @@ async function main(): Promise<void> {
 
   await close();
 
-  // Index DB findings by host
+  // Index DB findings by host. Normalize the leading `www.` — the live
+  // cardrush_url values use `www.cardrush-op.jp` while the registry keys
+  // are bare `cardrush-op.jp`; the scraper matches by substring
+  // (url.includes(host)) so the pipeline is agnostic, and the audit must
+  // be too. Same-host rows (www + bare) merge: counts add, newest sync wins.
   const byHost = new Map<string, { card_count: number; last_synced_at: Date | null }>();
   for (const r of rows) {
-    byHost.set(r.host, {
-      card_count: r.card_count,
-      last_synced_at: r.last_synced_at ? new Date(r.last_synced_at) : null,
+    const host = r.host.replace(/^www\./, "");
+    const prev = byHost.get(host);
+    const synced = r.last_synced_at ? new Date(r.last_synced_at) : null;
+    byHost.set(host, {
+      card_count: (prev?.card_count ?? 0) + r.card_count,
+      last_synced_at:
+        prev?.last_synced_at && (!synced || prev.last_synced_at > synced)
+          ? prev.last_synced_at
+          : synced,
     });
   }
 

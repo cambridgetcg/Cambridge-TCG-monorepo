@@ -136,24 +136,39 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
   // ── confirmed via kingdom-087 probe (homepage 200 + sitemap 200 + products>0) ──
   "cardrush-digimon.jp": {
     game: "dmw",
-    confirmed: true,
+    confirmed: false,
     access: "direct",
     role: "catalog+price",
-    note: "Digimon Card Game — 13,520 products in sitemap (kingdom-087 promote)",
+    note:
+      "Digimon Card Game — 13,520 products in sitemap (kingdom-087 probe: upstream " +
+      "exists). confirmed:false per the field's definition — no wholesale " +
+      "scrape traffic has ever run ('dmw' has no games row; we don't stock " +
+      "it yet). Flip true when the first real scrape returns prices " +
+      "(kingdom-039 audit-honesty pass, 2026-06-10).",
   },
   "cardrush-vanguard.jp": {
     game: "vng",
-    confirmed: true,
+    confirmed: false,
     access: "direct",
     role: "catalog+price",
-    note: "Cardfight!! Vanguard — 40,642 products in sitemap (kingdom-087 promote)",
+    note:
+      "Cardfight!! Vanguard — 40,642 products in sitemap (kingdom-087 probe: upstream " +
+      "exists). confirmed:false per the field's definition — no wholesale " +
+      "scrape traffic has ever run ('vng' has no games row; we don't stock " +
+      "it yet). Flip true when the first real scrape returns prices " +
+      "(kingdom-039 audit-honesty pass, 2026-06-10).",
   },
   "cardrush-bs.jp": {
     game: "bsr",
-    confirmed: true,
+    confirmed: false,
     access: "direct",
     role: "catalog+price",
-    note: "Battle Spirits Saga — 35,485 products in sitemap (kingdom-087 promote)",
+    note:
+      "Battle Spirits Saga — 35,485 products in sitemap (kingdom-087 probe: upstream " +
+      "exists). confirmed:false per the field's definition — no wholesale " +
+      "scrape traffic has ever run ('bsr' has no games row; we don't stock " +
+      "it yet). Flip true when the first real scrape returns prices " +
+      "(kingdom-039 audit-honesty pass, 2026-06-10).",
   },
   // ── speculative — homepage 200 + ¥ but sitemap fetch failed ──
   "cardrush-mtg.jp": {
