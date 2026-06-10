@@ -12,36 +12,18 @@ import type {
   GameAction,
 } from "@/lib/game/types";
 import { PHASE_LABELS } from "@/lib/game/types";
+import {
+  loadSavedDecks,
+  deckToCards,
+  fetchStarterAsSavedDeck,
+  type SavedDeck,
+} from "@/lib/play/client-deck";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
 const POLL_MS = 1500;
-const STORAGE_KEY = "ctcg-deck-builder-decks";
-
-/* ------------------------------------------------------------------ */
-/*  Saved deck types (matches deck-builder localStorage)               */
-/* ------------------------------------------------------------------ */
-
-interface SavedDeckCard {
-  sku: string;
-  card_number: string;
-  name: string;
-  set_code: string;
-  set_name: string;
-  rarity: string | null;
-  image_url: string | null;
-  spot_price: number;
-  tradein_credit: number | null;
-}
-
-interface SavedDeck {
-  name: string;
-  leader: SavedDeckCard | null;
-  entries: { sku: string; quantity: number; card: SavedDeckCard }[];
-  savedAt: string;
-}
 
 /* ------------------------------------------------------------------ */
 /*  API response shape                                                 */
@@ -118,20 +100,18 @@ export default function GameBoard() {
         return;
       }
       const data: StateResponse = await res.json();
-      // Only update if state changed
+      // Only update if state changed. lastActionRef starts empty, so the
+      // first response always lands — no `resp` dependency needed (which
+      // used to tear down and recreate the poll interval on every update).
       if (data.room.lastActionAt !== lastActionRef.current) {
         lastActionRef.current = data.room.lastActionAt;
-        setResp(data);
-        setError(null);
-      } else if (!resp) {
-        // First load
         setResp(data);
         setError(null);
       }
     } catch {
       setError("Connection lost. Retrying...");
     }
-  }, [code, resp]);
+  }, [code]);
 
   useEffect(() => {
     fetchState();
@@ -153,10 +133,21 @@ export default function GameBoard() {
   /* ================================================================ */
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setSavedDecks(JSON.parse(stored));
-    } catch { /* ignore */ }
+    let cancelled = false;
+    const stored = loadSavedDecks();
+    if (stored.length > 0) {
+      setSavedDecks(stored);
+      return;
+    }
+    // A friend arriving via a shared room link with no decks gets the
+    // starter auto-mounted — they're playing within seconds, not bounced
+    // out of the room to the deck builder.
+    fetchStarterAsSavedDeck().then((starter) => {
+      if (cancelled || !starter) return;
+      setSavedDecks([starter]);
+      setSelectedDeckIdx(0);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   async function submitDeck() {
@@ -166,33 +157,7 @@ export default function GameBoard() {
 
     setSetupError(null);
 
-    // Build the deck payload
-    const cards: { sku: string; name: string; cardNumber: string; imageUrl: string | null; rarity: string | null; isLeader?: boolean }[] = [];
-
-    // Leader
-    if (deck.leader) {
-      cards.push({
-        sku: deck.leader.sku,
-        name: deck.leader.name,
-        cardNumber: deck.leader.card_number,
-        imageUrl: deck.leader.image_url,
-        rarity: deck.leader.rarity,
-        isLeader: true,
-      });
-    }
-
-    // Main deck cards (expand quantities)
-    for (const entry of deck.entries) {
-      for (let i = 0; i < entry.quantity; i++) {
-        cards.push({
-          sku: entry.card.sku,
-          name: entry.card.name,
-          cardNumber: entry.card.card_number,
-          imageUrl: entry.card.image_url,
-          rarity: entry.card.rarity,
-        });
-      }
-    }
+    const cards = deckToCards(deck);
 
     if (cards.length < 10) {
       setSetupError("Deck must have at least 10 cards.");
@@ -413,9 +378,27 @@ export default function GameBoard() {
 
     const actions: { label: string; action: () => void; variant?: "danger" }[] = [];
 
+    // Attack — the win path. Mirrors the PvE board: leader or active field
+    // cards can strike the opposing leader (takes life; at 0 life it ends
+    // the game) or any rested opposing character.
+    const canAttack = (zone === "leader" || zone === "field") && !card.isRested && isMyTurn;
+    const restedOppChars = oppState?.field.filter((c) => c.isRested) ?? [];
+
     if (zone === "hand") {
       actions.push({ label: "Play to Field", action: () => sendAction("move_card", { cardId: card.id, toZone: "field", faceDown: false }) });
       actions.push({ label: "Play as Stage", action: () => sendAction("move_card", { cardId: card.id, toZone: "stage", faceDown: false }) });
+    }
+    if (canAttack) {
+      actions.push({
+        label: "⚔ Attack Opponent Leader",
+        action: () => sendAction("attack", { attackerId: card.id, targetType: "leader" }),
+      });
+      for (const target of restedOppChars) {
+        actions.push({
+          label: `⚔ Attack ${target.name}`,
+          action: () => sendAction("attack", { attackerId: card.id, targetType: "character", targetId: target.id }),
+        });
+      }
     }
     if (zone === "field") {
       actions.push({ label: card.isRested ? "Set Active" : "Rest", action: () => sendAction("toggle_rest", { cardId: card.id }) });
@@ -645,7 +628,7 @@ export default function GameBoard() {
         }`}
       >
         <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-          <h3 className="font-bold text-sm">Game Log</h3>
+          <h3 className="font-bold text-sm">Game Log <span className="text-neutral-500 font-normal">(last 20)</span></h3>
           <button onClick={() => setShowLog(false)} className="text-neutral-500 hover:text-white text-lg">
             &times;
           </button>
@@ -677,6 +660,7 @@ export default function GameBoard() {
       case "attach_don": return "attached DON!! to a card";
       case "detach_don": return "detached DON!! from a card";
       case "rest_don": return `rested ${(action.data as Record<string, unknown>).count} DON!!`;
+      case "begin_turn": return "started the turn (refresh, draw, DON!!)";
       case "refresh_all": return "refreshed all cards";
       case "draw_card": return "drew a card";
       case "add_don": return "added DON!! from deck";
@@ -730,8 +714,19 @@ export default function GameBoard() {
               {code}
             </span>
           </div>
+          <button
+            onClick={() => {
+              navigator.clipboard?.writeText(`${window.location.origin}/play/${code}`).then(
+                () => setError(null),
+                () => setError("Couldn't copy — share the code above instead."),
+              );
+            }}
+            className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-5 py-2.5 text-sm transition-colors"
+          >
+            Copy invite link
+          </button>
           <p className="text-neutral-500 text-sm">
-            {room.player1Name || "Player 1"} is waiting...
+            Your friend opens the link (or enters the code at /play) and you&apos;re in.
           </p>
           <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
           <Link href="/play" className="block text-neutral-500 hover:text-neutral-300 text-sm transition-colors">
@@ -817,13 +812,22 @@ export default function GameBoard() {
       );
     }
 
-    // Deck submitted, waiting for opponent
+    // Deck submitted (players) / decks being chosen (spectators)
     return (
       <main className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 max-w-md text-center space-y-4">
-          <div className="text-green-400 text-4xl mb-2">&#10003;</div>
-          <h2 className="text-xl font-bold">Deck Submitted</h2>
-          <p className="text-neutral-400 text-sm">Waiting for opponent to load their deck...</p>
+          {isPlayer ? (
+            <>
+              <div className="text-green-400 text-4xl mb-2">&#10003;</div>
+              <h2 className="text-xl font-bold">Deck Submitted</h2>
+              <p className="text-neutral-400 text-sm">Waiting for opponent to load their deck...</p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-bold">Players are choosing decks&hellip;</h2>
+              <p className="text-neutral-400 text-sm">The match will appear here when both are ready.</p>
+            </>
+          )}
           <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </main>
@@ -835,8 +839,15 @@ export default function GameBoard() {
     const p1Life = state?.player1?.lifeCount ?? 0;
     const p2Life = state?.player2?.lifeCount ?? 0;
 
+    // state.winner is authoritative (set on the finishing attack and on
+    // concede). Life totals are the fallback for legacy rows.
     let winnerText = "Game Over";
-    if (p1Life <= 0 && p2Life > 0) {
+    const winnerId = state?.winner;
+    if (winnerId && winnerId === room?.player1Id) {
+      winnerText = you === "player1" ? "You Win!" : `${room?.player1Name || "Player 1"} Wins!`;
+    } else if (winnerId && winnerId === room?.player2Id) {
+      winnerText = you === "player2" ? "You Win!" : `${room?.player2Name || "Player 2"} Wins!`;
+    } else if (p1Life <= 0 && p2Life > 0) {
       winnerText = you === "player2" ? "You Win!" : `${room?.player2Name || "Player 2"} Wins!`;
     } else if (p2Life <= 0 && p1Life > 0) {
       winnerText = you === "player1" ? "You Win!" : `${room?.player1Name || "Player 1"} Wins!`;
@@ -855,12 +866,6 @@ export default function GameBoard() {
             <Link
               href="/play"
               className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
-            >
-              Play Again
-            </Link>
-            <Link
-              href="/play"
-              className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold rounded-lg px-6 py-3 transition-colors"
             >
               Back to Lobby
             </Link>
@@ -947,24 +952,18 @@ export default function GameBoard() {
           </div>
           {isPlayer && isMyTurn && gameActive && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => sendAction("add_don")}
-                className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-3 py-1.5 rounded-lg transition-colors font-medium"
-              >
-                +DON!!
-              </button>
-              <button
-                onClick={() => sendAction("refresh_all")}
-                className="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Refresh All
-              </button>
-              <button
-                onClick={() => sendAction("next_phase")}
-                className="text-xs bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
-              >
-                Next Phase &#9193;
-              </button>
+              {state.lastUpkeepTurn !== state.turnNumber ? (
+                <button
+                  onClick={() => sendAction("begin_turn")}
+                  className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-3 py-1.5 rounded-lg transition-colors font-bold animate-pulse"
+                >
+                  Start Turn (refresh &middot; draw &middot; DON!!)
+                </button>
+              ) : (
+                <span className="text-neutral-500 text-xs hidden sm:inline">
+                  Tap a card to play or attack
+                </span>
+              )}
               <button
                 onClick={() => sendAction("end_turn")}
                 className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
@@ -986,33 +985,17 @@ export default function GameBoard() {
       {/* ---- Quick Actions (Mobile-friendly bottom bar) ---- */}
       {isPlayer && isMyTurn && gameActive && (
         <div className="sm:hidden bg-neutral-900 border-t border-neutral-800 px-3 py-2 flex items-center gap-2 overflow-x-auto flex-shrink-0">
-          <button
-            onClick={() => sendAction("draw_card")}
-            className="text-xs bg-neutral-800 text-white px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            Draw
-          </button>
-          <button
-            onClick={() => sendAction("add_don")}
-            className="text-xs bg-amber-500/20 text-amber-400 px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            +DON!!
-          </button>
-          <button
-            onClick={() => sendAction("refresh_all")}
-            className="text-xs bg-neutral-800 text-neutral-300 px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            Refresh
-          </button>
-          <button
-            onClick={() => sendAction("next_phase")}
-            className="text-xs bg-neutral-800 text-white px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            Next Phase
-          </button>
+          {state.lastUpkeepTurn !== state.turnNumber && (
+            <button
+              onClick={() => sendAction("begin_turn")}
+              className="text-xs bg-amber-500/20 text-amber-400 px-3 py-2 rounded-lg whitespace-nowrap font-bold"
+            >
+              Start Turn
+            </button>
+          )}
           <button
             onClick={() => sendAction("end_turn")}
-            className="text-xs bg-white/10 text-white px-3 py-2 rounded-lg whitespace-nowrap"
+            className="text-xs bg-white/10 text-white px-3 py-2 rounded-lg whitespace-nowrap ml-auto"
           >
             End Turn
           </button>

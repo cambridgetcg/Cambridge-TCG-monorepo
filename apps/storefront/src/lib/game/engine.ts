@@ -15,19 +15,31 @@ function generateCode(): string {
 }
 
 export async function createRoom(userId: string, userName: string, isPublic: boolean = false) {
-  const code = generateCode();
-  const result = await query(
-    `INSERT INTO game_rooms (code, player1_id, player1_name, is_public)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [code, userId, userName, isPublic]
-  );
-  return result.rows[0];
+  // Retry once on the (rare) UNIQUE(code) collision instead of 500ing.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const code = generateCode();
+    try {
+      const result = await query(
+        `INSERT INTO game_rooms (code, player1_id, player1_name, is_public)
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [code, userId, userName, isPublic]
+      );
+      return result.rows[0];
+    } catch (err) {
+      if (attempt === 1) throw err;
+    }
+  }
+  throw new Error("unreachable");
 }
 
 export async function joinRoom(code: string, userId: string, userName: string) {
-  const room = await query(`SELECT * FROM game_rooms WHERE code=$1 AND status='waiting'`, [code]);
-  if (room.rows.length === 0) return { error: "Room not found or already started." };
-  if (room.rows[0].player1_id === userId) return { error: "You can't join your own room." };
+  // Rejoin is idempotent: a player already in the room gets it back
+  // regardless of status (closing the tab and re-entering the code works).
+  const existing = await query(`SELECT * FROM game_rooms WHERE code=$1`, [code]);
+  const row = existing.rows[0];
+  if (row && (row.player1_id === userId || row.player2_id === userId)) return row;
+
+  if (!row || row.status !== "waiting") return { error: "Room not found or already started." };
 
   const result = await query(
     `UPDATE game_rooms SET player2_id=$2, player2_name=$3, status='playing', last_action_at=NOW()
@@ -43,9 +55,14 @@ export async function getRoom(code: string) {
 }
 
 export async function listPublicRooms() {
+  // camelCase aliases — the lobby UI consumes these field names directly.
+  // Rooms idle for 2+ hours are hidden so the list never advertises dead games.
   const result = await query(
-    `SELECT code, player1_name, status, created_at FROM game_rooms
+    `SELECT id, code, player1_name AS "player1Name", player2_name AS "player2Name",
+            status, is_public AS "isPublic", created_at AS "createdAt"
+     FROM game_rooms
      WHERE is_public=true AND status IN ('waiting','playing')
+       AND COALESCE(last_action_at, created_at) > NOW() - interval '2 hours'
      ORDER BY created_at DESC LIMIT 20`
   );
   return result.rows;
@@ -118,7 +135,7 @@ export function initializeGame(
       donActive: 0,
       donRested: 0,
       donDeck: 10,
-      lifeCount,
+      lifeCount: lifeCards.length, // honest count — small decks deal fewer life cards
     };
   }
 
@@ -153,9 +170,13 @@ export async function performAction(roomCode: string, userId: string, action: Ga
 
   // Concede shortcuts the normal reducer flow because it ends the game.
   if (action.type === "concede") {
+    currentState.phase = "finished";
+    currentState.winner = isP1 ? currentState.player2.userId : currentState.player1.userId;
+    const log = room.game_log || [];
+    log.push({ ...action, timestamp: new Date().toISOString() });
     await query(
-      `UPDATE game_rooms SET status='finished', game_state=$2, ended_at=NOW(), last_action_at=NOW() WHERE code=$1`,
-      [roomCode, JSON.stringify(currentState)],
+      `UPDATE game_rooms SET status='finished', game_state=$2, game_log=$3, phase='finished', ended_at=NOW(), last_action_at=NOW() WHERE code=$1`,
+      [roomCode, JSON.stringify(currentState), JSON.stringify(log)],
     );
     return { state: currentState, conceded: userId };
   }
@@ -177,11 +198,19 @@ export async function performAction(roomCode: string, userId: string, action: Ga
   const log = room.game_log || [];
   log.push({ ...action, timestamp: new Date().toISOString() });
 
-  // Save state
-  await query(
-    `UPDATE game_rooms SET game_state=$2, game_log=$3, turn_number=$4, phase=$5, last_action_at=NOW() WHERE code=$1`,
-    [roomCode, JSON.stringify(state), JSON.stringify(log), state.turnNumber, state.phase],
-  );
+  // Save state. A natural finish (attack on a 0-life leader) closes the
+  // room row too, so the lobby never advertises finished games.
+  if (state.phase === "finished") {
+    await query(
+      `UPDATE game_rooms SET game_state=$2, game_log=$3, turn_number=$4, phase=$5, status='finished', ended_at=NOW(), last_action_at=NOW() WHERE code=$1`,
+      [roomCode, JSON.stringify(state), JSON.stringify(log), state.turnNumber, state.phase],
+    );
+  } else {
+    await query(
+      `UPDATE game_rooms SET game_state=$2, game_log=$3, turn_number=$4, phase=$5, last_action_at=NOW() WHERE code=$1`,
+      [roomCode, JSON.stringify(state), JSON.stringify(log), state.turnNumber, state.phase],
+    );
+  }
 
   return { state };
 }

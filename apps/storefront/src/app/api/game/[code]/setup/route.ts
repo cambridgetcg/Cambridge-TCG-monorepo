@@ -21,10 +21,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
   // Store this player's deck in the game state
   const deck = body.deck as { sku: string; name: string; cardNumber: string; imageUrl: string | null; rarity: string | null; isLeader?: boolean }[];
   if (!deck || deck.length < 10) return NextResponse.json({ error: "Deck must have at least 10 cards." }, { status: 400 });
+  if (!deck.some((c) => c?.isLeader)) {
+    return NextResponse.json({ error: "Your deck needs a Leader card. Grab a starter from /play/starters or set one in the deck builder." }, { status: 400 });
+  }
 
+  // Atomic jsonb merge — both players submitting inside the same poll
+  // window must not clobber each other's deck (the old read-modify-write
+  // lost one deck and soft-locked the room).
   const stateKey = isP1 ? "p1_deck" : "p2_deck";
-  const currentState = room.game_state || {};
-  currentState[stateKey] = deck;
+  const merged = await query(
+    `UPDATE game_rooms
+     SET game_state = COALESCE(game_state, '{}'::jsonb) || jsonb_build_object($2::text, $3::jsonb),
+         last_action_at = NOW()
+     WHERE code=$1
+     RETURNING game_state`,
+    [code.toUpperCase(), stateKey, JSON.stringify(deck)]
+  );
+  const currentState = merged.rows[0].game_state;
 
   // Check if both players submitted decks
   if (currentState.p1_deck && currentState.p2_deck) {
@@ -36,19 +49,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       currentState.p2_deck
     );
 
-    await query(
-      `UPDATE game_rooms SET game_state=$2, status='playing', current_turn=$3, phase='main', last_action_at=NOW() WHERE code=$1`,
+    // Guard: only the first request to see both decks initializes — a
+    // concurrent double-init would re-shuffle and erase the other's write.
+    const init = await query(
+      `UPDATE game_rooms SET game_state=$2, status='playing', current_turn=$3, phase='main', last_action_at=NOW()
+       WHERE code=$1 AND (game_state->'player1') IS NULL`,
       [code.toUpperCase(), JSON.stringify(gameState), gameState.currentTurn]
     );
+    if (init.rowCount === 0) {
+      // The other player's request initialized first — fine.
+      return NextResponse.json({ started: true });
+    }
 
     return NextResponse.json({ started: true, firstPlayer: gameState.firstPlayer });
   }
-
-  // Save partial state (waiting for other player's deck)
-  await query(
-    `UPDATE game_rooms SET game_state=$2, last_action_at=NOW() WHERE code=$1`,
-    [code.toUpperCase(), JSON.stringify(currentState)]
-  );
 
   return NextResponse.json({ waiting: true, message: "Deck submitted. Waiting for opponent." });
 }

@@ -15,16 +15,14 @@ import { usePathname } from "next/navigation";
  * they were within the module.
  */
 
+/** Player path only. Welcome/Casual/Compete/Spec stay reachable by URL and
+ *  in-page links — just not in the primary nav. */
 const NAV_LINKS = [
   { href: "/play", label: "Play", note: "Pick a deck, start a battle" },
-  { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
-  { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
-  { href: "/play/welcome", label: "Welcome", note: "Pick your path" },
-  { href: "/play/casual", label: "Casual", note: "For hobbyists" },
-  { href: "/play/compete", label: "Compete", note: "For competitors" },
   { href: "/play/adventure", label: "Adventure", note: "Solo PvE" },
+  { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
+  { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
   { href: "/play/deck-check", label: "Deck Check", note: "Validate a deck" },
-  { href: "/play/spec", label: "Spec", note: "Module structure" },
 ] as const;
 
 /** Match exactly OR a route's nested child (so /play/casual/foo highlights

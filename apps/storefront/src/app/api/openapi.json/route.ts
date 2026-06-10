@@ -242,7 +242,7 @@ const SPEC = {
       get: {
         tags: ["play"],
         summary: "Machine-readable OPTCG tutorial",
-        description: "Returns the OPTCG rules as a math-mirror document. Nine sections each with typed rule_structure (preconditions/transitions/outcomes), worked examples in state-before/action/state-after form, keyword cross-references, and player-kind tags. Agents ingest before joining matches.",
+        description: "Returns the OPTCG rules as a math-mirror document. Each section carries typed rule_structure (preconditions/transitions/outcomes), worked examples in state-before/action/state-after form, keyword cross-references, and player-kind tags. Agents ingest before joining matches.",
         operationId: "getPlayTutorial",
         responses: {
           "200": { description: "Play tutorial document.", content: { "application/json": { schema: { type: "object" } } } },

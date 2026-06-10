@@ -26,8 +26,8 @@
  *     exit 0 (the route's DEFAULT_GAME_CODE fallback covers this case).
  *
  * Usage:
- *   pnpm --filter @cambridge-tcg/admin play-game-registry
- *   pnpm --filter @cambridge-tcg/admin play-game-registry -- --strict
+ *   pnpm --filter cambridgetcg-storefront play-game-registry
+ *   pnpm --filter cambridgetcg-storefront play-game-registry -- --strict
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -73,7 +73,7 @@ async function main() {
 
   if (!DATABASE_URL) {
     console.log("  Skipped — DATABASE_URL not set. The audit reads from pve_levels");
-    console.log("  on the storefront RDS. Configure DATABASE_URL in apps/admin/.env.local");
+    console.log("  on the storefront RDS. Configure DATABASE_URL in apps/storefront/.env.local");
     console.log("  and re-run. No writes.");
     console.log("");
     process.exit(0);

@@ -5,8 +5,11 @@
 //   3. AI produces attack actions (not just toggle_rest).
 //   4. AI with lethal (player at 0 life) ends the game via attack → state.winner = AI.
 //   5. Character attacks KO rested opponent characters (field → trash).
+//   6. begin_turn bundles refresh + draw + DON, idempotent per turn;
+//      first player skips the turn-1 draw and gains a single DON.
+//   7. move_card to "field" caps at 5 characters.
 //
-// Run with:  npx tsx scripts/test-game-engine.ts
+// Run with:  npx tsx scripts/test-game-engine.ts  (or: pnpm test:engine)
 
 import { initializeGame } from "../src/lib/game/engine";
 import { applyAction } from "../src/lib/game/reducer";
@@ -260,7 +263,62 @@ section("Phase transitions and turn end");
   assert(state.turnNumber === 2, "turn counter incremented");
 }
 
-// ── 8. Full game scripted simulation ────────────────────────────────────
+// ── 8. begin_turn composite upkeep ───────────────────────────────────────
+
+section("begin_turn: refresh + draw + DON in one action");
+{
+  let state = freshGame();
+  // Rest the leader + park a rested DON so refresh has something to do
+  state.player1.leader!.isRested = true;
+  state.player1.donRested = 1;
+  const startHand = state.player1.hand.length;
+  const startDonDeck = state.player1.donDeck;
+
+  state = applyAction(state, "player1", "begin_turn", {});
+
+  assert(state.player1.leader!.isRested === false, "leader refreshed");
+  assert(state.player1.donRested === 0, "rested DON refreshed");
+  assert(state.player1.hand.length === startHand, "first player skips the turn-1 draw");
+  assert(state.player1.donActive === 2, "1 refreshed + 1 turn-1 DON (single DON for first player)");
+  assert(state.player1.donDeck === startDonDeck - 1, "DON deck down by 1");
+  assert(state.phase === "main", 'phase = "main"');
+  assert(state.lastUpkeepTurn === 1, "lastUpkeepTurn stamped");
+
+  // Idempotent within the same turn
+  const again = applyAction(state, "player1", "begin_turn", {});
+  assert(again.player1.donActive === state.player1.donActive, "re-run is a no-op (DON)");
+  assert(again.player1.hand.length === state.player1.hand.length, "re-run is a no-op (hand)");
+
+  // Turn 2: player2's upkeep draws a card and gains 2 DON
+  state = applyAction(state, "player1", "end_turn", {});
+  const p2Hand = state.player2.hand.length;
+  state = applyAction(state, "player2", "begin_turn", {});
+  assert(state.player2.hand.length === p2Hand + 1, "turn 2 draws a card");
+  assert(state.player2.donActive === 2, "turn 2 gains 2 DON");
+  assert(state.lastUpkeepTurn === 2, "lastUpkeepTurn advanced");
+}
+
+// ── 9. Field caps at 5 characters ────────────────────────────────────────
+
+section("Field caps at 5 characters");
+{
+  let state = freshGame();
+  for (let i = 0; i < 5; i++) {
+    state = applyAction(state, "player1", "move_card", {
+      cardId: state.player1.hand[0].id,
+      toZone: "field",
+    });
+  }
+  assert(state.player1.field.length === 5, "5 characters placed");
+
+  state = applyAction(state, "player1", "draw_card", {});
+  const sixth = state.player1.hand[0].id;
+  state = applyAction(state, "player1", "move_card", { cardId: sixth, toZone: "field" });
+  assert(state.player1.field.length === 5, "6th character rejected");
+  assert(!state.player1.field.some((c) => c.id === sixth), "6th card not on field");
+}
+
+// ── 10. Full game scripted simulation ───────────────────────────────────
 
 section("Scripted full game to victory");
 {

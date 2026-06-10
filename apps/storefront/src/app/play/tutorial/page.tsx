@@ -227,19 +227,16 @@ function SectionBody({ id }: { id: string }) {
       {id === "turn_structure" && <TurnPhaseDiagram />}
       {id === "combat" && <CombatStepsDiagram />}
 
-      {/* Keywords (deep-link to glossary) */}
+      {/* Keywords */}
       {section.keywords_introduced.length > 0 && (
         <div className="text-[11px] text-neutral-500 pt-2 border-t border-neutral-800/60">
           <span className="uppercase tracking-wider mr-2">Keywords</span>
-          {section.keywords_introduced.map((kw, i) => (
-            <span key={kw}>
-              <Link
-                href={`/api/v1/play/glossary/${kw}`}
-                className="text-amber-400/70 hover:text-amber-400 transition-colors font-mono"
-              >
-                {kw}
-              </Link>
-              {i < section.keywords_introduced.length - 1 ? ", " : ""}
+          {section.keywords_introduced.map((kw) => (
+            <span
+              key={kw}
+              className="inline-block bg-neutral-800/60 text-neutral-400 font-mono rounded px-1.5 py-0.5 mr-1.5 mb-1"
+            >
+              {kw}
             </span>
           ))}
         </div>
@@ -440,9 +437,8 @@ export default function TutorialPage() {
             ban-list and tournament-format details, see{" "}
             <Link href="/play/compete" className="text-amber-400/70 hover:text-amber-400">
               /play/compete
-            </Link>{" "}
-            and the research docs at{" "}
-            <code className="text-amber-400/70">docs/research/optcg-*</code>.
+            </Link>
+            .
           </p>
           <p className="pt-2 italic">
             The play module declares its rules-fidelity level at{" "}

@@ -15,19 +15,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ code: s
   const isP2 = room.player2_id === userId;
   const isPlayer = isP1 || isP2;
 
-  // Hide opponent's hand and deck from player
+  // Hide hidden zones (hand / deck / face-down life). Players get their
+  // opponent masked; spectators — including a player's own second incognito
+  // tab — get BOTH sides masked, so spectating can never be a wallhack.
   const state = room.game_state;
-  if (state && isPlayer) {
-    const opponentKey = isP1 ? "player2" : "player1";
-    const opp = state[opponentKey];
-    if (opp) {
-      // Hide hand cards (show count only)
-      opp.hand = opp.hand?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
-      // Hide deck
-      opp.deck = opp.deck?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
-      // Hide face-down life
-      opp.life = opp.life?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
+  if (state) {
+    const mask = (key: "player1" | "player2") => {
+      const p = state[key];
+      if (!p) return;
+      p.hand = p.hand?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
+      p.deck = p.deck?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
+      p.life = p.life?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
+    };
+    if (isPlayer) {
+      mask(isP1 ? "player2" : "player1");
+    } else {
+      mask("player1");
+      mask("player2");
     }
+    // Setup-phase deck submissions are visible only to their owner.
+    if (!isP1) delete state.p1_deck;
+    if (!isP2) delete state.p2_deck;
   }
 
   return NextResponse.json({

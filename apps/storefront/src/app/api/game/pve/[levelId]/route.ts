@@ -1,81 +1,24 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import crypto from "node:crypto";
-import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { getEngine } from "@cambridge-tcg/play";
 import "@/lib/game/registry-bootstrap"; // side-effect: registers engines
 import { postActivity } from "@/lib/social/db";
-import { calculateBerriesEarn } from "@/lib/bounty/earn";
 import { grantPveRewardsIdempotent } from "@/lib/game/rewards";
+import { resolveActor } from "@/lib/game/pve-actor";
 import type { GameState } from "@/lib/game/types";
 
-// Fallback for pve_levels rows that pre-date the game_code migration.
-// Once 0099_pve_game_code.sql is applied + every row has a non-null value,
-// this default becomes dead code and can be removed.
+// Fallback for pve_levels rows that pre-date the game_code migration
+// (drizzle/drafts/0102_pve_game_code.sql.draft, unapplied). Once it lands
+// and every row has a non-null value, this default becomes dead code.
 const DEFAULT_GAME_CODE = "optcg";
 
 // In PVE the human is always player1 and the AI is always player2.
-// (The GameEngine contract accepts these as inline literals now, so the
-// HUMAN_KEY/AI_KEY constants previously held here were dropped.)
 
-// Guest play (no sign-in required). On the first `start` request without a
-// session, we mint a `users` row with role='guest' and pin its id to an
-// HTTP-only cookie. The cookie persists across visits so progress survives
-// reloads on the same browser. Rewards (Berries / store credit / activity
-// posts) stay gated behind a real sign-in.
-const GUEST_COOKIE = "ctcg-guest-id";
-const GUEST_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365; // 1 year
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-interface Actor {
-  userId: string;
-  name: string;
-  isGuest: boolean;
-}
-
-/** Resolve who is making this PVE request.
- *  - Signed in via next-auth → returns that user.
- *  - Has a valid guest cookie pointing at a `role='guest'` user → returns it.
- *  - Otherwise, if `mintIfMissing` is true (start-of-game), creates a new
- *    guest user and sets the cookie. If false, returns null. */
-async function resolveActor(mintIfMissing: boolean): Promise<Actor | null> {
-  const session = await auth();
-  if (session?.user?.id) {
-    return {
-      userId: session.user.id,
-      name: session.user.name || "Player",
-      isGuest: false,
-    };
-  }
-
-  const jar = await cookies();
-  const existing = jar.get(GUEST_COOKIE)?.value;
-  if (existing && UUID_RE.test(existing)) {
-    const r = await query(
-      `SELECT id FROM users WHERE id=$1 AND role='guest'`,
-      [existing],
-    );
-    if (r.rows[0]) {
-      return { userId: existing, name: "Guest", isGuest: true };
-    }
-  }
-  if (!mintIfMissing) return null;
-
-  const newId = crypto.randomUUID();
-  await query(
-    `INSERT INTO users (id, email, role) VALUES ($1, $2, 'guest')`,
-    [newId, `guest+${newId}@cambridgetcg.local`],
-  );
-  jar.set(GUEST_COOKIE, newId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: GUEST_COOKIE_MAX_AGE_S,
-  });
-  return { userId: newId, name: "Guest", isGuest: true };
-}
+// Upkeep actions the client may NOT send individually — they run as the
+// composite `begin_turn` action (once per turn, enforced by the reducer's
+// lastUpkeepTurn stamp). This closes the refresh_all+attack farming loop
+// that let a scripted client win every game in one turn.
+const UPKEEP_ONLY_VIA_BEGIN_TURN = new Set(["refresh_all", "draw_card", "add_don"]);
 
 interface PVELevel {
   id: number;
@@ -191,14 +134,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     if (!Array.isArray(playerDeck) || playerDeck.length < 10) {
       return NextResponse.json({ error: "Load a deck first." }, { status: 400 });
     }
+    if (!playerDeck.some((c: { isLeader?: boolean }) => c?.isLeader)) {
+      return NextResponse.json(
+        { error: "Your deck needs a Leader card. Grab a starter from /play/starters or set one in the deck builder." },
+        { status: 400 },
+      );
+    }
 
     let aiDeck = level.ai_deck;
     if ((!Array.isArray(aiDeck) || aiDeck.length === 0) && engine.generateAIDeck) {
-      const catalogRes = await fetch(
-        `https://cambridgetcg.com/api/market/catalog?game=one-piece&set=${level.set_code || "OP01"}&limit=200`,
-      );
-      const catalogData = await catalogRes.json().catch(() => ({ cards: [] }));
-      aiDeck = engine.generateAIDeck(level.set_code || "OP01", catalogData.cards || []);
+      // Catalog fetch is same-origin (works in dev/preview/prod alike) and
+      // best-effort: on failure or an empty catalog we fall through.
+      const origin = new URL(request.url).origin;
+      const catalogData = await fetch(
+        `${origin}/api/market/catalog?game=one-piece&set=${level.set_code || "OP01"}&limit=200`,
+      )
+        .then((r) => r.json())
+        .catch(() => ({ cards: [] }));
+      if (Array.isArray(catalogData.cards) && catalogData.cards.length > 0) {
+        aiDeck = engine.generateAIDeck(level.set_code || "OP01", catalogData.cards);
+      }
+    }
+    if (!Array.isArray(aiDeck) || aiDeck.length === 0) {
+      // Last resort: the AI mirrors the player's deck. Always valid, always
+      // available — a match can never fail to start because a catalog was
+      // unreachable.
+      aiDeck = playerDeck.map((c: Record<string, unknown>) => ({ ...c }));
     }
 
     const gameState = engine.initializeGame({
@@ -212,7 +173,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
         levelNumber: level.level_number,
         setCode: level.set_code,
         difficulty: level.difficulty,
-        aiAggression: parseFloat(level.ai_aggression),
+        aiAggression: Number.isFinite(parseFloat(level.ai_aggression))
+          ? parseFloat(level.ai_aggression)
+          : 0.5,
       },
     });
 
@@ -246,6 +209,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     if (typeof type !== "string") {
       return NextResponse.json({ error: "Invalid action type." }, { status: 400 });
     }
+    if (UPKEEP_ONLY_VIA_BEGIN_TURN.has(type)) {
+      return NextResponse.json(
+        { error: "Upkeep runs automatically at the start of your turn." },
+        { status: 409 },
+      );
+    }
     const currentState: GameState = game.game_state;
 
     // Reject player moves when it isn't their turn (cheap anti-cheat).
@@ -275,7 +244,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       return NextResponse.json({ error: "AI cannot act on player turn." }, { status: 409 });
     }
 
-    const aggression = parseFloat(level.ai_aggression);
+    const parsed = parseFloat(level.ai_aggression);
+    const aggression = Number.isFinite(parsed) ? parsed : 0.5;
     const decision = engine.aiTurn(currentState, "player2", { aiAggression: aggression });
 
     let nextState = currentState;
@@ -331,6 +301,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     );
     const isFirstClear = progressResult.rows.length === 0 || !progressResult.rows[0].cleared;
 
+    // The next level's row id — the client navigates by id, not by
+    // level_number (they only coincide on a fresh seed). Null after the
+    // final level.
+    const nextLevelRow = await query(
+      `SELECT id FROM pve_levels WHERE level_number=$1 AND is_active=true LIMIT 1`,
+      [level.level_number + 1],
+    );
+    const nextLevelId: number | null = nextLevelRow.rows[0]?.id ?? null;
+
     // Guests record clear progression (so they can unlock the next level)
     // but receive no monetary rewards and no public activity post.
     if (actor.isGuest) {
@@ -356,36 +335,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
         pullTokenEarned: 0,
         dailyBonusEarned: false,
         level: level.level_number,
-        nextLevel: level.level_number + 1,
+        nextLevelId,
         signInPromptUrl: "/api/auth/signin?callbackUrl=/play",
       });
     }
 
-    // Apply streak + tier + daily-diminishing multipliers on top of the base.
-    const earn = await calculateBerriesEarn({
-      userId: actor.userId,
-      levelId: level.id,
-      baseFirstClear: level.first_clear_points,
-      baseRepeat: level.repeat_points,
-      isFirstClear,
-    });
-
-    await query(
-      `INSERT INTO pve_progress (user_id, level_id, cleared, clear_count, best_turns, best_life_remaining, total_points_earned, first_cleared_at)
-       VALUES ($1, $2, true, 1, $3, $4, $5, NOW())
-       ON CONFLICT (user_id, level_id) DO UPDATE SET
-         cleared=true, clear_count=pve_progress.clear_count+1,
-         best_turns=LEAST(pve_progress.best_turns, $3),
-         best_life_remaining=GREATEST(pve_progress.best_life_remaining, $4),
-         total_points_earned=pve_progress.total_points_earned+$5,
-         last_played_at=NOW()`,
-      [actor.userId, level.id, turnsPlayed || null, lifeRemaining || null, earn.total],
-    );
-
-    // All reward grants now flow through the idempotent helper. If this
-    // throws partway, the cron sweep (runPveReconciliationSweep) finds the
-    // unawarded game and resumes from wherever the per-leg ledger checks
-    // say is already done.
+    // All reward grants flow through the idempotent helper — it computes
+    // the multiplied Berries total exactly once and that same number feeds
+    // the ledger, the progress row, and the response (no second calc that
+    // could diverge). If this throws partway, the cron sweep
+    // (runPveReconciliationSweep) finds the unawarded game and resumes from
+    // wherever the per-leg ledger checks say is already done.
     const grant = await grantPveRewardsIdempotent({
       gameId,
       userId: actor.userId,
@@ -399,9 +359,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       },
       isFirstClear,
     });
-    const credit = grant.creditEarned;
-    const milestonePull = grant.pullTokenEarned;
-    const dailyBonus = grant.dailyBonusEarned;
+
+    await query(
+      `INSERT INTO pve_progress (user_id, level_id, cleared, clear_count, best_turns, best_life_remaining, total_points_earned, first_cleared_at)
+       VALUES ($1, $2, true, 1, $3, $4, $5, NOW())
+       ON CONFLICT (user_id, level_id) DO UPDATE SET
+         cleared=true, clear_count=pve_progress.clear_count+1,
+         best_turns=LEAST(pve_progress.best_turns, $3),
+         best_life_remaining=GREATEST(pve_progress.best_life_remaining, $4),
+         total_points_earned=pve_progress.total_points_earned+$5,
+         last_played_at=NOW()`,
+      [actor.userId, level.id, turnsPlayed || null, lifeRemaining || null, grant.pointsEarned],
+    );
 
     postActivity(
       actor.userId,
@@ -412,20 +381,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     return NextResponse.json({
       victory: true,
       firstClear: isFirstClear,
-      pointsEarned: earn.total,
-      creditEarned: credit,
-      pullTokenEarned: milestonePull,
-      dailyBonusEarned: dailyBonus,
-      earnBreakdown: {
-        base: earn.base,
-        dailyMultiplier: earn.dailyMultiplier,
-        streakMultiplier: earn.streakMultiplier,
-        tierMultiplier: earn.tierMultiplier,
-        clearsToday: earn.clearsToday,
-        currentStreak: earn.currentStreak,
-      },
+      pointsEarned: grant.pointsEarned,
+      creditEarned: grant.creditEarned,
+      pullTokenEarned: grant.pullTokenEarned,
+      dailyBonusEarned: grant.dailyBonusEarned,
+      earnBreakdown: grant.earnBreakdown,
       level: level.level_number,
-      nextLevel: level.level_number + 1,
+      nextLevelId,
     });
   }
 

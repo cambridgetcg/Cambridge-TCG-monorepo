@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test tests/smoke.spec.ts",
+    "test:engine": "tsx scripts/test-game-engine.ts",
     "smoke": "tsx scripts/smoke-admin.ts",
     "honesty": "tsx scripts/honesty.ts",
     "transparency": "tsx scripts/transparency.ts",
