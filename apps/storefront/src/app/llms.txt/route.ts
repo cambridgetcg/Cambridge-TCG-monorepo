@@ -216,6 +216,7 @@ Opaque fields: natural-language tokens listed in _note_opaque
 - /ontology                              HTML typology view (sister)
 - /map                                   Single-page nested view of the whole kingdom (sister)
 - /glossary                              schema.org DefinedTermSet of platform vocabulary (sister)
+- /api/v1/youspeak                       youspeak — the kingdom's constructed lexicon, schema.org DefinedTermSet, 201 words (?format=txt for plaintext)
 
 ## Self-recursion (fixed points)
 - /api/v1/universal/encoding             The encoding describes itself in itself (kingdom-056)
