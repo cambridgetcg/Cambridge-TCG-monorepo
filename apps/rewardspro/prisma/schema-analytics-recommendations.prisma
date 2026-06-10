@@ -1,0 +1,26 @@
+// This schema extension adds the AnalyticsRecommendation model
+// Add this to your main schema.prisma file
+
+model AnalyticsRecommendation {
+  id               String    @id @default(uuid())
+  shop             String
+  slug             String    // Unique identifier for the recommendation type
+  type             String    // e.g., 'inactive_customers', 'tier_upgrade_opportunity'
+  title            String
+  description      String
+  segmentPayload   Json      // Customer segment criteria and rules
+  metadata         Json?     // Additional recommendation data
+  predictedRevenue Float?
+  affectedCount    Int       // Number of customers affected
+  priority         Int       @default(0) // Higher number = higher priority
+  status           String    @default("pending") // pending, applied, dismissed, expired
+  appliedAt        DateTime?
+  dismissedAt      DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([shop, slug])
+  @@index([shop, status])
+  @@index([shop, expiresAt])
+}

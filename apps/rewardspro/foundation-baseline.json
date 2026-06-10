@@ -1,0 +1,36 @@
+{
+  "capturedAt": "2026-04-25T11:02:22.363Z",
+  "report": {
+    "status": "warning",
+    "sections": [
+      {
+        "name": "Handoff drift",
+        "status": "ok",
+        "summary": "37 token reference(s) verified — no drift",
+        "details": []
+      },
+      {
+        "name": "Token adoption",
+        "status": "warning",
+        "summary": "35/39 tokens · 30/45 primitives adopted",
+        "details": [
+          "Unused tokens: --rp-rarity-common, --rp-rarity-uncommon, --rp-rarity-rare, --rp-rarity-epic, --rp-rarity-legendary",
+          "Unused primitives: rp-skel--bar-lg, rp-skel--circle-lg, rp-skel--card, rp-btn--primary, rp-btn--ghost, rp-btn--sm, +9 more"
+        ]
+      },
+      {
+        "name": "Hotspots",
+        "status": "ok",
+        "summary": "Top 5 most-used tokens",
+        "details": [
+          " 69× --rp-easing",
+          " 64× --rp-space-md",
+          " 56× --rp-text-secondary",
+          " 55× --rp-space-sm",
+          " 50× --rp-font-sm"
+        ]
+      }
+    ],
+    "generatedAt": "2026-04-25T11:02:22.362Z"
+  }
+}

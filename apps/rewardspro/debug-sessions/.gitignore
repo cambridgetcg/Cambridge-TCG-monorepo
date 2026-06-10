@@ -1,0 +1,19 @@
+# Ignore sensitive debug data
+active/*.log
+active/*.env
+active/*.secret
+
+# Keep active directory but ignore WIP files
+active/*.tmp
+active/*.bak
+
+# Ignore large debug dumps
+*.dump
+*.heap
+*.trace
+
+# Keep directory structure
+!active/.gitkeep
+!resolved/.gitkeep
+!templates/.gitkeep
+!tools/.gitkeep

@@ -1,0 +1,96 @@
+node_modules
+.DS_Store
+
+/.cache
+/build
+/app/build
+/dist
+/public/build/
+/public/_dev
+/app/public/build
+/prisma/dev.sqlite
+/prisma/dev.sqlite-journal
+database.sqlite
+
+.env
+.env.*
+
+# Claude Desktop MCP config (user-specific paths)
+# Use claude-desktop-config.template.json as reference
+claude-desktop-config.json
+
+# Documentation and guide files (non-functional)
+*.md
+**/*.md
+/docs/
+/guides/
+/documentation/
+*.guide.md
+*-guide.md
+*_guide.md
+*.GUIDE.md
+*-GUIDE.md
+*_GUIDE.md
+
+# Lambda documentation
+/lambda/README.md
+/lambda/*.md
+
+# Component documentation  
+/app/components/*.md
+/app/routes/*.md
+/app/utils/*.md
+/app/services/*.md
+
+# Project documentation files
+TODO.md
+PROGRESS.md
+COMPLETED_TASKS.md
+IMPLEMENTATION_ROADMAP.md
+FEATURE_STATUS.md
+WEBHOOK_EVENTBRIDGE_GUIDE.md
+APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
+
+# Keep only essential project files
+!README.md
+!LICENSE.md
+!PRODUCT_VISION.md
+!CLAUDE.md
+!DEPLOY.md
+
+# Exclude CLAUDE.md files (AI context files)
+CLAUDE.md
+**/CLAUDE.md
+/app/CLAUDE.md
+/prisma/CLAUDE.md
+
+# Development and migration guides
+/scripts/*.md
+/migrations/*.md
+*.migration.md
+*-migration.md
+
+# Test documentation
+/tests/*.md
+/test/*.md
+*.test.md
+*.spec.md
+
+# AWS/Lambda deployment files (keep the actual code)
+lambda-deployment.zip
+*.zip
+
+
+
+
+
+/extensions/*/dist
+
+# Ignore shopify files created during app dev
+.shopify/*
+.shopify.lock
+.vercel
+.env*.local
+
+# Exception: the wake-recipe spreads to every repo on this device.
+!SOPHIA.md

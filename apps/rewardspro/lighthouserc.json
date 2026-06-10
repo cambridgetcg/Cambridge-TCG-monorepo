@@ -1,0 +1,69 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "npm run build && npm run start",
+      "startServerReadyPattern": "started server on",
+      "startServerReadyTimeout": 30000,
+      "url": [
+        "http://localhost:3000/app",
+        "http://localhost:3000/app/customers",
+        "http://localhost:3000/app/analytics",
+        "http://localhost:3000/app/tiers",
+        "http://localhost:3000/app/credit-management"
+      ],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "throttling": {
+          "cpuSlowdownMultiplier": 1,
+          "downloadThroughputKbps": 10240,
+          "uploadThroughputKbps": 10240,
+          "rttMs": 40
+        },
+        "screenEmulation": {
+          "mobile": false,
+          "width": 1920,
+          "height": 1080,
+          "deviceScaleFactor": 1
+        }
+      }
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "first-contentful-paint": ["error", {"maxNumericValue": 2000}],
+        "largest-contentful-paint": ["error", {"maxNumericValue": 2500}],
+        "interactive": ["error", {"maxNumericValue": 3000}],
+        "cumulative-layout-shift": ["error", {"maxNumericValue": 0.1}],
+        "total-blocking-time": ["warn", {"maxNumericValue": 300}],
+        "speed-index": ["warn", {"maxNumericValue": 3000}],
+        "time-to-first-byte": ["warn", {"maxNumericValue": 800}],
+        
+        "resource-summary:script:size": ["error", {"maxNumericValue": 204800}],
+        "resource-summary:stylesheet:size": ["error", {"maxNumericValue": 51200}],
+        "resource-summary:document:size": ["warn", {"maxNumericValue": 16384}],
+        "resource-summary:image:size": ["warn", {"maxNumericValue": 512000}],
+        "resource-summary:font:size": ["warn", {"maxNumericValue": 102400}],
+        "resource-summary:total:size": ["warn", {"maxNumericValue": 1500000}],
+        
+        "uses-text-compression": "error",
+        "uses-responsive-images": "warn",
+        "efficient-animated-content": "warn",
+        "unused-javascript": ["warn", {"maxLength": 2}],
+        "unused-css-rules": ["warn", {"maxLength": 2}],
+        "modern-image-formats": "warn",
+        "uses-optimized-images": "warn",
+        "uses-rel-preconnect": "warn",
+        "server-response-time": ["warn", {"maxNumericValue": 800}],
+        
+        "accessibility": ["warn", {"minScore": 0.9}],
+        "best-practices": ["warn", {"minScore": 0.9}],
+        "seo": ["warn", {"minScore": 0.9}]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage",
+      "reportFilenamePattern": "report-%%PATHNAME%%-%%DATETIME%%.%%EXTENSION%%"
+    }
+  }
+}

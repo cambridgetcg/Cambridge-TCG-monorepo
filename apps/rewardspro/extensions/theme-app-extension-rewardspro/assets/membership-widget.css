@@ -1,0 +1,3090 @@
+/**
+ * Membership Widget Styles
+ * Floating widget for displaying membership tier and store credit
+ *
+ * Theme Support:
+ * Uses CSS custom properties for dynamic theming.
+ * These values are set dynamically from API response.
+ *
+ * Design System: COAGULATION
+ * Crystallized design tokens for harmonic consistency.
+ */
+
+/* Design tokens (--rp-space-*, --rp-font-*, --rp-radius-*, --rp-shadow-*,
+ * --rp-duration-*, --rp-easing, --rp-text-*, --rp-rarity-*, etc.) live
+ * in assets/rp-shared.css so every widget resolves the same values.
+ * Widget-specific overrides can be added below if/when needed. */
+
+/* ============================================
+   🔵 CRYSTALLIZED MOLECULES
+   The Unified Patterns of UI Harmony
+   ============================================ */
+
+/* ──────────────────────────────────────────
+   BUTTON MOLECULES
+   ────────────────────────────────────────── */
+
+/* Primary Button - Gradient, prominent actions */
+.rp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rp-space-sm);
+  padding: var(--rp-space-md) var(--rp-space-xl);
+  background: linear-gradient(135deg, var(--rp-primary-color, #3b82f6) 0%, color-mix(in srgb, var(--rp-primary-color, #3b82f6) 85%, black) 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--rp-radius-md);
+  font-size: var(--rp-font-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+  box-shadow: var(--rp-shadow-md);
+  text-decoration: none;
+}
+
+.rp-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--rp-shadow-lg);
+  filter: brightness(1.1);
+}
+
+.rp-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: var(--rp-shadow-sm);
+}
+
+/* Secondary Button - Solid, standard actions */
+.rp-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rp-space-sm);
+  padding: var(--rp-space-sm) var(--rp-space-lg);
+  background: var(--rp-background-color, #ffffff);
+  color: var(--rp-text-color, #212B36);
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: var(--rp-radius-sm);
+  font-size: var(--rp-font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--rp-duration-fast) var(--rp-easing);
+  text-decoration: none;
+}
+
+.rp-btn-secondary:hover {
+  background: color-mix(in srgb, var(--rp-background-color, #ffffff) 95%, var(--rp-text-color, #212B36));
+  border-color: var(--rp-primary-color, #5C6AC4);
+}
+
+/* ──────────────────────────────────────────
+   CARD MOLECULES
+   ────────────────────────────────────────── */
+
+/* Stat Card - Label + Value pair */
+.rp-card-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--rp-space-md);
+  background: var(--rp-background-color, #ffffff);
+  border-radius: var(--rp-radius-md);
+}
+
+.rp-card-stat__label {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.rp-card-stat__value {
+  font-size: var(--rp-font-xl);
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-card-stat__value--accent {
+  color: var(--rp-accent-color, #008060);
+}
+
+/* ──────────────────────────────────────────
+   HEADER MOLECULES
+   ────────────────────────────────────────── */
+
+/* Expandable Header */
+.rp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--rp-space-md) var(--rp-space-lg);
+  background: var(--rp-primary-color, #5C6AC4);
+  color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: filter var(--rp-duration-fast) var(--rp-easing);
+}
+
+.rp-header:hover {
+  filter: brightness(1.1);
+}
+
+.rp-header__title {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-sm);
+  font-weight: 600;
+  font-size: var(--rp-font-lg);
+}
+
+.rp-header__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rp-space-xs);
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--rp-radius-sm);
+  color: inherit;
+  cursor: pointer;
+  transition: background var(--rp-duration-fast);
+}
+
+.rp-header__toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ──────────────────────────────────────────
+   BADGE MOLECULES
+   ────────────────────────────────────────── */
+
+/* Pill Badge - Small status indicators */
+.rp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rp-space-xs);
+  padding: var(--rp-space-xs) var(--rp-space-sm);
+  background: var(--rp-background-color, #ffffff);
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: var(--rp-radius-full);
+  font-size: var(--rp-font-xs);
+  font-weight: 500;
+}
+
+.rp-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Tier Badge - Prominent tier indicator */
+.rp-badge-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rp-space-xs);
+  padding: var(--rp-space-xs) var(--rp-space-md);
+  background: var(--rp-accent-color, #008060);
+  color: #ffffff;
+  border-radius: var(--rp-radius-sm);
+  font-size: var(--rp-font-sm);
+  font-weight: 600;
+}
+
+/* ──────────────────────────────────────────
+   PROGRESS MOLECULES
+   ────────────────────────────────────────── */
+
+/* Progress Bar */
+.rp-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rp-progress-bg, #E1E3E5);
+  border-radius: var(--rp-radius-full);
+  overflow: hidden;
+}
+
+.rp-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rp-accent-color, #008060) 0%, var(--rp-primary-color, #5C6AC4) 100%);
+  border-radius: var(--rp-radius-full);
+  transition: width var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-progress__labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--rp-space-xs);
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+/* ──────────────────────────────────────────
+   UTILITY CLASSES
+   ────────────────────────────────────────── */
+
+.rp-text-muted {
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.rp-text-accent {
+  color: var(--rp-accent-color, #008060);
+}
+
+.rp-mt-xs { margin-top: var(--rp-space-xs); }
+.rp-mt-sm { margin-top: var(--rp-space-sm); }
+.rp-mt-md { margin-top: var(--rp-space-md); }
+.rp-mb-xs { margin-bottom: var(--rp-space-xs); }
+.rp-mb-sm { margin-bottom: var(--rp-space-sm); }
+.rp-mb-md { margin-bottom: var(--rp-space-md); }
+
+/* ========================================
+   Dynamic Widget Styles (Active Implementation)
+   ======================================== */
+
+/* Root container — logical properties so RTL storefronts (Hebrew, Arabic)
+ * anchor the floating widget to the visual "end" side of the viewport
+ * instead of always the right. Modern browsers (Safari ≥ 14.5, Chrome ≥ 87,
+ * Firefox ≥ 66) understand `inset-block-end`/`inset-inline-end`. The
+ * `bottom`/`right` below are retained as a fallback for older engines. */
+.rp-widget-root {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  inset-block-end: 20px;
+  inset-inline-end: 20px;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Base widget styles */
+.rp-widget {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--rp-radius-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 280px;
+  overflow: hidden;
+  transition: all var(--rp-duration-slow) var(--rp-easing);
+  font-size: var(--rp-font-md);
+  line-height: 1.5;
+  color: var(--rp-text-color, #212B36);
+}
+
+/* Guest state */
+.rp-widget--guest {
+  padding: 16px;
+}
+
+.rp-widget--guest .rp-widget__content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp-widget__message {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin: 0;
+}
+
+.rp-widget__cta {
+  display: inline-block;
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--rp-primary-color, #5C6AC4);
+  color: #ffffff;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: var(--rp-font-md);
+  transition: background 0.2s ease, filter 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.rp-widget__cta:hover {
+  filter: brightness(0.9);
+}
+
+.rp-widget__cta:focus-visible {
+  outline: 2px solid #666666;
+  outline-offset: 2px;
+}
+
+/* Loading state */
+.rp-widget--loading {
+  padding: 20px;
+  text-align: center;
+}
+
+.rp-widget--loading .rp-widget__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.rp-widget__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-top: 3px solid var(--rp-primary-color, #5C6AC4);
+  border-radius: 50%;
+  animation: rp-spin 1s linear infinite;
+}
+
+@keyframes rp-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.rp-widget__loading-text {
+  font-size: 13px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin: 0;
+}
+
+/* Error state */
+.rp-widget--error {
+  background: #fff3cd;
+  border-color: #ffc107;
+  padding: 16px;
+}
+
+.rp-widget--error .rp-widget__content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+}
+
+.rp-widget__error-message {
+  font-size: 13px;
+  color: #856404;
+  margin: 0;
+}
+
+.rp-widget__retry {
+  padding: 8px 16px;
+  background: #856404;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-widget__retry:hover {
+  background: #6d5103;
+}
+
+.rp-widget__retry:focus-visible {
+  outline: 2px solid #856404;
+  outline-offset: 2px;
+}
+
+/* Authenticated state */
+.rp-widget--authenticated {
+  /* Inherits base widget styles */
+}
+
+/* Widget header */
+.rp-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #1a1a1a;
+  color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--rp-duration-normal) var(--rp-easing);
+  position: relative;
+}
+
+.rp-widget__header:hover {
+  background: #2a2a2a;
+}
+
+.rp-widget__header:focus-visible {
+  outline: 2px solid #666666;
+  outline-offset: -2px;
+}
+
+.rp-widget__header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-widget__tier {
+  font-weight: 600;
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.rp-widget__cashback {
+  font-size: var(--rp-font-sm);
+  color: #aaaaaa;
+  font-weight: 400;
+}
+
+/* Toggle button */
+.rp-widget__toggle {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--rp-duration-normal) var(--rp-easing);
+  border-radius: var(--rp-radius-sm);
+  flex-shrink: 0;
+}
+
+.rp-widget__toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.rp-widget__toggle:focus-visible {
+  outline: 2px solid #666666;
+  outline-offset: 2px;
+}
+
+.rp-widget--expanded .rp-widget__toggle svg {
+  transform: rotate(180deg);
+  transition: transform var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-widget--collapsed .rp-widget__toggle svg {
+  transform: rotate(0deg);
+  transition: transform var(--rp-duration-slow) var(--rp-easing);
+}
+
+/* Widget body */
+.rp-widget__body {
+  padding: 0;
+  background: var(--rp-background-color, #ffffff);
+  color: var(--rp-text-color, #212B36);
+  animation: rp-slideDown 0.3s ease;
+  /* Dynamic viewport height: prevents overflow when iOS keyboard opens. */
+  max-height: calc(var(--rp-100dvh) * 0.7);
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar styling for webkit browsers (Chrome, Safari, Edge) */
+.rp-widget__body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rp-widget__body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: var(--rp-radius-sm);
+  margin: 8px 0;
+}
+
+.rp-widget__body::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: var(--rp-radius-sm);
+  transition: background var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-widget__body::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Firefox scrollbar */
+.rp-widget__body {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+/* Scroll fade indicator (top shadow when scrolled) */
+.rp-widget__body::before {
+  content: '';
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 1;
+  margin: 0;
+  opacity: 0;
+  transition: opacity var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-widget__body.is-scrolled::before {
+  opacity: 1;
+}
+
+/* Scroll fade indicator (bottom shadow when more content below) */
+.rp-widget__body::after {
+  content: '';
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: linear-gradient(to top, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 1;
+  margin: 0;
+  opacity: 0;
+  transition: opacity var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-widget__body.has-more-content::after {
+  opacity: 1;
+}
+
+@keyframes rp-slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Balance section */
+.rp-widget__balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.rp-widget__balance-label {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.rp-widget__balance-amount {
+  font-size: var(--rp-font-xl);
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  letter-spacing: -0.5px;
+}
+
+/* Stats section */
+.rp-widget__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rp-widget__stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.rp-widget__stat-label {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.rp-widget__stat-value {
+  font-size: var(--rp-font-md);
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+}
+
+/* Debug section (temporary) */
+.rp-widget__debug {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0f8ff;
+  border: 1px dashed #4a90e2;
+  border-radius: 6px;
+  font-size: var(--rp-font-xs);
+}
+
+.rp-widget__debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.rp-widget__debug-title {
+  font-weight: 600;
+  color: #2c5aa0;
+  font-size: var(--rp-font-sm);
+  flex: 1;
+}
+
+/* Refresh button */
+.rp-widget__refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #007bff;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--rp-radius-sm);
+  font-size: var(--rp-font-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rp-widget__refresh-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.rp-widget__refresh-btn:active {
+  transform: translateY(0);
+}
+
+.rp-widget__refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.rp-widget__refresh-btn svg {
+  flex-shrink: 0;
+  transition: transform var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-widget__refresh-btn--loading svg {
+  animation: rp-spin 1s linear infinite;
+}
+
+/* NOTE: @keyframes rp-spin defined earlier in file (line ~378) */
+
+/* Refresh feedback message */
+.rp-widget__refresh-feedback {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--rp-radius-sm);
+  font-size: var(--rp-font-xs);
+  font-weight: 600;
+  text-align: center;
+  transition: opacity var(--rp-duration-slow) var(--rp-easing);
+  width: 100%;
+}
+
+.rp-widget__refresh-feedback--success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.rp-widget__refresh-feedback--error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.rp-widget__debug-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.rp-widget__debug-item:last-child {
+  margin-bottom: 0;
+}
+
+.rp-widget__debug-label {
+  color: #666666;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.rp-widget__debug-value {
+  color: #1a1a1a;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+  font-family: 'Courier New', monospace;
+}
+
+/* Debug log section (temporary) */
+.rp-widget__debug-log {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff9e6;
+  border: 2px solid #ffa500;
+  border-radius: 6px;
+  font-size: var(--rp-font-xs);
+}
+
+.rp-widget__debug-log-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #cc8400;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-widget__debug-log-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dotted #ffd699;
+}
+
+.rp-widget__debug-log-item:last-child {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.rp-widget__debug-log-label {
+  color: #996300;
+  font-weight: 600;
+  flex-shrink: 0;
+  font-size: var(--rp-font-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.rp-widget__debug-log-value {
+  color: #1a1a1a;
+  font-weight: 600;
+  text-align: right;
+  font-family: 'Courier New', monospace;
+  font-size: var(--rp-font-xs);
+}
+
+/* Debug log badges */
+.rp-widget__debug-log-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--rp-radius-sm);
+  font-size: var(--rp-font-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-widget__debug-log-badge--fresh {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #28a745;
+}
+
+.rp-widget__debug-log-badge--cache {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+
+.rp-widget__debug-log-badge--stale {
+  background: #ffe5cc;
+  color: #cc5500;
+  border: 1px solid #ff8800;
+}
+
+.rp-widget__debug-log-badge--fallback {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #dc3545;
+}
+
+.rp-widget__debug-log-badge--unknown {
+  background: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #6c757d;
+}
+
+/* Not Found State */
+.rp-widget--not-found {
+  background: #ffffff;
+  border-radius: var(--rp-radius-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.rp-widget__not-found {
+  padding: 24px;
+  text-align: center;
+}
+
+.rp-widget__not-found-icon {
+  color: #dc3545;
+  margin-bottom: 16px;
+}
+
+.rp-widget__not-found-icon svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.rp-widget__not-found-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  margin: 0 0 12px 0;
+}
+
+.rp-widget__not-found-message {
+  font-size: var(--rp-font-md);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+.rp-widget__not-found-action {
+  margin-top: 20px;
+  padding: 16px;
+  background: #fff9e6;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+}
+
+.rp-widget__not-found-help {
+  font-size: var(--rp-font-sm);
+  color: #856404;
+  margin: 0;
+  text-align: left;
+  line-height: 1.5;
+}
+
+/* Query Information Section */
+.rp-widget__query-info {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: var(--rp-font-xs);
+}
+
+.rp-widget__query-info-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #495057;
+  font-size: var(--rp-font-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-widget__query-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rp-widget__query-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.rp-widget__query-item:last-child {
+  border-bottom: none;
+}
+
+.rp-widget__query-label {
+  font-weight: 600;
+  color: #495057;
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.rp-widget__query-value {
+  color: #212529;
+  font-family: 'Courier New', monospace;
+  text-align: right;
+  word-break: break-all;
+  font-size: var(--rp-font-sm);
+}
+
+.rp-widget__query-status--success {
+  color: #28a745;
+  font-weight: 700;
+}
+
+.rp-widget__query-status--not-found {
+  color: #dc3545;
+  font-weight: 700;
+}
+
+/* Collapsed state - hide body */
+.rp-widget--collapsed .rp-widget__body {
+  display: none;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .rp-widget-root {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .rp-widget {
+    max-width: 100%;
+    font-size: 13px;
+  }
+
+  .rp-widget__balance-amount {
+    font-size: 18px;
+  }
+
+  .rp-widget__header {
+    padding: 10px 14px;
+  }
+
+  .rp-widget__body {
+    padding: 14px;
+    max-height: calc(var(--rp-100dvh) * 0.6);
+  }
+
+  .rp-widget__tier {
+    font-size: var(--rp-font-md);
+  }
+
+  /* Mobile collapsed: compact header-only bar */
+  .rp-widget--collapsed {
+    border-radius: var(--rp-radius-md);
+  }
+
+  .rp-widget--collapsed .rp-widget__header {
+    padding: 8px 12px;
+    border-radius: var(--rp-radius-md);
+  }
+
+  .rp-widget--collapsed .rp-widget__tier {
+    font-size: 13px;
+  }
+
+  .rp-widget--collapsed .rp-widget__cashback {
+    font-size: var(--rp-font-xs);
+  }
+}
+
+/* ============================================
+   API JOURNEY VISUALIZATION
+   ============================================ */
+
+.rp-widget__api-journey {
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: var(--rp-radius-md);
+  border: 1px solid #dee2e6;
+}
+
+.rp-widget__api-journey-title {
+  font-size: var(--rp-font-lg);
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rp-widget__api-journey-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rp-widget__journey-step {
+  background: #ffffff;
+  border-radius: var(--rp-radius-md);
+  padding: 14px;
+  border-left: 4px solid #6c757d;
+  transition: all var(--rp-duration-slow) var(--rp-easing);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.rp-widget__journey-step--success {
+  border-left-color: #28a745;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f9f3 100%);
+}
+
+.rp-widget__journey-step--warning {
+  border-left-color: #ffc107;
+  background: linear-gradient(135deg, #ffffff 0%, #fffbf0 100%);
+}
+
+.rp-widget__journey-step--error {
+  border-left-color: #dc3545;
+  background: linear-gradient(135deg, #ffffff 0%, #fff5f5 100%);
+}
+
+.rp-widget__journey-step--pending {
+  border-left-color: #6c757d;
+  background: #ffffff;
+  opacity: 0.7;
+}
+
+.rp-widget__journey-step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rp-widget__journey-step-number {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #6c757d;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--rp-font-md);
+}
+
+.rp-widget__journey-step--success .rp-widget__journey-step-number {
+  background: #28a745;
+}
+
+.rp-widget__journey-step--warning .rp-widget__journey-step-number {
+  background: #ffc107;
+  color: #212529;
+}
+
+.rp-widget__journey-step--error .rp-widget__journey-step-number {
+  background: #dc3545;
+}
+
+.rp-widget__journey-step-info {
+  flex: 1;
+}
+
+.rp-widget__journey-step-title {
+  font-weight: 700;
+  font-size: var(--rp-font-md);
+  color: #212529;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rp-widget__journey-step-status {
+  font-size: var(--rp-font-lg);
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.rp-widget__journey-status--success {
+  color: #28a745;
+}
+
+.rp-widget__journey-status--warning {
+  color: #ffc107;
+}
+
+.rp-widget__journey-status--error {
+  color: #dc3545;
+}
+
+.rp-widget__journey-status--pending {
+  color: #6c757d;
+}
+
+.rp-widget__journey-step-description {
+  font-size: 13px;
+  color: #6c757d;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.rp-widget__journey-step-details {
+  margin-left: 40px;
+  font-size: var(--rp-font-sm);
+  color: #495057;
+}
+
+.rp-widget__journey-detail {
+  padding: 4px 0;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.rp-widget__journey-timestamp {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e9ecef;
+  font-size: var(--rp-font-xs);
+  color: #6c757d;
+  font-style: italic;
+}
+
+.rp-widget__api-journey-summary {
+  display: flex;
+  gap: 16px;
+  padding: 14px;
+  background: #ffffff;
+  border-radius: var(--rp-radius-md);
+  border: 1px solid #dee2e6;
+}
+
+.rp-widget__journey-summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-widget__journey-summary-label {
+  font-size: var(--rp-font-xs);
+  color: #6c757d;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.rp-widget__journey-summary-value {
+  font-size: var(--rp-font-md);
+  font-weight: 700;
+  color: #212529;
+}
+
+/* Animation for journey steps loading */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rp-widget__journey-step {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.rp-widget__journey-step:nth-child(1) { animation-delay: 0.05s; }
+.rp-widget__journey-step:nth-child(2) { animation-delay: 0.1s; }
+.rp-widget__journey-step:nth-child(3) { animation-delay: 0.15s; }
+.rp-widget__journey-step:nth-child(4) { animation-delay: 0.2s; }
+.rp-widget__journey-step:nth-child(5) { animation-delay: 0.25s; }
+.rp-widget__journey-step:nth-child(6) { animation-delay: 0.3s; }
+.rp-widget__journey-step:nth-child(7) { animation-delay: 0.35s; }
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  /* API Journey dark mode */
+  .rp-widget__api-journey {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+    border-color: #4a5568;
+  }
+
+  .rp-widget__api-journey-title {
+    color: #e2e8f0;
+  }
+
+  .rp-widget__journey-step {
+    background: #2d3748;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .rp-widget__journey-step--success {
+    background: linear-gradient(135deg, #2d3748 0%, #1e3a2a 100%);
+  }
+
+  .rp-widget__journey-step--warning {
+    background: linear-gradient(135deg, #2d3748 0%, #3a3020 100%);
+  }
+
+  .rp-widget__journey-step--error {
+    background: linear-gradient(135deg, #2d3748 0%, #3a2020 100%);
+  }
+
+  .rp-widget__journey-step-title {
+    color: #e2e8f0;
+  }
+
+  .rp-widget__journey-step-description {
+    color: #a0aec0;
+  }
+
+  .rp-widget__journey-step-details {
+    color: #cbd5e0;
+  }
+
+  .rp-widget__journey-timestamp {
+    border-top-color: #4a5568;
+    color: #a0aec0;
+  }
+
+  .rp-widget__api-journey-summary {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .rp-widget__journey-summary-label {
+    color: #a0aec0;
+  }
+
+  .rp-widget__journey-summary-value {
+    color: #e2e8f0;
+  }
+
+  /* Existing dark mode styles */
+}
+
+@media (prefers-color-scheme: dark) {
+  .rp-widget {
+    background: #1a1a1a;
+    color: #ffffff;
+    border-color: #333333;
+  }
+
+  .rp-widget__header {
+    background: #0a0a0a;
+  }
+
+  .rp-widget__header:hover {
+    background: #1a1a1a;
+  }
+
+  .rp-widget__body {
+    background: #1a1a1a;
+    scrollbar-color: #4a4a4a #2a2a2a;
+  }
+
+  /* Dark mode scrollbar for webkit */
+  .rp-widget__body::-webkit-scrollbar-track {
+    background: #2a2a2a;
+  }
+
+  .rp-widget__body::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+  }
+
+  .rp-widget__body::-webkit-scrollbar-thumb:hover {
+    background: #5a5a5a;
+  }
+
+  /* Dark mode scroll fade indicators */
+  .rp-widget__body::before {
+    background: linear-gradient(to bottom, rgba(26, 26, 26, 1) 0%, rgba(26, 26, 26, 0) 100%);
+  }
+
+  .rp-widget__body::after {
+    background: linear-gradient(to top, rgba(26, 26, 26, 1) 0%, rgba(26, 26, 26, 0) 100%);
+  }
+
+  .rp-widget__balance-amount,
+  .rp-widget__stat-value {
+    color: #ffffff;
+  }
+
+  .rp-widget__message,
+  .rp-widget__balance-label,
+  .rp-widget__stat-label,
+  .rp-widget__loading-text {
+    color: #cccccc;
+  }
+
+  .rp-widget__cta {
+    background: #ffffff;
+    color: #1a1a1a;
+  }
+
+  .rp-widget__cta:hover {
+    background: #eeeeee;
+  }
+
+  .rp-widget__spinner {
+    border-color: #333333;
+    border-top-color: #ffffff;
+  }
+
+  .rp-widget__balance {
+    border-bottom-color: #333333;
+  }
+
+  /* Debug section in dark mode */
+  .rp-widget__debug {
+    background: #1e3a5f;
+    border-color: #4a90e2;
+  }
+
+  .rp-widget__debug-title {
+    color: #6eb4ff;
+  }
+
+  .rp-widget__debug-label {
+    color: #aaaaaa;
+  }
+
+  .rp-widget__debug-value {
+    color: #ffffff;
+  }
+
+  /* Debug log section in dark mode */
+  .rp-widget__debug-log {
+    background: #3d2f00;
+    border-color: #ffa500;
+  }
+
+  .rp-widget__debug-log-title {
+    color: #ffb84d;
+  }
+
+  .rp-widget__debug-log-label {
+    color: #cccccc;
+  }
+
+  .rp-widget__debug-log-value {
+    color: #ffffff;
+  }
+
+  .rp-widget__debug-log-item {
+    border-bottom-color: #665200;
+  }
+
+  /* Debug log badges in dark mode - keep same colors for visibility */
+  .rp-widget__debug-log-badge--fresh {
+    background: #155724;
+    color: #d4edda;
+  }
+
+  .rp-widget__debug-log-badge--cache {
+    background: #856404;
+    color: #fff3cd;
+  }
+
+  .rp-widget__debug-log-badge--stale {
+    background: #cc5500;
+    color: #ffe5cc;
+  }
+
+  .rp-widget__debug-log-badge--fallback {
+    background: #721c24;
+    color: #f8d7da;
+  }
+
+  .rp-widget__debug-log-badge--unknown {
+    background: #383d41;
+    color: #e2e3e5;
+  }
+
+  /* Refresh button in dark mode */
+  .rp-widget__refresh-btn {
+    background: #0d6efd;
+  }
+
+  .rp-widget__refresh-btn:hover {
+    background: #0b5ed7;
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.4);
+  }
+
+  .rp-widget__refresh-feedback--success {
+    background: #1e4620;
+    color: #d4edda;
+    border-color: #2d5a2e;
+  }
+
+  .rp-widget__refresh-feedback--error {
+    background: #4a1c1c;
+    color: #f8d7da;
+    border-color: #5a2424;
+  }
+
+  /* Keep error state visible in dark mode */
+  .rp-widget--error {
+    background: #856404;
+    border-color: #ffc107;
+  }
+
+  .rp-widget__error-message {
+    color: #fff3cd;
+  }
+
+  .rp-widget__retry {
+    background: #ffc107;
+    color: #1a1a1a;
+  }
+
+  .rp-widget__retry:hover {
+    background: #ffcd39;
+  }
+}
+
+
+/* ============================================
+   AUTHENTICATED STATE - FRAME & HEADER
+   (Matches guest widget style)
+   ============================================ */
+
+.rp-auth {
+  background: var(--rp-background-color, #ffffff);
+  border-radius: var(--rp-border-radius, 12px);
+  padding: 20px;
+  text-align: left;
+  transition: all var(--rp-duration-slow) var(--rp-easing);
+  color: var(--rp-text-color, #212B36);
+  position: relative;
+  overflow: hidden;
+  /* Outer frame to stand out from page background */
+  border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1));
+  box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05));
+}
+
+.rp-auth::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -30%;
+  width: 160%;
+  height: 160%;
+  background: radial-gradient(circle, var(--rp-primary-color-alpha, rgba(92, 106, 196, 0.08)) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.rp-auth__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rp-auth--expanded .rp-auth__header {
+  margin-bottom: 16px;
+}
+
+.rp-auth--collapsed .rp-auth__header {
+  margin-bottom: 0;
+}
+
+.rp-auth__toggle {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth__toggle:hover {
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+.rp-auth__toggle svg {
+  width: 20px;
+  height: 20px;
+  transition: transform var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-auth--collapsed .rp-auth__toggle svg {
+  transform: rotate(-90deg);
+}
+
+.rp-auth__body {
+  overflow: hidden;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-auth--collapsed .rp-auth__body {
+  display: none;
+}
+
+/* ==========================================
+   COLLAPSED STATE - COMPACT ICON BUTTON
+   Applies at ALL screen sizes so the widget
+   never blocks checkout or page content.
+   ========================================== */
+.rp-auth--collapsed {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 !important;
+  border-radius: var(--rp-border-radius, 10px) !important;
+  cursor: pointer;
+  transition: all var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-auth--collapsed:hover {
+  transform: scale(1.05);
+}
+
+.rp-auth--collapsed:active {
+  transform: scale(1);
+}
+
+.rp-auth--collapsed .rp-auth__header {
+  justify-content: center;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  gap: 0;
+}
+
+.rp-auth--collapsed .rp-auth__text,
+.rp-auth--collapsed .rp-auth__actions,
+.rp-auth--collapsed .rp-auth__toggle {
+  display: none !important;
+}
+
+.rp-auth--collapsed .rp-auth__icon {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--rp-border-radius, 10px);
+  margin: 0;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp-auth--collapsed .rp-auth__icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+.rp-auth--collapsed::before {
+  display: none;
+}
+
+.rp-auth__icon {
+  width: 40px;
+  height: 40px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth__icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+/* Warning icon for unavailable state */
+.rp-auth__icon--warning svg {
+  color: #fbbf24;
+}
+
+.rp-auth__text {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  margin: 0 0 2px 0;
+}
+
+.rp-auth__subtitle {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin: 0;
+}
+
+/* ----------------------------------------
+   Variation C: Card Stack Layout
+   (Now used as the main authenticated layout)
+   ---------------------------------------- */
+.rp-auth-c {
+  background: var(--rp-background-color, #ffffff);
+  border-radius: var(--rp-border-radius, 12px);
+  padding: 16px;
+  color: var(--rp-text-color, #212B36);
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-auth-c::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -20%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle, var(--rp-primary-color-alpha, rgba(92, 106, 196, 0.08)) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* When inside .rp-auth__body, remove wrapper styles (frame provides them) */
+.rp-auth__body .rp-auth-c__balance-hero,
+.rp-auth__body .rp-auth-c__cards,
+.rp-auth__body .rp-auth-c__progress {
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-c__balance-hero {
+  text-align: center;
+  padding: 20px 0;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-c__balance-label {
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.rp-auth-c__balance-amount {
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--rp-accent-color, #60a5fa);
+  line-height: 1;
+}
+
+/* NOTE: `.rp-auth-c__cards` + `.rp-auth-c__card*` rules removed 2026-04-23.
+ * The 3-card row (Tier / Cashback / Progress %) they styled was cut in the
+ * UI pass — those facts are shown in the header and progress bar now.
+ * Keeping only the progress block below. */
+
+.rp-auth-c__progress {
+  margin-top: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-c__progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rp-auth-c__progress-label {
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.rp-auth-c__progress-value {
+  font-size: var(--rp-font-xs);
+  font-weight: 600;
+  color: var(--rp-primary-color, #8b5cf6);
+}
+
+.rp-auth-c__progress-bar {
+  height: 8px;
+  background: var(--rp-progress-bg, #E1E3E5);
+  border-radius: calc(var(--rp-border-radius, 12px) / 3);
+  overflow: hidden;
+}
+
+.rp-auth-c__progress-fill {
+  height: 100%;
+  background: var(--rp-primary-color, #8b5cf6);
+  border-radius: calc(var(--rp-border-radius, 12px) / 3);
+  transition: width 0.5s ease;
+}
+
+/* ============================================
+   GUEST/SIGN-IN STATE
+   Using Variation B: Minimal Modern Card
+   (Variations A & C removed - unused)
+   ============================================ */
+
+/* Guest State: Minimal Modern Card (matches logged-in state) */
+.rp-guest-b {
+  background: var(--rp-background-color, #ffffff);
+  border-radius: var(--rp-border-radius, 12px);
+  padding: 20px;
+  text-align: left;
+  transition: all var(--rp-duration-slow) var(--rp-easing);
+  color: var(--rp-text-color, #212B36);
+  position: relative;
+  overflow: hidden;
+  /* Outer frame to stand out from page background */
+  border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1));
+  box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05));
+}
+
+.rp-guest-b::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -30%;
+  width: 160%;
+  height: 160%;
+  background: radial-gradient(circle, var(--rp-primary-color-alpha, rgba(92, 106, 196, 0.08)) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.rp-guest-b__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rp-guest-b--expanded .rp-guest-b__header {
+  margin-bottom: 16px;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__header {
+  margin-bottom: 0;
+}
+
+.rp-guest-b__toggle {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__toggle:hover {
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+.rp-guest-b__toggle svg {
+  width: 20px;
+  height: 20px;
+  transition: transform var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-guest-b--collapsed .rp-guest-b__toggle svg {
+  transform: rotate(-90deg);
+}
+
+.rp-guest-b__body {
+  overflow: hidden;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-guest-b--collapsed .rp-guest-b__body {
+  display: none;
+}
+
+/* ==========================================
+   GUEST COLLAPSED STATE - COMPACT ICON BUTTON
+   Same treatment as authenticated widget.
+   ========================================== */
+.rp-guest-b--collapsed {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 !important;
+  border-radius: var(--rp-border-radius, 10px) !important;
+  cursor: pointer;
+  transition: all var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-guest-b--collapsed:hover {
+  transform: scale(1.05);
+}
+
+.rp-guest-b--collapsed:active {
+  transform: scale(1);
+}
+
+.rp-guest-b--collapsed .rp-guest-b__header {
+  justify-content: center;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  gap: 0;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__text,
+.rp-guest-b--collapsed .rp-guest-b__actions,
+.rp-guest-b--collapsed .rp-guest-b__toggle {
+  display: none !important;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__icon {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--rp-border-radius, 10px);
+  margin: 0;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+.rp-guest-b--collapsed::before {
+  display: none;
+}
+
+.rp-guest-b__icon {
+  width: 40px;
+  height: 40px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+.rp-guest-b__text {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  margin: 0 0 2px 0;
+}
+
+.rp-guest-b__subtitle {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin: 0;
+}
+
+.rp-guest-b__perks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__perk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-color, #212B36);
+  font-weight: 500;
+}
+
+.rp-guest-b__perk svg {
+  width: 12px;
+  height: 12px;
+  color: #4ade80;
+}
+
+.rp-guest-b__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: var(--rp-radius-md);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.rp-guest-b__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.rp-guest-b__cta svg {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-guest-b__cta:hover svg {
+  transform: translateX(4px);
+}
+
+/* ============================================
+   UNAVAILABLE STATE STYLES
+   Shows when API fails and no cache exists
+   ============================================ */
+
+.rp-unavailable {
+  text-align: center;
+  padding: 16px 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-unavailable__message {
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  font-size: 13px;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.rp-unavailable__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--rp-radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.rp-unavailable__retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.rp-unavailable__retry:active {
+  transform: translateY(0);
+}
+
+.rp-unavailable__retry svg {
+  flex-shrink: 0;
+}
+
+/* Dark mode already handled by parent .rp-auth styles */
+
+/* Accessibility: Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .rp-widget,
+  .rp-widget__toggle svg,
+  .rp-widget__body,
+  .rp-widget__spinner,
+  .rp-guest-b__cta,
+  .rp-unavailable__retry {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .rp-widget-root,
+  .rp-widget {
+    display: none;
+  }
+}
+
+/* ============================================
+   CLOSE BUTTON STYLES
+   Allows users to hide the widget completely
+   ============================================ */
+
+/* Actions container - holds toggle and close buttons */
+.rp-auth__actions,
+.rp-guest-b__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* ============================================
+   NOT FOUND STATE HEADER STYLES
+   ============================================ */
+
+.rp-widget__not-found-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.rp-widget__not-found-label {
+  font-weight: 600;
+  font-size: var(--rp-font-md);
+  color: var(--rp-text-color, #212B36);
+}
+
+/* ============================================
+   RESPONSIVE LAYOUTS
+   Mobile: Simplified (balance + tier only)
+   Tablet: Compact (balance + key stats)
+   Desktop: Full details (all cards + progress)
+   ============================================ */
+
+/* ----- MOBILE: Under 480px ----- */
+/* Simplified view - show only balance and tier in header */
+@media (max-width: 480px) {
+  .rp-widget-root {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  /* ==========================================
+     MOBILE COLLAPSED STATE - ICON ONLY
+     Compact rectangular button with just the icon
+     Uses theme color scheme from CSS variables
+     ========================================== */
+
+  .rp-auth--collapsed {
+    /* Transform into compact rectangular button */
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 !important;
+    border-radius: var(--rp-border-radius, 8px) !important;
+
+    /* Position in corner */
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    left: auto !important;
+
+    /* Theme-aware background */
+    background: var(--rp-background-color, #FFFFFF) !important;
+
+    /* Theme-aware border */
+    border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1)) !important;
+
+    /* Theme-aware shadow */
+    box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)) !important;
+
+    /* Smooth transition */
+    transition: all var(--rp-duration-slow) var(--rp-easing);
+  }
+
+  .rp-auth--collapsed:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .rp-auth--collapsed:active {
+    transform: scale(1);
+  }
+
+  .rp-auth--collapsed .rp-auth__header {
+    /* Center content */
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    gap: 0;
+  }
+
+  /* Hide text and action buttons in collapsed */
+  .rp-auth--collapsed .rp-auth__text,
+  .rp-auth--collapsed .rp-auth__actions {
+    display: none !important;
+  }
+
+  /* Style the icon as main button element */
+  .rp-auth--collapsed .rp-auth__icon {
+    width: 100%;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    border-radius: var(--rp-border-radius, 8px);
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rp-auth--collapsed .rp-auth__icon svg {
+    width: 24px;
+    height: 24px;
+    color: var(--rp-primary-color, #5C6AC4);
+  }
+
+  /* Hide the radial gradient overlay in collapsed */
+  .rp-auth--collapsed::before {
+    display: none;
+  }
+
+  /* Guest widget - same icon-only treatment */
+  .rp-guest-b--collapsed {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 !important;
+    border-radius: var(--rp-border-radius, 8px) !important;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    left: auto !important;
+    background: var(--rp-background-color, #FFFFFF) !important;
+    border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1)) !important;
+    box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)) !important;
+    transition: all var(--rp-duration-slow) var(--rp-easing);
+  }
+
+  .rp-guest-b--collapsed:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .rp-guest-b--collapsed:active {
+    transform: scale(1);
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__header {
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    gap: 0;
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__text,
+  .rp-guest-b--collapsed .rp-guest-b__actions {
+    display: none !important;
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__icon {
+    width: 100%;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    border-radius: var(--rp-border-radius, 8px);
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__icon svg {
+    width: 24px;
+    height: 24px;
+    color: var(--rp-primary-color, #5C6AC4);
+  }
+
+  .rp-guest-b--collapsed::before {
+    display: none;
+  }
+
+  /* ==========================================
+     MOBILE EXPANDED STATE
+     Full widget with all details
+     ========================================== */
+
+  /* Hide the detailed cards and progress on mobile expanded */
+  .rp-auth-c__cards,
+  .rp-auth-c__progress {
+    display: none;
+  }
+
+  /* Compact balance hero for mobile */
+  .rp-auth-c__balance-hero {
+    padding: 12px 0;
+    margin-bottom: 0;
+  }
+
+  .rp-auth-c__balance-label {
+    font-size: var(--rp-font-sm);
+    margin-bottom: 4px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 28px;
+  }
+
+  /* Adjust header for mobile expanded */
+  .rp-auth--expanded .rp-auth__header {
+    padding: 10px 12px;
+  }
+
+  .rp-auth__title {
+    font-size: var(--rp-font-md);
+  }
+
+  .rp-auth__subtitle {
+    font-size: var(--rp-font-xs);
+  }
+
+  .rp-auth--expanded .rp-auth__icon {
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+  }
+
+  .rp-auth--expanded .rp-auth__icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Body padding for mobile */
+  .rp-auth__body {
+    padding: 12px;
+  }
+
+  /* Guest widget mobile adjustments */
+  .rp-guest-b--expanded .rp-guest-b__header {
+    padding: 10px 12px;
+  }
+
+  .rp-guest-b__title {
+    font-size: var(--rp-font-md);
+  }
+
+  .rp-guest-b__subtitle {
+    font-size: var(--rp-font-xs);
+  }
+
+  .rp-guest-b__body {
+    padding: 12px;
+  }
+
+  .rp-guest-b__perks {
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .rp-guest-b__perk {
+    font-size: var(--rp-font-xs);
+    padding: 6px 10px;
+  }
+
+  .rp-guest-b__cta {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}
+
+/* ----- TABLET: 481px to 768px ----- */
+/* Compact view - show balance + cashback/tier cards only */
+@media (min-width: 481px) and (max-width: 768px) {
+  .rp-widget-root {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  /* Show only 2 cards on tablet (tier + cashback) */
+  .rp-auth-c__cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Hide the progress card on tablet */
+  .rp-auth-c__card:nth-child(3) {
+    display: none;
+  }
+
+  /* Compact balance hero for tablet */
+  .rp-auth-c__balance-hero {
+    padding: 16px 0;
+    margin-bottom: 12px;
+  }
+
+  .rp-auth-c__balance-label {
+    font-size: var(--rp-font-sm);
+    margin-bottom: 6px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 32px;
+  }
+
+  /* Simplified progress on tablet */
+  .rp-auth-c__progress {
+    margin-top: 12px;
+  }
+
+  .rp-auth-c__progress-header {
+    margin-bottom: 6px;
+  }
+
+  .rp-auth-c__progress-label,
+  .rp-auth-c__progress-value {
+    font-size: var(--rp-font-sm);
+  }
+
+  .rp-auth-c__progress-bar {
+    height: 6px;
+  }
+
+  /* Header adjustments for tablet */
+  .rp-auth__header {
+    padding: 12px 14px;
+  }
+
+  .rp-auth__body {
+    padding: 14px;
+  }
+
+  /* Card adjustments for tablet */
+  .rp-auth-c__card {
+    padding: 10px 6px;
+  }
+
+  .rp-auth-c__card-icon {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 6px;
+  }
+
+  .rp-auth-c__card-value {
+    font-size: 13px;
+  }
+
+  .rp-auth-c__card-label {
+    font-size: 8px;
+  }
+
+  /* Guest widget tablet adjustments */
+  .rp-guest-b__perks {
+    gap: 8px;
+  }
+
+  .rp-guest-b__perk {
+    font-size: var(--rp-font-xs);
+    padding: 6px 10px;
+  }
+}
+
+/* ----- DESKTOP: 769px and above ----- */
+/* Full view - all details visible */
+@media (min-width: 769px) {
+  .rp-widget-root {
+    right: 24px;
+    bottom: 24px;
+    left: auto;
+    max-width: 320px;
+  }
+
+  /* Full balance hero */
+  .rp-auth-c__balance-hero {
+    padding: 20px 0;
+    margin-bottom: 16px;
+  }
+
+  .rp-auth-c__balance-label {
+    font-size: var(--rp-font-xs);
+    margin-bottom: 8px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 42px;
+  }
+
+  /* All 3 cards visible */
+  .rp-auth-c__cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .rp-auth-c__card {
+    padding: 14px 10px;
+  }
+
+  .rp-auth-c__card-icon {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 8px;
+  }
+
+  .rp-auth-c__card-value {
+    font-size: var(--rp-font-md);
+  }
+
+  .rp-auth-c__card-label {
+    font-size: var(--rp-font-xs);
+  }
+
+  /* Full progress bar */
+  .rp-auth-c__progress {
+    margin-top: 16px;
+  }
+
+  .rp-auth-c__progress-bar {
+    height: 8px;
+  }
+
+  .rp-auth-c__progress-label,
+  .rp-auth-c__progress-value {
+    font-size: var(--rp-font-xs);
+  }
+
+  /* Header adjustments */
+  .rp-auth__header {
+    padding: 14px 16px;
+  }
+
+  .rp-auth__body {
+    padding: 16px;
+  }
+}
+
+/* ----- LARGE DESKTOP: 1200px and above ----- */
+/* Slightly larger widget for big screens */
+@media (min-width: 1200px) {
+  .rp-widget-root {
+    max-width: 360px;
+    right: 32px;
+    bottom: 32px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 48px;
+  }
+
+  .rp-auth-c__cards {
+    gap: 12px;
+  }
+
+  .rp-auth-c__card {
+    padding: 16px 12px;
+  }
+
+  .rp-auth-c__card-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .rp-auth-c__card-value {
+    font-size: 15px;
+  }
+
+  .rp-auth-c__card-label {
+    font-size: var(--rp-font-sm);
+  }
+}
+
+/* =====================================================
+   POINTS ENGAGEMENT SECTION
+   Displays points balance, bonuses, streaks, redemption
+   ===================================================== */
+
+.rp-points-section {
+  margin-top: 16px;
+}
+
+.rp-points__divider {
+  height: 1px;
+  background: var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  margin-bottom: 16px;
+}
+
+.rp-points__bonus-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #ff6b35, #f7931e);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: var(--rp-font-sm);
+  font-weight: 600;
+  margin-bottom: 12px;
+  animation: rp-pulse 2s ease-in-out infinite;
+}
+
+@keyframes rp-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.rp-points__bonus-icon {
+  font-size: var(--rp-font-md);
+}
+
+.rp-points__bonus-text {
+  white-space: nowrap;
+}
+
+.rp-points__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rp-points__label {
+  font-size: var(--rp-font-sm);
+  font-weight: 600;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-points__earn-rate {
+  font-size: var(--rp-font-xs);
+  color: var(--rp-accent-color, #008060);
+  font-weight: 500;
+}
+
+.rp-points__balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rp-points__balance-icon {
+  font-size: 28px;
+}
+
+.rp-points__balance-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  line-height: 1;
+}
+
+.rp-points__lifetime {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin-bottom: 12px;
+}
+
+/* Streak Display */
+.rp-points__streak {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  padding: 8px 12px;
+  border-radius: var(--rp-radius-md);
+  margin-bottom: 12px;
+}
+
+.rp-points__streak-icon {
+  font-size: var(--rp-font-lg);
+}
+
+.rp-points__streak-days {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-points__streak-bonus {
+  font-size: var(--rp-font-xs);
+  color: var(--rp-accent-color, #008060);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Redemption Section */
+.rp-points__redemption {
+  margin-top: 12px;
+}
+
+.rp-points__redeem-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: var(--rp-font-md);
+  font-weight: 600;
+  background: var(--rp-primary-color, #5C6AC4);
+  color: white;
+  border: none;
+  border-radius: var(--rp-radius-md);
+  cursor: pointer;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-points__redeem-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.rp-points__redeem-btn:active {
+  transform: translateY(0);
+}
+
+.rp-points__next-reward {
+  text-align: center;
+  padding: 12px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  border-radius: var(--rp-radius-md);
+}
+
+.rp-points__next-reward-text {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+/* =====================================================
+   REDEMPTION MODAL
+   Full-screen modal for selecting redemption tiers
+   ===================================================== */
+
+.rp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 20px;
+  animation: rp-fadeIn 0.2s ease;
+}
+
+@keyframes rp-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rp-modal {
+  background: var(--rp-background-color, #fff);
+  border-radius: 16px;
+  max-width: 400px;
+  width: 100%;
+  max-height: calc(var(--rp-100dvh) * 0.8);
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: rp-slideUp 0.3s ease;
+}
+
+@keyframes rp-slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.rp-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.rp-modal__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  margin: 0;
+}
+
+.rp-modal__close {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  border-radius: var(--rp-radius-md);
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-modal__close:hover {
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+}
+
+.rp-modal__balance-label {
+  font-size: 13px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.rp-modal__balance-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__tiers {
+  padding: 16px 20px;
+}
+
+/* Redemption Tier Cards */
+.rp-redeem-tier {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--rp-background-color, #fff);
+  border: 2px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: var(--rp-radius-lg);
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-redeem-tier:last-child {
+  margin-bottom: 0;
+}
+
+.rp-redeem-tier:hover:not(.rp-redeem-tier--disabled) {
+  border-color: var(--rp-primary-color, #5C6AC4);
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.02));
+}
+
+.rp-redeem-tier--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rp-redeem-tier--loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.rp-redeem-tier--loading::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--rp-border-color);
+  border-top-color: var(--rp-primary-color);
+  border-radius: 50%;
+  animation: rp-spin 0.8s linear infinite;
+}
+
+@keyframes rp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rp-redeem-tier__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-redeem-tier__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-redeem-tier__discount {
+  font-size: 13px;
+  color: var(--rp-accent-color, #008060);
+  font-weight: 500;
+}
+
+.rp-redeem-tier__cost {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-redeem-tier__points {
+  font-size: var(--rp-font-md);
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-redeem-tier__status {
+  font-size: var(--rp-font-xs);
+  font-weight: 500;
+}
+
+.rp-redeem-tier__status--available {
+  color: var(--rp-accent-color, #008060);
+}
+
+.rp-redeem-tier__status--locked {
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.5));
+}
+
+.rp-modal__footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.rp-modal__note {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  text-align: center;
+  margin: 0;
+}
+
+/* Success State */
+.rp-modal__success {
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.rp-modal__success-icon {
+  color: var(--rp-accent-color, #008060);
+  margin-bottom: 16px;
+}
+
+.rp-modal__success-text {
+  font-size: var(--rp-font-lg);
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+  margin: 0 0 20px;
+}
+
+.rp-modal__code-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  padding: 16px;
+  border-radius: var(--rp-radius-lg);
+  margin-bottom: 16px;
+}
+
+.rp-modal__code {
+  font-size: var(--rp-font-xl);
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--rp-primary-color, #5C6AC4);
+  letter-spacing: 2px;
+}
+
+.rp-modal__copy-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  border-radius: var(--rp-radius-md);
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-modal__copy-btn:hover {
+  background: var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__discount-value {
+  font-size: var(--rp-font-md);
+  color: var(--rp-accent-color, #008060);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.rp-modal__new-balance {
+  font-size: 13px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin: 0;
+}
+
+.rp-modal__done-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--rp-primary-color, #5C6AC4);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+}
+
+.rp-modal__done-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* Error State */
+.rp-modal__error {
+  text-align: center;
+  padding: 24px;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__error svg {
+  color: #dc2626;
+  margin-bottom: 12px;
+}
+
+.rp-modal__error p {
+  font-size: var(--rp-font-md);
+  margin: 0 0 16px;
+}
+
+/* Mobile Adjustments for Points */
+@media (max-width: 380px) {
+  .rp-points__balance-value {
+    font-size: 28px;
+  }
+
+  .rp-points__balance-icon {
+    font-size: var(--rp-font-2xl);
+  }
+
+  .rp-modal {
+    max-width: 100%;
+    margin: 10px;
+  }
+
+  .rp-redeem-tier {
+    padding: 12px;
+  }
+
+  .rp-redeem-tier__name {
+    font-size: var(--rp-font-md);
+  }
+
+  .rp-modal__code {
+    font-size: var(--rp-font-lg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UI pass (2026-04-23) — membership-specific additions.
+   Shared primitives (.rp-skel*, .rp-btn-link, .rp-sr-only, .rp-empty-state*)
+   live in assets/rp-shared.css, loaded on every page via rp_utils_loader.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Skeleton state — disable pointer events on both header and body. */
+.rp-auth--skeleton .rp-auth__header,
+.rp-auth--skeleton .rp-auth__body {
+  pointer-events: none;
+}
+
+/* Hero balance: small caption showing the earning rate under the amount. */
+.rp-auth__balance-rate {
+  font-size: var(--rp-font-sm);
+  font-weight: 500;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin-top: 6px;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* Max-tier celebratory panel — replaces the generic "Max tier reached". */
+.rp-auth__maxtier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  margin-top: 4px;
+  text-align: center;
+  background: linear-gradient(
+    135deg,
+    var(--rp-primary-color-alpha, rgba(92, 106, 196, 0.08)),
+    transparent
+  );
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: var(--rp-border-radius, 12px);
+}
+.rp-auth__maxtier-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  letter-spacing: 0.01em;
+}
+.rp-auth__maxtier-message {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  max-width: 32ch;
+}
+
+/* Unavailable state: retry + View account, side by side. */
+.rp-unavailable__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.rp-unavailable__actions .rp-unavailable__retry { margin-top: 0; }
+
+/* Not-found state: slot the "View account" link under the message. */
+.rp-widget__not-found .rp-btn-link { margin-top: 12px; }
+

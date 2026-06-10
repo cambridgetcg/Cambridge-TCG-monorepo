@@ -1,0 +1,33 @@
+name = "RewardsPro Theme Extension"
+type = "theme"
+uid = "a58b9b10-e482-42f9-90d4-885a20081116e17dfcf9"
+
+[[extensions]]
+type = "theme"
+name = "RewardsPro Theme Extension"
+handle = "rewardspro-theme-extension"
+
+[[extensions.targeting]]
+target = "body"
+module = "./blocks/membership_widget.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/raffles.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/mystery_boxes.liquid"
+
+[[extensions.targeting]]
+target = "body"
+module = "./blocks/missions_widget.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/gift_cards.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/missions_section.liquid"
+

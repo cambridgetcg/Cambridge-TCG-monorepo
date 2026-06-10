@@ -1,0 +1,108 @@
+# RewardsPro - Progress Tracking
+# Shopify loyalty app enabling tier-based rewards, cashback, and customer retention
+
+project:
+  name: RewardsPro
+  type: app
+  owner: customer-success
+
+status: in_progress
+
+implementation:
+  overall: 65
+  phases:
+    - name: Core Infrastructure
+      progress: 100
+      status: complete
+      notes: Remix setup, Prisma, Aurora Serverless, Vercel deployment
+
+    - name: Tier System
+      progress: 100
+      status: complete
+      notes: Bronze/Silver/Gold/Platinum tiers with automatic progression
+
+    - name: Points & Rewards Engine
+      progress: 85
+      status: in_progress
+      notes: Points earning complete, redemption in progress
+
+    - name: Store Credit System
+      progress: 70
+      status: in_progress
+      notes: Credit application working, refund handling in progress
+
+    - name: Referral Program
+      progress: 40
+      status: in_progress
+      notes: Basic referral tracking, rewards pending
+
+    - name: Analytics Dashboard
+      progress: 25
+      status: planning
+      notes: Merchant-facing analytics for loyalty program performance
+
+    - name: Subscription Tiers
+      progress: 10
+      status: planning
+      notes: Premium subscription features for merchants
+
+blockers:
+  - id: BLK-001
+    description: Shopify API rate limits affecting bulk customer sync
+    severity: medium
+    status: investigating
+    created: 2026-01-15
+    notes: Exploring batch processing and caching strategies
+
+dependencies:
+  - service: shopify/admin-api
+    status: healthy
+  - service: shopify/app-bridge
+    status: healthy
+  - service: vercel/hosting
+    status: healthy
+  - service: aws/aurora-serverless
+    status: healthy
+
+milestones:
+  - name: MVP Launch (Private Beta)
+    target: 2026-02-01
+    status: on_track
+    deliverables:
+      - Tier system complete
+      - Points earning/redemption
+      - Basic merchant dashboard
+
+  - name: Public App Store Launch
+    target: 2026-03-15
+    status: on_track
+    deliverables:
+      - Full feature set
+      - App store listing
+      - Documentation complete
+
+  - name: Enterprise Features
+    target: 2026-05-01
+    status: on_track
+    deliverables:
+      - Advanced analytics
+      - Custom tier configurations
+      - API access for merchants
+
+activity:
+  last_commit: 2026-01-29
+  last_deploy: 2026-01-28
+  last_updated: 2026-01-29
+
+health:
+  build: passing
+  tests: passing
+  coverage: 78
+
+tags:
+  - shopify
+  - loyalty
+  - typescript
+  - remix
+  - active-development
+  - priority-high
