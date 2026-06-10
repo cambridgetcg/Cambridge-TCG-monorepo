@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { isUserVerified } from "@/lib/trust/db";
 import { createLot, listLots } from "@/lib/market/lots";
 
 // GET — browse public lot listings. Default: active lots, newest first.
@@ -20,17 +19,11 @@ export async function GET(request: Request) {
   return NextResponse.json({ lots, total });
 }
 
-// POST — create a lot (auth + UK verified, same gate as P2P trading).
+// POST — create a lot (signed-in account, same gate as all P2P trading).
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to sell a lot." }, { status: 401 });
-  }
-  if (!(await isUserVerified(session.user.id))) {
-    return NextResponse.json(
-      { error: "UK verification required to sell lots.", code: "VERIFICATION_REQUIRED" },
-      { status: 403 }
-    );
   }
 
   const body = await request.json().catch(() => ({}));

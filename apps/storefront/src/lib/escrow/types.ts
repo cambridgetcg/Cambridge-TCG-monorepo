@@ -94,7 +94,6 @@ export const FRAUD_SIGNALS = {
   REFUND_ABUSE: { type: "refund_abuse", severity: "high" as const, desc: "Suspicious refund pattern" },
   VELOCITY_SPIKE: { type: "velocity_spike", severity: "medium" as const, desc: "Sudden increase in trading volume" },
   NEGATIVE_REVIEWS: { type: "negative_reviews", severity: "medium" as const, desc: "Accumulating negative reviews" },
-  UNVERIFIED_HIGH_VALUE: { type: "unverified_high_value", severity: "high" as const, desc: "Unverified account in high-value trade" },
 } as const;
 
 // Trust tiers with limits

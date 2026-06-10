@@ -540,13 +540,22 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
     order_count: parseInt(r.order_count, 10),
   })) as OrderBookEntry[];
 
+  // Strip the buyer's shipping address — it rides along via t.* (migration
+  // 0105) but recent trades render on the public card page, and the address
+  // is for the trade's own participants only.
+  const recentTrades = (tradesResult.rows as MarketTrade[]).map((t) => {
+    const { shipping_address: _omit, ...rest } = t;
+    void _omit;
+    return rest as MarketTrade;
+  });
+
   return {
     sku,
     card_name: cardInfo.rows[0]?.card_name || null,
     image_url: cardInfo.rows[0]?.image_url || null,
     bids,
     asks,
-    recent_trades: tradesResult.rows as MarketTrade[],
+    recent_trades: recentTrades,
     best_bid: bids.length > 0 ? bids[0].price : null,
     best_ask: asks.length > 0 ? asks[0].price : null,
   };
@@ -674,10 +683,13 @@ export async function getUserOrders(userId: string, status?: string): Promise<Ma
 
 export async function getUserTrades(userId: string): Promise<MarketTrade[]> {
   await sweepExpiredBestEffort();
+  // No counterparty emails here — usernames + user ids are what the
+  // parties get; contact goes through platform messaging (global free
+  // trade §2.3). buyer_id/seller_id ride along via t.*.
   const result = await query(
     `SELECT t.*,
-       bu.name as buyer_name, bu.email as buyer_email,
-       su.name as seller_name, su.email as seller_email,
+       bu.name as buyer_name, bu.username as buyer_username,
+       su.name as seller_name, su.username as seller_username,
        o.card_name, o.image_url
      FROM market_trades t
      LEFT JOIN users bu ON t.buyer_id = bu.id

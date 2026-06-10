@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { placeOrder, getUserOrders, cancelOrder, TrustGateError } from "@/lib/market/db";
-import { isUserVerified } from "@/lib/trust/db";
 
 // GET — user's orders
 export async function GET(request: Request) {
@@ -21,11 +20,6 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to trade." }, { status: 401 });
-  }
-
-  // UK verification required for P2P trading
-  if (!(await isUserVerified(session.user.id))) {
-    return NextResponse.json({ error: "UK verification required to trade P2P. Complete verification in your account settings.", code: "VERIFICATION_REQUIRED" }, { status: 403 });
   }
 
   try {

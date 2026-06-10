@@ -40,6 +40,12 @@ const PATHS = {
       <path d="M10 19a2 2 0 0 0 4 0" />
     </>
   ),
+  message: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7.5l9 6 9-6" />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="6" />

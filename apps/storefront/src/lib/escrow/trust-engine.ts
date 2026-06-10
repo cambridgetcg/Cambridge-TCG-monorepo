@@ -1,12 +1,15 @@
 // Trust Score Engine — calculates trust from trading history, reviews, and behavior
 //
 // Score components (0-100):
-//   Trade completion rate    (30 pts) — completed / total trades
-//   Review score             (25 pts) — avg rating * 5
+//   Trade completion rate    (35 pts) — completed / total trades
+//   Review score             (30 pts) — avg rating * 6
 //   Trade volume             (15 pts) — log scale of total volume
 //   Account age              (10 pts) — months since first trade
-//   Verification             (10 pts) — UK verified = 10, unverified = 0
 //   External reputation      (10 pts) — verified cross-platform accounts
+//
+// Identity verification is no longer a score component (global free trade,
+// 2026-06-10): reputation is earned from behaviour, not licensed. Its 10 pts
+// were redistributed to completion (+5) and reviews (+5).
 //
 // Penalties:
 //   Active dispute           -10 per open dispute
@@ -16,7 +19,7 @@
 
 import { query } from "@/lib/db";
 import type { TrustProfile, FraudSignal } from "./types";
-import { TRUST_TIERS, FRAUD_SIGNALS } from "./types";
+import { TRUST_TIERS } from "./types";
 import { awardAchievement, postActivity } from "@/lib/social/db";
 import { notify } from "@/lib/notifications/db";
 
@@ -32,7 +35,7 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
   // counting any 'disputed'/'refunded' trade as a loss (the prior
   // approach over-penalised: a seller refunding a buyer mid-mediation
   // and a seller losing at adjudication were treated identically).
-  const [tradesResult, reviewsResult, userResult, fraudResult, externalResult, disputesResult] = await Promise.all([
+  const [tradesResult, reviewsResult, fraudResult, externalResult, disputesResult] = await Promise.all([
     query(`SELECT * FROM market_trades WHERE buyer_id=$1 OR seller_id=$1`, [userId]),
     // Reviewer trust comes through the join so we can weight each
     // review's impact: a 5-star from a Veteran counts more than a
@@ -46,7 +49,6 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
           AND r.admin_hidden = false`,
       [userId],
     ),
-    query(`SELECT * FROM users u LEFT JOIN user_verifications v ON u.id=v.user_id WHERE u.id=$1`, [userId]),
     query(`SELECT * FROM fraud_signals WHERE user_id=$1 AND resolved=false`, [userId]),
     query(`SELECT * FROM external_reputation WHERE user_id=$1 AND verified=true`, [userId]),
     query(
@@ -64,7 +66,6 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
 
   const trades = tradesResult.rows;
   const reviews = reviewsResult.rows;
-  const user = userResult.rows[0];
   const fraudSignals = fraudResult.rows;
   const externalReps = externalResult.rows;
   const resolvedDisputes = disputesResult.rows;
@@ -76,11 +77,11 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
 
   // ── Score components ──
 
-  // 1. Completion rate (30 pts)
+  // 1. Completion rate (35 pts)
   const completionRate = totalTrades > 0 ? completedTrades / totalTrades : 0;
-  const completionScore = Math.round(completionRate * 30);
+  const completionScore = Math.round(completionRate * 35);
 
-  // 2. Review score (25 pts) — REVIEWER-TRUST-WEIGHTED
+  // 2. Review score (30 pts) — REVIEWER-TRUST-WEIGHTED
   //
   // Each review's contribution = rating × reviewer_weight, where the
   // weight scales with the reviewer's own trust score:
@@ -111,7 +112,7 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
     ).catch(() => { /* non-blocking — score still computes */ });
   }
   const avgRating = weightTotal > 0 ? weightedSum / weightTotal : 0;
-  const reviewScore = Math.round((avgRating / 5) * 25);
+  const reviewScore = Math.round((avgRating / 5) * 30);
   const positiveReviews = reviews.filter((r: { rating: number }) => r.rating >= 4).length;
   const negativeReviews = reviews.filter((r: { rating: number }) => r.rating <= 2).length;
 
@@ -127,11 +128,7 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
   const monthsActive = Math.max(0, (Date.now() - firstTrade.getTime()) / (30 * 24 * 60 * 60 * 1000));
   const ageScore = Math.min(10, Math.round(monthsActive * 2));
 
-  // 5. Verification (10 pts)
-  const isVerified = user?.is_verified === true;
-  const verificationScore = isVerified ? 10 : 0;
-
-  // 6. External reputation (10 pts)
+  // 5. External reputation (10 pts)
   const externalScore = Math.min(10, externalReps.length * 5);
 
   // ── Dispute outcomes (real, not "any disputed = lost") ──
@@ -169,7 +166,7 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
     (mediumPlusFraud * 20);
 
   // ── Final score ──
-  const rawScore = completionScore + reviewScore + volumeScore + ageScore + verificationScore + externalScore;
+  const rawScore = completionScore + reviewScore + volumeScore + ageScore + externalScore;
   const trustScore = Math.max(0, Math.min(100, rawScore - penalties));
 
   // Determine trust tier and limits
@@ -237,66 +234,6 @@ export async function canTrade(userId: string, tradeValue: number): Promise<{
   }
 
   return { allowed: true, warnings };
-}
-
-// ── Fraud detection ──
-
-export async function checkFraudSignals(userId: string, context: {
-  tradeValue?: number;
-  counterpartyId?: string;
-  action?: string;
-}): Promise<FraudSignal[]> {
-  const signals: FraudSignal[] = [];
-
-  // New account + high value
-  const user = await query(`SELECT created_at, trade_count FROM users WHERE id=$1`, [userId]);
-  const accountAge = (Date.now() - new Date(user.rows[0]?.created_at).getTime()) / (24 * 60 * 60 * 1000);
-
-  if (accountAge < 7 && (context.tradeValue || 0) > 100) {
-    const signal = FRAUD_SIGNALS.NEW_ACCOUNT_HIGH_VALUE;
-    await recordSignal(userId, context.tradeValue ? undefined : undefined, signal.type, signal.severity, signal.desc, "flag");
-    signals.push({ id: "", user_id: userId, trade_id: null, signal_type: signal.type, severity: signal.severity, description: signal.desc, auto_action: "flag", resolved: false, created_at: "" });
-  }
-
-  // Self-trading check (same buyer and seller — should be blocked at API level too)
-  if (context.counterpartyId && context.counterpartyId === userId) {
-    const signal = FRAUD_SIGNALS.SELF_TRADING;
-    await recordSignal(userId, null, signal.type, signal.severity, signal.desc, "block_trade");
-    signals.push({ id: "", user_id: userId, trade_id: null, signal_type: signal.type, severity: signal.severity, description: signal.desc, auto_action: "block_trade", resolved: false, created_at: "" });
-  }
-
-  // Rapid listing (more than 20 in an hour)
-  if (context.action === "list") {
-    const recentListings = await query(
-      `SELECT COUNT(*) FROM market_orders WHERE user_id=$1 AND created_at > NOW() - INTERVAL '1 hour'`,
-      [userId]
-    );
-    if (parseInt(recentListings.rows[0].count) > 20) {
-      const signal = FRAUD_SIGNALS.RAPID_LISTING;
-      await recordSignal(userId, null, signal.type, signal.severity, signal.desc, "flag");
-      signals.push({ id: "", user_id: userId, trade_id: null, signal_type: signal.type, severity: signal.severity, description: signal.desc, auto_action: "flag", resolved: false, created_at: "" });
-    }
-  }
-
-  // Multiple recent disputes
-  const recentDisputes = await query(
-    `SELECT COUNT(*) FROM trade_disputes WHERE raised_by=$1 AND created_at > NOW() - INTERVAL '30 days'`,
-    [userId]
-  );
-  if (parseInt(recentDisputes.rows[0].count) >= 3) {
-    const signal = FRAUD_SIGNALS.MULTIPLE_DISPUTES;
-    await recordSignal(userId, null, signal.type, signal.severity, signal.desc, "hold_payout");
-  }
-
-  return signals;
-}
-
-async function recordSignal(userId: string, tradeId: string | null | undefined, type: string, severity: string, desc: string, action: string) {
-  await query(
-    `INSERT INTO fraud_signals (user_id, trade_id, signal_type, severity, description, auto_action)
-     VALUES ($1,$2,$3,$4,$5,$6)`,
-    [userId, tradeId || null, type, severity, desc, action]
-  );
 }
 
 // ── Payout hold calculation ──

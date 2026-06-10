@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         userId: targetUserId,
         kind: "verification.approved",
         title: "Verification approved",
-        body: "You're verified. You can now trade P2P and raise disputes.",
+        body: "You're verified.",
         linkUrl: "/account/verify",
         referenceType: "verification",
         referenceId: `${targetUserId}:approved`,
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       errors.dateOfBirth = "Invalid date.";
     } else {
       const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-      if (age < 18) errors.dateOfBirth = "You must be 18 or over to trade P2P.";
+      if (age < 18) errors.dateOfBirth = "You must be 18 or over.";
       else if (age > 120) errors.dateOfBirth = "Enter your actual date of birth.";
     }
   }

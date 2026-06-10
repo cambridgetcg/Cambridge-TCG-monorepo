@@ -617,6 +617,24 @@ export async function POST(request: Request) {
     if (session.metadata?.type === "market_trade_payment" && session.metadata?.trade_id) {
       try {
         const tradeId = session.metadata.trade_id;
+        // Buyer's shipping address, collected by Checkout at pay time
+        // (shipping_address_collection on the pay session). The current
+        // API version (clover) surfaces it under collected_information.
+        // shipping_details; flatten to the jsonb shape of migration 0105
+        // so the seller's trade page and the seller-paid email can render
+        // it. JSON.stringify drops the undefined keys.
+        const shipping = session.collected_information?.shipping_details;
+        const shippingAddress = shipping?.address
+          ? {
+              name: shipping.name || undefined,
+              line1: shipping.address.line1 || undefined,
+              line2: shipping.address.line2 || undefined,
+              city: shipping.address.city || undefined,
+              state: shipping.address.state || undefined,
+              postal_code: shipping.address.postal_code || undefined,
+              country: shipping.address.country || undefined,
+            }
+          : null;
         // 'awaiting_shipment' if seller ships to buyer, 'paid' if shipping to CTCG
         // (admin will then mark received_by_ctcg). We default to awaiting_shipment
         // since the seller's next action is "ship", regardless of destination.
@@ -626,6 +644,7 @@ export async function POST(request: Request) {
                   buyer_paid_at = NOW(),
                   stripe_session_id = $2,
                   stripe_payment_intent = $3,
+                  shipping_address = COALESCE($4::jsonb, shipping_address),
                   updated_at = NOW()
             WHERE id = $1 AND escrow_status = 'awaiting_payment'
             RETURNING *`,
@@ -633,14 +652,16 @@ export async function POST(request: Request) {
             tradeId,
             session.id,
             typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null,
+            shippingAddress ? JSON.stringify(shippingAddress) : null,
           ]
         );
 
         if (upd.rows.length > 0) {
           const trade = upd.rows[0];
-          // Look up emails + card name and fire paid notifications
+          // Look up emails + usernames + card name and fire paid notifications
           const info = await query(
-            `SELECT bu.email AS buyer_email, su.email AS seller_email,
+            `SELECT bu.email AS buyer_email, bu.username AS buyer_username,
+                    su.email AS seller_email,
                     COALESCE(o.card_name, t.sku) AS card_name
                FROM market_trades t
                JOIN users bu ON bu.id = t.buyer_id
@@ -669,6 +690,8 @@ export async function POST(request: Request) {
               tier,
               shipsTo: trade.seller_ships_to || "ctcg",
               payout: formatPrice(parseFloat(trade.seller_payout)),
+              shippingAddress,
+              buyerUsername: r.buyer_username,
             }).catch((e) => console.error("[webhook] Seller paid email failed:", e));
 
             // In-app parity for the two emails. Buyer's copy is a

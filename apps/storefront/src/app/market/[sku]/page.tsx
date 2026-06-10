@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { formatPrice } from "@/lib/format";
-import { Money, EmptyState, Icon, type IconName } from "@/lib/ui";
+import { Money, EmptyState, Icon, TrustTier, type IconName } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
 import { useToast } from "@/components/ui/Toast";
 import { useCreditSell } from "@/context/CreditSellContext";
@@ -467,7 +467,6 @@ export default function CardMarketPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
-  const [verified, setVerified] = useState<boolean | null>(null);
 
   // Watchlist
   const [watching, setWatching] = useState<boolean | null>(null);
@@ -625,24 +624,14 @@ export default function CardMarketPage() {
     }
   }
 
+  // Account is enough to trade (global free trade, 2026-06-10) — no
+  // verification prefetch; reputation replaces identity at the point of
+  // trade.
   useEffect(() => {
     fetch("/api/auth/session")
       .then((r) => r.json())
-      .then((data) => {
-        const isLoggedIn = !!data?.user?.email;
-        setLoggedIn(isLoggedIn);
-        if (!isLoggedIn) {
-          setVerified(false);
-          return;
-        }
-        // Verification status feeds the form gate so users see the CTA
-        // before they fill in price/quantity, not on submit
-        return fetch("/api/trust/verify")
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d) => setVerified(d?.verification?.status === "verified"))
-          .catch(() => setVerified(false));
-      })
-      .catch(() => { setLoggedIn(false); setVerified(false); });
+      .then((data) => setLoggedIn(!!data?.user?.email))
+      .catch(() => setLoggedIn(false));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -663,13 +652,6 @@ export default function CardMarketPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 403 && data.code === "VERIFICATION_REQUIRED") {
-          setResult({
-            success: false,
-            message: "__VERIFICATION_REQUIRED__",
-          });
-          return;
-        }
         throw new Error(data.error || "Failed to place order");
       }
       const matchMsg = data.matched
@@ -1080,20 +1062,6 @@ export default function CardMarketPage() {
                   Sign in to trade
                 </Link>
               </div>
-            ) : loggedIn && verified === false ? (
-              <div className="text-center py-6 px-2">
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-wash text-accent mb-3 text-lg">!</div>
-                <p className="text-ink text-sm font-semibold mb-1">UK verification required</p>
-                <p className="text-ink-muted text-xs mb-4 leading-relaxed">
-                  P2P trading requires UK address + age verification (one-time, ~2 minutes).
-                </p>
-                <Link
-                  href="/account/verify"
-                  className="inline-block px-4 py-2 bg-accent text-page text-sm font-bold rounded-lg hover:bg-accent-strong transition"
-                >
-                  Verify Identity
-                </Link>
-              </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -1192,16 +1160,7 @@ export default function CardMarketPage() {
                         : "bg-danger/10 text-danger border border-danger/30"
                     }`}
                   >
-                    {result.message === "__VERIFICATION_REQUIRED__" ? (
-                      <span>
-                        UK verification required to trade.{" "}
-                        <Link href="/account/verify" className="underline font-medium hover:text-accent">
-                          Verify your identity
-                        </Link>
-                      </span>
-                    ) : (
-                      result.message
-                    )}
+                    {result.message}
                   </div>
                 )}
               </form>
@@ -1211,6 +1170,46 @@ export default function CardMarketPage() {
             {loggedIn !== false && price && quantity && (
               <EscrowRoutingPreview orderValue={parseFloat(price) * parseInt(quantity, 10) || 0} />
             )}
+
+            {/* Reputation checker (global free trade, 2026-06-10): the
+                verification wall came down; what stands in its place is
+                visibility — who is on the other side of the best ask, and
+                how the room remembers them. */}
+            <div className="mt-4 pt-4 border-t border-border-subtle space-y-2">
+              {book.best_ask_seller?.username && (
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-ink-faint">Best ask from</span>
+                  <Link
+                    href={`/u/${book.best_ask_seller.username}`}
+                    className="text-accent hover:underline font-medium"
+                  >
+                    @{book.best_ask_seller.username}
+                  </Link>
+                  {book.best_ask_seller.tier && (
+                    <TrustTier
+                      name={book.best_ask_seller.tier}
+                      score={book.best_ask_seller.trust_score}
+                    />
+                  )}
+                  <Link
+                    href={`/u/${book.best_ask_seller.username}/trust`}
+                    className="text-ink-muted hover:text-accent hover:underline"
+                  >
+                    <span className="font-mono tabular-nums">{book.best_ask_seller.review_count}</span> review{book.best_ask_seller.review_count !== 1 ? "s" : ""}
+                    {book.best_ask_seller.avg_rating != null && book.best_ask_seller.review_count > 0 && (
+                      <> &middot; <span className="font-mono tabular-nums">{book.best_ask_seller.avg_rating.toFixed(1)}</span>★</>
+                    )}
+                  </Link>
+                </div>
+              )}
+              <p className="text-[11px] text-ink-faint leading-relaxed">
+                Trades are protected by escrow routing and the{" "}
+                <Link href="/methodology/trust-score" className="text-accent hover:underline">
+                  reputation system
+                </Link>
+                {" "}&mdash; check any counterparty before you trade.
+              </p>
+            </div>
 
           </div>
           </div>
@@ -1241,12 +1240,17 @@ export default function CardMarketPage() {
                       <td className="py-2 text-ink-muted font-mono tabular-nums">{trade.quantity}</td>
                       <td className="py-2 text-ink-muted text-xs">
                         {trade.seller_username ? (
-                          <Link
-                            href={`/u/${trade.seller_username}`}
-                            className="text-accent hover:underline"
-                          >
-                            {trade.seller_name || trade.seller_username}
-                          </Link>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Link
+                              href={`/u/${trade.seller_username}`}
+                              className="text-accent hover:underline"
+                            >
+                              {trade.seller_name || trade.seller_username}
+                            </Link>
+                            {trade.seller_tier && (
+                              <TrustTier name={trade.seller_tier} score={null} showScore={false} />
+                            )}
+                          </span>
                         ) : (
                           <span className="text-ink-faint">—</span>
                         )}

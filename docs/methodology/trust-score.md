@@ -9,23 +9,25 @@ The trust score is a single number, 0–100, that summarises a user's track reco
 
 The score is computed by code, not by humans, against data the platform has already collected about the user's behavior. Every user can see their own score and its components on `/account/standing`. This page documents the formula.
 
-> **Where this lives in code.** The canonical implementation is at `apps/storefront/src/lib/escrow/trust-engine.ts` (function `calculateTrustScore`). When the formula changes, this page is updated in the same PR. Last verified against code: **2026-05-05**.
+> **Where this lives in code.** The canonical implementation is at `apps/storefront/src/lib/escrow/trust-engine.ts` (function `calculateTrustScore`). When the formula changes, this page is updated in the same PR. Last verified against code: **2026-06-10**.
 
 ---
 
 ## Components (positive — up to 100 points)
 
-The score is built from six positive components plus a tier table.
+The score is built from five positive components plus a tier table.
 
-### 1. Trade completion rate — up to **30 points**
+> **2026-06-10** — the verification component was removed when identity verification stopped gating trade; weights moved to behaviour: completion +5, reviews +5. Scores recompute nightly.
 
-The fraction of your trades that ended with `escrow_status = completed`, scaled to 30. A user with 9 of 10 trades completed gets 27 points; a user with 10 of 10 gets 30.
+### 1. Trade completion rate — up to **35 points**
+
+The fraction of your trades that ended with `escrow_status = completed`, scaled to 35. A user with 4 of 5 trades completed gets 28 points; a user with 5 of 5 gets 35.
 
 Cancelled and disputed trades count *against* completion (they're in the denominator but not the numerator). New users with zero trades get 0 here — the score grows as you trade.
 
-### 2. Review score — up to **25 points**
+### 2. Review score — up to **30 points**
 
-Average rating across reviews you've received as a counterparty, scaled to 25 (so a 5-star average yields the full 25, a 3-star average yields 15).
+Average rating across reviews you've received as a counterparty, scaled to 30 (so a 5-star average yields the full 30, a 3-star average yields 18).
 
 **Reviewer-trust weighting.** Each review's contribution to your average is multiplied by a weight that depends on the reviewer's *own* trust score:
 
@@ -50,13 +52,7 @@ Months since your *first* trade, capped at 5 months for the maximum 10 points (2
 
 Age tracks experience-on-the-platform, not calendar age of the account. A user who registered a year ago but only started trading last week is still "new."
 
-### 5. Verification — up to **10 points**
-
-Either 0 or 10. A UK-verified user (full KYC complete: legal name, address, phone, bank verified) gets 10. Unverified gets 0.
-
-This is binary by design — verification is a discrete commitment, not a gradient.
-
-### 6. External reputation — up to **10 points**
+### 5. External reputation — up to **10 points**
 
 5 points per verified cross-platform reputation entry, capped at 10. Linking and verifying your eBay or CardMarket account contributes here.
 
@@ -82,7 +78,7 @@ Penalties stack. A user with one open dispute and one medium-severity unresolved
 ## Final score and tiers
 
 ```
-raw_score   = completion + review + volume + age + verification + external_rep
+raw_score   = completion + review + volume + age + external_rep
 final_score = max(0, min(100, raw_score - penalties))
 ```
 
@@ -118,16 +114,15 @@ The maintenance cron lives at `apps/storefront/src/app/api/cron/maintenance` and
 
 A user has:
 
-- 22 completed trades out of 25 total → completion = 22/25 × 30 = **26.4 → 26**
-- 12 reviews, weighted average 4.6 → review = (4.6 / 5) × 25 = **23**
+- 22 completed trades out of 25 total → completion = 22/25 × 35 = **30.8 → 31**
+- 12 reviews, weighted average 4.6 → review = (4.6 / 5) × 30 = **27.6 → 28**
 - £4,200 cumulative volume → volume = log10(4200) × 5 = **18.1 → capped at 15**
 - 3 months trading → age = 3 × 2 = **6**
-- UK-verified → verification = **10**
 - 1 verified eBay reputation → external = 5 × 1 = **5**
 - 1 dispute lost (as seller) → penalty = **−15**
 - No fraud signals.
 
-Raw = 26 + 23 + 15 + 6 + 10 + 5 = **85**
+Raw = 31 + 28 + 15 + 6 + 5 = **85**
 Final = max(0, min(100, 85 − 15)) = **70** → Trusted tier (£500 trade limit, no inspection, 3-day payout hold).
 
 ---
@@ -148,6 +143,7 @@ There is no "appeal the score itself" — the score is a function of inputs, so 
 
 | Date | Change | Code path |
 |---|---|---|
+| 2026-06-10 | Verification component (10 pts) removed — identity verification stopped gating trade ("global free trade"). Weights moved to behaviour: completion 30 → 35, reviews 25 → 30. Scores recompute nightly. | `apps/storefront/src/lib/escrow/trust-engine.ts` |
 | 2026-05-05 | Methodology page first published. Reflects formula as of 2026-04 reviewer-trust-weighting commit. | `apps/storefront/src/lib/escrow/trust-engine.ts` |
 
 When the formula changes, append here. The same PR must update both the code and this page — see `docs/principles/transparency.md` rule 3.

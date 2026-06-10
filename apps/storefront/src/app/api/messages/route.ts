@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { sendMessage } from "@/lib/messages/db";
+import { REFERENCE_TYPES, sendMessage } from "@/lib/messages/db";
 
 // POST — send a message. Body: { recipientId, body, referenceType?, referenceId? }
 export async function POST(request: Request) {
@@ -15,6 +15,11 @@ export async function POST(request: Request) {
   };
   if (!body.recipientId || !body.body) {
     return NextResponse.json({ error: "recipientId and body required." }, { status: 400 });
+  }
+  // Allowlist check at the edge; the full sender-relationship check
+  // runs inside sendMessage (validateReference — anti-phishing).
+  if (body.referenceType && !(REFERENCE_TYPES as readonly string[]).includes(body.referenceType)) {
+    return NextResponse.json({ error: "Unknown referenceType." }, { status: 400 });
   }
   const result = await sendMessage({
     senderId: session.user.id,

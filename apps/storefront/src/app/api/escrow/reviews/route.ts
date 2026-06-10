@@ -23,12 +23,13 @@ export async function POST(request: Request) {
   if (!body.tradeId) return NextResponse.json({ error: "Trade ID required." }, { status: 400 });
   if (!body.rating || body.rating < 1 || body.rating > 5) return NextResponse.json({ error: "Rating 1-5 required." }, { status: 400 });
 
-  // Verify user is part of the trade and determine role
+  // Verify user is part of the trade and determine role. Terminal states
+  // (completed | refunded) are both reviewable — mirrors lib/reviews/gates.ts.
   const trade = await query(
-    `SELECT * FROM market_trades WHERE id=$1 AND (buyer_id=$2 OR seller_id=$2) AND escrow_status='completed'`,
+    `SELECT * FROM market_trades WHERE id=$1 AND (buyer_id=$2 OR seller_id=$2) AND escrow_status IN ('completed','refunded')`,
     [body.tradeId, session.user.id]
   );
-  if (trade.rows.length === 0) return NextResponse.json({ error: "Trade not found or not completed." }, { status: 404 });
+  if (trade.rows.length === 0) return NextResponse.json({ error: "Trade not found or not yet completed/refunded." }, { status: 404 });
 
   const t = trade.rows[0];
   const isBuyer = t.buyer_id === session.user.id;

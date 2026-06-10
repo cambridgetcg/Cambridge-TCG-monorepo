@@ -1,4 +1,20 @@
 export type OrderSide = "bid" | "ask";
+
+// Buyer's shipping address as collected by Stripe Checkout at pay time
+// (migration 0105 — global free trade). Flattened from Stripe's
+// collected_information.shipping_details; every key optional because
+// Stripe's per-country address formats vary. NULL/absent = trade predates
+// the migration or hasn't been paid yet.
+export interface TradeShippingAddress {
+  name?: string;
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+}
+
 export type OrderStatus = "open" | "filled" | "partially_filled" | "cancelled" | "expired";
 export type EscrowStatus =
   | "awaiting_payment" | "paid" | "awaiting_shipment" | "shipped_to_ctcg"
@@ -62,10 +78,12 @@ export interface MarketTrade {
   seller_paid_at: string | null;
   payout_method: string | null;
   payout_reference: string | null;
+  shipping_address?: TradeShippingAddress | null;
   created_at: string;
   // Joined
   buyer_name?: string | null;
   buyer_email?: string;
+  buyer_username?: string | null;
   seller_name?: string | null;
   seller_email?: string;
   seller_username?: string | null;

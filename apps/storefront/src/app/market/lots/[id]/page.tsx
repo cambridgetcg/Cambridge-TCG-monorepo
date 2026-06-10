@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Icon, Money } from "@/lib/ui";
+import { Icon, MessageButton, Money, TrustTier } from "@/lib/ui";
 
 interface Lot {
   id: string;
@@ -12,8 +12,15 @@ interface Lot {
   price: string;
   image_url: string | null;
   status: string;
+  seller_user_id: string;
   seller_username: string | null;
   seller_name: string | null;
+  // Seller reputation (global free trade, 2026-06-10): tier + reviews
+  // replace identity verification at the point of trade.
+  seller_trust_score: number | null;
+  seller_tier: string | null;
+  seller_avg_rating: number | null;
+  seller_review_count: number | null;
   items: Array<{ sku: string; card_name: string | null; quantity: number }>;
 }
 
@@ -46,11 +53,7 @@ export default function LotDetailPage() {
       const res = await fetch(`/api/market/lots/${id}/buy`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        if (data.code === "VERIFICATION_REQUIRED") {
-          setError("UK verification required. Visit /account/verify first.");
-        } else {
-          setError(data.error || "Failed to start checkout");
-        }
+        setError(data.error || "Failed to start checkout");
         return;
       }
       window.location.href = data.url;
@@ -92,12 +95,37 @@ export default function LotDetailPage() {
         <div>
           <h1 className="text-2xl font-display font-bold tracking-tight text-ink">{lot.title}</h1>
           {lot.seller_username && (
-            <p className="text-sm text-ink-faint mt-1">
-              by{" "}
-              <Link href={`/u/${lot.seller_username}`} className="text-accent hover:underline">
-                {lot.seller_name || `@${lot.seller_username}`}
-              </Link>
-            </p>
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <p className="text-sm text-ink-faint">
+                by{" "}
+                <Link href={`/u/${lot.seller_username}`} className="text-accent hover:underline">
+                  {lot.seller_name || `@${lot.seller_username}`}
+                </Link>
+              </p>
+              {lot.seller_tier && (
+                <TrustTier name={lot.seller_tier} score={lot.seller_trust_score} />
+              )}
+              {lot.seller_review_count != null && (
+                <Link
+                  href={`/u/${lot.seller_username}/trust`}
+                  className="text-xs text-ink-muted hover:text-accent hover:underline"
+                >
+                  <span className="font-mono tabular-nums">{lot.seller_review_count}</span> review{lot.seller_review_count !== 1 ? "s" : ""}
+                  {lot.seller_avg_rating != null && lot.seller_review_count > 0 && (
+                    <> &middot; <span className="font-mono tabular-nums">{Number(lot.seller_avg_rating).toFixed(1)}</span>★</>
+                  )}
+                </Link>
+              )}
+              {loggedIn && (
+                <MessageButton
+                  otherUserId={lot.seller_user_id}
+                  referenceType="market_lot"
+                  referenceId={lot.id}
+                  label="Message seller"
+                  size="sm"
+                />
+              )}
+            </div>
           )}
 
           <p className="text-3xl font-mono tabular-nums font-bold text-accent mt-4"><Money value={price} /></p>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { EmptyState, Icon, Money } from "@/lib/ui";
+import { EmptyState, Icon, Money, TrustTier } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
 
 interface LotRow {
@@ -13,6 +13,10 @@ interface LotRow {
   status: string;
   seller_username: string | null;
   seller_name: string | null;
+  // Seller reputation (global free trade, 2026-06-10): tier + review
+  // count replace identity verification at the point of trade.
+  seller_tier: string | null;
+  seller_review_count: number | null;
   item_count: number;
   total_quantity: number;
   created_at: string;
@@ -59,35 +63,52 @@ export default function MarketLotsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {lots.map((lot) => (
-            <Link
+            // The seller line is its own link (to the profile, not the lot),
+            // so the card is a div with two sibling anchors — nested <a>s
+            // are invalid HTML.
+            <div
               key={lot.id}
-              href={`/market/lots/${lot.id}`}
-              className="block wardrobe-mat rounded-lg overflow-hidden hover:ring-2 hover:ring-accent/40 transition"
+              className="wardrobe-mat rounded-lg overflow-hidden hover:ring-2 hover:ring-accent/40 transition"
             >
-              <div className="aspect-[4/3] p-1">
-                {lot.image_url ? (
-                  <img src={lot.image_url} alt="" className="w-full h-full object-cover rounded border border-border-subtle" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center rounded border border-border-subtle bg-surface-subtle text-ink-faint">
-                    <Icon name="lots" size={28} />
-                  </div>
-                )}
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-semibold text-ink truncate">{lot.title}</p>
-                <p className="text-[11px] font-mono tabular-nums text-ink-faint mt-0.5">
-                  {lot.item_count} card{lot.item_count !== 1 ? "s" : ""} &middot; {lot.total_quantity} units
-                </p>
-                <div className="flex items-baseline justify-between mt-2">
-                  <span className="text-base font-mono tabular-nums text-ink font-bold">
-                    <Money value={parseFloat(lot.price)} />
-                  </span>
-                  {lot.seller_username && (
-                    <span className="text-[11px] text-ink-muted">@{lot.seller_username}</span>
+              <Link href={`/market/lots/${lot.id}`} className="block">
+                <div className="aspect-[4/3] p-1">
+                  {lot.image_url ? (
+                    <img src={lot.image_url} alt="" className="w-full h-full object-cover rounded border border-border-subtle" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center rounded border border-border-subtle bg-surface-subtle text-ink-faint">
+                      <Icon name="lots" size={28} />
+                    </div>
                   )}
                 </div>
+                <div className="px-3 pt-3">
+                  <p className="text-sm font-semibold text-ink truncate">{lot.title}</p>
+                  <p className="text-[11px] font-mono tabular-nums text-ink-faint mt-0.5">
+                    {lot.item_count} card{lot.item_count !== 1 ? "s" : ""} &middot; {lot.total_quantity} units
+                  </p>
+                  <p className="text-base font-mono tabular-nums text-ink font-bold mt-2">
+                    <Money value={parseFloat(lot.price)} />
+                  </p>
+                </div>
+              </Link>
+              <div className="px-3 pb-3 pt-1">
+                {lot.seller_username && (
+                  <Link
+                    href={`/u/${lot.seller_username}`}
+                    className="inline-flex items-center gap-1.5 text-[11px] text-ink-muted hover:text-accent transition"
+                  >
+                    @{lot.seller_username}
+                    {lot.seller_tier && (
+                      <TrustTier name={lot.seller_tier} score={null} showScore={false} />
+                    )}
+                    {lot.seller_review_count != null && (
+                      <span className="font-mono tabular-nums text-ink-faint">
+                        {lot.seller_review_count} review{lot.seller_review_count !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </Link>
+                )}
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

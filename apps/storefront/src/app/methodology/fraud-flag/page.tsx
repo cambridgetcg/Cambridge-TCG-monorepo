@@ -15,7 +15,7 @@ export default function FraudFlagMethodology() {
         Cambridge TCG runs a fraud-detection sweep against trading patterns. When a pattern
         matches, a <code>fraud_signal</code> is raised against the user's account. The signal
         carries a severity (low / medium / high / critical) and a recommended auto-action
-        (none / suspend / hold-payouts / require-verification).
+        (none / suspend / hold-payouts).
       </p>
       <blockquote>
         <strong>Where this lives in code.</strong>{" "}

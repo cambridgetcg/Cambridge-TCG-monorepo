@@ -29,20 +29,25 @@ export default function TrustScoreMethodology() {
       </blockquote>
 
       <h2>Components (positive — up to 100 points)</h2>
+      <blockquote>
+        <strong>2026-06-10</strong> — the verification component was removed when identity
+        verification stopped gating trade; weights moved to behaviour: completion +5,
+        reviews +5. Scores recompute nightly.
+      </blockquote>
 
-      <h3>1. Trade completion rate — up to 30 points</h3>
+      <h3>1. Trade completion rate — up to 35 points</h3>
       <p>
         The fraction of your trades that ended with <code>escrow_status = completed</code>,
-        scaled to 30. A user with 9 of 10 trades completed gets 27 points; 10 of 10 gets the
-        full 30. Cancelled and disputed trades count <em>against</em> completion (in the
+        scaled to 35. A user with 4 of 5 trades completed gets 28 points; 5 of 5 gets the
+        full 35. Cancelled and disputed trades count <em>against</em> completion (in the
         denominator but not the numerator). New users with zero trades get 0 here — the score
         grows as you trade.
       </p>
 
-      <h3>2. Review score — up to 25 points</h3>
+      <h3>2. Review score — up to 30 points</h3>
       <p>
-        Average rating across reviews you've received as a counterparty, scaled to 25 (so a
-        5-star average yields the full 25, a 3-star average yields 15).
+        Average rating across reviews you've received as a counterparty, scaled to 30 (so a
+        5-star average yields the full 30, a 3-star average yields 18).
       </p>
       <p>
         <strong>Reviewer-trust weighting.</strong> Each review's contribution is multiplied by
@@ -81,13 +86,7 @@ export default function TrustScoreMethodology() {
         registered a year ago but only started trading last week is still "new."
       </p>
 
-      <h3>5. Verification — up to 10 points</h3>
-      <p>
-        Either 0 or 10. UK-verified (full KYC: legal name, address, phone, bank verified) →
-        10. Unverified → 0. Binary by design.
-      </p>
-
-      <h3>6. External reputation — up to 10 points</h3>
+      <h3>5. External reputation — up to 10 points</h3>
       <p>
         5 points per verified cross-platform reputation entry, capped at 10. Linking and
         verifying your eBay or CardMarket account contributes here.
@@ -113,7 +112,7 @@ export default function TrustScoreMethodology() {
       </p>
 
       <h2>Final score and tiers</h2>
-      <pre><code>{`raw_score   = completion + review + volume + age + verification + external_rep
+      <pre><code>{`raw_score   = completion + review + volume + age + external_rep
 final_score = max(0, min(100, raw_score - penalties))`}</code></pre>
       <p>The final score is mapped to a tier, which determines limits and routing:</p>
       <table>

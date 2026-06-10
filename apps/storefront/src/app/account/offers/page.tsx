@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatTimeUntil } from "@/lib/format";
-import { Badge, Palettes, Consequences, Money } from "@/lib/ui";
+import { Badge, Palettes, Consequences, MessageButton, Money, TrustTier } from "@/lib/ui";
 import type { Consequence } from "@/lib/ui";
 import { Audience } from "@/lib/ui";
 import {
@@ -45,6 +45,12 @@ interface OfferRow {
   buyer_name: string | null;
   seller_username: string | null;
   seller_name: string | null;
+  // Counterparty reputation (global free trade, 2026-06-10): only the
+  // counterparty side of each list query is populated.
+  buyer_tier: string | null;
+  buyer_review_count: number | null;
+  seller_tier: string | null;
+  seller_review_count: number | null;
 }
 
 export default function OffersPage() {
@@ -169,6 +175,13 @@ function OfferCard({
   const stepIdx = OFFER_STEPS.indexOf(getOfferStep(offer.status));
   const actor = getOfferActor(offer.status);
   const myTurn = actor === perspective;
+  // Counterparty identity + reputation (global free trade, 2026-06-10):
+  // the row links to the profile, chips the trust tier, and offers a
+  // direct message line — reputation visible at the point of trade.
+  const counterpartyId = perspective === "seller" ? offer.buyer_id : offer.seller_id;
+  const otherUsername = perspective === "seller" ? offer.buyer_username : offer.seller_username;
+  const otherTier = perspective === "seller" ? offer.buyer_tier : offer.seller_tier;
+  const otherReviews = perspective === "seller" ? offer.buyer_review_count : offer.seller_review_count;
   const otherLabel = perspective === "seller"
     ? offer.buyer_username ? `@${offer.buyer_username}` : (offer.buyer_name || "Buyer")
     : offer.seller_username ? `@${offer.seller_username}` : (offer.seller_name || "Seller");
@@ -234,12 +247,32 @@ function OfferCard({
             {offer.card_name || offer.sku}
             <span className="text-neutral-500 font-mono text-xs ml-2">{offer.sku}</span>
           </p>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            {perspective === "seller" ? "From" : "To"} {otherLabel}
-            <span className="mx-1.5">·</span>
-            {new Date(offer.created_at).toLocaleString("en-GB", {
-              day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-            })}
+          <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+            <span>
+              {perspective === "seller" ? "From" : "To"}{" "}
+              {otherUsername ? (
+                <Link
+                  href={`/u/${otherUsername}`}
+                  className="text-amber-400 hover:text-amber-300 hover:underline"
+                >
+                  @{otherUsername}
+                </Link>
+              ) : (
+                otherLabel
+              )}
+            </span>
+            {otherTier && <TrustTier name={otherTier} score={null} showScore={false} />}
+            {otherReviews != null && (
+              <span className="font-mono">
+                {otherReviews} review{otherReviews !== 1 ? "s" : ""}
+              </span>
+            )}
+            <span>·</span>
+            <span>
+              {new Date(offer.created_at).toLocaleString("en-GB", {
+                day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+              })}
+            </span>
           </p>
         </div>
         <Badge status={offer.status} palette={Palettes.OfferStatusPalette} labels={STATUS_LABELS} />
@@ -387,6 +420,15 @@ function OfferCard({
               View trade →
             </Link>
           )}
+
+          {/* Message the counterparty — negotiation has a voice channel
+              regardless of offer state. */}
+          <MessageButton
+            otherUserId={counterpartyId}
+            referenceType="offer"
+            referenceId={offer.id}
+            size="sm"
+          />
         </div>
       </div>
 

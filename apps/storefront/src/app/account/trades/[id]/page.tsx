@@ -9,7 +9,7 @@ import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import { TIMELINE_STEPS, getActiveStep } from "@/lib/escrow/timeline";
 import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust/dispute-timeline";
 
-import { Audience } from "@/lib/ui";
+import { Audience, MessageButton } from "@/lib/ui";
 // ── Escrow tier display ──
 
 interface EscrowRoutingData {
@@ -183,6 +183,26 @@ function EscrowBadgeSection({ tradeId, escrowStatus }: { tradeId: string; escrow
   );
 }
 
+// Stripe shipping_details (persisted to market_trades.shipping_address by
+// the pay webhook) → printable address lines. Tolerates a JSON-string column
+// or an already-parsed object; returns [] when absent or malformed.
+function addressLines(raw: unknown): string[] {
+  let parsed: any = raw;
+  if (typeof raw === "string") {
+    try { parsed = JSON.parse(raw); } catch { return []; }
+  }
+  if (!parsed || typeof parsed !== "object") return [];
+  const addr = parsed.address || parsed;
+  return [
+    parsed.name,
+    addr.line1,
+    addr.line2,
+    [addr.postal_code, addr.city].filter(Boolean).join(" "),
+    addr.state,
+    addr.country,
+  ].filter((l: unknown): l is string => typeof l === "string" && l.length > 0);
+}
+
 export default function TradeDetailPage() {
   const params = useParams();
   const tradeId = params.id as string;
@@ -214,6 +234,12 @@ export default function TradeDetailPage() {
   // Withdraw
   const [withdrawing, setWithdrawing] = useState(false);
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+
+  // Mark-shipped form (seller, while awaiting_shipment)
+  const [shipCarrier, setShipCarrier] = useState("");
+  const [shipTracking, setShipTracking] = useState("");
+  const [markingShipped, setMarkingShipped] = useState(false);
+  const [shipError, setShipError] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -414,6 +440,39 @@ export default function TradeDetailPage() {
     }
   }
 
+  // Seller confirms dispatch — POSTs the (optional) carrier + tracking number
+  // to the participant-gated ship route; the response carries the updated
+  // trade row (escrow advances, tracking persisted).
+  async function handleMarkShipped(e: React.FormEvent) {
+    e.preventDefault();
+    if (!shipTracking.trim()) {
+      setShipError("Tracking number required.");
+      return;
+    }
+    setMarkingShipped(true);
+    setShipError("");
+    try {
+      const res = await fetch(`/api/market/trades/${tradeId}/ship`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          carrier: shipCarrier.trim() || undefined,
+          trackingNumber: shipTracking.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setShipError(data?.error || "Failed to mark as shipped.");
+        return;
+      }
+      if (data?.trade) {
+        setTrade((prev: any) => ({ ...prev, ...data.trade }));
+      }
+    } finally {
+      setMarkingShipped(false);
+    }
+  }
+
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-GB", {
       day: "numeric",
@@ -443,6 +502,16 @@ export default function TradeDetailPage() {
     resolved_split: "Resolved (Split)",
     closed: "Closed",
   };
+
+  // Viewer's side of the trade. Counterparty identity arrives as usernames
+  // + user ids only — emails left the trades payload with the global-free-
+  // trade release.
+  const viewerIsBuyer = !!trade && !!sessionUserId && trade.buyer_id === sessionUserId;
+  const viewerIsSeller = !!trade && !!sessionUserId && trade.seller_id === sessionUserId;
+  const counterpartyId = trade ? (viewerIsBuyer ? trade.seller_id : trade.buyer_id) : null;
+  const counterpartyUsername = trade
+    ? (viewerIsBuyer ? trade.seller_username : trade.buyer_username)
+    : null;
 
   if (loading) {
     return (
@@ -515,6 +584,23 @@ export default function TradeDetailPage() {
                 <span className="text-white capitalize">{trade.status}</span>
               </>
             )}
+            {(viewerIsBuyer || viewerIsSeller) && counterpartyId && (
+              <>
+                <span className="text-neutral-500">{viewerIsBuyer ? "Seller" : "Buyer"}</span>
+                <span className="text-white flex items-center gap-2 flex-wrap">
+                  <span>{counterpartyUsername || "—"}</span>
+                  {/* The logistics channel — traders arrange shipping between
+                      themselves over DMs, referenced to this trade. */}
+                  <MessageButton
+                    otherUserId={counterpartyId}
+                    referenceType="market_trade"
+                    referenceId={tradeId}
+                    label={viewerIsBuyer ? "Message seller" : "Message buyer"}
+                    size="sm"
+                  />
+                </span>
+              </>
+            )}
             {trade.created_at && (
               <>
                 <span className="text-neutral-500">Date</span>
@@ -564,6 +650,83 @@ export default function TradeDetailPage() {
           return null;
         })()
       )}
+
+      {/* Shipping — global free trade: the platform hands over the buyer's
+          address; the traders arrange the logistics themselves. The seller
+          gets a "Ship to" panel + mark-shipped form while shipment is
+          pending; the buyer sees their own address echoed back, plus
+          tracking once the seller has set it. */}
+      {trade?.shipping_address && (viewerIsBuyer || viewerIsSeller) && (
+        <div className="bg-neutral-900 rounded-xl p-6">
+          <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-3">
+            {viewerIsSeller ? "Ship to" : "Shipping"}
+          </h2>
+          <div className="space-y-0.5">
+            {addressLines(trade.shipping_address).map((line, i) => (
+              <p key={i} className="text-sm font-mono text-neutral-200">{line}</p>
+            ))}
+          </div>
+          {(trade.tracking_to_buyer || trade.carrier) && (
+            <p className="text-sm mt-3">
+              <span className="text-neutral-500">Tracking:</span>{" "}
+              <span className="text-neutral-200 font-mono">
+                {[trade.carrier, trade.tracking_to_buyer].filter(Boolean).join(" — ")}
+              </span>
+            </p>
+          )}
+          <p className="text-xs text-neutral-500 mt-3">
+            You arrange shipping yourself — including internationally. Use messaging to agree on timing and customs.
+          </p>
+
+          {viewerIsSeller && trade.escrow_status === "awaiting_shipment" && (
+            <form onSubmit={handleMarkShipped} className="mt-4 flex gap-2 flex-wrap">
+              <input
+                type="text"
+                value={shipCarrier}
+                onChange={(e) => setShipCarrier(e.target.value)}
+                placeholder="Carrier (optional)"
+                className="w-36 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition"
+              />
+              <input
+                type="text"
+                value={shipTracking}
+                onChange={(e) => setShipTracking(e.target.value)}
+                placeholder="Tracking number"
+                className="flex-1 min-w-[160px] px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition"
+              />
+              <button
+                type="submit"
+                disabled={markingShipped || !shipTracking.trim()}
+                className="px-4 py-2 rounded-lg font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition disabled:opacity-50"
+              >
+                {markingShipped ? "..." : "Mark as shipped"}
+              </button>
+              {shipError && <p className="w-full text-xs text-red-400">{shipError}</p>}
+            </form>
+          )}
+        </div>
+      )}
+
+      {/* Review loop — terminal trades (completed | refunded) are reviewable.
+          Linked unconditionally; the review form's own gates reject
+          duplicates. */}
+      {trade && (viewerIsBuyer || viewerIsSeller) &&
+        ["completed", "refunded"].includes(trade.escrow_status) && (
+          <Link
+            href={`/account/trades/${tradeId}/review`}
+            className="flex items-center justify-between bg-neutral-900 border border-amber-500/30 rounded-xl p-4 hover:bg-amber-500/10 transition group"
+          >
+            <div>
+              <p className="text-white font-bold text-sm">Leave a review</p>
+              <p className="text-neutral-400 text-xs mt-0.5">
+                How did this trade go? Your review builds the other party&apos;s reputation.
+              </p>
+            </div>
+            <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">
+              Review &rarr;
+            </span>
+          </Link>
+        )}
 
       {/* Dispute section */}
       {dispute ? (

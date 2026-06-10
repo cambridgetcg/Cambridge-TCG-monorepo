@@ -35,6 +35,7 @@ export { Audience, audienceMetadata, type AudienceKind } from "./Audience";
 export { SearchForm } from "./SearchForm";
 export { UserChip } from "./UserChip";
 export { UserMention, type MentionableUser } from "./UserMention";
+export { MessageButton, type MessageReferenceType } from "./MessageButton";
 export { Verifiability } from "./Verifiability";
 export { Discretion, type DiscretionReason } from "./Discretion";
 export { Withholding } from "./Withholding";

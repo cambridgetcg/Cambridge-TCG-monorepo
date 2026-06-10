@@ -72,6 +72,86 @@ export async function isBlockedEither(a: string, b: string): Promise<boolean> {
   return r.rows.length > 0;
 }
 
+// ── Trade-context references (allowlist + relationship check) ──
+//
+// A message may carry a reference (rendered as a chip in the thread
+// UI). The type is allowlisted and the SENDER's relationship to the
+// referenced row is verified before anything is stored. This closes
+// a phishing vector: without the check, a stranger could decorate
+// "problem with your trade — pay again here" with a chip pointing at
+// a real trade they are no party to, borrowing the platform's
+// provenance for the lie.
+//
+// Per-type relationship: trades/offers require the sender to be a
+// party; lots must exist and be live (anyone may enquire about an
+// active listing); auctions are public pages (existence only);
+// orders are anonymous on the tape, so only the owner may cite one.
+
+export const REFERENCE_TYPES = [
+  "market_trade", "market_lot", "offer", "auction", "market_order",
+] as const;
+export type ReferenceType = (typeof REFERENCE_TYPES)[number];
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function validateReference(
+  senderId: string, referenceType?: string, referenceId?: string,
+): Promise<Result<void>> {
+  if (!referenceType && !referenceId) return { ok: true, value: undefined };
+  if (!referenceType || !referenceId) {
+    return {
+      ok: false,
+      reason: "referenceType and referenceId must be provided together.",
+      status: 400,
+    };
+  }
+  if (!(REFERENCE_TYPES as readonly string[]).includes(referenceType)) {
+    return { ok: false, reason: "Unknown referenceType.", status: 400 };
+  }
+  // All reference ids are UUID PKs — pre-check the shape so a garbage
+  // id is a clean 400, not a pg uuid-cast 500.
+  if (!UUID_RE.test(referenceId)) {
+    return { ok: false, reason: "Invalid referenceId.", status: 400 };
+  }
+
+  let r;
+  if (referenceType === "market_trade") {
+    r = await query(
+      `SELECT 1 FROM market_trades
+        WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)`,
+      [referenceId, senderId],
+    );
+  } else if (referenceType === "market_lot") {
+    r = await query(
+      `SELECT 1 FROM market_lots WHERE id = $1 AND status = 'active'`,
+      [referenceId],
+    );
+  } else if (referenceType === "offer") {
+    r = await query(
+      `SELECT 1 FROM market_offers
+        WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)`,
+      [referenceId, senderId],
+    );
+  } else if (referenceType === "auction") {
+    r = await query(`SELECT 1 FROM auctions WHERE id = $1`, [referenceId]);
+  } else {
+    // market_order
+    r = await query(
+      `SELECT 1 FROM market_orders WHERE id = $1 AND user_id = $2`,
+      [referenceId, senderId],
+    );
+  }
+  if (r.rows.length === 0) {
+    return {
+      ok: false,
+      reason: "Reference not found or not yours to cite.",
+      status: 400,
+    };
+  }
+  return { ok: true, value: undefined };
+}
+
 // ── sendMessage ──
 //
 // Idempotent in spirit but not in fact: each call creates a new
@@ -136,6 +216,13 @@ export async function sendMessage(input: {
     };
   }
 
+  // Trade-context reference (if any) — allowlist + sender-relationship
+  // check before the chip is stored. See validateReference above.
+  const ref = await validateReference(
+    input.senderId, input.referenceType, input.referenceId,
+  );
+  if (!ref.ok) return ref;
+
   const [aId, bId] = sortPair(input.senderId, input.recipientId);
 
   // Find-or-create the conversation. INSERT ... ON CONFLICT (canonical
@@ -194,7 +281,7 @@ export async function sendMessage(input: {
     kind: "message.received",
     title: `${senderLabel} sent you a message`,
     body: body.slice(0, 160),
-    linkUrl: "/account/messages",
+    linkUrl: `/account/messages?c=${convId}`,
     referenceType: "dm_conversation",
     referenceId: `${convId}:${today}`,
   });

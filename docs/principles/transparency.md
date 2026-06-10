@@ -96,7 +96,7 @@ Methodology changelog lives at `/methodology/changelog`. Each entry: date, what 
 
 ### 4. Inputs are inspectable, not just outputs
 
-A user seeing "Trust score: 73" should be able to click and see the inputs: completed trades = 42, avg rating = 4.6 over 31 reviews, account age = 8 months, verification = UK verified, external rep = 1, active disputes = 0. Then they can audit the arithmetic against the methodology page.
+A user seeing "Trust score: 73" should be able to click and see the inputs: completed trades = 42, avg rating = 4.6 over 31 reviews, cumulative volume = £3,400, account age = 8 months, external rep = 1, active disputes = 0. Then they can audit the arithmetic against the methodology page.
 
 The user is not just told the answer; they are shown the working. Anti-pattern: opaque scores treated as oracular.
 
