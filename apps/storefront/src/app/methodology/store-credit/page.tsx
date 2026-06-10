@@ -10,7 +10,6 @@ export default function StoreCreditMethodology() {
   return (
     <>
       <h1>Store credit</h1>
-      <p className="text-sm uppercase tracking-wider text-amber-400">Stub — full content forthcoming.</p>
       <p>
         Store credit is currency you hold on Cambridge TCG that can be spent at checkout. It
         is recorded in the <code>store_credit_ledger</code> table — every grant and spend is
@@ -42,6 +41,20 @@ export default function StoreCreditMethodology() {
         Credit cannot be cashed out. It is non-transferable (no gifting between accounts) and
         does not expire today, though that policy may change — the change would land here in
         the same PR.
+      </p>
+
+      <h2>Why you sometimes can&rsquo;t spend all of it at once</h2>
+      <p>
+        Card payments have to charge at least a tiny amount — our card processor
+        (Stripe) can&rsquo;t take a £0.00 payment. So when your credit could cover
+        the whole order, we leave at least <strong>1p</strong> as cash due. The
+        rest of your credit isn&rsquo;t lost — it stays in your balance for next
+        time.
+      </p>
+      <p>
+        Example: a £45 order paid with £50 of credit applies £44.99 of credit;
+        £5.01 stays in your account. At checkout you see exactly how much credit
+        was used and how much stayed behind — no surprises.
       </p>
     
 

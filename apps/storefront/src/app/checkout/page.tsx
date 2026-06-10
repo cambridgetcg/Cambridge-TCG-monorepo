@@ -4,6 +4,7 @@ import { useCart } from "@/context/CartContext";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { WhyLink } from "@/lib/ui";
 
 export default function CheckoutPage() {
   const { items, totalPrice } = useCart();
@@ -119,10 +120,23 @@ export default function CheckoutPage() {
               </div>
               {creditApplied > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-purple-400">Store credit applied</span>
+                  <span className="text-purple-400 inline-flex items-center gap-1">
+                    Store credit applied
+                    <WhyLink href="/methodology/store-credit" />
+                  </span>
                   <span className="text-purple-400">&minus;{"£"}{creditApplied.toFixed(2)}</span>
                 </div>
               )}
+              {useCredit &&
+                creditBalance !== null &&
+                creditBalance - creditApplied > 0.001 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-neutral-500">Credit left unused</span>
+                    <span className="text-neutral-500">
+                      {"£"}{(creditBalance - creditApplied).toFixed(2)} stays in your account
+                    </span>
+                  </div>
+                )}
               <div className="flex justify-between">
                 <span className="text-neutral-400">Shipping</span>
                 <span className="text-neutral-500">Calculated at checkout</span>

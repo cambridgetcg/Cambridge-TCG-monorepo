@@ -199,10 +199,16 @@ export default async function SetPriceGuidePage({
     }
   }
 
+  // Substrate-honest defaults: real card data can carry a null card_number
+  // (promos, odd printings). The render calls card_number.toLowerCase() in
+  // the row links, so a null here was 500ing the whole set page in PROD —
+  // local dev never hit it because the wholesale fetch 401s locally and the
+  // list comes back empty. Coerce to safe strings so one bad row can never
+  // take the page down. (Fixed 2026-06-06.)
   const cards = cardsData.items.map((item) => ({
     sku: item.sku,
-    name: item.name_en || item.name || item.card_number,
-    card_number: item.card_number,
+    name: item.name_en || item.name || item.card_number || item.sku,
+    card_number: item.card_number ?? "",
     rarity: item.rarity,
     price: retailPrice(item.price_gbp, item.channel_price),
     tradein_credit: tradeinMap.get(item.sku) ?? null,
