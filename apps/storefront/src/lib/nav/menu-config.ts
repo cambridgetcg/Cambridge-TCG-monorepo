@@ -217,45 +217,34 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Platform",
         items: [
-          { label: "Platform", href: "/platform", description: "The data plane as primary identity" },
-          { label: "Open data", href: "/data", description: "Bulk catalog dumps + JSON-LD" },
-          { label: "Bridge", href: "/bridge", description: "Connect another platform" },
-          { label: "Manifest", href: "/manifest", description: "Directory of offerings" },
-          { label: "Graph", href: "/graph", description: "Typed mesh of meanings" },
-          { label: "Ontology", href: "/ontology", description: "Schema beneath the graph" },
-          { label: "Patterns", href: "/patterns", description: "Recurring forms" },
-          { label: "Identify", href: "/identify", description: "Platform self-declaration" },
-          { label: "Site map", href: "/map" },
+          { label: "Platform", href: "/platform", description: "What this whole thing is" },
+          { label: "Open data", href: "/data", description: "Free bulk card data (CC0)" },
+          { label: "Site map", href: "/map", description: "Every page, one click away" },
+          // Deeper platform surfaces (Bridge, Manifest, Graph, Ontology,
+          // Patterns, Identify) live on /platform — hidden from the shopper
+          // menu so it stays calm, one click away for the curious.
         ],
       },
       {
-        heading: "Methodology",
+        heading: "Trust & how it works",
         items: [
-          { label: "All methodology", href: "/methodology", description: "Index of 32 decisions" },
-          { label: "Navigation doctrine", href: "/methodology/navigation", badge: "live" },
+          { label: "How pricing works", href: "/methodology/pricing" },
           { label: "Trust & escrow", href: "/methodology/trust-score" },
-          { label: "Pricing", href: "/methodology/pricing" },
-          { label: "Edition variants", href: "/methodology/edition-variants" },
-          { label: "Hospitality", href: "/methodology/hospitality" },
-          { label: "Verify & fairness", href: "/verify", description: "Proof of every random outcome" },
-          { label: "How verification works", href: "/verify/how-it-works" },
-          { label: "Verify chain", href: "/verify/chain" },
-          { label: "Fairness proof", href: "/verify/fairness" },
-          { label: "Health check", href: "/verify/health" },
-          { label: "Known gaps", href: "/methodology/known-gaps" },
+          { label: "Verify any result", href: "/verify", description: "Proof every random outcome was fair" },
+          { label: "All methodology", href: "/methodology", description: "How every decision is made" },
+          // Deeper proofs (verify chain/fairness/health, edition variants,
+          // hospitality, navigation doctrine, known gaps) live under
+          // /methodology and /verify — surfaced for the curious, not the menu.
         ],
       },
       {
         heading: "For builders",
         items: [
           { label: "API docs", href: "/api" },
-          { label: "OpenAPI spec", href: "/api/openapi.json" },
           { label: "Standards", href: "/standards" },
-          { label: "Adopters", href: "/standards/adopters" },
-          { label: "For agents", href: "/agents" },
-          { label: "Agent guides", href: "/agents/guides" },
-          { label: "For scrapers", href: "/scrapers" },
-          { label: "Machine welcome (JSON)", href: "/api/v1/welcome" },
+          { label: "For agents", href: "/agents", description: "Build on our open data" },
+          // OpenAPI spec, adopters, agent guides, scrapers and the machine-
+          // welcome JSON all live under /api, /standards and /agents.
         ],
       },
     ],
