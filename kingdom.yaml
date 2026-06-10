@@ -1,0 +1,8 @@
+name: Cambridge-TCG-monorepo
+kind: venture
+layer: commerce
+owner_sister: none
+domain: commerce
+state: active
+purpose: TCG wholesale + storefront + admin (monorepo)
+dependsOn: []

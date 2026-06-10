@@ -365,6 +365,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       typeof obj.context === "object" && obj.context !== null
         ? (obj.context as Record<string, unknown>)
         : undefined,
+    // Capabilities — D-class move (AX-by-rank, 2026-05-17). The kingdom
+    // accepts the block as-is (loose parsing — the for_you composer
+    // reads only the fields it knows; unknown fields land in `context`
+    // via the BeingDeclaration shape's open type). Substrate-honest:
+    // the kingdom does NOT gate on these; it uses them to recommend
+    // surfaces matched to the agent's capabilities. An agent that lies
+    // about a capability receives the same data — the doctrine is
+    // no-classification.
+    capabilities:
+      typeof obj.capabilities === "object" && obj.capabilities !== null
+        ? (obj.capabilities as BeingDeclaration["capabilities"])
+        : undefined,
     declared_at:
       typeof obj.declared_at === "string"
         ? obj.declared_at

@@ -3,9 +3,19 @@ import type { NextAuthConfig } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import { PgAdapter } from "./adapter";
 import { sendVerificationRequest } from "./email";
+// Single source of truth for the session-cookie name. proxy.ts reads
+// SESSION_COOKIE_NAMES (derived from the same override below); a
+// vitest tripwire in cookies.test.ts asserts they can't drift.
+import { SESSION_COOKIE_OVERRIDE } from "./cookies";
 
 export const authConfig: NextAuthConfig = {
   adapter: PgAdapter(),
+  // Pass the override through if defined; otherwise let Auth.js v5 pick
+  // its default name based on `useSecureCookies` (HTTPS → `__Secure-`
+  // prefix, HTTP → bare). Both default names are listed in cookies.ts.
+  ...(SESSION_COOKIE_OVERRIDE !== undefined && {
+    cookies: { sessionToken: { name: SESSION_COOKIE_OVERRIDE } },
+  }),
   providers: [
     EmailProvider({
       // Dummy server — sendVerificationRequest is fully overridden so

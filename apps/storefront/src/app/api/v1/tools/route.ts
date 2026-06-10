@@ -128,12 +128,16 @@ function buildToolCatalogData() {
         "For bearer-gated tools (the MCP server, agent-ladder play, " +
         "operator-bounded surfaces), provision a token at /account/agents " +
         "and connect to /api/mcp. See /.well-known/mcp.json for the " +
-        "MCP-config snippet.",
+        "MCP-config snippet. The bearer-gated equivalent of THIS catalog " +
+        "— worked example inputs + representative output shapes for every " +
+        "MCP-dispatched tool — is at /api/mcp/catalog (no auth to read the " +
+        "catalog itself; auth is for /api/mcp execution).",
       mcp_endpoint: "https://cambridgetcg.com/api/mcp",
       mcp_provision_url: "https://cambridgetcg.com/account/agents",
       mcp_methodology: "https://cambridgetcg.com/methodology/agents",
       mcp_config_well_known:
         "https://cambridgetcg.com/.well-known/mcp-config.json",
+      mcp_example_catalog: "https://cambridgetcg.com/api/mcp/catalog",
     },
 
     walking_past_is_honored:

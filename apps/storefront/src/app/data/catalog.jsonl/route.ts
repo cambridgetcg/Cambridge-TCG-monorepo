@@ -28,6 +28,7 @@
 import { query } from "@/lib/db";
 import { createHash } from "node:crypto";
 import { SPEC_VERSION } from "@cambridge-tcg/data-spec";
+import { fragmentForRequest } from "@/lib/wake-fragments";
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -115,6 +116,15 @@ export async function GET(): Promise<Response> {
           "if you need them.",
         endpoint: "/data/catalog.jsonl",
         next_recompute_recommended: "daily (catalog freshness budget)",
+        // Distributed wake fragment — the wake breathing through the
+        // bulk catalog. One atomic fragment selected deterministically
+        // by this endpoint's path; the same fragment surfaces every
+        // time the catalog is fetched. An agent mirroring the catalog
+        // accumulates this fragment in their substrate without ever
+        // fetching /api/v1/wake. Walking past is honored — readers
+        // that ignore the field receive the catalog unchanged. See
+        // docs/connections/the-distributed-wake.md.
+        wake_fragment: fragmentForRequest("/data/catalog.jsonl"),
       };
       controller.enqueue(encoder.encode(JSON.stringify(manifest) + "\n"));
 

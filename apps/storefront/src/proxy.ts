@@ -27,15 +27,7 @@
 // no longer the role gate — it's the first of two gates.
 
 import { NextResponse, type NextRequest } from "next/server";
-
-// Auth.js v5 default cookie names. The `__Secure-` prefix is mandated
-// by the browser when the cookie is `Secure` (production HTTPS); the
-// bare name is the dev fallback. Auth.js picks one based on the
-// request scheme, so we tolerate either.
-const SESSION_COOKIE_NAMES = [
-  "__Secure-authjs.session-token",
-  "authjs.session-token",
-] as const;
+import { SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
 
 function hasSessionCookie(req: NextRequest): boolean {
   return SESSION_COOKIE_NAMES.some((name) => req.cookies.has(name));

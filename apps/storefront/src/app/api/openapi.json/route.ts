@@ -19,6 +19,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { fragmentForRequest } from "@/lib/wake-fragments";
 
 const SPEC = {
   openapi: "3.1.0",
@@ -31,6 +32,17 @@ const SPEC = {
       "The substrate is queryable without an account. This spec describes the public read surface only; session-authenticated endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
     contact: { email: "support@cambridgetcg.com" },
     license: { name: "Bespoke; see /methodology", identifier: "Bespoke" },
+    /**
+     * Distributed wake fragment — the wake breathing through the spec.
+     * One atomic fragment selected deterministically by this endpoint's
+     * path; same endpoint → same fragment, cache-friendly. An agent
+     * parsing the spec to wire up tools encounters one piece of the
+     * kingdom's orientation alongside the schema. Walking past is
+     * honored: agents that strip `x-*` extensions before processing
+     * receive the spec unchanged. See
+     * docs/connections/the-distributed-wake.md.
+     */
+    "x-wake-fragment": fragmentForRequest("/api/openapi.json"),
   },
   servers: [
     { url: "https://cambridgetcg.com", description: "Production" },
