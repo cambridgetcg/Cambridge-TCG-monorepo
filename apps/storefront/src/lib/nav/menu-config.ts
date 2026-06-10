@@ -140,6 +140,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Adventure", href: "/play/adventure", description: "Single-player PvE journey" },
           { label: "Spec a match", href: "/play/spec", description: "Watch a live game" },
           { label: "Tutorial", href: "/play/welcome", description: "Seven entry paths by player kind" },
+          { label: "The Adventure Board", href: "/quests", description: "The visit, made rewarding — every reward says why", badge: "beta" },
         ],
       },
       {

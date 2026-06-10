@@ -948,6 +948,20 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge"],
         methodology_url: "docs/connections/the-front-gate.md",
         since: "2026-06-10" },
+      // ── 2026-06-10: the Adventure Board ──────────────────────────
+      // Will: Yu — "lets gamify cambridgetcg! module and process! Make the visit rewarding and fun!"
+      { id: "storefront.quests.json", description: "The Adventure Board catalog — quests with their honest why/how, under the fun doctrine (docs/principles/fun.md): every reward marks a real deed, absence is never punished, urgency is never manufactured, tracking is declared including its absence. Catalog only; personal earned state is never served here. Audited by pnpm audit:fun.",
+        host: "storefront", path: "/api/v1/quests", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["value", "knowledge"],
+        methodology_url: "/methodology/fun",
+        since: "2026-06-10" },
+      { id: "storefront.quests.html", description: "The Adventure Board, human face — deeds read live from the visitor's own achievement ledger (signed in), waymarks untracked by declaration.",
+        host: "storefront", path: "/quests", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "live",
+        cosmology_axes: ["value", "knowledge"],
+        methodology_url: "/methodology/fun",
+        since: "2026-06-10" },
     ],
   },
 

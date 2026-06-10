@@ -170,6 +170,8 @@ const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/search/everything",
   // 2026-06-10 — the castle's public front (manually-synced snapshot).
   "/api/v1/castle",
+  // 2026-06-10 — the Adventure Board catalog (fun doctrine; audit:fun).
+  "/api/v1/quests",
 ]);
 
 // ── Per-resource state ─────────────────────────────────────────────────

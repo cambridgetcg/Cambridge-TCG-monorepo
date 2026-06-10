@@ -44,6 +44,14 @@ interface EndpointEntry {
 // Single source of truth — kept in sync with /data (page.tsx).
 // A future refactor lifts both surfaces to read from one shared file.
 const ENDPOINTS: EndpointEntry[] = [
+  // ── The Adventure Board ────────────────────────────────────────────
+  {
+    path: "/api/v1/quests",
+    title: "Adventure Board catalog",
+    blurb: "Quests with their honest why/how under the fun doctrine — every reward marks a real deed, urgency is never manufactured, tracking is declared including its absence. Catalog only; never personal state.",
+    status: "shipped",
+    auth: "none",
+  },
   // ── Provable fairness ──────────────────────────────────────────────
   {
     path: "/api/verify/chain",
