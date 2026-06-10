@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Money } from "@/lib/ui";
+import { Money, WhyLink, ErrorAlert } from "@/lib/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useCreditSell } from "@/context/CreditSellContext";
 
@@ -111,6 +111,7 @@ export default function MarketPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [setsLoading, setSetsLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const limit = 48;
@@ -202,9 +203,13 @@ export default function MarketPage() {
       const data = await res.json();
       setCards(data.cards ?? []);
       setTotal(data.total ?? 0);
+      setFetchError(false);
     } catch {
+      // Outage ≠ empty market: clear the lists but flag the failure so
+      // the UI renders an error state instead of "No cards found".
       setCards([]);
       setTotal(0);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -232,49 +237,55 @@ export default function MarketPage() {
     <div className="min-h-screen bg-neutral-950">
       <div className="max-w-[1400px] mx-auto px-4 py-8">
         {/* ========== HEADER ========== */}
+        {/* Identity line — the sibling of /catalog's "The shop". One quiet
+            sentence + cross-link keeps the two commerce doors legible. */}
         <div className="mb-8 flex items-end justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-3xl font-black text-white mb-2">Card Market</h1>
             <p className="text-neutral-400">
-              Buy and sell One Piece TCG cards. Every card has a market page.
+              The exchange — buy from and sell to other collectors.
             </p>
+            <Link
+              href="/catalog"
+              className="text-sm text-neutral-500 hover:text-amber-400 transition"
+            >
+              Just want to shop our stock? →
+            </Link>
           </div>
           <div className="flex gap-2">
-            <a
+            <Link
               href="/market/pulse"
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-amber-400 font-medium transition"
+              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-neutral-300 hover:text-white font-medium transition"
             >
-              ⚡ Market Pulse
-            </a>
-            <a
+              Market Pulse
+            </Link>
+            <Link
               href="/market/lots"
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-purple-400 font-medium transition"
+              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-neutral-300 hover:text-white font-medium transition"
             >
-              📦 Lots
-            </a>
-            <a
+              Lots
+            </Link>
+            <Link
               href="/leaderboards"
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-emerald-400 font-medium transition"
+              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-neutral-300 hover:text-white font-medium transition"
             >
-              🏆 Leaderboards
-            </a>
+              Leaderboards
+            </Link>
           </div>
         </div>
 
-        {/* ========== HERO BANNER — We Buy Every Card ========== */}
-        <div className="mb-8 rounded-xl p-[1px] bg-gradient-to-r from-purple-500 to-blue-500">
-          <div className="bg-purple-500/5 backdrop-blur rounded-[11px] px-6 py-5">
-            <h2 className="text-lg font-bold text-white mb-1">
-              <span className="mr-2">&#128176;</span>We Buy Every Card &mdash; Unlimited &mdash; Instant Store Credit
-            </h2>
-            <p className="text-sm text-neutral-300 leading-relaxed max-w-2xl">
-              Sell any card to Cambridge TCG for store credit. No waiting for a buyer. No listing fees.
-              Guaranteed price on every card. Credit is added to your account instantly.
-            </p>
-            <p className="text-xs text-neutral-400 mt-2">
-              Store credit can be used to buy any card in our shop.
-            </p>
-          </div>
+        {/* ========== BANNER — We Buy Every Card ========== */}
+        <div className="mb-8 rounded-xl border border-amber-500/20 bg-neutral-900 px-6 py-5">
+          <h2 className="text-lg font-bold text-white mb-1">
+            We Buy Every Card &mdash; Unlimited &mdash; Instant Store Credit
+          </h2>
+          <p className="text-sm text-neutral-300 leading-relaxed max-w-2xl">
+            Sell any card to Cambridge TCG for store credit. No waiting for a buyer. No listing fees.
+            Guaranteed price on every card. Credit is added to your account instantly.
+          </p>
+          <p className="text-xs text-neutral-400 mt-2">
+            Store credit can be used to buy any card in our shop.
+          </p>
         </div>
 
         {/* ========== STATS BAR ========== */}
@@ -383,9 +394,10 @@ export default function MarketPage() {
                 {query && (
                   <button
                     onClick={() => setQuery("")}
+                    aria-label="Clear search"
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition text-sm"
                   >
-                    x
+                    ×
                   </button>
                 )}
               </div>
@@ -442,11 +454,30 @@ export default function MarketPage() {
               </div>
             </div>
 
-            {/* ---- Results count ---- */}
-            {!loading && (
-              <p className="text-xs text-neutral-500 mb-3">
-                Showing {cards.length} of {total.toLocaleString()} cards
-              </p>
+            {/* ---- Results count + provenance ----
+                 Substrate honesty for the three price columns: CTCG Price
+                 and We Buy sync daily from the wholesale catalog; Market
+                 is computed from trading activity here. The pill mirrors
+                 <Provenance>'s natural-language form — the primitive
+                 itself is an async server component (it reads the
+                 lang-mode cookie) and can't mount inside this client page. */}
+            {!loading && !fetchError && (
+              <div className="flex items-baseline gap-3 mb-3 flex-wrap">
+                <p className="text-xs text-neutral-500">
+                  Showing {cards.length} of {total.toLocaleString()} cards
+                </p>
+                {cards.length > 0 && (
+                  <>
+                    <span
+                      className="inline-block text-[10px] uppercase tracking-wider text-neutral-500"
+                      title="CTCG Price and We Buy are synced daily from the wholesale catalog; Market is computed from trading activity on this platform"
+                    >
+                      synced from wholesale · daily
+                    </span>
+                    <WhyLink href="/methodology/market" />
+                  </>
+                )}
+              </div>
             )}
 
             {/* ---- Loading ---- */}
@@ -485,8 +516,16 @@ export default function MarketPage() {
               </div>
             )}
 
+            {/* ---- Error state — distinct from empty ---- */}
+            {!loading && fetchError && (
+              <ErrorAlert
+                title="The market is temporarily unreachable"
+                description="Try again in a minute."
+              />
+            )}
+
             {/* ---- Empty state ---- */}
-            {!loading && cards.length === 0 && (
+            {!loading && !fetchError && cards.length === 0 && (
               <div className="text-center py-20">
                 <p className="text-4xl mb-4 opacity-30">No results</p>
                 <h2 className="text-xl font-bold text-white mb-2">No cards found</h2>

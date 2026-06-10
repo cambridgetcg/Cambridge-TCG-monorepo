@@ -105,11 +105,14 @@ function CrossLanguagePanel({ slug }: { slug: string }) {
   if (!ctx.policy || !ctx.game_code) return null;
 
   return (
-    <section className="mb-10 rounded-lg border border-neutral-800 bg-neutral-950 p-5">
+    // Collapsed by default — engineering detail, kept whole but out of
+    // the way of the shopper. The summary line carries the heading.
+    <details className="rounded-lg border border-neutral-800 bg-neutral-950">
+      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-neutral-300 hover:text-white transition">
+        Cross-language identity
+      </summary>
+      <div className="px-5 pb-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-semibold text-white">
-          Cross-language identity
-        </h2>
         <span
           className={`inline-flex items-center rounded px-2 py-0.5 text-xs ring-1 ${PATTERN_TONE[ctx.policy.kind]}`}
         >
@@ -145,7 +148,8 @@ function CrossLanguagePanel({ slug }: { slug: string }) {
         </Link>{" "}
         for the human-readable explanation.
       </p>
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -165,10 +169,14 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
   );
 
   return (
-    <section className="mb-10 rounded-lg border border-neutral-800 bg-neutral-950 p-5">
-      <h2 className="mb-3 text-base font-semibold text-white">
-        Coverage status — substrate-honest
-      </h2>
+    // Collapsed by default — same disclosure pattern as the
+    // cross-language panel above. All content kept; only placement
+    // and default visibility changed.
+    <details className="rounded-lg border border-neutral-800 bg-neutral-950">
+      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-neutral-300 hover:text-white transition">
+        Data coverage details
+      </summary>
+      <div className="px-5 pb-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <h3 className="mb-2 text-xs uppercase tracking-wider text-neutral-500">
@@ -267,7 +275,8 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
           .
         </p>
       )}
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -598,12 +607,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         )}
 
         {/* ---------------------------------------------------------- */}
-        {/*  Substrate-honest panels (K1 + gaps + welcomes)              */}
-        {/* ---------------------------------------------------------- */}
-        <CrossLanguagePanel slug={cfg.slug} />
-        <CoverageStatusPanel slug={cfg.slug} />
-
-        {/* ---------------------------------------------------------- */}
         {/*  All Sets                                                    */}
         {/* ---------------------------------------------------------- */}
         <section className="mb-14">
@@ -743,6 +746,17 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               </table>
             </div>
           )}
+        </section>
+
+        {/* ---------------------------------------------------------- */}
+        {/*  Data-detail panels (K1 + gaps + welcomes) — demoted below   */}
+        {/*  the commerce content, collapsed by default. Present for     */}
+        {/*  the reader who wants the engineering view; out of the path  */}
+        {/*  of the shopper who doesn't.                                 */}
+        {/* ---------------------------------------------------------- */}
+        <section className="mb-14 space-y-3">
+          <CoverageStatusPanel slug={cfg.slug} />
+          <CrossLanguagePanel slug={cfg.slug} />
         </section>
 
         {/* ---------------------------------------------------------- */}

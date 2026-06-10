@@ -214,9 +214,9 @@ export default async function CardMarketReadPage({
         </div>
 
         <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
-          The substrate-honest pure-read mirror of one card&rsquo;s market activity. The interactive
-          surface to place orders lives at <Link href={`/market/${sku}`} className="text-amber-400 hover:underline">/market/{sku}</Link>.
-          This page is for reading — auditable, screen-reader-readable, agent-ingestable, no auth.
+          A view-only snapshot of this card&rsquo;s market activity — no account needed.
+          Want to place an order or sell this card? The trading page lives at{" "}
+          <Link href={`/market/${sku}`} className="text-amber-400 hover:underline">/market/{sku}</Link>.
         </p>
 
         {/* Layout grid */}
@@ -477,7 +477,9 @@ export default async function CardMarketReadPage({
                   <span className="text-[10px] uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
                     signed-in only
                   </span>
-                  <WhyLink href="/methodology/cardrush-license" />
+                  {/* /methodology/cardrush-license never shipped; the
+                      upstream-sources page carries the license table. */}
+                  <WhyLink href="/methodology/upstream-sources" />
                 </h2>
                 <p className="text-xs text-neutral-400 mb-3 leading-relaxed">
                   Last {cardrushHistory.observations.length} raw CardRush JP retail observations for{" "}
@@ -554,7 +556,6 @@ export default async function CardMarketReadPage({
                   >
                     /api/v1/cards/{sku}/cardrush-history
                   </Link>
-                  {" "}· kingdom-081 Phase 5.4 + kingdom-083 UI half
                 </p>
               </section>
             )}
@@ -576,8 +577,7 @@ export default async function CardMarketReadPage({
                 </div>
               )}
               <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
-                Daily spot snapshots from <code className="text-neutral-400">card_price_history</code>{" "}
-                (the storefront&rsquo;s retail observation, kingdom-049 Phase 4 made it substrate-honest).
+                Daily snapshots of our own retail price for this card.
                 Each window is independently queried; gaps mean no observation on that day.
               </p>
             </section>

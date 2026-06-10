@@ -4,7 +4,7 @@ import CardGrid from "@/components/catalog/CardGrid";
 import CatalogFilters from "@/components/catalog/CatalogFilters";
 import SetSidebar from "@/components/catalog/SetSidebar";
 import Pagination from "@/components/catalog/Pagination";
-import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import { Provenance, WhyLink, Audience, ErrorAlert } from "@/lib/ui";
 import Link from "next/link";
 
 interface CatalogParams {
@@ -38,7 +38,11 @@ export default async function CatalogPage({
     effectiveInStock = true; // default: in-stock only
   }
 
-  // Fetch data in parallel
+  // Fetch data in parallel.
+  // The prices catch tracks failure separately from genuine emptiness —
+  // a wholesale outage rendering as "0 cards" would lie about the shop
+  // being empty. Error states are errors; empty states are empty.
+  let pricesFailed = false;
   const [prices, allGames, sets] = await Promise.all([
     (hasGame || params.q)
       ? fetchPrices({
@@ -49,9 +53,10 @@ export default async function CatalogPage({
           in_stock: effectiveInStock,
           limit: PER_PAGE,
           offset: (page - 1) * PER_PAGE,
-        }).catch((): { count: number; total: number; channel: string; items: PriceItem[] } => ({
-          count: 0, total: 0, channel: "", items: [],
-        }))
+        }).catch((): { count: number; total: number; channel: string; items: PriceItem[] } => {
+          pricesFailed = true;
+          return { count: 0, total: 0, channel: "", items: [] };
+        })
       : Promise.resolve({ count: 0, total: 0, channel: "", items: [] as PriceItem[] }),
     fetchGames().catch(() => []),
     params.game ? fetchSets(params.game).catch(() => []) : Promise.resolve([] as SetItem[]),
@@ -82,6 +87,22 @@ export default async function CatalogPage({
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Audience kind="consumer" contexts={["catalog", "browse"]} />
+
+      {/* Identity line — names which commerce room this is. The catalog
+          and the market are easy to confuse on first visit; one quiet
+          sentence each, cross-linked, keeps both doors legible. */}
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
+        <p className="text-neutral-400">
+          The shop — buy cards from Cambridge TCG stock.
+        </p>
+        <Link
+          href="/market"
+          className="text-neutral-500 hover:text-amber-400 transition"
+        >
+          Trading with other collectors? →
+        </Link>
+      </div>
+
       {/* Level 1: Game tabs */}
       <CatalogFilters
         games={allGames}
@@ -183,32 +204,46 @@ export default async function CatalogPage({
               </div>
             )}
 
-            {/* Results count */}
-            <div className="flex items-baseline gap-3 mb-2">
-              <p className="text-sm text-neutral-500">
-                Showing {Math.min(prices.count, PER_PAGE)} of{" "}
-                {prices.total.toLocaleString()} {prices.total === 1 ? "card" : "cards"}
-              </p>
-              {prices.items.length > 0 && (
-                <>
-                  <Provenance
-                    kind="synced"
-                    source="wholesale"
-                    at={freshestUpdatedAt(prices.items)}
-                    cadence="daily"
-                  />
-                  <WhyLink href="/methodology/pricing" />
-                </>
-              )}
-            </div>
+            {/* Error ≠ empty: when the price feed didn't answer, say so
+                instead of rendering an empty grid that reads as an empty
+                shop. */}
+            {pricesFailed ? (
+              <div className="mt-6">
+                <ErrorAlert
+                  title="Prices are temporarily unreachable"
+                  description="Try again in a minute — the cards are still here, our price feed just didn't answer."
+                />
+              </div>
+            ) : (
+              <>
+                {/* Results count */}
+                <div className="flex items-baseline gap-3 mb-2">
+                  <p className="text-sm text-neutral-500">
+                    Showing {Math.min(prices.count, PER_PAGE)} of{" "}
+                    {prices.total.toLocaleString()} {prices.total === 1 ? "card" : "cards"}
+                  </p>
+                  {prices.items.length > 0 && (
+                    <>
+                      <Provenance
+                        kind="synced"
+                        source="wholesale"
+                        at={freshestUpdatedAt(prices.items)}
+                        cadence="daily"
+                      />
+                      <WhyLink href="/methodology/pricing" />
+                    </>
+                  )}
+                </div>
 
-            <CardGrid cards={prices.items} />
-            <Pagination
-              total={prices.total}
-              page={page}
-              perPage={PER_PAGE}
-              searchParams={{ ...params }}
-            />
+                <CardGrid cards={prices.items} />
+                <Pagination
+                  total={prices.total}
+                  page={page}
+                  perPage={PER_PAGE}
+                  searchParams={{ ...params }}
+                />
+              </>
+            )}
           </div>
         </div>
       )}

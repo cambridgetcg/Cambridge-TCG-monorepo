@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import type { AuctionSummary } from "@/lib/auction/types";
 import AuctionCard from "@/components/auction/AuctionCard";
-import { WhyLink } from "@/lib/ui";
+import { WhyLink, ErrorAlert } from "@/lib/ui";
 
 type Tab = "live" | "scheduled" | "ended";
 
@@ -19,19 +19,25 @@ export default function AuctionsPage() {
   const [auctions, setAuctions] = useState<AuctionSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [serverTime, setServerTime] = useState<string>(new Date().toISOString());
 
   const fetchAuctions = useCallback(async (status: Tab) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/auctions?status=${status}&limit=40&offset=0`);
+      if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setAuctions(data.auctions || []);
       setTotal(data.total || 0);
       if (data.server_time) setServerTime(data.server_time);
+      setFetchError(false);
     } catch {
+      // Outage ≠ empty: clear the list but flag the failure so the UI
+      // renders an error state instead of "No auctions".
       setAuctions([]);
       setTotal(0);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -93,6 +99,12 @@ export default function AuctionsPage() {
               </div>
             ))}
           </div>
+        ) : fetchError ? (
+          /* Error state — distinct from "no auctions right now" */
+          <ErrorAlert
+            title="Auctions are temporarily unreachable"
+            description="Try again in a minute."
+          />
         ) : auctions.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-neutral-600 mb-3">
