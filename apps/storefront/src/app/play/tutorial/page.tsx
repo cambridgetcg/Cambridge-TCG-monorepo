@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TUTORIAL_SECTIONS } from "@/lib/play/tutorial-sections";
 import { audienceMetadata } from "@/lib/ui";
+import QuestReadSentinel from "@/components/quests/QuestReadSentinel";
 
 export const metadata: Metadata = {
   title: "Tutorial — for non-card-game players",
@@ -409,6 +410,11 @@ export default function TutorialPage() {
               </div>
             </section>
           ))}
+
+          {/* Quest "learn-the-table": completes when the end of the final
+              section enters view (sustained), or via the explicit control —
+              never a sighted-scroll gesture alone. */}
+          <QuestReadSentinel quest="learn-the-table" label="I read the tutorial" />
         </article>
       </div>
 

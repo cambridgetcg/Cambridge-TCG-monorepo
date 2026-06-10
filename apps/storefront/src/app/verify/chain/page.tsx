@@ -29,6 +29,7 @@
 
 import Link from "next/link";
 import { query } from "@/lib/db";
+import ChainDigestRow from "./ChainDigestRow";
 
 import { Audience } from "@/lib/ui";
 export const metadata = {
@@ -156,22 +157,21 @@ export default async function ChainPage() {
                 </thead>
                 <tbody>
                   {recent.map((d) => (
-                    <tr key={d.id} className="border-b border-neutral-800 last:border-0">
-                      <td className="px-4 py-3 font-mono text-amber-400">{d.id}</td>
-                      <td className="px-4 py-3 text-xs text-neutral-400">
-                        <div>{fmtDate(d.window_from)}</div>
-                        <div className="text-neutral-600">→ {fmtDate(d.window_to)}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-neutral-300">
-                        {d.leaf_count.toLocaleString("en-GB")}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-neutral-400" title={d.root}>
-                        {shortHash(d.root)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-emerald-400" title={d.chain_hash ?? ""}>
-                        {shortHash(d.chain_hash)}
-                      </td>
-                    </tr>
+                    // Client row: click expands the full root / prev_hash /
+                    // chain_hash (previously tooltip-only). The first expand
+                    // is the "open one entry" moment of quest walk-the-chain.
+                    <ChainDigestRow
+                      key={d.id}
+                      d={{
+                        id: d.id,
+                        root: d.root,
+                        prev_hash: d.prev_hash,
+                        chain_hash: d.chain_hash,
+                        leaf_count: d.leaf_count,
+                        window_from_display: fmtDate(d.window_from),
+                        window_to_display: fmtDate(d.window_to),
+                      }}
+                    />
                   ))}
                   {/* Genesis row — only shown when we've reached the bottom of the table. */}
                   {recent.length > 0 && recent[recent.length - 1].id <= 50 && (

@@ -5,6 +5,7 @@ import { use } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { verifyPull, type VerificationResult, computeLeaf, merkleRoot } from "@/lib/bounty/verify-client";
+import { QUEST_EVENT } from "@/lib/quests";
 
 import { Audience } from "@/lib/ui";
 interface PullData {
@@ -72,7 +73,18 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
       nonce: data.nonce,
       rarityWeights: data.rarity_weights,
       rolledRarity: data.rolled_rarity,
-    }).then(setVerification);
+    }).then((v) => {
+      setVerification(v);
+      // Quest "check-the-math": stamps only when the fairness proof
+      // genuinely re-ran in THIS browser and PASSED. A failed
+      // verification, or a page that never loaded a real pull, never
+      // stamps. The dispatch is a window event — nothing leaves the browser.
+      if (v.ok) {
+        window.dispatchEvent(
+          new CustomEvent(QUEST_EVENT, { detail: { id: "check-the-math" } }),
+        );
+      }
+    });
   }, [data]);
 
   useEffect(() => {

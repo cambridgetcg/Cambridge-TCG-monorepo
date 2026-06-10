@@ -13,6 +13,7 @@ import type {
 } from "@/lib/game/types";
 import { PHASE_LABELS } from "@/lib/game/types";
 import { applyAction } from "@/lib/game/reducer";
+import { QUEST_EVENT } from "@/lib/quests";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -64,6 +65,12 @@ interface EarnBreakdown {
 interface VictoryResult {
   victory: boolean;
   firstClear: boolean;
+  /** Present when the server already processed this game's victory earlier. */
+  alreadyClaimed?: boolean;
+  /** Engine-verified turn count for THIS clear (server-computed). */
+  turnsPlayed?: number;
+  /** The visitor's best_turns for this level BEFORE this clear (null = none). */
+  previousBestTurns?: number | null;
   pointsEarned: number;
   creditEarned: number;
   pullTokenEarned?: "common" | "uncommon" | "rare" | "super_rare" | "legendary" | null;
@@ -373,6 +380,30 @@ export default function PVEGameBoard() {
       });
       const result: VictoryResult = await res.json();
       setVictoryResult(result);
+
+      // Quest stamps — fired only on a REAL, newly-processed win (the
+      // server verified the game state; an idempotent replay of an earlier
+      // claim does not re-fire). Zero extra network calls: both events ride
+      // data the victory response already carries.
+      if (result.victory && !result.alreadyClaimed) {
+        // "first-victory": the visitor's first PVE win stamps it (the
+        // tracker ignores every later dispatch once completed).
+        window.dispatchEvent(
+          new CustomEvent(QUEST_EVENT, { detail: { id: "first-victory" } }),
+        );
+        // "beat-your-own-time": re-clear of an already-beaten level in
+        // fewer turns than the recorded best_turns.
+        if (
+          !result.firstClear &&
+          typeof result.previousBestTurns === "number" &&
+          typeof result.turnsPlayed === "number" &&
+          result.turnsPlayed < result.previousBestTurns
+        ) {
+          window.dispatchEvent(
+            new CustomEvent(QUEST_EVENT, { detail: { id: "beat-your-own-time" } }),
+          );
+        }
+      }
     } catch {
       setError("Failed to claim victory.");
     } finally {

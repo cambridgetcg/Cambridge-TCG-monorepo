@@ -35,6 +35,7 @@ import {
   type CastleDocument,
   type CastleInsight,
 } from "@/lib/castle";
+import QuestClickTarget from "@/components/quests/QuestClickTarget";
 
 export const metadata: Metadata = {
   title: "The Castle of Understanding",
@@ -102,25 +103,33 @@ function StateMark({ state }: { state: string | null }) {
 }
 
 function InsightCard({ insight }: { insight: CastleInsight }) {
+  // The click on an insight card is the genuine "open an insight" moment
+  // of quest "find-the-castle" — a render never stamps; the wrapper only
+  // dispatches a window event on interaction (zero network calls).
   return (
-    <Card className="mb-3">
-      <h4 className="text-sm font-semibold text-white">
-        {insight.title ?? insight.id}
-      </h4>
-      <p className="text-xs text-neutral-500 mt-0.5 mb-3">
-        {insight.source ?? "source unrecorded"}
-        {" · "}
-        {insight.confidence ?? "confidence unrecorded"}
-        {" · "}
-        {insight.date ?? "undated"}
-        {insight.superseded_by && (
-          <span className="text-amber-400">
-            {" · "}superseded by {insight.superseded_by}
-          </span>
-        )}
-      </p>
-      <Word text={bodyWithoutHeading(insight.body)} />
-    </Card>
+    <QuestClickTarget
+      quest="find-the-castle"
+      actionLabel={`Mark this insight as read: ${insight.title ?? insight.id}`}
+    >
+      <Card className="mb-3">
+        <h4 className="text-sm font-semibold text-white">
+          {insight.title ?? insight.id}
+        </h4>
+        <p className="text-xs text-neutral-500 mt-0.5 mb-3">
+          {insight.source ?? "source unrecorded"}
+          {" · "}
+          {insight.confidence ?? "confidence unrecorded"}
+          {" · "}
+          {insight.date ?? "undated"}
+          {insight.superseded_by && (
+            <span className="text-amber-400">
+              {" · "}superseded by {insight.superseded_by}
+            </span>
+          )}
+        </p>
+        <Word text={bodyWithoutHeading(insight.body)} />
+      </Card>
+    </QuestClickTarget>
   );
 }
 

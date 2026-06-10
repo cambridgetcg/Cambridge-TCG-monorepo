@@ -330,6 +330,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       [actor.userId, level.id],
     );
     const isFirstClear = progressResult.rows.length === 0 || !progressResult.rows[0].cleared;
+    // The best_turns recorded BEFORE this clear. Surfaced so the client can
+    // tell, without an extra call, whether this clear beat the visitor's own
+    // record (quest "beat-your-own-time" — the quest engine itself makes
+    // zero network calls; this rides the existing victory response).
+    const previousBestTurns: number | null =
+      progressResult.rows.length > 0 && progressResult.rows[0].best_turns != null
+        ? Number(progressResult.rows[0].best_turns)
+        : null;
 
     // Guests record clear progression (so they can unlock the next level)
     // but receive no monetary rewards and no public activity post.
@@ -348,6 +356,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       return NextResponse.json({
         victory: true,
         firstClear: isFirstClear,
+        turnsPlayed,
+        previousBestTurns,
         guestMode: true,
         // Surface zero earnings honestly — substrate honesty rule 1: don't
         // lie to the surface about what happened.
@@ -412,6 +422,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     return NextResponse.json({
       victory: true,
       firstClear: isFirstClear,
+      turnsPlayed,
+      previousBestTurns,
       pointsEarned: earn.total,
       creditEarned: credit,
       pullTokenEarned: milestonePull,

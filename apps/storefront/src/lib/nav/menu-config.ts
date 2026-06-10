@@ -220,6 +220,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Platform", href: "/platform", description: "What this whole thing is" },
           { label: "The Castle", href: "/castle", description: "The platform's insight repository — a snapshot of understanding" },
           { label: "Open data", href: "/data", description: "Free bulk card data (CC0)" },
+          { label: "Quest log", href: "/quests", description: "Fourteen honest quests; progress lives in your browser" },
           { label: "Site map", href: "/map", description: "Every page, one click away" },
           // Deeper platform surfaces (Bridge, Manifest, Graph, Ontology,
           // Patterns, Identify) live on /platform — hidden from the shopper

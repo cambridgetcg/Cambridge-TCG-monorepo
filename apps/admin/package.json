@@ -38,6 +38,7 @@
     "seed-classifications-from-cards": "tsx scripts/seed-classifications-from-cards.ts",
     "seed-rarity-map": "tsx scripts/seed-rarity-map.ts",
     "nav-coverage": "tsx scripts/nav-coverage.ts",
+    "quest-coverage": "tsx scripts/quest-coverage.ts",
     "cross-language-coherence": "tsx scripts/cross-language-coherence.ts",
     "known-gaps": "tsx scripts/known-gaps.ts",
     "deploy-verify": "tsx scripts/deploy-verify.ts",

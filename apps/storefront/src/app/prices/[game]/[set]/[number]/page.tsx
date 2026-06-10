@@ -33,6 +33,7 @@ import { RarityBadge } from "@/lib/ui/prices/RarityBadge";
 import { fetchRates, formatGbpAs } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector } from "@/components/CurrencySelector";
+import QuestReadSentinel from "@/components/quests/QuestReadSentinel";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -432,6 +433,13 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             .
           </p>
         </section>
+
+        {/* Quest "price-reader" (fallback path): completes when the END of
+            this price-guide read is reached — never on a bare page load. */}
+        <QuestReadSentinel
+          quest="price-reader"
+          label="I read this card's price story"
+        />
       </main>
     </>
   );

@@ -35,6 +35,7 @@ import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { MoneyDisplay, DateDisplay } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { fetchCardrushHistory } from "@/lib/wholesale/client";
+import QuestReadSentinel from "@/components/quests/QuestReadSentinel";
 
 export async function generateMetadata({
   params,
@@ -627,6 +628,13 @@ export default async function CardMarketReadPage({
             </Link>{" "}
             (Bearer-keyed).
           </p>
+          {/* Quest "price-reader": completes when the END of this card's
+              calm read is reached (sustained in view, or the explicit
+              control) — never on a bare page load. */}
+          <QuestReadSentinel
+            quest="price-reader"
+            label="I read this card's price story"
+          />
         </footer>
       </div>
     </div>

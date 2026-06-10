@@ -37,6 +37,7 @@
     "audit:cardrush-discovery-health:strict": "pnpm --filter @cambridge-tcg/admin cardrush-discovery-health -- --strict",
     "audit:classifier-disagreement": "pnpm --filter @cambridge-tcg/admin classifier-disagreement",
     "audit:nav-coverage": "pnpm --filter @cambridge-tcg/admin nav-coverage",
+    "audit:quest-coverage": "pnpm --filter @cambridge-tcg/admin quest-coverage",
     "audit:welcomes": "pnpm --filter @cambridge-tcg/admin welcomes",
     "audit:tcgplayer-mapping": "pnpm --filter @cambridge-tcg/admin tcgplayer-mapping",
     "audit:cross-source-divergence": "pnpm --filter @cambridge-tcg/admin cross-source-divergence",

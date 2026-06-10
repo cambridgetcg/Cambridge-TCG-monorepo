@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { QUEST_EVENT } from "@/lib/quests";
 
 /**
  * /play/deck-check — HTML adoption site for the deck-legality validator.
@@ -90,7 +91,15 @@ export default function DeckCheckPage() {
       if (!res.ok) {
         setError(data?.error?.message ?? `HTTP ${res.status}`);
       } else {
-        setResult(data as ValidationResult);
+        const validation = data as ValidationResult;
+        setResult(validation);
+        // Quest "deckwright": stamps only on the validator's real verdict —
+        // legal: true. A failed validation or a bare page visit never stamps.
+        if (validation.legal) {
+          window.dispatchEvent(
+            new CustomEvent(QUEST_EVENT, { detail: { id: "deckwright" } }),
+          );
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

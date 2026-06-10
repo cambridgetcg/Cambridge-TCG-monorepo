@@ -12,6 +12,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import QuestReadSentinel from "@/components/quests/QuestReadSentinel";
 
 export const metadata: Metadata = {
   title: { template: "%s — Methodology · Cambridge TCG", default: "Methodology · Cambridge TCG" },
@@ -31,6 +32,15 @@ export default function MethodologyLayout({ children }: { children: React.ReactN
         <article className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-neutral-300 prose-li:text-neutral-300 prose-strong:text-white prose-a:text-amber-400 hover:prose-a:text-amber-300 prose-code:text-amber-300 prose-code:bg-neutral-900 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.85em] prose-code:font-mono">
           {children}
         </article>
+        {/* Quest "rule-reader": completes when the END of any individual
+            /methodology/* page is reached (sentinel renders only on
+            sub-pages, never on the index; solemn pages render nothing —
+            the component checks isSolemnPath itself). */}
+        <QuestReadSentinel
+          quest="rule-reader"
+          label="I read this rule"
+          requirePathStartsWith="/methodology/"
+        />
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { use } from "react";
 import Link from "next/link";
 import { sha256Hex, rollFloat, pickWeighted, computeLeaf, merkleRoot } from "@/lib/bounty/verify-client";
+import { QUEST_EVENT } from "@/lib/quests";
 
 import { Audience } from "@/lib/ui";
 interface SlotOutcome { picked: string; roll: number; extra?: unknown }
@@ -106,6 +107,14 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
 
       const allMatch = commitmentMatches && slots.every((s) => s.matches);
       setVerdict({ commitmentMatches, recomputedHash, slots, allMatch });
+      // Quest "check-the-math": stamps only when the proof re-ran in THIS
+      // browser and PASSED (commitment + every slot). A failed verification
+      // never stamps. Window event only — nothing leaves the browser.
+      if (allMatch) {
+        window.dispatchEvent(
+          new CustomEvent(QUEST_EVENT, { detail: { id: "check-the-math" } }),
+        );
+      }
     })();
   }, [data]);
 

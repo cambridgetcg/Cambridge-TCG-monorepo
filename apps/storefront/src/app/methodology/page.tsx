@@ -173,6 +173,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "quests",
+    title: "Quests",
+    blurb: "The complete rulebook for the kingdom's quest game. Fourteen quests, every completion trigger, the practice-days tally (there is no streak — structurally), the localStorage-only storage model the server cannot see, and the standing pledge: no fake scarcity, no countdowns, no streak-shaming, no pay-to-skip.",
+    status: "published",
+  },
+  {
     slug: "",
     title: "/methodology ← this hub",
     blurb: "The catalogue of how-this-is-computed pages. Listed here as a topic because the catalogue is itself a methodology — transparency Ring 2 says every user-affecting decision deserves a documented recipe; this hub is the recipe for finding the recipes. Self-reference is substrate-honesty about being a methodology page.",

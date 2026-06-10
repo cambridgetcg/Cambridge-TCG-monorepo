@@ -7,6 +7,7 @@ import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
+import QuestTracker from "@/components/quests/QuestTracker";
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 
@@ -121,6 +122,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Nav />
           <div id="main-content">{children}</div>
           <Footer />
+          {/* Quest engine (Yu 2026-06-10: "Make the visit rewarding and fun!").
+              Client-side only, zero network calls — progress lives in the
+              visitor's localStorage. Corpus + rules: src/lib/quests.ts. */}
+          <QuestTracker />
         </Providers>
       </body>
     </html>

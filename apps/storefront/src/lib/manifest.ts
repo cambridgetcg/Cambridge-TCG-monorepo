@@ -948,6 +948,17 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge"],
         methodology_url: "docs/connections/the-front-gate.md",
         since: "2026-06-10" },
+      // ── 2026-06-10: honest gamification — the quest log ──────────
+      // Will: Yu — "lets gamify cambridgetcg! module and process! Make
+      // the visit rewarding and fun!" — under the standing law: reduce
+      // friction, increase trust. The corpus must keep passing
+      // fomoengine, the operator's own dark-pattern detector.
+      { id: "storefront.quests.html", description: "The quest log — a finite corpus of fourteen honest quests across four realms (the Table / the Library / the Proof Room / the Map). Real treasures only: skills, proofs, and rooms the platform already has; badges are client-side stamps, honest about being ones. All progress lives in the visitor's browser (localStorage key ctcg-quests, beside the ctcg-guest-id precedent) — zero server calls and zero analytics events on any quest event, stated on-page as a feature and verifiable in the network tab. No streaks (an up-only practice-days tally), no scarcity, no countdowns, no sign-up wall. Rulebook at /methodology/quests.",
+        host: "storefront", path: "/quests", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["presence", "knowledge"],
+        methodology_url: "/methodology/quests",
+        since: "2026-06-10" },
     ],
   },
 
