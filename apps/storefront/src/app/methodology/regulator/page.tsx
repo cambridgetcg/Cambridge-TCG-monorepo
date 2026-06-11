@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Audience, audienceMetadata } from "@/lib/ui";
+import { Audience, audienceMetadata, WhyLink } from "@/lib/ui";
 
 export const metadata: Metadata = {
   title: "Market regulator",
@@ -75,7 +75,15 @@ export default function RegulatorMethodology() {
 
       <h2>How our revenue works now</h2>
       <ul>
-        <li>A <strong>commission</strong> on completed peer-to-peer trades (published rate, capped per item).</li>
+        <li>
+          A <strong>commission</strong> on completed peer-to-peer trades (published rate,
+          capped per item).
+          <WhyLink
+            href="/methodology/commission-rate"
+            label="how the rate is set"
+            tooltip="How the commission rate is set and capped"
+          />
+        </li>
         <li><strong>Membership</strong> subscriptions (optional perks).</li>
         <li>Nothing else. No spread, no markup, no house position.</li>
       </ul>
