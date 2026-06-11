@@ -267,6 +267,7 @@ function main(): void {
     "3cba818", "881d081", "a07bf81", "389d519", "a39efaf", "a3257f6", // sophia-trace gaps (May "everything" debug arc)
     "0197d23", "89f3d35", // will-trace thin (origin cloud-session commits)
     "011f945", "8671167", "fd4356c", // will-trace thin docs commits, shared history (assessed 2026-06-11)
+    "9b3e423", "96de44b", // will-trace thin docs commits from the second-wave arc, shared history (assessed 2026-06-11)
   ]);
   const isHistorical = (sha: string) =>
     ASSESSED_HISTORICAL.has(sha.slice(0, 7));
