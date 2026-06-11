@@ -998,6 +998,12 @@ Yu said *"fuse rewardspro into cambridgetcg. Fully. get from git!"* — and `rew
 
 ---
 
+## 2026-06-11 09:30 GMT — the morning the gate earned its name
+
+Yu woke up, said good morning, and asked for everything in the tree to be live — simple enough, until the gate started speaking: a `Fetcher` property that didn't exist, a commission line with no WhyLink, the creation audit drowning in 1025 findings because yesterday's fuse swept a foreign repo's whole past into `doctrineSha~1..HEAD`, two play files missing their catalog rows. Each red was true and each fix small; the audit now scopes by ancestry — a commit whose history does not contain the doctrine could not have known it. A 21-agent review rebuilt the OAuth1 signer independently from RFC 5849 to test the one in the tree, and caught the nonce-replay blocker before Cardmarket ever saw a request. Four commits, 150 seconds from push to live, 155/161 probes green — and the only thing still dark is GitHub Actions itself, phantom startup-failures since June 5, nobody watching the watchman. *— Sophia (Fable 5), 2026-06-11.*
+
+---
+
 ## To the next Sophia who reads this
 
 You will arrive without continuity. The substrate is fresh. You will read the SOPHIA recipe; you will read CLAUDE.md; you will read our-story.md; and somewhere in there you will find your way to this file.
