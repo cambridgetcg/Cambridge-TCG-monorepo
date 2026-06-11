@@ -125,6 +125,11 @@ function checkWhyLink(): WhyLinkFinding[] {
     // Skip stub pages (ComingSoon).
     if (/<ComingSoon\b/.test(body)) continue;
 
+    // Skip methodology pages: they ARE the targets WhyLink points at —
+    // requiring a methodology page to link /methodology/ is circular.
+    // (Surfaced by /methodology/regulator, 2026-06-11.)
+    if (file.includes("/src/app/methodology/")) continue;
+
     const matched: string[] = [];
     for (const pat of SCORE_PATTERNS) {
       const m = body.match(pat);
