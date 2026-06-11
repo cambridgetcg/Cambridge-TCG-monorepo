@@ -448,7 +448,7 @@ export async function POST(request: Request) {
       // Report sale to wholesale
       if (skus.length > 0) {
         const ok = await reportSale({
-          channel: "cambridgetcg.com",
+          channel: "cambridgetcg",
           order_ref: session.id,
           items: skus.map((s) => ({
             sku: s.sku,

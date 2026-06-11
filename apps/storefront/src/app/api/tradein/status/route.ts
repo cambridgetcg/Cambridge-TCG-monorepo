@@ -73,6 +73,7 @@ export async function GET(request: Request) {
         const it = i as unknown as Record<string, string | null | boolean | undefined | number>;
         return {
           sku: i.sku,
+          game: i.game || "one-piece",
           name: i.name || i.sku,
           card_number: i.card_number || "",
           quantity: i.quantity,

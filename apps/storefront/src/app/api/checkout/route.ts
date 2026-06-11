@@ -8,6 +8,8 @@ import {
   reserveCartItems,
   holderForStripeSession,
 } from "@/lib/stock/reservations";
+import { fetchCardFresh } from "@/lib/wholesale/client";
+import { retailPrice } from "@/lib/pricing";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/+$/, "");
 
@@ -25,6 +27,35 @@ export async function POST(request: Request) {
       if (!item.sku || !item.price || item.price <= 0 || !item.quantity || item.quantity <= 0) {
         return NextResponse.json({ error: "Invalid item in cart" }, { status: 400 });
       }
+    }
+
+    // Price guard — item.price is client-supplied and was charged
+    // verbatim; a tampered cart could buy any card for 1p. Reject carts
+    // whose unit price is >10% below live retail (tolerance spares honest
+    // carts that predate a small price update). Fails OPEN if the
+    // wholesale API is down — checkout availability must not depend on
+    // its uptime; stock is enforced by reservations below either way.
+    try {
+      const skus = [...new Set(items.map((i) => i.sku))];
+      const fetched = await Promise.all(skus.map((sku) => fetchCardFresh(sku)));
+      const liveCards = new Map(skus.map((sku, i) => [sku, fetched[i]]));
+      for (const item of items) {
+        const card = liveCards.get(item.sku);
+        if (!card) continue; // unknown SKU — the reservation step rejects it
+        const serverPrice = retailPrice(card.price_gbp, card.channel_price);
+        if (serverPrice > 0 && item.price < serverPrice * 0.9) {
+          return NextResponse.json(
+            {
+              error: `The price of "${item.name}" has changed — please refresh your cart.`,
+              code: "price_changed",
+              sku: item.sku,
+            },
+            { status: 409 }
+          );
+        }
+      }
+    } catch (err) {
+      console.error("[checkout] price guard skipped — wholesale API unavailable:", err);
     }
 
     // Initialise Stripe AFTER validation. If STRIPE_SECRET_KEY is

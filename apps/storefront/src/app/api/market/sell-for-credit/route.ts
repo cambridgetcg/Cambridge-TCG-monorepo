@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { fetchCard, fetchPrices } from "@/lib/wholesale/client";
+import { gameFromSku } from "@/lib/tradein/games";
 import { query } from "@/lib/db";
 
 // POST — submit trade-in for credit (single card or batch)
@@ -48,10 +49,11 @@ export async function POST(request: Request) {
     if (directCard?.channel_price && directCard.channel_price > 0) {
       creditPerCard = directCard.channel_price;
       cardName = directCard.name_en || directCard.name || directCard.card_number;
-    } else if (setCode) {
-      // Batch lookup (cached per set)
+    } else if (setCode && gameFromSku(item.sku)) {
+      // Batch lookup (cached per set). Game derived from the SKU prefix —
+      // unprefixed SKUs (SEALED-) rely on the direct lookup above.
       if (!setCache.has(setCode)) {
-        const batchRes = await fetchPrices({ game: "one-piece", set: setCode, channel: "tradein-credit", limit: 500 }).catch(() => ({ items: [] }));
+        const batchRes = await fetchPrices({ game: gameFromSku(item.sku)!, set: setCode, channel: "tradein-credit", limit: 500 }).catch(() => ({ items: [] }));
         const map = new Map<string, { price: number; name: string }>();
         for (const b of batchRes.items) {
           if (b.channel_price && b.channel_price > 0) {
@@ -126,9 +128,9 @@ export async function POST(request: Request) {
   // Record all items
   for (const item of resolvedItems) {
     await query(
-      `INSERT INTO tradein_items (submission_id, sku, card_number, name, set_code, quantity, quoted_cash_price, quoted_credit_price)
-       VALUES ($1, $2, $3, $4, $5, $6, '0', $7)`,
-      [submissionId, item.sku, item.cardNumber, item.cardName, item.setCode, item.quantity, item.creditPerCard.toFixed(2)]
+      `INSERT INTO tradein_items (submission_id, sku, game, card_number, name, set_code, quantity, quoted_cash_price, quoted_credit_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '0', $8)`,
+      [submissionId, item.sku, gameFromSku(item.sku) ?? "one-piece", item.cardNumber, item.cardName, item.setCode, item.quantity, item.creditPerCard.toFixed(2)]
     );
   }
 

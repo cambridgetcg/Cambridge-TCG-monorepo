@@ -8,6 +8,7 @@ import { Audience } from "@/lib/ui";
 interface ItemRow {
   id: number;
   sku: string;
+  game?: string | null;
   card_number: string | null;
   name: string | null;
   set_code: string | null;
@@ -310,7 +311,7 @@ function QuotationForm({
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-white truncate">{item.name}</p>
                     <p className="text-xs text-neutral-500">
-                      {item.card_number} &middot; Qty: {item.quantity} &middot; Original: {formatPrice(origCash)} cash / {formatPrice(origCredit)} credit
+                      {item.card_number}{item.game ? ` (${item.game})` : ""} &middot; Qty: {item.quantity} &middot; Original: {formatPrice(origCash)} cash / {formatPrice(origCredit)} credit
                     </p>
                   </div>
                   <label className="flex items-center gap-1.5 shrink-0 cursor-pointer">
@@ -571,7 +572,7 @@ function QuotedView({ submission, items }: { submission: SubmissionRow; items: I
                 <tr key={item.id} className={`border-t border-neutral-800 ${item.rejected ? "opacity-40 line-through" : ""}`}>
                   <td className="py-2 text-white">
                     {item.name}
-                    <span className="text-neutral-500 ml-2 text-xs hidden sm:inline">{item.card_number}</span>
+                    <span className="text-neutral-500 ml-2 text-xs hidden sm:inline">{item.card_number}{item.game ? ` (${item.game})` : ""}</span>
                   </td>
                   <td className="py-2 text-center text-neutral-300">{item.quantity}</td>
                   <td className="py-2 text-right text-neutral-500 whitespace-nowrap">
@@ -1001,7 +1002,7 @@ export default function AdminTradeInsPage() {
                               <tr key={item.id} className="border-t border-neutral-800">
                                 <td className="py-2 text-white">
                                   {item.name}
-                                  <span className="text-neutral-500 ml-2 text-xs hidden sm:inline">{item.card_number}</span>
+                                  <span className="text-neutral-500 ml-2 text-xs hidden sm:inline">{item.card_number}{item.game ? ` (${item.game})` : ""}</span>
                                 </td>
                                 <td className="py-2 text-center text-neutral-300">{item.quantity}</td>
                                 <td className="py-2 text-right text-neutral-300 whitespace-nowrap">
@@ -1067,7 +1068,7 @@ export default function AdminTradeInsPage() {
                             <tr key={item.id} className="border-t border-neutral-800">
                               <td className="py-2 text-white">
                                 {item.name}
-                                <span className="text-neutral-500 ml-2 text-xs hidden sm:inline">{item.card_number}</span>
+                                <span className="text-neutral-500 ml-2 text-xs hidden sm:inline">{item.card_number}{item.game ? ` (${item.game})` : ""}</span>
                               </td>
                               <td className="py-2 text-center text-neutral-300">{item.quantity}</td>
                               <td className="py-2 text-right text-neutral-300 whitespace-nowrap">

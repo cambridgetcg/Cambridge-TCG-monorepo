@@ -5,10 +5,23 @@ const STORE_NOTIFICATION_EMAIL = process.env.STORE_NOTIFICATION_EMAIL || "contac
 
 interface EmailItem {
   name: string;
+  game?: string;
   card_number: string;
   quantity: number;
   cash_price: number;
   credit_price: number;
+}
+
+// Pokémon card numbers are set-relative ("002/187"), so mixed-game
+// submissions need the game spelled out next to each line.
+function gameSuffix(game?: string): string {
+  if (!game) return "";
+  const labels: Record<string, string> = {
+    "one-piece": "One Piece",
+    pokemon: "Pokémon",
+    "dragon-ball": "Dragon Ball",
+  };
+  return `, ${labels[game] ?? game}`;
 }
 
 export async function sendConfirmationEmail(data: {
@@ -39,7 +52,7 @@ export async function sendConfirmationEmail(data: {
   const itemsList = data.items
     .map(
       (i) =>
-        `  ${i.quantity}x ${i.name} (${i.card_number}) — £${(data.paymentMethod === "cash" ? i.cash_price : i.credit_price).toFixed(2)} each`
+        `  ${i.quantity}x ${i.name} (${i.card_number}${gameSuffix(i.game)}) — £${(data.paymentMethod === "cash" ? i.cash_price : i.credit_price).toFixed(2)} each`
     )
     .join("\n");
 
@@ -110,7 +123,7 @@ Cambridge TCG Team
       ${data.items
         .map(
           (i) => `<tr style="border-bottom: 1px solid #333;">
-        <td style="padding: 8px 4px;">${escapeHtml(i.name)} <span style="color: #737373;">(${escapeHtml(i.card_number)})</span></td>
+        <td style="padding: 8px 4px;">${escapeHtml(i.name)} <span style="color: #737373;">(${escapeHtml(i.card_number + gameSuffix(i.game))})</span></td>
         <td style="text-align: center; padding: 8px 4px;">${i.quantity}</td>
         <td style="text-align: right; padding: 8px 4px; color: #f59e0b;">£${(data.paymentMethod === "cash" ? i.cash_price : i.credit_price).toFixed(2)}</td>
       </tr>`

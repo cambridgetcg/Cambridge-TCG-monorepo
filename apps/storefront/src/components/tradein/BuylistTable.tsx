@@ -9,7 +9,8 @@ import { formatPrice } from "@/lib/format";
 function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
   const r = rarity.toUpperCase();
-  const isParallel = r.includes("/P") || r.includes("/SP");
+  // One Piece parallels use /P and /SP suffixes; Dragon Ball uses ☆
+  const isParallel = r.includes("/P") || r.includes("/SP") || r.includes("☆");
 
   let cls = "";
   let label = rarity;
@@ -51,7 +52,7 @@ function wantIndicator(cashWant: number, creditWant: number, mode: "cash" | "cre
 
 type SortKey = "card_number" | "cash_price" | "credit_price";
 
-export default function BuylistTable({ buylist }: { buylist: BuylistItem[] }) {
+export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]; game: string }) {
   const [search, setSearch] = useState("");
   const [setFilter, setSetFilter] = useState("");
   const [sort, setSort] = useState<SortKey>("card_number");
@@ -66,8 +67,12 @@ export default function BuylistTable({ buylist }: { buylist: BuylistItem[] }) {
         setMap.set(item.set_code, item.set_name);
       }
     }
-    // Sort: OP sets first (by number), then EB, then ST, then PRB, then P/PROMO, then rest
-    const groupOrder: Record<string, number> = { OP: 0, EB: 1, ST: 2, PRB: 3, PCC: 4, P: 5, PROMO: 6, SEALED: 7 };
+    // One Piece has an established set-prefix ordering; other games sort
+    // naturally by set code.
+    const groupOrder: Record<string, number> =
+      game === "one-piece"
+        ? { OP: 0, EB: 1, ST: 2, PRB: 3, PCC: 4, P: 5, PROMO: 6, SEALED: 7 }
+        : {};
     return Array.from(setMap.entries()).sort((a, b) => {
       const prefixA = a[0].replace(/[0-9-].*/,"");
       const prefixB = b[0].replace(/[0-9-].*/,"");
@@ -76,7 +81,7 @@ export default function BuylistTable({ buylist }: { buylist: BuylistItem[] }) {
       if (groupA !== groupB) return groupA - groupB;
       return a[0].localeCompare(b[0], undefined, { numeric: true });
     });
-  }, [buylist]);
+  }, [buylist, game]);
 
   // Filter + sort
   const filtered = useMemo(() => {
@@ -119,6 +124,7 @@ export default function BuylistTable({ buylist }: { buylist: BuylistItem[] }) {
     } else {
       addItem({
         sku: item.sku,
+        game: item.game,
         card_number: item.card_number,
         name: item.name,
         set_code: item.set_code,
