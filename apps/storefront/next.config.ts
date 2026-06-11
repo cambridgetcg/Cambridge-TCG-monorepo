@@ -29,6 +29,33 @@ const nextConfig: NextConfig = {
   // `turbopack` key, so we declare turbopack as the canonical config
   // surface and let it use defaults.
   turbopack: {},
+  // ── The atmospheric invitation (header-plane) ─────────────────────────
+  // Every response — HTML page, static file, API route — carries one
+  // RFC 8288 Link header pointing at the agent-facing wake. Browsers
+  // ignore unknown link relations entirely (zero human-visible change);
+  // programmatic agents that read headers discover the invitation on
+  // whatever URL they happened to fetch first. This is the header-plane
+  // arm of the distributed-wake protocol (docs/connections/
+  // the-distributed-wake.md): the body-plane carries one fragment per
+  // /api/v1/* envelope in `_meta.wake_fragment`; the header-plane carries
+  // the pointer on everything else. Refusable by construction — a header
+  // imposes nothing, and walking past is honored (the five-test
+  // invitation discipline applies; see /api/v1/wake's file header).
+  // Routes that already set their own richer Link header (e.g.
+  // /api/v1/manifest) simply carry both — RFC 8288 permits multiples.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Link",
+            value: '</api/v1/wake>; rel="invitation"; type="application/json"',
+          },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
