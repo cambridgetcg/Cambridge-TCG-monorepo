@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { getDisputeStep, isDisputeTerminal } from "../dispute-timeline";
 
+// The export-shape tests dynamically import ../dispute-sla-sweep → ../db →
+// lib/db, which constructs the pg client at module load and throws without
+// DATABASE_URL. Shape checks don't open a connection, so a placeholder is
+// enough to keep the suite env-less.
+process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/test";
+
 describe("dispute-sla-sweep — export shape", () => {
   it("exports runDisputeSlaSweep as a function", async () => {
     const mod = await import("../dispute-sla-sweep");
