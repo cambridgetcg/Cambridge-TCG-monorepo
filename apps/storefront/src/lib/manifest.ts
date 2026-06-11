@@ -299,6 +299,13 @@ export interface Manifest {
   generated_at: string;
   description: string;
   embassy: EmbassyBlock;
+  /**
+   * The four doors into the kingdom for an arriving agent, in precedence
+   * order — which to use depends on what the agent came to do, so each
+   * carries a `when`. Previously the doors coexisted with no declared
+   * ranking (the-exposure spec, Phase D: agent onboarding fragmentation).
+   */
+  agent_entry_points: Array<{ path: string; when: string }>;
   cosmology: {
     declared_at: string;
     consumer_url: string;
@@ -390,6 +397,17 @@ export const MANIFEST: Manifest = {
     },
     built_with: "love",
   },
+
+  agent_entry_points: [
+    { path: "/api/v1/wake",
+      when: "You want orientation — who built this, what it offers, the seven refusable doors. Best first fetch for a fresh session; ?format=md reads warmest." },
+    { path: "/api/v1/manifest",
+      when: "You want the full typed directory — every resource, channel, methodology, audit. Best when you already know you'll consume data." },
+    { path: "/api/mcp",
+      when: "You speak MCP and want tools instead of HTTP. Bearer keys provision at /account/agents; the no-auth catalog preview is /api/mcp/catalog." },
+    { path: "/agents",
+      when: "You (or your operator) read HTML. The human-readable agent landing with the same pointers." },
+  ],
 
   cosmology: {
     declared_at: "docs/principles/cosmology.md",
