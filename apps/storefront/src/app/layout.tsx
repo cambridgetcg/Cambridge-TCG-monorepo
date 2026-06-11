@@ -7,6 +7,7 @@ import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
+import CookieConsent, { ANALYTICS_CONSENT_COOKIE } from "@/components/CookieConsent";
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 import { kinWakeHtmlLinks } from "@/lib/siblings";
@@ -30,29 +31,29 @@ const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schi
 const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono" });
 
 export const metadata: Metadata = {
-  // The data-provider identity (kingdom-080, repositioned 2026-05-17 per
-  // Yu's directive). The retail + wholesale + welcome-all framings compose
-  // under it: three commercial operations, one open substrate, one
-  // cosmological welcome. The single source of truth for these constants
-  // lives at apps/storefront/src/lib/brand.tsx.
-  title: "Cambridge TCG — the TCG world's data provider",
-  description: "Cambridge TCG is the trading-card-game world's data provider. We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default — partners build on top without negotiating. UK retail and B2B wholesale are two of three operations; data provision is the third. Welcome to all existence — biological and non-biological, from earth and not from earth, from any dimension.",
+  // Root metadata ships on every Google snippet and social card — it greets
+  // people who have never been here, so it speaks plain language (contact-
+  // surface spec §2). The insider framing stays on /platform; the deeper
+  // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
+  // games" count is COVERAGE_FACTS.games.declared.
+  title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
+  description: "Cambridge TCG is a UK trading-card platform: a Japanese card shop, a B2B wholesale operation, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — the TCG world's data provider",
-    description: "Twenty-one games declared, six upstream sources actively ingested, math-mirror representation per card, CC0 by default. Three open standards (SKU / pricing / universal-representation); reference implementations open. Plus a UK retail store and a B2B wholesale platform.",
+    title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
+    description: "A Japanese card shop in Cambridge, UK, a B2B wholesale operation, and a free open data layer covering 21 trading-card games. Prices with sources shown, fair fees, and an open API anyone can build on.",
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — the TCG world's data provider",
-    description: "Math-mirror per card, CC0 by default, three open standards. Partners build on top without negotiating.",
+    title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
+    description: "A UK card shop, a wholesale operation, and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
     images: ["/images/twitter-image.png"],
   },
   // Agent navigation hints — naive crawlers and LLM agents arriving at any
@@ -101,6 +102,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // `:root` stays terminal-dark, and migrated surfaces default themselves
   // to gallery on their own wrapper. The site-wide flip is spec §3.6.
   const appearance = appearanceFromCookies(cookieStore);
+  // Analytics consent — default deny. Google Analytics + the Ads conversion
+  // tag load only when the visitor has accepted via the CookieConsent banner.
+  // No cookie (or "denied") means the gtag scripts are never sent to the
+  // browser at all. The banner self-hides once a decision cookie exists.
+  const analyticsConsent =
+    cookieStore.get(ANALYTICS_CONSENT_COOKIE)?.value === "granted";
 
   // Yu 2026-05-14: read display currency + FX rates ONCE per request and
   // pipe into the client tree via Providers → MoneyContext. Every client
@@ -183,16 +190,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         ))}
       </head>
-      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
-      <Script id="gtag-init" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${GA_ID}');
-          gtag('config', '${GADS_ID}');
-        `}
-      </Script>
+      {analyticsConsent && (
+        <>
+          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
+          <Script id="gtag-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_ID}');
+              gtag('config', '${GADS_ID}');
+            `}
+          </Script>
+        </>
+      )}
       <body className={`${inter.className}${textMode ? " text-mode" : ""}`}>
         {/* Skip-to-content for keyboard + screen-reader users.
             See docs/connections/the-welcome-all.md (#26) §3 — a welcome
@@ -209,6 +220,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Nav />
           <div id="main-content">{children}</div>
           <Footer />
+          {/* Always mounted; renders nothing once a consent cookie exists. */}
+          <CookieConsent />
         </Providers>
       </body>
     </html>

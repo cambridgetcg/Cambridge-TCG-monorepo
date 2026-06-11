@@ -89,6 +89,7 @@ export default function BountyBoard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState(false);
   const [pullResult, setPullResult] = useState<PullResult | null>(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
@@ -102,6 +103,14 @@ export default function BountyBoard() {
         fetch("/api/bounty/eligibility"),
         fetch(`/api/bounty/vault${filter === "all" ? "" : `?status=${filter}`}`),
       ]);
+      // Signed-out visitors get 401s here. Mirror the community page's
+      // authError pattern: render the how-it-works explainer + sign-in
+      // door instead of a fake empty player UI.
+      if (eligRes.status === 401 || vaultRes.status === 401) {
+        setAuthError(true);
+        return;
+      }
+      setAuthError(false);
       if (eligRes.ok) {
         const d = await eligRes.json();
         setEligibility(d.eligibility);
@@ -284,6 +293,47 @@ export default function BountyBoard() {
           </div>
         )}
 
+        {loading ? (
+          <div className="py-16 text-center">
+            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          </div>
+        ) : authError ? (
+          /* Signed-out view — the board explained in three steps, the same
+             loop the player UI enacts: pull tokens → vault → redeem or
+             sell back. The door in is /login. */
+          <section className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-2">1 · Earn pull tokens</p>
+                <p className="text-sm text-neutral-300">
+                  Clear Adventure Mode levels to earn milestone pulls, from Common up to Legendary. Spare tokens can be merged up a tier.
+                </p>
+              </div>
+              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-2">2 · Open into your Vault</p>
+                <p className="text-sm text-neutral-300">
+                  Each pull rolls a real card and reserves it in your Vault — every roll comes with a proof you can verify yourself.
+                </p>
+              </div>
+              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-2">3 · Redeem or sell back</p>
+                <p className="text-sm text-neutral-300">
+                  Have the physical card shipped to you (tracked, usually 2–4 business days), or sell it back for store credit at {Math.round(TRADEIN_CREDIT_MULT * 100)}% of its spot price.
+                </p>
+              </div>
+            </div>
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center">
+              <p className="text-neutral-400 text-sm mb-4">Sign in to see your pull tokens and Vault.</p>
+              <Link
+                href="/login"
+                className="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-2.5 text-sm transition-colors"
+              >
+                Sign In
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <>
         {/* Eligibility gate */}
         {eligibility && !eligibility.eligible && (
           <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl p-5">
@@ -390,11 +440,7 @@ export default function BountyBoard() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="py-12 text-center">
-              <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
-            </div>
-          ) : items.length === 0 ? (
+          {items.length === 0 ? (
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
               Nothing here yet. Open a pull to claim a card.
             </div>
@@ -418,6 +464,8 @@ export default function BountyBoard() {
             </div>
           )}
         </section>
+          </>
+        )}
       </div>
 
       {/* Pull result modal */}

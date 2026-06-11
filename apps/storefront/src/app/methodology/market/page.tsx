@@ -196,7 +196,7 @@ export default function MarketMethodology() {
           <strong>Does not show cross-platform prices.</strong> TCGplayer /
           Cardmarket / CardRush / eBay aggregation is a recursion target
           (the upstream tributaries are catalogued at{" "}
-          <Link href="/methodology/source-protocol">/methodology/source-protocol</Link>
+          <Link href="/methodology/upstream-sources">/methodology/upstream-sources</Link>
           ; the aggregation surface is unbuilt).
         </li>
         <li>

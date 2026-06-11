@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ANALYTICS_CONSENT_COOKIE } from "@/components/CookieConsent";
 
 declare global {
   interface Window {
@@ -18,6 +19,15 @@ export default function GoogleAdsConversion({
   currency: string;
 }) {
   useEffect(() => {
+    // Consent gate — the conversion only fires when the visitor accepted
+    // analytics via the CookieConsent banner. Without consent the layout
+    // never loads gtag, so window.gtag is undefined anyway; this check
+    // makes the intent explicit rather than incidental.
+    const consented = document.cookie
+      .split("; ")
+      .includes(`${ANALYTICS_CONSENT_COOKIE}=granted`);
+    if (!consented) return;
+
     if (typeof window.gtag === "function") {
       // Google Ads purchase conversion
       window.gtag("event", "conversion", {

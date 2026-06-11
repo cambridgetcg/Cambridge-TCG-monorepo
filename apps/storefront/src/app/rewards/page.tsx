@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { MysteryBox, Raffle } from "@/lib/rewards/types";
 
 export default function RewardsHubPage() {
   const [points, setPoints] = useState<number | null>(null);
   const [streak, setStreak] = useState<number>(0);
   const [multiplier, setMultiplier] = useState<number>(1);
   const [canSpin, setCanSpin] = useState(false);
-  const [raffleCount, setRaffleCount] = useState(0);
-  const [boxCount, setBoxCount] = useState(0);
+  const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [boxes, setBoxes] = useState<MysteryBox[]>([]);
   const [packCount, setPackCount] = useState(0);
 
   useEffect(() => {
@@ -20,13 +21,13 @@ export default function RewardsHubPage() {
       fetch("/api/rewards/raffles").then(r => r.json()).catch(() => ({ raffles: [] })),
       fetch("/api/rewards/mystery-boxes").then(r => r.json()).catch(() => ({ boxes: [] })),
       fetch("/api/rewards/packs").then(r => r.json()).catch(() => ({ packs: [] })),
-    ]).then(([member, spin, raffles, boxes, packs]) => {
+    ]).then(([member, spin, raffleData, boxData, packs]) => {
       if (member?.profile?.points_balance != null) setPoints(member.profile.points_balance);
       if (spin?.streak) setStreak(spin.streak);
       if (spin?.canFreeSpin) setCanSpin(true);
       setMultiplier(1 + Math.max(0, (spin?.streak || 1) - 1) * 0.02);
-      setRaffleCount(raffles?.raffles?.length || 0);
-      setBoxCount(boxes?.boxes?.length || 0);
+      setRaffles(raffleData?.raffles ?? []);
+      setBoxes(boxData?.boxes ?? []);
       setPackCount(packs?.packs?.length || 0);
     });
   }, []);
@@ -93,26 +94,101 @@ export default function RewardsHubPage() {
             </div>
           </Link>
 
-          {/* Raffles */}
-          <Link href="/rewards" className="group bg-gradient-to-b from-purple-500/10 to-neutral-900 border border-purple-500/20 rounded-xl p-5 hover:border-purple-500/40 transition">
+          {/* Raffles — anchors down to the inline list below */}
+          <Link href="#raffles" className="group bg-gradient-to-b from-purple-500/10 to-neutral-900 border border-purple-500/20 rounded-xl p-5 hover:border-purple-500/40 transition">
             <div className="text-3xl mb-3">🎰</div>
             <h2 className="text-lg font-bold text-white group-hover:text-purple-400 transition">Raffles</h2>
             <p className="text-sm text-neutral-400 mt-1">Enter for a chance to win high-value cards. More entries = better odds.</p>
             <div className="mt-3">
-              <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">{raffleCount} active</span>
+              <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">{raffles.length} active</span>
             </div>
           </Link>
 
-          {/* Mystery Boxes */}
-          <Link href="/rewards" className="group bg-gradient-to-b from-pink-500/10 to-neutral-900 border border-pink-500/20 rounded-xl p-5 hover:border-pink-500/40 transition">
+          {/* Mystery Boxes — anchors down to the inline list below */}
+          <Link href="#mystery-boxes" className="group bg-gradient-to-b from-pink-500/10 to-neutral-900 border border-pink-500/20 rounded-xl p-5 hover:border-pink-500/40 transition">
             <div className="text-3xl mb-3">📦</div>
             <h2 className="text-lg font-bold text-white group-hover:text-pink-400 transition">Mystery Boxes</h2>
             <p className="text-sm text-neutral-400 mt-1">Every box is a winner. Berries, credit, or real cards.</p>
             <div className="mt-3">
-              <span className="text-xs bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full">{boxCount} available</span>
+              <span className="text-xs bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full">{boxes.length} available</span>
             </div>
           </Link>
         </div>
+
+        {/* Active Raffles — inline rows so the headline card's promise is
+            kept on this page; each row opens the raffle's own page. */}
+        <section id="raffles" className="scroll-mt-24 mb-12">
+          <h2 className="text-lg font-bold text-white mb-4">Active Raffles</h2>
+          {raffles.length === 0 ? (
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+              No raffles running right now. New draws appear here when they open.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {raffles.map((raffle) => (
+                <Link
+                  key={raffle.id}
+                  href={`/rewards/raffles/${raffle.id}`}
+                  className="group flex gap-4 bg-neutral-900 border border-purple-500/20 rounded-xl p-4 hover:border-purple-500/40 transition"
+                >
+                  <div className="w-16 h-16 rounded-lg bg-neutral-800 overflow-hidden shrink-0">
+                    {(raffle.image_url || raffle.prize_image_url) && (
+                      <img
+                        src={raffle.image_url ?? raffle.prize_image_url ?? undefined}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-white group-hover:text-purple-400 transition truncate">{raffle.title}</p>
+                    <p className="text-xs text-neutral-400 truncate">{raffle.prize_description}</p>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      <span className="text-purple-400">{raffle.entry_cost_points.toLocaleString()} Berries</span> / entry
+                      {" · "}draws {new Date(raffle.draw_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Mystery Boxes — same promise-keeping list for the second card. */}
+        <section id="mystery-boxes" className="scroll-mt-24 mb-12">
+          <h2 className="text-lg font-bold text-white mb-4">Mystery Boxes</h2>
+          {boxes.length === 0 ? (
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+              No mystery boxes available right now. New boxes appear here when they open.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {boxes.map((box) => (
+                <Link
+                  key={box.id}
+                  href={`/rewards/mystery-boxes/${box.id}`}
+                  className="group flex gap-4 bg-neutral-900 border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40 transition"
+                >
+                  <div className="w-16 h-16 rounded-lg bg-neutral-800 overflow-hidden shrink-0">
+                    {box.image_url && (
+                      <img src={box.image_url} alt="" className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-white group-hover:text-pink-400 transition truncate">{box.title}</p>
+                    {box.description && (
+                      <p className="text-xs text-neutral-400 truncate">{box.description}</p>
+                    )}
+                    <p className="text-xs text-neutral-500 mt-1">
+                      <span className="text-pink-400">{box.cost_points.toLocaleString()} Berries</span> to open
+                      {" · "}{box.total_opens.toLocaleString()} opened so far
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* How to Earn */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-8">
@@ -136,7 +212,7 @@ export default function RewardsHubPage() {
             </div>
             <div className="flex items-start gap-3">
               <span className="text-amber-400 shrink-0">📈</span>
-              <p className="text-neutral-300"><strong className="text-white">Tier upgrades</strong> — Silver 1.5x, Gold 2x, Platinum 3x, OG 7x Berries</p>
+              <p className="text-neutral-300"><strong className="text-white">Tier upgrades</strong> — Silver 1.5x, Gold 2x, Platinum 3x Berries</p>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-amber-400 shrink-0">🎡</span>

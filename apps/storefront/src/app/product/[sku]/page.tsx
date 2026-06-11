@@ -33,6 +33,8 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 import SellForCreditButton from "@/components/product/SellForCreditButton";
 import CardGrid from "@/components/catalog/CardGrid";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import { parseSkuShape } from "@/lib/search/resolver";
+import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 
 function rarityBadgeClasses(rarity: string | null): string | null {
   if (!rarity) return null;
@@ -64,8 +66,18 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
   const rarityClasses = rarityBadgeClasses(card.rarity);
 
-  // Determine game slug from set_code pattern
-  const gameSlug = "onepiece";
+  // Derive the breadcrumb's game slug from the SKU's game segment
+  // (canonical SKUs are <game>-<set>-<number>-<lang>), cross-referenced
+  // against the curated price-guide corpus — a real game_code lookup,
+  // not prefix matching. Pre-canonical SKUs fall back to One Piece, the
+  // catalog's founding game. (The old hardcoded "onepiece" 404'd: the
+  // catalog's real slug is "one-piece".)
+  const skuGameCode = parseSkuShape(card.sku)?.game ?? null;
+  const gameConfig = skuGameCode
+    ? PRICE_GUIDE_GAMES.find((g) => g.game_code === skuGameCode) ?? null
+    : null;
+  const gameSlug = gameConfig?.slug ?? "one-piece";
+  const gameLabel = gameConfig?.short_name ?? "One Piece";
   const cardName = card.name_en || card.name || card.card_number;
   const cardPrice = retailPrice(card.price_gbp, card.channel_price);
 
@@ -98,7 +110,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
       <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-8">
         <Link href="/" className="hover:text-white transition">Home</Link>
         <span>/</span>
-        <Link href={`/catalog?game=${gameSlug}`} className="hover:text-white transition">One Piece</Link>
+        <Link href={`/catalog?game=${gameSlug}`} className="hover:text-white transition">{gameLabel}</Link>
         {card.set_name && (
           <>
             <span>/</span>

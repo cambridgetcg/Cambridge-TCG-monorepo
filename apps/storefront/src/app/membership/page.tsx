@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WhyLink } from "@/lib/ui";
 
 export const metadata = {
   title: "Membership — How It Works — Cambridge TCG",
@@ -34,7 +35,7 @@ export default function MembershipInfoPage() {
             <div className="space-y-3 text-neutral-300 text-sm leading-relaxed pl-13">
               <p>Earn <strong className="text-white">10 Berries per £1 spent</strong> on every cash purchase. Your tier multiplies this — Silver earns 15 Berries/£, Gold earns 20, Platinum earns 30.</p>
               <p>Berries are earned <strong className="text-white">only on the cash portion</strong> of your payment. Store credit used at checkout does not earn Berries.</p>
-              <p>Spend your Berries on <strong className="text-amber-400">raffles</strong> (enter for a chance to win high-value cards) and <strong className="text-purple-400">mystery boxes</strong> (guaranteed rewards — bonus Berries, store credit, or real cards).</p>
+              <p>Spend your Berries in the <Link href="/rewards" className="text-amber-400 hover:text-amber-300 underline decoration-dotted underline-offset-2">Rewards Hub</Link> — on <strong className="text-white">virtual booster packs</strong>, <strong className="text-white">premium daily spins</strong>, <strong className="text-amber-400">raffles</strong> (enter for a chance to win high-value cards), and <strong className="text-purple-400">mystery boxes</strong> (guaranteed rewards — bonus Berries, store credit, or real cards).</p>
               <div className="bg-neutral-900 rounded-lg p-4 mt-3">
                 <p className="text-xs text-neutral-500 mb-2">Example: Buy a £100 card with cash as a Gold member</p>
                 <p className="text-white font-medium">£100 × 10 Berries × 2.0x = <span className="text-amber-400">2,000 Berries</span></p>
@@ -237,6 +238,19 @@ export default function MembershipInfoPage() {
               View My Membership
             </Link>
           </div>
+          {/* Quiet onward links — where Berries go, and how tiers are decided. */}
+          <p className="text-sm text-neutral-500 mt-8">
+            Berries are spent in the{" "}
+            <Link href="/rewards" className="text-amber-400 hover:text-amber-300 underline decoration-dotted underline-offset-2">
+              Rewards Hub
+            </Link>
+            .
+            <WhyLink
+              href="/methodology/membership-tier"
+              tooltip="How membership tiers are calculated"
+              label="how tiers are decided"
+            />
+          </p>
         </div>
       </section>
     </main>

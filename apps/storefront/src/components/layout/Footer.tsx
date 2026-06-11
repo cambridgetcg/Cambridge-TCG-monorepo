@@ -91,6 +91,15 @@ export default async function Footer() {
 
       <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-neutral-800 text-xs text-neutral-600 flex flex-wrap items-center justify-between gap-3">
         <span>© {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.</span>
+        {/* Legal row — contact-surface spec W6: the trust pages get a
+            footer door on every page. */}
+        <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-neutral-500">
+          <Link href="/privacy" className="hover:text-white transition">Privacy</Link>
+          <Link href="/terms" className="hover:text-white transition">Terms</Link>
+          <Link href="/trade-in/terms" className="hover:text-white transition">Trade-in terms</Link>
+          <Link href="/contact" className="hover:text-white transition">Contact</Link>
+          <Link href="/start" className="hover:text-white transition">Start here</Link>
+        </nav>
         <FooterToggles mathLang={mathLang} textMode={textMode} />
       </div>
     </footer>

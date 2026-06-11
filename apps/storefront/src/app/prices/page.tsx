@@ -18,11 +18,11 @@ import {
 export const metadata: Metadata = {
   title: "TCG Card Price Guide UK — Cambridge TCG",
   description:
-    "Free, daily-updated price guide covering One Piece, Pokémon, Dragon Ball, Magic the Gathering, Yu-Gi-Oh! and more. Cross-source pricing from CardRush (JP), TCGplayer (US), and our own UK marketplace. Substrate-honest about which games each upstream covers.",
+    "Free, daily-updated price guide covering One Piece, Pokémon, Dragon Ball, Magic the Gathering, Yu-Gi-Oh! and more. Cross-source pricing from CardRush (JP), TCGplayer (US), and our own UK marketplace — with clear labels showing which games each source covers.",
   openGraph: {
     title: "TCG Card Price Guide UK — Cambridge TCG",
     description:
-      "Free, daily-updated price guide across many TCG titles. UK marketplace, JP retail, US market — substrate-honestly attributed.",
+      "Free, daily-updated price guide across many TCG titles. UK marketplace, JP retail, US market — every price labelled with its source.",
   },
 };
 
@@ -119,10 +119,9 @@ export default async function PricesLandingPage() {
           Cambridge TCG publishes free, daily-updated price guides across the
           TCG landscape. Each card carries a UK retail buy price plus, where
           the upstream license permits, a trade-in store credit value.
-          Cross-source signals — CardRush (Japan), TCGplayer (US, kingdom-080),
-          Cardmarket (Europe, planned) — flow through the same envelope with
-          per-source license tier declared honestly downstream in{" "}
-          <code className="text-xs">_meta.source_license</code>.{" "}
+          Cross-source signals — CardRush (Japan), TCGplayer (US),
+          Cardmarket (Europe, planned) — are shown side by side, each
+          clearly labelled with its source and license.{" "}
           {totalCards > 0 &&
             `${totalCards.toLocaleString()} cards across ${liveTiles.length} game${liveTiles.length === 1 ? "" : "s"} today.`}
         </p>
@@ -144,9 +143,14 @@ export default async function PricesLandingPage() {
 
           {tiles.length === 0 ? (
             <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-400 text-sm">
-              No games currently curated. Add a row to{" "}
-              <code className="text-xs">@/lib/prices/games-config.ts</code> to
-              surface a game here.
+              More games coming soon — see the{" "}
+              <Link
+                href="/prices/coverage"
+                className="text-blue-400 hover:underline"
+              >
+                coverage map
+              </Link>{" "}
+              for what each source covers today.
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

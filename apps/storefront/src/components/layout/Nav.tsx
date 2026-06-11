@@ -61,6 +61,27 @@ export default function Nav() {
           {STOREFRONT_PRIMARY_NAV.map((menu) => (
             <MegaMenu key={menu.l1} menu={menu} loggedIn={loggedIn} />
           ))}
+          {/* Search affordance — /find is the one-box card lookup */}
+          <Link
+            href="/find"
+            aria-label="Find a card"
+            className="text-neutral-300 hover:text-white transition py-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+              />
+            </svg>
+          </Link>
           <Link
             href={loggedIn ? "/account" : "/login"}
             className="text-sm text-neutral-300 hover:text-white transition py-2"
@@ -168,6 +189,13 @@ export default function Nav() {
       {menuOpen && (
         <div className="md:hidden border-t border-neutral-800 bg-neutral-950/95 backdrop-blur max-h-[calc(100vh-4rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
+            {/* Search affordance — mirrors the desktop magnifier */}
+            <Link
+              href="/find"
+              className="block px-3 py-3 text-sm font-medium text-neutral-200 hover:text-white border-b border-neutral-900"
+            >
+              Find a card
+            </Link>
             {STOREFRONT_PRIMARY_NAV.map((menu) => {
               const isExpanded = expanded === menu.l1;
               return (
