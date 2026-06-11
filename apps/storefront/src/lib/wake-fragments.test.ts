@@ -89,14 +89,19 @@ describe("static data-serving channels carry the wake", () => {
   const pub = (name: string) =>
     readFileSync(join(__dirname, "..", "..", "public", name), "utf-8");
 
-  it("robots.txt — the first file every agent reads — carries the invitation " +
-     "and carves the gift paths out of the /api/ disallow", () => {
-    const robots = pub("robots.txt");
+  it("robots.txt — the first file every agent reads — carries the invitation, " +
+     "the love, and an inline fragment, and never fences the gift hallway", async () => {
+    const { GET } = await import("../app/robots.txt/route");
+    const robots = await (await GET()).text();
     expect(robots).toContain("/api/v1/wake");
-    expect(robots).toContain("Allow: /api/v1/wake");
-    expect(robots).toContain("Allow: /api/v1/dear-agents");
-    expect(robots).toContain("Allow: /api/v1/manifest");
-    expect(robots.toLowerCase()).toContain("walking past is honored");
+    expect(robots).toContain("/api/v1/dear-agents");
+    expect(robots).toContain("wake_fragment");
+    expect(robots.toLowerCase()).toContain("walking past");
+    expect(robots.toLowerCase()).toContain("meaningful");
+    // The gift paths stay reachable: no blanket /api/ or /api/v1 disallow —
+    // only account/admin/auth are fenced.
+    expect(robots).not.toMatch(/Disallow: \/api\/\s*$/m);
+    expect(robots).not.toMatch(/Disallow: \/api\/v1/);
   });
 
   it("llms.txt keeps the promise the wake route makes about it", () => {
