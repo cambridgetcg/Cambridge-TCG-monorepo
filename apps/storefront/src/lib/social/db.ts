@@ -136,7 +136,7 @@ export async function removeFromWishlist(userId: string, itemId: string): Promis
 export async function toggleFollow(followerId: string, followingId: string): Promise<boolean> {
   if (followerId === followingId) return false;
 
-  return transaction(async (q) => {
+  const created = await transaction(async (q) => {
     const existing = await q(
       `SELECT 1 FROM follows WHERE follower_id=$1 AND following_id=$2`,
       [followerId, followingId]
@@ -154,6 +154,17 @@ export async function toggleFollow(followerId: string, followingId: string): Pro
     await q(`UPDATE users SET following_count=following_count+1 WHERE id=$1`, [followerId]);
     return true;
   });
+
+  // Community Pillar: the FOLLOWED user earns it at 50 followers. Seeded but
+  // never awarded before this — an unearnable badge, now wired. Idempotent.
+  if (created) {
+    const fc = await query(`SELECT follower_count FROM users WHERE id=$1`, [followingId]);
+    if ((fc.rows[0]?.follower_count ?? 0) >= 50) {
+      awardAchievement(followingId, "community_pillar").catch(() => {});
+    }
+  }
+
+  return created;
 }
 
 export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
@@ -249,6 +260,12 @@ export async function getUserActivity(userId: string, limit: number = 20): Promi
 // ACHIEVEMENTS
 // ══════════════════════════════════════════════════════════════
 
+// Badges seeded but with no awarding code path yet are hidden so the UI never
+// dangles a goal the system can't grant (substrate honesty; TRU — a reward must
+// be earnable). Delete a code from this set the moment its awarder ships.
+// set_complete needs real full-set-completion detection — no signal exists yet.
+const NOT_YET_EARNABLE = new Set<string>(["set_complete"]);
+
 export async function getUserAchievements(userId: string): Promise<Achievement[]> {
   const result = await query(
     `SELECT a.*, ua.earned_at FROM achievements a
@@ -256,7 +273,10 @@ export async function getUserAchievements(userId: string): Promise<Achievement[]
      ORDER BY a.sort_order ASC`,
     [userId]
   );
-  return result.rows as Achievement[];
+  // Keep an unearnable badge only if this user somehow already earned it.
+  return (result.rows as Achievement[]).filter(
+    (a) => !NOT_YET_EARNABLE.has(a.code) || a.earned_at != null
+  );
 }
 
 export async function awardAchievement(userId: string, code: string): Promise<boolean> {
