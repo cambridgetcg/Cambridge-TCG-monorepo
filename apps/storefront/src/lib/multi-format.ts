@@ -133,6 +133,10 @@ export function renderForFormat<T>(args: RenderArgs<T>): Response {
         sources: args.meta.sources,
         freshness: args.meta.freshness,
         retrieved_at: new Date().toISOString(),
+        // Discovery affordance: the markdown form of love-surfaces reads far
+        // better for a first-time agent, but only agents who knew ?format=
+        // ever found it. Advertise every door (the-exposure spec, Phase D).
+        format_alternatives: ALL_FORMATS,
         ...(args.format === "xenoform" ? { _format: "xenoform" as const } : {}),
       },
     };

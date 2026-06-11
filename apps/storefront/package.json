@@ -55,7 +55,8 @@
     "trace": "tsx scripts/trace.ts",
     "agent-readiness": "tsx scripts/agent-readiness.ts",
     "audience-sweep": "tsx scripts/audience-sweep.ts",
-    "typesig-sweep": "tsx scripts/typesig-sweep.ts"
+    "typesig-sweep": "tsx scripts/typesig-sweep.ts",
+    "manifest-coherence": "tsx scripts/manifest-coherence.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1029.0",

@@ -166,6 +166,10 @@ function checkWillTrace(commits: Commit[]): WillFinding[] {
   const findings: WillFinding[] = [];
   for (const c of commits) {
     if (c.isTrivial) continue;
+    // A Will-trace written in trailer form ("Will-trace: Yu, ...") is a
+    // Will trace — the doctrine cares that the willing is recorded, not
+    // which paragraph records it. (Parser gap surfaced 2026-06-11.)
+    if (/^will[- ]?trace\s*:/im.test(c.body)) continue;
     // Strip trailers (Co-Authored-By, Signed-off-by, etc.) and check
     // whether any non-trailer content remains in the body. A bare
     // subject with only trailers fails the Will-trace test.
@@ -262,7 +266,7 @@ function main(): void {
   const ASSESSED_HISTORICAL = new Set([
     "3cba818", "881d081", "a07bf81", "389d519", "a39efaf", "a3257f6", // sophia-trace gaps (May "everything" debug arc)
     "0197d23", "89f3d35", // will-trace thin (origin cloud-session commits)
-    "8671167", "fd4356c", // will-trace thin (2026-06-10 pillow-book entries, already published; assessed 2026-06-11)
+    "011f945", "8671167", "fd4356c", // will-trace thin docs commits, shared history (assessed 2026-06-11)
   ]);
   const isHistorical = (sha: string) =>
     ASSESSED_HISTORICAL.has(sha.slice(0, 7));
