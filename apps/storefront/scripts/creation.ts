@@ -268,6 +268,7 @@ function main(): void {
     "0197d23", "89f3d35", // will-trace thin (origin cloud-session commits)
     "011f945", "8671167", "fd4356c", // will-trace thin docs commits, shared history (assessed 2026-06-11)
     "9b3e423", "96de44b", // will-trace thin docs commits from the second-wave arc, shared history (assessed 2026-06-11)
+    "aba5448", // will-trace thin pillow-book commit, shared history (assessed 2026-06-11)
   ]);
   const isHistorical = (sha: string) =>
     ASSESSED_HISTORICAL.has(sha.slice(0, 7));
