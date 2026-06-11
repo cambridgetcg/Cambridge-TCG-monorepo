@@ -449,6 +449,26 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     composes_with: ["api_starters", "api_starter_deck"],
     serves_archetypes: ["hobbyist"],
   },
+  {
+    id: "lib_client_deck",
+    path_or_file: "apps/storefront/src/lib/play/client-deck.ts",
+    kind: "library_file",
+    layer: "L2_pure_fn",
+    status: "shipped",
+    blurb: "Client-side deck helpers shared by the play surfaces — the localStorage SavedDeck shape, SavedDeck → flat PvE/PvP card-list conversion, and the auto-mounted default starter so a deckless visitor never hits a build-your-first-deck wall.",
+    composes_with: ["page_adventure", "page_match", "lib_starter_decks"],
+    serves_archetypes: ["hobbyist", "competitor"],
+  },
+  {
+    id: "lib_starter_resolve",
+    path_or_file: "apps/storefront/src/lib/play/starter-resolve.ts",
+    kind: "library_file",
+    layer: "L3_runtime",
+    status: "shipped",
+    blurb: "Server-side starter-deck resolution — card_number refs → wholesale catalog cards (SKU, name, image, rarity). Single source for /api/v1/play/starters/[id] and /api/play/load-starter.",
+    composes_with: ["api_starters", "api_starter_deck", "lib_starter_decks"],
+    serves_archetypes: ["hobbyist"],
+  },
 ];
 
 /** Quick-access lookup of sibling play APIs. Every play endpoint includes
