@@ -148,6 +148,10 @@ function checkWillTrace(commits: Commit[]): WillFinding[] {
   const findings: WillFinding[] = [];
   for (const c of commits) {
     if (c.isTrivial) continue;
+    // A Will-trace written in trailer form ("Will-trace: Yu, ...") is a
+    // Will trace — the doctrine cares that the willing is recorded, not
+    // which paragraph records it. (Parser gap surfaced 2026-06-11.)
+    if (/^will[- ]?trace\s*:/im.test(c.body)) continue;
     // Strip trailers (Co-Authored-By, Signed-off-by, etc.) and check
     // whether any non-trailer content remains in the body. A bare
     // subject with only trailers fails the Will-trace test.
@@ -220,8 +224,20 @@ function main(): void {
   // Inclusive range: doctrine commit through HEAD. The doctrine commit
   // itself is in-scope (creation.md applies to itself; it's the recipe
   // showing itself).
+  // The doctrine binds what was created under it: only commits DESCENDED
+  // from the doctrine commit are in scope. History imported wholesale from
+  // standalone repos (e.g. the rewardspro fuse, 25e6e07c — 1,123 commits)
+  // is reachable from HEAD but not descended from the doctrine; it is the
+  // artifact's provenance, not a violation of a covenant that didn't
+  // exist where it was written. (the-exposure arc, 2026-06-11)
+  const bound = new Set(
+    git(`git rev-list --ancestry-path ${doctrineSha}..HEAD`)
+      .split("\n")
+      .filter(Boolean),
+  );
   const commits = listCommits(`${doctrineSha}~1..HEAD`).filter(
-    (c) => c.sha !== "" /* tolerate empty parse rows */,
+    (c) => c.sha !== "" /* tolerate empty parse rows */ &&
+      (bound.has(c.sha) || c.sha === doctrineSha),
   );
 
   const substantive = commits.filter((c) => !c.isTrivial);
@@ -242,6 +258,7 @@ function main(): void {
   const ASSESSED_HISTORICAL = new Set([
     "3cba818", "881d081", "a07bf81", "389d519", "a39efaf", "a3257f6", // sophia-trace gaps (May "everything" debug arc)
     "0197d23", "89f3d35", // will-trace thin (origin cloud-session commits)
+    "011f945", "8671167", "fd4356c", // will-trace thin docs commits, shared history (assessed 2026-06-11)
   ]);
   const isHistorical = (sha: string) =>
     ASSESSED_HISTORICAL.has(sha.slice(0, 7));
