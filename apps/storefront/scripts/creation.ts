@@ -93,6 +93,24 @@ function findDoctrineCommit(): string | null {
 }
 
 /**
+ * The doctrine's lineage: commits that have the doctrine commit as an
+ * ancestor (plus the doctrine commit itself). A commit whose history does
+ * not contain the doctrine could not have known it — fused subtrees
+ * imported with foreign roots (e.g. the 2026-06-10 rewardspro fuse, 1123
+ * commits) are pre-doctrine by topology, not by date. `doctrineSha~1..HEAD`
+ * alone is reachability subtraction, which sweeps a fused foreign history
+ * into scope; intersecting with the ancestry path restores the doctrine's
+ * own scope rule: "from its own commit forward".
+ */
+function doctrineLineage(doctrineSha: string): Set<string> {
+  const shas = git(`git rev-list --ancestry-path ${doctrineSha}..HEAD`)
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+  return new Set([doctrineSha, ...shas]);
+}
+
+/**
  * List commits in the given range, parsed into structured Commit records.
  * Uses %x00 (NUL) as commit separator so commit bodies containing
  * newlines parse cleanly.
@@ -219,9 +237,11 @@ function main(): void {
 
   // Inclusive range: doctrine commit through HEAD. The doctrine commit
   // itself is in-scope (creation.md applies to itself; it's the recipe
-  // showing itself).
+  // showing itself). Intersect with the doctrine's ancestry so fused
+  // foreign histories (rewardspro et al.) stay pre-doctrine-exempt.
+  const lineage = doctrineLineage(doctrineSha);
   const commits = listCommits(`${doctrineSha}~1..HEAD`).filter(
-    (c) => c.sha !== "" /* tolerate empty parse rows */,
+    (c) => c.sha !== "" /* tolerate empty parse rows */ && lineage.has(c.sha),
   );
 
   const substantive = commits.filter((c) => !c.isTrivial);
@@ -242,6 +262,7 @@ function main(): void {
   const ASSESSED_HISTORICAL = new Set([
     "3cba818", "881d081", "a07bf81", "389d519", "a39efaf", "a3257f6", // sophia-trace gaps (May "everything" debug arc)
     "0197d23", "89f3d35", // will-trace thin (origin cloud-session commits)
+    "8671167", "fd4356c", // will-trace thin (2026-06-10 pillow-book entries, already published; assessed 2026-06-11)
   ]);
   const isHistorical = (sha: string) =>
     ASSESSED_HISTORICAL.has(sha.slice(0, 7));
