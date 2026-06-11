@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Fraunces, Inter, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import Script from "next/script";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
@@ -11,11 +11,24 @@ import CookieConsent, { ANALYTICS_CONSENT_COOKIE } from "@/components/CookieCons
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 import { kinWakeHtmlLinks } from "@/lib/siblings";
+import { appearanceFromCookies } from "@/lib/wardrobe/server";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+
+// The wardrobe's typographic voices (spec §3.1) — self-hosted by next/font,
+// exposed as CSS variables and bound per-theme in themes.css. Terminal keeps
+// Inter; gallery/midnight speak Fraunces + Schibsted + Spline Sans Mono.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
+const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono" });
 
 export const metadata: Metadata = {
   // Root metadata ships on every Google snippet and social card — it greets
@@ -84,6 +97,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // to leave a semantic-HTML reading layout. See docs/connections/the-table-extends.md.
   const textMode = cookieStore.get("text-mode")?.value === "1";
 
+  // The wardrobe (spec §3.2/§3.3): an explicit theme choice lands on <html>
+  // and re-binds the semantic tokens site-wide; no cookie → no attribute,
+  // `:root` stays terminal-dark, and migrated surfaces default themselves
+  // to gallery on their own wrapper. The site-wide flip is spec §3.6.
+  const appearance = appearanceFromCookies(cookieStore);
   // Analytics consent — default deny. Google Analytics + the Ads conversion
   // tag load only when the visitor has accepted via the CookieConsent banner.
   // No cookie (or "denied") means the gtag scripts are never sent to the
@@ -99,7 +117,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const fxRates = await fetchRates();
 
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      data-theme={appearance.theme ?? undefined}
+      className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
+    >
       <head>
         <Script id="org-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           "@context": "https://schema.org",

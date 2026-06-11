@@ -272,6 +272,7 @@ export async function userCanAccessDispute(disputeId: string, userId: string): P
 const DISPUTE_TIMESTAMP_COL: Record<string, string> = {
   under_review:      "under_review_at",
   awaiting_evidence: "awaiting_evidence_at",
+  escalated:         "escalated_at",
 };
 
 export async function setDisputeStatus(
@@ -380,6 +381,58 @@ export async function resolveDispute(disputeId: string, data: {
   }
 
   return dispute;
+}
+
+// Default SLA window for an untriaged dispute, used when the trade carries no
+// dispute_window_hours. After this many hours in 'open', the dispute-SLA sweep
+// (lib/trust/dispute-sla-sweep.ts) auto-escalates it to the admin priority queue.
+export const DEFAULT_DISPUTE_SLA_HOURS = 72;
+
+// Auto-escalate disputes that have sat in 'open' past their response window
+// with no admin triage. Flips 'open' → 'escalated' and stamps escalated_at.
+//
+// SAFETY: a pure status + priority move. NO money is touched and NO escrow
+// state changes — only an admin's resolveDispute() ever moves funds. The SLA
+// clock is the trade's own dispute_window_hours (seller-tunable), falling back
+// to DEFAULT_DISPUTE_SLA_HOURS. Idempotent: only status='open' rows are
+// eligible, so each dispute escalates at most once. Rate-capped via `limit`.
+export async function escalateStaleDisputes(limit = 100): Promise<{
+  escalated: Array<{
+    id: string;
+    trade_id: string;
+    raised_by: string;
+    reason: string;
+    hours_open: number;
+  }>;
+}> {
+  const result = await query(
+    `UPDATE trade_disputes
+        SET status = 'escalated',
+            escalated_at = COALESCE(escalated_at, NOW()),
+            updated_at = NOW()
+      WHERE id IN (
+        SELECT d.id
+          FROM trade_disputes d
+          JOIN market_trades t ON t.id = d.trade_id
+         WHERE d.status = 'open'
+           AND d.created_at
+               + make_interval(hours => COALESCE(t.dispute_window_hours, $2)) < NOW()
+         ORDER BY d.created_at ASC
+         LIMIT $1
+      )
+      RETURNING id, trade_id, raised_by, reason,
+        ROUND(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600)::int AS hours_open`,
+    [limit, DEFAULT_DISPUTE_SLA_HOURS]
+  );
+  return {
+    escalated: result.rows.map((r) => ({
+      id: r.id,
+      trade_id: r.trade_id,
+      raised_by: r.raised_by,
+      reason: r.reason,
+      hours_open: Number(r.hours_open),
+    })),
+  };
 }
 
 export async function addDisputeMessage(

@@ -16,6 +16,7 @@ import { Audience } from "@/lib/ui";
 const STATUS_COLORS: Record<DisputeStatus, string> = {
   open: "bg-amber-500/20 text-amber-400",
   under_review: "bg-blue-500/20 text-blue-400",
+  escalated: "bg-red-500/20 text-red-400",
   awaiting_evidence: "bg-amber-500/20 text-amber-400",
   resolved_buyer: "bg-emerald-500/20 text-emerald-400",
   resolved_seller: "bg-emerald-500/20 text-emerald-400",
@@ -26,6 +27,7 @@ const STATUS_COLORS: Record<DisputeStatus, string> = {
 const STATUS_LABELS: Record<DisputeStatus, string> = {
   open: "Open",
   under_review: "Under Review",
+  escalated: "Escalated (SLA)",
   awaiting_evidence: "Awaiting Evidence",
   resolved_buyer: "Resolved (Buyer)",
   resolved_seller: "Resolved (Seller)",

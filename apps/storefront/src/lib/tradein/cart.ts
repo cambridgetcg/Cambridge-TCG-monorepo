@@ -1,5 +1,6 @@
 export interface SellCartItem {
   sku: string;
+  game: string;
   card_number: string;
   name: string;
   set_code: string | null;
@@ -15,7 +16,9 @@ export function loadSellCart(): SellCartItem[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(CART_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const items: SellCartItem[] = raw ? JSON.parse(raw) : [];
+    // Carts saved before multi-game support lack a game field
+    return items.map((i) => ({ ...i, game: i.game || "one-piece" }));
   } catch {
     return [];
   }

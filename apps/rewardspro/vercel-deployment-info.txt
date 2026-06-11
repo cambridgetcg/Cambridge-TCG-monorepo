@@ -1,0 +1,32 @@
+Vercel CLI 48.0.3
+Fetching deployment "rewardspro-production-nnwf.vercel.app" in cambridgetcgs-projects
+> Fetched deployment "rewardspro-production-orlqt7kv5-cambridgetcgs-projects.vercel.app" in cambridgetcgs-projects [399ms]
+
+  General
+
+    id		dpl_8koJBZdYEo7VNDwXRQWv4eJo5jvk
+    name	rewardspro-production
+    target	production
+    status	● Ready
+    url		https://rewardspro-production-orlqt7kv5-cambridgetcgs-projects.vercel.app
+    created	Fri Sep 19 2025 17:28:38 GMT+0100 (British Summer Time) [2m ago]
+
+
+  Aliases
+
+    ╶ https://rewardspro-production.vercel.app
+    ╶ https://rewardspro-production-cambridgetcgs-projects.vercel.app
+    ╶ https://rewardspro-production-cambridgetcg-cambridgetcgs-projects.vercel.app
+    
+
+  Builds
+
+    ┌ .        [0ms]
+    ├── λ webhooks/subscription-billing-failure (3.08MB) [arn1]
+    ├── λ api/billing/usage (3.08MB) [arn1]
+    ├── λ api/customer-details/:id (3.08MB) [arn1]
+    ├── λ api/health (3.08MB) [arn1]
+    ├── λ api/membership (3.08MB) [arn1]
+    └── 36 output items hidden
+    
+

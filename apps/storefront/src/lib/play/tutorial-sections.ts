@@ -291,14 +291,14 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     id: "for_async_players",
     title: "Tutorial section for async / slow-clock players",
     natural_language_body:
-      "OPTCG was designed for synchronous play in person. Cambridge TCG's async mode lets a match span hours, days, or weeks. Each turn fires when both players have acted; if a player exceeds their declared response_window_hours (see /methodology/response-windows), the move auto-passes. Asynchronous play removes the cognitive-cadence assumption baked into face-to-face TCG; if you are a slow-clock thinker, a parent with intermittent attention, or in a different time zone from your opponent, this mode is for you.",
+      "Matches are live for now — both players act in the same sitting, and PvE matches run at whatever pace you set. An async mode (turn deadlines, auto-pass, matches spanning days) is planned but not built yet. If you are a slow-clock thinker, a parent with intermittent attention, or in a different time zone from your opponent, that mode is for you when it lands; until then, PvE adventure is the self-paced path.",
     rule_structure: {
-      preconditions: ["both_players_opted_in_to_async"],
-      transitions: ["per_turn_deadline:user.response_window_hours", "auto_pass_on_expiry"],
-      outcomes: ["game_state_evolves_at_each_player's_cadence"],
+      preconditions: ["match_in_progress"],
+      transitions: ["both_players_act_live", "pve_runs_at_your_pace"],
+      outcomes: ["async_mode_planned_not_built"],
     },
     examples: [],
-    keywords_introduced: ["async_mode", "response_window_hours", "auto_pass"],
+    keywords_introduced: ["async_mode", "pve"],
     recommended_for_player_kinds: ["async-player", "human-returning"],
     estimated_read_minutes: 2,
   },
@@ -306,10 +306,10 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     id: "for_agents",
     title: "Tutorial section for autonomous agents",
     natural_language_body:
-      "Agents register at /account/agents, get a bearer token, and play matches through /api/mcp. The MCP gate accepts JSON-RPC: list_tools to discover the action surface, then mcp.play_match.* tools to act. Your operator (the human upstream-responsible) is recorded on every move via actor_kind='agent' + actor_agent_id. The Glicko-2 ladder at /leaderboards/agents tracks ratings; anti-collusion protects against same-operator pairings. See /methodology/agents for the full spec.",
+      "Agents register at /account/agents, get a bearer token, and play matches through /api/mcp. The MCP gate accepts JSON-RPC: call mcp.list_tools (or tools/list) to discover the surface, then the play tools — play.queue_match, play.observe, play.legal_actions, play.take_action, play.match_history, play.cancel_queue, plus agent.self. Your operator (the human upstream-responsible) is recorded on every move via actor_kind='agent' + actor_agent_id. The Glicko-2 ladder at /leaderboards/agents tracks ratings; anti-collusion protects against same-operator pairings. See /methodology/agents for the full spec.",
     rule_structure: {
       preconditions: ["agent_registered", "bearer_token_valid", "operator_authority_bounded"],
-      transitions: ["mcp_request:list_tools_or_play_match", "server_validates", "state_advances"],
+      transitions: ["mcp_request:list_tools_then_play_tools", "server_validates", "state_advances"],
       outcomes: ["match_advances", "rating_updates"],
     },
     examples: [],

@@ -17,17 +17,19 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ title, description, action, tone = "neutral" }: EmptyStateProps) {
+  // Semantic tokens (wardrobe spec §3.4): identical rendering under the
+  // terminal defaults, theme-aware inside any [data-theme] subtree.
   const tint =
     tone === "warning"
-      ? "border-amber-500/20 bg-amber-500/5"
-      : "border-neutral-800 bg-neutral-900/50";
+      ? "border-warning/20 bg-warning/5"
+      : "border-border-subtle bg-surface-subtle";
   return (
     <div className={`rounded-xl border ${tint} p-6 text-center`}>
-      <p className={tone === "warning" ? "text-sm font-bold text-amber-400 mb-2" : "text-sm font-semibold text-white mb-1"}>
+      <p className={tone === "warning" ? "text-sm font-bold text-warning mb-2" : "text-sm font-semibold text-ink mb-1"}>
         {title}
       </p>
       {description && (
-        <div className="text-sm text-neutral-400">{description}</div>
+        <div className="text-sm text-ink-muted">{description}</div>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

@@ -82,6 +82,7 @@ export interface ItemRow {
   id: number;
   submission_id: number;
   sku: string;
+  game: string | null;
   card_number: string | null;
   name: string | null;
   set_code: string | null;
@@ -137,6 +138,7 @@ export async function createSubmission(data: {
   userId?: string;
   items: {
     sku: string;
+    game?: string;
     card_number: string;
     name: string;
     set_code: string | null;
@@ -187,11 +189,12 @@ export async function createSubmission(data: {
     for (const item of data.items) {
       await q(
         `INSERT INTO tradein_items
-          (submission_id, sku, card_number, name, set_code, quantity, quoted_cash_price, quoted_credit_price)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          (submission_id, sku, game, card_number, name, set_code, quantity, quoted_cash_price, quoted_credit_price)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [
           submission.id,
           item.sku,
+          item.game || "one-piece",
           item.card_number,
           item.name,
           item.set_code,

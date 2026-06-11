@@ -1,0 +1,43 @@
+{
+  "ratings": {
+    "stars": {
+      "label": "Ratings"
+    },
+    "home": {
+      "recommendationText": "Recommended Product!"
+    }
+  },
+  "widget": {
+    "membership": {
+      "loading": "Loading rewards…",
+      "guestFallback": "Sign in to view rewards",
+      "noscriptAuthed": "Welcome back, {{name}}! Visit your account to view rewards.",
+      "noscriptGuest": "Sign in to view your rewards.",
+      "unavailableTitle": "Rewards",
+      "unavailableSubtitle": "We'll be back in a moment",
+      "unavailableMessage": "We couldn't reach our rewards service. Your points and credit are safe — we just need a moment to reconnect.",
+      "retry": "Try again",
+      "viewAccount": "View account",
+      "collapse": "Collapse widget",
+      "expand": "Expand widget",
+      "memberBenefits": "Earn on every order",
+      "perkStoreCredit": "Cashback on every order",
+      "perkTierStatus": "Unlock higher tiers",
+      "perkProgress": "Track your progress",
+      "storeCreditBalance": "Your credit",
+      "tierLabel": "Tier",
+      "cashbackLabel": "Cashback",
+      "progressLabel": "Progress",
+      "cashbackRate": "{{percent}}% back on every order",
+      "creditWithRate": "{{credit}} credit · {{percent}}% back",
+      "maxTierReached": "Max tier reached",
+      "maxTierTitle": "✨ Top tier",
+      "maxTierMessage": "You're earning the max cashback rate on every order.",
+      "progressTo": "{{amount}} more to {{tierName}}",
+      "progressUnlocks": "Unlocks {{percent}}% back",
+      "amountToGo": "{{amount}} to go",
+      "notFoundTitle": "Setting up your rewards",
+      "notFoundMessage": "We're getting your account ready. This usually takes a few minutes — check back soon, or get in touch with the store if you've been waiting a while."
+    }
+  }
+}

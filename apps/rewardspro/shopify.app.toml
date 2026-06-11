@@ -1,0 +1,65 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+# Active production app configuration
+client_id = "026ce3bf073bed0e44ae8eab09d1ae3a"
+name = "Rewards Pro"
+application_url = "https://rewardspro-production.vercel.app"
+embedded = true
+handle = "RewardsproMembership"
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-01"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/cancelled" ]
+  uri = "/webhooks/orders/cancelled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/paid" ]
+  uri = "/webhooks/orders/paid"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/fulfilled" ]
+  uri = "/webhooks/orders/fulfilled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customers/create" ]
+  uri = "/webhooks/customers/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "products/update" ]
+  uri = "/webhooks/products/update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_customers,write_customers,read_orders,write_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts,write_app_proxy,write_products,read_products,write_purchase_options,read_purchase_options,read_publications,read_themes,write_publications,read_product_listings,read_reports"
+
+[auth]
+redirect_urls = ["https://rewardspro-production.vercel.app/auth/callback", "https://rewardspro-production.vercel.app/auth/shopify/callback", "https://rewardspro-production.vercel.app/api/auth/callback"]
+
+[app_proxy]
+url = "https://rewardspro-production.vercel.app/api/proxy"
+subpath = "rewardspro"
+prefix = "apps"
+
+[pos]
+embedded = false

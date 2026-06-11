@@ -4,6 +4,7 @@
 
 import { query, transaction } from "@/lib/db";
 import { resolveCommission, computeCommissionAmount } from "@cambridge-tcg/pricing";
+import { getTrustTier } from "@/lib/escrow/trust-engine";
 import { logLotTransition } from "./lot-lifecycle-log";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 
@@ -32,7 +33,28 @@ export interface MarketLot {
   // Joined
   seller_username?: string | null;
   seller_name?: string | null;
+  // Seller reputation (global free trade, 2026-06-10): tier + reviews
+  // replace identity verification at the point of trade. Tier name is
+  // derived in TS from trust_score (no tier column in the DB).
+  seller_trust_score?: number | null;
+  seller_tier?: string | null;
+  seller_avg_rating?: number | null;
+  seller_review_count?: number | null;
   items?: LotItem[];
+}
+
+// Normalise the trust_profiles join into the MarketLot reputation fields.
+// pg returns NUMERIC as string and INT as number; the tier name is derived
+// the same way auction/state.ts does it (getTrustTier over TRUST_TIERS).
+function withSellerReputation(row: Record<string, unknown>): MarketLot {
+  const score = row.seller_trust_score != null ? Number(row.seller_trust_score) : null;
+  return {
+    ...row,
+    seller_trust_score: score,
+    seller_tier: score !== null ? getTrustTier(score).name : null,
+    seller_avg_rating: row.seller_avg_rating != null ? parseFloat(String(row.seller_avg_rating)) : null,
+    seller_review_count: row.seller_review_count != null ? Number(row.seller_review_count) : null,
+  } as MarketLot;
 }
 
 export interface LotTrade {
@@ -115,28 +137,36 @@ export async function listLots(filters: {
   params.push(limit, offset);
   const r = await query(
     `SELECT l.*, u.username AS seller_username, u.name AS seller_name,
+            tp.trust_score AS seller_trust_score,
+            tp.avg_rating AS seller_avg_rating,
+            tp.total_reviews AS seller_review_count,
             (SELECT COUNT(*)::int FROM market_lot_items WHERE lot_id = l.id) AS item_count,
             (SELECT SUM(quantity)::int FROM market_lot_items WHERE lot_id = l.id) AS total_quantity
        FROM market_lots l
        LEFT JOIN users u ON u.id = l.seller_user_id
+       LEFT JOIN trust_profiles tp ON tp.user_id = l.seller_user_id
        ${where}
       ORDER BY l.created_at DESC
       LIMIT $${idx++} OFFSET $${idx++}`,
     params
   );
-  return { lots: r.rows as MarketLot[], total };
+  return { lots: r.rows.map(withSellerReputation), total };
 }
 
 export async function getLot(id: string): Promise<MarketLot | null> {
   const r = await query(
-    `SELECT l.*, u.username AS seller_username, u.name AS seller_name
+    `SELECT l.*, u.username AS seller_username, u.name AS seller_name,
+            tp.trust_score AS seller_trust_score,
+            tp.avg_rating AS seller_avg_rating,
+            tp.total_reviews AS seller_review_count
        FROM market_lots l
        LEFT JOIN users u ON u.id = l.seller_user_id
+       LEFT JOIN trust_profiles tp ON tp.user_id = l.seller_user_id
       WHERE l.id = $1`,
     [id]
   );
   if (r.rows.length === 0) return null;
-  const lot = r.rows[0] as MarketLot;
+  const lot = withSellerReputation(r.rows[0]);
   const items = await query(
     `SELECT sku, card_name, quantity FROM market_lot_items WHERE lot_id = $1 ORDER BY card_name ASC`,
     [id]

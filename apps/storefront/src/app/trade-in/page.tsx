@@ -1,4 +1,5 @@
 import { fetchPrices, type PriceItem } from "@/lib/wholesale/client";
+import { TRADEIN_GAMES, isTradeinGame } from "@/lib/tradein/games";
 import BuylistTable from "@/components/tradein/BuylistTable";
 import SellCartBar from "@/components/tradein/SellCartBar";
 import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
@@ -7,17 +8,19 @@ import Link from "next/link";
 export const metadata = {
   title: "Trade In Your Cards — Cambridge TCG",
   description:
-    "Sell your trading cards for cash or store credit. Competitive prices, fast payouts. Near Mint cards accepted.",
+    "Sell your One Piece, Pokémon, and Dragon Ball cards for cash or store credit. Competitive prices, fast payouts. Near Mint cards accepted.",
   other: audienceMetadata("consumer", ["seller", "trade-in"]),
 };
 
 export interface BuylistItem {
   sku: string;
+  game: string;
   card_number: string;
   name: string;
   set_code: string | null;
   set_name: string | null;
   rarity: string | null;
+  category: string | null;
   image_url: string | null;
   cash_price: number;
   credit_price: number;
@@ -26,30 +29,34 @@ export interface BuylistItem {
   credit_want: number;
 }
 
-// Fetch all pages from the wholesale API (it caps at 500 per request)
+// Fetch all pages from the wholesale API (it caps at 500 per request).
+// First page reveals the total; the rest fan out in parallel — pokemon's
+// ~7k rows would otherwise be 15 sequential round-trips on a cold cache.
 async function fetchAllPrices(params: Parameters<typeof fetchPrices>[0]) {
-  const allItems: PriceItem[] = [];
-  let offset = 0;
   const pageSize = 500;
-  let total = Infinity;
-
-  while (offset < total) {
-    const res = await fetchPrices({ ...params, limit: pageSize, offset });
-    allItems.push(...res.items);
-    total = res.total;
-    offset += pageSize;
-    if (res.items.length < pageSize) break; // No more pages
-  }
-
-  return allItems;
+  const first = await fetchPrices({ ...params, limit: pageSize, offset: 0 });
+  const remainingPages = Math.max(0, Math.ceil(first.total / pageSize) - 1);
+  const rest = await Promise.all(
+    Array.from({ length: remainingPages }, (_, i) =>
+      fetchPrices({ ...params, limit: pageSize, offset: (i + 1) * pageSize })
+    )
+  );
+  return [first, ...rest].flatMap((r) => r.items);
 }
 
-export default async function TradeInPage() {
+export default async function TradeInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ game?: string }>;
+}) {
+  const params = await searchParams;
+  const game = params.game && isTradeinGame(params.game) ? params.game : "one-piece";
+
   // Fetch from ALL three channels, paginated to get every card
   const [catalogItems, creditItems, cashItems] = await Promise.all([
-    fetchAllPrices({ game: "one-piece", channel: "cambridgetcg" }),
-    fetchAllPrices({ game: "one-piece", channel: "tradein-credit" }),
-    fetchAllPrices({ game: "one-piece", channel: "tradein-cash" }),
+    fetchAllPrices({ game, channel: "cambridgetcg" }),
+    fetchAllPrices({ game, channel: "tradein-credit" }),
+    fetchAllPrices({ game, channel: "tradein-cash" }),
   ]);
 
   // Build lookups by SKU
@@ -80,11 +87,13 @@ export default async function TradeInPage() {
 
       return {
         sku: card.sku,
+        game,
         card_number: card.card_number,
         name: card.name_en || card.name || card.card_number,
         set_code: card.set_code,
         set_name: card.set_name,
         rarity: card.rarity,
+        category: card.category,
         image_url: card.image_url,
         cash_price: cashPrice,
         credit_price: creditPrice,
@@ -95,10 +104,18 @@ export default async function TradeInPage() {
     })
     .filter((item) => item.credit_price > 0 || item.cash_price > 0)
     .filter((item) => {
-      // Exclude C, UC, and R — keep SR, SEC, SP, L, parallels, alt arts, promos
+      // Buylist carries premium rarities, parallels, and sealed product —
+      // not plain commons/uncommons/rares. Exact match only, so suffix
+      // parallels (R/P, UC☆) survive. "U" is Pokémon's uncommon. Sealed
+      // items have null rarity and must not fall through to the exclusion.
+      // Pokémon encodes premium parallels (Master Ball mirrors, spec
+      // variants) as rarity "-", so "-"/empty is excluded only for One
+      // Piece, matching its pre-existing buylist behavior.
+      if (item.category === "sealed") return true;
       const r = (item.rarity ?? "").toUpperCase().trim();
-      const EXCLUDED = new Set(["C", "UC", "R", "-", ""]);
-      return !EXCLUDED.has(r);
+      if (new Set(["C", "UC", "U", "R"]).has(r)) return false;
+      if ((r === "-" || r === "") && game === "one-piece") return false;
+      return true;
     });
 
   // Stats for hero
@@ -231,7 +248,23 @@ export default async function TradeInPage() {
 
       {/* Buylist */}
       <section className="max-w-7xl mx-auto px-4 py-8">
-        <BuylistTable buylist={buylist} />
+        {/* Game tabs */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {TRADEIN_GAMES.map((g) => (
+            <Link
+              key={g.slug}
+              href={g.slug === "one-piece" ? "/trade-in" : `/trade-in?game=${g.slug}`}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                game === g.slug
+                  ? "bg-amber-500 text-black"
+                  : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white"
+              }`}
+            >
+              {g.label}
+            </Link>
+          ))}
+        </div>
+        <BuylistTable buylist={buylist} game={game} />
       </section>
 
       {/* Floating sell cart bar */}

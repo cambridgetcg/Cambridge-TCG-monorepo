@@ -135,6 +135,11 @@ export const cards = pgTable("cards", {
   price: money("price"),
   ebayItemNumber: text("ebay_item_number"),
   lastSyncedAt: timestamp("last_synced_at"),
+  // Chunked-ingest cursor (migration 0022, kingdom-039): advances on every
+  // scrape ATTEMPT (success or failure) so permanently-failing cards can't
+  // pin themselves to the front of the stalest-first queue. NULL = never
+  // attempted by the chunked ingest; sorts first.
+  lastScrapeAttemptAt: timestamp("last_scrape_attempt_at", { withTimezone: true }),
   gameId: integer("game_id").references(() => games.id),
   setId: integer("set_id").references(() => sets.id),
   category: text("category", { enum: ["singles", "sealed"] }).notNull().default("singles"),

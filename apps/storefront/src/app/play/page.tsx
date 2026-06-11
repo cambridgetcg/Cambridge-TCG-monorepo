@@ -604,7 +604,19 @@ export default function PlayPage() {
             </svg>
           </button>
 
-          {mpOpen && (
+          {mpOpen && signedIn === false && (
+            <div className="px-5 pb-5 border-t border-neutral-800 pt-4">
+              <p className="text-sm text-neutral-400">
+                Multiplayer needs an account so your opponent knows who you are.{" "}
+                <a href="/api/auth/signin?callbackUrl=/play" className="text-amber-400 hover:text-amber-300 font-medium">
+                  Sign in
+                </a>{" "}
+                — then create or join a room.
+              </p>
+            </div>
+          )}
+
+          {mpOpen && signedIn !== false && (
             <div className="px-5 pb-5 space-y-4 border-t border-neutral-800 pt-4">
               {mpError && (
                 <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-3 py-2 text-sm">
@@ -713,7 +725,7 @@ export default function PlayPage() {
             className="block bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5 text-amber-400">Never played a TCG?</div>
-            <div className="text-xs text-neutral-400">Start here — 10-min walkthrough, no sign-in.</div>
+            <div className="text-xs text-neutral-400">Just press ▶ Play above — the board teaches you. Rules reference here if you want it.</div>
           </Link>
           <Link
             href="/play/welcome"

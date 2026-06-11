@@ -222,6 +222,12 @@ function flattenResources(): ManifestResource[] {
   return Object.values(MANIFEST.resources).flat();
 }
 
+// ISR matched to the endpoint's own declared budget (FRESHNESS.status = 30s):
+// at most one full render per 30s instead of per request, so agents with
+// short timeouts stop eating the serverless cold-start tail. Serving a
+// ≤30s-old snapshot is exactly what _meta.freshness already promises.
+export const revalidate = 30;
+
 export async function GET(): Promise<NextResponse> {
   const resources = flattenResources();
 

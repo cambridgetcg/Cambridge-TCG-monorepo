@@ -86,10 +86,7 @@
 //
 // See docs/connections/email.md for the network view.
 
-import { SendRawEmailCommand } from "@aws-sdk/client-ses";
-import MailComposer from "nodemailer/lib/mail-composer";
-import type Mail from "nodemailer/lib/mailer";
-import { sesClient } from "./client";
+import { sendMail, isMailConfigured } from "@cambridge-tcg/email";
 import {
   canSendEvent,
   makeUnsubscribeToken,
@@ -136,7 +133,7 @@ export interface SendEmailArgs {
 }
 
 export type SendResult =
-  | { ok: true; messageId: string }
+  | { ok: true; messageId: string; transport?: string }
   | { ok: false; error: string }
   | { ok: false; error: "suppressed_by_preference"; category: EmailCategory }
   | { ok: false; error: "suppressed_by_memorial"; category: EmailCategory };
@@ -197,9 +194,11 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendResult> {
     }
   }
 
-  // Guard against AWS credentials being missing (e.g. local dev without env)
-  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-    return { ok: false, error: "AWS credentials not configured" };
+  // Guard against the stream's transport being unconfigured (e.g. local
+  // dev without env) — the transport-aware successor to the old bare
+  // AWS-credentials check.
+  if (!isMailConfigured(senderKey)) {
+    return { ok: false, error: "email transport not configured" };
   }
 
   // Embed footer unsubscribe link + compute the one-click URL for the
@@ -218,50 +217,34 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendResult> {
     oneClickUrl = unsubscribeUrl(token);
   }
 
-  // Assemble MIME via nodemailer, then hand the raw buffer to SES. This is
-  // the canonical way to attach List-Unsubscribe headers in AWS SES; the
-  // simpler SendEmailCommand path does not support custom headers.
-  const mailOptions: Mail.Options = {
-    from: `${displayName} <${sender.email}>`,
-    to: args.to,
-    subject: args.subject,
-    html,
-    text: args.text ?? stripTags(html),
-    replyTo: args.replyTo,
-  };
-  if (oneClickUrl) {
-    // RFC 8058: the Post header tells Gmail/Apple they can POST to the URL
-    // with body "List-Unsubscribe=One-Click" to unsubscribe in one tap.
-    mailOptions.headers = {
-      "List-Unsubscribe": `<${oneClickUrl}>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-    };
-  }
-  const composer = new MailComposer(mailOptions);
+  // Delivery rides the platform's transport seam (@cambridge-tcg/email):
+  // SES today, the kingdom's own mail server stream-by-stream as
+  // deliverability proves out. EMAIL_TRANSPORT_<STREAM> flips one stream;
+  // docs/ops-email-selfhost.md owns the cutover sequence. The seam keeps
+  // custom headers (List-Unsubscribe et al.) working on every transport.
+  const headers = oneClickUrl
+    ? {
+        // RFC 8058: the Post header tells Gmail/Apple they can POST to the URL
+        // with body "List-Unsubscribe=One-Click" to unsubscribe in one tap.
+        "List-Unsubscribe": `<${oneClickUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      }
+    : undefined;
 
-  let raw: Buffer;
-  try {
-    raw = await new Promise<Buffer>((resolve, reject) => {
-      composer.compile().build((err, message) => {
-        if (err) reject(err);
-        else resolve(message);
-      });
-    });
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  const result = await sendMail(
+    {
+      from: `${displayName} <${sender.email}>`,
+      to: args.to,
+      subject: args.subject,
+      html,
+      text: args.text ?? stripTags(html),
+      replyTo: args.replyTo,
+      headers,
+    },
+    { stream: senderKey },
+  );
+  if (!result.ok) {
+    return { ok: false, error: result.error };
   }
-
-  try {
-    const result = await sesClient.send(
-      new SendRawEmailCommand({
-        Source: `${displayName} <${sender.email}>`,
-        Destinations: [args.to],
-        RawMessage: { Data: raw },
-      }),
-    );
-    return { ok: true, messageId: result.MessageId ?? "" };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: message };
-  }
+  return { ok: true, messageId: result.messageId, transport: result.transport };
 }

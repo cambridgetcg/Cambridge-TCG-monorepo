@@ -1,0 +1,20 @@
+{
+  "name": "rewardspro-webhooks-lambda",
+  "version": "1.0.0",
+  "description": "Lambda functions for processing RewardsPro Shopify webhooks, SQS queues, and EventBridge cron jobs",
+  "main": "process-customer-webhook.js",
+  "scripts": {
+    "test": "node test-handler.js",
+    "package": "zip -r lambda-functions.zip *.js package.json node_modules/",
+    "deploy:queue-processor": "aws lambda update-function-code --function-name rewardspro-order-queue-processor --zip-file fileb://lambda-functions.zip",
+    "deploy:cron-dispatcher": "aws lambda update-function-code --function-name rewardspro-cron-dispatcher --zip-file fileb://lambda-functions.zip"
+  },
+  "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.879.0",
+    "@aws-sdk/client-dynamodb": "^3.879.0",
+    "@aws-sdk/util-dynamodb": "^3.879.0"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}

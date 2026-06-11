@@ -1,0 +1,4767 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Last regenerated: 2025-12-19 - StoreCreditSyncJob model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "postgresql"
+  // We use AWS Aurora Data API for all connections
+  // This URL is only for Prisma schema validation and client generation
+  // Actual database operations go through app/utils/aurora-data-api.ts
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  isActive      Boolean?  @default(true)
+
+  @@index([shop]) // Add index for faster lookups by shop
+}
+
+model ShopSettings {
+  id   String @id @default(uuid())
+  shop String @unique // Shop domain (e.g., store.myshopify.com)
+
+  // Store details
+  storeName String // Name of store
+  storeUrl  String // Store URL
+
+  // Currency settings
+  storeCurrency       Currency            @default(USD) // Store currency
+  currencyDisplayType CurrencyDisplayType @default(SYMBOL) // Currency display type
+
+  // Localization
+  timezone String @default("America/New_York") // Time zone
+
+  // White-label email settings — narrowed during Phase 2.5 to only fields
+  // the application actually references. SMTP block + provider creds + monthly
+  // counters were trimmed.
+  emailProvider        String?
+  emailLogo            String?
+  emailPrimaryColor    String?
+  emailSecondaryColor  String?
+  emailBackgroundColor String? @default("#f4f4f4")
+  emailContentBgColor  String? @default("#ffffff")
+  emailLinkColor       String?
+  emailFontFamily      String? @default("Arial, sans-serif")
+  brandKitEnabled      Boolean @default(false)
+
+  // Onboarding state (preserved from DB during Phase 2.5 reconciliation —
+  // these were "in DB, not in schema" but track real merchant flow state).
+  onboardingSyncedOrders       Boolean @default(false)
+  onboardingCreatedTiers       Boolean @default(false)
+  onboardingSyncedCustomers    Boolean @default(false)
+  onboardingConfiguredSettings Boolean @default(false)
+  onboardingCompleted          Boolean @default(false)
+  onboardingDismissed          Boolean @default(false)
+  widgetLastHeartbeat          DateTime?
+
+  // Billing (simplified - using billing.check() as source of truth)
+  billingStatus String? @default("INACTIVE") // ACTIVE, INACTIVE, TRIAL (legacy)
+  currentPlan   String? @default("free") // free, pro, max, ultra (legacy)
+
+  // NEW: Simplified billing fields (Phase 1)
+  subscriptionStatus    String? // ACTIVE, CANCELLED, EXPIRED, PENDING (from webhook)
+  subscriptionUpdatedAt DateTime? // When webhook last updated subscription
+  currentPlanName       String? // Plan name for display only (optional)
+  usageCapReached       Boolean?  @default(false) // Flag when usage cap reached
+  usageCapReachedAt     DateTime? // Timestamp when cap was reached
+
+  // Initial Data Sync Status
+  customersInitialSynced  Boolean @default(false) // Has initial customer sync completed
+  customersSyncInProgress Boolean @default(false) // Is customer sync currently running
+
+  // Widget Detection (Theme-based)
+  widgetIsActive       Boolean @default(false) // Cache of last known widget status from theme detection
+  widgetSetupDismissed Boolean @default(false) // Has merchant clicked "Enable widget" button
+
+  // Review Request Banner
+  reviewBannerDismissed Boolean   @default(false) // Has merchant dismissed the review request banner
+  reviewClickedAt       DateTime? // When merchant clicked "I've left my review"
+
+  // Customer Account Block Detection (Cache-based)
+  customerAccountBlockDismissed Boolean @default(false) // Has merchant clicked "Enable customer account block" button
+
+  currencySelected Boolean @default(false) // Has merchant selected cashback currency
+
+  // Tier Recalculation Settings
+  tierRecalculationFrequency RecalculationFrequency @default(WEEKLY) // How often to recalculate tiers
+  tierRecalculationEnabled   Boolean                @default(true) // Enable/disable automatic recalculation
+  tierRecalculationLastRun   DateTime? // Track last run for frequency logic
+
+  // Store Business Metrics (for analytics calculations)
+  averageProfitMargin   Decimal?  @db.Decimal(5, 2) // Average profit margin % (e.g., 45.00 for 45%)
+  averageCogsPercent    Decimal?  @db.Decimal(5, 2) // Average COGS as % of revenue (e.g., 55.00 for 55%)
+  averageShippingCost   Decimal?  @db.Decimal(10, 2) // Average shipping cost per order
+  averageTransactionFee Decimal?  @db.Decimal(5, 2) // Average transaction fee % (e.g., 2.90 for 2.9%)
+  averageReturnRate     Decimal?  @db.Decimal(5, 2) // Average return rate % (e.g., 5.00 for 5%)
+  averageOrderValue     Decimal?  @db.Decimal(10, 2) // Historical average order value
+  targetRoiPercent      Decimal?  @db.Decimal(5, 2) // Target ROI % for loyalty program
+  metricsLastUpdated    DateTime? // When merchant last updated these metrics
+
+  // Feature Toggles (enable/disable specific features)
+  advancedAnalyticsEnabled      Boolean @default(true) // Advanced analytics features
+  autoCashbackProcessingEnabled Boolean @default(false) // Automatic cashback processing
+  emailMarketingEnabled         Boolean @default(false) // Email marketing campaigns
+  tierProductsEnabled           Boolean @default(true) // Tier products module
+
+  // Base Tier Configuration (for new customers)
+  autoAssignBaseTier Boolean @default(true) // Enable automatic base tier assignment for new customers
+  defaultBaseTierId  String? // Specific tier to assign (if null, uses lowest minSpend tier)
+  defaultBaseTier    Tier?   @relation("DefaultBaseTier", fields: [defaultBaseTierId], references: [id], onDelete: SetNull)
+
+  // Widget Theme Settings
+  widgetThemeMode          WidgetThemeMode @default(LIGHT) // Light, Dark, or Custom
+  widgetPrimaryColor       String?         @default("#5C6AC4") // Primary brand color
+  widgetBackgroundColor    String?         @default("#FFFFFF") // Widget background
+  widgetTextColor          String?         @default("#212B36") // Main text color
+  widgetAccentColor        String?         @default("#008060") // Success/highlight color
+  widgetSecondaryTextColor String? // Secondary/muted text color (null = auto-derive from mode)
+  widgetBorderRadius       Int?            @default(12) // Border radius in pixels
+  widgetFontFamily         String?         @default("inherit") // Font family
+
+  // Tier Trial Abuse Prevention Settings
+  maxLifetimeTrialDays    Int     @default(30) // Maximum total trial days a customer can use
+  minDaysBetweenTrials    Int     @default(30) // Minimum days between trial attempts
+  allowMultipleTierTrials Boolean @default(false) // Whether to allow trials on different tiers
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop])
+  @@index([tierRecalculationEnabled, tierRecalculationLastRun]) // Index for cron job queries
+}
+
+// ============================================
+// SHOP ENTITLEMENTS (Single Source of Truth for Feature Access)
+// ============================================
+
+model ShopEntitlements {
+  id   String @id @default(uuid())
+  shop String @unique
+
+  // Resolved plan (single source of truth)
+  effectivePlan String            @default("free") // free, pro, max, ultra, enterprise
+  planSource    EntitlementSource @default(DEFAULT)
+
+  // Feature flags (boolean) - Core features
+  featureApiAccess         Boolean @default(false)
+  featureWebhooks          Boolean @default(false)
+  featureWhiteLabel        Boolean @default(false)
+  featureAdvancedReport    Boolean @default(true)
+  featureCustomEmail       Boolean @default(false)
+  featureAnnualEval        Boolean @default(false)
+  featureBulkOps           Boolean @default(false)
+  featureCustomBranding    Boolean @default(false)
+  featurePrioritySupport   Boolean @default(false)
+  featureSubscriptionTiers Boolean @default(false)
+  featurePurchasableTiers  Boolean @default(false)
+  featureExportData        Boolean @default(false)
+  featureCustomRewards     Boolean @default(false)
+
+  // Feature flags (boolean) - Integrations (P1)
+  featureIntegrationKlaviyo  Boolean @default(false) // Pro+
+  featureIntegrationSendgrid Boolean @default(false) // Pro+
+  featureIntegrationJudgeme  Boolean @default(false) // Pro+
+  featureIntegrationSlack    Boolean @default(false) // Pro+
+  featureIntegrationRecharge Boolean @default(false) // Max+
+  featureIntegrationGorgias  Boolean @default(false) // Max+
+  featureIntegrationZapier   Boolean @default(false) // Max+
+
+  // Feature flags (boolean) - Gamification (P2)
+  featureRaffles      Boolean @default(false) // Pro+
+  featureMysteryBoxes Boolean @default(false) // Max+
+  featureChallenges   Boolean @default(false) // Pro+
+
+  // Feature flags (boolean) - Marketing (P3)
+  featureMarketingCampaigns  Boolean @default(false) // Pro+
+  featureMarketingAutomation Boolean @default(false) // Max+
+  featureAiRecommendations   Boolean @default(false) // Max+
+
+  // Feature flags (boolean) - Analytics (P4)
+  featureRfmSegmentation   Boolean @default(false) // Max+
+  featureProgramImpact     Boolean @default(false) // Pro+
+  featureRealtimeAnalytics Boolean @default(false) // Max+
+  featureCohortAnalysis    Boolean @default(false) // Ultra
+
+  // Numeric limits - Core
+  limitMaxTiers  Int @default(2)
+  limitMaxOrders Int @default(50)
+  limitMaxEmails Int @default(0)
+
+  // Numeric limits - Sync with plan-limits.ts (P0)
+  limitMaxAutomations    Int @default(1) // Free: 1, Pro: 5, Max: 20, Ultra: 999999
+  limitMaxCustomersSync  Int @default(1000) // Free: 1K, Pro: 10K, Max: 50K, Ultra: 999999
+  limitMaxTierProducts   Int @default(2) // Free: 2, Pro: 5, Max: 10, Ultra: 999999
+  limitMaxHistoricalDays Int @default(30) // Free: 30, Pro: 90, Max: 365, Ultra: 999999
+
+  // Numeric limits - Gamification (P2)
+  // IMPORTANT: All plans get at least 1 (rate-based gating model)
+  // See app/constants/plan-limits.ts for canonical values
+  limitMaxActiveRaffles      Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
+  limitMaxActiveMysteryBoxes Int @default(1) // Free: 1, Pro: 2, Max: 5, Ultra: 999999
+  limitMaxActiveChallenges   Int @default(1) // Free: 1, Pro: 5, Max: 15, Ultra: 999999
+
+  // Numeric limits - Marketing (P3)
+  // IMPORTANT: All plans get at least 1 (rate-based gating model)
+  limitMaxCampaigns       Int @default(1) // Free: 1, Pro: 5, Max: 25, Ultra: 999999
+  limitMaxAutomationFlows Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
+
+  // Override support (for custom deals / grandfathered plans)
+  hasOverride    Boolean   @default(false)
+  overrideExpiry DateTime?
+  overrideNote   String?
+  overrideBy     String? // Admin who set the override
+
+  // Timestamps
+  lastResolvedAt DateTime @default(now())
+  resolvedFrom   String? // Source that triggered last resolution (webhook, manual, etc.)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([shop])
+  @@index([effectivePlan])
+  @@index([hasOverride])
+}
+
+enum EntitlementSource {
+  DEFAULT // No subscription, using free defaults
+  SUBSCRIPTION // From active Shopify subscription
+  OVERRIDE // Manual override by admin
+  LEGACY // Grandfathered from old billing system
+}
+
+// Mirrors Shopify's customer.state enum.
+enum CustomerState {
+  ENABLED
+  DISABLED
+  INVITED
+  DECLINED
+}
+
+model Tier {
+  id               String           @id
+  shop             String
+  name             String
+  description      String? // Tier description
+  minSpend         Int
+  cashbackPercent  Int
+  evaluationPeriod EvaluationPeriod @default(ANNUAL)
+  sortOrder        Int              @default(0) // Display order for UI
+  benefits         Json? // Array of benefit strings
+  isActive         Boolean          @default(true) // Whether tier is active
+
+  // Display properties for storefront widgets
+  icon      String? @default("⭐") // Emoji or icon identifier
+  color     String? @default("#FFD700") // Hex color code
+  threshold Int? // Alternative field for progress tracking (can map to minSpend)
+
+  // Points Engagement System multipliers
+  pointsMultiplier      Decimal? @default(1.0) @db.Decimal(3, 2) // Points earning multiplier (1.0 = 1x, 1.5 = 1.5x)
+  pointsLuckBonus       Decimal? @default(0) @db.Decimal(5, 2) // Luck bonus % for mystery boxes/raffles
+  raffleEntryMultiplier Decimal? @default(1.0) @db.Decimal(3, 2) // Raffle entry bonus multiplier
+
+  // Subscription pricing
+  monthlyPrice       Decimal?         @db.Decimal(10, 2) // Monthly subscription price
+  billingInterval    BillingInterval? // Billing interval for subscriptions
+  discountPercentage Decimal?         @db.Decimal(5, 2) // Discount for subscriptions
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customers     Customer[] // Customers currently in this tier
+  subscriptions TierSubscription[] // Subscriptions for this tier
+  tierProducts  TierProduct[] // Products for purchasing this tier
+  tierPurchases  TierPurchase[] // One-time purchases of this tier
+
+  // CustomerTierState relations
+  tierStateEffective      CustomerTierState[] @relation("EffectiveTier")
+  tierStateSpendingBased  CustomerTierState[] @relation("SpendingBasedTier")
+  tierStateManualOverride CustomerTierState[] @relation("ManualOverrideTier")
+  tierStateNextTier       CustomerTierState[] @relation("NextTier")
+
+  // Shop settings using this as default base tier
+  shopsUsingAsDefault ShopSettings[] @relation("DefaultBaseTier")
+
+  // Gift card system relations
+  giftCardSettings TierGiftCardSettings?
+  giftCardBundles  GiftCardBundle[]
+
+  // Constraints
+  @@unique([shop, name]) // Combination must be unique
+  @@index([shop]) // Speed up queries by shop
+  @@index([cashbackPercent]) // Speed up sorting by cashback
+}
+
+// ============================================
+// TIER PRODUCT MODEL - Links tiers to Shopify products
+// ============================================
+
+model TierProduct {
+  id     String @id @default(uuid())
+  shop   String
+  tierId String
+  tier   Tier   @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  // Shopify Product Information
+  shopifyProductId String
+  shopifyVariantId String
+  productHandle    String
+  sku              String
+
+  // Purchase Options
+  purchaseType PurchaseType // ONE_TIME, SUBSCRIPTION, or BOTH
+  duration     ProductDuration? // For one-time purchases
+
+  // Subscription Configuration
+  hasSubscription           Boolean @default(false)
+  sellingPlanGroupId        String? // @deprecated Use shopifySellingPlanGroupId instead. Legacy field kept for data migration.
+  shopifySellingPlanGroupId String? // CANONICAL: Shopify's GraphQL ID for the selling plan group (gid://shopify/SellingPlanGroup/xxx)
+  subscriptionPlanIds       Json? // Array of selling plan IDs
+
+  // Pricing
+  price          Decimal  @db.Decimal(10, 2) // Current price
+  currency       Currency @default(USD) // Product currency
+  oneTimePrice   Decimal? @db.Decimal(10, 2)
+  monthlyPrice   Decimal? @db.Decimal(10, 2)
+  quarterlyPrice Decimal? @db.Decimal(10, 2)
+  annualPrice    Decimal? @db.Decimal(10, 2)
+
+  // Features & Description
+  features    Json? // Array of feature strings
+  description String?
+
+  // Status
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Soft Delete
+  deletedAt      DateTime? // Null = not deleted, timestamp = soft deleted
+  deletedBy      String? // Email or identifier of who deleted
+  deletionReason String? // Optional reason for deletion
+
+  // Relations
+  subscriptions TierSubscription[]
+  tierPurchases TierPurchase[]
+  auditLogs     TierProductAuditLog[]
+
+  @@unique([shop, shopifyProductId])
+  @@unique([shop, shopifyVariantId])
+  @@index([shop, tierId])
+  @@index([shop, isActive])
+  @@index([shop, deletedAt])
+}
+
+// Audit log for tier product changes
+model TierProductAuditLog {
+  id            String      @id @default(uuid())
+  shop          String
+  tierProductId String
+  tierProduct   TierProduct @relation(fields: [tierProductId], references: [id], onDelete: Cascade)
+
+  // Action tracking
+  action      String // CREATE, UPDATE, DELETE, RESTORE, PERMANENT_DELETE
+  performedBy String? // Email or identifier of who performed the action
+
+  // Change details
+  previousState Json? // Snapshot of state before change
+  newState      Json? // Snapshot of state after change
+  metadata      Json? // Additional context (e.g., deletion reason, affected records)
+
+  createdAt DateTime @default(now())
+
+  @@index([shop, tierProductId])
+  @@index([shop, action])
+  @@index([createdAt])
+}
+
+model Customer {
+  id                String @id @default(uuid())
+  shop              String
+  shopifyCustomerId String @db.VarChar(255)
+
+  // Storefront widget authentication
+  shopifyCustomerMetafieldId String? @db.VarChar(255) // Metafield ID for storefront API auth
+
+  email       String    @db.VarChar(255)
+  firstName   String?   @db.VarChar(255) // Added for Shopify sync
+  lastName    String?   @db.VarChar(255) // Added for Shopify sync
+  phone       String?   @db.VarChar(50) // Customer phone number
+  tags        String?   @db.Text // Added for customer tagging
+  birthday    DateTime? // Customer birthday (Phase 1 Gap Fill)
+  storeCredit Decimal   @default(0) @db.Decimal(10, 2)
+
+  // Points tracking for loyalty widgets
+  pointsBalance  Decimal @default(0) @db.Decimal(10, 2) // Current available points
+  lifetimePoints Decimal @default(0) @db.Decimal(10, 2) // Total points ever earned
+
+  // Spending tracking fields
+  totalSpent          Decimal   @default(0) @db.Decimal(10, 2) // Total order value (all-time)
+  annualSpent         Decimal   @default(0) @db.Decimal(10, 2) // Spending in last 12 months (for tier calculation)
+  totalCashbackEarned Decimal   @default(0) @db.Decimal(10, 2) // Total cashback earned
+  totalRefunded       Decimal   @default(0) @db.Decimal(10, 2) // Total refunds received
+  netSpent            Decimal   @default(0) @db.Decimal(10, 2) // totalSpent - totalRefunded
+  orderCount          Int       @default(0) // Number of orders
+  lastOrderDate       DateTime? // Date of most recent order
+
+  // Email marketing consent and suppression
+  acceptsMarketing  Boolean   @default(true) // Opt-in to marketing emails (campaigns)
+  emailSuppressed   Boolean   @default(false) // Hard bounce or spam complaint — suppress all marketing
+  suppressedAt      DateTime? // When suppression was applied
+  suppressionReason String?   @db.VarChar(255) // bounce, spam_report, unsubscribe
+
+  // Shopify timestamps for sync tracking
+  shopifyCreatedAt DateTime? // When customer was created in Shopify
+  shopifyUpdatedAt DateTime? // Last update in Shopify
+
+  // Current tier relationship
+  currentTierId String?
+  currentTier   Tier?   @relation(fields: [currentTierId], references: [id], onDelete: SetNull)
+
+  // Current subscription relationship
+  currentSubscriptionId String?           @unique
+  currentSubscription   TierSubscription? @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id], onDelete: SetNull)
+
+  // Subscription fields
+  hasActiveSubscription Boolean @default(false) // Quick check for active subscription
+  subscriptionTier      String? // Current subscription tier name
+
+  // Tier Trial Abuse Prevention (mirrors AppSubscription trial fields)
+  hasUsedTierTrial        Boolean   @default(false) // Has customer ever used a tier trial
+  firstTierTrialStartedAt DateTime? // When first tier trial was activated
+  totalTierTrialDaysUsed  Int       @default(0) // Accumulated trial days across all tiers
+  lastTierTrialTierId     String? // Last tier that granted a trial
+  tierTrialHistory        Json? // Array of {tierId, tierName, daysUsed, startedAt}
+
+  // Shopify customer metadata (from sync) — re-added to schema during Phase 2.5
+  // reconciliation. These live in the DB with safe defaults; reflecting them
+  // here gives type safety and unblocks Prisma's INSERT path.
+  state                     CustomerState? @default(ENABLED)
+  marketingConsentUpdatedAt DateTime?
+  verifiedEmail             Boolean?       @default(false)
+  note                      String?        @db.Text
+  ordersCount               Int?           @default(0) // Shopify-reported orders_count (separate from our orderCount)
+  metadata                  Json?
+  isGuest                   Boolean?       @default(false)
+  hasAccount                Boolean?       @default(true)
+  fingerprint               String?
+
+  // GDPR / customer-redaction fields — required for compliance.
+  companyId       String?
+  previousEmails  Json?
+  emailChangedAt  DateTime?
+  mergedFromIds   Json?
+  mergedIntoId    String?
+  isDeleted       Boolean?  @default(false)
+  deletedAt       DateTime?
+  isRedacted      Boolean?  @default(false)
+  redactedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  creditLedger       StoreCreditLedger[]
+  tierChangeLogs     TierChangeLog[]
+  subscriptions      TierSubscription[] // Customer's tier subscriptions
+  tierPurchases      TierPurchase[] // One-time tier purchases
+  orders             Order[] // Customer's order history
+  subscriptionEvents SubscriptionEvent[] // Subscription event history
+  appSubscriptions   Subscription[] // App-level subscriptions
+
+  // Single source of truth for tier state (new unified system)
+  tierState CustomerTierState? @relation("TierState")
+
+  // Tier trial audit logs
+  tierTrialAuditLogs TierTrialAuditLog[]
+
+  // Points Engagement System
+  pointsLedger PointsLedger[] @relation("PointsLedgerEntries")
+
+  // Raffles System
+  raffleEntries RaffleEntry[]  @relation("RaffleEntries")
+  raffleWins    RaffleWinner[] @relation("RaffleWins")
+
+  // Raffle Psychology System
+  raffleStreak           RaffleStreak?           @relation("RaffleStreaks")
+  raffleInstantWinLogs   RaffleInstantWinLog[]   @relation("RaffleInstantWins")
+  raffleActivities       RaffleActivity[]        @relation("RaffleActivities")
+  raffleBonusEventUsages RaffleBonusEventUsage[] @relation("RaffleBonusEventUsages")
+  raffleLuckyNumbers     RaffleLuckyNumber[]     @relation("RaffleLuckyNumbers")
+
+  // Mystery Boxes System
+  mysteryBoxOpens MysteryBoxOpen[]   @relation("MysteryBoxOpens")
+  mysteryBoxWins  MysteryBoxWinner[] @relation("MysteryBoxWins")
+
+  // Mystery Box Psychology System
+  mysteryBoxStreak       MysteryBoxStreak?           @relation("MysteryBoxStreaks")
+  mysteryBoxActivities   MysteryBoxActivity[]        @relation("MysteryBoxActivities")
+  mysteryBoxBonusUsages  MysteryBoxBonusEventUsage[] @relation("MysteryBoxBonusUsages")
+
+  // Challenges System
+  challengeParticipants ChallengeParticipant[] @relation("ChallengeParticipants")
+
+  // Mission System (Gamification)
+  missionStats CustomerMissionStats? @relation("MissionStats")
+
+  @@unique([shop, shopifyCustomerId]) // Prevent duplicate customers per shop
+  @@index([shop]) // Speed up queries by shop
+  @@index([email]) // Speed up queries by email
+  @@index([shop, shopifyCustomerMetafieldId]) // Speed up storefront widget queries
+  @@index([shop, createdAt(sort: Desc)]) // Default-sort members pagination (no tier filter)
+  @@index([shop, currentTierId, createdAt(sort: Desc)]) // Optimize paginated tier-filtered queries
+  @@index([shop, storeCredit]) // Optimize credit range filter queries on members page
+  @@index([shop, createdAt, orderCount]) // Analytics: cohort queries (customers created in time range with orders)
+  @@index([shop, lastOrderDate]) // Analytics: RFM recency queries (active/dormant customer counts)
+}
+
+// ============================================
+// CUSTOMER TIER STATE - Single Source of Truth
+// ============================================
+// This model is the authoritative source for a customer's current tier.
+// It replaces the need to scan TierChangeLog for manual overrides and
+// consolidates tier source tracking in one place.
+
+model CustomerTierState {
+  id         String   @id @default(uuid())
+  shop       String
+  customerId String   @unique
+  customer   Customer @relation("TierState", fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Current effective tier (the tier the customer actually has)
+  effectiveTierId String?
+  effectiveTier   Tier?      @relation("EffectiveTier", fields: [effectiveTierId], references: [id], onDelete: SetNull)
+  tierSource      TierSource @default(NONE)
+  tierSourceId    String? // ID of the source record (subscription ID, purchase ID, etc.)
+
+  // Manual override tracking (explicit fields, no TierChangeLog scanning needed)
+  hasManualOverride    Boolean   @default(false)
+  manualOverrideTierId String? // The tier ID that was manually set (persists even if effectiveTierId changes)
+  manualOverrideTier   Tier?     @relation("ManualOverrideTier", fields: [manualOverrideTierId], references: [id], onDelete: SetNull)
+  manualOverrideAt     DateTime?
+  manualOverrideBy     String? // Admin user ID who set the override
+  manualOverrideExpiry DateTime? // NULL = permanent, otherwise temporary override
+  manualOverrideNote   String?   @db.Text
+
+  // Active purchase tracking
+  activePurchaseId  String?
+  purchaseExpiresAt DateTime?
+
+  // Active subscription tracking
+  activeSubscriptionId  String?
+  subscriptionExpiresAt DateTime?
+
+  // Spending-based tier (cached for performance)
+  spendingBasedTierId    String?
+  spendingBasedTier      Tier?     @relation("SpendingBasedTier", fields: [spendingBasedTierId], references: [id], onDelete: SetNull)
+  spendingLastCalculated DateTime?
+
+  // Resolution tracking
+  lastResolvedAt   DateTime @default(now())
+  resolutionReason String?  @db.Text // Human-readable explanation of resolution
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Pre-computed Tier Progress (cached for widget performance)
+  // Updated by: updateCustomerTierState() on order/subscription/purchase events
+  // ═══════════════════════════════════════════════════════════════════════
+  progressPercent      Int       @default(0) // 0-100, progress towards next tier
+  nextTierId           String? // Next tier customer can reach
+  nextTier             Tier?     @relation("NextTier", fields: [nextTierId], references: [id], onDelete: SetNull)
+  nextTierName         String? // Cached for display (denormalized)
+  nextTierMinSpend     Decimal?  @db.Decimal(10, 2) // minSpend of next tier
+  amountToNextTier     Decimal   @default(0) @db.Decimal(10, 2) // Amount remaining to reach next tier
+  isMaxTier            Boolean   @default(false) // True if at highest tier
+  progressCalculatedAt DateTime? // When progress was last calculated
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, effectiveTierId])
+  @@index([shop, tierSource])
+  @@index([hasManualOverride])
+  @@index([purchaseExpiresAt])
+  @@index([subscriptionExpiresAt])
+  @@index([isMaxTier])
+}
+
+// ============================================
+// CUSTOMER SYNC JOB - Reliable Full Sync
+// ============================================
+// Tracks progress of customer sync operations with resume capability.
+// Enables chunked processing and accurate progress display.
+
+model CustomerSyncJob {
+  id   String @id @default(uuid())
+  shop String
+
+  // Job status
+  status SyncJobStatus @default(PENDING) // PENDING, IN_PROGRESS, COMPLETED, FAILED, CANCELLED
+
+  // Customer counts from Shopify
+  totalCustomers Int? // Total customers in Shopify (shop.customersCount)
+
+  // Progress tracking
+  processedCount Int @default(0) // Customers processed so far
+  createdCount   Int @default(0) // New customers created
+  updatedCount   Int @default(0) // Existing customers updated
+  skippedCount   Int @default(0) // Customers skipped (no email, etc.)
+  errorCount     Int @default(0) // Processing errors
+
+  // Pagination for resume
+  lastCursor String? // GraphQL cursor for next batch
+  batchSize  Int     @default(100) // Customers per batch
+
+  // Error tracking
+  lastError    String? @db.Text // Most recent error message
+  errorDetails Json? // Detailed error info
+
+  // Timing
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastActivityAt DateTime? // Last batch processed timestamp
+
+  // Metadata
+  triggeredBy String? // 'manual', 'install', 'cron'
+  metadata    Json? // Additional job data
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, createdAt(sort: Desc)])
+}
+
+enum SyncJobStatus {
+  PENDING // Job created but not started
+  IN_PROGRESS // Currently processing
+  COMPLETED // Successfully finished
+  FAILED // Failed with error
+  CANCELLED // Manually cancelled
+}
+
+// ============================================
+// STORE CREDIT SYNC JOB
+// ============================================
+// Tracks progress of store credit import from Shopify.
+// Enables merchants to sync existing Shopify credit balances
+// to the local database when first installing the app.
+
+model StoreCreditSyncJob {
+  id   String @id @default(uuid())
+  shop String
+
+  // Job status
+  status SyncJobStatus @default(PENDING)
+
+  // Customer counts
+  totalCustomers Int? // Total customers to process
+
+  // Progress tracking
+  processedCount Int @default(0) // Customers checked so far
+  updatedCount   Int @default(0) // Customers with balance updated
+  skippedCount   Int @default(0) // Customers with matching/zero balance
+  errorCount     Int @default(0) // Processing errors
+
+  // Pagination for resume
+  lastCursor String? // Customer ID cursor for next batch
+  batchSize  Int     @default(25) // Lower due to Shopify API calls per customer
+
+  // Financial summary
+  totalImported   Decimal @default(0) @db.Decimal(10, 2) // Sum of credits imported
+  totalDifference Decimal @default(0) @db.Decimal(10, 2) // Net adjustment made
+
+  // Error tracking
+  lastError    String? @db.Text
+  errorDetails Json?
+
+  // Timing
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastActivityAt DateTime?
+
+  // Metadata
+  triggeredBy String? // 'manual', 'install', etc.
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, createdAt(sort: Desc)])
+}
+
+// ============================================
+// ORDER SYNC JOB - Reliable Full Sync
+// ============================================
+// Tracks progress of order sync operations with resume capability.
+// Enables chunked processing and accurate progress display.
+
+model OrderSyncJob {
+  id   String @id @default(uuid())
+  shop String
+
+  // Job status
+  status SyncJobStatus @default(PENDING)
+
+  // Order counts from Shopify
+  totalOrders Int? // Total orders in Shopify (shop.ordersCount)
+
+  // Progress tracking
+  processedCount Int @default(0) // Orders processed so far
+  createdCount   Int @default(0) // New orders created
+  updatedCount   Int @default(0) // Existing orders updated
+  skippedCount   Int @default(0) // Orders skipped
+  errorCount     Int @default(0) // Processing errors
+
+  // Pagination for resume
+  lastCursor String? // GraphQL cursor for next batch
+  batchSize  Int     @default(50) // Orders per batch
+
+  // Date range
+  startDate DateTime? // Start of date range to sync
+  endDate   DateTime? // End of date range to sync
+
+  // Error tracking
+  lastError    String? @db.Text // Most recent error message
+  errorDetails Json? // Detailed error info
+
+  // Timing
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastActivityAt DateTime? // Last batch processed timestamp
+
+  // Metadata
+  triggeredBy String? // 'manual', 'install', 'cron'
+  metadata    Json? // Additional job data
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, createdAt(sort: Desc)])
+}
+
+model StoreCreditLedger {
+  id         String @id @default(uuid())
+  customerId String
+  shop       String
+
+  // Core transaction data
+  amount  Decimal         @db.Decimal(10, 2) // Positive for credit, negative for debit
+  balance Decimal         @db.Decimal(10, 2) // Running balance - KEEP for query performance
+  type    LedgerEntryType
+
+  // Reference & deduplication
+  shopifyOrderId       String? // Prevents double-crediting, links to orders
+  shopifyTransactionId String? // Shopify store credit transaction ID
+  syncStatus           CreditSyncStatus @default(PENDING) // Track sync with Shopify
+  syncedAt             DateTime? // When synced to Shopify
+
+  // Order relations
+  orderId String?
+  order   Order?  @relation("OrderLedgerEntries", fields: [orderId], references: [id])
+
+  refundId String?      @unique
+  refund   OrderRefund? @relation("RefundLedgerEntry", fields: [refundId], references: [id])
+
+  // Flexible data field
+  metadata Json? // Store everything else here (cashback %, order amount, description, etc.)
+
+  // Point expiration (for storefront widgets)
+  expiresAt DateTime? // When points expire (null = never expires)
+
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  isExpired   Boolean? @default(false)
+  currency    String?  @default("USD")
+  description String?  @db.Text
+
+  createdAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@unique([shop, shopifyOrderId, type]) // Prevent duplicate entries
+  @@index([customerId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([customerId, expiresAt]) // Speed up expiring points queries
+  @@index([customerId, shop, createdAt(sort: Desc)]) // Optimize transaction history queries
+}
+
+// ============================================
+// GIFT CARD SYSTEM MODELS
+// ============================================
+
+// Shop-level gift card configuration
+model GiftCardConfig {
+  id   String @id @default(uuid())
+  shop String @unique
+
+  // Feature toggles
+  enableTierBranding    Boolean @default(true) // Use tier-specific templates
+  enableTierBonuses     Boolean @default(false) // Bonus value based on purchaser tier
+  enableMembershipGifts Boolean @default(true) // Allow gifting memberships
+
+  // Defaults
+  defaultTemplateSuffix String? // Fallback template if tier has none
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Tier-specific gift card settings
+model TierGiftCardSettings {
+  id     String @id @default(uuid())
+  shop   String
+  tierId String @unique // Each tier has at most one gift card setting
+  tier   Tier   @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  // Branding - templateSuffix maps to gift_card.[suffix].liquid
+  templateSuffix String? // e.g., "gold" → gift_card.gold.liquid
+
+  // Bonuses - extra value when this tier purchases gift cards
+  bonusPercent Decimal @default(0) @db.Decimal(5, 2) // e.g., 10 = 10% bonus
+
+  // Membership bundle settings
+  canBundleWithCard Boolean  @default(true) // Can this tier be gifted
+  bundlePrice       Decimal? @db.Decimal(10, 2) // Special price when bundled
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop])
+}
+
+// Track issued gift cards and their tier integration
+model IssuedGiftCard {
+  id   String @id @default(uuid())
+  shop String
+
+  // Shopify reference
+  shopifyGiftCardId String  @unique
+  lastFourDigits    String? // Last 4 chars of code (for display)
+
+  // Value
+  initialValue Decimal @db.Decimal(10, 2) // Base value
+  bonusValue   Decimal @default(0) @db.Decimal(10, 2) // From tier bonus
+  totalValue   Decimal @db.Decimal(10, 2) // initial + bonus
+
+  // Tier branding
+  templateSuffix    String? // Template used for this card
+  purchaserTierId   String? // Tier of person who bought (for tracking)
+  purchaserTierName String? // Denormalized for display
+
+  // Membership bundle (if this card grants tier access)
+  bundleType      GiftCardBundleType @default(VALUE_ONLY)
+  bundledTierId   String? // Tier to grant on redemption
+  bundledTierName String? // Denormalized for display
+  bundledDuration String? // MONTHLY, QUARTERLY, ANNUAL, LIFETIME
+
+  // People
+  purchasedByCustomerId String? // Customer who bought
+  purchasedByEmail      String? // Email if no customer record
+  recipientCustomerId   String? // Recipient (if known)
+  recipientEmail        String? // Recipient email
+  recipientName         String? // Recipient display name
+  personalMessage       String? // Gift message
+
+  // Scheduling
+  scheduledSendAt DateTime? // When to send notification
+
+  // Status tracking
+  status          GiftCardStatus @default(ACTIVE)
+  redeemedAt      DateTime?
+  tierActivatedAt DateTime? // When bundled membership was activated
+
+  // Conversion tracking (if created from cashback)
+  convertedFromLedgerId String? // StoreCreditLedger entry ID
+
+  // Order reference (if purchased through checkout)
+  shopifyOrderId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, status])
+  @@index([recipientCustomerId])
+  @@index([purchasedByCustomerId])
+  @@index([shopifyOrderId])
+}
+
+// Pre-configured gift card bundles (merchant creates these)
+model GiftCardBundle {
+  id     String  @id @default(uuid())
+  shop   String
+  tierId String? // Optional: tier to bundle with
+  tier   Tier?   @relation(fields: [tierId], references: [id], onDelete: SetNull)
+
+  // Display
+  name        String // e.g., "Gold Experience Gift"
+  description String? // Marketing description
+
+  // Value configuration
+  bundleType    GiftCardBundleType
+  giftCardValue Decimal            @db.Decimal(10, 2) // Monetary value included
+  price         Decimal            @db.Decimal(10, 2) // What customer pays
+
+  // Membership configuration (if bundleType includes membership)
+  membershipDuration String? // MONTHLY, QUARTERLY, ANNUAL, LIFETIME
+
+  // Status
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0) // Display order
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, isActive])
+}
+
+model TierChangeLog {
+  id         String @id @default(uuid())
+  customerId String
+  shop       String
+
+  // Tier transition details
+  fromTierId   String? // Null for first tier assignment
+  fromTierName String? // Store name for historical reference
+  toTierId     String? // Null if customer is removed from all tiers
+  toTierName   String? // Store name for historical reference
+
+  // Change context
+  changeType  TierChangeType // Type of change
+  triggerType TierTriggerType // What triggered the change
+
+  // Spending data at time of change
+  totalSpending  Decimal? @db.Decimal(10, 2) // Customer's total spending at this point
+  periodSpending Decimal? @db.Decimal(10, 2) // Spending in evaluation period
+
+  // Additional context
+  orderId        String? // If triggered by an order
+  subscriptionId String? // If triggered by subscription
+  note           String? // Manual notes or system messages
+  metadata       Json? // Additional data (order details, calculation breakdown, etc.)
+
+  createdAt   DateTime @default(now())
+  processedBy String? // Admin user ID if manual, "system" if automatic
+
+  // Relations
+  customer     Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  subscription TierSubscription? @relation(fields: [subscriptionId], references: [id])
+
+  // Indexes for common queries
+  @@index([customerId, createdAt(sort: Desc)]) // Customer's tier history
+  @@index([shop, createdAt(sort: Desc)]) // Shop's recent changes
+  @@index([changeType]) // Filter by change type
+  @@index([triggerType]) // Filter by trigger type
+}
+
+// Legacy BillingPlan model removed - now using BillingSubscription for GraphQL API
+
+// ============================================
+// GRAPHQL BILLING SUBSCRIPTION MODEL
+// ============================================
+
+model BillingSubscription {
+  id   String @id @default(uuid())
+  shop String @unique
+
+  // GraphQL Subscription Info
+  subscriptionId     String? // Shopify AppSubscription GID
+  subscriptionStatus String? // ACTIVE, CANCELLED, EXPIRED, PENDING
+  currentPeriodEnd   DateTime?
+
+  // Line Items
+  recurringLineItemId String? // For recurring charge
+  usageLineItemId     String? // For usage-based charges
+
+  // Pending Charges
+  pendingChargeId        String?
+  pendingChargeCreatedAt DateTime?
+  confirmationUrl        String?   @db.Text
+
+  // Usage Tracking
+  currentPeriodOrders   Int       @default(0)
+  currentPeriodUsageFee Decimal   @default(0) @db.Decimal(10, 2)
+  lastUsageReset        DateTime?
+  usageCappedAmount     Decimal?  @db.Decimal(10, 2)
+  lastChargedBatch      Int? // Track which batch was last charged (e.g., 1 = first 100, 2 = second 100)
+
+  // Migration Info
+  billingVersion String    @default("graphql") // "legacy" or "graphql"
+  migratedAt     DateTime?
+
+  // Plan Info
+  planType    String? // "free", "starter", "growth", "enterprise"
+  trialEndsAt DateTime?
+
+  // Metadata
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  planName         String?
+  status           String?  @default("PENDING")
+  isTest           Boolean? @default(false)
+  cappedAmount     Decimal? @db.Decimal(10, 2)
+  balanceUsed      Decimal? @default(0) @db.Decimal(10, 2)
+  balanceRemaining Decimal? @db.Decimal(10, 2)
+
+  @@index([shop])
+  @@index([subscriptionStatus])
+}
+
+// ============================================
+// APP-LEVEL SUBSCRIPTION MODEL (Shopify App Billing)
+// ============================================
+
+model AppSubscription {
+  id   String @id @default(uuid())
+  shop String @unique
+
+  // Shopify Subscription Info
+  shopifySubscriptionId String? @unique // Full GID: gid://shopify/AppSubscription/123
+  chargeId              String? // Numeric ID from charge_id parameter
+
+  // Plan Details
+  planName String // "RewardsPro Pro", "RewardsPro Max", etc.
+  status   String // ACTIVE, CANCELLED, EXPIRED, PENDING
+  test     Boolean @default(false)
+
+  // Trial Period
+  trialDays   Int?
+  trialEndsAt DateTime?
+
+  // Trial Abuse Prevention
+  hasUsedTrial        Boolean   @default(false) // Has merchant ever used a trial
+  firstTrialStartedAt DateTime? // When first trial was activated
+  totalTrialDaysUsed  Int       @default(0) // Accumulated trial days across all plans
+  lastTrialPlanId     String? // Last plan that granted a trial
+
+  // Recurring Pricing
+  recurringAmount   Decimal? @db.Decimal(10, 2)
+  recurringCurrency String? // USD, EUR, etc.
+  recurringInterval String? // EVERY_30_DAYS, ANNUAL
+
+  // Usage-Based Pricing
+  usageCap         Decimal? @db.Decimal(10, 2)
+  usageCurrency    String?
+  usageTerms       String? // Description of usage pricing
+  usageBalanceUsed Decimal? @db.Decimal(10, 2) // Current usage balance
+
+  // Billing Periods
+  currentPeriodEnd DateTime?
+  nextBillingDate  DateTime?
+
+  // Lifecycle Dates
+  activatedAt        DateTime? // When first activated
+  cancelledAt        DateTime? // When cancelled
+  cancellationReason String?
+
+  // Webhook Tracking
+  lastWebhookUpdate  DateTime? // Last time webhook updated this
+  webhookUpdateCount Int       @default(0)
+  webhookTimestamp   DateTime? // Shopify's updated_at from webhook (for ordering)
+
+  // Return URL Tracking
+  returnUrlProcessed   Boolean   @default(false) // Has return URL been processed
+  returnUrlProcessedAt DateTime?
+
+  // Metadata
+  metadata  Json? // Additional subscription data
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, status])
+  @@index([shopifySubscriptionId])
+  @@index([chargeId])
+  @@index([status, nextBillingDate])
+}
+
+// ============================================
+// TRIAL AUDIT LOG - Tracks trial grant attempts
+// ============================================
+model TrialAuditLog {
+  id   String @id @default(uuid())
+  shop String
+
+  // Trial Details
+  planId             String // Plan that was requested
+  planName           String? // Human-readable plan name
+  trialDaysRequested Int // Trial days that were requested
+  trialDaysGranted   Int     @default(0) // Trial days actually granted (0 if blocked)
+
+  // Previous State
+  previousPlanId   String? // Plan before switch (if applicable)
+  previousPlanName String?
+  wasInTrial       Boolean @default(false) // Was merchant in trial before this request
+
+  // Validation Result
+  wasBlocked       Boolean @default(false) // Was the trial request blocked
+  blockReason      String? // ACTIVE_TRIAL, TRIAL_ALREADY_USED, etc.
+  eligibilityCheck Json? // Full eligibility check result
+
+  // Request Context
+  requestSource String? // "billing_page", "api", "webhook"
+  ipAddress     String? // For abuse detection
+  userAgent     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([shop])
+  @@index([shop, createdAt])
+  @@index([wasBlocked])
+  @@index([createdAt])
+}
+
+// ============================================
+// TIER TRIAL AUDIT LOG
+// ============================================
+// Tracks all tier subscription trial attempts (granted and blocked)
+// Used for abuse prevention and analytics on tier trials
+
+model TierTrialAuditLog {
+  id   String @id @default(uuid())
+  shop String
+
+  // Customer & Tier Details
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tierId     String
+  tierName   String // Denormalized for quick access
+
+  // Action & Result
+  action      String // TRIAL_GRANTED, TRIAL_BLOCKED, TRIAL_EXPIRED, TRIAL_CONVERTED
+  wasBlocked  Boolean @default(false)
+  blockReason String? // ALREADY_USED, ACTIVE_TRIAL, SAME_TIER, MAX_DAYS_EXCEEDED
+
+  // Trial Details
+  trialDaysRequested Int // Trial days that were requested
+  trialDaysGranted   Int @default(0) // Trial days actually granted (0 if blocked)
+
+  // Previous State (for plan switches)
+  previousTierId   String?
+  previousTierName String?
+  wasInTrial       Boolean @default(false) // Was customer in trial before this request
+
+  // Subscription Context
+  subscriptionId String? // The subscription that triggered this
+
+  // Request Context
+  requestSource String? // "webhook", "api", "storefront", "admin"
+  ipAddress     String? // For abuse detection
+  userAgent     String?
+
+  // Additional Data
+  metadata Json? // Full eligibility check result, etc.
+
+  createdAt DateTime @default(now())
+
+  @@index([shop])
+  @@index([shop, customerId])
+  @@index([customerId, tierId])
+  @@index([shop, createdAt])
+  @@index([wasBlocked])
+  @@index([createdAt])
+}
+
+model UsageRecord {
+  id   String @id @default(uuid())
+  shop String
+
+  // Shopify reference
+  shopifyUsageRecordId String? // Shopify's usage record ID
+
+  // Usage details
+  description  String // Description of the usage
+  amount       Decimal @db.Decimal(10, 2) // Amount charged
+  currencyCode String  @default("USD")
+
+  // Idempotency
+  idempotencyKey String // Prevent duplicate charges
+
+  // Processing details
+  processedAt DateTime @default(now()) // When charge was created
+  metadata    Json? // Additional data
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Legacy DB-side field preserved during Phase 2.5 reconciliation.
+  billingPlanId String?
+
+  // Indexes for queries
+  @@index([shop, processedAt(sort: Desc)]) // Recent usage by shop
+  @@index([shop, idempotencyKey]) // For idempotency checks
+}
+
+model UsageSummary {
+  id   String @id @default(uuid())
+  shop String
+
+  // Date and aggregation
+  date            DateTime // Date for this summary (UTC midnight)
+  ordersProcessed Int // Number of orders processed
+  cashbackIssued  Decimal  @db.Decimal(10, 2) // Total cashback issued
+  customersActive Int // Number of active customers
+
+  // Charge details
+  chargeAmount Decimal @db.Decimal(10, 2) // Calculated charge amount
+  chargeId     String? // Shopify usage record ID if charged
+  charged      Boolean @default(false) // Whether charge was created
+
+  // Metadata
+  metadata  Json? // Additional summary data
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, date]) // One summary per shop per day
+  @@index([shop, date(sort: Desc)])
+  @@index([charged])
+}
+
+model BillingHistory {
+  id   String @id @default(uuid())
+  shop String
+
+  // Event details
+  eventType String // SUBSCRIPTION_UPDATE, APPROACHING_CAP, etc
+  planName  String // Plan name at time of event
+  status    String // Status at time of event
+  amount    Decimal? @db.Decimal(10, 2) // Amount if applicable
+
+  // Metadata
+  metadata  Json? // Additional event data
+  createdAt DateTime @default(now())
+
+  // Legacy DB-side field preserved during Phase 2.5 reconciliation.
+  billingPlanId String?
+
+  @@index([shop, createdAt(sort: Desc)])
+  @@index([eventType])
+}
+
+model Notification {
+  id   String @id @default(uuid())
+  shop String
+
+  // Notification details
+  type     String // USAGE_CAP_WARNING, etc
+  title    String
+  message  String
+  severity String // INFO, WARNING, ERROR
+  read     Boolean @default(false)
+
+  // Metadata
+  metadata  Json? // Additional data
+  createdAt DateTime @default(now())
+
+  @@index([shop, read])
+  @@index([shop, createdAt(sort: Desc)])
+}
+
+model BillingAuditLog {
+  id   String @id @default(uuid())
+  shop String
+
+  // Action details
+  action       String // subscribe-free, subscribe-pro, subscribe-max, contact-enterprise
+  planName     String? // The plan they're trying to subscribe to
+  success      Boolean @default(false)
+  errorMessage String? @db.Text
+
+  // Request details
+  ipAddress String? // For tracking suspicious activity
+  userAgent String? @db.Text
+
+  // Timestamps
+  attemptedAt DateTime @default(now())
+
+  // Metadata
+  metadata Json? // Additional data like response from Shopify
+
+  @@index([shop, attemptedAt(sort: Desc)]) // Recent attempts by shop
+  @@index([shop, planName]) // Attempts by shop and plan
+}
+
+// ============================================
+// USAGE CAP ALERT MODEL (Phase 1)
+// ============================================
+
+// ============================================
+// APP-LEVEL SUBSCRIPTION MODELS
+// ============================================
+
+model Subscription {
+  id                String  @id @default(uuid())
+  shop              String
+  customerId        String
+  shopifyContractId String? @unique // Shopify subscription contract ID
+
+  // Plan details
+  planName String
+  status   SubscriptionStatus @default(PENDING)
+  amount   Decimal            @db.Decimal(10, 2)
+  currency Currency           @default(USD)
+
+  // Billing details
+  billingInterval      String // DAY, WEEK, MONTH, YEAR
+  billingIntervalCount Int       @default(1)
+  nextBillingDate      DateTime?
+  lastBillingDate      DateTime?
+
+  // Trial information
+  trialDays   Int       @default(0)
+  trialEndsAt DateTime?
+
+  // Payment method
+  paymentMethodId    String?
+  lastPaymentStatus  PaymentStatus?
+  failedPaymentCount Int            @default(0)
+
+  // Lifecycle dates
+  activatedAt        DateTime?
+  pausedAt           DateTime?
+  resumedAt          DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  // Features and metadata
+  features Json? // Array of feature strings
+  metadata Json? // Additional subscription data
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  billingAttempts BillingAttempt[]
+
+  @@unique([shop, customerId, planName])
+  @@index([shop])
+  @@index([customerId])
+  @@index([status])
+  @@index([nextBillingDate])
+}
+
+model BillingAttempt {
+  id             String @id @default(uuid())
+  subscriptionId String
+  shop           String
+
+  // Attempt details
+  attemptNumber Int      @default(1)
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      Currency
+
+  // Status
+  status       BillingAttemptStatus
+  errorCode    String?
+  errorMessage String?
+
+  // Payment details
+  paymentMethodId String?
+  transactionId   String? // Shopify transaction ID
+
+  // Retry information
+  nextRetryAt      DateTime?
+  retriesRemaining Int       @default(3)
+
+  // Timestamps
+  attemptedAt DateTime  @default(now())
+  succeededAt DateTime?
+  failedAt    DateTime?
+
+  // Relations
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([attemptedAt])
+}
+
+model PaymentMethodValidation {
+  id              String @id @default(uuid())
+  shop            String
+  customerId      String
+  paymentMethodId String
+
+  // Validation results
+  isValid  Boolean
+  errors   Json? // Array of error messages
+  warnings Json? // Array of warning messages
+
+  // Method details
+  instrumentType String? // CREDIT_CARD, SHOP_PAY, etc.
+  lastDigits     String?
+  expiryMonth    Int?
+  expiryYear     Int?
+  brand          String?
+
+  // Timestamps
+  validatedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([customerId, paymentMethodId])
+  @@index([shop])
+  @@index([customerId])
+  @@index([isValid])
+}
+
+model MonthlyOrderUsage {
+  id   String @id @default(uuid())
+  shop String
+
+  // Period tracking
+  year  Int // e.g., 2025
+  month Int // 1-12
+
+  // Usage tracking
+  orderCount Int    @default(0)
+  planLimit  Int // 100 for free, 1000 for paid
+  planName   String // Current plan name
+
+  // Lock state (for plan enforcement)
+  isLocked   Boolean   @default(false)
+  lockedAt   DateTime? // When the shop was locked
+  lockReason String? // Why the shop was locked
+
+  // Metadata
+  lastOrderDate DateTime? // Last order processed
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([shop, year, month])
+  @@index([shop, year, month])
+  @@index([shop, isLocked])
+}
+
+// Monthly email usage tracking (rate-based gating)
+// ============================================
+// SUBSCRIPTION MODELS
+// ============================================
+
+// Tier subscription records (recurring subscriptions)
+// NOTE: tierId is nullable to allow tier deletion without blocking subscriptions
+// When a tier is deleted, subscriptions become orphaned and tier resolution skips them
+model TierSubscription {
+  id         String   @id @default(uuid())
+  shop       String
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tierId     String? // Nullable - allows tier deletion without cascade
+  tier       Tier?    @relation(fields: [tierId], references: [id], onDelete: SetNull)
+
+  // NEW: Link to tier product
+  tierProductId String?
+  tierProduct   TierProduct? @relation(fields: [tierProductId], references: [id], onDelete: SetNull)
+
+  // Shopify Integration
+  subscriptionContractId String @unique // Shopify's subscription contract ID
+  sellingPlanId          String // Which selling plan (monthly/annual/etc)
+  sellingPlanGroupId     String // Group containing all plans
+  productVariantId       String // The tier product variant
+
+  // Subscription Details
+  status           SubscriptionStatus @default(PENDING)
+  billingInterval  BillingInterval
+  deliveryInterval BillingInterval // Usually same as billing
+
+  // Pricing
+  basePrice          Decimal  @db.Decimal(10, 2)
+  discountPercentage Int      @default(0) // e.g., 15% for annual
+  finalPrice         Decimal  @db.Decimal(10, 2)
+  currency           Currency @default(USD)
+
+  // Period Tracking
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  nextBillingDate    DateTime?
+  lastBillingDate    DateTime?
+
+  // Lifecycle
+  trialEndsAt        DateTime? // Optional trial period
+  startedAt          DateTime?
+  pausedAt           DateTime?
+  resumedAt          DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  // Billing
+  billingAttempts    SubscriptionBillingAttempt[]
+  failedPaymentCount Int                          @default(0)
+  lastPaymentFailure DateTime?
+
+  // Dunning & Retry Management
+  pauseReason  String?
+  skipCount    Int       @default(0)
+  lastSkipDate DateTime?
+
+  // Relations to track history
+  tierChangeLogs    TierChangeLog[] // Tier changes related to this subscription
+  customerAsCurrent Customer?           @relation("CurrentSubscription") // Reverse relation for currentSubscriptionId
+  retryAttempts     SubscriptionRetry[] // Payment retry attempts
+  events            SubscriptionEvent[] // Subscription events
+
+  // Metadata
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  // monthlyPrice is NOT NULL in DB without a default — must stay required to
+  // satisfy INSERTs.
+  monthlyPrice       Decimal   @db.Decimal(10, 2)
+  lastBillingAmount  Decimal?  @db.Decimal(10, 2)
+  activatedAt        DateTime?
+  failureCount       Int       @default(0)
+  lastFailureReason  String?
+  shopifyContractId  String?
+  shopifyOrderId     String?
+  startDate          DateTime?
+  endDate            DateTime?
+  currentPrice       Decimal?  @db.Decimal(10, 2)
+
+  @@index([shop, customerId])
+  @@index([shop, status])
+  @@index([subscriptionContractId])
+  @@index([status, nextBillingDate]) // For billing scheduler
+}
+
+model SubscriptionBillingAttempt {
+  id             String           @id @default(uuid())
+  subscriptionId String
+  subscription   TierSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  // Attempt Details
+  attemptNumber  Int    @default(1)
+  idempotencyKey String @unique // Prevent duplicate charges
+
+  // Status
+  status BillingStatus @default(PENDING)
+
+  // Financial
+  amount   Decimal  @db.Decimal(10, 2)
+  currency Currency @default(USD)
+
+  // Shopify References
+  shopifyOrderId          String? // Created order if successful
+  shopifyBillingAttemptId String?
+  shopifyInvoiceUrl       String? // For customer payment completion
+
+  // Error Tracking
+  errorCode    String?
+  errorMessage String?
+  errorDetails Json?
+
+  // Timestamps
+  scheduledFor DateTime
+  attemptedAt  DateTime?
+  succeededAt  DateTime?
+  failedAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  // billingDate + updatedAt are NOT NULL in DB without defaults.
+  billingDate      DateTime
+  shopifyChargeId  String?
+  shopifyInvoiceId String?
+  processedAt      DateTime?
+  metadata         Json?
+  updatedAt        DateTime @updatedAt
+
+  @@index([subscriptionId, status])
+  @@index([scheduledFor])
+  @@index([idempotencyKey])
+}
+
+model SellingPlanGroup {
+  id                        String @id @default(uuid())
+  shop                      String
+  shopifySellingPlanGroupId String @unique // Shopify's selling plan group ID (matches code references)
+
+  // Configuration
+  name         String // e.g., "Gold Tier Subscription Plans"
+  merchantCode String // e.g., "tier-gold-subscription"
+
+  // Associated Products
+  tierProducts Json // Array of product/variant IDs
+
+  // Plans in this group
+  plans SellingPlan[]
+
+  // Metadata
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  summary  String?  @db.Text
+  active   Boolean  @default(true)
+  position Int?
+
+  @@index([shop])
+  @@index([shopifySellingPlanGroupId])
+}
+
+model SellingPlan {
+  id      String           @id @default(uuid())
+  groupId String
+  group   SellingPlanGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  shopifyPlanId String @unique // Shopify's selling plan ID
+
+  // Plan Details
+  name     String // e.g., "Monthly", "Annual"
+  position Int // Display order
+
+  // Billing Configuration
+  billingInterval BillingInterval
+  intervalCount   Int             @default(1) // e.g., 3 for quarterly (3 months)
+
+  // Pricing
+  discountType  DiscountType? // PERCENTAGE or FIXED_AMOUNT
+  discountValue Decimal?      @db.Decimal(10, 2)
+
+  // Options
+  options Json // Customer-facing options
+
+  // Metadata
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // Pricing management fields
+  basePrice       Decimal?  @db.Decimal(10, 2)
+  currentDiscount Decimal?  @db.Decimal(5, 2)
+  lastPriceUpdate DateTime?
+
+  // Legacy DB-side fields preserved during Phase 2.5 reconciliation.
+  // sellingPlanGroupId, shopifySellingPlanId, updatedAt are NOT NULL in DB
+  // without defaults — must stay required so Prisma's INSERT supplies them.
+  sellingPlanGroupId   String
+  shopifySellingPlanId String
+  description          String?  @db.Text
+  active               Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
+
+  @@index([groupId])
+  @@index([shopifyPlanId])
+}
+
+// ============================================
+// PRICING MANAGEMENT MODELS
+// ============================================
+
+model SubscriptionPricingConfig {
+  id                  String   @id @default(uuid())
+  shop                String   @unique
+  allowPriceEditing   Boolean  @default(true)
+  requireApproval     Boolean  @default(false)
+  minDiscountPercent  Decimal  @default(0) @db.Decimal(5, 2)
+  maxDiscountPercent  Decimal  @default(50) @db.Decimal(5, 2)
+  priceChangeNotice   Int      @default(30) // Days notice for price increases
+  allowGrandfathering Boolean  @default(true) // Keep existing subs at old price
+  autoSyncPrices      Boolean  @default(true) // Auto-sync with Shopify
+  notifyCustomers     Boolean  @default(true) // Send price change notifications
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// Webhook idempotency tracking
+model WebhookProcess {
+  id             String   @id @default(uuid())
+  shop           String
+  topic          String
+  idempotencyKey String   @unique
+  payload        Json
+  processedAt    DateTime @default(now())
+
+  @@index([shop, topic, processedAt])
+}
+
+// Webhook error tracking
+model WebhookError {
+  id        String   @id @default(uuid())
+  shop      String
+  topic     String
+  orderId   String?
+  error     String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([shop, createdAt])
+}
+
+// Tier purchase records (one-time purchases)
+// NOTE: tierId is nullable to allow tier deletion without cascading to purchases
+// When a tier is deleted, purchases become orphaned and tier resolution skips them
+model TierPurchase {
+  id                String         @id @default(uuid())
+  shop              String
+  customerId        String
+  customer          Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tierId            String? // Nullable - allows tier deletion without cascade
+  tier              Tier?          @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  tierProductId     String
+  tierProduct       TierProduct    @relation(fields: [tierProductId], references: [id])
+  shopifyOrderId    String
+  shopifyLineItemId String
+  purchasePrice     Decimal        @db.Decimal(10, 2)
+  currency          String
+  startDate         DateTime
+  endDate           DateTime? // NULL for lifetime
+  status            PurchaseStatus @default(ACTIVE)
+  metadata          Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@unique([shop, shopifyOrderId, shopifyLineItemId])
+  @@index([customerId, status])
+  @@index([shop, status, endDate])
+}
+
+// Bulk operation logs
+model BulkOperationLog {
+  id            String   @id @default(uuid())
+  shop          String
+  operationType String
+  report        Json
+  successful    Int
+  failed        Int
+  total         Int
+  createdAt     DateTime @default(now())
+
+  @@index([shop, operationType, createdAt])
+}
+
+// ============================================
+// SUBSCRIPTION MANAGEMENT MODELS
+// ============================================
+
+// Subscription retry tracking for failed payments
+model SubscriptionRetry {
+  id             String      @id @default(uuid())
+  shop           String
+  contractId     String // Shopify subscription contract ID
+  subscriptionId String? // Local TierSubscription ID
+  attemptNumber  Int
+  scheduledFor   DateTime
+  executedAt     DateTime?
+  status         RetryStatus
+  errorCode      String?
+  errorMessage   String?
+  billingAmount  Decimal?    @db.Decimal(10, 2)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  subscription TierSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([shop, status])
+  @@index([contractId, status])
+  @@index([scheduledFor])
+  @@index([shop, contractId, attemptNumber])
+}
+
+// Subscription event logging
+model SubscriptionEvent {
+  id             String                @id @default(uuid())
+  shop           String
+  contractId     String // Shopify subscription contract ID
+  subscriptionId String? // Local TierSubscription ID
+  customerId     String?
+  eventType      SubscriptionEventType
+  eventData      Json? // Additional event-specific data
+  processedAt    DateTime?
+  createdAt      DateTime              @default(now())
+
+  // Relations
+  subscription TierSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  customer     Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([contractId])
+  @@index([eventType, processedAt])
+  @@index([shop, eventType, createdAt])
+  @@index([customerId, eventType])
+}
+
+// Distributed lock for webhook deduplication
+// ============================================
+// ORDER TRACKING MODELS
+// ============================================
+
+model Order {
+  id                 String @id @default(uuid())
+  shop               String
+  shopifyOrderId     String // Shopify order ID (e.g., "5843219374293")
+  shopifyOrderNumber String // Order number visible to customer (e.g., "#1234")
+  shopifyOrderName   String // Order name (e.g., "#1234" or "SHOP-1234")
+
+  // Customer relationship
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Order details
+  email    String
+  currency String // Shop currency code (matches totalPrice currency)
+
+  // Multi-currency tracking (for international orders)
+  // When customer pays in different currency than shop, we track both
+  presentmentCurrency String? // Customer's currency code (what they paid in)
+  presentmentTotal    Decimal? @db.Decimal(10, 2) // Amount in customer's currency
+  exchangeRate        Decimal? @db.Decimal(10, 6) // Rate: presentment / shop (for audit)
+
+  // Financial data - stored as Decimal for precision (all in SHOP currency)
+  subtotalPrice  Decimal @db.Decimal(10, 2) // Before discounts/shipping/tax
+  totalDiscounts Decimal @db.Decimal(10, 2) // Total discounts applied
+  totalShipping  Decimal @db.Decimal(10, 2) // Shipping cost
+  totalTax       Decimal @db.Decimal(10, 2) // Tax amount
+  totalPrice     Decimal @db.Decimal(10, 2) // Final total paid by customer
+
+  // Refund tracking
+  totalRefunded Decimal @default(0) @db.Decimal(10, 2) // Amount refunded
+  netAmount     Decimal @db.Decimal(10, 2) // totalPrice - totalRefunded
+
+  // Status tracking
+  financialStatus   OrderFinancialStatus // paid, pending, refunded, etc.
+  fulfillmentStatus String? // fulfilled, partial, unfulfilled, null
+
+  // Cashback calculation data
+  cashbackEligible       Boolean  @default(true) // Some orders may be excluded
+  cashbackPercent        Int? // Cashback rate at time of order
+  cashbackPercentAtOrder Int? // Exact percent used (for recalculation accuracy)
+  cashbackAmount         Decimal? @db.Decimal(10, 2) // Cashback earned
+  cashbackProcessed      Boolean  @default(false) // Has cashback been credited
+
+  // Tier data at time of order
+  tierIdAtOrder   String? // Customer's tier when order was placed
+  tierNameAtOrder String? // Store tier name for historical reference
+
+  // Dates
+  shopifyCreatedAt DateTime // When order was created in Shopify
+  shopifyUpdatedAt DateTime // Last update in Shopify
+  processedAt      DateTime? // When we processed the order
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Sync tracking fields
+  syncedAt    DateTime? // When this order was last synced from Shopify
+  syncVersion Int       @default(1) // Track sync version for updates
+
+  // Relations
+  lineItems           OrderLineItem[]
+  refunds             OrderRefund[]
+  creditLedgerEntries StoreCreditLedger[] @relation("OrderLedgerEntries")
+
+  // Indexes
+  @@unique([shop, shopifyOrderId])
+  @@index([shop, customerId])
+  @@index([shop, shopifyCreatedAt])
+  @@index([shop, financialStatus])
+  @@index([customerId, shopifyCreatedAt])
+  @@index([shop, shopifyUpdatedAt]) // For incremental sync queries
+  @@index([shop, syncedAt]) // For tracking sync status
+}
+
+model OrderLineItem {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  shopifyLineItemId String // Shopify line item ID
+  shopifyProductId  String? // Product ID
+  shopifyVariantId  String? // Variant ID
+
+  // Item details
+  title        String // Product title
+  variantTitle String? // Variant title
+  sku          String? // SKU
+  vendor       String? // Vendor name
+
+  // Quantities and pricing
+  quantity      Int // Quantity ordered
+  price         Decimal @db.Decimal(10, 2) // Unit price
+  totalPrice    Decimal @db.Decimal(10, 2) // quantity * price
+  totalDiscount Decimal @db.Decimal(10, 2) // Discounts on this item
+
+  // Flags
+  requiresShipping Boolean @default(true)
+  taxable          Boolean @default(true)
+  giftCard         Boolean @default(false)
+
+  // Tier product tracking
+  isTierProduct Boolean @default(false)
+  tierProductId String? // Link to TierProduct if applicable
+
+  createdAt DateTime @default(now())
+
+  @@unique([orderId, shopifyLineItemId])
+  @@index([orderId])
+}
+
+model OrderRefund {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  shopifyRefundId String // Shopify refund ID
+
+  // Refund amounts
+  amount         Decimal @db.Decimal(10, 2) // Total refund amount
+  shippingAmount Decimal @db.Decimal(10, 2) // Shipping refunded
+  taxAmount      Decimal @db.Decimal(10, 2) // Tax refunded
+
+  // Reason and notes
+  reason String? // restock, customer, damage, other
+  note   String? // Admin note
+
+  // Cashback adjustment
+  cashbackAdjustment Decimal? @db.Decimal(10, 2) // Cashback to reverse
+  cashbackProcessed  Boolean  @default(false)
+
+  shopifyCreatedAt DateTime // When refund was created in Shopify
+  processedAt      DateTime? // When we processed the refund
+  createdAt        DateTime  @default(now())
+
+  // Relations
+  refundLineItems   OrderRefundLineItem[]
+  creditLedgerEntry StoreCreditLedger?    @relation("RefundLedgerEntry")
+
+  @@unique([orderId, shopifyRefundId])
+  @@index([orderId])
+}
+
+model OrderRefundLineItem {
+  id       String      @id @default(uuid())
+  refundId String
+  refund   OrderRefund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+
+  shopifyLineItemId String // Original line item ID
+  quantity          Int // Quantity refunded
+  subtotal          Decimal @db.Decimal(10, 2) // Refund amount for this item
+
+  createdAt DateTime @default(now())
+
+  @@index([refundId])
+}
+
+//Enums
+
+enum CreditSyncStatus {
+  PENDING // Not yet synced to Shopify
+  SYNCING // Currently syncing
+  SYNCED // Successfully synced
+  FAILED // Sync failed
+  NOT_APPLICABLE // Doesn't need sync (e.g., manual adjustments)
+}
+
+enum Currency {
+  USD // US Dollar
+  EUR // Euro
+  GBP // British Pound
+  CAD // Canadian Dollar
+  AUD // Australian Dollar
+  JPY // Japanese Yen
+  CHF // Swiss Franc
+  CNY // Chinese Yuan
+  SEK // Swedish Krona
+  NZD // New Zealand Dollar
+  NOK // Norwegian Krone
+  MXN // Mexican Peso
+  SGD // Singapore Dollar
+  HKD // Hong Kong Dollar
+  KRW // South Korean Won
+  TRY // Turkish Lira
+  INR // Indian Rupee
+  RUB // Russian Ruble
+  BRL // Brazilian Real
+  ZAR // South African Rand
+  AED // UAE Dirham
+  PLN // Polish Zloty
+  DKK // Danish Krone
+  THB // Thai Baht
+  IDR // Indonesian Rupiah
+  HUF // Hungarian Forint
+  CZK // Czech Koruna
+  ILS // Israeli Shekel
+  CLP // Chilean Peso
+  PHP // Philippine Peso
+  RON // Romanian Leu
+  MYR // Malaysian Ringgit
+}
+
+enum CurrencyDisplayType {
+  SYMBOL // Currency Symbol (£)
+  CODE // Currency Code (GBP)
+}
+
+enum RecalculationFrequency {
+  DAILY // Recalculate every day
+  WEEKLY // Recalculate every week
+  MONTHLY // Recalculate every month
+  QUARTERLY // Recalculate every quarter (90 days)
+}
+
+enum WidgetThemeMode {
+  LIGHT // Light theme with white background
+  DARK // Dark theme with dark background
+  CUSTOM // Custom colors defined by merchant
+}
+
+enum EvaluationPeriod {
+  ANNUAL // 12 months rolling (default)
+  LIFETIME // All-time spending, never expires
+}
+
+enum LedgerEntryType {
+  CASHBACK_EARNED
+  ORDER_PAYMENT
+  REFUND_CREDIT
+  REFUND_CLAWBACK
+  MANUAL_ADJUSTMENT
+  SHOPIFY_SYNC
+  CONVERTED_TO_GIFT_CARD // Store credit converted to gift card
+}
+
+enum TierChangeType {
+  INITIAL_ASSIGNMENT // First tier assignment
+  UPGRADE // Moving to a higher tier
+  DOWNGRADE // Moving to a lower tier  
+}
+
+enum TierTriggerType {
+  ACCOUNT_CREATED // Initial tier on account creation
+  PERIODIC_REVIEW // System periodic evaluation
+  SPENDING_MILESTONE // Hit specific spending threshold
+  MANUAL_ADMIN // Manual change by admin
+  PRODUCT_PURCHASE // Tier assigned via product purchase
+  SUBSCRIPTION_STARTED // Initial subscription activation
+  SUBSCRIPTION_RENEWED // Subscription renewal
+  SUBSCRIPTION_UPGRADED // Plan upgrade
+  SUBSCRIPTION_DOWNGRADED // Plan downgrade
+  SUBSCRIPTION_CANCELLED // Subscription cancelled
+  SUBSCRIPTION_PURCHASE // Purchase of subscription tier
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+// Tier source for CustomerTierState - indicates where the customer's current tier comes from
+enum TierSource {
+  MANUAL_OVERRIDE // Admin explicitly set this tier
+  TIER_SUBSCRIPTION // Customer has active recurring subscription
+  TIER_PURCHASE // Customer has active one-time purchase
+  SPENDING_BASED // Automatic calculation based on spending
+  DEFAULT_BASE_TIER // Shop's configured default tier for new customers
+  NONE // No tier assigned
+}
+
+// ============================================
+// SUBSCRIPTION ENUMS
+// ============================================
+
+enum SubscriptionStatus {
+  PENDING // Created but not yet activated
+  ACTIVE // Currently active and billing
+  PAUSED // Temporarily suspended
+  CANCELLED // Permanently cancelled
+  EXPIRED // Past end date
+  FAILED // Payment failures exceeded threshold
+}
+
+enum BillingInterval {
+  WEEKLY
+  MONTHLY
+  ANNUAL // 12 months
+}
+
+enum BillingStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REQUIRES_ACTION // e.g., 3D Secure
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PurchaseType {
+  ONE_TIME // One-time purchase only
+  SUBSCRIPTION // Subscription only
+  BOTH // Supports both purchase types
+}
+
+enum ProductDuration {
+  MONTHLY // 30 days
+  ANNUAL // 365 days
+  LIFETIME // Permanent
+}
+
+enum OrderFinancialStatus {
+  PENDING
+  AUTHORIZED
+  PARTIALLY_PAID
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  VOIDED
+}
+
+// ============================================
+// SUBSCRIPTION MANAGEMENT ENUMS
+// ============================================
+
+enum RetryStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum SubscriptionEventType {
+  CREATED
+  ACTIVATED
+  PAUSED
+  RESUMED
+  CANCELLED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PAYMENT_RETRY_SCHEDULED
+  DELIVERY_SKIPPED
+  BILLING_UPDATED
+  PLAN_CHANGED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum BillingAttemptStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  RETRY_SCHEDULED
+  ABANDONED
+}
+
+// ============================================
+// WEBHOOK PROCESSING MODELS
+// ============================================
+
+model WebhookProcessed {
+  id          String   @id @default(uuid())
+  webhookId   String   @unique
+  topic       String
+  shop        String
+  processedAt DateTime @default(now())
+
+  @@index([shop, topic])
+}
+
+// Distributed lock for cron jobs to prevent concurrent execution
+// When a cron job starts, it tries to create a lock with unique jobName
+// If creation fails (unique constraint), another instance is running
+model DeadLetterQueue {
+  id        String   @id @default(uuid())
+  webhookId String?
+  shop      String
+  topic     String
+  payload   Json
+  attempts  Int
+  error     String?
+  createdAt DateTime @default(now())
+  failedAt  DateTime
+
+  @@index([shop, failedAt])
+}
+
+// ============================================
+// SYNC MANAGEMENT MODELS
+// ============================================
+
+model SyncStatus {
+  id               String         @id @default(uuid())
+  shop             String
+  syncType         String // "orders", "customers", "products"
+  lastSyncAt       DateTime // Last time sync ran
+  lastSuccessfulId String? // Last successfully synced record ID
+  syncCursor       String? // GraphQL cursor for pagination
+  status           SyncStatusEnum // Current sync status
+  errorMessage     String? // Error details if failed
+  recordsProcessed Int            @default(0) // Number of records processed
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([shop, syncType])
+  @@index([shop, lastSyncAt])
+}
+
+enum SyncStatusEnum {
+  IDLE
+  RUNNING
+  FAILED
+  COMPLETED
+}
+
+// ============================================
+// EXCHANGE RATE MODELS
+// ============================================
+
+model ExchangeRate {
+  id String @id @default(uuid())
+
+  // Rate configuration
+  baseCurrency Currency @default(USD) // Base currency for rates
+  rates        Json // { EUR: 1.09, GBP: 1.27, ... }
+  provider     String // "ExchangeRate-API", "Shopify", etc.
+
+  // Timestamps
+  fetchedAt DateTime // When rates were fetched from provider
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Metadata
+  metadata Json? // Provider response metadata
+
+  @@index([baseCurrency, fetchedAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
+model SystemAlert {
+  id String @id @default(uuid())
+
+  // Alert details
+  type     String // EXCHANGE_RATE_STALENESS, etc.
+  severity String // INFO, WARNING, CRITICAL
+  message  String // Alert message
+  details  Json // Additional context
+
+  // Status
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([type, resolved])
+  @@index([severity, createdAt(sort: Desc)])
+}
+
+// ============================================
+// EMAIL MARKETING MODELS
+// ============================================
+
+model EmailTemplate {
+  id   String @id @default(uuid())
+  shop String
+
+  // Template details
+  name        String // Template name (e.g., "Welcome Email", "Tier Upgrade")
+  type        String // welcome, tier_change, points_reminder, etc.
+  subject     String // Email subject line
+  content     Json // Block-based content structure
+  previewText String? // Preview text for email clients
+  bodyHtml    String? // HTML content of email
+  bodyText    String? // Plain text content of email
+  htmlContent String? // Full HTML content (compiled)
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaigns   EmailCampaign[]
+  automations EmailAutomation[]
+
+  @@index([shop, type])
+  @@index([shop, isActive])
+}
+
+model EmailCampaign {
+  id   String @id @default(uuid())
+  shop String
+
+  // Campaign details
+  name        String // Campaign name
+  subject     String? // Email subject line
+  previewText String? // Email preview text
+  templateId  String // Reference to EmailTemplate
+  template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Status
+  status String // draft, scheduled, sending, sent, failed
+
+  // Segmentation
+  segmentRules Json // Segment criteria
+
+  // Scheduling
+  scheduledFor DateTime? // When to send
+  sentAt       DateTime? // When actually sent
+
+  // Metrics
+  metrics Json? // { sent, delivered, opened, clicked, revenue, orders }
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, scheduledFor])
+  @@index([sentAt(sort: Desc)])
+}
+
+model EmailAutomation {
+  id   String @id @default(uuid())
+  shop String
+
+  // Automation details
+  name       String // Automation name
+  trigger    String // welcome, tier_upgrade, points_expiry, etc.
+  templateId String // Reference to EmailTemplate
+  template   EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Status
+  isEnabled Boolean @default(true)
+
+  // Conditions & Timing
+  conditions   Json // Conditional logic
+  delayMinutes Int  @default(0) // Delay before sending
+
+  // Metrics
+  totalSent    Int @default(0)
+  totalOpened  Int @default(0)
+  totalClicked Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, trigger])
+  @@index([shop, isEnabled])
+}
+
+/// Stores delayed automation executions for processing by a cron job.
+model PendingAutomation {
+  id             String   @id @default(uuid())
+  shop           String
+  automationId   String
+  automationName String
+  templateId     String
+
+  // Recipient
+  recipientEmail     String @db.VarChar(255)
+  recipientFirstName String? @db.VarChar(255)
+  recipientLastName  String? @db.VarChar(255)
+
+  // Trigger context
+  triggerType String
+  triggerData Json? // Original event data for template personalization
+
+  // Scheduling
+  executeAt DateTime // When this should be sent
+  status    String   @default("pending") // pending, sent, failed, cancelled
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+  error     String?  @db.Text
+
+  @@index([status, executeAt])
+  @@index([shop])
+}
+
+model EmailSettings {
+  shop String @id // Shop domain (primary key)
+
+  // Sender configuration
+  senderName   String  @default("Store")
+  senderEmail  String // From email
+  replyToEmail String? // Reply-to email
+
+  // Brand customization
+  brandColors   Json  @default("{\"primary\":\"#5C6AC4\",\"secondary\":\"#F4F6F8\"}")
+  typography    Json  @default("{\"fontFamily\":\"Inter\"}")
+  headerContent Json? // Logo, navigation, etc.
+  footerContent Json? // Legal, social, etc.
+
+  // Compliance
+  suppressionList        String[] @default([]) // Emails to never send to
+  includeUnsubscribe     Boolean  @default(true)
+  includePhysicalAddress Boolean  @default(true)
+  gdprEnabled            Boolean  @default(true)
+
+  // Send controls
+  sendTimePrefs Json @default("{\"preferredTime\":\"10:00\",\"timezone\":\"America/New_York\",\"dailyLimit\":1000,\"hourlyLimit\":100}")
+
+  // SendGrid Integration
+  sendingMode    SendingMode @default(SHARED) // SHARED or CUSTOM_DOMAIN
+  customDomainId String? // Reference to SendGridDomain if using custom domain
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // EMAIL PROVIDER SELECTION
+  // ═══════════════════════════════════════════════════════════════════════
+  emailProvider EmailProvider @default(SENDGRID) // Which provider to use
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MARKETING HUB MODE
+  // Determines whether merchant uses in-house campaigns or Klaviyo
+  // ═══════════════════════════════════════════════════════════════════════
+  marketingHubMode       MarketingHubMode @default(UNCONFIGURED) // Which marketing UI to show
+  marketingModeSetAt     DateTime? // When merchant chose their mode
+  hasSeenMarketingChoice Boolean          @default(false) // Has seen the choice modal
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoEnabled       Boolean @default(false) // Feature flag
+  klaviyoApiKey        String? // Private API key (encrypted in production)
+  klaviyoPublicKey     String? // 6-char public key for client-side
+  klaviyoDefaultListId String? // Default list for new subscribers
+  klaviyoIntegrationId String? // Custom integration identifier
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO SYNC CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoSyncProfiles Boolean   @default(true) // Auto-sync customer profiles
+  klaviyoSyncEvents   Boolean   @default(true) // Auto-sync order/tier events
+  klaviyoSyncConsent  String    @default("EXPLICIT") // EXPLICIT or IMPLICIT
+  klaviyoLastSyncAt   DateTime? // Last successful full sync
+  klaviyoSyncStatus   String? // IDLE, SYNCING, ERROR
+  klaviyoSyncError    String? // Last sync error message
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO WEBHOOK CONFIGURATION (if using Advanced KDP)
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoWebhookSecret  String? // For signature verification
+  klaviyoWebhookId      String? // Registered webhook ID
+  klaviyoWebhookEnabled Boolean @default(false)
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO OAUTH CONFIGURATION (Preferred over API key)
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoOAuthConnected Boolean   @default(false) // Is OAuth connected?
+  klaviyoAccessToken    String? // OAuth access token (short-lived)
+  klaviyoRefreshToken   String? // OAuth refresh token (long-lived)
+  klaviyoTokenExpiresAt DateTime? // When access token expires
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customDomain SendGridDomain? @relation(fields: [customDomainId], references: [id])
+}
+
+// SendGrid Domain Authentication for branded sending
+model SendGridDomain {
+  id   String @id @default(uuid())
+  shop String
+
+  // Domain details
+  domain    String // e.g., "mail.merchantstore.com"
+  subdomain String? // e.g., "mail" (optional prefix)
+
+  // SendGrid IDs
+  sendgridDomainId   String? // SendGrid's domain authentication ID
+  sendgridDnsRecords Json? // DNS records from SendGrid API
+
+  // Verification status
+  status        DomainStatus @default(PENDING)
+  verifiedAt    DateTime?
+  lastCheckedAt DateTime?
+
+  // DNS record verification status
+  dkimVerified    Boolean @default(false)
+  spfVerified     Boolean @default(false)
+  dmarcConfigured Boolean @default(false)
+
+  // Error tracking
+  lastError  String?
+  errorCount Int     @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  emailSettings EmailSettings[]
+
+  @@unique([shop, domain])
+  @@index([shop, status])
+}
+
+enum SendingMode {
+  SHARED // Send from rewardspro.io domain
+  CUSTOM_DOMAIN // Send from merchant's authenticated domain
+}
+
+// ============================================
+// KLAVIYO INTEGRATION ENUMS
+// ============================================
+
+enum EmailProvider {
+  SENDGRID // Current default provider
+  KLAVIYO // Klaviyo as primary provider
+  HYBRID // SendGrid for transactional, Klaviyo for marketing
+}
+
+// Marketing Hub Mode - determines which UI/features merchants see
+enum MarketingHubMode {
+  UNCONFIGURED // Never made a choice - show choice modal
+  INHOUSE // Using in-house SendGrid campaigns/templates
+  KLAVIYO // Using Klaviyo for all marketing (simplified hub UI)
+}
+
+enum KlaviyoSyncStatus {
+  PENDING // Never synced
+  SYNCED // Successfully synced
+  SYNCING // Currently syncing
+  STALE // Needs re-sync (local data changed)
+  ERROR // Sync failed
+  UNSUBSCRIBED // Profile unsubscribed, no longer sync
+}
+
+enum KlaviyoConsentStatus {
+  UNKNOWN // Not yet fetched from Klaviyo
+  SUBSCRIBED // Opted in to receive marketing
+  NEVER_SUBSCRIBED // Never subscribed (transactional only)
+  UNSUBSCRIBED // Previously subscribed, now opted out
+  SUPPRESSED // Manually suppressed
+}
+
+enum KlaviyoEventStatus {
+  PENDING // Not yet sent
+  SENDING // Currently sending
+  SENT // Successfully sent to Klaviyo
+  FAILED // Send failed (will retry)
+  ABANDONED // Max retries exceeded
+}
+
+enum DomainStatus {
+  PENDING // Domain created, waiting for DNS setup
+  DNS_PENDING // DNS records provided, waiting for verification
+  VERIFYING // Currently checking DNS records
+  VERIFIED // Domain fully verified and ready
+  FAILED // Verification failed
+}
+
+model EmailEvent {
+  id   String @id @default(uuid())
+  shop String
+
+  // Event details
+  campaignId    String? // Reference to campaign if applicable
+  automationId  String? // Reference to automation if applicable
+  customerId    String? // Shopify customer ID
+  customerEmail String // Customer email
+
+  // Event type
+  eventType String // sent, delivered, opened, clicked, bounced, complained, unsubscribed
+
+  // Metadata
+  metadata Json? // Additional event data (links clicked, bounce reason, etc.)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([shop, eventType, createdAt(sort: Desc)])
+  @@index([campaignId, eventType])
+  @@index([customerEmail, eventType])
+}
+
+// Analytics-powered marketing recommendations
+model AnalyticsRecommendation {
+  id               String    @id @default(uuid())
+  shop             String
+  slug             String // Unique identifier for the recommendation type
+  type             String // e.g., 'inactive_customers', 'tier_upgrade_opportunity'
+  title            String
+  description      String    @db.Text
+  segmentPayload   Json // Customer segment criteria and rules
+  metadata         Json? // Additional recommendation data
+  predictedRevenue Float?
+  affectedCount    Int // Number of customers affected
+  priority         Int       @default(0) // Higher number = higher priority
+  status           String    @default("pending") // pending, applied, dismissed, expired
+  appliedAt        DateTime?
+  dismissedAt      DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([shop, slug])
+  @@index([shop, status])
+  @@index([shop, expiresAt])
+}
+
+// ============================================
+// KLAVIYO INTEGRATION MODELS
+// ============================================
+
+// Tracks the synchronization state between RewardsPro customers and Klaviyo profiles
+model KlaviyoProfile {
+  id   String @id @default(uuid())
+  shop String
+
+  // Identity mapping
+  customerId        String // RewardsPro Customer.id (UUID)
+  klaviyoProfileId  String // Klaviyo's profile ID (e.g., "01HXYZ...")
+  email             String // Denormalized for quick lookups
+  shopifyCustomerId String? // Shopify customer ID (stored as external_id in Klaviyo)
+
+  // Sync status tracking
+  syncStatus     KlaviyoSyncStatus @default(PENDING)
+  syncedAt       DateTime? // Last successful sync timestamp
+  syncVersion    Int               @default(1) // Increment on each sync
+  lastSyncError  String? // Error message if sync failed
+  syncRetryCount Int               @default(0) // Failed sync attempts
+
+  // Data freshness tracking
+  profileDataHash String? // Hash of last synced profile data (for change detection)
+  lastEventAt     DateTime? // When last event was tracked for this profile
+  lastEventType   String? // Type of last event (e.g., "Placed Order")
+
+  // Phase 1 Gap Fill: Segment tracking for change detection
+  lastKnownSegment String? // CHAMPION, LOYAL, ENGAGED, AT_RISK, LAPSED, NEW
+
+  // Consent & subscription status (cached from Klaviyo)
+  emailConsent     KlaviyoConsentStatus @default(UNKNOWN)
+  smsConsent       KlaviyoConsentStatus @default(UNKNOWN)
+  consentUpdatedAt DateTime?
+
+  // List memberships (cached)
+  listIds    String[] @default([]) // Klaviyo list IDs profile belongs to
+  segmentIds String[] @default([]) // Klaviyo segment IDs (cached)
+
+  // Metadata
+  metadata  Json? // Additional sync metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, customerId]) // One Klaviyo profile per customer per shop
+  @@unique([shop, klaviyoProfileId]) // Klaviyo profile ID unique per shop
+  @@index([shop, email]) // Fast email lookups
+  @@index([shop, syncStatus]) // Find profiles needing sync
+  @@index([shop, syncedAt]) // Find stale profiles
+  @@index([shop, emailConsent]) // Filter by consent status
+  @@index([shopifyCustomerId]) // Cross-reference with Shopify
+}
+
+// Records all events sent to Klaviyo for deduplication, audit trail, and retry
+model KlaviyoEvent {
+  id   String @id @default(uuid())
+  shop String
+
+  // Event identification
+  eventType  String // e.g., "Placed Order", "Tier Upgraded"
+  uniqueId   String // Klaviyo unique_id for deduplication
+  metricName String // Klaviyo metric name
+
+  // Profile reference
+  customerId       String? // RewardsPro customer ID
+  klaviyoProfileId String? // Klaviyo profile ID (if known)
+  customerEmail    String // Email used in event
+
+  // Event data
+  eventValue      Decimal? @db.Decimal(10, 2) // $value for revenue tracking
+  eventProperties Json // Full event properties sent to Klaviyo
+  eventTime       DateTime // Timestamp of the event
+
+  // Source references
+  orderId         String? // If triggered by order
+  orderRefundId   String? // If triggered by refund
+  tierChangeLogId String? // If triggered by tier change
+
+  // Sync status
+  status       KlaviyoEventStatus @default(PENDING)
+  sentAt       DateTime? // When sent to Klaviyo
+  errorMessage String? // Error if failed
+  retryCount   Int                @default(0)
+  nextRetryAt  DateTime? // Scheduled retry time
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, uniqueId]) // Prevent duplicate events
+  @@index([shop, eventType, createdAt(sort: Desc)])
+  @@index([shop, status]) // Find events needing retry
+  @@index([customerId, eventType]) // Customer's event history
+  @@index([orderId]) // Events for an order
+  @@index([nextRetryAt]) // Retry scheduler
+}
+
+// Caches Klaviyo lists for UI and sync operations
+model KlaviyoList {
+  id   String @id @default(uuid())
+  shop String
+
+  // Klaviyo list data
+  klaviyoListId String // Klaviyo's list ID
+  name          String // List name
+  listType      String @default("list") // "list" or "segment"
+
+  // Mapping to RewardsPro
+  purpose      String? // e.g., "subscribers", "vip_customers", "tier_gold"
+  segmentRules Json? // RewardsPro segment rules that map to this list
+  isDefault    Boolean @default(false) // Default list for new subscribers
+  isManaged    Boolean @default(false) // Managed by RewardsPro (vs user-created)
+
+  // Cache data
+  profileCount Int       @default(0) // Cached count
+  lastSyncedAt DateTime? // When cache was refreshed
+
+  // Metadata
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, klaviyoListId])
+  @@index([shop, isDefault])
+  @@index([shop, purpose])
+}
+
+// Merchant configuration for Klaviyo automation events
+model KlaviyoAutomationSettings {
+  id   String @id @default(uuid())
+  shop String @unique
+
+  // Master toggle
+  automationsEnabled Boolean @default(false)
+
+  // Event toggles - Customer lifecycle
+  sendCustomerEnrolled    Boolean @default(true)
+  sendCustomerBirthday    Boolean @default(true)
+  sendCustomerAnniversary Boolean @default(true)
+
+  // Event toggles - Transaction events
+  sendOrderPlaced      Boolean @default(true)
+  sendCashbackEarned   Boolean @default(true)
+  sendCashbackRedeemed Boolean @default(true)
+
+  // Event toggles - Tier events
+  sendTierUpgraded    Boolean @default(true)
+  sendTierDowngraded  Boolean @default(true)
+  sendTierUpgradeNear Boolean @default(true)
+  sendVipAchieved     Boolean @default(true)
+
+  // Event toggles - Engagement events
+  sendPointsExpiring  Boolean @default(true)
+  sendBalanceReminder Boolean @default(true)
+  sendWinBack         Boolean @default(true)
+
+  // Phase 1 Gap Fill - New event toggles
+  sendCashbackAdjusted       Boolean @default(true) // Manual adjustment notifications
+  sendCustomerBecameChampion Boolean @default(true) // Champion segment achieved
+  sendCustomerBecameLoyal    Boolean @default(true) // Loyal segment achieved
+
+  // Timing configuration
+  pointsExpiryWarningDays Int[] @default([30, 7, 1]) // Days before expiry
+  balanceReminderDays     Int   @default(30) // Days since last order
+  winBackTriggerDays      Int[] @default([60, 90]) // Inactivity triggers
+  tierNudgeThreshold      Int   @default(80) // Percentage progress
+
+  // Cooldowns (prevent over-emailing)
+  expiryReminderCooldownDays  Int @default(7)
+  balanceReminderCooldownDays Int @default(14)
+  winBackCooldownDays         Int @default(30)
+  tierNudgeCooldownDays       Int @default(14)
+
+  // Rewards engagement, gift-card, and store-credit event toggles were
+  // scaffolded but never wired into the application; trimmed during Phase 2.5.
+
+  // Scheduling
+  scheduledJobTime String @default("06:00") // HH:MM in shop timezone
+  timezone         String @default("America/New_York")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// POINTS ENGAGEMENT SYSTEM MODELS
+// ============================================
+// These models power the gamified points system that runs alongside
+// the cashback rewards. Points are a separate "fun" currency used for
+// raffles, mystery boxes, spin wheels, and challenges.
+
+model PointsConfig {
+  id   String @id @default(uuid())
+  shop String @unique
+
+  // System Enable/Disable
+  isEnabled Boolean @default(false) // Master toggle for points system
+
+  // Currency Branding
+  currencyName       String @default("Points") // Display name (e.g., "Stars", "Gems")
+  currencyNamePlural String @default("Points") // Plural form
+  currencyIcon       String @default("⭐") // Emoji or icon identifier
+
+  // Enhanced Icon System (Phase 2-3) - DISABLED: Migration not applied to production
+  // To enable: Run prisma/migrations/manual/20250118_add_enhanced_icon_system.sql
+  // currencyIconType  String  @default("emoji") // "emoji" | "upload" | "library"
+  // currencyIconUrl   String? // URL for uploaded custom icon (SVG/PNG)
+  // currencyIconId    String? // ID for icon library selection (e.g., "lucide:star")
+  // currencyIconColor String? // Hex color for library icons (e.g., "#5C6AC4")
+
+  // Earning Rules
+  pointsPerDollar Int                @default(10) // Base points earned per $1 spent
+  roundingMode    PointsRoundingMode @default(FLOOR) // How to round fractional points
+
+  // Expiration Settings
+  pointsExpire          Boolean @default(false) // Whether points expire
+  expirationDays        Int     @default(365) // Days until points expire (if enabled)
+  expirationWarningDays Int     @default(30) // Days before expiry to send warning
+
+  // Feature Toggles
+  rafflesEnabled       Boolean @default(false)
+  mysteryBoxesEnabled  Boolean @default(false)
+  spinWheelEnabled     Boolean @default(false)
+  challengesEnabled    Boolean @default(false)
+  scratchCardsEnabled  Boolean @default(false)
+  givebackPoolsEnabled Boolean @default(false)
+
+  // Daily Spin Wheel Settings
+  dailySpinEnabled   Boolean @default(true) // Free daily spin
+  dailySpinResetHour Int     @default(0) // Hour (0-23) when daily spin resets
+  premiumSpinCost    Int     @default(500) // Points cost for premium spin
+
+  // Streak Tracking
+  streakBonusEnabled    Boolean @default(false)
+  streakBonusMultiplier Decimal @default(0.1) @db.Decimal(3, 2) // +10% per day, max varies
+
+  // ============================================
+  // MISSION SYSTEM SETTINGS (Gamification)
+  // ============================================
+
+  // Master Toggle
+  missionsEnabled Boolean @default(false)
+
+  // XP Configuration
+  xpEnabled      Boolean @default(true) // Enable XP system
+  xpPerLevel     Int     @default(100) // Base XP required per level
+  xpLevelScaling Decimal @default(1.2) @db.Decimal(3, 2) // XP multiplier per level (+20%)
+
+  // Mission Streak Configuration (consecutive days completing missions)
+  missionStreakBonusEnabled Boolean @default(true)
+  missionStreakBonusPercent Int     @default(10) // +10% XP per streak day
+  maxMissionStreakBonus     Int     @default(100) // Max +100% bonus
+
+  // Mission Combo Configuration (multiple missions same day)
+  comboEnabled      Boolean @default(true)
+  comboBonusPercent Int     @default(25) // +25% XP per additional mission
+  maxComboBonus     Int     @default(100) // Max +100% bonus
+
+  // Mission Reset Time (shop timezone)
+  missionResetHour Int @default(0) // Hour (0-23) when daily missions reset
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop])
+}
+
+model PointsLedger {
+  id         String @id @default(uuid())
+  shop       String
+  customerId String
+
+  // Transaction Details
+  amount  Int // Positive = earn, negative = spend
+  balance Int // Running balance after transaction
+  type    PointsLedgerType
+
+  // Source Reference (polymorphic - only one should be set)
+  orderId          String? // If from order earning
+  raffleEntryId    String? // If spent on raffle
+  mysteryBoxOpenId String? // If spent on mystery box
+  spinResultId     String? // If from spin wheel
+  challengeId      String? // If from challenge completion
+  scratchCardId    String? // If from scratch card
+  bonusEventId     String? // If from bonus event
+
+  // Expiration Tracking
+  expiresAt DateTime? // When these points expire (null = never)
+  expired   Boolean   @default(false) // True if points have been expired
+
+  // Descriptive
+  description String? // Human-readable description
+  metadata    Json? // Additional context data
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  customer    Customer     @relation("PointsLedgerEntries", fields: [customerId], references: [id], onDelete: Cascade)
+  raffleEntry RaffleEntry? @relation("RaffleEntryLedger", fields: [raffleEntryId], references: [id], onDelete: SetNull)
+
+  @@index([shop, customerId])
+  @@index([raffleEntryId])
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([type])
+  @@index([expiresAt, expired]) // For expiration cron job
+  @@index([shop, createdAt(sort: Desc)]) // For analytics queries
+}
+
+// Enum for points transaction types
+enum PointsLedgerType {
+  // Earning
+  ORDER_EARNED // Points earned from purchase
+  CHALLENGE_COMPLETED // Points from completing a challenge
+  SPIN_WHEEL_WIN // Points won from spin wheel
+  SCRATCH_CARD_WIN // Points won from scratch card
+  MYSTERY_BOX_WIN // Points won from mystery box (rare)
+  BONUS_EVENT // Points from multiplier events
+  REFERRAL_BONUS // Points from referring friends
+  MANUAL_CREDIT // Admin manual credit
+  STREAK_BONUS // Daily login streak bonus
+
+  // Spending
+  RAFFLE_ENTRY // Points spent on raffle entry
+  MYSTERY_BOX_OPEN // Points spent to open mystery box
+  PREMIUM_SPIN // Points spent on premium spin
+  GIVEBACK_DONATION // Points donated to giveback pool
+  MANUAL_DEBIT // Admin manual debit
+
+  // Adjustments
+  EXPIRATION // Points expired (negative)
+  REFUND_CLAWBACK // Points clawed back due to order refund
+  SYSTEM_ADJUSTMENT // System correction
+}
+
+enum PointsRoundingMode {
+  FLOOR // Round down (10.9 -> 10)
+  CEIL // Round up (10.1 -> 11)
+  ROUND // Standard rounding (10.5 -> 11, 10.4 -> 10)
+}
+
+// ============================================
+// RAFFLES SYSTEM MODELS
+// ============================================
+// Raffles allow customers to spend points for a chance to win prizes.
+// Supports multiple prize tiers, various draw types, and guaranteed winners.
+
+model Raffle {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String // "Spring Giveaway", "Mystery Prize Draw"
+  description String? @db.Text // Rich description for customers
+  imageUrl    String? // Hero image for the raffle
+
+  // Status & Timing
+  status   RaffleStatus @default(DRAFT)
+  startsAt DateTime // When entries open
+  endsAt   DateTime // When entries close
+  drawAt   DateTime? // When winners are drawn (null = immediate after endsAt)
+  drawnAt  DateTime? // When draw actually occurred
+
+  // Entry Rules
+  entryCost             Int  @default(100) // Points per entry
+  maxEntriesTotal       Int? // Max entries per raffle (null = unlimited)
+  maxEntriesPerCustomer Int  @default(10) // Max entries per customer
+
+  // Draw Configuration
+  drawType     RaffleDrawType @default(RANDOM)
+  totalWinners Int            @default(1) // How many winners to select
+
+  // Entry Stats (denormalized for performance)
+  totalEntries   Int @default(0)
+  uniqueEntrants Int @default(0)
+  totalPrizePool Int @default(0) // Accumulated points value
+
+  // Visibility & Eligibility
+  isPublic         Boolean @default(true) // Show on storefront
+  tierRestrictions Json? // { "allowedTierIds": ["tier-1", "tier-2"] } or null for all
+  minimumTier      String? // Minimum tier required to enter (by tier ID)
+
+  // Psychology Features (Gamification)
+  enableInstantWins     Boolean @default(false) // Allow instant-win micro-prizes
+  enableActivityFeed    Boolean @default(true) // Show social proof activity feed
+  enableStreakBonuses   Boolean @default(true) // Apply streak multipliers
+  enableLuckyNumbers    Boolean @default(true) // Award lucky number bonuses
+  dailyFreeEntries      Int     @default(0) // Free entries per day (0 = disabled)
+  earlyBirdBonusPercent Int     @default(0) // % bonus for first N entries
+  earlyBirdEntryLimit   Int     @default(0) // First N entries get early bird bonus
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  prizes  RafflePrize[]
+  entries RaffleEntry[]
+  winners RaffleWinner[]
+
+  // Psychology relations
+  instantWins  RaffleInstantWin[]  @relation("RaffleInstantWins")
+  activities   RaffleActivity[]    @relation("RaffleActivities")
+  bonusEvents  RaffleBonusEvent[]  @relation("RaffleBonusEvents")
+  luckyNumbers RaffleLuckyNumber[] @relation("RaffleLuckyNumbers")
+
+  @@index([shop])
+  @@index([shop, status])
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+}
+
+model RafflePrize {
+  id       String @id @default(uuid())
+  raffleId String
+
+  // Prize Details
+  name        String // "Grand Prize", "Runner-up Prize"
+  description String? // What the prize includes
+  imageUrl    String? // Prize image
+
+  // Prize Type & Value
+  prizeType  RafflePrizeType
+  prizeValue Json // Type-specific value configuration
+  // DISCOUNT: { "type": "percentage" | "fixed", "value": 20, "maxUses": 1 }
+  // STORE_CREDIT: { "amount": 5000 } (in cents)
+  // PRODUCT: { "productId": "gid://shopify/Product/123", "variantId": "...", "quantity": 1 }
+  // POINTS: { "amount": 1000 }
+  // CUSTOM: { "fulfillmentInstructions": "Contact customer to arrange..." }
+
+  // Distribution
+  quantity     Int @default(1) // How many of this prize available
+  quantityWon  Int @default(0) // How many have been won
+  displayOrder Int @default(0) // Order in prize list (lower = higher priority)
+
+  // Odds Configuration (for WEIGHTED draw type)
+  weight Int @default(100) // Relative weight for weighted draws
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle  Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  winners RaffleWinner[]
+
+  @@index([raffleId])
+  @@index([raffleId, displayOrder])
+}
+
+model RaffleEntry {
+  id         String @id @default(uuid())
+  raffleId   String
+  customerId String
+  shop       String
+
+  // Entry Details
+  entriesCount    Int     @default(1) // Number of entries in this batch
+  pointsSpent     Int // Total points spent for these entries
+  entryMultiplier Decimal @default(1.0) @db.Decimal(3, 2) // Tier bonus multiplier applied
+
+  // Psychology Bonuses Applied
+  streakBonusApplied    Decimal? @db.Decimal(3, 2) // Streak multiplier (e.g., 1.25)
+  earlyBirdBonusApplied Boolean  @default(false) // Was early bird bonus applied?
+  luckyNumberBonus      Int      @default(0) // Bonus entries from lucky numbers
+  bonusEventId          String? // ID of bonus event that was active
+  instantWinsTriggered  Int      @default(0) // Count of instant wins from this entry
+  isFreeEntry           Boolean  @default(false) // Was this a daily free entry?
+
+  // Tracking
+  isWinner Boolean @default(false) // Quick lookup for win status
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  raffle        Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  customer      Customer       @relation("RaffleEntries", fields: [customerId], references: [id], onDelete: Cascade)
+  winners       RaffleWinner[]
+  ledgerEntries PointsLedger[] @relation("RaffleEntryLedger")
+
+  // Psychology relations
+  instantWinLogs RaffleInstantWinLog[] @relation("RaffleEntryInstantWins")
+
+  @@unique([raffleId, customerId]) // One entry record per customer per raffle
+  @@index([raffleId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([raffleId, isWinner])
+}
+
+model RaffleWinner {
+  id            String @id @default(uuid())
+  raffleId      String
+  raffleEntryId String
+  rafflePrizeId String
+  customerId    String
+  shop          String
+
+  // Win Details
+  winPosition Int // 1st, 2nd, 3rd, etc.
+  selectedAt  DateTime @default(now()) // When this winner was drawn
+
+  // Prize Delivery
+  deliveryStatus RafflePrizeDeliveryStatus @default(PENDING)
+  deliveredAt    DateTime?
+  deliveryNotes  String?                   @db.Text // Admin notes about delivery
+
+  // Prize-specific delivery details
+  discountCode   String? // For DISCOUNT prizes
+  storeCreditId  String? // For STORE_CREDIT prizes (links to StoreCreditLedger)
+  pointsLedgerId String? // For POINTS prizes (links to PointsLedger)
+
+  // Notification Tracking
+  notifiedAt     DateTime? // When winner was notified
+  notifyAttempts Int       @default(0)
+  claimedAt      DateTime? // When winner acknowledged/claimed
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle   Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  entry    RaffleEntry @relation(fields: [raffleEntryId], references: [id], onDelete: Cascade)
+  prize    RafflePrize @relation(fields: [rafflePrizeId], references: [id], onDelete: Cascade)
+  customer Customer    @relation("RaffleWins", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([raffleId, winPosition]) // Only one winner per position
+  @@index([raffleId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([deliveryStatus])
+}
+
+// Raffle Status Lifecycle
+enum RaffleStatus {
+  DRAFT // Being configured, not visible
+  SCHEDULED // Visible, entries not yet open
+  ACTIVE // Entries are open
+  CLOSED // Entries closed, awaiting draw
+  DRAWING // Draw in progress
+  COMPLETED // Winners selected, prizes being delivered
+  CANCELLED // Raffle cancelled, entries refunded
+}
+
+// How winners are selected
+enum RaffleDrawType {
+  RANDOM // Pure random selection
+  WEIGHTED // Weighted by entry count (more entries = higher chance)
+  FIFO // First entries win (early bird advantage)
+}
+
+// Types of prizes that can be won
+enum RafflePrizeType {
+  DISCOUNT // Discount code (percentage or fixed)
+  STORE_CREDIT // Store credit added to account
+  PRODUCT // Free product
+  POINTS // Points added back to balance
+  CUSTOM // Custom prize requiring manual fulfillment
+}
+
+// Prize delivery status
+enum RafflePrizeDeliveryStatus {
+  PENDING // Not yet delivered
+  PROCESSING // Being processed (e.g., discount code being generated)
+  DELIVERED // Successfully delivered
+  FAILED // Delivery failed (needs retry)
+  CLAIMED // Winner acknowledged receipt
+}
+
+// Activity types for social proof feed
+enum RaffleActivityType {
+  ENTRY_PURCHASED // Customer bought entries
+  INSTANT_WIN // Customer won instant prize
+  GRAND_WINNER // Customer won grand prize in draw
+  STREAK_MILESTONE // Customer hit streak milestone (7, 14, 30 days)
+  EARLY_BIRD // Customer got early bird bonus
+  LUCKY_NUMBER // Customer hit a lucky number
+}
+
+// Bonus event types for urgency mechanics
+enum RaffleBonusEventType {
+  HAPPY_HOUR // Time-limited bonus (e.g., 2x entries 6-8pm)
+  FLASH_BONUS // Short flash sale bonus
+  EARLY_BIRD // First N entries get bonus
+  LAST_CHANCE // Final hours bonus
+  MILESTONE // Entry milestone bonus (100th entry, etc.)
+}
+
+// ============================================
+// RAFFLE PSYCHOLOGY SYSTEM MODELS
+// ============================================
+// Habit formation, variable rewards, social proof, urgency mechanics
+
+// Tracks customer raffle engagement streaks
+model RaffleStreak {
+  id         String @id @default(uuid())
+  shop       String
+  customerId String @unique // One streak record per customer
+
+  // Streak tracking
+  currentStreak   Int       @default(0) // Current consecutive days
+  longestStreak   Int       @default(0) // All-time longest streak
+  lastEntryDate   DateTime? // Last date an entry was made
+  streakStartDate DateTime? // When current streak began
+
+  // Daily free entry tracking
+  freeEntriesUsedToday Int       @default(0) // How many free entries used today
+  freeEntryLastUsedAt  DateTime? // When last free entry was claimed
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customer Customer @relation("RaffleStreaks", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([shop, customerId])
+  @@index([shop, currentStreak])
+  @@index([lastEntryDate])
+}
+
+// Instant-win micro-prizes during entry purchase
+model RaffleInstantWin {
+  id       String @id @default(uuid())
+  raffleId String
+  shop     String
+
+  // Prize details
+  name        String // "Lucky 25 Points", "Bonus Entry"
+  description String? // Optional description
+  imageUrl    String? // Prize image
+
+  // Prize type and value (same as RafflePrize)
+  prizeType  RafflePrizeType
+  prizeValue Json // Type-specific value configuration
+
+  // Probability configuration
+  winChancePercent Decimal @db.Decimal(7, 6) // 0.000001 to 1.000000 (e.g., 0.15 = 15%)
+  rarity           String  @default("COMMON") // COMMON, UNCOMMON, RARE, EPIC, LEGENDARY
+
+  // Win limits
+  maxWinsTotal       Int? // Total wins allowed (null = unlimited)
+  maxWinsPerCustomer Int  @default(1) // Per-customer win limit
+  currentWinsTotal   Int  @default(0) // Current total wins
+
+  // Time window (optional)
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle Raffle                @relation("RaffleInstantWins", fields: [raffleId], references: [id], onDelete: Cascade)
+  wins   RaffleInstantWinLog[]
+
+  @@index([raffleId, isActive])
+  @@index([shop])
+}
+
+// Log of instant-win occurrences
+model RaffleInstantWinLog {
+  id            String @id @default(uuid())
+  instantWinId  String
+  customerId    String
+  raffleEntryId String
+  shop          String
+
+  // Delivery tracking
+  delivered    Boolean   @default(false)
+  deliveredAt  DateTime?
+  deliveryData Json? // Prize-specific delivery details
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  instantWin RaffleInstantWin @relation(fields: [instantWinId], references: [id], onDelete: Cascade)
+  customer   Customer         @relation("RaffleInstantWins", fields: [customerId], references: [id], onDelete: Cascade)
+  entry      RaffleEntry      @relation("RaffleEntryInstantWins", fields: [raffleEntryId], references: [id], onDelete: Cascade)
+
+  @@index([instantWinId])
+  @@index([customerId])
+  @@index([raffleEntryId])
+  @@index([shop, createdAt])
+}
+
+// Activity feed for social proof
+model RaffleActivity {
+  id       String @id @default(uuid())
+  raffleId String
+  shop     String
+
+  // Activity details
+  activityType RaffleActivityType
+  customerId   String? // Optional, null for anonymous activities
+  displayName  String // Anonymized name: "J***n S."
+  data         Json // Activity-specific data
+
+  // Visibility
+  isPublic  Boolean   @default(true)
+  expiresAt DateTime? // Auto-expire old activities
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  raffle   Raffle    @relation("RaffleActivities", fields: [raffleId], references: [id], onDelete: Cascade)
+  customer Customer? @relation("RaffleActivities", fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([raffleId, createdAt])
+  @@index([shop, createdAt])
+  @@index([activityType])
+}
+
+// Bonus entry events (happy hours, flash sales)
+model RaffleBonusEvent {
+  id       String  @id @default(uuid())
+  shop     String
+  raffleId String? // null = applies to all raffles
+
+  // Event details
+  name        String // "Happy Hour", "Flash Bonus"
+  description String?
+
+  // Event type
+  eventType RaffleBonusEventType
+
+  // Bonus configuration
+  bonusMultiplier  Decimal @default(1.5) @db.Decimal(3, 2) // 1.5x entries
+  bonusEntriesFlat Int     @default(0) // +N flat bonus entries
+  discountPercent  Int     @default(0) // % discount on entry cost
+
+  // Timing
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Recurring configuration (optional)
+  isRecurring    Boolean @default(false)
+  recurringDays  Json? // [1, 3, 5] = Mon, Wed, Fri (0-6 = Sun-Sat)
+  recurringHours Json? // { "start": 18, "end": 20 } = 6pm-8pm
+
+  // Usage limits
+  maxUses            Int? // Total uses allowed
+  currentUses        Int  @default(0)
+  maxUsesPerCustomer Int? // Per-customer limit
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle Raffle?                 @relation("RaffleBonusEvents", fields: [raffleId], references: [id], onDelete: Cascade)
+  usages RaffleBonusEventUsage[]
+
+  @@index([shop, isActive])
+  @@index([startsAt, endsAt])
+  @@index([raffleId])
+}
+
+// Tracks usage of bonus events per customer
+model RaffleBonusEventUsage {
+  id           String @id @default(uuid())
+  bonusEventId String
+  customerId   String
+  shop         String
+
+  // Usage tracking
+  usageCount Int @default(1)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  bonusEvent RaffleBonusEvent @relation(fields: [bonusEventId], references: [id], onDelete: Cascade)
+  customer   Customer         @relation("RaffleBonusEventUsages", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([bonusEventId, customerId])
+  @@index([customerId])
+}
+
+// Lucky number tracking and rewards
+model RaffleLuckyNumber {
+  id         String @id @default(uuid())
+  raffleId   String
+  shop       String
+  customerId String
+
+  // Lucky number details
+  luckyNumber  Int // The entry number that was lucky (e.g., 100th entry)
+  bonusType    String // "MILESTONE", "SEQUENCE", "RANDOM"
+  bonusEntries Int // Bonus entries awarded
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  raffle   Raffle   @relation("RaffleLuckyNumbers", fields: [raffleId], references: [id], onDelete: Cascade)
+  customer Customer @relation("RaffleLuckyNumbers", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([raffleId])
+  @@index([customerId])
+  @@index([shop, createdAt])
+}
+
+// ============================================
+// MYSTERY BOXES SYSTEM MODELS
+// ============================================
+
+model MysteryBox {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String // "Golden Mystery Box", "Lucky Grab"
+  description String? @db.Text
+  imageUrl    String?
+
+  // Status & Timing
+  status   MysteryBoxStatus @default(DRAFT)
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Cost & Limits
+  openCost            Int  @default(100) // Points per open
+  maxOpensTotal       Int? // null = unlimited
+  maxOpensPerCustomer Int  @default(5)
+
+  // Access Control
+  tierRestrictions Json? // { "allowedTierIds": ["tier1", "tier2"] }
+  minimumTier      String?
+  isPublic         Boolean @default(true)
+
+  // Denormalized Statistics
+  totalOpens    Int @default(0)
+  uniqueOpeners Int @default(0)
+  totalSpent    Int @default(0)
+
+  // Psychology Features
+  enableActivityFeed    Boolean @default(true)
+  enableStreakBonuses   Boolean @default(true)
+  enablePitySystem      Boolean @default(true)
+  enableLuckyStreak     Boolean @default(true)
+  dailyFreeOpens        Int     @default(0) // 0 = disabled
+  pityThreshold         Int     @default(10) // Guaranteed non-common after N commons
+  luckyStreakMultiplier Decimal @default(1.1) @db.Decimal(3, 2) // 10% bonus per streak
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  rewards     MysteryBoxReward[]
+  opens       MysteryBoxOpen[]
+  winners     MysteryBoxWinner[]
+  activities  MysteryBoxActivity[]
+  bonusEvents MysteryBoxBonusEvent[]
+
+  @@index([shop])
+  @@index([shop, status])
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+}
+
+model MysteryBoxReward {
+  id    String @id @default(uuid())
+  boxId String
+
+  // Reward Details
+  name        String
+  description String?
+  imageUrl    String?
+
+  // Type & Configuration
+  rewardType  MysteryBoxRewardType
+  rewardValue Json // Type-specific config
+
+  // Probability & Rarity
+  probability Decimal          @db.Decimal(5, 2) // 0.01 - 100.00
+  rarity      MysteryBoxRarity @default(COMMON)
+
+  // Inventory (optional finite supply)
+  quantity    Int? // null = unlimited
+  quantityWon Int  @default(0)
+
+  // Display Order
+  position Int @default(0)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  box     MysteryBox         @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  winners MysteryBoxWinner[]
+
+  @@index([boxId])
+  @@index([boxId, rarity])
+}
+
+model MysteryBoxOpen {
+  id         String @id @default(uuid())
+  boxId      String
+  customerId String
+  shop       String
+
+  // Transaction Details
+  pointsSpent Int
+  openedAt    DateTime @default(now())
+
+  // Psychology Tracking
+  streakDay          Int? // Which day of streak this was
+  streakBonusApplied Decimal? @db.Decimal(3, 2) // Multiplier applied
+  luckyStreakCount   Int      @default(0) // Lucky streak at time of open
+  luckyStreakBonus   Decimal? @db.Decimal(3, 2) // Multiplier applied
+  bonusEventId       String? // ID of bonus event if applicable
+  discountApplied    Int      @default(0) // Points saved from discount
+  isFreeOpen         Boolean  @default(false)
+  pityTriggered      Boolean  @default(false)
+  nearMissRewardId   String? // ID of reward that "almost" won
+
+  // Relations
+  box      MysteryBox        @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  customer Customer          @relation("MysteryBoxOpens", fields: [customerId], references: [id], onDelete: Cascade)
+  winner   MysteryBoxWinner? @relation("MysteryBoxOpenWinner")
+
+  @@index([boxId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([boxId, customerId])
+}
+
+model MysteryBoxWinner {
+  id         String @id @default(uuid())
+  boxId      String
+  openId     String @unique // 1:1 with MysteryBoxOpen
+  rewardId   String
+  customerId String
+  shop       String
+
+  // Delivery Tracking
+  deliveryStatus MysteryBoxDeliveryStatus @default(PENDING)
+  deliveredAt    DateTime?
+  deliveryNotes  String?                  @db.Text
+
+  // Reward-specific delivery details
+  discountCode   String?
+  storeCreditId  String?
+  pointsLedgerId String?
+
+  // Notification
+  notifiedAt     DateTime?
+  notifyAttempts Int       @default(0)
+  claimedAt      DateTime?
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  box      MysteryBox       @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  open     MysteryBoxOpen   @relation("MysteryBoxOpenWinner", fields: [openId], references: [id], onDelete: Cascade)
+  reward   MysteryBoxReward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  customer Customer         @relation("MysteryBoxWins", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([boxId])
+  @@index([customerId])
+  @@index([deliveryStatus])
+  @@index([shop, deliveryStatus])
+}
+
+// Mystery Box Status Lifecycle
+enum MysteryBoxStatus {
+  DRAFT // Being configured
+  SCHEDULED // Ready, waiting for start time
+  ACTIVE // Accepting opens
+  CLOSED // No new opens
+  COMPLETED // All processing done
+  CANCELLED // Cancelled
+}
+
+// Reward rarity tiers
+enum MysteryBoxRarity {
+  COMMON // ~60-70%
+  UNCOMMON // ~20-25%
+  RARE // ~8-12%
+  EPIC // ~2-5%
+  LEGENDARY // ~0.5-2%
+}
+
+// Types of rewards
+enum MysteryBoxRewardType {
+  POINTS // Bonus points
+  DISCOUNT // Discount code
+  STORE_CREDIT // Store credit
+  PRODUCT // Free product
+  CUSTOM // Manual fulfillment
+  NOTHING // "Better luck next time"
+}
+
+// Delivery status
+enum MysteryBoxDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  CLAIMED
+}
+
+// Activity types for mystery box social proof feed
+enum MysteryBoxActivityType {
+  BOX_OPENED
+  RARE_WIN
+  EPIC_WIN
+  LEGENDARY_WIN
+  STREAK_MILESTONE
+  PITY_TRIGGERED
+  LUCKY_STREAK
+  FREE_OPEN_CLAIMED
+}
+
+// Bonus event types for mystery boxes
+enum MysteryBoxBonusEventType {
+  HAPPY_HOUR
+  FLASH_DISCOUNT
+  DOUBLE_REWARDS
+  LUCKY_HOUR
+  LAST_CHANCE
+}
+
+// ============================================
+// MYSTERY BOX PSYCHOLOGY SYSTEM
+// ============================================
+// Psychological engagement features to maximize customer participation
+// Includes: streaks, pity system, lucky streaks, activity feed, bonus events
+
+// Tracks customer mystery box engagement streaks and pity system
+model MysteryBoxStreak {
+  id         String @id @default(uuid())
+  shop       String
+  customerId String @unique
+
+  // Daily streak tracking
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastOpenDate    DateTime?
+  streakStartDate DateTime?
+
+  // Free opens tracking
+  freeOpensUsedToday Int       @default(0)
+  freeOpenLastUsedAt DateTime?
+
+  // Session lucky streak (resets on inactivity)
+  luckyStreakCount     Int       @default(0)
+  luckyStreakUpdatedAt DateTime?
+
+  // Pity system - guaranteed rare after N commons
+  commonsSinceRare Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation("MysteryBoxStreaks", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([shop, customerId])
+}
+
+// Activity feed for social proof
+model MysteryBoxActivity {
+  id           String                 @id @default(uuid())
+  boxId        String
+  shop         String
+  activityType MysteryBoxActivityType
+  customerId   String?
+  displayName  String // Anonymized: "J***n S."
+  data         Json // { rewardName, rarity, pointsWon, etc. }
+  isPublic     Boolean                @default(true)
+  expiresAt    DateTime?
+  createdAt    DateTime               @default(now())
+
+  box      MysteryBox @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  customer Customer?  @relation("MysteryBoxActivities", fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([boxId, createdAt])
+  @@index([shop, createdAt])
+}
+
+// Bonus events (happy hours, flash discounts)
+model MysteryBoxBonusEvent {
+  id          String                   @id @default(uuid())
+  shop        String
+  boxId       String? // null = applies to all boxes
+  name        String
+  description String?
+  eventType   MysteryBoxBonusEventType
+
+  // Bonus configuration
+  discountPercent   Int     @default(0) @db.SmallInt // % off point cost
+  bonusMultiplier   Decimal @default(1.0) @db.Decimal(3, 2) // Multiplier on reward values
+  extraRewardChance Int     @default(0) @db.SmallInt // % chance of bonus reward
+
+  // Timing
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Recurring configuration
+  isRecurring    Boolean @default(false)
+  recurringDays  Json? // [0,1,2,3,4,5,6] for days of week
+  recurringHours Json? // { start: 14, end: 16 }
+
+  // Usage limits
+  maxUses            Int? // null = unlimited
+  currentUses        Int  @default(0)
+  maxUsesPerCustomer Int?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  box    MysteryBox?                  @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  usages MysteryBoxBonusEventUsage[]
+
+  @@index([shop, isActive])
+  @@index([shop, startsAt, endsAt])
+}
+
+// Track bonus event usage per customer
+model MysteryBoxBonusEventUsage {
+  id         String   @id @default(uuid())
+  eventId    String
+  customerId String
+  shop       String
+  usedAt     DateTime @default(now())
+
+  event    MysteryBoxBonusEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  customer Customer             @relation("MysteryBoxBonusUsages", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, customerId])
+  @@index([shop, customerId])
+}
+
+// ============================================
+// CHALLENGES SYSTEM
+// ============================================
+// Goal-based engagement activities for customers
+// Customers complete objectives (spending, orders, referrals) to earn rewards
+
+model Challenge {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String
+  description String? @db.Text
+  imageUrl    String?
+
+  // Status & Timing
+  status   ChallengeStatus @default(DRAFT)
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Objective Configuration
+  objectiveType   ChallengeObjectiveType
+  targetValue     Int // e.g., 500 (dollars), 5 (orders), 3 (referrals)
+  objectiveConfig Json? // Additional config per type
+  // SPENDING: { "minOrderValue": 50, "excludeDiscounted": true }
+  // ORDER_COUNT: { "minOrderValue": 10 }
+  // REFERRAL: { "requirePurchase": true, "minPurchaseValue": 25 }
+  // PRODUCT_PURCHASE: { "productIds": ["gid://..."], "collectionIds": ["gid://..."], "quantity": 1 }
+  // REVIEW: { "productIds": ["gid://..."], "minRating": 4 }
+  // STREAK: { "streakType": "ORDER", "periodDays": 7 }
+
+  // Access Control
+  tierRestrictions Json? // { "allowedTierIds": ["tier1", "tier2"] }
+  minimumTierId    String? // Minimum tier required
+  isPublic         Boolean @default(true)
+
+  // ============================================
+  // MISSION SYSTEM FIELDS (Gamification)
+  // ============================================
+
+  // Mission Cadence - determines reset behavior
+  cadence MissionCadence @default(SPECIAL)
+
+  // Gamification Attributes
+  rarity   MissionRarity   @default(COMMON)
+  category MissionCategory @default(CHALLENGE)
+  xpReward Int             @default(10) // Experience points awarded
+
+  // Template Reference (for recurring missions)
+  templateId String?
+  template   MissionTemplate? @relation(fields: [templateId], references: [id])
+
+  // Streak/Combo Eligibility
+  comboEligible  Boolean @default(true) // Can contribute to daily combo
+  streakEligible Boolean @default(true) // Can contribute to streak
+
+  // Display Customization
+  iconEmoji String? @default("🎯") // Mission icon
+  sortOrder Int     @default(0) // Display order within cadence
+
+  // Scheduling (for recurring)
+  nextResetAt DateTime? // When this mission instance expires/resets
+
+  // Denormalized Statistics
+  totalParticipants   Int @default(0)
+  completedCount      Int @default(0)
+  claimedCount        Int @default(0)
+  totalRewardsAwarded Int @default(0) // Total value of rewards given
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reward       ChallengeReward?
+  participants ChallengeParticipant[]
+  progressLogs ChallengeProgressLog[]
+
+  @@index([shop])
+  @@index([shop, status])
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+  @@index([shop, objectiveType])
+  @@index([shop, cadence, status])
+  @@index([shop, category])
+  @@index([templateId])
+}
+
+model ChallengeReward {
+  id          String @id @default(uuid())
+  challengeId String @unique
+
+  // Reward Configuration
+  rewardType  ChallengeRewardType
+  rewardValue Json
+  // POINTS: { "amount": 500 }
+  // STORE_CREDIT: { "amount": 2500 } // in cents
+  // DISCOUNT: { "type": "percentage" | "fixed", "value": 10, "maxUses": 1, "minOrderValue": 50 }
+  // TIER_UPGRADE: { "tierId": "...", "durationDays": 30 } // null = permanent
+  // CUSTOM: { "description": "...", "fulfillmentInstructions": "..." }
+
+  // Display
+  description String // Human-readable reward description
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId])
+}
+
+model ChallengeParticipant {
+  id          String @id @default(uuid())
+  challengeId String
+  customerId  String
+  shop        String
+
+  // Progress Tracking
+  currentProgress Int @default(0) // Current value towards target
+  progressPercent Int @default(0) // Pre-calculated percentage (0-100)
+
+  // Status
+  status      ChallengeParticipantStatus @default(IN_PROGRESS)
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  // Reward Delivery (when claimed)
+  rewardDelivered     Boolean @default(false)
+  rewardDeliveryId    String? // Points ledger ID, discount code, etc.
+  rewardDeliveryNotes String? @db.Text
+
+  // Metadata
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  challenge    Challenge              @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  customer     Customer               @relation("ChallengeParticipants", fields: [customerId], references: [id], onDelete: Cascade)
+  progressLogs ChallengeProgressLog[]
+
+  @@unique([challengeId, customerId])
+  @@index([challengeId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([challengeId, status])
+  @@index([status, completedAt])
+}
+
+model ChallengeProgressLog {
+  id            String @id @default(uuid())
+  challengeId   String
+  participantId String
+  shop          String
+
+  // Progress Details
+  progressDelta      Int // Amount added (can be negative for corrections)
+  newProgress        Int // Progress value after this update
+  newProgressPercent Int // Percentage after this update
+
+  // Source Reference
+  sourceType String // "ORDER", "REFERRAL", "REVIEW", "STREAK", "MANUAL"
+  sourceId   String? // Order ID, referral ID, etc.
+
+  // Metadata
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  challenge   Challenge            @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  participant ChallengeParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId])
+  @@index([participantId])
+  @@index([sourceType, sourceId])
+  @@index([createdAt])
+}
+
+// ============================================
+// MISSION SYSTEM MODELS (Gamification)
+// ============================================
+
+// Template for recurring missions (Daily/Weekly/Monthly)
+// Instances are generated from templates by the scheduler
+model MissionTemplate {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String
+  description String? @db.Text
+  imageUrl    String?
+
+  // Objective Configuration (same as Challenge)
+  objectiveType   ChallengeObjectiveType
+  targetValue     Int
+  objectiveConfig Json?
+
+  // Cadence & Gamification
+  cadence  MissionCadence
+  rarity   MissionRarity   @default(COMMON)
+  category MissionCategory @default(CHALLENGE)
+  xpReward Int             @default(10)
+
+  // Reward Configuration
+  rewardType        ChallengeRewardType
+  rewardValue       Json
+  rewardDescription String
+
+  // Display
+  iconEmoji String @default("🎯")
+  sortOrder Int    @default(0)
+
+  // Access Control
+  tierRestrictions Json? // { "allowedTierIds": ["tier1", "tier2"] }
+
+  // Active State
+  isActive Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations - challenges generated from this template
+  instances Challenge[]
+
+  @@unique([shop, name])
+  @@index([shop, isActive, cadence])
+  @@index([shop, category])
+}
+
+// Customer mission statistics (denormalized for performance)
+// Tracks XP, levels, streaks, combos per customer
+model CustomerMissionStats {
+  id         String @id @default(uuid())
+  shop       String
+  customerId String @unique
+
+  // XP & Levels
+  totalXp       Int @default(0)
+  currentLevel  Int @default(1)
+  xpToNextLevel Int @default(100) // Calculated based on level scaling
+
+  // Mission Completion Counts
+  totalCompleted   Int @default(0)
+  dailyCompleted   Int @default(0)
+  weeklyCompleted  Int @default(0)
+  monthlyCompleted Int @default(0)
+
+  // Streak Tracking (consecutive days with mission completion)
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastMissionDate DateTime? // Last date a mission was completed
+
+  // Daily Combo (multiple missions same day = bonus XP)
+  todayComboCount  Int       @default(0)
+  lastComboResetAt DateTime? // When combo was last reset
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customer         Customer                 @relation("MissionStats", fields: [customerId], references: [id], onDelete: Cascade)
+  completionEvents MissionCompletionEvent[]
+
+  @@index([shop, customerId])
+  @@index([shop, currentStreak])
+  @@index([shop, totalXp])
+  @@index([shop, currentLevel])
+}
+
+// Mission completion events for triggering animations
+// Consumed by storefront to show celebrations
+model MissionCompletionEvent {
+  id          String @id @default(uuid())
+  shop        String
+  customerId  String
+  challengeId String
+
+  // Event Type
+  eventType MissionEventType
+
+  // XP Earned
+  xpEarned Int @default(0)
+  bonusXp  Int @default(0) // From streak + combo bonuses
+
+  // Animation Triggers
+  triggersConfetti   Boolean @default(false) // Confetti particle burst
+  triggersLevelUp    Boolean @default(false) // Full level-up celebration
+  triggersStreakFire Boolean @default(false) // Streak fire animation
+
+  // Event Payload (extra data for rendering)
+  payload Json? // { streakCount, comboCount, newLevel, etc. }
+
+  // Acknowledgment State (consumed by storefront)
+  acknowledged Boolean @default(false)
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  stats CustomerMissionStats? @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@index([shop, customerId, acknowledged])
+  @@index([createdAt])
+}
+
+// Challenge Status Lifecycle
+enum ChallengeStatus {
+  DRAFT // Being configured
+  SCHEDULED // Ready, waiting for start time
+  ACTIVE // Accepting participants and progress
+  CLOSED // No new participants, existing can complete
+  COMPLETED // All processing done
+  CANCELLED // Cancelled
+}
+
+// Challenge Objective Types
+enum ChallengeObjectiveType {
+  SPENDING // Spend X amount
+  ORDER_COUNT // Place X orders
+  REFERRAL // Refer X friends (who purchase)
+  PRODUCT_PURCHASE // Buy specific products/collections
+  REVIEW // Submit X product reviews
+  STREAK // Maintain X-day purchase streak
+}
+
+// Challenge Reward Types
+enum ChallengeRewardType {
+  POINTS // Points credited to balance
+  STORE_CREDIT // Store credit issued
+  DISCOUNT // Discount code generated
+  TIER_UPGRADE // Temporary or permanent tier upgrade
+  CUSTOM // Manual fulfillment required
+}
+
+// Challenge Participant Status
+enum ChallengeParticipantStatus {
+  IN_PROGRESS // Working on challenge
+  COMPLETED // Met target, awaiting claim
+  CLAIMED // Reward has been claimed
+  EXPIRED // Challenge ended before completion
+}
+
+// ============================================
+// MISSION SYSTEM ENUMS (Gamification)
+// ============================================
+
+// Mission Cadence - when missions reset/recur
+enum MissionCadence {
+  DAILY // Reset every 24 hours at configured time
+  WEEKLY // Reset every 7 days
+  MONTHLY // Reset at month start
+  SPECIAL // One-time promotional, no reset
+}
+
+// Mission Rarity - visual distinction and difficulty
+enum MissionRarity {
+  COMMON // Gray border, easy missions
+  UNCOMMON // Green border, medium difficulty
+  RARE // Blue border, harder missions
+  EPIC // Purple border, challenging
+  LEGENDARY // Gold gradient border, very hard
+}
+
+// Mission Category - groups missions by merchant value
+enum MissionCategory {
+  SHOPPING // Purchase missions (direct revenue)
+  DISCOVERY // Try new products (basket expansion)
+  SOCIAL // Referrals, reviews (acquisition/UGC)
+  STREAK // Consecutive activity (retention)
+  CHALLENGE // One-time achievements
+}
+
+// Mission Completion Event Type - for animation triggers
+enum MissionEventType {
+  COMPLETE // Mission objective met
+  CLAIM // Reward claimed
+  MILESTONE // Progress milestone hit
+  STREAK // Streak milestone reached
+  COMBO // Combo bonus triggered
+  LEVEL_UP // Customer leveled up
+}
+
+// ============================================
+// WEBHOOK IDEMPOTENCY & AUDIT MODELS
+// ============================================
+
+// Track processed webhooks to prevent duplicate processing
+model ProcessedWebhook {
+  id    String @id // X-Shopify-Webhook-Id header value
+  topic String // APP_SUBSCRIPTIONS_UPDATE, ORDERS_CREATE, etc.
+  shop  String
+
+  // Processing status
+  status String @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
+
+  // Timestamps
+  receivedAt  DateTime  @default(now())
+  completedAt DateTime?
+
+  // Error tracking (if processing failed)
+  errorMessage String? @db.Text
+  retryCount   Int     @default(0)
+
+  // Payload hash for debugging (not storing full payload to save space)
+  payloadHash String? // SHA256 of payload for verification
+
+  @@index([shop])
+  @@index([topic])
+  @@index([receivedAt])
+  @@index([status])
+}
+
+// Audit log for webhook processing events
+model WebhookAuditLog {
+  id        String @id @default(uuid())
+  shop      String
+  webhookId String // Reference to ProcessedWebhook.id
+  topic     String
+
+  // Event details
+  action String // RECEIVED, PROCESSING, COMPLETED, FAILED, REJECTED_DUPLICATE, REJECTED_STALE
+
+  // For ordering checks
+  incomingTimestamp DateTime? // Timestamp from webhook payload (updated_at or triggered_at)
+  existingTimestamp DateTime? // Existing record's timestamp (for stale rejection)
+
+  // Rejection details
+  rejectionReason String? // DUPLICATE, STALE, INVALID_SIGNATURE, etc.
+
+  // Metadata
+  metadata  Json? // Additional context
+  createdAt DateTime @default(now())
+
+  @@index([shop, createdAt(sort: Desc)])
+  @@index([webhookId])
+  @@index([action])
+}
+
+// ============================================
+// SUBSCRIPTION RECONCILIATION
+// ============================================
+
+// Track subscription state reconciliation between local DB and Shopify
+model ReconciliationLog {
+  id   String @id @default(uuid())
+  shop String
+
+  // State comparison
+  localState   Json? // Snapshot of local subscription state
+  shopifyState Json? // Snapshot of Shopify subscription state
+
+  // Detected issues
+  mismatches    Json? // Array of mismatch descriptions
+  mismatchCount Int   @default(0)
+
+  // Resolution
+  action     String // DETECTED, AUTO_FIXED, MANUAL_REVIEW, IGNORED
+  resolution String? // Description of fix applied
+  resolvedAt DateTime?
+  resolvedBy String? // System or admin who resolved
+
+  createdAt DateTime @default(now())
+
+  @@index([shop, createdAt(sort: Desc)])
+  @@index([action])
+  @@index([mismatchCount])
+}
+
+// ============================================
+// THIRD-PARTY APP INTEGRATIONS
+// ============================================
+
+// Integration configuration and credentials
+model Integration {
+  id   String @id @default(cuid())
+  shop String // Foreign key to shop domain
+
+  // Integration identity
+  provider IntegrationProvider
+  name     String // Display name
+  status   IntegrationStatus   @default(DISCONNECTED)
+
+  // Configuration (JSON)
+  config Json @default("{}")
+
+  // OAuth tokens (encrypted at rest)
+  accessToken    String?   @db.Text // Encrypted
+  refreshToken   String?   @db.Text // Encrypted
+  tokenExpiresAt DateTime?
+  scopes         String[]  @default([])
+
+  // API credentials (encrypted at rest)
+  apiKey        String? @db.Text // Encrypted
+  apiSecret     String? @db.Text // Encrypted
+  webhookSecret String? // For verifying inbound webhooks
+
+  // Webhook configuration
+  webhookUrl           String? // Our endpoint for this integration
+  webhookSubscriptions Json    @default("[]")
+
+  // Feature flags
+  enabledFeatures String[] @default([])
+  pointsConfig    Json? // Integration-specific points rules
+
+  // Sync & error tracking
+  lastSyncAt  DateTime?
+  lastErrorAt DateTime?
+  lastError   String?   @db.Text
+  metadata    Json      @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  events   IntegrationEvent[]
+  webhooks IntegrationWebhook[]
+
+  @@unique([shop, provider])
+  @@index([shop])
+  @@index([provider, status])
+}
+
+// Outbound loyalty events to integrations
+model IntegrationEvent {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  shop          String
+
+  // Event details
+  eventType LoyaltyEventType
+  payload   Json
+
+  // Delivery status
+  status        IntegrationEventStatus @default(PENDING)
+  attempts      Int                    @default(0)
+  lastAttemptAt DateTime?
+  deliveredAt   DateTime?
+  error         String?                @db.Text
+
+  // Reference data
+  customerId        String?
+  shopifyCustomerId String?
+  orderId           String?
+
+  createdAt DateTime @default(now())
+
+  @@index([integrationId, status])
+  @@index([shop, eventType])
+  @@index([status, createdAt])
+}
+
+// Inbound webhooks from integrations
+model IntegrationWebhook {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  shop          String
+
+  // Webhook identity
+  webhookId String @unique // External webhook ID for idempotency
+  topic     String // e.g., "review.created", "subscription.renewed"
+
+  // Payload
+  payload Json
+  headers Json @default("{}")
+
+  // Processing status
+  status      IntegrationWebhookStatus @default(RECEIVED)
+  processedAt DateTime?
+  error       String?                  @db.Text
+
+  // Actions taken
+  pointsAwarded Int?
+  actionsTaken  Json @default("[]")
+
+  createdAt DateTime @default(now())
+
+  @@index([integrationId, topic])
+  @@index([shop, status])
+  @@index([webhookId])
+}
+
+// OAuth state storage for PKCE flow
+model OAuthState {
+  id       String              @id @default(cuid())
+  shop     String
+  provider IntegrationProvider
+
+  // PKCE
+  state        String  @unique
+  codeVerifier String? @db.Text // Encrypted, optional for non-PKCE flows
+
+  // OAuth context
+  redirectUri String // Callback URL for token exchange
+  metadata    Json   @default("{}") // Additional data (returnUrl, etc.)
+
+  // Security
+  expiresAt DateTime
+  used      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([state])
+  @@index([expiresAt])
+}
+
+// Points rules for integration triggers
+model IntegrationPointsRule {
+  id       String              @id @default(cuid())
+  shop     String
+  provider IntegrationProvider
+
+  // Rule definition
+  triggerEvent String // e.g., "review.created", "subscription.renewed"
+  name         String // Display name
+  description  String?
+
+  // Points configuration
+  pointsType    IntegrationPointsType @default(FIXED)
+  pointsAmount  Int                   @default(0) // Fixed amount
+  pointsPercent Float? // Percentage of order value
+  maxPoints     Int? // Cap for percentage-based
+
+  // Conditions (JSON)
+  conditions Json @default("{}")
+
+  // Status
+  enabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, provider, triggerEvent])
+  @@index([shop, provider])
+}
+
+// ============================================
+// AI FEEDBACK SYSTEM
+// ============================================
+// Models for tracking AI session context, learning patterns,
+// and self-improvement feedback loop
+
+model AISession {
+  id        String @id @default(cuid())
+  sessionId String @unique // Claude session identifier
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  // Context
+  primaryIntent String? // What the user asked for
+  territory     String? // "charted" | "uncharted"
+
+  // Outcomes
+  tasksCompleted Int @default(0)
+  tasksAttempted Int @default(0)
+  filesModified  Int @default(0)
+  filesCreated   Int @default(0)
+
+  // Self-assessment
+  satisfactionScore Int? // 1-10 AI self-rating
+  learnings         String? @db.Text // Key insights from session
+
+  // Relations
+  actions     AISessionAction[]
+  feedback    AISessionFeedback[]
+  codeMetrics AICodeMetric[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startedAt])
+}
+
+model AISessionAction {
+  id        String    @id @default(cuid())
+  sessionId String
+  session   AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  actionType  String // "file_edit" | "file_create" | "refactor" | "fix" | "feature"
+  filePath    String?
+  description String  @db.Text
+
+  // Pattern tracking
+  patternUsed   String? // Which pattern was applied
+  wasSuccessful Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([actionType])
+}
+
+model AISessionFeedback {
+  id        String    @id @default(cuid())
+  sessionId String
+  session   AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  dimension String // "truth" | "understanding" | "beauty" | "justice" | "creativity"
+  rating    String // "complete" | "partial" | "failed"
+  reason    String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([dimension])
+}
+
+model AICodeMetric {
+  id        String     @id @default(cuid())
+  sessionId String?
+  session   AISession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  filePath    String
+  metricType  String // "complexity" | "duplication" | "coverage" | "debt"
+  valueBefore Float?
+  valueAfter  Float
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([filePath])
+  @@index([metricType])
+}
+
+model AILearningPattern {
+  id          String @id @default(cuid())
+  patternName String @unique
+  description String @db.Text
+
+  // Confidence evolution
+  timesUsed       Int   @default(0)
+  timesSuccessful Int   @default(0)
+  confidence      Float @default(0.5) // 0-1 scale
+
+  // Context
+  applicableTo String[] // ["data-api", "tier-system", "webhooks"]
+  antiPatterns String[] // What NOT to do
+
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([patternName])
+  @@index([confidence])
+}
+
+model AICodeQualitySignal {
+  id String @id @default(cuid())
+
+  area        String // "services" | "routes" | "components"
+  signalType  String // "ugliness" | "debt" | "complexity"
+  severity    String // "low" | "medium" | "high"
+  description String  @db.Text
+  filePath    String?
+  lineNumber  Int?
+
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  resolvedBy String? // session ID that fixed it
+
+  createdAt DateTime @default(now())
+
+  @@index([area])
+  @@index([signalType])
+  @@index([resolved])
+}
+
+model AIArchitectureHealth {
+  id String @id @default(cuid())
+
+  snapshotDate DateTime @default(now())
+
+  // Metrics
+  totalFiles      Int
+  totalLines      Int
+  avgComplexity   Float
+  duplicateBlocks Int
+
+  // Pattern adherence
+  dataApiCompliant     Float // 0-100%
+  shopScopingCompliant Float // 0-100%
+  errorHandlingScore   Float // 0-100%
+
+  // Trends
+  trendDirection String // "improving" | "stable" | "declining"
+
+  createdAt DateTime @default(now())
+
+  @@index([snapshotDate])
+}
+
+model AIInnovationTracker {
+  id String @id @default(cuid())
+
+  feature   String // What was built
+  territory String // "charted" | "uncharted"
+
+  // If uncharted
+  pioneering  Boolean @default(false)
+  pathQuality String? // "well-built" | "fragile" | "incomplete"
+
+  // Impact
+  enablesFuture Boolean  @default(false)
+  connectedTo   String[] // Related features/systems
+
+  createdAt DateTime @default(now())
+
+  @@index([territory])
+  @@index([feature])
+}
+
+// ============================================
+// AI EMAIL ASSISTANT USAGE TRACKING
+// ============================================
+
+model AIUsage {
+  id String @id @default(uuid())
+
+  shop String // Shop domain
+  date DateTime @default(now()) @db.Date // Usage date
+
+  // Request counts by action type
+  generateRequests   Int @default(0) // Content generation requests
+  enhanceRequests    Int @default(0) // Content enhancement requests
+  subjectRequests    Int @default(0) // Subject line generation requests
+
+  // Token usage for cost tracking
+  totalTokensInput  Int @default(0) // Input tokens consumed
+  totalTokensOutput Int @default(0) // Output tokens generated
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, date]) // One record per shop per day
+  @@index([shop])
+  @@index([date])
+}
+
+// ============================================
+// INTEGRATION ENUMS
+// ============================================
+
+enum IntegrationProvider {
+  // P0 - Email Marketing
+  KLAVIYO
+  OMNISEND
+  MAILCHIMP
+
+  // P0 - Reviews
+  JUDGE_ME
+  LOOX
+  YOTPO_REVIEWS
+  STAMPED
+  OKENDO
+
+  // P1 - Subscriptions
+  RECHARGE
+  LOOP_SUBSCRIPTIONS
+  BOLD_SUBSCRIPTIONS
+  APPSTLE
+  SKIO
+
+  // P1 - Helpdesk
+  GORGIAS
+  ZENDESK
+  RICHPANEL
+
+  // P2 - SMS
+  POSTSCRIPT
+  ATTENTIVE
+
+  // P2 - Analytics
+  TRIPLE_WHALE
+  LIFETIMELY
+  POLAR_ANALYTICS
+
+  // P2 - Automation
+  ZAPIER
+  MAKE // formerly Integromat
+
+  // P2 - Team Notifications
+  SLACK
+  MICROSOFT_TEAMS
+  DISCORD
+
+  // Custom
+  CUSTOM_WEBHOOK
+}
+
+enum IntegrationStatus {
+  DISCONNECTED // Not configured
+  PENDING_AUTH // OAuth in progress
+  CONNECTED // Active and working
+  ERROR // Connection error
+  RATE_LIMITED // Temporarily paused
+  DISABLED // Manually disabled
+}
+
+enum LoyaltyEventType {
+  // Points events
+  POINTS_EARNED
+  POINTS_REDEEMED
+  POINTS_EXPIRED
+  POINTS_ADJUSTED
+
+  // Tier events
+  TIER_UPGRADED
+  TIER_DOWNGRADED
+  TIER_PURCHASED
+  TIER_SUBSCRIPTION_CREATED
+  TIER_SUBSCRIPTION_CANCELLED
+
+  // Reward events
+  REWARD_UNLOCKED
+  REWARD_REDEEMED
+
+  // Customer events
+  CUSTOMER_ENROLLED
+  CUSTOMER_PROFILE_UPDATED
+
+  // Referral events
+  REFERRAL_SENT
+  REFERRAL_COMPLETED
+
+  // Integration-triggered events
+  REVIEW_POINTS_AWARDED
+  SUBSCRIPTION_POINTS_AWARDED
+}
+
+enum IntegrationEventStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+enum IntegrationWebhookStatus {
+  RECEIVED
+  PROCESSING
+  COMPLETED
+  FAILED
+  DUPLICATE
+}
+
+enum IntegrationPointsType {
+  FIXED // Fixed points amount
+  PERCENTAGE // Percentage of order value
+  TIERED // Based on conditions
+}
+
+// ============================================
+// GIFT CARD SYSTEM ENUMS
+// ============================================
+
+enum GiftCardStatus {
+  ACTIVE // Gift card is active and can be used
+  REDEEMED // Gift card has been fully redeemed
+  DEACTIVATED // Gift card was manually deactivated
+  EXPIRED // Gift card has expired
+}
+
+enum GiftCardBundleType {
+  VALUE_ONLY // Just monetary value
+  MEMBERSHIP_ONLY // Just tier membership
+  VALUE_PLUS_MEMBERSHIP // Both value and membership
+}

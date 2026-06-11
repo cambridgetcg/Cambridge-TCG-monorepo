@@ -23,6 +23,9 @@ export async function GET(request: Request) {
   }
 
   const userId = session.user.id;
+  // Rows carry usernames + user ids, never counterparty emails —
+  // getUserTrades stopped selecting them (global free trade §2.3);
+  // contact goes through platform messaging.
   const trades = await getUserTrades(userId);
   // Annotate each row with the requester's role so the client can render
   // "Bought" vs "Sold" and decide whether to offer a Pay Now button. The

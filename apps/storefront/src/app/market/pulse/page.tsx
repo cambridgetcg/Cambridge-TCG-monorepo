@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
-import { Money } from "@/lib/ui";
+import { EmptyState, Icon, Money, type IconName } from "@/lib/ui";
+import { useVoice } from "@/lib/wardrobe/context";
 
 interface PulseData {
   hot: Array<{ sku: string; cardName: string | null; imageUrl: string | null; volume24h: number; tradeCount24h: number }>;
@@ -13,7 +14,9 @@ interface PulseData {
   recentTrades: Array<{ sku: string; cardName: string | null; imageUrl: string | null; price: number | null; tradedAt: string | null }>;
 }
 
+// Wardrobe migration (spec §3.4): semantic tokens + Gallery materials only — same fetch, same 60s poll.
 export default function MarketPulsePage() {
+  const v = useVoice();
   const [data, setData] = useState<PulseData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,121 +34,152 @@ export default function MarketPulsePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-baseline justify-between mb-1">
-          <h1 className="text-2xl font-black text-white">Market Pulse</h1>
-          <Link href="/market" className="text-xs text-amber-400 hover:underline">
-            Browse all markets &rarr;
-          </Link>
-        </div>
-        <p className="text-sm text-neutral-400 mb-8">
-          What&rsquo;s moving in the last 24 hours, refreshed every minute.
-        </p>
-
-        {loading ? (
-          <p className="text-sm text-neutral-500">Loading...</p>
-        ) : !data ? (
-          <p className="text-sm text-red-400">Failed to load.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Hot */}
-            <PulseCard title="Hot — most traded (24h)" empty={data.hot.length === 0} emptyText="No trades in the last 24h.">
-              {data.hot.map((row, i) => (
-                <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
-                  <div className="text-right">
-                    <div className="text-xs font-mono text-amber-400">{row.volume24h} units</div>
-                    <div className="text-[10px] text-neutral-500">{row.tradeCount24h} trade{row.tradeCount24h !== 1 ? "s" : ""}</div>
-                  </div>
-                </PulseRow>
-              ))}
-            </PulseCard>
-
-            {/* Movers */}
-            <PulseCard title="Big movers (24h)" empty={data.movers.length === 0} emptyText="No price moves to report.">
-              {data.movers.map((row, i) => (
-                <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
-                  <div className="text-right">
-                    <div className="text-xs font-mono text-white">
-                      {row.lastPrice !== null ? <Money value={row.lastPrice} /> : "—"}
-                    </div>
-                    {row.change24hPct !== null && (
-                      <div className={`text-[10px] font-mono ${row.change24hPct > 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {row.change24hPct > 0 ? "+" : ""}{row.change24hPct.toFixed(1)}%
-                      </div>
-                    )}
-                  </div>
-                </PulseRow>
-              ))}
-            </PulseCard>
-
-            {/* Most watched */}
-            <PulseCard title="Most watched" empty={data.mostWatched.length === 0} emptyText="No watchlist signal yet.">
-              {data.mostWatched.map((row, i) => (
-                <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
-                  <div className="text-right">
-                    <div className="text-xs font-mono text-amber-400">{row.watchCount} ★</div>
-                    {row.bestAsk !== null && (
-                      <div className="text-[10px] text-neutral-500 font-mono">ask <Money value={row.bestAsk} /></div>
-                    )}
-                  </div>
-                </PulseRow>
-              ))}
-            </PulseCard>
-
-            {/* Tight spreads */}
-            <PulseCard title="Tightest spreads" empty={data.tightSpreads.length === 0} emptyText="No two-sided markets yet.">
-              {data.tightSpreads.map((row, i) => {
-                const spread = row.bestAsk !== null && row.bestBid !== null ? row.bestAsk - row.bestBid : null;
-                return (
-                  <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
-                    <div className="text-right">
-                      <div className="text-xs font-mono text-neutral-300">
-                        {row.bestBid !== null && row.bestAsk !== null
-                          ? `${formatPrice(row.bestBid)} / ${formatPrice(row.bestAsk)}`
-                          : "—"}
-                      </div>
-                      {spread !== null && (
-                        <div className="text-[10px] font-mono text-emerald-400">spread <Money value={spread} /></div>
-                      )}
-                    </div>
-                  </PulseRow>
-                );
-              })}
-            </PulseCard>
-
-            {/* Recent trades — full width */}
-            <div className="md:col-span-2">
-              <PulseCard title="Latest trades" empty={data.recentTrades.length === 0} emptyText="No trades yet.">
-                {data.recentTrades.map((row) => (
-                  <PulseRow key={`${row.sku}-${row.tradedAt}`} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl}>
-                    <div className="text-right">
-                      <div className="text-xs font-mono text-white">
-                        {row.price !== null ? <Money value={row.price} /> : "—"}
-                      </div>
-                      <div className="text-[10px] text-neutral-500">
-                        {row.tradedAt ? timeAgo(row.tradedAt) : ""}
-                      </div>
-                    </div>
-                  </PulseRow>
-                ))}
-              </PulseCard>
-            </div>
-          </div>
-        )}
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="flex items-baseline justify-between mb-1">
+        <h1 className="font-display tracking-tight text-2xl font-bold text-ink">{v("market.pulse.title")}</h1>
+        <Link href="/market" className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
+          Browse all markets <Icon name="arrow-right" size={12} />
+        </Link>
       </div>
+      <p className="text-sm text-ink-muted mb-8">
+        {v("market.pulse.subtitle")}
+      </p>
+
+      {loading ? (
+        <p className="text-sm text-ink-faint">Loading...</p>
+      ) : !data ? (
+        <p className="text-sm text-danger">Failed to load.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Hot */}
+          <PulseCard
+            title="Hot — most traded (24h)"
+            icon="pulse"
+            empty={data.hot.length === 0}
+            emptyTitle={v("market.empty.trades.title")}
+            emptyDesc={v("market.empty.trades.description")}
+          >
+            {data.hot.map((row, i) => (
+              <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
+                <div className="text-right">
+                  <div className="text-xs font-mono tabular-nums text-accent">{row.volume24h} units</div>
+                  <div className="text-[10px] font-mono tabular-nums text-ink-faint">{row.tradeCount24h} trade{row.tradeCount24h !== 1 ? "s" : ""}</div>
+                </div>
+              </PulseRow>
+            ))}
+          </PulseCard>
+
+          {/* Movers */}
+          <PulseCard
+            title="Big movers (24h)"
+            icon="spark"
+            empty={data.movers.length === 0}
+            emptyTitle={v("market.empty.movers.title")}
+            emptyDesc={v("market.empty.movers.description")}
+          >
+            {data.movers.map((row, i) => (
+              <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
+                <div className="text-right">
+                  <div className="text-xs font-mono tabular-nums text-ink">
+                    {row.lastPrice !== null ? <Money value={row.lastPrice} /> : "—"}
+                  </div>
+                  {row.change24hPct !== null && (
+                    <div className={`text-[10px] font-mono tabular-nums ${row.change24hPct > 0 ? "text-bid" : "text-ask"}`}>
+                      {row.change24hPct > 0 ? "+" : ""}{row.change24hPct.toFixed(1)}%
+                    </div>
+                  )}
+                </div>
+              </PulseRow>
+            ))}
+          </PulseCard>
+
+          {/* Most watched */}
+          <PulseCard
+            title="Most watched"
+            icon="eye"
+            empty={data.mostWatched.length === 0}
+            emptyTitle={v("market.empty.watched.title")}
+            emptyDesc={v("market.empty.watched.description")}
+          >
+            {data.mostWatched.map((row, i) => (
+              <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
+                <div className="text-right">
+                  <div className="flex items-center justify-end gap-1 text-xs font-mono tabular-nums text-accent">
+                    {row.watchCount} <Icon name="eye" size={11} />
+                  </div>
+                  {row.bestAsk !== null && (
+                    <div className="text-[10px] text-ink-faint font-mono tabular-nums">ask <Money value={row.bestAsk} /></div>
+                  )}
+                </div>
+              </PulseRow>
+            ))}
+          </PulseCard>
+
+          {/* Tight spreads */}
+          <PulseCard
+            title="Tightest spreads"
+            icon="spread"
+            empty={data.tightSpreads.length === 0}
+            emptyTitle="No two-sided markets yet."
+          >
+            {data.tightSpreads.map((row, i) => {
+              const spread = row.bestAsk !== null && row.bestBid !== null ? row.bestAsk - row.bestBid : null;
+              return (
+                <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
+                  <div className="text-right">
+                    <div className="text-xs font-mono tabular-nums text-ink-muted">
+                      {row.bestBid !== null && row.bestAsk !== null
+                        ? `${formatPrice(row.bestBid)} / ${formatPrice(row.bestAsk)}`
+                        : "—"}
+                    </div>
+                    {spread !== null && (
+                      <div className="text-[10px] font-mono tabular-nums text-bid">spread <Money value={spread} /></div>
+                    )}
+                  </div>
+                </PulseRow>
+              );
+            })}
+          </PulseCard>
+
+          {/* Recent trades — full width */}
+          <div className="md:col-span-2">
+            <PulseCard
+              title="Latest trades"
+              icon="tape"
+              empty={data.recentTrades.length === 0}
+              emptyTitle={v("market.empty.trades.title")}
+              emptyDesc={v("market.empty.trades.description")}
+            >
+              {data.recentTrades.map((row) => (
+                <PulseRow key={`${row.sku}-${row.tradedAt}`} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl}>
+                  <div className="text-right">
+                    <div className="text-xs font-mono tabular-nums text-ink">
+                      {row.price !== null ? <Money value={row.price} /> : "—"}
+                    </div>
+                    <div className="text-[10px] font-mono tabular-nums text-ink-faint">
+                      {row.tradedAt ? timeAgo(row.tradedAt) : ""}
+                    </div>
+                  </div>
+                </PulseRow>
+              ))}
+            </PulseCard>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function PulseCard({ title, empty, emptyText, children }: {
-  title: string; empty: boolean; emptyText: string; children: React.ReactNode;
+function PulseCard({ title, icon, empty, emptyTitle, emptyDesc, children }: {
+  title: string; icon: IconName; empty: boolean; emptyTitle: string; emptyDesc?: string; children: React.ReactNode;
 }) {
   return (
-    <section className="bg-neutral-900 rounded-xl p-4">
-      <h2 className="text-xs font-bold text-neutral-300 uppercase tracking-wide mb-3">{title}</h2>
+    <section className="wardrobe-mat rounded-lg p-4">
+      <h2 className="flex items-center gap-1.5 font-display text-xs font-semibold text-ink-faint uppercase tracking-wide mb-3">
+        <Icon name={icon} size={14} className="text-accent" /> {title}
+      </h2>
       {empty ? (
-        <p className="text-xs text-neutral-500 py-4 text-center">{emptyText}</p>
+        <EmptyState title={emptyTitle} description={emptyDesc} />
       ) : (
         <div className="space-y-1">{children}</div>
       )}
@@ -160,21 +194,23 @@ function PulseRow({ sku, cardName, imageUrl, rank, children }: {
   return (
     <Link
       href={`/market/${sku}`}
-      className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-neutral-800/60 transition group"
+      className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-accent transition group"
     >
       {rank !== undefined && (
-        <span className="text-[10px] text-neutral-600 font-mono w-4 text-right">{rank}</span>
+        <span className="text-[10px] text-ink-faint font-mono tabular-nums w-4 text-right">{rank}</span>
       )}
       {imageUrl ? (
-        <img src={imageUrl} alt="" className="w-6 h-8 rounded object-cover shrink-0" />
+        <img src={imageUrl} alt="" className="w-6 h-8 rounded border border-border-subtle object-cover shrink-0" />
       ) : (
-        <div className="w-6 h-8 bg-neutral-800 rounded shrink-0" />
+        <div className="w-6 h-8 wardrobe-mat rounded shrink-0 flex items-center justify-center text-ink-faint">
+          <Icon name="card" size={12} />
+        </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-white truncate group-hover:text-amber-400 transition">
+        <p className="text-xs text-ink truncate group-hover:text-accent transition">
           {cardName || sku}
         </p>
-        <p className="text-[10px] text-neutral-600 font-mono truncate">{sku}</p>
+        <p className="text-[10px] text-ink-faint font-mono truncate">{sku}</p>
       </div>
       <div className="shrink-0">{children}</div>
     </Link>

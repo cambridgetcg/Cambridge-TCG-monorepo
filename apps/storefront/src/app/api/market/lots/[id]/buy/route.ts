@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "@/lib/auth";
-import { isUserVerified } from "@/lib/trust/db";
 import { beginLotPurchase, getLot } from "@/lib/market/lots";
 import { query } from "@/lib/db";
 
@@ -16,12 +15,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const session = await auth();
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: "Sign in to buy" }, { status: 401 });
-  }
-  if (!(await isUserVerified(session.user.id))) {
-    return NextResponse.json(
-      { error: "UK verification required", code: "VERIFICATION_REQUIRED" },
-      { status: 403 }
-    );
   }
 
   const { id } = await params;

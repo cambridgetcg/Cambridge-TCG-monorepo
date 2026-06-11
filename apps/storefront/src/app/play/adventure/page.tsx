@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  loadSavedDecks,
+  deckToCards,
+  fetchStarterAsSavedDeck,
+  type SavedDeck,
+} from "@/lib/play/client-deck";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -21,8 +27,8 @@ interface PVELevel {
   repeat_points: number;
   progress: {
     cleared: boolean;
-    clear_count: number;
-    best_turns: number | null;
+    clearCount: number;
+    bestTurns: number | null;
   } | null;
   unlocked: boolean;
 }
@@ -30,32 +36,12 @@ interface PVELevel {
 interface PVEData {
   levels: PVELevel[];
   highestCleared: number;
-}
-
-interface SavedDeckCard {
-  sku: string;
-  card_number: string;
-  name: string;
-  set_code: string;
-  set_name: string;
-  rarity: string | null;
-  image_url: string | null;
-  spot_price: number;
-  tradein_credit: number | null;
-}
-
-interface SavedDeck {
-  name: string;
-  leader: SavedDeckCard | null;
-  entries: { sku: string; quantity: number; card: SavedDeckCard }[];
-  savedAt: string;
+  activeGame: { gameId: string; levelId: number } | null;
 }
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
-
-const STORAGE_KEY = "ctcg-deck-builder-decks";
 
 const DIFFICULTY_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
   easy:    { bg: "bg-green-900/30",  text: "text-green-400",  border: "border-green-700/50",  glow: "shadow-green-500/20" },
@@ -146,12 +132,20 @@ export default function AdventureModePage() {
     fetchLevels();
   }, [fetchLevels]);
 
-  /* ---- Load saved decks from localStorage ---- */
+  /* ---- Load saved decks (auto-mount the starter when there are none,
+   *      same as the /play hub — no deck-builder wall for rookies) ---- */
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setSavedDecks(JSON.parse(stored));
-    } catch { /* ignore */ }
+    let cancelled = false;
+    const stored = loadSavedDecks();
+    if (stored.length > 0) {
+      setSavedDecks(stored);
+      return;
+    }
+    fetchStarterAsSavedDeck().then((starter) => {
+      if (cancelled || !starter) return;
+      setSavedDecks([starter]);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   /* ---- Open deck selector ---- */
@@ -171,31 +165,7 @@ export default function AdventureModePage() {
     setStartError(null);
     setStarting(true);
 
-    // Build deck payload
-    const cards: { sku: string; name: string; cardNumber: string; imageUrl: string | null; rarity: string | null; isLeader?: boolean }[] = [];
-
-    if (deck.leader) {
-      cards.push({
-        sku: deck.leader.sku,
-        name: deck.leader.name,
-        cardNumber: deck.leader.card_number,
-        imageUrl: deck.leader.image_url,
-        rarity: deck.leader.rarity,
-        isLeader: true,
-      });
-    }
-
-    for (const entry of deck.entries) {
-      for (let i = 0; i < entry.quantity; i++) {
-        cards.push({
-          sku: entry.card.sku,
-          name: entry.card.name,
-          cardNumber: entry.card.card_number,
-          imageUrl: entry.card.image_url,
-          rarity: entry.card.rarity,
-        });
-      }
-    }
+    const cards = deckToCards(deck);
 
     if (cards.length < 10) {
       setStartError("Deck must have at least 10 cards.");
@@ -241,9 +211,7 @@ export default function AdventureModePage() {
             Adventure <span className="text-amber-400">Mode</span>
           </h1>
           <p className="text-neutral-400 text-lg max-w-2xl mx-auto mb-2">
-            Set sail on the Grand Line and prove your strength against legendary opponents.
-            Each victory brings you closer to becoming the Pirate King — earning Berries
-            along the way.
+            Battle legendary opponents up the Grand Line. Win Berries as you go.
           </p>
           <div className="flex items-center justify-center gap-4 mt-6">
             <Link
@@ -281,6 +249,24 @@ export default function AdventureModePage() {
       {/* ---- Level Map + Cards ---- */}
       {data && !loading && (
         <div className="mx-auto max-w-5xl px-4 py-10 space-y-10">
+
+          {/* ---- Resume in-progress battle ---- */}
+          {data.activeGame && (() => {
+            const lvl = levels.find((l) => String(l.id) === String(data.activeGame!.levelId));
+            return (
+              <section className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
+                <p className="text-sm text-amber-300">
+                  Battle in progress{lvl ? <> vs {lvl.opponent_icon} {lvl.opponent_name}</> : null}
+                </p>
+                <Link
+                  href={`/play/adventure/${data.activeGame.levelId}?gameId=${data.activeGame.gameId}`}
+                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-4 py-1.5 text-sm transition-colors"
+                >
+                  Resume &rarr;
+                </Link>
+              </section>
+            );
+          })()}
 
           {/* ---- Multiplier strip (live) ---- */}
           {mult?.eligible && (mult.tierMultiplier > 1 || mult.streakMultiplier > 1) && (
@@ -540,11 +526,11 @@ export default function AdventureModePage() {
                       {level.progress && (
                         <div className="flex items-center gap-4 text-xs text-neutral-500">
                           <span>
-                            Clears: <span className="text-neutral-300 font-medium">{level.progress.clear_count}</span>
+                            Clears: <span className="text-neutral-300 font-medium">{level.progress.clearCount}</span>
                           </span>
-                          {level.progress.best_turns && (
+                          {level.progress.bestTurns && (
                             <span>
-                              Best: <span className="text-neutral-300 font-medium">{level.progress.best_turns} turns</span>
+                              Best: <span className="text-neutral-300 font-medium">{level.progress.bestTurns} turns</span>
                             </span>
                           )}
                         </div>
@@ -634,12 +620,12 @@ export default function AdventureModePage() {
 
             {savedDecks.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-neutral-500 mb-4">No saved decks found.</p>
+                <p className="text-neutral-500 mb-4">Loading a starter deck for you&hellip;</p>
                 <Link
-                  href="/deck-builder"
+                  href="/play/starters"
                   className="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
                 >
-                  Open Deck Builder
+                  Browse Starter Decks
                 </Link>
               </div>
             ) : (

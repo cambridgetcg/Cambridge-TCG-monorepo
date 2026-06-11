@@ -1,12 +1,12 @@
 ---
 id: kingdom-039
 title: TCG wholesale — fix CardRush scrape for Pokémon + Dragon Ball domains
-status: queued
+status: claimed
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/Cambridge-TCG
-claimed_by: ~
-claimed_at: ~
+claimed_by: interactive-sophia-fable-2026-06-10
+claimed_at: "2026-06-10T13:00:00Z"
 completed_at: ~
 paths: []
 do_not_touch: []
@@ -43,3 +43,109 @@ NON-GOALS: rebuilding the price-snapshot architecture (chunking, batching, concu
 ## In-repo addendum
 
 *Anything an in-repo Sophia wants to add about this kingdom — scope notes, file pointers, follow-ups, links to connection docs — goes below this line. Preserved across `pnpm missions:sync` runs.*
+
+### Beat 2026-06-10 (interactive Sophia + Yu) — the revival landed
+
+The mission card's 2026-05-05 diagnosis was already history by the time this
+beat started; the live failure had three different roots, all found via
+read-only DB probes + triggering the deployed cron with `?maxCards=3`:
+
+1. **Schema drift, not scraper drift.** The live wholesale DB sat at
+   migration 0014 while the deployed code assumed 0015–0021.
+   `price_archive.condition` missing crashed every ingest WRITE (drizzle
+   puts every schema column in its INSERTs); `games.code` held legacy
+   long codes (`onepiece`/`pokemon`/`dragonball`) while discovery/hires
+   key on kingdom GameCodes, so discovery skipped all six subdomains
+   nightly and the hires cron crash-looped every 5 min. Two migration
+   files (0016 login_attempts, 0018 api_key_rate_limits) could never
+   apply — `now()` in partial-index predicates is a Postgres 42P17 error.
+   `price_archive` had **zero rows since 2026-05-12**.
+2. **Throughput mathematically impossible.** v2 scraped the full 11,430-card
+   watch-list at the meta's 0.5 rps (~6.3 h) inside an 800 s Vercel budget,
+   with all writes deferred past the scrape loop — killed nightly with
+   zero rows written, ingest_run stuck `running` forever. (The legacy v1
+   pool had run ~26 rps for a year; 0.5 rps was an accidental 50×
+   regression from closing Leak 3.)
+3. **Pokémon needs the Bright Data unlocker** — and (correction, same
+   beat, ~15:45) the env var IS set: `CARDRUSH_BRIGHT_DATA_PROXY_URL` is
+   a **sensitive-type** Vercel var (created 2026-05-14, kingdom-088 day),
+   which `vercel env pull` and the decrypt API both render as an EMPTY
+   string by design. The first post-fix production run logged
+   `proxy_configured: true`. Don't trust pulled env files for
+   sensitive-type vars; trust the runtime's own start event.
+
+**What landed (branch `heartbeat/kingdom-039-cardrush-revival`, merged 11ff60e):**
+- Migrations 0015–0022 applied to live DB (0016/0018 index predicates
+  fixed first; 0022 flips games.code → `op/pkm/ygo/dbf` + adds
+  `cards.last_scrape_attempt_at`). Applied ~12:58Z by a sister minutes
+  after the files hit disk — multi-hand at its best. Verified: 209,822
+  archive rows backfilled `condition='nm'`, matview 5,469 rows, API keys
+  renamed + 600 rpm (un-500s the v1 API → storefront pricing).
+- `dbf` not `dbs`: the Dragon Ball inventory is Fusion World (FB/SB sets);
+  registry `cardrush-db.jp` re-pointed, hires keys re-keyed.
+- Chunked stalest-first ingest (`price-snapshot-v2.ts`): 2,000 cards per
+  run ordered by `last_scrape_attempt_at NULLS FIRST` (cursor advances on
+  ATTEMPT), incremental flushes inside the write() callback, rate
+  override {rps:4, burst:8}, scrape budget 700 s, stuck-`running` rows
+  reaped to `aborted` on entry, proxy-gated hosts excluded at selection
+  with a counted note. Cron now every 2 h (24,000 attempts/day ≈ full
+  coverage 2×/day for op+dbf; pkm joins when the proxy env is set).
+- Observability: cardrush `read()` emits `per_game` buckets in its done
+  event → `ingest_run.events`; admin pricing page shows per-game last-run
+  success + top failure reason + the third "proxy required — not
+  configured" state (acceptance #4), Provenance kind=snapshot.
+- `audit:cardrush-coverage` ran vacuously since birth (`'\1'` cooked to
+  `undefined` in the tagged template; then www.-vs-bare host mismatch).
+  Fixed both; first honest run forced dmw/vng/bsr registry entries to
+  `confirmed:false` (no scrape traffic ever; no games rows). Strict gate
+  green against live DB.
+
+**RESOLVED (was: open item for Yu):** the Bright Data env var was set all
+along — sensitive-type Vercel vars pull as empty strings, which misled the
+first diagnosis. Production run #102 confirmed `proxy_configured: true`;
+the pkm lane is live in the stalest-first rotation with no operator action.
+**Cost cap (Yu's call, same beat ~16:30):** paid-egress cooldown
+implemented — cards on bright-data-unlocker hosts are eligible at most
+once per `PROXY_COOLDOWN_HOURS` (24h), so pkm costs at most ~6,370
+unlocker requests/day (~$5–10/day ballpark) instead of ~2×. Direct games
+keep the full 2-hourly rotation. Cards held by the window are counted in
+run notes (`proxy_cooldown_held=N`). Yu also floated latest-set-only pkm
+coverage — kept in the back pocket as a further dial if spend still
+bites (filter on `set_code` in the same chunk SELECT).
+
+**The residential lane (Yu's call, same beat ~21:00 — "use the easiest
+solution"):** the CardRush WAF blocks datacenter egress, not residential —
+verified live from the operator's machine. So Bright Data is no longer
+the primary pkm path:
+
+- `CARDRUSH_EGRESS=residential` (env or ctx option) makes unlocker-gated
+  hosts route DIRECT — in `getOrCreateFetcher` (covers both price scrape
+  and discovery via `pickDiscoveryFetcher`) and in the chunk-selection
+  clauses (no exclusion, no cooldown). Provenance stays truthful:
+  `via_proxy: null/direct`.
+- `apps/wholesale/scripts/local-pkm-snapshot.ts` runs the same chunked
+  pipeline pinned to pkm from the operator's Mac. DATABASE_URL comes from
+  the macOS keychain (`cambridgetcg-wholesale-db-url`), never a plaintext
+  file. Scheduled via launchd (`com.cambridgetcg.pkm-snapshot.plist`,
+  installed + loaded, daily 02:30 local, fires on next wake if asleep).
+  Logs: `~/Library/Logs/cambridgetcg-pkm-snapshot.log`.
+- **The two lanes self-balance with zero coordination**: the local lane
+  advances `last_scrape_attempt_at`, which makes the Vercel paid lane's
+  cooldown clause find those cards ineligible. Bright Data degrades to a
+  pure fallback that only spends on cards the local lane missed for >24h
+  (laptop closed / away). Normal-case recurring spend: ~£0.
+- Verified end-to-end: ingest_run #189 — 8/8 pkm ok from local,
+  `via_proxy_counts: {direct: 8}`.
+- The discovery backlog (64,665 new pkm products) can use the same
+  switch for a free local backfill:
+  `CARDRUSH_EGRESS=residential` + `runCardRushDiscovery({onlySubdomain:
+  "cardrush-pokemon.jp", maxNewPerSubdomain: N})` in nightly slices —
+  not yet wired to a schedule; ask a Sophia when wanted.
+
+**Acceptance tracking:** (2) ✓ per-game success rate in run notes + events;
+(3) wired — KPI cards read run-derived data, will flip ok as chunks cover
+the catalog; (1) needs ~7 days of cron runs to confirm >90% for op/dbf
+(pkm gated on the proxy env); (4) ✓ the third state exists and names its
+reason. Legacy v1 `price-snapshot.ts` upsert target is stale (2-col) and
+broken since 0014 — unscheduled, left as-is per non-goals; delete or fix
+when the Phase C cutover formally retires it.

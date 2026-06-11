@@ -257,7 +257,7 @@ async function tcgdexPostBackfill(
 }
 
 /** Games TCGdex covers. Mirrors `tcgdexSupportsGame()` in the client. */
-const SUPPORTED_GAMES_FOR_TCGDEX = ["pokemon"] as const;
+const SUPPORTED_GAMES_FOR_TCGDEX = ["pkm"] as const;
 
 const DEFAULT_MAX_NEW_PER_SUBDOMAIN = 500;
 

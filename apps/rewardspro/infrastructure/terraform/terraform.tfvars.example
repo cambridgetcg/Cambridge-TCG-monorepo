@@ -1,0 +1,47 @@
+# RewardsPro Terraform Variables Example
+# Copy this file to terraform.tfvars and fill in your values
+# IMPORTANT: Never commit terraform.tfvars with real values to version control
+
+# AWS Configuration
+aws_region  = "eu-north-1"
+environment = "prod"
+
+# Aurora Database Configuration (from existing setup)
+aurora_resource_arn  = "arn:aws:rds:eu-north-1:ACCOUNT_ID:cluster:rewardspro-aurora-cluster"
+aurora_secret_arn    = "arn:aws:secretsmanager:eu-north-1:ACCOUNT_ID:secret:rewardspro-aurora-credentials-XXXXXX"
+aurora_database_name = "rewardspro"
+
+# Vercel App Configuration
+vercel_app_url      = "https://rewardspro.vercel.app"
+cron_secret         = "your-secure-cron-secret-here"
+internal_api_secret = "your-secure-internal-api-secret-here"
+
+# SQS Configuration
+sqs_message_retention_seconds  = 1209600  # 14 days
+sqs_visibility_timeout_seconds = 300       # 5 minutes
+sqs_max_receive_count          = 4
+
+# DynamoDB Configuration
+dynamodb_billing_mode = "PAY_PER_REQUEST"
+
+# Lambda Configuration
+lambda_memory_size = 512
+lambda_timeout     = 300
+
+# S3 Configuration
+s3_expiration_days = 90
+
+# SES Configuration (optional)
+ses_from_email = "noreply@yourdomain.com"
+
+# VPC Configuration (required for ElastiCache)
+# Leave empty to skip ElastiCache deployment
+vpc_id             = ""
+private_subnet_ids = []
+
+# Feature Flags
+enable_sqs             = true
+enable_dynamodb_locks  = true
+enable_s3_exports      = true
+enable_eventbridge     = true
+enable_elasticache     = false  # Requires VPC configuration

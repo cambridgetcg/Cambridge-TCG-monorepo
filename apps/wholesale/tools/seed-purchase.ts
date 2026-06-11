@@ -152,7 +152,7 @@ async function resolveCardId(item: ManifestItem): Promise<number> {
 
 async function createCard(item: ManifestItem, cardrushUrl: string): Promise<number> {
   // Get One Piece game ID
-  const [game] = await sql`SELECT id FROM games WHERE code = 'onepiece' LIMIT 1`;
+  const [game] = await sql`SELECT id FROM games WHERE code = 'op' LIMIT 1`;
   if (!game) throw new Error("One Piece game not found");
 
   // Get set ID

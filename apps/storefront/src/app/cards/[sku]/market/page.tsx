@@ -30,11 +30,15 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { loadCardMarket } from "@/lib/market/card-market";
-import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
+import { Provenance, WhyLink, Audience, audienceMetadata, EmptyState } from "@/lib/ui";
 import { MoneyDisplay, DateDisplay } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { fetchCardrushHistory } from "@/lib/wholesale/client";
+import { appearanceFromCookies } from "@/lib/wardrobe/server";
+import { DEFAULT_THEME } from "@/lib/wardrobe/themes";
+import { voiceFor } from "@/lib/wardrobe/voice";
 
 export async function generateMetadata({
   params,
@@ -81,20 +85,20 @@ function fmtRelative(iso: string | null): string {
 // Trust tier → tone palette. Same vocabulary as escrow tiers.
 function tierTone(tier: string | null): string {
   switch (tier) {
-    case "Elite": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
-    case "Veteran": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-    case "Trusted": return "bg-blue-500/15 text-blue-400 border-blue-500/30";
-    case "Starter": return "bg-neutral-700/40 text-neutral-300 border-neutral-700";
-    case "New": return "bg-neutral-800/60 text-neutral-500 border-neutral-800";
-    default: return "bg-neutral-800/40 text-neutral-600 border-neutral-800";
+    case "Elite": return "bg-accent-wash text-accent border-accent/30";
+    case "Veteran": return "bg-ok/15 text-ok border-ok/30";
+    case "Trusted": return "bg-info/15 text-info border-info/30";
+    case "Starter": return "bg-surface-elevated text-ink-muted border-border-strong";
+    case "New": return "bg-surface-subtle text-ink-faint border-border-subtle";
+    default: return "bg-surface-subtle text-ink-faint border-border-subtle";
   }
 }
 
 function ConditionBadge({ code, qty }: { code: string; qty: number }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-neutral-800/60 text-neutral-400 rounded">
+    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-surface-elevated text-ink-muted rounded">
       <span className="font-mono">{code}</span>
-      <span className="text-neutral-500">×{qty}</span>
+      <span className="text-ink-faint font-mono tabular-nums">×{qty}</span>
     </span>
   );
 }
@@ -113,7 +117,7 @@ function Sparkline({
     return (
       <div
         style={{ width, height }}
-        className="flex items-center justify-center text-neutral-600 text-xs"
+        className="flex items-center justify-center text-ink-faint text-xs"
       >
         no data
       </div>
@@ -122,7 +126,7 @@ function Sparkline({
   if (points.length === 1) {
     return (
       <svg width={width} height={height} className="block">
-        <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="#737373" strokeWidth={1} />
+        <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="var(--color-border-strong)" strokeWidth={1} />
       </svg>
     );
   }
@@ -138,7 +142,7 @@ function Sparkline({
     })
     .join(" ");
   const trendUp = points[points.length - 1] >= points[0];
-  const stroke = trendUp ? "#34d399" : "#f87171";
+  const stroke = "var(--color-accent)";
   return (
     <svg width={width} height={height} className="block" aria-label={`Price trend ${trendUp ? "up" : "down"} across ${points.length} observations`}>
       <path
@@ -165,6 +169,12 @@ export default async function CardMarketReadPage({
   ]);
   const { meta, book, tape, stats, price_history, conditions, participants } = market;
 
+  // Wardrobe migration (spec §3.3): this page lives outside the /market
+  // route group, so it dresses itself — cookie-read appearance, Gallery
+  // default on its own wrapper, semantic tokens throughout below.
+  const appearance = appearanceFromCookies(await cookies());
+  const v = voiceFor(appearance.tone);
+
   // kingdom-083: JPY history panel (Phase 5.4 UI half). Auth-gated by
   // construction — we only fetch the history when a session exists, and
   // the API endpoint itself enforces the same gate. License-aware: the
@@ -179,26 +189,26 @@ export default async function CardMarketReadPage({
     window.map((p) => p.spot_gbp).filter((n): n is number => n !== null);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div data-theme={appearance.theme ?? DEFAULT_THEME} className="wardrobe-ground min-h-screen text-ink">
       <Audience kind="consumer" contexts={["market", "card", "public-read"]} />
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-baseline justify-between gap-4 mb-6 flex-wrap">
           <div>
-            <p className="text-xs text-neutral-500 mb-1">
-              <Link href="/market" className="hover:text-amber-400 transition">Market</Link>
-              <span className="mx-2 text-neutral-700">/</span>
-              <span className="font-mono text-neutral-400">{sku}</span>
+            <p className="text-xs text-ink-faint mb-1">
+              <Link href="/market" className="hover:text-accent transition">Market</Link>
+              <span className="mx-2 text-ink-faint">/</span>
+              <span className="font-mono text-ink-muted">{sku}</span>
             </p>
-            <h1 className="text-2xl font-bold flex items-center gap-3">
+            <h1 className="font-display tracking-tight text-2xl font-bold flex items-center gap-3">
               {meta.card_name || sku}
               <WhyLink href="/methodology/market" />
             </h1>
             {meta.set_name && (
-              <p className="text-sm text-neutral-400 mt-1">
+              <p className="text-sm text-ink-muted mt-1">
                 {meta.set_name}
-                {meta.set_code ? <span className="text-neutral-600 ml-1">({meta.set_code})</span> : null}
+                {meta.set_code ? <span className="text-ink-faint ml-1">({meta.set_code})</span> : null}
               </p>
             )}
           </div>
@@ -206,17 +216,17 @@ export default async function CardMarketReadPage({
             <Provenance kind="live" />
             <Link
               href={`/market/${sku}`}
-              className="text-xs px-3 py-1.5 bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded hover:bg-amber-500/25 transition"
+              className="text-xs px-3 py-1.5 bg-accent-wash text-accent border border-accent/30 rounded hover:border-accent transition"
             >
               Trade on this card →
             </Link>
           </div>
         </div>
 
-        <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
-          A view-only snapshot of this card&rsquo;s market activity — no account needed.
-          Want to place an order or sell this card? The trading page lives at{" "}
-          <Link href={`/market/${sku}`} className="text-amber-400 hover:underline">/market/{sku}</Link>.
+        <p className="text-sm text-ink-muted mb-8 max-w-2xl">
+          The substrate-honest pure-read mirror of one card&rsquo;s market activity. The interactive
+          surface to place orders lives at <Link href={`/market/${sku}`} className="text-accent hover:underline">/market/{sku}</Link>.
+          This page is for reading — auditable, screen-reader-readable, agent-ingestable, no auth.
         </p>
 
         {/* Layout grid */}
@@ -224,71 +234,73 @@ export default async function CardMarketReadPage({
           {/* Left: image + condition breakdown + participants */}
           <div className="space-y-6">
             {meta.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={meta.image_url}
-                alt={meta.card_name || sku}
-                className="w-full rounded-xl border border-neutral-800"
-              />
+              <div className="wardrobe-mat rounded-lg p-2 mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={meta.image_url}
+                  alt={meta.card_name || sku}
+                  className="w-full rounded"
+                />
+              </div>
             ) : (
-              <div className="aspect-[2.5/3.5] w-full bg-neutral-900 rounded-xl border border-neutral-800 flex items-center justify-center text-neutral-600">
+              <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center text-ink-faint">
                 No image
               </div>
             )}
 
             {/* Condition breakdown */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="wardrobe-mat rounded-lg p-4">
+              <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 By condition
                 <WhyLink href="/methodology/market#conditions" />
               </h2>
               <div className="space-y-2">
                 {conditions.map((c) => (
                   <div key={c.condition} className="flex items-center justify-between text-sm">
-                    <span className="font-mono text-neutral-400">{c.condition}</span>
-                    <span className="text-neutral-300">
+                    <span className="font-mono text-ink-muted">{c.condition}</span>
+                    <span className="text-ink-muted">
                       {c.ask_count > 0
                         ? <>
-                            {fmtCount(c.ask_count)}{" "}
-                            <span className="text-neutral-500 text-xs">ask{c.ask_count === 1 ? "" : "s"}</span>
+                            <span className="font-mono tabular-nums text-ink">{fmtCount(c.ask_count)}</span>{" "}
+                            <span className="text-ink-faint text-xs">ask{c.ask_count === 1 ? "" : "s"}</span>
                             {c.best_ask_price !== null && (
-                              <span className="text-amber-400 ml-2 font-mono">
+                              <span className="text-accent ml-2 font-mono tabular-nums">
                                 from <MoneyDisplay value={c.best_ask_price} />
                               </span>
                             )}
                           </>
-                        : <span className="text-neutral-600">—</span>}
+                        : <span className="text-ink-faint">—</span>}
                     </span>
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                 Same card, different conditions are different goods. NM/LP/MP/HP are the four
                 conditions the platform models. Damaged is intentionally not listed (refused at order entry).
               </p>
             </section>
 
             {/* Participants */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="wardrobe-mat rounded-lg p-4">
+              <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 Participants (90d)
                 <WhyLink href="/methodology/market#participants" />
               </h2>
               <dl className="text-sm space-y-1.5">
                 <div className="flex justify-between">
-                  <dt className="text-neutral-400">Distinct buyers</dt>
-                  <dd className="text-neutral-200 font-mono">{fmtCount(participants.distinct_buyers_90d)}</dd>
+                  <dt className="text-ink-muted">Distinct buyers</dt>
+                  <dd className="text-ink font-mono tabular-nums">{fmtCount(participants.distinct_buyers_90d)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-neutral-400">Distinct sellers</dt>
-                  <dd className="text-neutral-200 font-mono">{fmtCount(participants.distinct_sellers_90d)}</dd>
+                  <dt className="text-ink-muted">Distinct sellers</dt>
+                  <dd className="text-ink font-mono tabular-nums">{fmtCount(participants.distinct_sellers_90d)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-neutral-400">Repeat-pair share</dt>
-                  <dd className="text-neutral-200 font-mono">{fmtPct(participants.repeat_pair_fraction_90d)}</dd>
+                  <dt className="text-ink-muted">Repeat-pair share</dt>
+                  <dd className="text-ink font-mono tabular-nums">{fmtPct(participants.repeat_pair_fraction_90d)}</dd>
                 </div>
               </dl>
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                 Anonymised counts. The platform doesn&rsquo;t publish trader identities on this page.
                 Repeat-pair share = fraction of trades whose buyer-seller pair appeared more than once.
               </p>
@@ -298,8 +310,8 @@ export default async function CardMarketReadPage({
           {/* Center: Order book + Stats + Tape */}
           <div className="md:col-span-2 space-y-6">
             {/* Stats row */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="wardrobe-mat rounded-lg p-4">
+              <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 Aggregate stats
                 <WhyLink href="/methodology/market#stats" />
               </h2>
@@ -331,34 +343,37 @@ export default async function CardMarketReadPage({
             </section>
 
             {/* Order book */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="wardrobe-mat rounded-lg p-4">
+              <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 Order book
                 <WhyLink href="/methodology/market#orderbook" />
               </h2>
               {book.bids.length === 0 && book.asks.length === 0 ? (
-                <p className="text-neutral-500 text-sm py-6 text-center">No open orders on this SKU.</p>
+                <EmptyState
+                  title={v("market.empty.book.title")}
+                  description={v("market.empty.book.description")}
+                />
               ) : (
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   {/* Bids column */}
                   <div>
-                    <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2 flex justify-between">
+                    <div className="text-xs text-ink-faint uppercase tracking-wide mb-2 flex justify-between">
                       <span>Bids</span>
-                      <span className="text-emerald-400 font-mono normal-case">
+                      <span className="text-bid font-mono tabular-nums normal-case">
                         total {fmtCount(book.total_bid_quantity)}
                       </span>
                     </div>
                     {book.bids.length === 0 ? (
-                      <p className="text-neutral-600 text-xs py-3 text-center">no bids</p>
+                      <p className="text-ink-faint text-xs py-3 text-center">no bids</p>
                     ) : (
                       <ul className="space-y-1">
                         {book.bids.map((row, i) => (
-                          <li key={`bid-${i}`} className="flex items-center justify-between bg-emerald-500/5 border border-emerald-500/15 rounded px-2 py-1.5">
-                            <span className="text-emerald-400 font-mono font-medium">
+                          <li key={`bid-${i}`} className="flex items-center justify-between bg-bid/5 border border-bid/15 rounded px-2 py-1.5">
+                            <span className="text-bid font-mono tabular-nums font-medium">
                               <MoneyDisplay value={row.price} />
                             </span>
                             <span className="flex items-center gap-1.5">
-                              <span className="text-neutral-300 font-mono text-xs">×{row.total_quantity}</span>
+                              <span className="text-ink-muted font-mono tabular-nums text-xs">×{row.total_quantity}</span>
                               {Object.entries(row.by_condition).map(([code, qty]) => (
                                 <ConditionBadge key={code} code={code} qty={qty as number} />
                               ))}
@@ -370,23 +385,23 @@ export default async function CardMarketReadPage({
                   </div>
                   {/* Asks column */}
                   <div>
-                    <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2 flex justify-between">
+                    <div className="text-xs text-ink-faint uppercase tracking-wide mb-2 flex justify-between">
                       <span>Asks</span>
-                      <span className="text-red-400 font-mono normal-case">
+                      <span className="text-ask font-mono tabular-nums normal-case">
                         total {fmtCount(book.total_ask_quantity)}
                       </span>
                     </div>
                     {book.asks.length === 0 ? (
-                      <p className="text-neutral-600 text-xs py-3 text-center">no asks</p>
+                      <p className="text-ink-faint text-xs py-3 text-center">no asks</p>
                     ) : (
                       <ul className="space-y-1">
                         {book.asks.map((row, i) => (
-                          <li key={`ask-${i}`} className="flex items-center justify-between bg-red-500/5 border border-red-500/15 rounded px-2 py-1.5">
-                            <span className="text-red-400 font-mono font-medium">
+                          <li key={`ask-${i}`} className="flex items-center justify-between bg-ask/5 border border-ask/15 rounded px-2 py-1.5">
+                            <span className="text-ask font-mono tabular-nums font-medium">
                               <MoneyDisplay value={row.price} />
                             </span>
                             <span className="flex items-center gap-1.5">
-                              <span className="text-neutral-300 font-mono text-xs">×{row.total_quantity}</span>
+                              <span className="text-ink-muted font-mono tabular-nums text-xs">×{row.total_quantity}</span>
                               {Object.entries(row.by_condition).map(([code, qty]) => (
                                 <ConditionBadge key={code} code={code} qty={qty as number} />
                               ))}
@@ -398,31 +413,31 @@ export default async function CardMarketReadPage({
                   </div>
                 </div>
               )}
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                 Top 10 price levels per side. Quantities are remaining (placed minus filled). Same-price postings
                 at different conditions are listed inline — NM and LP at £5 are different goods.
               </p>
             </section>
 
             {/* Tape */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="wardrobe-mat rounded-lg p-4">
+              <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 The tape — last 20 trades
                 <WhyLink href="/methodology/market#tape" />
               </h2>
               {tape.entries.length === 0 ? (
-                <p className="text-neutral-500 text-sm py-6 text-center">No completed trades yet.</p>
+                <EmptyState title="No completed trades yet." />
               ) : (
                 <>
-                  <div className="flex items-center gap-4 mb-3 text-xs text-neutral-500">
-                    <span>24h: <span className="text-neutral-300 font-mono">{fmtCount(tape.trade_count_24h)}</span></span>
-                    <span>7d: <span className="text-neutral-300 font-mono">{fmtCount(tape.trade_count_7d)}</span></span>
-                    <span>30d: <span className="text-neutral-300 font-mono">{fmtCount(tape.trade_count_30d)}</span></span>
+                  <div className="flex items-center gap-4 mb-3 text-xs text-ink-faint">
+                    <span>24h: <span className="text-ink-muted font-mono tabular-nums">{fmtCount(tape.trade_count_24h)}</span></span>
+                    <span>7d: <span className="text-ink-muted font-mono tabular-nums">{fmtCount(tape.trade_count_7d)}</span></span>
+                    <span>30d: <span className="text-ink-muted font-mono tabular-nums">{fmtCount(tape.trade_count_30d)}</span></span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-neutral-500 text-xs uppercase tracking-wide border-b border-neutral-800">
+                        <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
                           <th className="text-left py-2 font-medium">Price</th>
                           <th className="text-left py-2 font-medium">Qty</th>
                           <th className="text-left py-2 font-medium">Seller tier</th>
@@ -431,23 +446,23 @@ export default async function CardMarketReadPage({
                       </thead>
                       <tbody>
                         {tape.entries.map((t) => (
-                          <tr key={t.trade_id} className="border-b border-neutral-800/50">
-                            <td className="py-2 text-white font-mono"><MoneyDisplay value={t.price} /></td>
-                            <td className="py-2 text-neutral-300">{t.quantity}</td>
+                          <tr key={t.trade_id} className="border-b border-border-subtle/50">
+                            <td className="py-2 text-ink font-mono tabular-nums"><MoneyDisplay value={t.price} /></td>
+                            <td className="py-2 text-ink-muted font-mono tabular-nums">{t.quantity}</td>
                             <td className="py-2">
                               {t.seller_trust_tier ? (
                                 <span className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 border rounded ${tierTone(t.seller_trust_tier)}`}>
                                   <span className="font-semibold">{t.seller_trust_tier}</span>
                                   {t.seller_trust_score !== null && (
-                                    <span className="font-mono opacity-70">{t.seller_trust_score}</span>
+                                    <span className="font-mono tabular-nums opacity-70">{t.seller_trust_score}</span>
                                   )}
                                 </span>
                               ) : (
-                                <span className="text-neutral-600 text-xs">—</span>
+                                <span className="text-ink-faint text-xs">—</span>
                               )}
-                              <span className="text-neutral-700 text-[10px] ml-2 font-mono">#{t.seller_anon_id}</span>
+                              <span className="text-ink-faint text-[10px] ml-2 font-mono">#{t.seller_anon_id}</span>
                             </td>
-                            <td className="py-2 text-neutral-500 text-right text-xs">
+                            <td className="py-2 text-ink-faint text-right text-xs font-mono tabular-nums">
                               {fmtRelative(t.completed_at || t.created_at)}
                             </td>
                           </tr>
@@ -457,10 +472,10 @@ export default async function CardMarketReadPage({
                   </div>
                 </>
               )}
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
-                Counterparty trust tier resolved from <code className="text-neutral-400">trust_profiles.trust_score</code>{" "}
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
+                Counterparty trust tier resolved from <code className="text-ink-muted">trust_profiles.trust_score</code>{" "}
                 at read time. Tiers: Elite ≥95, Veteran ≥80, Trusted ≥50, Starter ≥20, New &lt;20.{" "}
-                <Link href="/methodology/trust-score" className="text-amber-400 hover:underline">methodology →</Link>
+                <Link href="/methodology/trust-score" className="text-accent hover:underline">methodology →</Link>
               </p>
             </section>
 
@@ -471,27 +486,25 @@ export default async function CardMarketReadPage({
                 rendered verbatim from the API response so the user sees
                 what they may + must not do with the values. */}
             {cardrushHistory && cardrushHistory.observations.length > 0 && (
-              <section className="bg-neutral-900 border border-amber-500/30 rounded-lg p-4">
-                <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+              <section className="bg-surface border border-accent/40 rounded-lg p-4 shadow-mat">
+                <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
                   JPY observation history{" "}
-                  <span className="text-[10px] uppercase tracking-wider text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                  <span className="text-[10px] uppercase tracking-wider text-accent bg-accent-wash px-1.5 py-0.5 rounded border border-accent/30">
                     signed-in only
                   </span>
-                  {/* /methodology/cardrush-license never shipped; the
-                      upstream-sources page carries the license table. */}
-                  <WhyLink href="/methodology/upstream-sources" />
+                  <WhyLink href="/methodology/cardrush-license" />
                 </h2>
-                <p className="text-xs text-neutral-400 mb-3 leading-relaxed">
+                <p className="text-xs text-ink-muted mb-3 leading-relaxed">
                   Last {cardrushHistory.observations.length} raw CardRush JP retail observations for{" "}
-                  <span className="font-mono text-amber-300">{cardrushHistory.sku}</span>.{" "}
-                  <span className="text-amber-400 font-medium">
+                  <span className="font-mono text-accent">{cardrushHistory.sku}</span>.{" "}
+                  <span className="text-accent font-medium">
                     For your personal reference; not redistributable.
                   </span>
                 </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-neutral-500 uppercase tracking-wide border-b border-neutral-800">
+                      <tr className="text-ink-faint uppercase tracking-wide border-b border-border-subtle">
                         <th className="text-left py-1.5 font-medium">date</th>
                         <th className="text-right py-1.5 font-medium">¥ JPY</th>
                         <th className="text-right py-1.5 font-medium">£ derived</th>
@@ -501,73 +514,74 @@ export default async function CardMarketReadPage({
                     </thead>
                     <tbody>
                       {cardrushHistory.observations.map((obs) => (
-                        <tr key={obs.snapshot_date} className="border-b border-neutral-800/40">
-                          <td className="py-1.5 font-mono text-neutral-300">
+                        <tr key={obs.snapshot_date} className="border-b border-border-subtle/40">
+                          <td className="py-1.5 font-mono tabular-nums text-ink-muted">
                             {obs.snapshot_date}
                           </td>
-                          <td className="py-1.5 text-right font-mono text-white">
+                          <td className="py-1.5 text-right font-mono tabular-nums text-ink">
                             {obs.cardrush_jpy !== null
                               ? `¥${obs.cardrush_jpy.toLocaleString()}`
-                              : <span className="text-neutral-600">—</span>}
+                              : <span className="text-ink-faint">—</span>}
                           </td>
-                          <td className="py-1.5 text-right font-mono text-emerald-400">
+                          <td className="py-1.5 text-right font-mono tabular-nums text-ok">
                             {obs.price_gbp !== null
                               ? <MoneyDisplay value={obs.price_gbp} />
-                              : <span className="text-neutral-600">—</span>}
+                              : <span className="text-ink-faint">—</span>}
                           </td>
-                          <td className="py-1.5 text-right font-mono text-neutral-500">
+                          <td className="py-1.5 text-right font-mono tabular-nums text-ink-faint">
                             {obs.gbp_jpy_rate !== null
                               ? obs.gbp_jpy_rate.toFixed(2)
-                              : <span className="text-neutral-700">—</span>}
+                              : <span className="text-ink-faint">—</span>}
                           </td>
-                          <td className="py-1.5 pl-3 text-neutral-500">
-                            {obs.error_reason || <span className="text-neutral-700">—</span>}
+                          <td className="py-1.5 pl-3 text-ink-faint">
+                            {obs.error_reason || <span className="text-ink-faint">—</span>}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded text-[11px] text-neutral-400 leading-relaxed">
-                  <p className="font-semibold text-amber-300 mb-1">License notice — internal-only</p>
+                <div className="mt-3 p-3 bg-accent-wash border border-accent/20 rounded text-[11px] text-ink-muted leading-relaxed">
+                  <p className="font-semibold text-accent mb-1">License notice — internal-only</p>
                   <p>
                     These JPY values originate at{" "}
                     <Link
                       href={cardrushHistory.cardrush_url ?? "https://www.cardrush-op.jp"}
-                      className="text-amber-400 hover:underline"
+                      className="text-accent hover:underline"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       CardRush JP
                     </Link>
-                    . You <strong className="text-emerald-400">may</strong> view them for your own
+                    . You <strong className="text-ok">may</strong> view them for your own
                     buy/sell decisions, save to your own notes, and compare against your portfolio.
-                    You <strong className="text-red-400">must not</strong> bulk re-export, redistribute
+                    You <strong className="text-danger">must not</strong> bulk re-export, redistribute
                     as a paid product, or publish to a public archive. The wholesale-derived GBP
                     values above (in the Price history section) are Cambridge TCG&rsquo;s own retail
                     offers — those are CC0.
                   </p>
                 </div>
-                <p className="text-[10px] text-neutral-600 mt-2">
+                <p className="text-[10px] text-ink-faint mt-2">
                   API endpoint:{" "}
                   <Link
                     href={`/api/v1/cards/${sku}/cardrush-history`}
-                    className="text-amber-400 hover:underline font-mono"
+                    className="text-accent hover:underline font-mono"
                   >
                     /api/v1/cards/{sku}/cardrush-history
                   </Link>
+                  {" "}· kingdom-081 Phase 5.4 + kingdom-083 UI half
                 </p>
               </section>
             )}
 
             {/* Price history */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="wardrobe-mat rounded-lg p-4">
+              <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 Price history
                 <WhyLink href="/methodology/market#history" />
               </h2>
               {!price_history.has_any_history ? (
-                <p className="text-neutral-500 text-sm py-6 text-center">No price history captured for this SKU yet.</p>
+                <EmptyState title="No price history captured for this SKU yet." />
               ) : (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <Window label="7 days" points={spark(price_history.window_7d)} />
@@ -576,8 +590,9 @@ export default async function CardMarketReadPage({
                   <Window label="365 days" points={spark(price_history.window_365d)} />
                 </div>
               )}
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
-                Daily snapshots of our own retail price for this card.
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
+                Daily spot snapshots from <code className="text-ink-muted">card_price_history</code>{" "}
+                (the storefront&rsquo;s retail observation, kingdom-049 Phase 4 made it substrate-honest).
                 Each window is independently queried; gaps mean no observation on that day.
               </p>
             </section>
@@ -585,22 +600,22 @@ export default async function CardMarketReadPage({
         </div>
 
         {/* Footer — provenance + audience + methodology pointer + license chain */}
-        <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 space-y-2">
+        <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint space-y-2">
           <p>
             <Provenance kind="live" />{" "}
-            Queried at <span className="font-mono">{market._provenance.queried_at}</span>.
+            Queried at <span className="font-mono tabular-nums">{market._provenance.queried_at}</span>.
             Sources: <span className="font-mono">{market._provenance.sources.join(", ")}</span>.
           </p>
           <p>
-            <Link href="/methodology/market" className="text-amber-400 hover:underline">
+            <Link href="/methodology/market" className="text-accent hover:underline">
               /methodology/market →
             </Link>{" "}
             documents every formula, every approximation, every gap.
           </p>
           <p>
-            First seen on this platform: <span className="font-mono">{fmtDate(meta.first_seen_on)}</span>.{" "}
+            First seen on this platform: <span className="font-mono tabular-nums">{fmtDate(meta.first_seen_on)}</span>.{" "}
             For machine-readable forms, see{" "}
-            <Link href={`/api/v1/universal/card/${sku}`} className="text-amber-400 hover:underline">
+            <Link href={`/api/v1/universal/card/${sku}`} className="text-accent hover:underline">
               /api/v1/universal/card/{sku}
             </Link>{" "}
             (math-mirror).
@@ -612,7 +627,7 @@ export default async function CardMarketReadPage({
               prices (license: internal-only). The market page does not
               redistribute raw JPY values — that boundary is honoured. */}
           <p className="leading-relaxed">
-            <span className="text-neutral-400">License chain.</span>{" "}
+            <span className="text-ink-muted">License chain.</span>{" "}
             Displayed prices are Cambridge TCG&apos;s retail offers in GBP — our
             own observation discipline, freely citable. The underlying
             base-price observation chain may include CardRush JP retail
@@ -621,7 +636,7 @@ export default async function CardMarketReadPage({
             historical snapshots, see the B2B endpoint{" "}
             <Link
               href="https://wholesaletcgdirect.com/api/v1/universal/card"
-              className="text-amber-400 hover:underline"
+              className="text-accent hover:underline"
             >
               /api/v1/universal/card/[sku]/at/[date]
             </Link>{" "}
@@ -648,25 +663,25 @@ function Stat({
   tone?: "emerald" | "red";
 }) {
   const valColor =
-    tone === "emerald" ? "text-emerald-400"
-    : tone === "red" ? "text-red-400"
-    : "text-white";
+    tone === "emerald" ? "text-bid"
+    : tone === "red" ? "text-ask"
+    : "text-ink";
   return (
-    <div>
-      <div className="text-[10px] text-neutral-500 uppercase tracking-wide">{label}</div>
-      <div className={`text-sm font-mono font-medium ${valColor}`}>{value}</div>
-      {sub && <div className="text-[10px] text-neutral-600 mt-0.5">{sub}</div>}
+    <div className="wardrobe-mat rounded-lg p-3">
+      <div className="text-[10px] text-ink-faint uppercase tracking-wide">{label}</div>
+      <div className={`text-sm font-mono tabular-nums font-medium ${valColor}`}>{value}</div>
+      {sub && <div className="text-[10px] text-ink-faint mt-0.5">{sub}</div>}
     </div>
   );
 }
 
 function Window({ label, points }: { label: string; points: number[] }) {
   return (
-    <div className="bg-neutral-950/60 border border-neutral-800/60 rounded p-3">
+    <div className="bg-surface-subtle border border-border-subtle rounded p-3">
       <div className="flex items-baseline justify-between mb-2">
-        <span className="text-[10px] text-neutral-500 uppercase tracking-wide">{label}</span>
+        <span className="text-[10px] text-ink-faint uppercase tracking-wide">{label}</span>
         {points.length > 0 && (
-          <span className="text-[10px] text-neutral-600 font-mono">
+          <span className="text-[10px] text-ink-faint font-mono tabular-nums">
             {points.length} obs
           </span>
         )}
@@ -674,8 +689,8 @@ function Window({ label, points }: { label: string; points: number[] }) {
       <Sparkline points={points} width={200} height={50} />
       {points.length > 0 && (
         <div className="mt-1.5 flex items-baseline justify-between text-[11px]">
-          <span className="text-neutral-600"><MoneyDisplay value={points[0]} /></span>
-          <span className="text-neutral-300 font-mono"><MoneyDisplay value={points[points.length - 1]} /></span>
+          <span className="text-ink-faint font-mono tabular-nums"><MoneyDisplay value={points[0]} /></span>
+          <span className="text-ink font-mono tabular-nums"><MoneyDisplay value={points[points.length - 1]} /></span>
         </div>
       )}
     </div>

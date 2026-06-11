@@ -1,0 +1,32 @@
+{
+  "name": "prompt-evaluator",
+  "version": "1.0.0",
+  "description": "Standardized tool for evaluating prompt effectiveness across Claude Code instances",
+  "main": "index.ts",
+  "types": "types.ts",
+  "scripts": {
+    "evaluate": "npx tsx cli.ts evaluate",
+    "quick": "npx tsx cli.ts quick",
+    "templates": "npx tsx cli.ts templates",
+    "report": "npx tsx cli.ts report",
+    "help": "npx tsx cli.ts help"
+  },
+  "keywords": [
+    "prompt-engineering",
+    "claude-code",
+    "codebase-exploration",
+    "evaluation",
+    "ai-tools"
+  ],
+  "author": "RewardsPro Team",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

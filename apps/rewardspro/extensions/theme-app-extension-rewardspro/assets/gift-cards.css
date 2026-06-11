@@ -1,0 +1,269 @@
+/**
+ * RewardsPro Gift Cards Widget Styles
+ * Consistent with membership/raffles/mystery-boxes design system (COAGULATION tokens)
+ */
+
+/* ─── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rp-giftcards-root *,
+  .rp-giftcards-root *::before,
+  .rp-giftcards-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Root ──────────────────────────────────────────────────────────────── */
+.rp-giftcards-root {
+  font-family: inherit;
+  box-sizing: border-box;
+  padding: var(--rp-space-xl, 24px) 0;
+  color: var(--rp-text-color, inherit);
+}
+.rp-giftcards-root *,
+.rp-giftcards-root *::before,
+.rp-giftcards-root *::after {
+  box-sizing: border-box;
+}
+
+/* ─── Section header ─────────────────────────────────────────────────────── */
+.rp-gc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rp-space-md, 12px);
+  margin-bottom: var(--rp-space-xl, 24px);
+}
+.rp-gc-title {
+  font-size: var(--rp-font-xl, 20px);
+  font-weight: 700;
+  margin: 0;
+}
+.rp-gc-credit-badge {
+  font-size: var(--rp-font-sm, 12px);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--rp-radius-full);
+  border: 1px solid currentColor;
+  opacity: 0.85;
+}
+
+/* ─── Sub-section headings ───────────────────────────────────────────────── */
+.rp-gc-section-label {
+  font-size: var(--rp-font-md, 14px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+  margin: 0 0 var(--rp-space-md, 12px);
+}
+
+/* ─── Bundle grid ────────────────────────────────────────────────────────── */
+.rp-gc-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--rp-gc-cols, 3), 1fr);
+  gap: var(--rp-space-lg, 16px);
+  margin-bottom: var(--rp-space-2xl, 32px);
+}
+@media (max-width: 768px) {
+  .rp-gc-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .rp-gc-grid {
+    grid-template-columns: 1fr;
+    gap: var(--rp-space-md, 12px);
+  }
+
+  .rp-gc-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rp-gc-title {
+    font-size: var(--rp-font-lg, 16px);
+  }
+
+  .rp-gc-btn {
+    min-height: 44px;
+    padding: 12px 18px;
+    touch-action: manipulation;
+  }
+
+  .rp-gc-issued-card {
+    flex-wrap: wrap;
+  }
+
+  .rp-gc-issued-code {
+    overflow-wrap: break-word;
+    word-break: break-all;
+  }
+
+  .rp-gc-bundle-name,
+  .rp-gc-bundle-desc {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .rp-gc-guest {
+    padding: var(--rp-space-xl, 24px) var(--rp-space-md, 12px);
+  }
+}
+
+/* ─── Bundle card ────────────────────────────────────────────────────────── */
+.rp-gc-bundle-card {
+  border: 1px solid;
+  border-radius: var(--rp-radius-lg);
+  padding: var(--rp-space-lg, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-md, 12px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.rp-gc-bundle-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+.rp-gc-bundle-value {
+  font-size: var(--rp-font-2xl, 24px);
+  font-weight: 800;
+  line-height: 1;
+}
+.rp-gc-bundle-name {
+  font-size: var(--rp-font-md, 14px);
+  font-weight: 600;
+}
+.rp-gc-bundle-cost {
+  font-size: var(--rp-font-sm, 12px);
+  opacity: 0.65;
+}
+.rp-gc-bundle-desc {
+  font-size: var(--rp-font-sm, 12px);
+  opacity: 0.55;
+  flex: 1;
+}
+.rp-gc-bundle-status {
+  font-size: var(--rp-font-xs, 11px);
+  min-height: 16px;
+  font-weight: 500;
+}
+
+/* ─── Issued cards list ──────────────────────────────────────────────────── */
+.rp-gc-issued-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-md, 12px);
+  margin-bottom: var(--rp-space-2xl, 32px);
+}
+.rp-gc-issued-card {
+  border: 1px solid;
+  border-radius: var(--rp-radius-md);
+  padding: var(--rp-space-lg, 16px);
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-lg, 16px);
+}
+.rp-gc-issued-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.rp-gc-issued-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rp-gc-issued-balance {
+  font-size: var(--rp-font-lg, 16px);
+  font-weight: 700;
+}
+.rp-gc-issued-code {
+  font-size: var(--rp-font-sm, 12px);
+  font-family: monospace;
+  opacity: 0.6;
+  letter-spacing: 0.1em;
+}
+.rp-gc-issued-meta {
+  font-size: var(--rp-font-xs, 11px);
+  opacity: 0.5;
+}
+.rp-gc-issued-status {
+  font-size: var(--rp-font-xs, 11px);
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--rp-radius-md);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rp-gc-issued-status--active  { background: rgba(52,199,89,0.15);  color: var(--rp-color-success); }
+.rp-gc-issued-status--used    { background: rgba(142,142,147,0.15); color: #8e8e93; }
+.rp-gc-issued-status--expired { background: rgba(255,59,48,0.15);  color: var(--rp-color-error); }
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+.rp-gc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--rp-radius-md);
+  padding: 10px 18px;
+  font-size: var(--rp-font-md, 14px);
+  font-weight: 700;
+  /* Inherit theme font; mirrors Shopify convention (Dawn, Debut). */
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    opacity var(--rp-duration-fast) var(--rp-easing),
+    transform var(--rp-duration-fast) var(--rp-easing);
+  text-decoration: none;
+  width: 100%;
+  /* WCAG-friendly min tap target on mobile — Dawn defaults for buttons
+     are ~36px which is below the iOS 44px recommendation. */
+  min-height: 44px;
+}
+.rp-gc-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.rp-gc-btn:active:not(:disabled) { transform: translateY(0); }
+.rp-gc-btn:focus-visible {
+  outline: 2px solid var(--rp-primary-color, #5C6AC4);
+  outline-offset: 2px;
+}
+/* Disabled state — visible muted fill so the button doesn't vanish on
+   themes without a strong background behind it. Reads the theme's
+   card/text tokens so it integrates with dark mode. */
+.rp-gc-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.08));
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+/* ─── Guest block ────────────────────────────────────────────────────────── */
+.rp-gc-guest {
+  text-align: center;
+  padding: var(--rp-space-2xl, 32px) var(--rp-space-lg, 16px);
+}
+.rp-gc-guest p { margin: 0 0 var(--rp-space-lg, 16px); opacity: 0.7; }
+
+/* ─── Empty & loading ────────────────────────────────────────────────────── */
+.rp-gc-empty {
+  text-align: center;
+  padding: var(--rp-space-2xl, 32px);
+  opacity: 0.6;
+  font-size: var(--rp-font-md, 14px);
+}
+.rp-widget-loading {
+  text-align: center;
+  padding: var(--rp-space-2xl, 32px);
+  opacity: 0.5;
+  font-size: var(--rp-font-md, 14px);
+}
+.rp-gc-error {
+  padding: var(--rp-space-lg, 16px);
+  border-radius: var(--rp-radius-md);
+  font-size: var(--rp-font-sm, 12px);
+  background: rgba(255,59,48,0.1);
+  color: var(--rp-color-error);
+}

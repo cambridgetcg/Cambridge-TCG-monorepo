@@ -44,9 +44,9 @@ def decode_product_id(encoded: str) -> int:
 def main():
     dry_run = "--dry-run" in sys.argv
 
-    # --game=<code> or --game=all (default: onepiece for safety)
+    # --game=<code> or --game=all (default: op for safety; kingdom GameCodes post-migration-0022)
     game_flag = next((a for a in sys.argv if a.startswith("--game=")), None)
-    game_code = game_flag.split("=")[1] if game_flag else "onepiece"
+    game_code = game_flag.split("=")[1] if game_flag else "op"
 
     if dry_run:
         print(f"DRY RUN — no changes will be committed  (game={game_code})\n")

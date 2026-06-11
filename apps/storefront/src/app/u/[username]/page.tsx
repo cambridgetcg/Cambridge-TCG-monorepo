@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { UserMention, WhyLink } from "@/lib/ui";
+import { MessageButton, UserMention, WhyLink } from "@/lib/ui";
 import type {
   PublicProfile,
   ShowcaseCard,
@@ -227,23 +227,7 @@ export default function UserProfilePage() {
                 </button>
                 {/* Message button — finds-or-creates a thread, then deep-
                     links to the inbox with that thread selected. */}
-                <button
-                  onClick={async () => {
-                    if (!profile) return;
-                    const res = await fetch("/api/messages/conversations", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ otherUserId: profile.user_id }),
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.conversation) {
-                      window.location.href = `/account/messages?c=${data.conversation.id}`;
-                    }
-                  }}
-                  className="px-5 py-1.5 rounded-lg text-sm font-bold bg-neutral-800 text-neutral-200 hover:bg-neutral-700 transition"
-                >
-                  Message
-                </button>
+                <MessageButton otherUserId={profile.user_id} />
               </div>
             )}
           </div>

@@ -2,6 +2,7 @@
 
 import { useSellCart } from "@/context/SellCartContext";
 import { formatPrice } from "@/lib/format";
+import { gameLabel } from "@/lib/tradein/games";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -81,7 +82,7 @@ export default function SellCartDrawer() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-xs text-neutral-500">{item.card_number}</p>
+                      <p className="text-xs text-neutral-500">{item.card_number} · {gameLabel(item.game)}</p>
                       <div className="flex gap-3 mt-1">
                         <span className="text-xs text-neutral-400">
                           Cash: <span className="text-amber-400">{formatPrice(item.cash_price * item.quantity)}</span>

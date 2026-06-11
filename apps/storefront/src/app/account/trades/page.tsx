@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { formatDateTime } from "@/lib/format";
-import { Badge, Palettes, Money } from "@/lib/ui";
+import { Badge, Palettes, Money, MessageButton } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { MarketOrder, MarketTrade, EscrowStatus } from "@/lib/market/types";
 import { DISPUTE_REASONS } from "@/lib/trust/types";
@@ -11,6 +12,9 @@ import { Audience } from "@/lib/ui";
 type TradeWithRole = MarketTrade & {
   current_user_role: "buyer" | "seller";
   payment_expires_at?: string | null;
+  // Counterparty identity — usernames + ids only; emails left the trades
+  // payload with the global-free-trade release.
+  buyer_username?: string | null;
 };
 
 interface TradePhoto {
@@ -363,15 +367,19 @@ export default function TradesPage() {
                   <tr className="text-neutral-500 text-xs uppercase tracking-wide border-b border-neutral-800">
                     <th className="text-left p-4 font-medium">Card</th>
                     <th className="text-left p-4 font-medium">Side</th>
+                    <th className="text-left p-4 font-medium">Counterparty</th>
                     <th className="text-left p-4 font-medium">Price</th>
                     <th className="text-left p-4 font-medium">Qty</th>
                     <th className="text-left p-4 font-medium">Escrow</th>
                     <th className="text-left p-4 font-medium">Date</th>
+                    <th className="p-4" />
                   </tr>
                 </thead>
                 <tbody>
                   {trades.map((trade) => {
                     const isBuyer = trade.current_user_role === "buyer";
+                    const counterpartyId = isBuyer ? trade.seller_id : trade.buyer_id;
+                    const counterpartyName = isBuyer ? trade.seller_username : trade.buyer_username;
                     const canPay =
                       isBuyer &&
                       trade.escrow_status === "awaiting_payment" &&
@@ -379,16 +387,22 @@ export default function TradesPage() {
                     return (
                       <tr key={trade.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition">
                         <td className="p-4">
-                          <div className="flex items-center gap-3">
+                          {/* The detail page (/account/trades/[id]) is the only
+                              path to delivery confirmation, returns, and the
+                              dispute timeline — every row must reach it. */}
+                          <Link
+                            href={`/account/trades/${trade.id}`}
+                            className="flex items-center gap-3 group"
+                          >
                             {trade.image_url ? (
                               <img src={trade.image_url} alt="" className="w-8 h-11 rounded object-cover" />
                             ) : (
                               <div className="w-8 h-11 bg-neutral-800 rounded" />
                             )}
-                            <p className="text-white font-medium text-sm truncate max-w-[160px]">
+                            <p className="text-white font-medium text-sm truncate max-w-[160px] group-hover:text-amber-400 transition">
                               {trade.card_name || trade.sku}
                             </p>
-                          </div>
+                          </Link>
                         </td>
                         <td className="p-4">
                           <span
@@ -398,6 +412,20 @@ export default function TradesPage() {
                           >
                             {isBuyer ? "Bought" : "Sold"}
                           </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-neutral-300 text-xs">{counterpartyName || "—"}</span>
+                            {/* Direct line to the other party — the logistics channel for
+                                arranging shipping, timing, and customs between traders. */}
+                            <MessageButton
+                              otherUserId={counterpartyId}
+                              referenceType="market_trade"
+                              referenceId={trade.id}
+                              label={isBuyer ? "Message seller" : "Message buyer"}
+                              size="sm"
+                            />
+                          </div>
                         </td>
                         <td className="p-4 text-white font-mono"><Money value={Number(trade.price)} /></td>
                         <td className="p-4 text-neutral-300">{trade.quantity}</td>
@@ -447,9 +475,28 @@ export default function TradesPage() {
                                 Open dispute
                               </button>
                             )}
+                            {/* Review loop: terminal trades (completed | refunded) are
+                                reviewable. Linked unconditionally — the review form's
+                                own gates reject duplicates. */}
+                            {(trade.escrow_status === "completed" || trade.escrow_status === "refunded") && (
+                              <Link
+                                href={`/account/trades/${trade.id}/review`}
+                                className="px-2 py-0.5 text-[10px] font-medium text-amber-400 border border-amber-500/30 rounded-md hover:bg-amber-500/10 transition text-center"
+                              >
+                                Leave a review
+                              </Link>
+                            )}
                           </div>
                         </td>
                         <td className="p-4 text-neutral-500 text-xs">{formatDate(trade.created_at)}</td>
+                        <td className="p-4">
+                          <Link
+                            href={`/account/trades/${trade.id}`}
+                            className="text-xs font-medium text-amber-500 hover:text-amber-400 whitespace-nowrap"
+                          >
+                            Details →
+                          </Link>
+                        </td>
                       </tr>
                     );
                   })}
@@ -509,8 +556,8 @@ export default function TradesPage() {
                   setDisputeError(null);
                   try {
                     // Reuses the existing trust/disputes endpoint built in
-                    // src/app/api/trust/disputes; that route handles trade
-                    // membership + UK-verification checks.
+                    // src/app/api/trust/disputes; that route verifies trade
+                    // membership server-side.
                     const res = await fetch(`/api/trust/disputes`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },

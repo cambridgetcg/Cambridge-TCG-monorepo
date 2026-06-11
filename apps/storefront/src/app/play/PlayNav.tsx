@@ -13,20 +13,15 @@ import { usePathname } from "next/navigation";
  * E2E test finding (kingdom-070 follow-through): the original server-only
  * nav had no active-state signal; users had no visual confirmation of where
  * they were within the module.
- *
- * 2026-06-10 slim: nine tabs → five. Welcome/Casual/Compete left the tab
- * row — the lobby links /play/welcome directly, and /play/welcome's own
- * recommended steps link both /play/casual and /play/compete (verified
- * before removal), so nothing orphans. The Spec link moved out of the tab
- * row into the quiet right-side slot below: "module spec" is builder-facing
- * register, not a player destination.
  */
 
+/** Player path only. Welcome/Casual/Compete/Spec stay reachable by URL and
+ *  in-page links — just not in the primary nav. */
 const NAV_LINKS = [
   { href: "/play", label: "Play", note: "Pick a deck, start a battle" },
-  { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
-  { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
   { href: "/play/adventure", label: "Adventure", note: "Solo PvE" },
+  { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
+  { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
   { href: "/play/deck-check", label: "Deck Check", note: "Validate a deck" },
 ] as const;
 
@@ -68,20 +63,8 @@ export default function PlayNav() {
             </Link>
           );
         })}
-        <span className="ml-auto flex items-center gap-3">
-          {/* Builder-facing door, kept out of the player tab row. This is
-              /play/spec's only inbound link — don't drop it without
-              re-homing the page. */}
-          <Link
-            href="/play/spec"
-            title="Module structure — builder-facing"
-            className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
-          >
-            module spec
-          </Link>
-          <span className="text-[10px] text-neutral-600 hidden sm:inline">
-            fun-first · play-to-earn is opt-in
-          </span>
+        <span className="ml-auto text-[10px] text-neutral-600 hidden sm:inline">
+          fun-first · play-to-earn is opt-in
         </span>
       </div>
     </nav>

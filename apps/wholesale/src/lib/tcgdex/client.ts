@@ -18,8 +18,8 @@
 const TCGDEX_BASE = "https://api.tcgdex.net/v2";
 const DEFAULT_TIMEOUT_MS = 5_000;
 
-/** Games that TCGdex carries. Today: Pokémon only. */
-const SUPPORTED_GAMES = new Set(["pokemon"]);
+/** Games that TCGdex carries. Today: Pokémon only ('pkm' GameCode). */
+const SUPPORTED_GAMES = new Set(["pkm"]);
 
 export function tcgdexSupportsGame(gameCode: string): boolean {
   return SUPPORTED_GAMES.has(gameCode);

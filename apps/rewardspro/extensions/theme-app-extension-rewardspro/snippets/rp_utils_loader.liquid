@@ -1,0 +1,16 @@
+{%- comment -%}
+  Loads the RewardsPro shared runtime:
+    - `rp-shared.css` — loading/empty/error primitives reused by every widget
+    - `rp-utils.js`   — `window.RPUtils` bag (sanitize/fetch/cache/escape)
+
+  Every RewardsPro Liquid block must include this snippet at its top:
+
+      {%- render 'rp_utils_loader' -%}
+
+  The browser dedupes identical `src`/`href` URLs, so multiple widgets on the
+  same page cost exactly one HTTP request per asset. The JS is synchronous on
+  purpose — it's tiny (~4 KB) and widgets rely on `window.RPUtils` being
+  defined at the moment their schema-injected <script> executes.
+{%- endcomment -%}
+<link rel="stylesheet" href="{{ 'rp-shared.css' | asset_url }}">
+<script src="{{ 'rp-utils.js' | asset_url }}"></script>

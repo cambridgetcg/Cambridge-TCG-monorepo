@@ -23,11 +23,13 @@ export function PageHeader({ title, description, action, provenance }: PageHeade
     <div className="flex items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold text-white">{title}</h1>
+          {/* Semantic tokens + display voice (wardrobe spec §3.4): identical
+              under terminal defaults, theme-aware in [data-theme] subtrees. */}
+          <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
           {provenance}
         </div>
         {description && (
-          <p className="text-sm text-neutral-400 mt-1">{description}</p>
+          <p className="text-sm text-ink-muted mt-1">{description}</p>
         )}
       </div>
       {action && <div className="shrink-0 flex items-center gap-2">{action}</div>}

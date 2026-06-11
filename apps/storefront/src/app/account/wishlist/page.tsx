@@ -110,31 +110,6 @@ export default function WishlistPage() {
     }
   }
 
-  async function toggleFulfilled(item: WishlistItem) {
-    setBusy(item.id);
-    try {
-      // The existing POST does an add; we need a fulfilled toggle. Use a
-      // re-add with the same sku — addToWishlist has ON CONFLICT update.
-      // Simpler path: direct PATCH endpoint. Since one doesn't exist yet,
-      // we just re-POST the same fields with an updated note and rely on
-      // the UNIQUE constraint — but that doesn't toggle fulfilled. For
-      // now, remove-and-readd is the clean path via existing APIs.
-      // (Proper endpoint: PATCH /api/social/wishlist/[id] — future work.)
-      // Here: just remove the item when user marks fulfilled.
-      if (!item.fulfilled) {
-        if (!confirm(`Mark "${item.card_name}" as fulfilled (removes it from active wishlist)?`)) return;
-        await fetch("/api/social/wishlist", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itemId: item.id }),
-        });
-        await load();
-      }
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function saveMaxPrice(item: WishlistItem) {
     const v = parseFloat(editPrice);
     if (!Number.isFinite(v) || v < 0) { setError("Max price must be ≥ 0."); return; }
@@ -440,20 +415,16 @@ export default function WishlistPage() {
                           Buy in store
                         </Link>
                       )}
-                      <button
-                        onClick={() => toggleFulfilled(item)}
-                        disabled={busy === item.id}
-                        className="flex-1 text-[11px] bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-2 py-1.5 transition-colors disabled:opacity-40"
-                        title="Mark as fulfilled (removes from active list)"
-                      >
-                        Fulfilled
-                      </button>
+                      {/* One honest action: Remove (deletes the wish). A
+                          "Fulfilled" toggle needs a PATCH endpoint that
+                          doesn't exist yet; until it does, we don't dress
+                          a delete up in success clothing. */}
                       <button
                         onClick={() => remove(item.id)}
                         disabled={busy === item.id}
-                        className="text-[11px] bg-neutral-800 hover:bg-red-900/40 text-neutral-400 hover:text-red-400 rounded px-2 py-1.5 transition-colors disabled:opacity-40"
+                        className="flex-1 text-[11px] bg-neutral-800 hover:bg-red-900/40 text-neutral-400 hover:text-red-400 rounded px-2 py-1.5 transition-colors disabled:opacity-40"
                       >
-                        ✕
+                        Remove
                       </button>
                     </div>
 

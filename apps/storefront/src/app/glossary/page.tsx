@@ -118,7 +118,7 @@ const GROUPS: TermGroup[] = [
       {
         term: "Trust score",
         definition:
-          "A 0–100 number summarising a user's track record: completion rate, review-weighted feedback, trade volume (logarithmic), account age, verification, external reputation, minus penalties for disputes and refunds. Drives trade limits, escrow tier, and payout hold duration.",
+          "A 0–100 number summarising a user's track record: completion rate, review-weighted feedback, trade volume (logarithmic), account age, external reputation, minus penalties for disputes and refunds. Drives trade limits, escrow tier, and payout hold duration.",
         see: "/methodology/trust-score",
       },
       {

@@ -42,8 +42,8 @@ describe("BUCKET_BY_GAME", () => {
   it("maps op to jp-op-photos", () => {
     expect(BUCKET_BY_GAME.op).toBe("jp-op-photos");
   });
-  it("maps dbs to jp-db-photos", () => {
-    expect(BUCKET_BY_GAME.dbs).toBe("jp-db-photos");
+  it("maps dbf to jp-db-photos", () => {
+    expect(BUCKET_BY_GAME.dbf).toBe("jp-db-photos");
   });
 });
 

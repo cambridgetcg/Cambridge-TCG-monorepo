@@ -15,7 +15,7 @@
 import { query } from "@/lib/db";
 import { earnPoints, addCredit } from "@/lib/membership/db";
 import { grantPullToken, type PullTier } from "@/lib/bounty/db";
-import { calculateBerriesEarn } from "@/lib/bounty/earn";
+import { calculateBerriesEarn, type EarnBreakdown } from "@/lib/bounty/earn";
 
 export const MILESTONE_PULLS: Record<number, PullTier> = {
   3:  "uncommon",
@@ -28,6 +28,9 @@ export interface PveGrantResult {
   creditEarned: number;
   pullTokenEarned: PullTier | null;
   dailyBonusEarned: PullTier | null;
+  /** The multiplier breakdown behind pointsEarned — null when the points
+   *  leg was already granted (no recompute happens on replays). */
+  earnBreakdown: EarnBreakdown | null;
   alreadyGranted: { points: boolean; credit: boolean; pull: boolean; daily: boolean };
 }
 
@@ -75,6 +78,7 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
 
   // ── Points (with multipliers) ──
   let pointsEarned = 0;
+  let earnBreakdown: EarnBreakdown | null = null;
   if (!alreadyGranted.points) {
     const earn = await calculateBerriesEarn({
       userId,
@@ -83,6 +87,7 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
       baseRepeat: level.repeat_points,
       isFirstClear,
     });
+    earnBreakdown = earn;
     if (earn.total > 0) {
       const multParts: string[] = [];
       if (earn.dailyMultiplier < 1) multParts.push(`${Math.round(earn.dailyMultiplier * 100)}% daily`);
@@ -174,6 +179,7 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
     creditEarned,
     pullTokenEarned,
     dailyBonusEarned,
+    earnBreakdown,
     alreadyGranted: { ...alreadyGranted, daily: dailyAlready },
   };
 }

@@ -1,0 +1,111 @@
+{
+  "framework": "remix",
+  "buildCommand": "pnpm run build",
+  "installCommand": "pnpm install --prod=false",
+  "outputDirectory": "build",
+  "regions": ["arn1"],
+  "env": {
+    "NODE_ENV": "production",
+    "DATABASE_URL": "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production",
+      "DATABASE_URL": "postgresql://prisma:generate@localhost:5432/placeholder"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/monthly-reset",
+      "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/usage-billing",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/tier-maintenance",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/exchange-rates",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/metrics",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/subscription-expiry",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/billing-reconciliation",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/webhook-cleanup",
+      "schedule": "0 5 * * 0"
+    },
+    {
+      "path": "/api/cron/session-cleanup",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/session-health",
+      "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/mission-status",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/mission-generator",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/mystery-box-status",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/raffle-status",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/raffle-draw",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/mystery-box-delivery",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/scheduled-campaigns",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/cashback-reconciliation",
+      "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/store-credit-reconciliation",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/points-maintenance",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/tier-recalculation",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/subscription-reconciliation",
+      "schedule": "0 8 * * 0"
+    },
+    {
+      "path": "/api/cron/tier-product-cleanup",
+      "schedule": "30 3 * * *"
+    }
+  ]
+}

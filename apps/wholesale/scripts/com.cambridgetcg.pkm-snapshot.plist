@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Residential Pokémon price lane (kingdom-039).
+  Install:
+    cp apps/wholesale/scripts/com.cambridgetcg.pkm-snapshot.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.cambridgetcg.pkm-snapshot.plist
+  Daily at 02:30 local; if the Mac is asleep, launchd fires it on next wake.
+  The paid Bright Data lane on Vercel automatically stands down for any
+  card this lane covered within 24h (the cooldown clause).
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.cambridgetcg.pkm-snapshot</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/macair/Desktop/Cambridge-TCG-monorepo/apps/wholesale/scripts/local-pkm-snapshot.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/macair/Library/Logs/cambridgetcg-pkm-snapshot.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/macair/Library/Logs/cambridgetcg-pkm-snapshot.log</string>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

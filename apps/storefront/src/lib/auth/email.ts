@@ -1,26 +1,31 @@
-// Magic link email sender using AWS SES
+// Magic link email sender.
+//
+// Rides the platform transport seam (@cambridge-tcg/email) under the
+// "auth" stream. Auth mail is login-critical — a spam-foldered magic
+// link is a locked-out user — so this stream cuts over to new
+// infrastructure LAST and falls back FIRST (EMAIL_TRANSPORT_AUTH).
 
-import { SendEmailCommand } from "@aws-sdk/client-ses";
-import { sesClient as ses } from "@/lib/email/client";
+import { sendMail } from "@cambridge-tcg/email";
 
-const FROM_EMAIL = process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com";
+const FROM_EMAIL = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendVerificationRequest(params: any) {
   const email = params.identifier as string;
-  const url = params.url as string;
-  await ses.send(
-    new SendEmailCommand({
-      Source: FROM_EMAIL,
-      Destination: { ToAddresses: [email] },
-      Message: {
-        Subject: { Data: "Sign in to Cambridge TCG" },
-        Body: {
-          Text: {
-            Data: `Sign in to your Cambridge TCG account:\n\n${url}\n\nThis link expires in 24 hours. If you didn't request this, you can ignore this email.`,
-          },
-          Html: {
-            Data: `
+  // Wrap the raw callback URL in the scanner-proof interstitial at
+  // /login/verify: email scanners GET every link and a magic link is
+  // single-use, so linking the callback directly let scanners consume
+  // the token before the human clicked (observed in prod 2026-06-10).
+  const rawUrl = params.url as string;
+  const origin = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/$/, "");
+  const url = `${origin}/login/verify?u=${encodeURIComponent(rawUrl)}`;
+  const result = await sendMail(
+    {
+      from: `Cambridge TCG <${FROM_EMAIL}>`,
+      to: email,
+      subject: "Sign in to Cambridge TCG",
+      text: `Sign in to your Cambridge TCG account:\n\n${url}\n\nThis link expires in 24 hours. If you didn't request this, you can ignore this email.`,
+      html: `
 <!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -34,9 +39,13 @@ export async function sendVerificationRequest(params: any) {
   </div>
 </body>
 </html>`,
-          },
-        },
-      },
-    })
+    },
+    { stream: "auth" },
   );
+  // The previous SES call threw on failure and next-auth surfaced it as
+  // "could not send"; sendMail never throws, so re-raise to keep that
+  // contract intact.
+  if (!result.ok) {
+    throw new Error(`magic-link send failed (${result.transport}): ${result.error}`);
+  }
 }

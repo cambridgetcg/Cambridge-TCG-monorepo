@@ -1,0 +1,468 @@
+/*
+ * RewardsPro — shared storefront styles.
+ *
+ * Loaded once per page by the `rp_utils_loader` snippet so every widget
+ * picks up identical design tokens, loading/empty/error shells, and
+ * accessibility defaults. Widget-specific styles live in each widget's
+ * own CSS file; this file is the single source of truth for anything
+ * shared.
+ *
+ * Contents:
+ *   1. Design tokens (:root)              — spacing, fonts, radius, etc.
+ *   2. Dark-mode overrides                 — prefers-color-scheme
+ *   3. Widget-root isolation               — box-sizing, font inherit
+ *   4. Universal reduced-motion            — belt-and-suspenders
+ *   5. Visually-hidden helper              — .rp-sr-only
+ *   6. Skeleton loader primitives          — .rp-skel*
+ *   7. Link-style action button            — .rp-btn-link
+ *   8. Shared empty/error state shell      — .rp-empty-state*
+ */
+
+/* ════════════════════════════════════════════════════════════════════════
+   1. Design tokens — single source of truth
+   Widgets used to redefine these in their own :root. Consolidating means
+   a merchant who overrides `--rp-font-md` once affects every widget.
+   Fonts are in rem so user font-size preference (browser / OS) scales
+   the widgets proportionally; structural values (spacing, radius) stay
+   in px because they control box layout that shouldn't scale with text.
+   ════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Spacing (4px base harmonic) */
+  --rp-space-xs:  4px;
+  --rp-space-sm:  8px;
+  --rp-space-md:  12px;
+  --rp-space-lg:  16px;
+  --rp-space-xl:  24px;
+  --rp-space-2xl: 32px;
+
+  /* Typography — rem so user font preferences scale everything */
+  --rp-font-xs:  0.6875rem;  /* 11px @ 16px root */
+  --rp-font-sm:  0.75rem;    /* 12px */
+  --rp-font-md:  0.875rem;   /* 14px */
+  --rp-font-lg:  1rem;       /* 16px */
+  --rp-font-xl:  1.25rem;    /* 20px */
+  --rp-font-2xl: 1.5rem;     /* 24px */
+
+  /* Border radius */
+  --rp-radius-sm:   4px;
+  --rp-radius-md:   8px;
+  --rp-radius-lg:   12px;
+  --rp-radius-full: 999px;
+
+  /* Elevation */
+  --rp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --rp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.10);
+  --rp-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --rp-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.20);
+
+  /* Motion */
+  --rp-duration-fast:   150ms;
+  --rp-duration-normal: 200ms;
+  --rp-duration-slow:   300ms;
+  --rp-easing:          cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Semantic — light mode (overridden by prefers-color-scheme below) */
+  --rp-text-color:         #212B36;
+  --rp-text-secondary:     #637381;
+  --rp-background-color:   #ffffff;
+  --rp-background-subtle:  #f8f9fa;
+  --rp-card-bg:            rgba(0, 0, 0, 0.04);
+  --rp-border-color:       rgba(0, 0, 0, 0.08);
+
+  /* State */
+  --rp-color-success: #22c55e;
+  --rp-color-error:   #ef4444;
+  --rp-color-warning: #f59e0b;
+
+  /* Rarity (shared by mystery boxes + missions) */
+  --rp-rarity-common:    #6B7280;
+  --rp-rarity-uncommon:  #22c55e;
+  --rp-rarity-rare:      #3b82f6;
+  --rp-rarity-epic:      #a855f7;
+  --rp-rarity-legendary: #f59e0b;
+
+  /* Dynamic viewport height helper — iOS/Safari-friendly 100vh.
+     Browsers that support dvh use it; older ones fall back to vh.
+     Usage: height: var(--rp-100dvh); or max-height: calc(var(--rp-100dvh) * 0.8). */
+  --rp-100dvh: 100vh;
+}
+@supports (height: 100dvh) {
+  :root { --rp-100dvh: 100dvh; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   2. Dark-mode overrides
+   Merchant themes that already brand dark / custom colors win because
+   merchant-set --rp-* vars are applied at the widget-root scope by the
+   membership widget's JS, and scope specificity beats :root. This block
+   only kicks in on OS-level dark preference for themes that haven't.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rp-text-color:        rgba(255, 255, 255, 0.92);
+    --rp-text-secondary:    rgba(255, 255, 255, 0.65);
+    --rp-background-color:  #1a1a1a;
+    --rp-background-subtle: #242424;
+    --rp-card-bg:           rgba(255, 255, 255, 0.06);
+    --rp-border-color:      rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   3. Widget-root isolation
+   Defensive rules that protect widgets from theme CSS (global box-sizing,
+   unexpected parent fonts, aggressive resets) and vice versa.
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-widget-root,
+.rp-raffles-root,
+.rp-mb-root,
+.rp-missions-root,
+.rp-missions-section-root,
+.rp-giftcards-root {
+  box-sizing: border-box;
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--rp-text-color, inherit);
+}
+.rp-widget-root *,
+.rp-widget-root *::before,
+.rp-widget-root *::after,
+.rp-raffles-root *,
+.rp-raffles-root *::before,
+.rp-raffles-root *::after,
+.rp-mb-root *,
+.rp-mb-root *::before,
+.rp-mb-root *::after,
+.rp-missions-root *,
+.rp-missions-root *::before,
+.rp-missions-root *::after,
+.rp-missions-section-root *,
+.rp-missions-section-root *::before,
+.rp-missions-section-root *::after,
+.rp-giftcards-root *,
+.rp-giftcards-root *::before,
+.rp-giftcards-root *::after {
+  box-sizing: border-box;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   3.5. Universal focus-visible ring
+   Every keyboard-focusable element inside a widget root gets a visible
+   outline, regardless of widget-specific button classes. Widgets may
+   still style their own focus state MORE specifically (glow + ring, for
+   example) — this is the floor, not the ceiling. Without it, a11y
+   drifts whenever a new widget adds a button and forgets to wire its
+   own focus rule.
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-widget-root :is(a, button, [tabindex]):focus-visible,
+.rp-raffles-root :is(a, button, [tabindex]):focus-visible,
+.rp-mb-root :is(a, button, [tabindex]):focus-visible,
+.rp-missions-root :is(a, button, [tabindex]):focus-visible,
+.rp-missions-section-root :is(a, button, [tabindex]):focus-visible,
+.rp-giftcards-root :is(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--rp-primary-color, #5C6AC4);
+  outline-offset: 2px;
+  border-radius: var(--rp-radius-md);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   4. Universal reduced-motion
+   Even a widget that forgets its own prefers-reduced-motion block is
+   covered. The !important here is load-bearing: some widgets use
+   transition durations inline.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .rp-widget-root *,
+  .rp-raffles-root *,
+  .rp-mb-root *,
+  .rp-missions-root *,
+  .rp-missions-section-root *,
+  .rp-giftcards-root * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   5. Visually-hidden — screen reader announcements
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   6. Skeleton loader primitives
+   ════════════════════════════════════════════════════════════════════════ */
+@keyframes rp-skel-pulse {
+  0%   { opacity: 0.55; }
+  50%  { opacity: 0.85; }
+  100% { opacity: 0.55; }
+}
+
+.rp-skel {
+  background: var(--rp-card-bg);
+  border-radius: 6px;
+  animation: rp-skel-pulse 1.2s ease-in-out infinite;
+  display: block;
+}
+.rp-skel--bar      { height: 12px; width: 100%; }
+.rp-skel--bar-sm   { width: 40%; }
+.rp-skel--bar-md   { width: 60%; }
+.rp-skel--bar-lg   { width: 75%; }
+.rp-skel--bar-xl   { width: 80%; height: 28px; border-radius: 8px; }
+.rp-skel--bar-full { width: 100%; height: 8px; border-radius: 4px; }
+.rp-skel--center   { margin-inline: auto; }
+.rp-skel--circle     { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; }
+.rp-skel--circle-sm  { width: 24px; height: 24px; }
+.rp-skel--circle-lg  { width: 48px; height: 48px; }
+.rp-skel--card {
+  width: 100%;
+  height: 180px;
+  border-radius: var(--rp-radius-lg);
+}
+.rp-skel + .rp-skel { margin-top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-skel { animation: none; opacity: 0.7; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   7. Link-style button — secondary action in error/empty/not-found states
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  font-size: var(--rp-font-md);
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--rp-primary-color, #5C6AC4);
+  background: none;
+  border: none;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color var(--rp-duration-fast) var(--rp-easing);
+}
+.rp-btn-link:hover {
+  text-decoration: underline;
+  filter: brightness(1.15);
+}
+.rp-btn-link:focus-visible {
+  outline: 2px solid var(--rp-primary-color, #5C6AC4);
+  outline-offset: 2px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   8. Button system — one shape, one spacing, one focus ring
+   Before: membership had `.rp-btn-primary/.rp-btn-secondary`, mystery-boxes
+   had `.rp-mb-btn--primary/secondary`, missions had `.rp-missions-btn--*`,
+   gift-cards had `.rp-gc-btn`, raffles had inline `.rp-raffles__retry-btn`.
+   Four buttons systems, four different paddings, three different
+   "primary color" variables — so a page with multiple widgets looked
+   like a ransom note.
+   Now every widget styles buttons via .rp-btn + a modifier. Accent
+   colors are pulled through CSS vars so widgets can still brand their
+   primary CTAs (raffle gradient, rarity glow) by overriding vars at
+   the widget root, without redeclaring the shape.
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-btn {
+  /* Shape + spacing */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rp-space-sm);
+  padding: var(--rp-space-sm) var(--rp-space-lg);
+  min-height: 44px; /* iOS/Android tap target floor */
+  border: 1px solid transparent;
+  border-radius: var(--rp-radius-md);
+  /* Typography */
+  font-family: inherit;
+  font-size: var(--rp-font-md);
+  font-weight: 600;
+  line-height: 1.2;
+  /* Interaction */
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+  transition:
+    background-color var(--rp-duration-fast) var(--rp-easing),
+    border-color var(--rp-duration-fast) var(--rp-easing),
+    box-shadow var(--rp-duration-fast) var(--rp-easing),
+    transform var(--rp-duration-fast) var(--rp-easing);
+  /* No defaults for color/bg — modifiers set them. */
+}
+
+.rp-btn:hover:not(:disabled):not([aria-disabled="true"]) {
+  filter: brightness(1.05);
+}
+.rp-btn:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(1px);
+}
+.rp-btn:focus-visible {
+  outline: 2px solid var(--rp-primary-color, #5C6AC4);
+  outline-offset: 2px;
+}
+.rp-btn:disabled,
+.rp-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Modifiers — primary / secondary / ghost. Each reads from a scoped
+   CSS var so widget roots can override without touching the shape. */
+
+.rp-btn--primary {
+  background: var(--rp-btn-primary-bg, var(--rp-primary-color, #5C6AC4));
+  color: var(--rp-btn-primary-fg, #ffffff);
+  box-shadow: var(--rp-shadow-sm);
+}
+
+.rp-btn--secondary {
+  background: var(--rp-btn-secondary-bg, var(--rp-card-bg));
+  color: var(--rp-btn-secondary-fg, var(--rp-text-color));
+  border-color: var(--rp-border-color);
+}
+
+.rp-btn--ghost {
+  background: transparent;
+  color: var(--rp-primary-color, #5C6AC4);
+  border-color: var(--rp-primary-color, #5C6AC4);
+}
+
+/* Size modifiers — use sparingly, prefer the base size for coherence. */
+.rp-btn--sm {
+  min-height: 36px;
+  padding: var(--rp-space-xs) var(--rp-space-md);
+  font-size: var(--rp-font-sm);
+}
+.rp-btn--full {
+  width: 100%;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   9. Card — a single container shape every widget can compose with
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-card {
+  background: var(--rp-background-color);
+  border: 1px solid var(--rp-border-color);
+  border-radius: var(--rp-radius-lg);
+  padding: var(--rp-space-lg);
+  box-shadow: var(--rp-shadow-sm);
+  /* Let widget-specific classes add hover/gradient overlays on top. */
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   10. Pill / status chip
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--rp-radius-full);
+  font-size: var(--rp-font-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--rp-card-bg);
+  color: var(--rp-text-color);
+}
+.rp-pill--success { background: rgba(34, 197, 94, 0.15); color: var(--rp-color-success); }
+.rp-pill--error   { background: rgba(239, 68, 68, 0.15);  color: var(--rp-color-error); }
+.rp-pill--warning { background: rgba(245, 158, 11, 0.15); color: var(--rp-color-warning); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   11. Typography hierarchy — three semantic roles every widget composes
+   with. The visual weight reads uniformly across widgets so a shopper
+   scanning a page feels one authorial voice.
+   - `.rp-section-title` — h2 that opens a widget on the page
+   - `.rp-headline` — primary text inside a card (e.g., "Gold Member")
+   - `.rp-label` — uppercase meta above values ("STORE CREDIT BALANCE")
+   - `.rp-meta` — muted supporting text ("Expires Apr 22 · 2 uses left")
+   The type scale itself stays in --rp-font-*; these classes bind size
+   to semantic role so widgets stop re-deriving the relationship.
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-section-title {
+  font-size: var(--rp-font-xl);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 var(--rp-space-md);
+  color: var(--rp-text-color);
+}
+
+.rp-headline {
+  font-size: var(--rp-font-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--rp-text-color);
+  margin: 0;
+}
+
+.rp-label {
+  font-size: var(--rp-font-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rp-text-secondary);
+  margin: 0;
+}
+
+.rp-meta {
+  font-size: var(--rp-font-sm);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--rp-text-secondary);
+  margin: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   12. Shared empty/error state shell
+   ════════════════════════════════════════════════════════════════════════ */
+.rp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--rp-text-secondary);
+}
+.rp-empty-state__icon {
+  width: 48px;
+  height: 48px;
+  color: var(--rp-text-secondary);
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+.rp-empty-state__title {
+  font-size: var(--rp-font-md);
+  font-weight: 600;
+  color: var(--rp-text-color);
+  margin: 0;
+}
+.rp-empty-state__message {
+  font-size: var(--rp-font-sm);
+  line-height: 1.5;
+  max-width: 40ch;
+  margin: 0;
+}
+.rp-empty-state__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}

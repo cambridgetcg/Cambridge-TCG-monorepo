@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { gameLabel } from "@/lib/tradein/games";
 import { clearSellCart } from "@/lib/tradein/cart";
 
 interface SubmissionItem {
   sku: string;
+  game?: string;
   name: string;
   card_number: string;
   quantity: number;
@@ -362,7 +364,7 @@ export default function ConfirmPage() {
                 <div key={idx} className="flex justify-between text-sm">
                   <span className="text-neutral-300">
                     {item.quantity}x {item.name}{" "}
-                    <span className="text-neutral-500">({item.card_number})</span>
+                    <span className="text-neutral-500">({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
                   </span>
                   <span className="text-neutral-400">
                     {formatPrice(
@@ -429,7 +431,7 @@ export default function ConfirmPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-neutral-300">
                         {item.quantity}x {item.name}{" "}
-                        <span className="text-neutral-500">({item.card_number})</span>
+                        <span className="text-neutral-500">({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
                       </span>
                       <span className="text-right">
                         {priceChanged ? (
@@ -467,7 +469,7 @@ export default function ConfirmPage() {
                   <div className="flex justify-between text-sm line-through">
                     <span className="text-neutral-500">
                       {item.quantity}x {item.name}{" "}
-                      <span>({item.card_number})</span>
+                      <span>({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
                     </span>
                     <span className="text-neutral-500">Rejected</span>
                   </div>

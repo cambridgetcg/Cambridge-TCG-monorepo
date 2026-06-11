@@ -16,7 +16,7 @@
 import { query } from "@/lib/db";
 import { computeCommissionAmount, DEFAULT_P2P_COMMISSION_RATE } from "@cambridge-tcg/pricing";
 import { notify } from "@/lib/notifications/db";
-import { canTrade } from "@/lib/escrow/trust-engine";
+import { canTrade, getTrustTier } from "@/lib/escrow/trust-engine";
 import { formatPrice } from "@/lib/format";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 import type { MarketTrade } from "./types";
@@ -48,6 +48,16 @@ export interface MarketOffer {
   buyer_name?: string | null;
   seller_username?: string | null;
   seller_name?: string | null;
+  // Counterparty reputation (global free trade, 2026-06-10): tier +
+  // review count replace identity verification at the point of trade.
+  // Tier name is derived in TS from trust_score (no tier column in DB);
+  // only the counterparty side of each list query is populated.
+  buyer_trust_score?: number | null;
+  buyer_tier?: string | null;
+  buyer_review_count?: number | null;
+  seller_trust_score?: number | null;
+  seller_tier?: string | null;
+  seller_review_count?: number | null;
 }
 
 type Result<T> = { ok: true; value: T } | { ok: false; reason: string; status: number };
@@ -732,15 +742,24 @@ export async function listOffersForBuyer(
     : "";
   const r = await query(
     `SELECT o.*, mo.sku, mo.card_name, mo.price AS ask_price,
-            su.username AS seller_username, su.name AS seller_name
+            su.username AS seller_username, su.name AS seller_name,
+            stp.trust_score AS seller_trust_score,
+            stp.total_reviews AS seller_review_count
        FROM market_offers o
        JOIN market_orders mo ON mo.id = o.ask_order_id
        LEFT JOIN users su ON su.id = o.seller_id
+       LEFT JOIN trust_profiles stp ON stp.user_id = o.seller_id
       WHERE o.buyer_id = $1 ${where}
       ORDER BY o.created_at DESC LIMIT 100`,
     [buyerId],
   );
-  return r.rows as MarketOffer[];
+  // Tier name derived in TS — same derivation auction/state.ts uses.
+  return r.rows.map((row) => ({
+    ...row,
+    seller_tier: row.seller_trust_score != null
+      ? getTrustTier(Number(row.seller_trust_score)).name
+      : null,
+  })) as MarketOffer[];
 }
 
 export async function listOffersForSeller(
@@ -752,15 +771,24 @@ export async function listOffersForSeller(
     : "";
   const r = await query(
     `SELECT o.*, mo.sku, mo.card_name, mo.price AS ask_price,
-            bu.username AS buyer_username, bu.name AS buyer_name
+            bu.username AS buyer_username, bu.name AS buyer_name,
+            btp.trust_score AS buyer_trust_score,
+            btp.total_reviews AS buyer_review_count
        FROM market_offers o
        JOIN market_orders mo ON mo.id = o.ask_order_id
        LEFT JOIN users bu ON bu.id = o.buyer_id
+       LEFT JOIN trust_profiles btp ON btp.user_id = o.buyer_id
       WHERE o.seller_id = $1 ${where}
       ORDER BY o.created_at DESC LIMIT 100`,
     [sellerId],
   );
-  return r.rows as MarketOffer[];
+  // Tier name derived in TS — same derivation auction/state.ts uses.
+  return r.rows.map((row) => ({
+    ...row,
+    buyer_tier: row.buyer_trust_score != null
+      ? getTrustTier(Number(row.buyer_trust_score)).name
+      : null,
+  })) as MarketOffer[];
 }
 
 export async function getOffer(offerId: string): Promise<MarketOffer | null> {

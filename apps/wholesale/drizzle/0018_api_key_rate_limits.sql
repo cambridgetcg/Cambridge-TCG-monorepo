@@ -29,6 +29,9 @@ CREATE INDEX IF NOT EXISTS api_key_usage_key_time_idx
   ON api_key_usage (api_key_id, used_at);
 
 -- Cleanup helper index.
+-- NOTE (2026-06-10, kingdom-039): the original partial index here used
+-- now() in its predicate, which PostgreSQL rejects (42P17 — predicate
+-- functions must be IMMUTABLE), so this migration could never apply.
+-- A plain index on used_at serves the cleanup DELETE's scan.
 CREATE INDEX IF NOT EXISTS api_key_usage_old_idx
-  ON api_key_usage (used_at)
-  WHERE used_at < (now() - interval '1 hour');
+  ON api_key_usage (used_at);

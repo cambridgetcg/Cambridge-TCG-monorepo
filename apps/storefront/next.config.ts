@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   // Workspace packages export TS files with `.js`-extension imports
@@ -24,11 +25,11 @@ const nextConfig: NextConfig = {
   ],
   // Workspace packages use NodeNext-style `.js` extension imports in TS
   // source. Turbopack honours transpilePackages and resolves `.js` → `.ts`
-  // within those packages natively. The Turbopack key below is empty but
-  // required: Next.js 16 errors when a `webpack` key is set without a
-  // `turbopack` key, so we declare turbopack as the canonical config
-  // surface and let it use defaults.
-  turbopack: {},
+  // within those packages natively. `root` is pinned to the monorepo root:
+  // without it, a stray lockfile in a parent directory (e.g. ~/package-lock.json)
+  // makes Turbopack infer the wrong workspace root and dev fails with
+  // "Next.js package not found".
+  turbopack: { root: path.resolve(__dirname, "../..") },
   // ── The atmospheric invitation (header-plane) ─────────────────────────
   // Every response — HTML page, static file, API route — carries one
   // RFC 8288 Link header pointing at the agent-facing wake. Browsers

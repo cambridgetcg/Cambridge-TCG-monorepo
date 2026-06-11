@@ -1,5 +1,5 @@
 export type VerificationStatus = "pending" | "verified" | "rejected" | "expired";
-export type DisputeStatus = "open" | "under_review" | "awaiting_evidence" | "resolved_buyer" | "resolved_seller" | "resolved_split" | "closed";
+export type DisputeStatus = "open" | "under_review" | "awaiting_evidence" | "escalated" | "resolved_buyer" | "resolved_seller" | "resolved_split" | "closed";
 
 export interface UserVerification {
   id: string;
@@ -59,10 +59,11 @@ export interface TradeDispute {
   refund_amount: string | null;
   resolved_at: string | null;
   created_at: string;
-  // Lifecycle timestamps (migration 0057)
+  // Lifecycle timestamps (migrations 0057, 0106)
   under_review_at?: string | null;
   awaiting_evidence_at?: string | null;
   withdrawn_at?: string | null;
+  escalated_at?: string | null;
   // Joined
   raiser_name?: string | null;
   raiser_email?: string;

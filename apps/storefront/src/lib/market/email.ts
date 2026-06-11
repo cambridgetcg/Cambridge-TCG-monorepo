@@ -1,5 +1,5 @@
-import { SendEmailCommand } from "@aws-sdk/client-ses";
-import { sesClient as ses } from "@/lib/email/client";
+import { sendMail } from "@cambridge-tcg/email";
+import type { TradeShippingAddress } from "./types";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/+$/, "");
@@ -20,11 +20,13 @@ function tpl(title: string, body: string, ctaText?: string, ctaUrl?: string): st
 }
 
 async function send(to: string, subject: string, html: string, text: string) {
-  await ses.send(new SendEmailCommand({
-    Source: FROM,
-    Destination: { ToAddresses: [to] },
-    Message: { Subject: { Data: subject }, Body: { Text: { Data: text }, Html: { Data: html } } },
-  }));
+  // Sent via the platform transport seam (@cambridge-tcg/email); sendMail never throws,
+  // so re-throw on failure to keep the old SES throw-on-error contract for callers.
+  const result = await sendMail(
+    { from: FROM, to: [to], subject, text, html },
+    { stream: "noreply" },
+  );
+  if (!result.ok) throw new Error(`market email "${subject}" to ${to} failed: ${result.error}`);
 }
 
 const tradesUrl = `${SITE}/account/trades`;
@@ -78,14 +80,42 @@ export async function sendBuyerPaidEmail(d: {
 
 export async function sendSellerPaidEmail(d: {
   email: string; cardName: string; price: string; tier: string; shipsTo: "buyer" | "ctcg"; payout: string;
+  shippingAddress?: TradeShippingAddress | null; buyerUsername?: string | null;
 }) {
   const dest = d.shipsTo === "ctcg" ? "Cambridge TCG (we'll forward to the buyer)" : "the buyer directly";
+  // Buyer-typed free text passed through Stripe — escape before HTML.
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // The buyer's address, collected by Stripe at pay time. Rendered only
+  // when the seller ships direct — on full-escrow routes the ship-to is
+  // Cambridge TCG, not the buyer's door. Any country may appear (global
+  // free trade); international logistics is the traders' own arrangement.
+  const addressLines = d.shipsTo === "buyer" && d.shippingAddress
+    ? [
+        d.shippingAddress.name,
+        d.shippingAddress.line1,
+        d.shippingAddress.line2,
+        [d.shippingAddress.city, d.shippingAddress.state, d.shippingAddress.postal_code].filter(Boolean).join(", "),
+        d.shippingAddress.country,
+      ].filter((line): line is string => !!line)
+    : [];
+  const addressHtml = addressLines.length > 0
+    ? `<p>Ship to:<br/><strong style="color:#fff;">${addressLines.map(esc).join("<br/>")}</strong></p>`
+    : "";
+  // Counterparty contact goes through the platform, not email — usernames
+  // replace addresses everywhere the parties see each other.
+  const messageHtml = d.buyerUsername
+    ? `<p>Need to arrange logistics with the buyer? <a href="${SITE}/account/messages" style="color:#f59e0b;">Message @${esc(d.buyerUsername)}</a> on the platform.</p>`
+    : "";
   const subject = `Payment confirmed &mdash; please ship ${d.cardName}`;
-  const text = `Buyer paid ${d.price} for "${d.cardName}". Ship to ${dest}. Your payout will be ${d.payout}. Details: ${tradesUrl}`;
+  const text = `Buyer paid ${d.price} for "${d.cardName}". Ship to ${dest}.`
+    + (addressLines.length > 0 ? ` Ship to: ${addressLines.join(", ")}.` : "")
+    + (d.buyerUsername ? ` Message @${d.buyerUsername} on the platform: ${SITE}/account/messages.` : "")
+    + ` Your payout will be ${d.payout}. Details: ${tradesUrl}`;
   const html = tpl(
     "Buyer has paid &mdash; ship now",
     `<p>The buyer has paid <strong>${d.price}</strong> for <strong>${d.cardName}</strong>.</p>
      <p>Escrow tier: <strong>${d.tier}</strong>. Ship to: <strong>${dest}</strong>.</p>
+     ${addressHtml}${messageHtml}
      <p>Your payout after commission: <strong style="color:#34d399;">${d.payout}</strong>, released after delivery and any tier-specific verification.</p>`,
     "Get Shipping Details", tradesUrl
   );
@@ -187,13 +217,16 @@ export async function sendSellerRestockDigest(d: {
     </tr>`;
   }).join("");
   const subject = `${d.opportunities.length} restock opportunit${d.opportunities.length === 1 ? "y" : "ies"} — Cambridge TCG`;
-  const text = `We spotted ${d.opportunities.length} cards with strong buyer demand and thin supply. Top card: ${d.opportunities[0].cardName} (${d.opportunities[0].watchCount} watchers). Details: ${SITE}/account/demand`;
+  // The account-centre demand page was retired (it showed the same
+  // platform-wide signal to everyone); /market/pulse is the surviving
+  // public surface for what buyers are watching.
+  const text = `We spotted ${d.opportunities.length} cards with strong buyer demand and thin supply. Top card: ${d.opportunities[0].cardName} (${d.opportunities[0].watchCount} watchers). Details: ${SITE}/market/pulse`;
   const html = tpl(
     "Restock opportunities this week",
     `<p>${d.name ? `Hi ${d.name}, ` : ""}here are the cards buyers are watching most that currently have thin supply.</p>
      <table style="width:100%;border-collapse:collapse;margin:16px 0;">${rows}</table>
      <p style="color:#737373;font-size:12px;">Ranked by buyer demand (watchers + active price alerts) against current ask depth.</p>`,
-    "See full demand list", `${SITE}/account/demand`
+    "See market pulse", `${SITE}/market/pulse`
   );
   await send(d.email, subject, html, text);
 }

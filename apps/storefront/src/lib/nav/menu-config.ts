@@ -120,7 +120,6 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Trust & escrow", href: "/methodology/trust-score" },
           { label: "Watchlist", href: "/account/watchlist", authed_only: true },
           { label: "Saved searches", href: "/account/searches", authed_only: true },
-          { label: "Demand signals", href: "/account/demand", authed_only: true },
         ],
       },
     ],

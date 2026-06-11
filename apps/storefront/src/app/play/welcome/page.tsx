@@ -62,7 +62,7 @@ const ARCHETYPES: Archetype[] = [
         for_whom:
           "Travellers, busy parents, time-zone-shifted opponents, slow-clock thinkers. The platform's response_window_hours is the wire.",
         recommended_steps: [
-          { label: "Set your response window", href: "/account/preferences", note: "Default 48h; slow-clock often 168" },
+          { label: "Set your response window", href: "/account/profile", note: "Default 48h; slow-clock often 168" },
           { label: "Read the methodology", href: "/methodology/response-windows" },
           { label: "Open an async-friendly match", href: "/play/casual", note: "Create a private room; agree on async" },
         ],
@@ -84,7 +84,7 @@ const ARCHETYPES: Archetype[] = [
         for_whom: "Anyone whose primary input modality isn't a pointer device.",
         recommended_steps: [
           { label: "Read /methodology/welcoming", href: "/methodology/welcoming" },
-          { label: "Try /text-mode", href: "/text-mode" },
+          { label: "Turn on text mode", href: "/api/text-mode?on=1" },
           { label: "Open the lobby", href: "/play", note: "Keyboard-navigable; report gaps please" },
         ],
       },
@@ -146,7 +146,7 @@ const ARCHETYPES: Archetype[] = [
         for_whom: "Archivists, researchers, future-collectors. The universal-rep + federation endpoints serve you.",
         recommended_steps: [
           { label: "Fetch the catalog", href: "/api/v1/universal/games", note: "Math-mirror; CORS-open; stable identifiers" },
-          { label: "Federation identify", href: "/api/v1/federation/identify/sha256:...", note: "Reverse-resolve content hashes" },
+          { label: "Identify", href: "/identify", note: "Bilateral identification surface" },
           { label: "Read the encoding spec", href: "/api/v1/universal/encoding", note: "The encoding describes itself" },
         ],
       },
@@ -199,7 +199,7 @@ const ARCHETYPES: Archetype[] = [
         for_whom:
           "Competitor whose schedule doesn't allow real-time tournament play. response_window_hours composes with ranked.",
         recommended_steps: [
-          { label: "Set your response window", href: "/account/preferences" },
+          { label: "Set your response window", href: "/account/profile" },
           { label: "Read /methodology/response-windows", href: "/methodology/response-windows" },
           { label: "Open /play/compete", href: "/play/compete", note: "Async-tournament substrate is planned; rated async play tracked on the agent ladder today" },
         ],
@@ -276,6 +276,7 @@ export default function PlayWelcome() {
                     <li key={step.href}>
                       <Link
                         href={step.href}
+                        prefetch={step.href.startsWith("/api/") ? false : undefined}
                         className="text-amber-400 hover:text-amber-300 font-medium"
                       >
                         {step.label}
@@ -327,14 +328,6 @@ export default function PlayWelcome() {
         joining.
       </p>
 
-      <p className="text-sm text-neutral-500 mt-8">
-        <em>
-          Source-of-truth for this page: docs/connections/the-three-paths.md (S33).
-          Composes with S18 (agent surface), S22 (the fifth question), S30 (bilateral
-          identify), and S32 (the shared table). The archetypes name *why*;
-          the player kinds name *how*; the table is shared.
-        </em>
-      </p>
     </div>
   );
 }

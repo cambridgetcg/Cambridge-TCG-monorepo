@@ -101,7 +101,7 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     kind: "json_endpoint",
     layer: "L1_contract",
     status: "shipped",
-    blurb: "Machine-readable OPTCG tutorial in math-mirror form. Nine sections with typed rule_structure + examples + keyword cross-refs.",
+    blurb: "Machine-readable OPTCG tutorial in math-mirror form. Each section carries typed rule_structure + examples + keyword cross-refs.",
     url: "/api/v1/play/tutorial",
     composes_with: ["api_glossary", "api_game_state_schema", "api_tutorial_section"],
     serves_archetypes: ["hobbyist", "competitor"],
@@ -221,7 +221,7 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     kind: "library_file",
     layer: "L2_pure_fn",
     status: "shipped",
-    blurb: "Tutorial section catalog (9 sections, typed). Imported by the collection endpoint /api/v1/play/tutorial and the per-section endpoint /api/v1/play/tutorial/[section_id].",
+    blurb: "Tutorial section catalog (typed). Imported by the collection endpoint /api/v1/play/tutorial and the per-section endpoint /api/v1/play/tutorial/[section_id].",
     composes_with: ["api_tutorial", "api_tutorial_section"],
     serves_archetypes: ["hobbyist", "competitor"],
   },
@@ -276,7 +276,7 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     kind: "html_page",
     layer: "UI",
     status: "shipped",
-    blurb: "The lobby. Public rooms, private rooms by code.",
+    blurb: "The play hub. PvE adventure first; public rooms and private rooms by code.",
     url: "/play",
     composes_with: [],
     serves_archetypes: ["hobbyist", "competitor"],
@@ -413,7 +413,7 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     kind: "html_page",
     layer: "UI",
     status: "shipped",
-    blurb: "Human-readable OPTCG tutorial page — the HTML face of /api/v1/play/tutorial's nine math-mirror sections.",
+    blurb: "Human-readable OPTCG tutorial page — the HTML face of /api/v1/play/tutorial's math-mirror sections.",
     url: "/play/tutorial",
     composes_with: ["api_tutorial", "page_starters"],
     serves_archetypes: ["hobbyist"],
@@ -449,6 +449,26 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     composes_with: ["api_starters", "api_starter_deck"],
     serves_archetypes: ["hobbyist"],
   },
+  {
+    id: "lib_client_deck",
+    path_or_file: "apps/storefront/src/lib/play/client-deck.ts",
+    kind: "library_file",
+    layer: "L2_pure_fn",
+    status: "shipped",
+    blurb: "Client-side deck helpers shared by the play surfaces — the localStorage SavedDeck shape, SavedDeck → flat PvE/PvP card-list conversion, and the auto-mounted default starter so a deckless visitor never hits a build-your-first-deck wall.",
+    composes_with: ["page_adventure", "page_match", "lib_starter_decks"],
+    serves_archetypes: ["hobbyist", "competitor"],
+  },
+  {
+    id: "lib_starter_resolve",
+    path_or_file: "apps/storefront/src/lib/play/starter-resolve.ts",
+    kind: "library_file",
+    layer: "L3_runtime",
+    status: "shipped",
+    blurb: "Server-side starter-deck resolution — card_number refs → wholesale catalog cards (SKU, name, image, rarity). Single source for /api/v1/play/starters/[id] and /api/play/load-starter.",
+    composes_with: ["api_starters", "api_starter_deck", "lib_starter_decks"],
+    serves_archetypes: ["hobbyist"],
+  },
 ];
 
 /** Quick-access lookup of sibling play APIs. Every play endpoint includes
@@ -463,6 +483,8 @@ export const PLAY_API_SIBLINGS = {
   effect_grammar: "/api/v1/play/effect-grammar",
   deck_validate: "/api/v1/play/deck/validate",
   example_match: "/api/v1/play/example-match",
+  starters: "/api/v1/play/starters",
+  starter_deck: "/api/v1/play/starters/[id]",
 } as const;
 
 /** Map JSON layer → human-readable display string for the HTML view. */

@@ -1,0 +1,422 @@
+{
+  "membership": {
+    "title": "Mon Adhésion",
+    "refresh": "Actualiser",
+    "data": {
+      "stale": "Les données peuvent être obsolètes. {{time}} - appuyez sur Actualiser.",
+      "minutesAgo": "Mis à jour il y a {{minutes}} min",
+      "hoursAgo": "Mis à jour il y a {{hours}}h"
+    },
+    "welcome": {
+      "greeting": "Bon retour, {{name}}!",
+      "greetingGeneric": "Bon retour!",
+      "memberSince": "Membre depuis {{date}}",
+      "newMember": "Bienvenue dans Notre Programme de Récompenses!",
+      "newMemberMessage": "Bonjour {{name}}, vous êtes prêt à gagner du cashback sur chaque achat.",
+      "newMemberMessageGeneric": "Vous êtes prêt à gagner du cashback sur chaque achat.",
+      "howItWorks": "Comment Ça Marche",
+      "step1": "Achetez et gagnez du cashback sur chaque commande",
+      "step2": "Votre cashback devient un crédit magasin",
+      "step3": "Utilisez votre crédit sur vos futurs achats",
+      "currentRate": "Vous gagnez {{percent}}% de cashback en tant que membre {{tierName}}"
+    },
+    "tier": {
+      "current": "Niveau Actuel",
+      "next": "Prochain: {{tierName}}",
+      "spendMore": "Dépensez {{amount}} de plus pour débloquer {{percent}}% de cashback",
+      "progress": "{{percent}}% de progression",
+      "atHighest": "Vous avez atteint le niveau le plus élevé!"
+    },
+    "balance": {
+      "available": "Crédit Magasin Disponible",
+      "totalEarned": "Total gagné: {{amount}}",
+      "pending": "{{amount}} en attente",
+      "pendingOrderSingle": "D'une commande récente",
+      "pendingOrders": "De {{count}} commandes récentes",
+      "saved": "Vous avez économisé {{amount}} avec nous!"
+    },
+    "stats": {
+      "totalSpent": "Total Dépensé",
+      "orders": "Commandes"
+    },
+    "progress": {
+      "title": "Progression",
+      "nextTier": "Prochain: {{tierName}} ({{percent}}% cashback)",
+      "amountToGo": "{{amount}} restant",
+      "maxTier": "Vous gagnez le taux maximum de cashback!",
+      "percentComplete": "{{percent}}% complété"
+    },
+    "starterTier": {
+      "title": "Commencez à Gagner des Récompenses!",
+      "message": "Dépensez {{amount}} pour débloquer {{percent}}% de cashback sur chaque commande.",
+      "nextTier": "Prochain: {{tierName}}"
+    },
+    "evaluation": {
+      "warning": "Évaluation du niveau dans {{days}} jours"
+    },
+    "transactions": {
+      "title": "Activité Récente",
+      "viewAll": "Voir tout",
+      "empty": "Aucune activité récente"
+    },
+    "tiers": {
+      "viewAll": "Voir tous les niveaux",
+      "hide": "Masquer les niveaux",
+      "allTitle": "Tous les Niveaux d'Adhésion",
+      "current": "Actuel",
+      "achieved": "Atteint",
+      "minSpend": "Dépense min: {{amount}}",
+      "noMinimum": "Aucune dépense minimum",
+      "toGo": "{{amount}} restant"
+    },
+    "preview": {
+      "title": "Aperçu de l'Adhésion",
+      "signInMessage": "Connectez-vous pour voir votre statut d'adhésion et vos récompenses.",
+      "exampleTier": "Exemple: Membre Or - 5% de cashback",
+      "exampleBalance": "Gagnez du crédit magasin sur chaque achat!",
+      "mode": "Mode aperçu"
+    },
+    "notEnrolled": {
+      "title": "Rejoignez Notre Programme de Récompenses",
+      "message": "Commencez à gagner du cashback sur chaque achat. Inscrivez-vous maintenant pour débloquer des avantages exclusifs!"
+    },
+    "error": {
+      "title": "Impossible de Charger l'Adhésion",
+      "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
+    },
+    "dualProgress": {
+      "currentStatus": "Statut Actuel",
+      "renewsIn": "Renouvellement dans {{days}} jours",
+      "renewsInOne": "Renouvellement demain",
+      "endsIn": "Se termine dans {{days}} jours",
+      "endsInOne": "Se termine demain",
+      "nextBilling": "Prochaine facturation: {{date}}",
+      "expiresOn": "Expire: {{date}}",
+      "lifetimeAccess": "Accès à Vie",
+      "specialAccess": "Accès Spécial",
+      "spendingProgress": "Progression des Dépenses",
+      "buildingTowards": "En construction",
+      "qualifiesFor": "Éligible pour {{tierName}} ({{percent}}% cashback)",
+      "noSpendingTier": "Continuez vos achats pour débloquer des niveaux",
+      "spendMore": "Dépensez {{amount}} de plus pour {{tierName}}",
+      "totalSpent": "Total dépensé: {{amount}}",
+      "maxSpendingTier": "Niveau maximum atteint par dépenses",
+      "ifExpires": "Si l'abonnement se termine, vous aurez {{tierName}}"
+    },
+    "maxTier": {
+      "topTier": "Niveau Maximum",
+      "rewardsSummary": "Résumé de Vos Récompenses",
+      "cashbackEarned": "Cashback Gagné",
+      "ordersPlaced": "Commandes Passées",
+      "maintainStatus": "Maintenez Votre Statut",
+      "spendMoreToKeep": "Dépensez {{amount}} de plus pour conserver le statut {{tierName}}",
+      "statusSecured": "Votre statut {{tierName}} est assuré pour cette année",
+      "currentRate": "{{percent}}% de cashback sur chaque achat"
+    },
+    "tierChange": {
+      "welcome": "Bienvenue!",
+      "welcomeMessage": "Vous avez été assigné au niveau {{tierName}}. Commencez vos achats pour gagner des récompenses!",
+      "upgraded": "Félicitations!",
+      "upgradedFrom": "Vous êtes passé de {{fromTier}} à {{toTier}}!",
+      "upgradedTo": "Vous avez atteint le statut {{tierName}}!",
+      "statusChanged": "Mise à Jour du Statut",
+      "downgraded": "Votre statut est passé de {{fromTier}} à {{toTier}}.",
+      "changedTo": "Votre niveau actuel est {{tierName}}."
+    },
+    "benefits": {
+      "title": "Your Benefits"
+    }
+  },
+  "tabs": {
+    "membership": "Membership",
+    "raffles": "Raffles",
+    "boxes": "Mystery Boxes",
+    "challenges": "Challenges",
+    "missions": "Missions",
+    "giftcards": "Gift Cards"
+  },
+  "challenges": {
+    "errorTitle": "Unable to Load Challenges",
+    "ended": "Ended",
+    "endsInDays": "{{days}}d left",
+    "endsInHours": "{{hours}}h left",
+    "endsSoon": "Ending soon",
+    "progress": "{{current}} / {{target}}",
+    "reward": "Reward",
+    "claimReward": "Claim Reward",
+    "rewardClaimed": "Claimed",
+    "expired": "Expired",
+    "claimSuccess": "Reward claimed successfully!",
+    "claimError": "Failed to claim reward",
+    "noActiveChallenges": "No Active Challenges",
+    "checkBackLater": "Check back later for new challenges",
+    "readyToClaim": "Ready to Claim",
+    "inProgress": "In Progress",
+    "recentlyCompleted": "Recently Completed",
+    "yourBalance": "Your Balance:",
+    "historyTitle": "Challenge History",
+    "status": {
+      "active": "Active",
+      "completed": "Completed",
+      "claimed": "Claimed",
+      "expired": "Expired"
+    }
+  },
+  "missions": {
+    "level": "Level {{level}}",
+    "xpProgress": "{{current}} / {{needed}} XP to next level",
+    "combo": "Combo x{{count}}",
+    "nextCombo": "Next: +{{bonus}}%",
+    "totalCompleted": "{{count}} missions completed",
+    "progress": "{{current}} / {{target}}",
+    "reward": "Reward",
+    "endsIn": "{{time}} left",
+    "tierRequired": "Higher tier required",
+    "claimReward": "Claim Reward",
+    "rewardClaimed": "Claimed",
+    "claimSuccess": "Reward claimed successfully!",
+    "claimError": "Failed to claim reward",
+    "noMissions": "No Missions Available",
+    "checkBackLater": "Check back later for new missions",
+    "readyToClaim": "Ready to Claim",
+    "inProgress": "In Progress",
+    "recentlyCompleted": "Recently Completed",
+    "tabAll": "All",
+    "tabDaily": "Daily",
+    "tabWeekly": "Weekly",
+    "tabMonthly": "Monthly",
+    "tabSpecial": "Special",
+    "errorTitle": "Unable to Load Missions",
+    "missionComplete": "Mission Complete!",
+    "levelUp": "Level Up!",
+    "streakBonus": "Streak Bonus!",
+    "bonus": "bonus",
+    "nowLevel": "You're now Level {{level}}!",
+    "streakDays": "{{days}}-day streak!",
+    "continue": "Continue"
+  },
+  "raffles": {
+    "errorTitle": "Unable to Load Raffles",
+    "noRaffles": "No Active Raffles",
+    "checkBackLater": "Check back later for new raffles",
+    "entries": "entries",
+    "entry": "entry",
+    "yourEntries": "Your Entries",
+    "totalEntries": "Total Entries",
+    "endsIn": "Ends in {{time}}",
+    "ended": "Ended",
+    "winner": "Winner",
+    "prizes": "Prizes",
+    "buyEntries": "Buy Entries",
+    "purchasing": "Purchasing...",
+    "purchaseSuccess": "Purchase Successful!",
+    "purchaseError": "Failed to purchase entries",
+    "pointsCost": "{{points}} points",
+    "pointsSpent": "{{points}} points spent",
+    "entriesAdded": "entries added",
+    "bonusEntriesEarned": "bonus entries earned",
+    "instantWinsWon": "instant wins won!",
+    "next": "Next",
+    "continue": "Continue",
+    "streak": {
+      "title": "Raffle Streak",
+      "days": "{{days}}-day streak",
+      "start": "Start your streak!",
+      "bonus": "bonus entries",
+      "daysToNext": "days to next tier",
+      "warning": "Enter a raffle in the next {{hours}}h to keep your streak!",
+      "claimFree": "Claim Free Entry",
+      "claiming": "Claiming...",
+      "freeEntryClaimed": "Free entry claimed!",
+      "freeEntryError": "Failed to claim free entry"
+    },
+    "activity": {
+      "title": "Live Activity",
+      "entryPurchased": "purchased {{count}} entries",
+      "instantWin": "won {{prize}}!",
+      "grandWinner": "won the grand prize: {{prize}}!",
+      "streakMilestone": "reached a {{days}}-day streak!",
+      "earlyBird": "earned early bird bonus!",
+      "luckyNumber": "hit lucky number {{number}}!"
+    },
+    "bonus": {
+      "title": "Bonus!",
+      "endingSoon": "Hurry! This bonus is ending soon!",
+      "happyHour": "Happy Hour",
+      "flashBonus": "Flash Bonus",
+      "earlyBird": "Early Bird",
+      "lastChance": "Last Chance",
+      "milestone": "Milestone Bonus"
+    },
+    "instantWin": {
+      "title": "Instant Win!",
+      "nearMiss": "So Close!",
+      "youWon": "You Won!",
+      "prize": "Prize: {{name}}",
+      "rarity": {
+        "common": "Common",
+        "uncommon": "Uncommon",
+        "rare": "Rare",
+        "epic": "Epic",
+        "legendary": "Legendary"
+      }
+    },
+    "celebration": {
+      "streakMilestone": "Streak Milestone!",
+      "luckyNumber": "Lucky Number!",
+      "earlyBird": "Early Bird Bonus!"
+    },
+    "history": {
+      "title": "Raffle History",
+      "won": "Won",
+      "lost": "Not selected",
+      "pending": "Drawing pending"
+    },
+    "streakDays": "{{days}}-day streak!",
+    "startStreak": "Start your streak!",
+    "bonusEntries": "bonus entries",
+    "daysToNextTier": "days to next tier",
+    "streakWarning": "Enter a raffle in the next {{hours}}h to keep your streak!",
+    "claimFreeEntry": "Claim Free Entry",
+    "claimingFreeEntry": "Claiming...",
+    "liveActivity": "Live Activity",
+    "bonusEndingSoon": "Hurry! Ending soon!",
+    "instantWinTitle": "Instant Win!",
+    "streakMilestoneTitle": "Streak Milestone!",
+    "luckyNumberTitle": "Lucky Number!",
+    "earlyBirdTitle": "Early Bird Bonus!",
+    "bonusTitle": "Bonus!"
+  },
+  "mysteryBoxes": {
+    "errorTitle": "Unable to Load Mystery Boxes",
+    "active": "Active",
+    "ended": "Ended",
+    "endsInDays": "{{days}}d left",
+    "endsInHours": "{{hours}}h left",
+    "endsSoon": "Ending soon",
+    "yourBalance": "Your Balance",
+    "openCost": "{{cost}} {{currency}} to open",
+    "opensRemaining": "{{remaining}}/{{max}} opens left",
+    "totalOpens": "opened",
+    "openBox": "Open Box",
+    "notEnoughPoints": "Not Enough Points",
+    "maxOpensReached": "Max Opens Reached",
+    "cannotOpen": "Cannot Open",
+    "openError": "Failed to open box",
+    "noActiveBoxes": "No Mystery Boxes Available",
+    "checkBackLater": "Check back later for new mystery boxes",
+    "youWon": "You Won!",
+    "awesome": "Awesome!",
+    "historyTitle": "Opening History",
+    "streakDays": "{{days}}-day streak!",
+    "startStreak": "Start your streak!",
+    "bonusRewards": "bonus rewards",
+    "daysToNextTier": "days to next tier",
+    "streakWarning": "Open a box in the next {{hours}}h to keep your streak!",
+    "claimFreeOpen": "Claim Free Open",
+    "claimingFreeOpen": "Claiming...",
+    "liveActivity": "Live Activity",
+    "bonusEndingSoon": "Hurry! Ending soon!",
+    "streakMilestoneTitle": "Streak Milestone!",
+    "luckyStreakTitle": "Lucky Streak!",
+    "luckProtectionTitle": "Luck Protection!",
+    "legendaryWinTitle": "LEGENDARY!",
+    "epicWinTitle": "EPIC!",
+    "rareWinTitle": "RARE!",
+    "congratsTitle": "Congratulations!",
+    "next": "Next",
+    "continue": "Continue",
+    "openingSummary": "Opening Summary",
+    "bonusesApplied": "Bonuses Applied",
+    "streakBonus": "{{days}}-day streak bonus",
+    "luckyStreakBonus": "Lucky streak x{{count}}",
+    "freeOpenUsed": "Free open used!",
+    "originalCost": "Original cost",
+    "saved": "saved",
+    "pointsSpent": "{{points}} points spent",
+    "soClose": "So Close!",
+    "luckProtection": "Luck Protection",
+    "guaranteedNext": "Next open guarantees {{rarity}}+!",
+    "almostGuaranteed": "{{opens}} more opens until guaranteed rare!",
+    "opensUntilGuaranteed": "{{opens}} opens until guaranteed rare",
+    "guaranteedRare": "Guaranteed Rare+ Next!",
+    "nearGuarantee": "{{opens}} opens to guarantee!",
+    "activity": {
+      "boxOpened": "opened a mystery box and won {{reward}}",
+      "rareWin": "won a Rare prize: {{reward}}!",
+      "epicWin": "won an Epic prize: {{reward}}!",
+      "legendaryWin": "won a LEGENDARY prize: {{reward}}!",
+      "streakMilestone": "reached a {{days}}-day streak!",
+      "pityTriggered": "got a guaranteed {{reward}}!",
+      "luckyStreak": "hit lucky streak x{{count}}!",
+      "freeOpenClaimed": "claimed a free open!"
+    },
+    "rarity": {
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
+    }
+  },
+  "giftCards": {
+    "availableCredit": "Available Store Credit",
+    "tierBonus": "+{bonus}% tier bonus",
+    "availableBundles": "Convert Credit to Gift Card",
+    "value": "Gift Card Value",
+    "cost": "Credit Required",
+    "convertCta": "Get {value} Gift Card",
+    "convertA11y": "Convert store credit to {value} gift card",
+    "converting": "Converting…",
+    "insufficientCredit": "Insufficient credit",
+    "convertSuccess": "Gift card issued! Check your email for the code.",
+    "convertError": "Conversion failed. Please try again.",
+    "convertAll": "Convert Store Credit",
+    "convertAllDesc": "Convert your entire store credit balance into a Shopify gift card.",
+    "convertAllCta": "Convert {amount} to Gift Card",
+    "myCards": "My Gift Cards",
+    "issued": "Issued",
+    "redeemed": "Redeemed",
+    "pendingCode": "Code pending",
+    "emptyTitle": "No Gift Cards Yet",
+    "emptySubtitle": "Earn store credit to unlock gift card conversions."
+  },
+  "points": {
+    "title": "Reward Points",
+    "bonus": {
+      "default": "Bonus Event",
+      "active": "{{multiplier}}x {{eventName}} Active!"
+    },
+    "streak": {
+      "current": "{{count}}-day streak",
+      "bonus": "{{multiplier}}x bonus"
+    },
+    "expiration": {
+      "title": "Points Expiring Soon",
+      "message": "{{amount}} {{currencyName}} will expire on {{date}}. Use them before they expire!"
+    },
+    "balance": {
+      "available": "Available Points",
+      "lifetime": "Lifetime Earned"
+    },
+    "transactions": {
+      "title": "Points Activity",
+      "empty": "No points activity yet"
+    },
+    "redemption": {
+      "title": "Redeem Points",
+      "redeemButton": "Redeem",
+      "redeemAccess": "Redeem {{tierName}}",
+      "success": "Redemption Successful!",
+      "discountCode": "Your discount code",
+      "discountAmount": "Worth {{amount}} off your next order",
+      "remainingBalance": "Remaining balance: {{balance}} points",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "redeemAnother": "Redeem more points",
+      "noTiers": "No redemption options available",
+      "balance": "Available: {{balance}} {{currencyName}}",
+      "error": "Unable to redeem points. Please try again."
+    }
+  }
+}

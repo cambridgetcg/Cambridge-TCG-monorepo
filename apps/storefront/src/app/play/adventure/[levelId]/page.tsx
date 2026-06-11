@@ -13,36 +13,22 @@ import type {
 } from "@/lib/game/types";
 import { PHASE_LABELS } from "@/lib/game/types";
 import { applyAction } from "@/lib/game/reducer";
+import {
+  loadSavedDecks,
+  deckToCards,
+  fetchStarterAsSavedDeck,
+  type SavedDeck,
+} from "@/lib/play/client-deck";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const STORAGE_KEY = "ctcg-deck-builder-decks";
 const AI_ACTION_DELAY_MS = 600;
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
-
-interface SavedDeckCard {
-  sku: string;
-  card_number: string;
-  name: string;
-  set_code: string;
-  set_name: string;
-  rarity: string | null;
-  image_url: string | null;
-  spot_price: number;
-  tradein_credit: number | null;
-}
-
-interface SavedDeck {
-  name: string;
-  leader: SavedDeckCard | null;
-  entries: { sku: string; quantity: number; card: SavedDeckCard }[];
-  savedAt: string;
-}
 
 interface OpponentInfo {
   name: string;
@@ -67,8 +53,10 @@ interface VictoryResult {
   pointsEarned: number;
   creditEarned: number;
   pullTokenEarned?: "common" | "uncommon" | "rare" | "super_rare" | "legendary" | null;
-  earnBreakdown?: EarnBreakdown;
-  nextLevel: string | null;
+  earnBreakdown?: EarnBreakdown | null;
+  nextLevelId: number | null;
+  guestMode?: boolean;
+  signInPromptUrl?: string;
 }
 
 interface DefeatResult {
@@ -146,10 +134,20 @@ export default function PVEGameBoard() {
   /* ================================================================ */
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setSavedDecks(JSON.parse(stored));
-    } catch { /* ignore */ }
+    let cancelled = false;
+    const stored = loadSavedDecks();
+    if (stored.length > 0) {
+      setSavedDecks(stored);
+      return;
+    }
+    // No saved decks — auto-mount the default starter so a new player is
+    // never walled behind the deck builder (same flow as the /play hub).
+    fetchStarterAsSavedDeck().then((starter) => {
+      if (cancelled || !starter) return;
+      setSavedDecks([starter]);
+      setSelectedDeckIdx(0);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   /* ================================================================ */
@@ -164,30 +162,7 @@ export default function PVEGameBoard() {
     setSetupError(null);
     setSetupLoading(true);
 
-    const cards: { sku: string; name: string; cardNumber: string; imageUrl: string | null; rarity: string | null; isLeader?: boolean }[] = [];
-
-    if (deck.leader) {
-      cards.push({
-        sku: deck.leader.sku,
-        name: deck.leader.name,
-        cardNumber: deck.leader.card_number,
-        imageUrl: deck.leader.image_url,
-        rarity: deck.leader.rarity,
-        isLeader: true,
-      });
-    }
-
-    for (const entry of deck.entries) {
-      for (let i = 0; i < entry.quantity; i++) {
-        cards.push({
-          sku: entry.card.sku,
-          name: entry.card.name,
-          cardNumber: entry.card.card_number,
-          imageUrl: entry.card.image_url,
-          rarity: entry.card.rarity,
-        });
-      }
-    }
+    const cards = deckToCards(deck);
 
     if (cards.length < 10) {
       setSetupError("Deck must have at least 10 cards.");
@@ -303,16 +278,12 @@ export default function PVEGameBoard() {
   }, [actionLoading, state, myState, gameId, levelId]);
 
   /* ================================================================ */
-  /*  End Turn → Trigger AI                                           */
+  /*  AI turn — runs whenever it's the AI's turn (after End Turn, or  */
+  /*  immediately when the AI is randomly chosen as first player)     */
   /* ================================================================ */
 
-  async function handleEndTurn() {
-    if (!state || !gameId) return;
-
-    // End the human turn via the server (server applies + persists).
-    await sendAction("end_turn", {});
-
-    // Trigger AI turn — server generates, applies, and persists it.
+  const runAiTurn = useCallback(async (baseState: GameState) => {
+    if (!gameId || replayingRef.current) return;
     setAiThinking(true);
     setAiThinkingText(`${opponent?.name ?? "AI"} is thinking`);
 
@@ -322,7 +293,11 @@ export default function PVEGameBoard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "ai_turn", gameId }),
       });
-      const result: AITurnResult & { state?: GameState } = await res.json();
+      const result: AITurnResult & { state?: GameState; error?: string } = await res.json();
+      if (!res.ok) {
+        addLog(result.error || "AI turn failed. Your turn again.", true);
+        return;
+      }
 
       if (result.thinking) addLog(result.thinking, true);
 
@@ -330,8 +305,7 @@ export default function PVEGameBoard() {
       // The server already applied them — we use the returned state as truth.
       if (result.actions && result.actions.length > 0) {
         replayingRef.current = true;
-        // Use the most recent client state (post-end_turn) as the animation start.
-        let animState = state;
+        let animState = baseState;
         for (const action of result.actions) {
           await new Promise(resolve => setTimeout(resolve, AI_ACTION_DELAY_MS));
           animState = applyAction(animState, "player2", action.type, action.data);
@@ -350,7 +324,44 @@ export default function PVEGameBoard() {
       setAiThinking(false);
       setAiThinkingText("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, levelId, opponent?.name]);
+
+  async function handleEndTurn() {
+    if (!state || !gameId) return;
+
+    // End the human turn via the server (server applies + persists).
+    // The reducer is deterministic for end_turn, so the optimistic state
+    // sendAction renders is the correct animation baseline for the AI.
+    await sendAction("end_turn", {});
+    await runAiTurn(applyAction(state, "player1", "end_turn", {}));
   }
+
+  /* When the AI has the turn and isn't already animating, run it. This
+   * covers the AI-going-first opening (previously the board soft-locked
+   * waiting for an End Turn that could never come) and resume-mid-AI-turn. */
+  useEffect(() => {
+    if (!state || !gameId || aiThinking || replayingRef.current) return;
+    if (state.phase === "finished" || victoryResult || defeatResult) return;
+    if (state.currentTurn === state.player1?.userId) return;
+    runAiTurn(state);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.currentTurn, state?.phase, gameId, aiThinking]);
+
+  /* Auto-upkeep: at the start of the player's turn run the composite
+   * begin_turn (refresh + draw + DON!!) server-side. The board teaches the
+   * ritual by doing it — no +DON!!/Refresh/Draw buttons to forget. */
+  const upkeepSentForTurn = useRef<number>(0);
+  useEffect(() => {
+    if (!state || !gameId || aiThinking || actionLoading || replayingRef.current) return;
+    if (state.phase === "finished" || victoryResult || defeatResult) return;
+    if (state.currentTurn !== state.player1?.userId) return;
+    if (state.lastUpkeepTurn === state.turnNumber) return;
+    if (upkeepSentForTurn.current === state.turnNumber) return;
+    upkeepSentForTurn.current = state.turnNumber;
+    sendAction("begin_turn", {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.currentTurn, state?.turnNumber, state?.lastUpkeepTurn, gameId, aiThinking, actionLoading]);
 
   /* ================================================================ */
   /*  Claim Victory                                                   */
@@ -361,17 +372,18 @@ export default function PVEGameBoard() {
     setActionLoading(true);
 
     try {
+      // The server derives turns/life from its persisted state — the
+      // client sends nothing it could lie about.
       const res = await fetch(`/api/game/pve/${levelId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "victory",
-          gameId,
-          turnsPlayed: state.turnNumber,
-          lifeRemaining: myState?.lifeCount ?? 0,
-        }),
+        body: JSON.stringify({ action: "victory", gameId }),
       });
-      const result: VictoryResult = await res.json();
+      const result: VictoryResult & { error?: string } = await res.json();
+      if (!res.ok) {
+        setError(result.error || "Victory not confirmed by the server.");
+        return;
+      }
       setVictoryResult(result);
     } catch {
       setError("Failed to claim victory.");
@@ -441,6 +453,7 @@ export default function PVEGameBoard() {
       case "attach_don": return "attached DON!! to a card";
       case "detach_don": return "detached DON!! from a card";
       case "rest_don": return `rested ${data.count} DON!!`;
+      case "begin_turn": return "started the turn (refresh, draw, DON!!)";
       case "refresh_all": return "refreshed all cards";
       case "draw_card": return "drew a card";
       case "add_don": return "added DON!! from deck";
@@ -654,9 +667,6 @@ export default function PVEGameBoard() {
       if (card.attachedDon > 0) {
         actions.push({ label: "Detach DON!!", action: () => sendAction("detach_don", { cardId: card.id }) });
       }
-    }
-    if (zone === "life") {
-      actions.push({ label: "Reveal to Hand", action: () => sendAction("take_damage") });
     }
     if (zone === "stage") {
       actions.push({ label: card.isRested ? "Set Active" : "Rest", action: () => sendAction("toggle_rest", { cardId: card.id }) });
@@ -1101,13 +1111,29 @@ export default function PVEGameBoard() {
                   </span>
                 </div>
               )}
+
+              {victoryResult.guestMode && (
+                <a
+                  href={victoryResult.signInPromptUrl || "/api/auth/signin?callbackUrl=/play"}
+                  className="block text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3 hover:bg-amber-500/20 transition-colors"
+                >
+                  Playing as guest — sign in to earn Berries for wins like this one.
+                </a>
+              )}
             </div>
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              {victoryResult.nextLevel && (
+              {victoryResult.nextLevelId != null && (
                 <button
-                  onClick={() => router.push(`/play/adventure/${victoryResult.nextLevel}`)}
+                  onClick={() => {
+                    router.push(`/play/adventure/${victoryResult.nextLevelId}`);
+                    setVictoryResult(null);
+                    setNeedsSetup(true);
+                    setGameId(null);
+                    setState(null);
+                    setGameLog([]);
+                  }}
                   className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
                 >
                   Next Level &rarr;
@@ -1199,8 +1225,6 @@ export default function PVEGameBoard() {
   /*  Main Game Board                                                 */
   /* ================================================================ */
 
-  const canClaimVictory = oppState.lifeCount <= 0;
-
   return (
     <main className="min-h-screen bg-neutral-950 text-white flex flex-col">
       <HoverPreview />
@@ -1283,33 +1307,9 @@ export default function PVEGameBoard() {
             </div>
             {isMyTurn && gameActive && (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => sendAction("add_don")}
-                  className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-3 py-1.5 rounded-lg transition-colors font-medium"
-                >
-                  +DON!!
-                </button>
-                <button
-                  onClick={() => sendAction("refresh_all")}
-                  className="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  Refresh All
-                </button>
-                <button
-                  onClick={() => sendAction("next_phase")}
-                  className="text-xs bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
-                >
-                  Next Phase &#9193;
-                </button>
-                {canClaimVictory && (
-                  <button
-                    onClick={handleClaimVictory}
-                    disabled={actionLoading}
-                    className="text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-lg transition-colors font-bold animate-pulse"
-                  >
-                    &#127942; Claim Victory
-                  </button>
-                )}
+                <span className="text-neutral-500 text-xs hidden sm:inline">
+                  Tap a card to play or attack
+                </span>
                 <button
                   onClick={handleEndTurn}
                   disabled={actionLoading}
@@ -1333,43 +1333,11 @@ export default function PVEGameBoard() {
       {/* ---- Quick actions (mobile) ---- */}
       {isMyTurn && gameActive && !aiThinking && (
         <div className="sm:hidden bg-neutral-900 border-t border-neutral-800 px-3 py-2 flex items-center gap-2 overflow-x-auto flex-shrink-0">
-          <button
-            onClick={() => sendAction("draw_card")}
-            className="text-xs bg-neutral-800 text-white px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            Draw
-          </button>
-          <button
-            onClick={() => sendAction("add_don")}
-            className="text-xs bg-amber-500/20 text-amber-400 px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            +DON!!
-          </button>
-          <button
-            onClick={() => sendAction("refresh_all")}
-            className="text-xs bg-neutral-800 text-neutral-300 px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            Refresh
-          </button>
-          <button
-            onClick={() => sendAction("next_phase")}
-            className="text-xs bg-neutral-800 text-white px-3 py-2 rounded-lg whitespace-nowrap"
-          >
-            Next Phase
-          </button>
-          {canClaimVictory && (
-            <button
-              onClick={handleClaimVictory}
-              disabled={actionLoading}
-              className="text-xs bg-green-600 text-white px-3 py-2 rounded-lg whitespace-nowrap font-bold"
-            >
-              Victory
-            </button>
-          )}
+          <span className="text-neutral-500 text-xs whitespace-nowrap">Tap a card to play or attack</span>
           <button
             onClick={handleEndTurn}
             disabled={actionLoading}
-            className="text-xs bg-white/10 text-white px-3 py-2 rounded-lg whitespace-nowrap"
+            className="text-xs bg-white/10 text-white px-3 py-2 rounded-lg whitespace-nowrap ml-auto"
           >
             End Turn
           </button>

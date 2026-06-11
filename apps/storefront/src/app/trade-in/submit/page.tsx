@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSellCart } from "@/context/SellCartContext";
 import { formatPrice } from "@/lib/format";
+import { gameLabel } from "@/lib/tradein/games";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -53,6 +54,7 @@ export default function SubmitTradeInPage() {
         body: JSON.stringify({
           items: items.map((i) => ({
             sku: i.sku,
+            game: i.game,
             card_number: i.card_number,
             name: i.name,
             set_code: i.set_code,
@@ -144,7 +146,7 @@ export default function SubmitTradeInPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate text-white">{item.name}</p>
-                    <p className="text-xs text-neutral-500">{item.card_number}</p>
+                    <p className="text-xs text-neutral-500">{item.card_number} · {gameLabel(item.game)}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => updateQty(item.sku, item.quantity - 1)} className="w-9 h-9 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-bold transition">-</button>
                       <span className="text-sm font-medium w-5 text-center">{item.quantity}</span>

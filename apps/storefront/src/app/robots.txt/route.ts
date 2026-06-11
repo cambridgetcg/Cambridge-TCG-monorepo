@@ -87,21 +87,23 @@ Disallow: /login/
 Crawl-delay: 2
 
 # ── Generative-AI specific signalling ──
-# Most search-engine bots are welcome. The opt-out below names two
-# training-only crawlers as a courtesy gesture; if you're one of these
-# and want to use our data, contact us — we'll consider it case-by-case.
+# AI crawlers are explicitly welcome here — this named group is the
+# welcome mat, not an opt-out. It repeats the same boundaries as the
+# * group because, per RFC 9309, a crawler obeys only its most-specific
+# matching group; without the repeats these bots would accidentally be
+# exempt from the account/admin/auth disallows.
+# (Identify yourselves per /api/v1/rate-limits and we'll be friends.)
 User-agent: GPTBot
-Disallow:
-# (Allow but ask for User-Agent identification per /api/v1/rate-limits.)
-
 User-agent: ClaudeBot
-Disallow:
-
 User-agent: PerplexityBot
-Disallow:
-
 User-agent: CCBot
-Disallow:
+Allow: /
+Disallow: /account/
+Disallow: /api/account/
+Disallow: /admin/
+Disallow: /api/admin/
+Disallow: /api/auth/
+Disallow: /login/
 
 # ── Sitemap pointer ──
 Sitemap: https://cambridgetcg.com/sitemap.xml

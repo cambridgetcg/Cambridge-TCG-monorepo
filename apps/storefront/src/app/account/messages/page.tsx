@@ -56,6 +56,15 @@ export default function MessagesPage() {
 function MessagesPageInner() {
   const searchParams = useSearchParams();
   const initialConvId = searchParams.get("c") ?? null;
+  // ?ref=<type>:<id> — set by MessageButton deep-links. Attached to the
+  // FIRST message sent in the linked thread, then cleared; the server
+  // re-validates the reference before storing the chip.
+  const initialRef = searchParams.get("ref");
+  const [pendingRef, setPendingRef] = useState<{ type: string; id: string } | null>(() => {
+    if (!initialRef) return null;
+    const i = initialRef.indexOf(":");
+    return i > 0 ? { type: initialRef.slice(0, i), id: initialRef.slice(i + 1) } : null;
+  });
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(initialConvId);
@@ -120,12 +129,16 @@ function MessagesPageInner() {
     setSendingPending(true);
     setError(null);
     try {
+      // Attach the deep-linked reference only in the thread it arrived
+      // for, and only while it hasn't been sent yet.
+      const ref = pendingRef && activeId === initialConvId ? pendingRef : null;
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           recipientId: otherUser.id,
           body: composeText.trim(),
+          ...(ref ? { referenceType: ref.type, referenceId: ref.id } : {}),
         }),
       });
       const data = await res.json();
@@ -133,6 +146,7 @@ function MessagesPageInner() {
         setError(data.error || "Send failed");
         return;
       }
+      if (ref) setPendingRef(null);
       setComposeText("");
       // Reload thread + inbox so the new message + cache update show.
       if (activeId) {

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Money, WhyLink, ErrorAlert } from "@/lib/ui";
+import { Money, Icon, EmptyState } from "@/lib/ui";
+import { useVoice } from "@/lib/wardrobe/context";
 import { useToast } from "@/components/ui/Toast";
 import { useCreditSell } from "@/context/CreditSellContext";
 
@@ -47,15 +48,15 @@ type SortKey = "name_asc" | "name_desc" | "price_asc" | "price_desc" | "number_a
 function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
   const r = rarity.toUpperCase();
-  let cls = "bg-neutral-700 text-neutral-400";
+  let cls = "bg-surface-subtle text-ink-muted";
   if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP")
-    cls = "bg-yellow-500/20 text-yellow-400";
+    cls = "bg-accent-wash text-accent";
   else if (r === "R" || r === "RR" || r === "SSR")
-    cls = "bg-purple-500/20 text-purple-400";
+    cls = "bg-surface-subtle text-ink";
   else if (r === "UC")
-    cls = "bg-blue-500/20 text-blue-400";
+    cls = "bg-info/10 text-info";
   else if (r === "C")
-    cls = "bg-neutral-700 text-neutral-400";
+    cls = "bg-surface-subtle text-ink-muted";
   return (
     <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cls}`}>
       {rarity.toUpperCase()}
@@ -77,7 +78,7 @@ function SkeletonRow() {
     <tr className="animate-pulse">
       {Array.from({ length: 11 }).map((_, i) => (
         <td key={i} className="px-3 py-3">
-          <div className="h-4 bg-neutral-800 rounded w-full" />
+          <div className="h-4 bg-surface-subtle rounded w-full" />
         </td>
       ))}
     </tr>
@@ -86,11 +87,11 @@ function SkeletonRow() {
 
 function SkeletonCard() {
   return (
-    <div className="bg-neutral-900 rounded-xl p-3 animate-pulse">
-      <div className="aspect-[2.5/3.5] bg-neutral-800 rounded-lg mb-3" />
-      <div className="h-4 bg-neutral-800 rounded w-3/4 mb-2" />
-      <div className="h-3 bg-neutral-800 rounded w-1/2 mb-3" />
-      <div className="h-4 bg-neutral-800 rounded w-16" />
+    <div className="wardrobe-mat rounded-lg p-3 animate-pulse">
+      <div className="aspect-[2.5/3.5] bg-surface-subtle rounded-lg mb-3" />
+      <div className="h-4 bg-surface-subtle rounded w-3/4 mb-2" />
+      <div className="h-3 bg-surface-subtle rounded w-1/2 mb-3" />
+      <div className="h-4 bg-surface-subtle rounded w-16" />
     </div>
   );
 }
@@ -111,7 +112,6 @@ export default function MarketPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
   const [setsLoading, setSetsLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const limit = 48;
@@ -119,6 +119,7 @@ export default function MarketPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
   const { addItem, totalItems, totalCredit, openDrawer } = useCreditSell();
+  const v = useVoice();
 
   /* ---- check auth ---- */
   useEffect(() => {
@@ -203,13 +204,9 @@ export default function MarketPage() {
       const data = await res.json();
       setCards(data.cards ?? []);
       setTotal(data.total ?? 0);
-      setFetchError(false);
     } catch {
-      // Outage ≠ empty market: clear the lists but flag the failure so
-      // the UI renders an error state instead of "No cards found".
       setCards([]);
       setTotal(0);
-      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -232,76 +229,69 @@ export default function MarketPage() {
     setOffset(0);
   }
 
-  /* ---- render ---- */
+  /* ---- render — wardrobe migration: Gallery tokens, icons, mats (spec §3.4) ---- */
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen">
       <div className="max-w-[1400px] mx-auto px-4 py-8">
         {/* ========== HEADER ========== */}
-        {/* Identity line — the sibling of /catalog's "The shop". One quiet
-            sentence + cross-link keeps the two commerce doors legible. */}
         <div className="mb-8 flex items-end justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-3xl font-black text-white mb-2">Card Market</h1>
-            <p className="text-neutral-400">
-              The exchange — buy from and sell to other collectors.
+            <h1 className="font-display text-3xl font-black tracking-tight text-ink mb-2">{v("market.title")}</h1>
+            <p className="text-ink-muted">
+              {v("market.subtitle")}
             </p>
-            <Link
-              href="/catalog"
-              className="text-sm text-neutral-500 hover:text-amber-400 transition"
-            >
-              Just want to shop our stock? →
-            </Link>
           </div>
           <div className="flex gap-2">
-            <Link
+            <a
               href="/market/pulse"
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-neutral-300 hover:text-white font-medium transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface hover:bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink font-medium transition"
             >
-              Market Pulse
-            </Link>
-            <Link
+              <Icon name="pulse" className="text-accent" /> Market Pulse
+            </a>
+            <a
               href="/market/lots"
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-neutral-300 hover:text-white font-medium transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface hover:bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink font-medium transition"
             >
-              Lots
-            </Link>
-            <Link
+              <Icon name="lots" className="text-accent" /> Lots
+            </a>
+            <a
               href="/leaderboards"
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-lg text-sm text-neutral-300 hover:text-white font-medium transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface hover:bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink font-medium transition"
             >
-              Leaderboards
-            </Link>
+              <Icon name="trophy" className="text-accent" /> Leaderboards
+            </a>
           </div>
         </div>
 
-        {/* ========== BANNER — We Buy Every Card ========== */}
-        <div className="mb-8 rounded-xl border border-amber-500/20 bg-neutral-900 px-6 py-5">
-          <h2 className="text-lg font-bold text-white mb-1">
+        {/* ========== HERO BANNER — We Buy Every Card ========== */}
+        <div className="mb-8 rounded-lg bg-accent-wash border border-border-subtle px-6 py-5">
+          <h2 className="font-display text-lg font-bold tracking-tight text-ink mb-1">
+            <Icon name="credit" size={18} className="inline-block align-[-3px] mr-2 text-accent" />
             We Buy Every Card &mdash; Unlimited &mdash; Instant Store Credit
           </h2>
-          <p className="text-sm text-neutral-300 leading-relaxed max-w-2xl">
+          <p className="text-sm text-ink-muted leading-relaxed max-w-2xl">
             Sell any card to Cambridge TCG for store credit. No waiting for a buyer. No listing fees.
             Guaranteed price on every card. Credit is added to your account instantly.
           </p>
-          <p className="text-xs text-neutral-400 mt-2">
+          <p className="text-xs text-ink-faint mt-2">
             Store credit can be used to buy any card in our shop.
           </p>
         </div>
 
         {/* ========== STATS BAR ========== */}
         <div className="flex flex-wrap gap-4 mb-6 text-sm">
-          <div className="px-3 py-1.5 bg-neutral-900 rounded-lg text-neutral-300">
-            <span className="text-white font-semibold">{total.toLocaleString()}</span> total cards
+          <div className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
+            <span className="text-ink font-semibold font-mono tabular-nums">{total.toLocaleString()}</span> total cards
           </div>
-          <div className="px-3 py-1.5 bg-neutral-900 rounded-lg text-neutral-300">
-            <span className="text-emerald-400 font-semibold">{p2pCardCount}</span> with P2P activity
+          <div className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
+            <span className="text-bid font-semibold font-mono tabular-nums">{p2pCardCount}</span> with P2P activity
           </div>
-          <div className="px-3 py-1.5 bg-neutral-900 rounded-lg text-neutral-300">
-            <span className="text-amber-400 font-semibold">{totalP2PSellers}</span> P2P sellers
+          <div className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
+            <span className="text-accent font-semibold font-mono tabular-nums">{totalP2PSellers}</span> P2P sellers
           </div>
           {ctcgBuyingCount > 0 && (
-            <div className="px-3 py-1.5 bg-neutral-900 rounded-lg text-neutral-300">
-              <span className="text-purple-400 font-semibold">{ctcgBuyingCount}</span> CTCG buying
+            <div className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
+              <span className="text-accent-strong font-semibold font-mono tabular-nums">{ctcgBuyingCount}</span> CTCG buying
             </div>
           )}
         </div>
@@ -309,7 +299,7 @@ export default function MarketPage() {
         <div className="flex gap-6">
           {/* ========== SET SIDEBAR (desktop) ========== */}
           <aside className="hidden lg:block w-56 shrink-0">
-            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">
+            <h2 className="font-display text-xs font-bold text-ink-faint uppercase tracking-wider mb-3">
               Sets
             </h2>
             <nav className="flex flex-col gap-1">
@@ -317,15 +307,15 @@ export default function MarketPage() {
                 onClick={() => selectSet(null)}
                 className={`text-left text-sm px-3 py-2 rounded-lg transition ${
                   activeSet === null
-                    ? "bg-amber-500/20 text-amber-400 font-semibold"
-                    : "text-neutral-300 hover:bg-neutral-800"
+                    ? "bg-accent-wash text-accent font-semibold"
+                    : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
                 }`}
               >
                 All Cards
               </button>
               {setsLoading &&
                 Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-8 bg-neutral-800 rounded-lg animate-pulse" />
+                  <div key={i} className="h-8 bg-surface-subtle rounded-lg animate-pulse" />
                 ))}
               {sets.map((s) => (
                 <button
@@ -333,15 +323,15 @@ export default function MarketPage() {
                   onClick={() => selectSet(s.code)}
                   className={`text-left text-sm px-3 py-2 rounded-lg transition flex justify-between items-center ${
                     activeSet === s.code
-                      ? "bg-amber-500/20 text-amber-400 font-semibold"
-                      : "text-neutral-300 hover:bg-neutral-800"
+                      ? "bg-accent-wash text-accent font-semibold"
+                      : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
                   }`}
                 >
                   <span className="truncate">
-                    <span className="text-neutral-500 font-mono text-xs mr-1.5">{s.code}</span>
+                    <span className="text-ink-faint font-mono text-xs mr-1.5">{s.code}</span>
                     {s.name}
                   </span>
-                  <span className="text-[10px] text-neutral-500 ml-2 shrink-0">
+                  <span className="text-[10px] text-ink-faint font-mono tabular-nums ml-2 shrink-0">
                     {s.card_count}
                   </span>
                 </button>
@@ -358,8 +348,8 @@ export default function MarketPage() {
                   onClick={() => selectSet(null)}
                   className={`shrink-0 text-xs px-3 py-1.5 rounded-full transition ${
                     activeSet === null
-                      ? "bg-amber-500 text-black font-bold"
-                      : "bg-neutral-800 text-neutral-300"
+                      ? "bg-accent text-page font-bold"
+                      : "bg-surface border border-border-subtle text-ink-muted"
                   }`}
                 >
                   All
@@ -370,8 +360,8 @@ export default function MarketPage() {
                     onClick={() => selectSet(s.code)}
                     className={`shrink-0 text-xs px-3 py-1.5 rounded-full transition whitespace-nowrap ${
                       activeSet === s.code
-                        ? "bg-amber-500 text-black font-bold"
-                        : "bg-neutral-800 text-neutral-300"
+                        ? "bg-accent text-page font-bold"
+                        : "bg-surface border border-border-subtle text-ink-muted"
                     }`}
                   >
                     {s.code} — {s.name}
@@ -384,20 +374,20 @@ export default function MarketPage() {
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               {/* Search */}
               <div className="relative flex-1">
+                <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search by name, card number, or SKU..."
-                  className="w-full px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/50 transition text-sm"
+                  className="w-full pl-9 pr-4 py-2.5 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition text-sm"
                 />
                 {query && (
                   <button
                     onClick={() => setQuery("")}
-                    aria-label="Clear search"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition text-sm"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink transition text-sm"
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -409,7 +399,7 @@ export default function MarketPage() {
                   setSort(e.target.value as SortKey);
                   setOffset(0);
                 }}
-                className="px-3 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition"
+                className="px-3 py-2.5 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
               >
                 <option value="name_asc">Name A-Z</option>
                 <option value="name_desc">Name Z-A</option>
@@ -419,80 +409,53 @@ export default function MarketPage() {
               </select>
 
               {/* View toggle */}
-              <div className="flex bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+              <div className="flex bg-surface border border-border-subtle rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode("table")}
                   className={`px-3 py-2.5 text-sm transition ${
                     viewMode === "table"
-                      ? "bg-amber-500 text-black font-bold"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-accent text-page font-bold"
+                      : "text-ink-muted hover:text-ink"
                   }`}
                   title="Table view"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="1" y="1" width="14" height="3" rx="0.5" />
-                    <rect x="1" y="6" width="14" height="3" rx="0.5" />
-                    <rect x="1" y="11" width="14" height="3" rx="0.5" />
-                  </svg>
+                  <Icon name="list" />
                 </button>
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`px-3 py-2.5 text-sm transition ${
                     viewMode === "grid"
-                      ? "bg-amber-500 text-black font-bold"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-accent text-page font-bold"
+                      : "text-ink-muted hover:text-ink"
                   }`}
                   title="Grid view"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="1" y="1" width="6" height="6" rx="1" />
-                    <rect x="9" y="1" width="6" height="6" rx="1" />
-                    <rect x="1" y="9" width="6" height="6" rx="1" />
-                    <rect x="9" y="9" width="6" height="6" rx="1" />
-                  </svg>
+                  <Icon name="grid" />
                 </button>
               </div>
             </div>
 
-            {/* ---- Results count + provenance ----
-                 Substrate honesty for the three price columns: CTCG Price
-                 and We Buy sync daily from the wholesale catalog; Market
-                 is computed from trading activity here. The pill mirrors
-                 <Provenance>'s natural-language form — the primitive
-                 itself is an async server component (it reads the
-                 lang-mode cookie) and can't mount inside this client page. */}
-            {!loading && !fetchError && (
-              <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-                <p className="text-xs text-neutral-500">
-                  Showing {cards.length} of {total.toLocaleString()} cards
-                </p>
-                {cards.length > 0 && (
-                  <>
-                    <span
-                      className="inline-block text-[10px] uppercase tracking-wider text-neutral-500"
-                      title="CTCG Price and We Buy are synced daily from the wholesale catalog; Market is computed from trading activity on this platform"
-                    >
-                      synced from wholesale · daily
-                    </span>
-                    <WhyLink href="/methodology/market" />
-                  </>
-                )}
-              </div>
+            {/* ---- Results count ---- */}
+            {!loading && (
+              <p className="text-xs text-ink-faint mb-3">
+                Showing <span className="font-mono tabular-nums">{cards.length}</span> of{" "}
+                <span className="font-mono tabular-nums">{total.toLocaleString()}</span> cards
+              </p>
             )}
 
             {/* ---- Loading ---- */}
             {loading && viewMode === "table" && (
-              <div className="overflow-x-auto rounded-lg border border-neutral-800">
+              <div className="wardrobe-mat overflow-x-auto rounded-lg">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+                    <tr className="bg-surface-elevated border-b border-border-subtle text-ink-muted text-xs uppercase tracking-wider">
                       <th className="px-3 py-2.5 text-left w-12" />
                       <th className="px-3 py-2.5 text-left">#</th>
                       <th className="px-3 py-2.5 text-left">Name</th>
                       <th className="px-3 py-2.5 text-left">Rarity</th>
                       <th className="px-3 py-2.5 text-left">Set</th>
                       <th className="px-3 py-2.5 text-right">CTCG Price</th>
-                      <th className="px-3 py-2.5 text-right text-purple-400">We Buy</th>
+                      <th className="px-3 py-2.5 text-right text-accent">We Buy</th>
                       <th className="px-3 py-2.5 text-right">Market</th>
                       <th className="px-3 py-2.5 text-center">P2P Sellers</th>
                       <th className="px-3 py-2.5 text-center">P2P Buyers</th>
@@ -516,56 +479,47 @@ export default function MarketPage() {
               </div>
             )}
 
-            {/* ---- Error state — distinct from empty ---- */}
-            {!loading && fetchError && (
-              <ErrorAlert
-                title="The market is temporarily unreachable"
-                description="Try again in a minute."
-              />
-            )}
-
             {/* ---- Empty state ---- */}
-            {!loading && !fetchError && cards.length === 0 && (
-              <div className="text-center py-20">
-                <p className="text-4xl mb-4 opacity-30">No results</p>
-                <h2 className="text-xl font-bold text-white mb-2">No cards found</h2>
-                <p className="text-neutral-400 mb-4">
-                  Try a different search term or set filter.
-                </p>
-                {(query || activeSet) && (
-                  <button
-                    onClick={() => {
-                      setQuery("");
-                      setActiveSet(null);
-                    }}
-                    className="px-4 py-2 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition text-sm"
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
+            {!loading && cards.length === 0 && (
+              <EmptyState
+                title={v("market.empty.catalog.title")}
+                description={v("market.empty.catalog.description")}
+                action={
+                  query || activeSet ? (
+                    <button
+                      onClick={() => {
+                        setQuery("");
+                        setActiveSet(null);
+                      }}
+                      className="px-4 py-2 bg-accent text-page font-bold rounded-lg hover:bg-accent-strong transition text-sm"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined
+                }
+              />
             )}
 
             {/* ---- TABLE VIEW ---- */}
             {!loading && cards.length > 0 && viewMode === "table" && (
-              <div className="overflow-x-auto rounded-lg border border-neutral-800">
+              <div className="wardrobe-mat overflow-x-auto rounded-lg">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+                    <tr className="bg-surface-elevated border-b border-border-subtle text-ink-muted text-xs uppercase tracking-wider">
                       <th className="px-3 py-2.5 text-left w-12" />
                       <th className="px-3 py-2.5 text-left">#</th>
                       <th className="px-3 py-2.5 text-left">Name</th>
                       <th className="px-3 py-2.5 text-left">Rarity</th>
                       <th className="px-3 py-2.5 text-left">Set</th>
                       <th className="px-3 py-2.5 text-right">CTCG Price</th>
-                      <th className="px-3 py-2.5 text-right text-purple-400">We Buy</th>
+                      <th className="px-3 py-2.5 text-right text-accent">We Buy</th>
                       <th className="px-3 py-2.5 text-right">Market</th>
                       <th className="px-3 py-2.5 text-center">P2P Sellers</th>
                       <th className="px-3 py-2.5 text-center">P2P Buyers</th>
                       <th className="px-3 py-2.5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-800/50">
+                  <tbody className="divide-y divide-border-subtle">
                     {cards.map((card) => {
                       const diff = pctDiff(card.market_price, card.spot_price);
                       const isCheaper = diff > 0 && card.market_price < card.spot_price;
@@ -574,7 +528,7 @@ export default function MarketPage() {
                         <tr
                           key={card.sku}
                           onClick={() => (window.location.href = `/market/${card.sku}`)}
-                          className="bg-neutral-900 hover:bg-neutral-800/80 transition cursor-pointer"
+                          className="bg-surface hover:bg-surface-subtle transition cursor-pointer"
                         >
                           {/* Thumb — Next/Image so the full card art (~200KB
                               per source) gets resized server-side to a 56-wide
@@ -588,23 +542,23 @@ export default function MarketPage() {
                                 alt={card.name}
                                 width={40}
                                 height={56}
-                                className="w-10 h-14 object-cover rounded"
+                                className="w-10 h-14 object-cover rounded border border-border-subtle shadow-mat"
                                 unoptimized={false}
                               />
                             ) : (
-                              <div className="w-10 h-14 bg-neutral-800 rounded flex items-center justify-center">
-                                <span className="text-neutral-600 text-[8px]">N/A</span>
+                              <div className="w-10 h-14 bg-surface-subtle border border-border-subtle rounded flex items-center justify-center">
+                                <span className="text-ink-faint text-[8px]">N/A</span>
                               </div>
                             )}
                           </td>
 
                           {/* Card Number */}
-                          <td className="px-3 py-2 text-neutral-400 font-mono text-xs whitespace-nowrap">
+                          <td className="px-3 py-2 text-ink-muted font-mono text-xs whitespace-nowrap">
                             {card.card_number}
                           </td>
 
                           {/* Name */}
-                          <td className="px-3 py-2 text-white font-medium max-w-[200px] truncate">
+                          <td className="px-3 py-2 text-ink font-medium max-w-[200px] truncate">
                             {card.name}
                           </td>
 
@@ -612,12 +566,12 @@ export default function MarketPage() {
                           <td className="px-3 py-2">{rarityBadge(card.rarity)}</td>
 
                           {/* Set */}
-                          <td className="px-3 py-2 text-neutral-400 text-xs whitespace-nowrap">
+                          <td className="px-3 py-2 text-ink-muted font-mono text-xs whitespace-nowrap">
                             {card.set_code}
                           </td>
 
                           {/* CTCG Price */}
-                          <td className="px-3 py-2 text-right text-amber-400 font-semibold whitespace-nowrap">
+                          <td className="px-3 py-2 text-right text-accent font-semibold font-mono tabular-nums whitespace-nowrap">
                             <Money value={card.spot_price} />
                           </td>
 
@@ -625,32 +579,32 @@ export default function MarketPage() {
                           <td className="px-3 py-2 text-right whitespace-nowrap">
                             {card.tradein_credit != null && card.tradein_credit > 0 ? (
                               <span className="inline-flex items-center gap-1.5" title="Instant store credit — we buy unlimited quantity">
-                                <span className="text-purple-400 font-bold">
+                                <span className="text-accent-strong font-bold font-mono tabular-nums">
                                   <Money value={card.tradein_credit} />
                                 </span>
                                 <button
                                   onClick={(e) => handleAddToSellCart(card, e)}
-                                  className="px-2 py-0.5 text-[10px] font-bold bg-purple-600 text-white rounded hover:bg-purple-500 transition"
+                                  className="px-2 py-0.5 text-[10px] font-bold bg-accent text-page rounded hover:bg-accent-strong transition"
                                 >
                                   Sell
                                 </button>
                               </span>
                             ) : (
-                              <span className="text-neutral-600 text-xs">&mdash;</span>
+                              <span className="text-ink-faint text-xs">&mdash;</span>
                             )}
                           </td>
 
                           {/* Market Price */}
                           <td className="px-3 py-2 text-right whitespace-nowrap">
                             {isCheaper ? (
-                              <span className="text-emerald-400 font-semibold">
+                              <span className="text-bid font-semibold font-mono tabular-nums">
                                 <Money value={card.market_price} />
-                                <span className="ml-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded">
+                                <span className="ml-1 text-[10px] bg-bid/10 text-bid px-1 py-0.5 rounded">
                                   ↓{diff}%
                                 </span>
                               </span>
                             ) : (
-                              <span className="text-neutral-400">
+                              <span className="text-ink-muted font-mono tabular-nums">
                                 <Money value={card.market_price} />
                               </span>
                             )}
@@ -659,22 +613,22 @@ export default function MarketPage() {
                           {/* P2P Sellers */}
                           <td className="px-3 py-2 text-center">
                             {card.p2p_sellers > 0 ? (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold font-mono tabular-nums bg-bid/10 text-bid">
                                 {card.p2p_sellers} seller{card.p2p_sellers !== 1 ? "s" : ""}
                               </span>
                             ) : (
-                              <span className="text-neutral-600 text-xs">--</span>
+                              <span className="text-ink-faint text-xs">--</span>
                             )}
                           </td>
 
                           {/* P2P Buyers */}
                           <td className="px-3 py-2 text-center">
                             {card.p2p_buyers > 0 ? (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold font-mono tabular-nums bg-info/10 text-info">
                                 {card.p2p_buyers} buyer{card.p2p_buyers !== 1 ? "s" : ""}
                               </span>
                             ) : (
-                              <span className="text-neutral-600 text-xs">--</span>
+                              <span className="text-ink-faint text-xs">--</span>
                             )}
                           </td>
 
@@ -683,7 +637,7 @@ export default function MarketPage() {
                             <Link
                               href={`/market/${card.sku}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-block px-3 py-1 text-xs font-bold bg-amber-500 text-black rounded hover:bg-amber-400 transition"
+                              className="inline-block px-3 py-1 text-xs font-bold bg-accent text-page rounded hover:bg-accent-strong transition"
                             >
                               View
                             </Link>
@@ -707,7 +661,7 @@ export default function MarketPage() {
                     <Link
                       key={card.sku}
                       href={`/market/${card.sku}`}
-                      className="bg-neutral-900 rounded-xl p-3 hover:bg-neutral-800/80 transition group"
+                      className="wardrobe-mat rounded-lg p-3 hover:bg-surface-subtle transition group"
                     >
                       {/* Image */}
                       {card.image_url ? (
@@ -717,36 +671,36 @@ export default function MarketPage() {
                           width={240}
                           height={336}
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
-                          className="aspect-[2.5/3.5] w-full object-cover rounded-lg mb-3 group-hover:scale-[1.02] transition"
+                          className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle mb-3 group-hover:scale-[1.02] transition"
                         />
                       ) : (
-                        <div className="aspect-[2.5/3.5] w-full bg-neutral-800 rounded-lg mb-3 flex items-center justify-center">
-                          <span className="text-neutral-600 text-xs">No Image</span>
+                        <div className="aspect-[2.5/3.5] w-full bg-surface-subtle border border-border-subtle rounded-lg mb-3 flex items-center justify-center">
+                          <span className="text-ink-faint text-xs">No Image</span>
                         </div>
                       )}
 
                       {/* Name + number */}
-                      <h3 className="text-sm font-semibold text-white truncate">
+                      <h3 className="text-sm font-semibold text-ink truncate">
                         {card.name}
                       </h3>
-                      <p className="text-xs text-neutral-500 mb-2 truncate">
+                      <p className="text-xs text-ink-faint font-mono mb-2 truncate">
                         {card.card_number} - {card.set_code}
                       </p>
 
                       {/* Price */}
-                      <p className="text-sm font-bold text-amber-400">
+                      <p className="text-sm font-bold text-accent font-mono tabular-nums">
                         <Money value={card.spot_price} />
                       </p>
 
                       {/* We buy — store credit */}
                       {card.tradein_credit != null && card.tradein_credit > 0 && (
                         <div className="flex items-center gap-1.5 mt-1" title="Instant store credit — we buy unlimited quantity">
-                          <span className="text-[11px] text-purple-400 font-semibold">
-                            We buy: <Money value={card.tradein_credit} />
+                          <span className="text-[11px] text-accent-strong font-semibold">
+                            We buy: <Money value={card.tradein_credit} className="font-mono tabular-nums" />
                           </span>
                           <button
                             onClick={(e) => handleAddToSellCart(card, e)}
-                            className="text-[10px] font-bold text-purple-300 hover:text-purple-200 underline transition"
+                            className="text-[10px] font-bold text-accent hover:text-accent-strong underline transition"
                           >
                             Sell
                           </button>
@@ -757,17 +711,17 @@ export default function MarketPage() {
                       {card.has_p2p && (
                         <div className="flex items-center gap-1 mt-1.5">
                           {isCheaper && (
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-semibold">
+                            <span className="text-[10px] bg-bid/10 text-bid font-mono tabular-nums px-1.5 py-0.5 rounded font-semibold">
                               P2P ↓{diff}%
                             </span>
                           )}
                           {card.p2p_sellers > 0 && !isCheaper && (
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] bg-bid/10 text-bid font-mono tabular-nums px-1.5 py-0.5 rounded">
                               {card.p2p_sellers} seller{card.p2p_sellers !== 1 ? "s" : ""}
                             </span>
                           )}
                           {card.p2p_buyers > 0 && (
-                            <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] bg-info/10 text-info font-mono tabular-nums px-1.5 py-0.5 rounded">
                               {card.p2p_buyers} buyer{card.p2p_buyers !== 1 ? "s" : ""}
                             </span>
                           )}
@@ -785,7 +739,7 @@ export default function MarketPage() {
                 <button
                   onClick={() => setOffset(Math.max(0, offset - limit))}
                   disabled={offset === 0}
-                  className="px-3 py-2 bg-neutral-900 text-neutral-300 rounded-lg hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
+                  className="px-3 py-2 bg-surface border border-border-subtle text-ink-muted rounded-lg hover:bg-surface-subtle disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
                 >
                   Previous
                 </button>
@@ -801,10 +755,10 @@ export default function MarketPage() {
                     <button
                       key={p}
                       onClick={() => setOffset((p - 1) * limit)}
-                      className={`w-9 h-9 rounded-lg text-sm transition ${
+                      className={`w-9 h-9 rounded-lg text-sm font-mono tabular-nums transition ${
                         p === currentPage
-                          ? "bg-amber-500 text-black font-bold"
-                          : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
+                          ? "bg-accent text-page font-bold"
+                          : "bg-surface border border-border-subtle text-ink-muted hover:bg-surface-subtle"
                       }`}
                     >
                       {p}
@@ -815,7 +769,7 @@ export default function MarketPage() {
                 <button
                   onClick={() => setOffset(offset + limit)}
                   disabled={currentPage >= totalPages}
-                  className="px-3 py-2 bg-neutral-900 text-neutral-300 rounded-lg hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
+                  className="px-3 py-2 bg-surface border border-border-subtle text-ink-muted rounded-lg hover:bg-surface-subtle disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
                 >
                   Next
                 </button>
@@ -827,21 +781,21 @@ export default function MarketPage() {
 
       {/* ========== Floating Credit Sell Cart Bar ========== */}
       {totalItems > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-purple-500/30">
-          <div className="bg-neutral-900/95 backdrop-blur">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-accent/30">
+          <div className="bg-surface/95 backdrop-blur">
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 sm:gap-4 min-w-0 overflow-hidden">
-                <span className="text-sm font-bold text-white shrink-0">
-                  {totalItems} card{totalItems !== 1 ? "s" : ""} to sell
+                <span className="text-sm font-bold text-ink shrink-0">
+                  <span className="font-mono tabular-nums">{totalItems}</span> card{totalItems !== 1 ? "s" : ""} to sell
                 </span>
-                <span className="text-xs sm:text-sm text-neutral-400 truncate">
-                  <span className="text-purple-400 font-medium"><Money value={totalCredit} /></span>
-                  <span className="ml-1 text-neutral-500">credit</span>
+                <span className="text-xs sm:text-sm text-ink-muted truncate">
+                  <span className="text-accent font-medium font-mono tabular-nums"><Money value={totalCredit} /></span>
+                  <span className="ml-1 text-ink-faint">credit</span>
                 </span>
               </div>
               <button
                 onClick={openDrawer}
-                className="px-4 sm:px-5 py-2.5 bg-purple-600 text-white text-sm font-bold rounded-lg hover:bg-purple-500 transition shrink-0"
+                className="px-4 sm:px-5 py-2.5 bg-accent text-page text-sm font-bold rounded-lg hover:bg-accent-strong transition shrink-0"
               >
                 Review Sell Cart
               </button>

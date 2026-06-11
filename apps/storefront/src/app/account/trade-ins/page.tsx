@@ -76,7 +76,12 @@ export default function TradeInsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {submissions.map(({ submission: s, items, timeline }) => (
+            {submissions.map(({ submission: s, items, timeline }) => {
+              // The total in the customer's chosen payment method. Null until
+              // staff have priced the submission — keep that absence distinct
+              // from a real number instead of collapsing it to 0.
+              const quotedTotal = s.payment_method === "cash" ? s.quoted_cash_total : s.quoted_credit_total;
+              return (
               <div key={s.reference} className="bg-neutral-900 rounded-xl overflow-hidden">
                 <button
                   onClick={() => setExpanded(expanded === s.reference ? null : s.reference)}
@@ -93,9 +98,16 @@ export default function TradeInsPage() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-white">
-                      <Money value={parseFloat(s.payment_method === "cash" ? s.quoted_cash_total || "0" : s.quoted_credit_total || "0")} />
-                    </p>
+                    {/* Before a quote exists this is the customer's most anxious
+                        moment — "£0.00" reads as a zero offer. Say what's true:
+                        we haven't quoted yet. */}
+                    {quotedTotal == null ? (
+                      <p className="text-sm font-medium text-neutral-500">Awaiting quote</p>
+                    ) : (
+                      <p className="text-sm font-bold text-white">
+                        <Money value={parseFloat(quotedTotal)} />
+                      </p>
+                    )}
                   </div>
                   <span className="text-neutral-600 text-sm">{expanded === s.reference ? "▲" : "▼"}</span>
                 </button>
@@ -157,11 +169,17 @@ export default function TradeInsPage() {
                               </td>
                               <td className="py-2 text-center text-neutral-300">{item.quantity}</td>
                               <td className="py-2 text-right text-neutral-300 whitespace-nowrap">
-                                <Money value={
-                                  parseFloat(
-                                    (s.payment_method === "cash" ? item.quoted_cash_price : item.quoted_credit_price) || "0"
-                                  ) * item.quantity
-                                } />
+                                {/* Same honesty as the headline total: a line
+                                    without a quote shows "—", not £0.00. */}
+                                {(s.payment_method === "cash" ? item.quoted_cash_price : item.quoted_credit_price) == null ? (
+                                  <span className="text-neutral-600">—</span>
+                                ) : (
+                                  <Money value={
+                                    parseFloat(
+                                      (s.payment_method === "cash" ? item.quoted_cash_price : item.quoted_credit_price) as string
+                                    ) * item.quantity
+                                  } />
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -171,7 +189,8 @@ export default function TradeInsPage() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

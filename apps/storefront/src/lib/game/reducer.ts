@@ -32,6 +32,10 @@ export function applyAction(
       const card = allCards.find((c) => c.id === cardId);
       if (!card) break;
 
+      // Character area caps at 5 (OPTCG rule) — also blocks deck-dump
+      // cheats. Checked before removal so a rejected card stays put.
+      if (toZone === "field" && card.zone !== "field" && player.field.length >= 5) break;
+
       const removeFrom = (zone: GameCard[]) => zone.filter((c) => c.id !== cardId);
       player.hand = removeFrom(player.hand);
       player.field = removeFrom(player.field);
@@ -94,6 +98,40 @@ export function applyAction(
       const toRest = Math.min(count, player.donActive);
       player.donActive -= toRest;
       player.donRested += toRest;
+      break;
+    }
+
+    case "begin_turn": {
+      // Composite upkeep: refresh + draw + DON!! in one action, once per
+      // turn. This is what the AI already does for itself (ai.ts) — running
+      // it for the human too means the board teaches the turn ritual
+      // instead of requiring four manual clicks in the right order.
+      if (s.lastUpkeepTurn === s.turnNumber) break; // already ran this turn
+
+      // Refresh
+      if (player.leader) player.leader.isRested = false;
+      player.field.forEach((c) => (c.isRested = false));
+      if (player.stage) player.stage.isRested = false;
+      player.donActive += player.donRested;
+      player.donRested = 0;
+
+      // Draw (first player skips the draw on turn 1 — official rule)
+      const skipDraw = s.turnNumber === 1 && s.firstPlayer === player.userId;
+      if (!skipDraw && player.deck.length > 0) {
+        const drawn = player.deck.shift()!;
+        drawn.zone = "hand";
+        drawn.faceDown = false;
+        player.hand.push(drawn);
+      }
+
+      // DON!! (2 per turn; first player gets 1 on turn 1)
+      const donCount = s.turnNumber === 1 && s.firstPlayer === player.userId ? 1 : 2;
+      const toAdd = Math.min(donCount, player.donDeck);
+      player.donDeck -= toAdd;
+      player.donActive += toAdd;
+
+      s.lastUpkeepTurn = s.turnNumber;
+      s.phase = "main";
       break;
     }
 

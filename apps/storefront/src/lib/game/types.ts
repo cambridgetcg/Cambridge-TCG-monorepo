@@ -53,6 +53,9 @@ export interface GameState {
   phase: GamePhase;
   firstPlayer: string;
   winner?: string;          // userId of winner when phase === "finished"
+  /** Turn number the begin_turn upkeep last ran for — makes begin_turn
+   *  idempotent within a turn (and lets the server reject re-runs). */
+  lastUpkeepTurn?: number;
 }
 
 export type GamePhase = "setup" | "refresh" | "draw" | "don" | "main" | "end" | "counter" | "finished";

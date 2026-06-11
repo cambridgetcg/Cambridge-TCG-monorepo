@@ -20,6 +20,7 @@ jobs:
     outputs:
       storefront: ${{ steps.filter.outputs.storefront }}
       wholesale:  ${{ steps.filter.outputs.wholesale }}
+      rewardspro: ${{ steps.filter.outputs.rewardspro }}
       shared:     ${{ steps.filter.outputs.shared }}
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +33,14 @@ jobs:
               - 'apps/storefront/**'
             wholesale:
               - 'apps/wholesale/**'
+            rewardspro:
+              - 'apps/rewardspro/**'
             shared:
               - 'packages/**'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.npmrc'
               - '.github/workflows/**'
 
   install:
@@ -54,7 +59,11 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - name: Lint all workspaces
-        run: pnpm -r --if-present lint
+        # rewardspro excluded: its lint has been red since the standalone repo
+        # (817 errors at fuse time, 2026-06-10) and was never a gate there.
+        # Run `pnpm --filter rewardspro lint` locally; debt tracked in
+        # apps/rewardspro/CLAUDE.md.
+        run: pnpm --filter '!rewardspro' -r --if-present lint
 
   storefront:
     name: storefront (typecheck + test + build)
@@ -96,18 +105,42 @@ jobs:
         env:
           DATABASE_URL: postgres://x:x@localhost:5432/x
 
+  rewardspro:
+    name: rewardspro (typecheck + unit tests + build)
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.rewardspro == 'true' || needs.detect.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # prisma generate must precede tsc: on a fresh runner @prisma/client's
+      # postinstall runs at the repo root (INIT_CWD), finds no schema there,
+      # and leaves the typeless stub client — tsc then fails with TS2305 on
+      # every model/enum import. generate never connects to a database.
+      - run: pnpm --filter rewardspro exec prisma generate
+      - run: pnpm --filter rewardspro exec tsc --noEmit
+      - run: pnpm --filter rewardspro test:unit
+      - run: pnpm --filter rewardspro build
+        env:
+          DATABASE_URL: postgresql://prisma:generate@localhost:5432/placeholder
+
   ci-status:
     name: CI status
     runs-on: ubuntu-latest
     if: always()
-    needs: [install, storefront, wholesale]
+    needs: [install, storefront, wholesale, rewardspro]
     steps:
       - name: Fail if any required job failed
         # `install` always runs; the per-app jobs may be skipped if no relevant
         # files changed. A skipped job is fine — only failures block.
         run: |
           if [ "${{ needs.install.result }}" != "success" ]; then exit 1; fi
-          for r in "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}"; do
+          for r in "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then exit 1; fi
           done
           echo "CI green"

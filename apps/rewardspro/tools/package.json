@@ -1,0 +1,38 @@
+{
+  "name": "rewardspro-dev-tools",
+  "version": "1.0.0",
+  "description": "Development tools for RewardsPro Shopify embedded app",
+  "type": "module",
+  "main": "./lib/index.ts",
+  "bin": {
+    "rp-tools": "./cli/index.ts"
+  },
+  "scripts": {
+    "cli": "tsx cli/index.ts",
+    "webhook": "tsx cli/index.ts webhook",
+    "webhook:list": "tsx cli/index.ts webhook:list",
+    "webhook:sequence": "tsx cli/index.ts webhook:sequence",
+    "inspect": "tsx cli/index.ts inspect",
+    "inspect:health": "tsx cli/index.ts inspect:health",
+    "scenario": "tsx cli/index.ts scenario",
+    "scenario:list": "tsx cli/index.ts scenario:list",
+    "preview": "tsx cli/index.ts preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.3",
+    "commander": "^11.1.0",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "vitest": "^4.0.17"
+  },
+  "peerDependencies": {
+    "@prisma/client": "^5.0.0"
+  }
+}

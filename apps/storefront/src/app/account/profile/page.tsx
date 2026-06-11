@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Audience } from "@/lib/ui";
+import { Audience, EmptyState } from "@/lib/ui";
 import type {
   PublicProfile,
   ShowcaseCard,
@@ -61,8 +61,12 @@ export default function EditProfilePage() {
         if (r.status === 401) throw new Error("unauth");
         return r.json();
       }),
-      fetch("/api/portfolio/cards")
-        .then((r) => r.json())
+      // GET /api/portfolio is the portfolio's listing endpoint — it returns
+      // { cards, summary }; the showcase picker only needs the card rows.
+      // (An /api/portfolio/cards route never existed, so this fetch used to
+      // fail silently and the picker never appeared.)
+      fetch("/api/portfolio")
+        .then((r) => (r.ok ? r.json() : { cards: [] }))
         .catch(() => ({ cards: [] })),
       fetch("/api/account/preferences")
         .then((r) => r.json())
@@ -588,6 +592,22 @@ export default function EditProfilePage() {
               Add
             </button>
           </div>
+        )}
+        {/* Nothing showcased and nothing to pick from: say so plainly
+            instead of rendering a heading over empty space. */}
+        {showcase.length === 0 && portfolioCards.length === 0 && (
+          <EmptyState
+            title="Connect your portfolio to feature cards here"
+            description="Cards you add to your portfolio become available to showcase on your public profile."
+            action={
+              <Link
+                href="/account/portfolio"
+                className="inline-block px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+              >
+                Open portfolio
+              </Link>
+            }
+          />
         )}
       </section>
 

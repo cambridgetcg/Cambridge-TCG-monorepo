@@ -18,11 +18,12 @@
 //   tightened prices are an indicative market-making signal. A future pass
 //   will honor the displayed bid when the user locks it at submission time.
 
-import { fetchCard, fetchPrices } from "@/lib/wholesale/client";
+import { fetchCard } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
+import { getTrustTier } from "@/lib/escrow/trust-engine";
 import { getCardOrderBook } from "./db";
 import { query } from "@/lib/db";
-import type { CardOrderBook, OrderBookEntry } from "./types";
+import type { CardOrderBook, MarketTrade, OrderBookEntry } from "./types";
 
 export interface HouseOrderEntry extends OrderBookEntry {
   is_house?: boolean;
@@ -76,6 +77,72 @@ async function computeDemandPressure(sku: string): Promise<DemandPressure> {
   return { watchCount, alertCount, askDepth, bidDepth, pressure };
 }
 
+// The reputation checker at the point of trade (global free trade,
+// 2026-06-10): identity verification is gone; what replaces it is the
+// counterparty's earned reputation, visible BEFORE the trade. The tier
+// *name* is derived in TS from TRUST_TIERS (no tier column exists in the
+// DB) — same derivation auction/state.ts uses.
+export interface BestAskSeller {
+  user_id: string;
+  username: string | null;
+  trust_score: number | null;
+  tier: string | null;
+  avg_rating: number | null;
+  review_count: number;
+}
+
+// Tape rows carry the seller's tier so the recent-trades table can render
+// a TrustTier chip next to the seller link. Null when the seller has no
+// trust profile yet.
+export type TapeTrade = MarketTrade & { seller_tier?: string | null };
+
+// Best non-house ask + the seller behind it. Single cheap query — the
+// order book aggregates by price (no user ids), so this resolves the
+// lowest-priced open ask order to its seller and joins users +
+// trust_profiles for the reputation read. Returns null when no P2P asks.
+async function fetchBestAskSeller(sku: string): Promise<BestAskSeller | null> {
+  const r = await query(
+    `SELECT mo.user_id, u.username,
+            tp.trust_score, tp.avg_rating, tp.total_reviews
+       FROM market_orders mo
+       LEFT JOIN users u ON u.id = mo.user_id
+       LEFT JOIN trust_profiles tp ON tp.user_id = mo.user_id
+      WHERE mo.sku = $1 AND mo.side = 'ask'
+        AND mo.status IN ('open', 'partially_filled')
+      ORDER BY mo.price ASC, mo.created_at ASC
+      LIMIT 1`,
+    [sku]
+  );
+  const row = r.rows[0];
+  if (!row) return null;
+  const score = row.trust_score != null ? Number(row.trust_score) : null;
+  return {
+    user_id: row.user_id,
+    username: row.username ?? null,
+    trust_score: score,
+    tier: score !== null ? getTrustTier(score).name : null,
+    avg_rating: row.avg_rating != null ? parseFloat(row.avg_rating) : null,
+    review_count: row.total_reviews != null ? Number(row.total_reviews) : 0,
+  };
+}
+
+// Batched tier lookup for the recent-trades tape (≤20 rows, one query).
+async function fetchTapeSellerTiers(sellerIds: string[]): Promise<Map<string, string>> {
+  if (sellerIds.length === 0) return new Map();
+  const placeholders = sellerIds.map((_, i) => `$${i + 1}`).join(", ");
+  const r = await query(
+    `SELECT user_id, trust_score FROM trust_profiles WHERE user_id IN (${placeholders})`,
+    sellerIds
+  );
+  const map = new Map<string, string>();
+  for (const row of r.rows) {
+    if (row.trust_score != null) {
+      map.set(String(row.user_id), getTrustTier(Number(row.trust_score)).name);
+    }
+  }
+  return map;
+}
+
 export interface UnifiedMarketView {
   sku: string;
   card_name: string | null;
@@ -96,7 +163,11 @@ export interface UnifiedMarketView {
   // Merged order book (CTCG injected on BOTH sides)
   bids: HouseOrderEntry[];
   asks: HouseOrderEntry[];
-  recent_trades: CardOrderBook["recent_trades"];
+  recent_trades: TapeTrade[];
+
+  // Reputation checker: the seller behind the best ask (null when the
+  // best ask is the house — CTCG doesn't need a trust chip).
+  best_ask_seller: BestAskSeller | null;
 
   // Derived
   best_bid: number | null;
@@ -121,35 +192,49 @@ export interface UnifiedMarketView {
 
 export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketView> {
   // Derive set_code from SKU (e.g. "OP-OP01-025-JP-V11D5" → "OP01", "EB-EB01-006-JP-VZSK" → "EB01")
-  const skuParts = sku.split("-");
-  const setCode = skuParts.length >= 2 ? skuParts[1] : undefined;
-
   // Every leg below has a catch — the unified view should always render
   // something. A failure in any one source falls back to a sensible empty
   // value rather than 500'ing the whole page (the page is the user's
   // primary view; degrading is much better than failing).
-  const [card, orderBook, tradeinCreditRes, tradeinCashRes, pressure] = await Promise.all([
+  const [card, orderBook, tradeinCreditItem, tradeinCashItem, pressure, p2pAskSeller] = await Promise.all([
     fetchCard(sku).catch(() => null),
     getCardOrderBook(sku).catch((err): CardOrderBook => {
       console.error("[market/unified] getCardOrderBook failed:", err);
       return { sku, card_name: null, image_url: null, bids: [], asks: [], recent_trades: [], best_bid: null, best_ask: null };
     }),
-    // Use batch fetchPrices instead of fetchCard for trade-in channels
-    // (individual SKU lookup may not support trade-in channels)
-    setCode ? fetchPrices({ game: "one-piece", set: setCode, channel: "tradein-credit", limit: 500 }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
-    setCode ? fetchPrices({ game: "one-piece", set: setCode, channel: "tradein-cash", limit: 500 }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
+    // Per-SKU lookup works on trade-in channels for every game — no game
+    // param needed, SKUs are globally unique.
+    fetchCard(sku, "tradein-credit").catch(() => null),
+    fetchCard(sku, "tradein-cash").catch(() => null),
     computeDemandPressure(sku).catch((err): DemandPressure => {
       console.error("[market/unified] computeDemandPressure failed:", err);
       return { watchCount: 0, alertCount: 0, askDepth: 0, bidDepth: 0, pressure: 0 };
     }),
+    fetchBestAskSeller(sku).catch((err): BestAskSeller | null => {
+      console.error("[market/unified] fetchBestAskSeller failed:", err);
+      return null;
+    }),
   ]);
+
+  // Tape reputation: attach the seller's tier to each recent trade so the
+  // page can chip the seller link. Depends on the order-book result, so it
+  // runs after the parallel fetch; degrades to no chips on failure.
+  const tapeSellerIds = [...new Set(
+    orderBook.recent_trades.map((t) => t.seller_id).filter(Boolean),
+  )];
+  const tapeTiers = await fetchTapeSellerTiers(tapeSellerIds).catch((err) => {
+    console.error("[market/unified] fetchTapeSellerTiers failed:", err);
+    return new Map<string, string>();
+  });
+  const recentTrades: TapeTrade[] = orderBook.recent_trades.map((t) => ({
+    ...t,
+    seller_tier: tapeTiers.get(t.seller_id) ?? null,
+  }));
 
   // Actual tightening percentage used for THIS view. Capped at MAX_TIGHTEN_PCT.
   const tightenPct = Math.min(pressure.pressure, 1) * MAX_TIGHTEN_PCT;
 
   // Find this specific SKU in the trade-in results
-  const tradeinCreditItem = tradeinCreditRes.items.find(i => i.sku === sku);
-  const tradeinCashItem = tradeinCashRes.items.find(i => i.sku === sku);
   const tradeinCredit = tradeinCreditItem?.channel_price ?? null;
   const tradeinCash = tradeinCashItem?.channel_price ?? null;
   const spotPrice = card ? retailPrice(card.price_gbp, card.channel_price) : null;
@@ -236,7 +321,10 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
     tradein_cash: tradeinCash,
     bids,
     asks,
-    recent_trades: orderBook.recent_trades,
+    recent_trades: recentTrades,
+    // Null when the house holds the top of the book — the chip is for
+    // P2P counterparties, not CTCG itself.
+    best_ask_seller: asks[0]?.is_house ? null : p2pAskSeller,
     best_bid: bestBid,
     best_ask: bestAsk,
     market_price: bestAsk,

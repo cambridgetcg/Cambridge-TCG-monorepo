@@ -39,11 +39,7 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
   // Calculate available DON!! (after adding)
   let availableDon = ai.donActive + donGain;
 
-  // Sort hand by cost (play cheaper cards first to build board)
-  const playableHand = [...ai.hand].sort((a, b) => {
-    // Prefer characters with higher power for the cost
-    return 0; // Play in order for simplicity
-  });
+  const playableHand = [...ai.hand];
 
   // Play characters from hand (up to field limit of 5)
   let fieldCount = ai.field.length;
@@ -76,7 +72,7 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
   if (availableDon > 0 && aggression > 0.3) {
     const attackers = [...ai.field, ai.leader].filter(Boolean) as GameCard[];
     if (attackers.length > 0) {
-      // Attach to strongest attacker
+      // Attach to first attacker (field card if any, otherwise leader)
       const target = attackers[0];
       const toAttach = Math.min(availableDon, Math.ceil(aggression * 3));
       for (let i = 0; i < toAttach; i++) {
@@ -91,9 +87,11 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
   }
 
   // Attack phase — based on aggression
-  // Note: we track simulated rested state locally so the AI doesn't double-attack
+  // All board cards are eligible: the refresh_all queued above un-rests them
+  // before any attack resolves, so the snapshot's isRested is stale here.
+  // We track simulated rested state locally so the AI doesn't double-attack
   // with the same card in one turn (actual rest is applied by the attack action).
-  const canAttack = [ai.leader, ...ai.field].filter(c => c && !c.isRested) as GameCard[];
+  const canAttack = [ai.leader, ...ai.field].filter(Boolean) as GameCard[];
   const attackedIds = new Set<string>();
 
   // Lethal check — if opponent is at 0 life, always swing the leader for the kill.

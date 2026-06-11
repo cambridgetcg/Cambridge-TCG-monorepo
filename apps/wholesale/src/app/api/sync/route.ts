@@ -18,12 +18,15 @@ export async function POST() {
     const today = now.toISOString().slice(0, 10);
     let synced = 0;
 
-    // Get-or-create the game record
-    const gameCode = "onepiece"; // all current data is One Piece
+    // Get-or-create the game record. Kingdom GameCode ('op') since
+    // migration 0022 flipped games.code to @cambridge-tcg/sku codes —
+    // the legacy 'onepiece' lookup would re-insert a duplicate row and
+    // collide on the slug unique constraint.
+    const gameCode = "op"; // all current data is One Piece
     let [game] = await db.select().from(games).where(eq(games.code, gameCode)).limit(1);
     if (!game) {
       await db.insert(games).values({
-        code: "onepiece", name: "One Piece", slug: "one-piece", active: true, sortOrder: 0,
+        code: "op", name: "One Piece", slug: "one-piece", active: true, sortOrder: 0,
       });
       [game] = await db.select().from(games).where(eq(games.code, gameCode)).limit(1);
     }

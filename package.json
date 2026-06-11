@@ -6,10 +6,13 @@
   "scripts": {
     "dev:wholesale": "pnpm --filter ./apps/wholesale dev",
     "dev:storefront": "pnpm --filter ./apps/storefront dev",
+    "dev:rewardspro": "pnpm --filter ./apps/rewardspro dev",
     "build:wholesale": "pnpm --filter ./apps/wholesale build",
     "build:storefront": "pnpm --filter ./apps/storefront build",
+    "build:rewardspro": "pnpm --filter ./apps/rewardspro build",
+    "test:rewardspro": "pnpm --filter rewardspro test:unit",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' -r exec tsc --noEmit",
+    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro-membership' -r exec tsc --noEmit",
     "audit:honesty": "pnpm --filter cambridgetcg-storefront honesty",
     "audit:transparency": "pnpm --filter cambridgetcg-storefront transparency",
     "audit:pricing": "pnpm --filter cambridgetcg-storefront pricing",
@@ -22,6 +25,7 @@
     "audit:set-discovery": "pnpm --filter cambridgetcg-storefront set-discovery",
     "audit:play-resources": "pnpm --filter cambridgetcg-storefront play-resources",
     "audit:play-game-registry": "pnpm --filter cambridgetcg-storefront play-game-registry",
+    "audit:no-house-listing": "pnpm --filter cambridgetcg-storefront no-house-listing",
     "audit:cardrush-coverage": "pnpm --filter cambridgetcg-storefront cardrush-coverage",
     "audit:cardrush-coverage:strict": "pnpm --filter cambridgetcg-storefront cardrush-coverage -- --strict",
     "audit:cardrush-probe": "pnpm --filter cambridgetcg-storefront cardrush-probe",
@@ -61,5 +65,65 @@
   "engines": {
     "node": ">=20",
     "pnpm": ">=9"
+  },
+  "pnpm": {
+    "packageExtensions": {
+      "next": {
+        "peerDependencies": {
+          "@types/react": "*",
+          "@types/react-dom": "*"
+        },
+        "peerDependenciesMeta": {
+          "@types/react": { "optional": true },
+          "@types/react-dom": { "optional": true }
+        }
+      },
+      "@remix-run/react": {
+        "peerDependencies": {
+          "@types/react": "*",
+          "@types/react-dom": "*"
+        },
+        "peerDependenciesMeta": {
+          "@types/react": { "optional": true },
+          "@types/react-dom": { "optional": true }
+        }
+      },
+      "react-router-dom": {
+        "peerDependencies": {
+          "@types/react": "*"
+        },
+        "peerDependenciesMeta": {
+          "@types/react": { "optional": true }
+        }
+      },
+      "react-router": {
+        "peerDependencies": {
+          "@types/react": "*"
+        },
+        "peerDependenciesMeta": {
+          "@types/react": { "optional": true }
+        }
+      }
+    },
+    "overrides": {
+      "@shopify/polaris>@types/react": "^18.3.31",
+      "@shopify/polaris>@types/react-dom": "^18.3.7",
+      "@types/react-transition-group>@types/react": "^18.3.31",
+      "@visx/annotation>@types/react": "^18.3.31",
+      "@visx/axis>@types/react": "^18.3.31",
+      "@visx/bounds>@types/react": "^18.3.31",
+      "@visx/drag>@types/react": "^18.3.31",
+      "@visx/event>@types/react": "^18.3.31",
+      "@visx/glyph>@types/react": "^18.3.31",
+      "@visx/grid>@types/react": "^18.3.31",
+      "@visx/group>@types/react": "^18.3.31",
+      "@visx/react-spring>@types/react": "^18.3.31",
+      "@visx/responsive>@types/react": "^18.3.31",
+      "@visx/shape>@types/react": "^18.3.31",
+      "@visx/text>@types/react": "^18.3.31",
+      "@visx/tooltip>@types/react": "^18.3.31",
+      "@visx/voronoi>@types/react": "^18.3.31",
+      "@visx/xychart>@types/react": "^18.3.31"
+    }
   }
 }

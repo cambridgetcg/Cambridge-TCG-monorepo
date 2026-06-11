@@ -184,7 +184,15 @@ export default function VerifyPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Verification</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-white">Identity verification (optional)</h1>
+        <p className="text-sm text-neutral-400 mt-2 max-w-prose">
+          Verification is voluntary. Trading needs an account, not an identity — verifying
+          does not affect what you can trade or your trust score. This flow exists for users
+          who want their identity on file with the platform, and is currently UK-identity
+          only. A public verified badge is planned but not yet shipped.
+        </p>
+      </div>
 
       {verification && <VerificationTimelineBar verification={verification} />}
 
@@ -195,7 +203,7 @@ export default function VerifyPage() {
             {verification?.verified_at
               ? new Date(verification.verified_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
               : "N/A"}
-          </span>. You can participate in P2P trades.
+          </span>. Your identity is on file with the platform.
         </StatusCard>
       )}
 
@@ -223,7 +231,8 @@ export default function VerifyPage() {
 
       {status === "expired" && (
         <StatusCard tone="amber" title="Verification expired">
-          Your prior verification lapsed. Re-submit to restore P2P access.
+          Your prior verification lapsed. Re-submit if you&apos;d like to keep your identity
+          on file — trading is unaffected either way.
         </StatusCard>
       )}
 
@@ -308,7 +317,8 @@ export default function VerifyPage() {
         <>
           <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
             <p className="text-amber-200/80 text-sm">
-              UK residents only. Your information is encrypted and never shared.
+              This optional flow is currently UK residents only. Your information is
+              encrypted and never shared.
             </p>
           </div>
 
