@@ -467,10 +467,14 @@ export async function placeOrder(data: {
           [tradeUserId]
         ).then((res) => {
           const count = parseInt(res.rows[0].count, 10);
-          if (count === 1) awardAchievement(tradeUserId, "first_trade").catch(() => {});
-          if (count === 10) awardAchievement(tradeUserId, "trades_10").catch(() => {});
-          if (count === 50) awardAchievement(tradeUserId, "trades_50").catch(() => {});
-          if (count === 100) awardAchievement(tradeUserId, "trades_100").catch(() => {});
+          // Monotonic thresholds (>=), not exact equality. A batch that settles
+          // two trades at once can jump the count straight past 10/50/100, and
+          // the old `=== N` then dropped the badge forever. awardAchievement is
+          // idempotent (ON CONFLICT DO NOTHING), so >= is safe and self-healing.
+          if (count >= 1) awardAchievement(tradeUserId, "first_trade").catch(() => {});
+          if (count >= 10) awardAchievement(tradeUserId, "trades_10").catch(() => {});
+          if (count >= 50) awardAchievement(tradeUserId, "trades_50").catch(() => {});
+          if (count >= 100) awardAchievement(tradeUserId, "trades_100").catch(() => {});
         }).catch(() => {});
       }
     }
