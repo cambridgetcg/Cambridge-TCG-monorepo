@@ -292,6 +292,20 @@ export async function submitReview(data: {
   // Social: first review achievement
   awardAchievement(data.reviewerId, "first_review").catch(() => {});
 
+  // Helpful Seller: the REVIEWEE earns it at 10 five-star reviews received.
+  // Seeded but never awarded before this — an unearnable badge, now wired.
+  if (Number(data.rating) === 5) {
+    query(
+      `SELECT COUNT(*)::int AS n FROM trade_reviews
+        WHERE reviewee_id=$1 AND rating=5 AND admin_hidden=false`,
+      [data.revieweeId]
+    ).then((r) => {
+      if ((r.rows[0]?.n ?? 0) >= 10) {
+        awardAchievement(data.revieweeId, "helpful_seller").catch(() => {});
+      }
+    }).catch(() => {});
+  }
+
   // Recalculate trust score for reviewee
   await calculateTrustScore(data.revieweeId);
 
