@@ -161,6 +161,16 @@ they're long-running bugs. Triage owner: each row's noted area.
 When you fix one of these, remove its row from this table and confirm
 the audit now passes 128/128.
 
+Two more non-regression patterns the audit surfaces (observed 2026-06-11,
+baseline 155/161):
+
+- `storefront.coffee` returns **418 I'm a teapot** by design; the audit's
+  allowed-status table doesn't include 418, so it reports as a failure.
+  Either teach the classifier 418-on-`/coffee` or read past it.
+- Parametric endpoints can hit the 15s timeout from a cold start during
+  the ~160-probe burst (`storefront.auction_math`, 2026-06-11). Re-probe
+  directly: a fast 404 on a stub id is healthy per the table above.
+
 ## Common deploy failures
 
 | Symptom | Likely cause | Fix |
