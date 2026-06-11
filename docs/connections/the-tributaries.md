@@ -87,7 +87,7 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | License | ToS-restricted; commercial data downstream restrictions. Personal-account reads broadly permitted. |
 | Freshness | real-time on `/articles`; weekly on bulk |
 | Canonical-form effort | **medium-high** — Cardmarket uses `idProduct` per printing per language; cross-language same-card has multiple ids. Mapping table required per game. |
-| Status | **planned (stub shipped 2026-05-12)** — [`packages/data-ingest/src/cardmarket/`](../../packages/data-ingest/src/cardmarket/) declares full meta; `read()` emits an actionable error pending OAuth1 client + credentials. Essential for EU pricing parity. |
+| Status | **partial (built 2026-06-11; awaiting credentials)** — [`packages/data-ingest/src/cardmarket/`](../../packages/data-ingest/src/cardmarket/) ships the OAuth1 HMAC-SHA1 signer (`oauth1.ts`), entity types + language/game maps (`types.ts`), the EUR price normalizer (`normalize.ts`), and a signed watch-list `read()`; all unit-tested. Until the four `CARDMARKET_*` env vars arrive it emits a substrate-honest awaiting-credentials event and yields nothing. Note: MKM deprecated the live `/priceguide` + `/productlist` endpoints 2024-06-05 — full-catalog EU coverage should wire the **daily file downloads** (the normalizer is shared). Named seams: operator-curated expansion→set crosswalk (`mapCardmarketSet`); One Piece/Lorcana/FaB/Digimon `idGame` ids unconfirmed (quarantine until verified against `/games`). Essential for EU pricing parity. |
 
 ### 2.3 CardRush (JP — already partial)
 
