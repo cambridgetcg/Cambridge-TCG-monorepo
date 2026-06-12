@@ -7,10 +7,11 @@ derive the supplier URL from a client-visible SKU.
   decode: strip "V" → base36 → XOR 48879 → productId
 """
 
+import os
 import re
 import psycopg2
 
-DATABASE_URL = "postgresql://postgres:Rzqku6Og7qqogZkzb1gPSVvn@tcg-wholesale.cn4c2su0o42n.us-east-1.rds.amazonaws.com:5432/wholesale?sslmode=require&connect_timeout=10"
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 SKU_XOR_KEY = 48879
 

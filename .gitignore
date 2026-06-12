@@ -48,3 +48,7 @@ docs/sisters/
 probe-*.mjs
 apps/*/probe-*.mjs
 packages/*/probe-*.mjs
+
+# Python bytecode (a committed .pyc once embedded a credential)
+__pycache__/
+*.pyc

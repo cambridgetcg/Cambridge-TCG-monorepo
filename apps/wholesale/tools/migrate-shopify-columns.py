@@ -19,10 +19,10 @@ import psycopg2.extras
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-DATABASE_URL = "postgresql://postgres:Rzqku6Og7qqogZkzb1gPSVvn@tcg-wholesale.cn4c2su0o42n.us-east-1.rds.amazonaws.com:5432/wholesale?sslmode=require"
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 SHOPIFY_STORE = os.environ.get("SHOPIFY_STORE", "6e824e-a9.myshopify.com")
-SHOPIFY_ACCESS_TOKEN = os.environ.get("SHOPIFY_ACCESS_TOKEN", "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")
+SHOPIFY_ACCESS_TOKEN = os.environ["SHOPIFY_ACCESS_TOKEN"]
 SHOPIFY_API_VERSION = "2024-10"
 
 # ── DB Migration ──────────────────────────────────────────────────────────────

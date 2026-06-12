@@ -12,11 +12,12 @@ Three cases handled:
 Updates: cards, cart_items, price_archive, order_items (card_id), purchase_items (card_id)
 """
 
+import os
 import re
 import sys
 import psycopg2
 
-DATABASE_URL = "postgresql://postgres:Rzqku6Og7qqogZkzb1gPSVvn@tcg-wholesale.cn4c2su0o42n.us-east-1.rds.amazonaws.com:5432/wholesale?sslmode=require&connect_timeout=10"
+DATABASE_URL = os.environ["DATABASE_URL"]
 SKU_XOR_KEY = 48879
 
 

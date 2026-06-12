@@ -1,5 +1,6 @@
 """Order Fulfillment Tool — Enter fulfilled quantities, persist to DB, print clean forms."""
 
+import os
 import io
 import unicodedata
 from collections import defaultdict
@@ -20,7 +21,7 @@ def _trunc(text: str, max_width: int) -> str:
             return text[:i] + "…"
     return text
 
-DATABASE_URL = "postgresql://postgres:Rzqku6Og7qqogZkzb1gPSVvn@tcg-wholesale.cn4c2su0o42n.us-east-1.rds.amazonaws.com:5432/wholesale?sslmode=require"
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 
 # ── Ensure table exists ────────────────────────────────────────────────────
