@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const game = url.searchParams.get("game") || "one-piece";
   const set = url.searchParams.get("set") || undefined;
   const search = url.searchParams.get("q") || undefined;
+  const rarity = url.searchParams.get("rarity") || undefined;
   const sort = url.searchParams.get("sort") || "name_asc";
   const limit = parseInt(url.searchParams.get("limit") || "48", 10);
   const offset = parseInt(url.searchParams.get("offset") || "0", 10);
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
     game,
     set,
     q: search,
+    rarity,
     sort: sortMap[sort] || "name_asc",
     limit,
     offset,

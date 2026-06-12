@@ -152,3 +152,18 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * deck-pop — the add-to-deck tick. A ~150ms scale pop replayed (via React
+ * key) whenever a quantity or deck count changes, so every add/remove is
+ * visibly acknowledged. The prefers-reduced-motion block above collapses
+ * it to 1ms for users who opt out of motion.
+ */
+@keyframes deck-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.animate-deck-pop {
+  animation: deck-pop 150ms ease-out;
+}

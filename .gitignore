@@ -48,3 +48,4 @@ docs/sisters/
 probe-*.mjs
 apps/*/probe-*.mjs
 packages/*/probe-*.mjs
+.env*

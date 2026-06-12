@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { normalizeRarity } from "./rarity";
 
 // Loose type so the component doesn't drag the full page types over.
 //
@@ -44,9 +45,10 @@ const RARITY_COLOR: Record<string, string> = {
 };
 
 // Normalize a rarity string into one of our tracked buckets or "other".
+// Compound parallels (L/P, SR/P, …) bucket by their base rarity.
 function bucket(rarity: string | null): TrackedRarity | "other" {
-  if (!rarity) return "other";
-  const r = rarity.toUpperCase();
+  const r = normalizeRarity(rarity);
+  if (!r) return "other";
   if ((TRACKED_RARITIES as readonly string[]).includes(r)) return r as TrackedRarity;
   return "other";
 }
@@ -87,8 +89,9 @@ const ROLE_META: Record<DeckRole, { label: string; description: string; color: s
 };
 
 function roleOf(rarity: string | null): DeckRole {
-  if (!rarity) return "other";
-  return ROLE_FOR_RARITY[rarity.toUpperCase()] ?? "other";
+  const r = normalizeRarity(rarity);
+  if (!r) return "other";
+  return ROLE_FOR_RARITY[r] ?? "other";
 }
 
 export default function DeckStatsPanel({
@@ -142,14 +145,14 @@ export default function DeckStatsPanel({
       {/* Rarity stacked bar */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold">
             Rarity mix
           </p>
-          <p className="text-[10px] text-neutral-500">
+          <p className="text-[10px] text-neutral-400">
             {stats.uniqueCount} unique · {totalCards}/{maxDeckSize} copies
           </p>
         </div>
-        <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900">
+        <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900" aria-hidden="true">
           {TRACKED_RARITIES.map((r) => {
             const n = stats.rarityCounts[r];
             if (n === 0) return null;
@@ -179,7 +182,7 @@ export default function DeckStatsPanel({
               <span key={r} className="flex items-center gap-1">
                 <span className={`w-2 h-2 rounded-sm ${RARITY_COLOR[r]}`} />
                 <span className="text-neutral-300">{r}</span>
-                <span className="text-neutral-500">{n}</span>
+                <span className="text-neutral-400">{n}</span>
               </span>
             );
           })}
@@ -187,7 +190,7 @@ export default function DeckStatsPanel({
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-sm bg-neutral-600" />
               <span className="text-neutral-300">other</span>
-              <span className="text-neutral-500">{stats.rarityCounts.other}</span>
+              <span className="text-neutral-400">{stats.rarityCounts.other}</span>
             </span>
           )}
         </div>
@@ -199,14 +202,14 @@ export default function DeckStatsPanel({
           page at /methodology/starter-decks. */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold">
             Role coverage
           </p>
-          <p className="text-[10px] text-neutral-600">
+          <p className="text-[10px] text-neutral-400">
             heuristic — by rarity
           </p>
         </div>
-        <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900">
+        <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900" aria-hidden="true">
           {(["core", "support", "midgame", "finisher", "other"] as DeckRole[]).map((r) => {
             const n = stats.roleCounts[r];
             if (n === 0) return null;
@@ -229,7 +232,7 @@ export default function DeckStatsPanel({
               <span key={r} className="flex items-center gap-1" title={ROLE_META[r].description}>
                 <span className={`w-2 h-2 rounded-sm ${ROLE_META[r].color}`} />
                 <span className="text-neutral-300">{ROLE_META[r].label}</span>
-                <span className="text-neutral-500">{n}</span>
+                <span className="text-neutral-400">{n}</span>
               </span>
             );
           })}
@@ -239,7 +242,7 @@ export default function DeckStatsPanel({
       {/* Set mix */}
       {stats.setMix.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-bold mb-1.5">
             Set mix
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -249,7 +252,7 @@ export default function DeckStatsPanel({
                 className="text-[10px] bg-neutral-900 border border-neutral-800 rounded px-2 py-1"
               >
                 <span className="text-neutral-400 font-mono">{code}</span>
-                <span className="text-neutral-500 ml-1.5">{n}</span>
+                <span className="text-neutral-400 ml-1.5">{n}</span>
               </span>
             ))}
           </div>

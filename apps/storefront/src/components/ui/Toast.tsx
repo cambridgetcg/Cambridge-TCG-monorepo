@@ -55,19 +55,24 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toast }}>
       {children}
 
-      {/* Toast container */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+      {/* Toast container — lifted clear of fixed mobile bottom bars
+          (deck builder summary bar, bounty bar); back to bottom-4 on lg. */}
+      <div
+        className="fixed bottom-20 lg:bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm"
+        aria-live="polite"
+      >
         {toasts.map((t) => (
           <div
             key={t.id}
             className={`flex items-center gap-3 px-4 py-3 border rounded-xl backdrop-blur-sm shadow-lg transition-all duration-300 ${typeStyles[t.type]}`}
-            role="alert"
+            role="status"
           >
-            <span className="text-lg shrink-0">{icons[t.type]}</span>
+            <span className="text-lg shrink-0" aria-hidden="true">{icons[t.type]}</span>
             <p className="text-sm font-medium flex-1">{t.message}</p>
             <button
               onClick={() => dismiss(t.id)}
-              className="shrink-0 opacity-60 hover:opacity-100 transition text-sm"
+              aria-label="Dismiss notification"
+              className="shrink-0 opacity-60 hover:opacity-100 transition text-sm p-1 -m-1"
             >
               &times;
             </button>

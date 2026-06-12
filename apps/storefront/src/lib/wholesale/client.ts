@@ -174,6 +174,7 @@ export async function fetchPrices(params?: {
   offset?: number;
   category?: string;
   channel?: string;
+  rarity?: string;
 }): Promise<PricesResponse> {
   const url = new URL(WHOLESALE_URL + '/api/v1/prices');
   // After wholesale fix #2 the API ignores ?channel= and uses the key's
@@ -189,6 +190,7 @@ export async function fetchPrices(params?: {
   if (params?.limit) url.searchParams.set('limit', String(params.limit));
   if (params?.offset) url.searchParams.set('offset', String(params.offset));
   if (params?.category) url.searchParams.set('category', params.category);
+  if (params?.rarity) url.searchParams.set('rarity', params.rarity);
 
   let res: Response;
   try {

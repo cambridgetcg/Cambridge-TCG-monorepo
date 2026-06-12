@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useCallback } from "react";
 import Image from "next/image";
+import { Modal } from "@/lib/ui";
+import { normalizeRarity } from "./rarity";
 
 // Matches the shape of a CatalogCard in deck-builder/page.tsx. Kept loose so
 // this component doesn't drag the full page type definition over.
@@ -51,6 +53,7 @@ export default function HandSimulator({
   const deck = useMemo(() => expand(entries), [entries]);
   const [hand, setHand] = useState<SimCard[]>(() => shuffle([...deck]).slice(0, handSize));
   const [drawCount, setDrawCount] = useState(1);
+  const [mulliganUsed, setMulliganUsed] = useState(false);
   const [targetSkus, setTargetSkus] = useState<Set<string>>(new Set());
   const [simResult, setSimResult] = useState<{
     trials: number;
@@ -60,16 +63,23 @@ export default function HandSimulator({
   } | null>(null);
   const [simRunning, setSimRunning] = useState(false);
 
+  // "Shuffle & Draw" starts a fresh game: new hand, mulligan available again.
   const redraw = useCallback(() => {
     setHand(shuffle([...deck]).slice(0, handSize));
     setDrawCount((n) => n + 1);
+    setMulliganUsed(false);
     setSimResult(null);
   }, [deck, handSize]);
 
+  // OPTCG allows exactly one mulligan per game — a full redraw, shuffling
+  // the hand back in. After it's spent, the button stays disabled until
+  // the next fresh draw.
   const mulligan = useCallback(() => {
-    // OPTCG mulligan is a full redraw once, shuffling hand back in. Same effect.
-    redraw();
-  }, [redraw]);
+    setHand(shuffle([...deck]).slice(0, handSize));
+    setDrawCount((n) => n + 1);
+    setMulliganUsed(true);
+    setSimResult(null);
+  }, [deck, handSize]);
 
   const toggleTarget = useCallback((sku: string) => {
     setTargetSkus((prev) => {
@@ -101,7 +111,7 @@ export default function HandSimulator({
         for (let i = 0; i < handSize; i++) {
           const c = scratch[i];
           if (targetSkus.has(c.sku)) keyCount++;
-          const r = (c.rarity ?? "").toUpperCase();
+          const r = normalizeRarity(c.rarity);
           if (r === "C") rarityTotals.C++;
           else if (r === "UC") rarityTotals.UC++;
           else if (r === "R") rarityTotals.R++;
@@ -143,25 +153,19 @@ export default function HandSimulator({
   const tooSmall = deck.length < handSize;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 max-w-3xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onClose} labelledBy="hand-sim-title" maxWidth="max-w-3xl">
         <div className="flex items-baseline justify-between mb-5">
           <div>
-            <h2 className="text-xl font-bold">Opening Hand Simulator</h2>
-            <p className="text-xs text-neutral-500 mt-0.5">
+            <h2 id="hand-sim-title" className="text-xl font-bold">Opening hand simulator</h2>
+            <p className="text-xs text-neutral-400 mt-0.5">
               {leader ? `Leader: ${leader.name} · ` : ""}
               {deck.length} cards in deck · draw {handSize}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-500 hover:text-white text-2xl leading-none"
+            aria-label="Close simulator"
+            className="text-neutral-400 hover:text-white text-2xl leading-none p-2 -m-2"
           >
             &times;
           </button>
@@ -180,10 +184,11 @@ export default function HandSimulator({
             <div className="flex gap-2">
               <button
                 onClick={mulligan}
-                disabled={tooSmall}
+                disabled={tooSmall || mulliganUsed}
+                title="One full redraw per game, as in a real match"
                 className="text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
               >
-                Mulligan
+                {mulliganUsed ? "Mulligan used" : "Mulligan"}
               </button>
               <button
                 onClick={redraw}
@@ -194,9 +199,12 @@ export default function HandSimulator({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-5 gap-2">
+          <p className="sr-only" role="status">
+            Drew hand number {drawCount}
+          </p>
+          <div className="flex gap-2 overflow-x-auto snap-x sm:grid sm:grid-cols-5">
             {hand.map((card, i) => (
-              <div key={`${card.sku}-${i}`} className="relative aspect-[5/7] rounded-md overflow-hidden bg-neutral-800 border border-neutral-700">
+              <div key={`${card.sku}-${i}`} className="relative aspect-[5/7] w-24 shrink-0 snap-start sm:w-auto rounded-md overflow-hidden bg-neutral-800 border border-neutral-700">
                 {card.image_url ? (
                   <Image
                     src={card.image_url}
@@ -216,7 +224,7 @@ export default function HandSimulator({
               </div>
             ))}
             {Array.from({ length: Math.max(0, handSize - hand.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-[5/7] rounded-md bg-neutral-800/40 border border-dashed border-neutral-800" />
+              <div key={`empty-${i}`} className="aspect-[5/7] w-24 shrink-0 snap-start sm:w-auto rounded-md bg-neutral-800/40 border border-dashed border-neutral-800" />
             ))}
           </div>
         </div>
@@ -238,6 +246,7 @@ export default function HandSimulator({
                     <button
                       key={e.card.sku}
                       onClick={() => toggleTarget(e.card.sku)}
+                      aria-pressed={sel}
                       className={`text-[11px] rounded px-2 py-1 transition-colors ${
                         sel
                           ? "bg-amber-500 text-black font-semibold"
@@ -308,13 +317,12 @@ export default function HandSimulator({
                   ))}
                 </div>
               </div>
-              <p className="text-[10px] text-neutral-600 italic">
+              <p className="text-[10px] text-neutral-400 italic">
                 Based on {simResult.trials.toLocaleString()} Fisher-Yates shuffles of your current deck.
               </p>
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

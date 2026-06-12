@@ -26,6 +26,7 @@ export { ErrorAlert } from "./ErrorAlert";
 export { FilterPills, type FilterPill } from "./FilterPills";
 export { Field, Input, Select, Textarea } from "./Input";
 export { Skeleton, ListSkeleton, DetailSkeleton } from "./LoadingSkeleton";
+export { Modal } from "./Modal";
 export { PageHeader } from "./PageHeader";
 export { Pagination } from "./Pagination";
 export { Tabs, LinkedTabs, type Tab } from "./Tabs";
