@@ -382,7 +382,7 @@ export async function pullOrders(since: Date): Promise<Result<EbayOrder[]>> {
   let offset = 0;
   const limit = 50;
 
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     const filter = [
       "orderfulfillmentstatus:{NOT_STARTED|IN_PROGRESS}",

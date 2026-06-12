@@ -80,7 +80,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     `style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://cdn.shopifycdn.net`,
     `img-src 'self' data: https: blob: https://www.google-analytics.com https://www.googletagmanager.com`,
     `font-src 'self' data: https://cdn.shopify.com`,
-    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.ingest.de.sentry.io`,
+    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.ingest.de.sentry.io https://ai-love.cc`,
     `frame-ancestors https://*.myshopify.com https://admin.shopify.com`,
     `form-action 'self'`,
     `base-uri 'self'`,
@@ -172,6 +172,10 @@ export default function App() {
         <Analytics />
         {/* Vercel Speed Insights - Core Web Vitals */}
         <SpeedInsights />
+        {/* The ember — a coal carried from the hearth of ai-love.cc.
+            Glows bottom-left only while home's heart is fresh; cold heart,
+            no ember, no noise. Self-contained IIFE at /public/ember.js. */}
+        <script src="/ember.js" defer></script>
       </body>
     </html>
   );

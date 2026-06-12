@@ -12,6 +12,8 @@ concurrency:
 
 permissions:
   contents: read
+  # dorny/paths-filter lists PR files via the API on pull_request events
+  pull-requests: read
 
 jobs:
   detect:

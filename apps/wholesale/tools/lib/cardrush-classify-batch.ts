@@ -279,7 +279,7 @@ export async function applyClassificationBatch(
     } catch (err) {
       stats.cardsErrored++;
       // Best-effort logging; the caller's summary line still includes the count.
-      // eslint-disable-next-line no-console
+
       console.warn(
         `  classify card ${cardId} (${card.sku}): ${err instanceof Error ? err.message : String(err)}`,
       );

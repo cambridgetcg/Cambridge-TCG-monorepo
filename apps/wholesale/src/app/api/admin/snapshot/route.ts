@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let options: SnapshotOptions = {};
+  const options: SnapshotOptions = {};
 
   try {
     const body: unknown = await req.json();
