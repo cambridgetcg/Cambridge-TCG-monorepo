@@ -64,9 +64,11 @@ const RARITY_OPTIONS = [
   { value: "SEC", label: "SEC (Secret)" },
   { value: "SR", label: "SR (Super Rare)" },
   { value: "SP", label: "SP (Special)" },
+  { value: "TR", label: "TR (Treasure)" },
   { value: "R", label: "R (Rare)" },
   { value: "UC", label: "UC (Uncommon)" },
   { value: "C", label: "C (Common)" },
+  { value: "P", label: "P (Promo)" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -77,7 +79,7 @@ function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
   const r = normalizeRarity(rarity);
   let cls = "bg-neutral-700 text-neutral-400";
-  if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP")
+  if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP" || r === "TR")
     cls = "bg-yellow-500/20 text-yellow-400";
   else if (r === "R" || r === "RR" || r === "SSR")
     cls = "bg-purple-500/20 text-purple-400";
@@ -156,6 +158,9 @@ export default function DeckBuilderPage() {
   const [setsLoading, setSetsLoading] = useState(true);
   const [searchTotal, setSearchTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  // Substrate honesty: the API says where card data came from (a dated
+  // snapshot vs a live read); surface it next to the results count.
+  const [catalogSource, setCatalogSource] = useState<{ kind: string; generated_at?: string } | null>(null);
   const limit = 48;
 
   /* ---- UI state ---- */
@@ -265,6 +270,7 @@ export default function DeckBuilderPage() {
         const data = await res.json();
         setCards(data.cards ?? []);
         setSearchTotal(data.total ?? 0);
+        setCatalogSource(data.source ?? null);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setCards([]);
@@ -972,6 +978,14 @@ export default function DeckBuilderPage() {
                       className="inline-block w-3 h-3 border border-neutral-600 border-t-amber-500 rounded-full animate-spin"
                       aria-hidden="true"
                     />
+                  )}
+                  {catalogSource?.kind === "snapshot" && (
+                    <span
+                      className="text-neutral-500"
+                      title="Card data is a snapshot of the official Bandai cardlist, regenerated when new sets release — not a live database read."
+                    >
+                      · catalog snapshot {catalogSource.generated_at}
+                    </span>
                   )}
                 </>
               )}

@@ -83,6 +83,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "www.cardrush-op.jp",
       },
+      {
+        // Official Bandai cardlist images — the catalog snapshot's image
+        // source (see lib/catalog-snapshot.ts). The optimizer proxies and
+        // caches these, so Bandai sees one fetch per size, not per visitor.
+        protocol: "https",
+        hostname: "en.onepiece-cardgame.com",
+      },
     ],
   },
 };
