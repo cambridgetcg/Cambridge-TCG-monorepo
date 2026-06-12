@@ -128,25 +128,25 @@ try {
   }
 
   // TI-B should show as BOTH tradein_cash AND tradein_credit legs
-  assert(bySource.tradein_cash?.some((r) => r.id === `TI-AG-B${t}`),
+  assert(bySource.desk_cash?.some((r) => r.id === `TI-AG-B${t}`),
     "TI-B cash leg in history");
-  assert(bySource.tradein_credit?.some((r) => r.id === `TI-AG-B${t}`),
+  assert(bySource.desk_credit?.some((r) => r.id === `TI-AG-B${t}`),
     "TI-B credit leg in history");
-  const bCash = bySource.tradein_cash!.find((r) => r.id === `TI-AG-B${t}`)!;
+  const bCash = bySource.desk_cash!.find((r) => r.id === `TI-AG-B${t}`)!;
   assert(bCash.amount === 12 && bCash.method === "stripe",
     `TI-B cash: £12 via stripe (got £${bCash.amount} via ${bCash.method})`);
   assert(bCash.reference === `tr_test_${t}_ABCDEF`,
     `TI-B carries stripe_transfer_id (got ${bCash.reference})`);
 
   // TI-C credit leg in history, cash leg NOT (still pending)
-  assert(bySource.tradein_credit?.some((r) => r.id === `TI-AG-C${t}`),
+  assert(bySource.desk_credit?.some((r) => r.id === `TI-AG-C${t}`),
     "TI-C credit leg in history");
-  assert(!bySource.tradein_cash?.some((r) => r.id === `TI-AG-C${t}`),
+  assert(!bySource.desk_cash?.some((r) => r.id === `TI-AG-C${t}`),
     "TI-C cash leg NOT in history (still pending)");
 
   // TI-A: neither leg in history
-  assert(!bySource.tradein_cash?.some((r) => r.id === `TI-AG-A${t}`) &&
-         !bySource.tradein_credit?.some((r) => r.id === `TI-AG-A${t}`),
+  assert(!bySource.desk_cash?.some((r) => r.id === `TI-AG-A${t}`) &&
+         !bySource.desk_credit?.some((r) => r.id === `TI-AG-A${t}`),
     "TI-A NOT in history (approved but unpaid)");
 
   // QR-D: cash leg NOT in history; QR-E: credit leg in history

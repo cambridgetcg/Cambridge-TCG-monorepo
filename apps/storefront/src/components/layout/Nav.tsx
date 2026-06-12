@@ -7,13 +7,13 @@
  * by the typed config at `@/lib/nav/menu-config.ts`. Desktop renders
  * <MegaMenu> dropdowns; mobile renders an accordion drawer.
  *
- * Preserves the v0 cart-drawer, notification-bell, and auth-aware
- * Sign-in/Account behavior. URL space unchanged — only nav surface.
+ * Preserves the v0 notification-bell and auth-aware Sign-in/Account
+ * behavior. URL space unchanged — only nav surface. The retail cart
+ * affordance was removed with the regulator pivot (kingdom-101).
  */
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCart } from "@/context/CartContext";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import NotificationBell from "./NotificationBell";
@@ -21,7 +21,6 @@ import { MegaMenu } from "./MegaMenu";
 import { STOREFRONT_PRIMARY_NAV } from "@/lib/nav/menu-config";
 
 export default function Nav() {
-  const { totalItems, openDrawer } = useCart();
   const [loggedIn, setLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -89,61 +88,11 @@ export default function Nav() {
             {loggedIn ? "Account" : "Sign In"}
           </Link>
           {loggedIn && <NotificationBell />}
-          <button
-            onClick={openDrawer}
-            className="relative px-4 py-2 bg-emerald-500 text-black text-sm font-bold rounded-lg hover:bg-emerald-400 transition"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 inline-block mr-1 -mt-0.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-            Cart
-            {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {totalItems > 99 ? "99+" : totalItems}
-              </span>
-            )}
-          </button>
         </div>
 
-        {/* Mobile: bell + cart + hamburger */}
+        {/* Mobile: bell + hamburger */}
         <div className="flex md:hidden items-center gap-3">
           {loggedIn && <NotificationBell />}
-          <button
-            onClick={openDrawer}
-            className="relative px-3 py-2 bg-emerald-500 text-black text-sm font-bold rounded-lg hover:bg-emerald-400 transition"
-            aria-label="Open cart"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-            {totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {totalItems > 99 ? "99+" : totalItems}
-              </span>
-            )}
-          </button>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-2 text-neutral-300 hover:text-white transition"

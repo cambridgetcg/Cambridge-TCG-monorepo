@@ -1,8 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
-import { formatRetailPrice, retailPrice } from "@/lib/pricing";
-import QuickAddButton from "./QuickAddButton";
+import { formatRetailPrice } from "@/lib/pricing";
 
 function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
@@ -33,7 +32,7 @@ export default function CardGrid({ cards }: { cards: PriceItem[] }) {
       {cards.map((card) => (
         <Link
           key={card.sku}
-          href={`/product/${card.sku}`}
+          href={`/market/${card.sku}`}
           className="group bg-neutral-900 rounded-xl overflow-hidden hover:ring-2 ring-emerald-500 transition-all duration-200"
         >
           <div className="relative aspect-[3/4]">
@@ -42,46 +41,15 @@ export default function CardGrid({ cards }: { cards: PriceItem[] }) {
                 src={card.image_url}
                 alt={cardAltText(card)}
                 fill
-                className={`object-cover group-hover:scale-105 transition-all duration-200 ${card.stock === 0 ? "opacity-50 grayscale" : ""}`}
+                className="object-cover group-hover:scale-105 transition-all duration-200"
                 sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
               />
             ) : (
-              <div className={`w-full h-full bg-neutral-800 ${card.stock === 0 ? "opacity-50" : ""}`} />
+              <div className="w-full h-full bg-neutral-800" />
             )}
 
             {/* Rarity badge */}
             {rarityBadge(card.rarity)}
-
-            {/* Out of stock overlay */}
-            {card.stock === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-neutral-950/40">
-                <span className="px-3 py-1 bg-neutral-900/90 text-neutral-400 text-xs font-bold rounded-full">
-                  Out of Stock
-                </span>
-              </div>
-            )}
-
-            {/* Low stock badge */}
-            {card.stock > 0 && card.stock <= 5 && (
-              <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-bold rounded-full">
-                Only {card.stock} left
-              </span>
-            )}
-
-            {/* Quick-add button (hover) */}
-            {card.stock > 0 && (
-              <QuickAddButton
-                card={{
-                  sku: card.sku,
-                  name: card.name_en || card.name || card.card_number,
-                  price: retailPrice(card.price_gbp, card.channel_price),
-                  image_url: card.image_url,
-                  set_code: card.set_code,
-                  card_number: card.card_number,
-                }}
-                stock={card.stock}
-              />
-            )}
           </div>
 
           <div className="p-2">
@@ -89,7 +57,11 @@ export default function CardGrid({ cards }: { cards: PriceItem[] }) {
               {card.name_en || card.name || card.card_number}
             </p>
             <p className="text-[10px] text-neutral-500 truncate">{card.card_number}</p>
-            <p className="text-sm font-bold text-emerald-400 mt-0.5">{formatRetailPrice(card.price_gbp, card.channel_price)}</p>
+            {/* Reference price — a catalog observation, not an offer */}
+            <p className="text-sm font-bold text-neutral-200 mt-0.5" title="Reference price — a price-guide observation, not an offer">
+              {formatRetailPrice(card.price_gbp, card.channel_price)}
+              <span className="text-[10px] text-neutral-500 font-normal ml-1">ref</span>
+            </p>
           </div>
         </Link>
       ))}

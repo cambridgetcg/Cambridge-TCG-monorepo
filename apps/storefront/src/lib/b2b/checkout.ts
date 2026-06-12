@@ -16,7 +16,7 @@
  *     b2b_channel='wholesale'). The webhook handler reads this tag
  *     to route the order to b2b-aware persistence (Phase 2.2c).
  *
- * What's NOT here (vs the retail checkout at /api/checkout):
+ * What's NOT here (vs the retired retail checkout):
  *   - No tier discount (B2B has no per-buyer pricing per Yu's directive)
  *   - No store credit (retail-only)
  *   - No membership perks (retail-only)

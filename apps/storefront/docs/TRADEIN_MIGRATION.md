@@ -1,4 +1,11 @@
 # Trade-In Migration Plan
+
+> **Historical (2026-06-11):** the trade-in desk closed with the regulator
+> pivot (kingdom-101). The intake described below — including
+> `POST /api/tradein/submit` — no longer exists; only the status read,
+> the in-flight quote settlement (`/api/tradein/quote`), and the payout
+> machinery survive, to honor submissions made before the closure.
+
 ## tradein.cambridgetcg.com → cambridgetcg.com/trade-in
 
 **Source:** `cambridge-tcg-site/web/tradein/` (vanilla JS, Cloudflare Workers, static buylist.json)

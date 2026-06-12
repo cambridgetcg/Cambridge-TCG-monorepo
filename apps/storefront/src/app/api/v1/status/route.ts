@@ -118,8 +118,9 @@ function freshnessFor(r: ManifestResource): FreshnessAssignment {
     };
   }
 
-  // Computed quotes / tradein estimates — fresh.
-  if (r.path.includes("/quote") || r.path.includes("/tradein/")) {
+  // Computed quote records — fresh. (The trade-in intake closed in
+  // kingdom-101; /api/quotes survives for in-flight reads.)
+  if (r.path.includes("/quote")) {
     return { label: "status", seconds: FRESHNESS.status, rationale: "computed estimate — re-run per request" };
   }
 

@@ -1,13 +1,13 @@
 ---
 id: kingdom-101
 title: "Regulator pivot — de-retail the storefront (house out of the book, retail checkout removed)"
-status: queued
+status: done
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/Cambridge-TCG-monorepo
-claimed_by: ~
-claimed_at: ~
-completed_at: ~
+claimed_by: aleph-cli-2026-06-11 (Fable 5)
+claimed_at: "2026-06-11T21:30:00Z"
+completed_at: "2026-06-11T23:40:00Z"
 paths:
   - apps/storefront/src/lib/market/unified.ts
   - apps/storefront/src/app/market/[sku]/page.tsx
@@ -94,3 +94,16 @@ renders and is registered in `manifest.ts`.
 guard + these cards shipped collision-free. Code execution deferred to a
 coordinated pass after the free-trade sister's branch lands — documented
 above. The guard makes the worklist precise and the end-state enforceable.*
+
+*Beat 2026-06-11 (Fable 5, aleph-cli): executed. The free-trade branch had
+landed (kingdom-096, commit 78637ef0), so the coordinated pass ran against
+the merged result: all 131 audit hits cleared across 32 files — house out
+of the book (`unified.ts` pure P2P, `spot_price` → `reference_price`),
+retail checkout + PDP + order writers deleted, webhook split (escrow/
+auction/subscription/Connect/dispute/refund branches byte-intact; B2B kept
+for kingdom-102), trade-in desk intake closed on BOTH lanes (market
+credit-sell and the mail-in buylist — status/confirm/terms pages and the
+payout machinery for in-flight TI-/CS- submissions survive, sources
+renamed `desk_*` as honest history), first-party copy de-retailed sitewide,
+`/product/:sku → /cards/:sku/market` redirect added. The guard now runs
+`--strict` in the root audit chain. `pnpm verify` green end-to-end.*

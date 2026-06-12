@@ -148,18 +148,13 @@ const GROUPS: TermGroup[] = [
       {
         term: "Store credit",
         definition:
-          "Non-money value the platform issues for trade-ins, refunds, and rewards. Spent at checkout via a one-shot Stripe coupon. Tracked in `store_credit_ledger`.",
+          "Non-money value the platform issues for refunds, prizes, and market-participation rewards (e.g. liquidity rewards). Recorded append-only in `store_credit_ledger`. With the retail checkout retired, credit is being re-anchored to prize-economy sinks; it cannot be cashed out and is non-transferable.",
         see: "/methodology/store-credit",
       },
       {
         term: "Bounty",
         definition:
-          "A scheduled commitment to buy a set of specific cards at a published rate, drawn from a points-token system with provable fairness. The phygital bridge between paid play and card acquisition.",
-      },
-      {
-        term: "Trade-in",
-        definition:
-          "The platform's promise to buy any card on its buylist for store credit, unlimited quantity, instantly. Cambridge TCG acts as market-maker on every supported card.",
+          "A points-token pull system with provable fairness that lets players acquire specific physical cards from the prize pool at a published rate. The phygital bridge between paid play and card acquisition.",
       },
       {
         term: "Response window",

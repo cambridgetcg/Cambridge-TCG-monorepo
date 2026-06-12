@@ -6,12 +6,12 @@ const slides = [
   {
     src: "/banners/hero-anime-1.jpg",
     headline: "Find Your ONE PIECE",
-    sub: "Premium Japanese trading cards, sourced direct from Japan",
+    sub: "Premium Japanese trading cards, priced from live Japanese market data",
   },
   {
     src: "/banners/hero-anime-2.jpg",
     headline: "Every Card Has a Story",
-    sub: "Near Mint condition. Authenticated. Yours.",
+    sub: "Escrow-inspected. Provably fair. Traded peer-to-peer.",
   },
   {
     src: "/banners/hero-anime-3.jpg",
@@ -72,14 +72,14 @@ export default function HeroSlideshow() {
               {/* Each slide renders its own CTA, but only the active one is
                   reachable: tabIndex=-1 + aria-hidden on the wrapper keeps
                   inactive slides out of the keyboard order and out of strict
-                  selectors that previously matched 3 'Shop Now' links at once. */}
+                  selectors that previously matched 3 identical CTA links at once. */}
               <a
-                href="/catalog"
+                href="/market"
                 tabIndex={isActive ? 0 : -1}
                 aria-hidden={!isActive}
                 className="mt-8 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors"
               >
-                Shop Now
+                Enter the Market
               </a>
             </div>
           </div>

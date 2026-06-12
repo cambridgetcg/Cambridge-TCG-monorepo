@@ -163,7 +163,7 @@ export default function WishlistPage() {
             <Link href="/account" className="text-xs text-neutral-500 hover:text-neutral-300">&larr; Account</Link>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-2">Wishlist</h1>
             <p className="text-sm text-neutral-400 mt-1">
-              Cards you&apos;re hunting. We&apos;ll email you when one appears at your max price on the P2P market or in-store stock.
+              Cards you&apos;re hunting. We&apos;ll email you when one appears at your max price on the P2P market.
             </p>
           </div>
           <div className="flex gap-2">
@@ -257,7 +257,7 @@ export default function WishlistPage() {
         {!loading && filtered.length === 0 && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center">
             <p className="text-neutral-500 text-sm">
-              {filter === "pending" && "No pending wishes. Add cards from your profile or a product page."}
+              {filter === "pending" && "No pending wishes. Add cards from your profile or a card page."}
               {filter === "matched" && "No matches right now — we'll email you as soon as one appears."}
               {filter === "fulfilled" && "No fulfilled wishes yet."}
               {filter === "all" && "Your wishlist is empty."}
@@ -386,14 +386,6 @@ export default function WishlistPage() {
                               : <span className="text-neutral-600">no ask</span>}
                           </span>
                         </div>
-                        <div className="flex justify-between text-neutral-400">
-                          <span>Store</span>
-                          <span>
-                            {av.store_price != null
-                              ? `${gbp(av.store_price)} · ${av.store_stock}x`
-                              : <span className="text-neutral-600">no stock</span>}
-                          </span>
-                        </div>
                       </div>
                     )}
 
@@ -405,14 +397,6 @@ export default function WishlistPage() {
                           className="flex-1 text-center text-[11px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded px-2 py-1.5 transition-colors"
                         >
                           Buy P2P
-                        </Link>
-                      )}
-                      {item.sku && av?.store_price != null && av.store_stock > 0 && max != null && av.store_price <= max && (
-                        <Link
-                          href={`/product/${item.sku}`}
-                          className="flex-1 text-center text-[11px] bg-amber-500 hover:bg-amber-400 text-black font-bold rounded px-2 py-1.5 transition-colors"
-                        >
-                          Buy in store
                         </Link>
                       )}
                       {/* One honest action: Remove (deletes the wish). A

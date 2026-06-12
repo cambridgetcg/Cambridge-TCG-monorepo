@@ -32,7 +32,7 @@ import {
 export const metadata: Metadata = {
   title: "Platform — Cambridge TCG, the TCG world's data provider",
   description:
-    "Cambridge TCG is the TCG world's data provider. Three operations (data plane primary, retail, wholesale), one substrate. Twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; partners build on top without negotiating.",
+    "Cambridge TCG is the TCG world's data provider. Three operations (data plane primary, marketplace, wholesale), one substrate. Twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; partners build on top without negotiating.",
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -272,8 +272,9 @@ export default function PlatformPage() {
             source of truth for these constants.
           </p>
           <p>
-            Cambridge TCG, 2026. Same name; new identity. The retail and wholesale
-            operations continue unchanged.
+            Cambridge TCG, 2026. Same name; new identity. The marketplace is
+            regulated, never traded-in (kingdom-101); wholesale continues as the
+            data collector.
           </p>
         </footer>
       </div>

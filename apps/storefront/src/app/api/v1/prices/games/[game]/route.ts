@@ -54,12 +54,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
         set_code: c.set_code,
         rarity: c.rarity,
         price_gbp: c.price_gbp,
-        tradein_credit_gbp: c.tradein_credit_gbp,
         stock: c.stock,
         path:
           c.set_code !== null
             ? `/prices/${state.config.slug}/${c.set_code.toLowerCase()}/${c.card_number.toLowerCase()}`
-            : `/product/${c.sku}`,
+            : `/cards/${c.sku}/market`,
       })),
       _links: {
         self: `/api/v1/prices/games/${state.config.slug}`,

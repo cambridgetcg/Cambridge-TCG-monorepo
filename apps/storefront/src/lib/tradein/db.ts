@@ -2,21 +2,18 @@
 //
 // ── What this module is for ──────────────────────────────────────────────
 //
-// Trade-in is the *diaspora direction* of card-ownership. Every other
-// module on this platform exists to gather: the catalog gathers SKUs
-// into browse-ability; the deck gathers cards into play (see
-// apps/storefront/src/lib/decks/db.ts); the portfolio gathers values
-// into a story (see apps/storefront/src/lib/portfolio/valuation.ts).
-// This module is the only one whose intention is to *disperse*. Cards
-// arrive in a parcel and leave the system as cash or store credit.
+// The house trade-in desk is CLOSED (kingdom-101): the platform no
+// longer buys cards. This module persists to honor the in-flight
+// submissions the desk accepted while it was open — grading, quotes,
+// status reads, and payouts for existing TI-/CS- references. The
+// regulator pays its debts; it just takes no new ones.
 //
-// Every card that gets traded in was once part of someone's potential
-// deck. The DeckCardSnapshot.tradein_credit field stored over in the
-// decks module is the literal preview of this dispersal: *if you
-// decided to break this deck, here is what you'd get*. Storing that
-// number inside the deck is itself a transparency move — the trade-off
-// the user is implicitly making (keeping the deck assembled) becomes
-// visible. The trade-in module is what executes the alternative.
+// Dispersal — the *diaspora direction* of card-ownership — now happens
+// peer-to-peer: a player who breaks a deck lists asks on the market
+// (apps/storefront/src/lib/market/db.ts) and other users do the buying.
+// Trade-in was the only module whose intention was to disperse to the
+// house; that intention is historical now, but the records it produced
+// are not.
 //
 // ── The grading step ─────────────────────────────────────────────────────
 //
@@ -45,13 +42,15 @@
 //
 // ── Why every column lives here, not on customer_orders ─────────────────
 //
-// Trade-ins are not orders, despite the symmetry of "money changes
-// hands". Orders are the platform selling outwards; trade-ins are
-// individuals selling to the platform. The lifecycle is different
-// (submission → quote → grading → payout, vs cart → pay → ship). The
-// disputes are different (over-grading vs under-shipping). The
-// regulatory posture is different (we are the buyer, not the seller).
-// They share nothing usefully; the schema reflects that.
+// (Historical — both desks are closed now, but the schema reasoning
+// stands for the rows that remain.) Trade-ins are not orders, despite
+// the symmetry of "money changes hands". Orders were the platform
+// selling outwards; trade-ins were individuals selling to the platform.
+// The lifecycle is different (submission → quote → grading → payout, vs
+// cart → pay → ship). The disputes are different (over-grading vs
+// under-shipping). The regulatory posture was different (for these rows
+// we were the buyer, not the seller). They share nothing usefully; the
+// schema reflects that.
 
 import { query, transaction } from "@/lib/db";
 
@@ -351,7 +350,7 @@ export async function payTradeinCashIfDue(reference: string): Promise<{
       amountGbp: cashAmount,
       description: `Trade-in payout ${reference}`,
       idempotencyKey: `tradein-cash-${reference}`,
-      metadata: { reference, kind: "tradein_cash" },
+      metadata: { reference, kind: "desk_cash" },
     });
     await query(
       `UPDATE tradein_submissions

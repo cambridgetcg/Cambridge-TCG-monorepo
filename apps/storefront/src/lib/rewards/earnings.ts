@@ -1,7 +1,8 @@
 // Reward-flow points earning with tier + streak multipliers applied.
 //
-// Orders go through processOrderRewards() which already applies the tier
-// multiplier. The non-order earning paths (mystery box, pack, spin) used
+// Retail order earning was retired with the regulator pivot (kingdom-101;
+// re-anchoring is kingdom-104). The non-order earning paths (mystery box,
+// pack, spin) used
 // to write the raw amount, leaving Platinum members and high-streak
 // players with no extra reward — fix that by passing them through this
 // helper instead of calling earnPoints() directly.

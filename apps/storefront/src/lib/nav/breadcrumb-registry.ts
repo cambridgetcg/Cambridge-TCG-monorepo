@@ -166,34 +166,9 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
   },
 
   // ── Trade-in paths ───────────────────────────────────────────────────
-  {
-    pattern: "/trade-in/bulk",
-    steps: [
-      { label: "Trade-in", href: "/trade-in" },
-      { label: "Bulk quote" },
-    ],
-  },
-  {
-    pattern: "/trade-in/bundle",
-    steps: [
-      { label: "Trade-in", href: "/trade-in" },
-      { label: "Bundle quote" },
-    ],
-  },
-  {
-    pattern: "/trade-in/custom-quote",
-    steps: [
-      { label: "Trade-in", href: "/trade-in" },
-      { label: "Custom quote" },
-    ],
-  },
-  {
-    pattern: "/trade-in/submit",
-    steps: [
-      { label: "Trade-in", href: "/trade-in" },
-      { label: "Submit" },
-    ],
-  },
+  // The trade-in desk is closed; intake pages (bulk/bundle/custom-quote/
+  // submit) are gone. The closure notice at /trade-in plus the status
+  // surfaces for in-flight submissions survive — only their crumbs stay.
   {
     pattern: "/trade-in/confirm/:ref",
     steps: [
@@ -244,9 +219,9 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
   },
 
   // ── Card detail paths ────────────────────────────────────────────────
-  // /cards/:sku is a redirect page to /product/:sku (contact-surface
-  // spec W4). The crumb keeps the /cards/* href so the chain matches
-  // the address bar the visitor actually sees.
+  // /cards/:sku is a redirect page to /cards/:sku/market — the surviving
+  // card page (contact-surface spec W4). The crumb keeps the /cards/*
+  // href so the chain matches the address bar the visitor actually sees.
   {
     pattern: "/cards/:sku",
     steps: [{ label: "Cards", href: "/catalog" }, { label: ":sku" }],

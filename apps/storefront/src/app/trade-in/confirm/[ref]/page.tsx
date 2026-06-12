@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 import { gameLabel } from "@/lib/tradein/games";
-import { clearSellCart } from "@/lib/tradein/cart";
 
 interface SubmissionItem {
   sku: string;
@@ -202,10 +201,6 @@ export default function ConfirmPage() {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [showDeclineModal, setShowDeclineModal] = useState(false);
-
-  useEffect(() => {
-    clearSellCart();
-  }, []);
 
   const loadData = useCallback(async () => {
     try {

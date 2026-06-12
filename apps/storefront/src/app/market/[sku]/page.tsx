@@ -6,9 +6,7 @@ import { useParams } from "next/navigation";
 import { formatPrice } from "@/lib/format";
 import { Money, EmptyState, Icon, TrustTier, type IconName } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
-import { useToast } from "@/components/ui/Toast";
-import { useCreditSell } from "@/context/CreditSellContext";
-import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
+import type { OrderBookEntry } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 
@@ -24,19 +22,12 @@ const CONDITIONS: { code: "NM" | "LP" | "MP" | "HP"; label: string }[] = [
   { code: "HP", label: "Heavily Played" },
 ];
 
-type UnifiedAsk = OrderBookEntry & { is_house?: boolean };
-type UnifiedBid = OrderBookEntry & { is_house?: boolean; is_credit?: boolean; label?: string };
-
 function OrderBookViz({
   bids,
   asks,
-  onHouseAskClick,
-  onHouseBidClick,
 }: {
-  bids: UnifiedBid[];
-  asks: UnifiedAsk[];
-  onHouseAskClick?: () => void;
-  onHouseBidClick?: () => void;
+  bids: OrderBookEntry[];
+  asks: OrderBookEntry[];
 }) {
   const maxBidQty = Math.max(1, ...bids.map((b) => b.total_quantity));
   const maxAskQty = Math.max(1, ...asks.map((a) => a.total_quantity));
@@ -64,8 +55,6 @@ function OrderBookViz({
           maxBidQty={maxBidQty}
           maxAskQty={maxAskQty}
           isFirst={i === 0}
-          onHouseAskClick={onHouseAskClick}
-          onHouseBidClick={onHouseBidClick}
         />
       ))}
     </div>
@@ -78,60 +67,32 @@ function BidAskRow({
   maxBidQty,
   maxAskQty,
   isFirst,
-  onHouseAskClick,
-  onHouseBidClick,
 }: {
-  bid?: UnifiedBid;
-  ask?: UnifiedAsk;
+  bid?: OrderBookEntry;
+  ask?: OrderBookEntry;
   maxBidQty: number;
   maxAskQty: number;
   isFirst: boolean;
-  onHouseAskClick?: () => void;
-  onHouseBidClick?: () => void;
 }) {
-  const isHouse = ask?.is_house;
-  const askBgColor = isHouse ? "bg-accent-wash" : "bg-ask/20";
-  const askTextColor = isHouse ? "text-accent" : "text-ask";
-  const askBorderColor = isFirst
-    ? isHouse ? "border-l-2 border-accent/40" : "border-l-2 border-ask/40"
-    : "border-l border-border-subtle";
-
-  const isBidHouse = bid?.is_house && bid?.is_credit;
-  const bidBgColor = isBidHouse ? "bg-accent-wash" : "bg-bid/20";
-  const bidTextColor = isBidHouse ? "text-accent" : "text-bid";
-  const bidBorderColor = isFirst
-    ? isBidHouse ? "border-r-2 border-accent/40" : "border-r-2 border-bid/40"
-    : "border-r border-border-subtle";
-
-  // House rows are clickable shortcuts to the matching real action.
-  // P2P rows are display-only — clicking them does not match orders, the form does.
-  const askClickable = isHouse && onHouseAskClick;
-  const bidClickable = isBidHouse && onHouseBidClick;
+  // Every row is a P2P order. Rows are display-only — clicking them does
+  // not match orders, the form does.
+  const askBorderColor = isFirst ? "border-l-2 border-ask/40" : "border-l border-border-subtle";
+  const bidBorderColor = isFirst ? "border-r-2 border-bid/40" : "border-r border-border-subtle";
 
   return (
     <>
       {/* Bid cell */}
-      <div
-        className={`relative h-8 flex items-center ${bidBorderColor} ${bidClickable ? "cursor-pointer hover:brightness-125" : ""}`}
-        onClick={bidClickable ? onHouseBidClick : undefined}
-        role={bidClickable ? "button" : undefined}
-        tabIndex={bidClickable ? 0 : undefined}
-        onKeyDown={bidClickable ? (e) => { if (e.key === "Enter") onHouseBidClick?.(); } : undefined}
-        title={bidClickable ? "Sell to CTCG for store credit" : undefined}
-      >
+      <div className={`relative h-8 flex items-center ${bidBorderColor}`}>
         {bid ? (
           <>
             <div
-              className={`absolute inset-y-0 right-0 ${bidBgColor} rounded-l`}
+              className="absolute inset-y-0 right-0 bg-bid/20 rounded-l"
               style={{ width: `${(Math.min(bid.total_quantity, maxBidQty) / maxBidQty) * 100}%` }}
             />
             <span className="relative z-10 w-full flex justify-between px-2 text-xs font-mono tabular-nums">
-              <span className="text-ink-muted">{isBidHouse ? "\u221E" : bid.total_quantity}</span>
-              <span className={`${bidTextColor} font-medium flex items-center gap-1`}>
-                {isBidHouse && <span title="CTCG Store Credit" className="flex items-center"><Icon name="credit" size={12} /></span>}
+              <span className="text-ink-muted">{bid.total_quantity}</span>
+              <span className="text-bid font-medium flex items-center gap-1">
                 <Money value={Number(bid.price)} />
-                {isBidHouse && <span className="text-[10px] text-accent font-sans font-semibold">CTCG &mdash; We Buy (unlimited)</span>}
-                {isBidHouse && <span className="text-[9px] bg-accent-wash text-accent px-1 py-px rounded font-sans">credit</span>}
               </span>
             </span>
           </>
@@ -140,25 +101,16 @@ function BidAskRow({
         )}
       </div>
       {/* Ask cell */}
-      <div
-        className={`relative h-8 flex items-center ${askBorderColor} ${askClickable ? "cursor-pointer hover:brightness-125" : ""}`}
-        onClick={askClickable ? onHouseAskClick : undefined}
-        role={askClickable ? "button" : undefined}
-        tabIndex={askClickable ? 0 : undefined}
-        onKeyDown={askClickable ? (e) => { if (e.key === "Enter") onHouseAskClick?.(); } : undefined}
-        title={askClickable ? "Buy from CTCG (catalog)" : undefined}
-      >
+      <div className={`relative h-8 flex items-center ${askBorderColor}`}>
         {ask ? (
           <>
             <div
-              className={`absolute inset-y-0 left-0 ${askBgColor} rounded-r`}
+              className="absolute inset-y-0 left-0 bg-ask/20 rounded-r"
               style={{ width: `${(ask.total_quantity / maxAskQty) * 100}%` }}
             />
             <span className="relative z-10 w-full flex justify-between px-2 text-xs font-mono tabular-nums">
-              <span className={`${askTextColor} font-medium flex items-center gap-1`}>
-                {isHouse && <span title="CTCG stock" className="flex items-center"><Icon name="card" size={12} /></span>}
+              <span className="text-ask font-medium flex items-center gap-1">
                 <Money value={Number(ask.price)} />
-                {isHouse && <span className="text-[10px] text-accent font-sans font-semibold">CTCG</span>}
               </span>
               <span className="text-ink-muted">{ask.total_quantity}</span>
             </span>
@@ -245,27 +197,24 @@ function PriceHistoryTile({ analytics }: {
   );
 }
 
-/** Spot price + market price info panel */
-function SpotPricePanel({ view }: { view: UnifiedMarketView }) {
-  const { spot_price, spot_stock, market_price, p2p_discount, tradein_credit, tradein_cash } = view;
+/** Reference price panel — a price-guide hint, not an offer. */
+function ReferencePricePanel({ view }: { view: UnifiedMarketView }) {
+  const { reference_price, market_price } = view;
 
   return (
     <div className="wardrobe-mat rounded-lg p-3 mb-4 space-y-2">
-      {/* CTCG Spot */}
-      {spot_price != null ? (
+      {/* Reference price */}
+      {reference_price != null ? (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-ink-muted">CTCG Spot</span>
-          <span className="text-sm font-mono tabular-nums text-accent font-bold">
-            <Money value={spot_price} />
-            <span className="text-xs text-ink-faint font-normal ml-1.5">
-              ({spot_stock} in stock)
-            </span>
+          <span className="text-xs text-ink-muted">Reference price</span>
+          <span className="text-sm font-mono tabular-nums text-ink font-bold">
+            <Money value={reference_price} />
           </span>
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-ink-muted">CTCG Spot</span>
-          <span className="text-xs text-ink-faint">Not available</span>
+          <span className="text-xs text-ink-muted">Reference price</span>
+          <span className="text-xs text-ink-faint">No reference price</span>
         </div>
       )}
 
@@ -275,63 +224,14 @@ function SpotPricePanel({ view }: { view: UnifiedMarketView }) {
           <span className="text-xs text-ink-muted">Market Price</span>
           <span className="text-sm font-mono tabular-nums text-ink font-bold">
             <Money value={market_price} />
-            {p2p_discount != null && p2p_discount > 0 && (
-              <span className="ml-1.5 text-[10px] font-sans font-semibold px-1.5 py-0.5 rounded-full bg-ok/10 text-ok border border-ok/30">
-                <span className="font-mono tabular-nums">{p2p_discount}%</span> below spot
-              </span>
-            )}
           </span>
         </div>
       )}
 
-      {/* CTCG two-sided spread */}
-      {spot_price != null && tradein_credit != null && (
-        <div className="border-t border-border-subtle pt-2 mt-2 space-y-1.5">
-          <span className="text-[10px] text-ink-faint uppercase tracking-wide">CTCG Spread</span>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-muted">CTCG Sells at</span>
-            <span className="text-xs font-mono tabular-nums text-accent font-semibold"><Money value={spot_price} /></span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-muted">CTCG Buys at</span>
-            <span className="text-xs font-mono tabular-nums text-accent font-semibold">
-              <Money value={tradein_credit} />
-              <span className="ml-1 text-[9px] bg-accent-wash text-accent px-1 py-px rounded">credit</span>
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-faint">Spread</span>
-            <span className="text-xs font-mono tabular-nums text-ink-faint"><Money value={spot_price - tradein_credit} /></span>
-          </div>
-        </div>
-      )}
-
-      {/* Trade-in reference (when no full spread available) */}
-      {spot_price == null && (tradein_credit != null || tradein_cash != null) && (
-        <div className="border-t border-border-subtle pt-2 mt-2 space-y-1">
-          <span className="text-[10px] text-ink-faint uppercase tracking-wide">Trade-in reference</span>
-          {tradein_credit != null && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-faint">Trade-in credit</span>
-              <span className="text-xs font-mono tabular-nums text-accent">~<Money value={tradein_credit} /></span>
-            </div>
-          )}
-          {tradein_cash != null && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-faint">Trade-in cash</span>
-              <span className="text-xs font-mono tabular-nums text-ink-muted">~<Money value={tradein_cash} /></span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Cash trade-in (shown alongside spread if available) */}
-      {spot_price != null && tradein_cash != null && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-ink-faint">Cash trade-in</span>
-          <span className="text-xs font-mono tabular-nums text-ink-muted">~<Money value={tradein_cash} /></span>
-        </div>
-      )}
+      <p className="text-[10px] text-ink-faint leading-relaxed">
+        Price-guide reference from catalog observations — not an offer. The
+        platform holds no position in this market.
+      </p>
     </div>
   );
 }
@@ -410,40 +310,6 @@ function EscrowRoutingPreview({ orderValue }: { orderValue: number }) {
   );
 }
 
-/** Buy routing info — tells user where they're buying from */
-function BuyRoutingInfo({ view }: { view: UnifiedMarketView }) {
-  const { asks, spot_price } = view;
-  if (asks.length === 0) return null;
-
-  const bestAsk = asks[0];
-  const bestPrice = Number(bestAsk.price);
-  const isHouse = bestAsk.is_house;
-
-  if (isHouse) {
-    return (
-      <div className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-accent-wash border border-accent/20 text-accent">
-        <Icon name="card" size={12} className="shrink-0" />
-        <span>Buy from CTCG at <Money value={bestPrice} className="font-mono tabular-nums" /> (guaranteed stock)</span>
-      </div>
-    );
-  }
-
-  // P2P seller — show savings vs CTCG if spot exists
-  if (spot_price != null && bestPrice < spot_price) {
-    const savings = spot_price - bestPrice;
-    return (
-      <div className="text-xs px-3 py-2 rounded-lg bg-bid/10 border border-bid/20 text-bid">
-        Buy from seller at <Money value={bestPrice} className="font-mono tabular-nums" /> (save <Money value={savings} className="font-mono tabular-nums" /> vs CTCG spot)
-      </div>
-    );
-  }
-
-  return (
-    <div className="text-xs px-3 py-2 rounded-lg bg-surface-elevated border border-border-strong text-ink-muted">
-      Buy from seller at <Money value={bestPrice} className="font-mono tabular-nums" />
-    </div>
-  );
-}
 
 export default function CardMarketPage() {
   const params = useParams();
@@ -492,12 +358,6 @@ export default function CardMarketPage() {
   const [alertSubmitting, setAlertSubmitting] = useState(false);
   const [alertResult, setAlertResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  // Sell-for-credit state
-  const [creditQty, setCreditQty] = useState(1);
-  const [creditAdded, setCreditAdded] = useState(false);
-  const { toast } = useToast();
-  const { addItem, openDrawer, items, updateQty } = useCreditSell();
-
   const pollRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   const fetchBook = useCallback(async () => {
@@ -521,8 +381,8 @@ export default function CardMarketPage() {
   }, [fetchBook]);
 
   // Tab title — once book loads, swap the generic site title for the card
-  // name. /product/[sku] sets a real <title> server-side; this page is a
-  // client component, so we update document.title once we have the data.
+  // name. This page is a client component, so we update document.title
+  // once we have the data.
   useEffect(() => {
     if (!book?.card_name) return;
     const prev = document.title;
@@ -668,27 +528,6 @@ export default function CardMarketPage() {
     }
   }
 
-  function handleAddToSellCart() {
-    if (!book) return;
-    const existing = items.find(i => i.sku === sku);
-    const currentQty = existing?.quantity || 0;
-    // Add the item (creates if not exists, increments by 1)
-    addItem({
-      sku,
-      name: book.card_name || sku,
-      cardNumber: book.card_number || "",
-      setCode: book.set_code || null,
-      imageUrl: book.image_url || null,
-      creditPrice: book.tradein_credit!,
-    });
-    // Set the correct total quantity
-    if (creditQty > 1) {
-      updateQty(sku, currentQty + creditQty);
-    }
-    toast("Added to sell cart", "success");
-    setCreditAdded(true);
-  }
-
   // Spread calculation
   const spread =
     book?.best_bid && book?.best_ask
@@ -820,9 +659,9 @@ export default function CardMarketPage() {
               </div>
             )}
 
-            {/* Spot price panel below card image */}
+            {/* Reference price panel below card image */}
             <div className="mt-4">
-              <SpotPricePanel view={book} />
+              <ReferencePricePanel view={book} />
               {analytics && <PriceHistoryTile analytics={analytics} />}
               {fairValue && fairValue.tradeCount > 0 && (
                 <div className="wardrobe-mat rounded-lg p-3 mb-4 space-y-1.5">
@@ -857,19 +696,7 @@ export default function CardMarketPage() {
 
           {/* Center: Order book */}
           <div className="wardrobe-mat rounded-lg p-4">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-sm font-bold font-display tracking-tight text-ink">Order Book</h2>
-              {book.demand_pressure && book.demand_pressure.pressure > 0 && (
-                <span
-                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent-wash text-accent border border-accent/30"
-                  title={`${book.demand_pressure.watchCount} watchers, ${book.demand_pressure.alertCount} alerts, ${book.demand_pressure.askDepth} asks available`}
-                >
-                  <Icon name="pulse" size={10} /> Demand pressure{book.demand_pressure.tightenPct > 0 && (
-                    <span className="font-mono tabular-nums"> · CTCG tightened {(book.demand_pressure.tightenPct * 100).toFixed(1)}%</span>
-                  )}
-                </span>
-              )}
-            </div>
+            <h2 className="text-sm font-bold font-display tracking-tight text-ink mb-1">Order Book</h2>
 
             {/* Spread indicator */}
             <div className="flex items-center gap-3 mb-4 text-xs">
@@ -886,131 +713,18 @@ export default function CardMarketPage() {
               </span>
             </div>
 
-            {/* Buy routing info */}
-            <div className="mb-4">
-              <BuyRoutingInfo view={book} />
-            </div>
-
             {book.bids.length === 0 && book.asks.length === 0 ? (
               <EmptyState
                 title={v("market.empty.book.title")}
                 description={v("market.empty.book.description")}
               />
             ) : (
-              <OrderBookViz
-                bids={book.bids}
-                asks={book.asks}
-                onHouseAskClick={() => { window.location.href = `/product/${sku}`; }}
-                onHouseBidClick={handleAddToSellCart}
-              />
+              <OrderBookViz bids={book.bids} asks={book.asks} />
             )}
           </div>
 
-          {/* Right: Order form + Sell for Credit */}
+          {/* Right: Order form */}
           <div className="space-y-4">
-            {/* ========== CAMBRIDGE TCG BUYS THIS CARD ========== */}
-            {book.tradein_credit != null && book.tradein_credit > 0 && (
-              <div className="rounded-lg bg-accent-wash border border-border-subtle">
-                <div className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="flex items-center text-accent"><Icon name="credit" size={18} /></span>
-                    <h3 className="text-sm font-bold font-display text-ink uppercase tracking-wide">Cambridge TCG Buys This Card</h3>
-                  </div>
-
-                  {/* Stacked vertical: side-by-side caused word-by-word wrapping
-                      because the parent column is fixed at 320px on md+ and the
-                      description ended up with ~68px of width. */}
-                  <div className="flex flex-col gap-3">
-                    {/* Top: price + quantity + button */}
-                    <div className="bg-surface border border-border-subtle rounded-lg p-4">
-                      <p className="text-2xl font-bold font-mono tabular-nums text-accent mb-0.5">
-                        <Money value={book.tradein_credit} />
-                        <span className="text-sm ml-1.5 bg-accent-wash text-accent px-1.5 py-0.5 rounded font-sans font-semibold">
-                          Store Credit
-                        </span>
-                      </p>
-
-                      {!creditAdded && (
-                        <>
-                          {/* Quantity selector */}
-                          <div className="flex items-center gap-2 mt-3 mb-3">
-                            <span className="text-xs text-ink-muted">Qty:</span>
-                            <button
-                              onClick={() => setCreditQty(Math.max(1, creditQty - 1))}
-                              className="w-6 h-6 flex items-center justify-center bg-surface-elevated border border-border-subtle text-ink-muted rounded hover:bg-surface-subtle transition text-xs font-bold"
-                            >
-                              -
-                            </button>
-                            <span className="text-sm font-mono tabular-nums text-ink w-8 text-center">{creditQty}</span>
-                            <button
-                              onClick={() => setCreditQty(Math.min(99, creditQty + 1))}
-                              className="w-6 h-6 flex items-center justify-center bg-surface-elevated border border-border-subtle text-ink-muted rounded hover:bg-surface-subtle transition text-xs font-bold"
-                            >
-                              +
-                            </button>
-                          </div>
-
-                          {loggedIn === false ? (
-                            <Link
-                              href="/login"
-                              className="block w-full text-center py-2.5 rounded-lg font-bold text-sm bg-accent text-page hover:bg-accent-strong transition"
-                            >
-                              Sign in to sell
-                            </Link>
-                          ) : (
-                            <button
-                              onClick={handleAddToSellCart}
-                              disabled={loggedIn === null}
-                              className="w-full py-2.5 rounded-lg font-bold text-sm bg-accent text-page hover:bg-accent-strong transition disabled:opacity-50"
-                            >
-                              Sell for <span className="font-mono tabular-nums">{formatPrice(book.tradein_credit * creditQty)}</span> Credit
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {/* Success state */}
-                      {creditAdded && (
-                        <div className="mt-3 space-y-2">
-                          <div className="bg-accent-wash border border-accent/30 rounded-lg p-3">
-                            <p className="text-sm font-semibold text-accent">
-                              Added to sell cart
-                            </p>
-                            <p className="text-[11px] text-ink-muted mt-1">
-                              Submit your cart to lock in this offer. We&rsquo;ll confirm credit after inspection.
-                            </p>
-                          </div>
-                          <button
-                            onClick={openDrawer}
-                            className="w-full py-2 rounded-lg font-bold text-sm bg-accent-wash text-accent border border-accent/30 hover:bg-accent/20 transition"
-                          >
-                            View Cart
-                          </button>
-                          <button
-                            onClick={() => { setCreditAdded(false); setCreditQty(1); }}
-                            className="text-xs text-accent hover:text-accent-strong transition"
-                          >
-                            Add more
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bottom: messaging */}
-                    <div className="space-y-1.5">
-                      <p className="text-sm text-ink-muted">Always available. Unlimited quantity.</p>
-                      <p className="text-sm text-ink-muted">Submit, ship within 7 days, we&rsquo;ll inspect &amp; confirm.</p>
-                      <p className="text-sm text-ink-muted">Credit issued after we receive &amp; verify your cards.</p>
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-ink-faint mt-4 leading-relaxed">
-                    Submission is reviewed before credit is issued; final amount may differ if condition does not match.
-                    Store credit can only be used at Cambridge TCG. This is our standing bid &mdash; always available, unlimited quantity.
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* ========== P2P Order Form ========== */}
             <div className="wardrobe-mat rounded-lg p-4">
@@ -1045,9 +759,9 @@ export default function CardMarketPage() {
                   ? (book.best_ask ? formatPrice(Number(book.best_ask)) : "—")
                   : (book.best_bid ? formatPrice(Number(book.best_bid)) : "—")}
               </span>
-              {tab === "buy" && book.spot_price != null && (
-                <span className="ml-2 text-accent/80">
-                  (CTCG Spot: <Money value={book.spot_price} className="font-mono tabular-nums" />)
+              {tab === "buy" && book.reference_price != null && (
+                <span className="ml-2 text-ink-faint">
+                  (Reference: <Money value={book.reference_price} className="font-mono tabular-nums" />)
                 </span>
               )}
             </div>

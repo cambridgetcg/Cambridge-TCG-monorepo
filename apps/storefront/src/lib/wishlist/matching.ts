@@ -1,5 +1,5 @@
 // Wishlist matching — evaluates every open wishlist item against the live
-// storefront (wholesale retail) price and the P2P market order book, then
+// P2P market order book, then
 // queues a wishlist_matched email when something meets the user's
 // max_price AND condition_min.
 //
@@ -9,7 +9,8 @@
 // listing can't flood the wisher's inbox.
 //
 // Sources considered:
-//   - wholesale: retailPrice(fetchCard(sku)) gives the "store" price.
+//   - wholesale: retired (kingdom-101) — kept in MatchSource only so
+//     already-queued emails keep rendering.
 //     We treat store stock as condition = NM.
 //   - market_orders: DISTINCT ON sku, condition picks the lowest open ask
 //     per (sku, condition).
@@ -17,8 +18,6 @@
 // across both sources — the one most likely to close the wish.
 
 import { query } from "@/lib/db";
-import { fetchCard } from "@/lib/wholesale/client";
-import { retailPrice } from "@/lib/pricing";
 import { scheduleEmail } from "@/lib/email/queue";
 
 export type MatchSource = "wholesale" | "p2p";
@@ -147,26 +146,9 @@ export async function runWishlistMatchSweep(): Promise<WishlistMatchSweepResult>
         }
       }
 
-      // 2. Storefront (wholesale-based) — treat as NM.
-      if (meetsCondition("NM", conditionMin)) {
-        const card = await fetchCard(w.sku);
-        if (card && card.stock > 0) {
-          const storePrice = retailPrice(card.price_gbp, card.channel_price);
-          if (storePrice <= maxPrice && (!best || storePrice < best.priceGbp)) {
-            best = {
-              wishlistId: w.id, userId: w.user_id, sku: w.sku,
-              cardName: w.card_name, cardNumber: w.card_number,
-              imageUrl: w.image_url,
-              maxPrice, conditionMin,
-              source: "wholesale",
-              priceGbp: storePrice,
-              condition: "NM",
-              quantityAvailable: card.stock,
-              marketOrderId: null,
-            };
-          }
-        }
-      }
+      // The wholesale (house-stock) match source was retired with the
+      // regulator pivot (kingdom-101): house inventory is prize stock,
+      // not a purchasable match. Only real P2P asks close a wish now.
 
       if (!best) { skipped++; continue; }
 

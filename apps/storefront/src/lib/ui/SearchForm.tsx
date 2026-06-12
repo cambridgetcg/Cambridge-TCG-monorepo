@@ -6,7 +6,7 @@
  * is a Link to the page without `q`. Server-renderable; no client state.
  *
  * Subsumes the half-dozen inline search-input blocks on /market,
- * /catalog, /account/portfolio/add, /account/orders, /trade-in/bulk.
+ * /catalog, /account/portfolio/add, /account/orders.
  */
 
 import * as React from "react";

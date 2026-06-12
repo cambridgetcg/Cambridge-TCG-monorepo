@@ -36,7 +36,9 @@ interface PendingSubmissionPayout {
 }
 
 interface HistoryRow {
-  source: "trade" | "auction" | "tradein_cash" | "tradein_credit" | "quote_cash" | "quote_credit";
+  // desk_* = the closed house trade-in desk (kingdom-101) — historical
+  // + in-flight obligations, not offers.
+  source: "trade" | "auction" | "desk_cash" | "desk_credit" | "quote_cash" | "quote_credit";
   id: string;
   label: string;
   amount: number;
@@ -61,8 +63,8 @@ interface HistoryPayload {
 const SOURCE_LABELS: Record<HistoryRow["source"], string> = {
   trade: "P2P trade",
   auction: "Auction",
-  tradein_cash: "Trade-in (cash)",
-  tradein_credit: "Trade-in (credit)",
+  desk_cash: "Trade-in (cash)",
+  desk_credit: "Trade-in (credit)",
   quote_cash: "Quote (cash)",
   quote_credit: "Quote (credit)",
 };
@@ -492,8 +494,8 @@ const HISTORY_FILTERS: Array<{ key: "all" | HistoryRow["source"]; label: string 
   { key: "all", label: "All" },
   { key: "trade", label: "P2P" },
   { key: "auction", label: "Auctions" },
-  { key: "tradein_cash", label: "Trade-in cash" },
-  { key: "tradein_credit", label: "Trade-in credit" },
+  { key: "desk_cash", label: "Trade-in cash" },
+  { key: "desk_credit", label: "Trade-in credit" },
   { key: "quote_cash", label: "Quote cash" },
   { key: "quote_credit", label: "Quote credit" },
 ];

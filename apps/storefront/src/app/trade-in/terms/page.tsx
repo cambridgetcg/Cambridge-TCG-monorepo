@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Trade-In Terms — Cambridge TCG",
-  description: "Terms and conditions for trading in your cards with Cambridge TCG.",
+  title: "Trade-In Terms (Desk Closed) — Cambridge TCG",
+  description:
+    "Terms governing trade-in submissions made before the desk closed on 2026-06-11. Cambridge TCG no longer buys cards — sell on the P2P market instead.",
 };
 
 export default function TradeInTermsPage() {
@@ -10,12 +11,38 @@ export default function TradeInTermsPage() {
     <main className="min-h-screen bg-neutral-950">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <Link href="/trade-in" className="text-sm text-neutral-400 hover:text-white transition mb-6 inline-block">
-          ← Back to Trade-In
+          ← About the closed desk
         </Link>
 
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-8">Trade-In Terms &amp; Conditions</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-white mb-6">Trade-In Terms &amp; Conditions</h1>
+
+        {/* Closure banner — the desk closed with the regulator pivot
+            (kingdom-101). These terms are preserved for the submissions
+            they still govern; they are not a live offer. */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 mb-8">
+          <p className="text-sm text-amber-200 leading-relaxed">
+            <strong>The trade-in desk closed on 11 June 2026.</strong> Cambridge
+            TCG no longer buys cards — the platform{" "}
+            <Link href="/methodology/regulator" className="text-amber-400 underline">
+              regulates the market and does not trade in it
+            </Link>
+            . The terms below apply <strong>only to submissions made before
+            that date</strong>, which will be honored in full. Do not ship new
+            cards — unsolicited shipments will not be processed. To sell your
+            cards, list them on the{" "}
+            <Link href="/market" className="text-amber-400 underline">
+              open market
+            </Link>
+            .
+          </p>
+        </div>
 
         <div className="prose prose-invert max-w-none space-y-8 text-neutral-300 text-sm leading-relaxed">
+          <p className="text-neutral-400 italic">
+            Everything below is preserved as written for submissions made
+            before the desk closed; present-tense language reads as of that
+            era and constitutes no current offer.
+          </p>
           <section>
             <h2 className="text-lg font-bold text-white mb-3">Payout Rates</h2>
             <ul className="list-disc pl-5 space-y-2">

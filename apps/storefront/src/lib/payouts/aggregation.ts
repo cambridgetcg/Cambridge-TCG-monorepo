@@ -2,6 +2,9 @@
 // trade-in submissions, quote requests) into pending + history buckets
 // for the seller-facing /account/payouts page.
 //
+// desk_* = the closed house trade-in desk (kingdom-101); those rows are
+// historical + in-flight obligations the platform still pays, not offers.
+//
 // Exported as pure lib functions so the route handler (thin wrapper)
 // and the E2E test can exercise identical query logic without mocking
 // next-auth.
@@ -221,7 +224,7 @@ export async function getPendingPayouts(userId: string): Promise<PendingBundle> 
 }
 
 export interface HistoryRow {
-  source: "trade" | "auction" | "tradein_cash" | "tradein_credit" | "quote_cash" | "quote_credit";
+  source: "trade" | "auction" | "desk_cash" | "desk_credit" | "quote_cash" | "quote_credit";
   id: string;
   label: string;
   amount: number;
@@ -334,14 +337,14 @@ export async function getPayoutHistory(userId: string, limit = 100): Promise<His
       reference: r.stripe_transfer_id || r.payout_reference || null,
     })),
     ...tradeinCash.rows.map((r): HistoryRow => ({
-      source: "tradein_cash", id: r.id, label: `Trade-in ${r.label}`,
+      source: "desk_cash", id: r.id, label: `Trade-in ${r.label}`,
       amount: parseFloat(r.amount), amountFormatted: formatPrice(parseFloat(r.amount)),
       paidAt: r.paid_at,
       method: r.stripe_transfer_id ? "stripe" : "bank",
       reference: r.stripe_transfer_id || null,
     })),
     ...tradeinCredit.rows.map((r): HistoryRow => ({
-      source: "tradein_credit", id: r.id, label: `Trade-in ${r.label}`,
+      source: "desk_credit", id: r.id, label: `Trade-in ${r.label}`,
       amount: parseFloat(r.amount), amountFormatted: formatPrice(parseFloat(r.amount)),
       paidAt: r.paid_at, method: "store_credit", reference: null,
     })),

@@ -313,12 +313,12 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
 
   const accent = ACCENT_CLASSES[cfg.accent];
 
-  // Fetch sets, top cards, tradein channel, aggregator coverage, FX
-  // rates, and display currency in parallel. Coverage is null when
-  // wholesale is unreachable — the page renders without the coverage
-  // strip in that case. Rates fall back to a static table on upstream
-  // failure (substrate-honest: the surface shows a "fallback" pill).
-  const [sets, topCardsData, tradeinData, coverage, rates, currency] =
+  // Fetch sets, top cards, aggregator coverage, FX rates, and display
+  // currency in parallel. Coverage is null when wholesale is
+  // unreachable — the page renders without the coverage strip in that
+  // case. Rates fall back to a static table on upstream failure
+  // (substrate-honest: the surface shows a "fallback" pill).
+  const [sets, topCardsData, coverage, rates, currency] =
     await Promise.all([
       fetchSets(cfg.slug).catch(() => []),
       fetchPrices({
@@ -326,12 +326,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         sort: "price_desc",
         limit: 20,
       }).catch(() => ({ items: [], total: 0 })),
-      fetchPrices({
-        game: cfg.slug,
-        sort: "price_desc",
-        limit: 20,
-        channel: "tradein-credit",
-      }).catch(() => ({ items: [] })),
       // kingdom-085: per-game aggregator coverage. Scoped via game_code so
       // the response only carries this game's rows; the strip renders below.
       fetchAggregatorCoverage({ game: cfg.game_code }).catch(() => null),
@@ -350,13 +344,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
   // Substrate-honest: if the catalog returns nothing for this game, the
   // page renders with an empty-but-honest body rather than fabricating
   // value. SEO copy still applies; tables degrade visibly.
-  const tradeinMap = new Map<string, number>();
-  for (const item of tradeinData.items) {
-    if (item.channel_price && item.channel_price > 0) {
-      tradeinMap.set(item.sku, item.channel_price);
-    }
-  }
-
   const topCards = topCardsData.items.map((item) => ({
     sku: item.sku,
     name: item.name_en || item.name || item.card_number,
@@ -365,7 +352,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
     set_name: item.set_name,
     rarity: item.rarity,
     price: retailPrice(item.price_gbp, item.channel_price),
-    tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
 
   // Freshest synced timestamp — feeds the Provenance pill.
@@ -704,8 +690,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                     <th className="px-3 py-3">Card</th>
                     <th className="px-3 py-3">Set</th>
                     <th className="px-3 py-3">Rarity</th>
-                    <th className="px-3 py-3 text-right">Buy Price</th>
-                    <th className="px-3 py-3 text-right">We Buy</th>
+                    <th className="px-3 py-3 text-right">Reference</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800">
@@ -719,7 +704,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                       </td>
                       <td className="px-3 py-3">
                         <Link
-                          href={`/product/${card.sku}`}
+                          href={`/cards/${card.sku}/market`}
                           className="text-white hover:text-blue-400 transition-colors"
                         >
                           {card.name}
@@ -736,9 +721,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                       </td>
                       <td className="px-3 py-3 text-right text-white font-medium">
                         <Money value={card.price} />
-                      </td>
-                      <td className="px-3 py-3 text-right text-green-400">
-                        <Money value={card.tradein_credit} treatZeroAsMissing />
                       </td>
                     </tr>
                   ))}
@@ -768,10 +750,9 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           </h2>
           <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
-            The <strong className="text-neutral-200">Buy Price</strong> is our
-            retail price — the cost to purchase a card from stock. The{" "}
-            <strong className="text-neutral-200">We Buy</strong> price is the
-            instant store credit we offer when you trade in your cards.
+            The <strong className="text-neutral-200">Reference price</strong> is our
+            published price-guide observation — not an offer; the platform
+            sells nothing.
           </p>
           <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl">
             Want to buy or sell live?{" "}

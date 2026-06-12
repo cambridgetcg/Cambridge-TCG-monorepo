@@ -1,10 +1,10 @@
 /**
  * /prices/[game]/[set]/[number] — per-card price-guide detail.
  *
- * The natural next stop after the per-set table. Where /product/[sku] is
- * the marketplace transactional surface (buy / sell / list), this is the
- * price-guide-native surface: just the data — UK retail, cross-source
- * signal, license tier per source, history teaser.
+ * The natural next stop after the per-set table. Where /cards/[sku]/market
+ * is the marketplace surface (live P2P bid/ask), this is the
+ * price-guide-native surface: just the data — UK reference price,
+ * cross-source signal, license tier per source, history teaser.
  *
  * URL shape uses (game, set, number) rather than SKU because:
  *   - SEO: "one piece op01 001" is searchable; "op-op01-001-en" isn't
@@ -119,17 +119,6 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         image: card.image_url ?? undefined,
         description: `${card.name} (${card.card_number}) from ${config.display_name} ${setMeta.name} (${setCode}).`,
         sku: card.sku,
-        offers: {
-          "@type": "Offer",
-          url: `https://cambridgetcg.com/product/${card.sku}`,
-          priceCurrency: "GBP",
-          price: card.price_gbp.toFixed(2),
-          availability:
-            card.stock > 0
-              ? "https://schema.org/InStock"
-              : "https://schema.org/OutOfStock",
-          seller: { "@type": "Organization", name: "Cambridge TCG" },
-        },
       }
     : null;
 
@@ -254,26 +243,13 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">
-                    Buy from us
+                    Reference price
                   </div>
                   <div className="text-2xl font-bold text-white">
                     <Money value={card.price_gbp} />
                   </div>
                   <div className="text-[10px] text-neutral-500 mt-1">
-                    {card.stock > 0
-                      ? `${card.stock} in UK stock`
-                      : "currently out of stock"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">
-                    We buy (credit)
-                  </div>
-                  <div className="text-2xl font-bold text-emerald-400">
-                    <Money value={card.tradein_credit_gbp} />
-                  </div>
-                  <div className="text-[10px] text-neutral-500 mt-1">
-                    instant store credit
+                    price-guide observation — not an offer
                   </div>
                 </div>
                 <div>
@@ -288,12 +264,6 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Link
-                href={`/product/${card.sku}`}
-                className="inline-block rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-900 font-semibold text-sm px-4 py-2 transition-colors"
-              >
-                View in store →
-              </Link>
               <Link
                 href={`/market/${card.sku}`}
                 className="inline-block rounded-lg border border-neutral-700 hover:border-neutral-500 text-white text-sm px-4 py-2 transition-colors"

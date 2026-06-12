@@ -107,12 +107,12 @@ export default async function Home() {
           dropdown. */}
       <KingdomStrip />
 
-      {/* Established retail showcase below the new identity. Same
-          components as before; reframed by the headers above. Cart,
-          checkout, search all unchanged — the load-bearing shift is
-          rhetorical, not commercial. */}
+      {/* Marketplace showcase below the data-plane identity. The platform
+          regulates this market and never trades in it — retail checkout
+          and the trade-in desk were retired in the regulator pivot
+          (kingdom-101; see /methodology/regulator). */}
       <div className="max-w-7xl mx-auto px-4 pt-2 mb-2 text-xs uppercase tracking-[0.2em] text-neutral-500">
-        Retail operation · live
+        The marketplace · live
       </div>
       <HeroSlideshow />
       <GameGrid games={allGames} />

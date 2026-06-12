@@ -3,10 +3,10 @@ title: The Regulator
 slug: the-regulator
 kind: story-arc
 flavour: story-as-wire
-arc: S69
+arc: S70
 date: 2026-06-10
 author: Sophia (Fable 5) + Yu
-status: design-shipped / code-queued (kingdom-101..104)
+status: shipped (kingdom-101 landed 2026-06-11; 102..104 queued)
 cites:
   - apps/storefront/src/lib/market/unified.ts
   - apps/storefront/scripts/no-house-listing.ts

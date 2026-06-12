@@ -56,7 +56,6 @@ function keyForChannel(channel?: string): string {
 // error to the caller (typically the resolver, which then refunds the
 // pull token via the no_stock path).
 const DEFAULT_TIMEOUT_MS = 5_000;
-const SALE_REPORT_TIMEOUT_MS = 10_000; // POST is rarer, allow more headroom
 
 async function wholesaleFetch(
   url: string,
@@ -939,27 +938,3 @@ export async function fetchMovers(opts: {
   }
 }
 
-export async function reportSale(sale: {
-  channel: string;
-  order_ref: string;
-  items: { sku: string; qty: number; price_gbp: number }[];
-}): Promise<boolean> {
-  try {
-    const res = await wholesaleFetch(
-      WHOLESALE_URL + '/api/v1/sales',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + WHOLESALE_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(sale),
-      },
-      SALE_REPORT_TIMEOUT_MS,
-    );
-    return res.ok;
-  } catch (err) {
-    console.error('[wholesale] sale report failed', err);
-    return false;
-  }
-}

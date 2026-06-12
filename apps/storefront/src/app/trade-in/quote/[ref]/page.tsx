@@ -357,16 +357,16 @@ export default function QuoteStatusPage() {
         {/* Back action */}
         <div className="flex flex-col sm:flex-row gap-3 mt-8">
           <Link
-            href="/trade-in/custom-quote"
+            href="/market"
             className="flex-1 text-center px-4 sm:px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
           >
-            Submit Another Quote
+            Sell on the Market
           </Link>
           <Link
             href="/trade-in"
             className="flex-1 text-center px-4 sm:px-6 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition"
           >
-            Back to Trade-In
+            About the closed desk
           </Link>
         </div>
       </div>

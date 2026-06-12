@@ -79,10 +79,6 @@ const STRINGS = {
     standard: "Browse the gallery",
     plain: "Browse cards",
   },
-  "market.cta.sell": {
-    standard: "Sell to us — instant credit",
-    plain: "Sell for store credit",
-  },
   "market.pulse.title": {
     standard: "Market Pulse",
     plain: "Market Pulse",

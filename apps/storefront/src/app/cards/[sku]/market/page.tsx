@@ -557,8 +557,8 @@ export default async function CardMarketReadPage({
                     buy/sell decisions, save to your own notes, and compare against your portfolio.
                     You <strong className="text-danger">must not</strong> bulk re-export, redistribute
                     as a paid product, or publish to a public archive. The wholesale-derived GBP
-                    values above (in the Price history section) are Cambridge TCG&rsquo;s own retail
-                    offers — those are CC0.
+                    values above (in the Price history section) are Cambridge TCG&rsquo;s own
+                    reference prices — price-guide observations, not offers — and those are CC0.
                   </p>
                 </div>
                 <p className="text-[10px] text-ink-faint mt-2">
@@ -592,7 +592,7 @@ export default async function CardMarketReadPage({
               )}
               <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                 Daily spot snapshots from <code className="text-ink-muted">card_price_history</code>{" "}
-                (the storefront&rsquo;s retail observation, kingdom-049 Phase 4 made it substrate-honest).
+                (the platform&rsquo;s reference-price observation, kingdom-049 Phase 4 made it substrate-honest).
                 Each window is independently queried; gaps mean no observation on that day.
               </p>
             </section>
@@ -621,15 +621,16 @@ export default async function CardMarketReadPage({
             (math-mirror).
           </p>
           {/* Upstream-license chain (kingdom-081 Phase 2.3).
-              Substrate-honest about how a GBP retail price came to be true.
-              The displayed value is Cambridge TCG&apos;s own offer (CC0); the
+              Substrate-honest about how a GBP reference price came to be true.
+              The displayed value is Cambridge TCG&apos;s own reference observation (CC0); the
               underlying observation chain may include CardRush JP retail
               prices (license: internal-only). The market page does not
               redistribute raw JPY values — that boundary is honoured. */}
           <p className="leading-relaxed">
             <span className="text-ink-muted">License chain.</span>{" "}
-            Displayed prices are Cambridge TCG&apos;s retail offers in GBP — our
-            own observation discipline, freely citable. The underlying
+            Displayed prices are Cambridge TCG&apos;s reference prices in GBP — our
+            own price-guide observation discipline, freely citable; the platform
+            holds no position in this market and sells nothing. The underlying
             base-price observation chain may include CardRush JP retail
             (license: <span className="font-mono">internal-only</span>); raw JPY
             values are not redistributed on this page. For source-attributed

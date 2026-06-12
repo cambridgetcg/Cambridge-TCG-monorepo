@@ -102,10 +102,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-    description: `Full price list for ${setCode} ${setName} — every card with UK retail and trade-in prices. Updated daily by Cambridge TCG.`,
+    description: `Full price list for ${setCode} ${setName} — every card with UK reference and live market prices. Updated daily by Cambridge TCG.`,
     openGraph: {
       title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-      description: `Full price list for ${setCode} ${setName} — every card with UK retail and trade-in prices.`,
+      description: `Full price list for ${setCode} ${setName} — every card with UK reference and live market prices.`,
     },
   };
 }
@@ -164,7 +164,7 @@ export default async function SetPriceGuidePage({
 
   const setCode = setSlug.toUpperCase();
 
-  const [sets, cardsData, tradeinData, rates, currency] = await Promise.all([
+  const [sets, cardsData, rates, currency] = await Promise.all([
     fetchSets(cfg.slug).catch(() => []),
     fetchPrices({
       game: cfg.slug,
@@ -172,13 +172,6 @@ export default async function SetPriceGuidePage({
       sort,
       limit: 500,
     }).catch(() => ({ items: [], total: 0 })),
-    fetchPrices({
-      game: cfg.slug,
-      set: setCode,
-      sort: "price_desc",
-      limit: 500,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] })),
     fetchRates(),
     getDisplayCurrency(),
   ]);
@@ -192,13 +185,6 @@ export default async function SetPriceGuidePage({
   const cardCount = setInfo?.card_count ?? cardsData.items.length;
   const releaseDate = setInfo?.release_date ?? null;
 
-  const tradeinMap = new Map<string, number>();
-  for (const item of tradeinData.items) {
-    if (item.channel_price && item.channel_price > 0) {
-      tradeinMap.set(item.sku, item.channel_price);
-    }
-  }
-
   // Substrate-honest defaults: real card data can carry a null card_number
   // (promos, odd printings). The render calls card_number.toLowerCase() in
   // the row links, so a null here was 500ing the whole set page in PROD —
@@ -211,7 +197,6 @@ export default async function SetPriceGuidePage({
     card_number: item.card_number ?? "",
     rarity: item.rarity,
     price: retailPrice(item.price_gbp, item.channel_price),
-    tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
 
   const intro = fillTemplate(cfg.set_intro_template, {
@@ -454,8 +439,7 @@ export default async function SetPriceGuidePage({
                   <th className="px-3 py-3">Card #</th>
                   <th className="px-3 py-3">Name</th>
                   <th className="px-3 py-3">Rarity</th>
-                  <th className="px-3 py-3 text-right">Buy Price</th>
-                  <th className="px-3 py-3 text-right">We Buy (Credit)</th>
+                  <th className="px-3 py-3 text-right">Reference</th>
                   <th className="px-3 py-3 text-right">Market</th>
                 </tr>
               </thead>
@@ -487,9 +471,6 @@ export default async function SetPriceGuidePage({
                     <td className="px-3 py-3 text-right text-white font-medium">
                       <Money value={card.price} />
                     </td>
-                    <td className="px-3 py-3 text-right text-green-400">
-                      <Money value={card.tradein_credit} treatZeroAsMissing />
-                    </td>
                     <td className="px-3 py-3 text-right">
                       <Link
                         href={`/market/${card.sku}`}
@@ -513,10 +494,8 @@ export default async function SetPriceGuidePage({
           </h2>
           <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
-            The <strong className="text-neutral-200">Buy Price</strong> is our
-            retail price. The{" "}
-            <strong className="text-neutral-200">We Buy (Credit)</strong> price
-            is the instant store credit we offer when you trade in your cards.
+            The <strong className="text-neutral-200">Reference price</strong> is our
+            published price-guide observation — not an offer.
           </p>
           <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl">
             <Link href="/market" className="text-blue-400 hover:underline">

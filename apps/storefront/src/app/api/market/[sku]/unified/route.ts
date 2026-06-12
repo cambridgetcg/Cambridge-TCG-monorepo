@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUnifiedMarketView } from "@/lib/market/unified";
 
-// GET /api/market/[sku]/unified — full market view with CTCG spot price
+// GET /api/market/[sku]/unified — P2P market view with reference price
 export async function GET(_req: Request, { params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
 

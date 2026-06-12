@@ -168,7 +168,7 @@ const PAGES: PageMeta[] = [
   {
     slug: "store-credit",
     origin:
-      "store_credit_ledger + checkout coupon flow — non-money value earned and spent at Cambridge TCG",
+      "store_credit_ledger — non-money value earned through refunds, prizes, and market participation",
     doctrines: ["transparency", "substrate-honesty"],
     recursion: [
       { label: "/methodology/commission-rate", href: "/methodology/commission-rate" },

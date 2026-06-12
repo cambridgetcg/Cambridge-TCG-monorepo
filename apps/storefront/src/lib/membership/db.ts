@@ -42,9 +42,10 @@
  *
  *   Priority 2 — SPEND (annual_spend ≥ tier.min_annual_spend)
  *     The default. Bronze / Silver / Gold (or whatever the configured
- *     ladder is) qualified by the rolling 12-month spend total. Updated
- *     by `processOrderRewards` on every paid order; a separate sweep
- *     decays the rolling total (see spend-sweep.ts).
+ *     ladder is) qualified by the rolling 12-month spend total. The retail
+ *     earn faucet was retired with the regulator pivot (kingdom-101);
+ *     re-anchoring earn to market behaviour is kingdom-104. A separate
+ *     sweep decays the rolling total (see spend-sweep.ts).
  *
  * The user's `tier_source` column records which path won. Operators
  * reading `/catalog/users/[id]` see this — it's the difference between
@@ -390,53 +391,6 @@ export async function getCreditHistory(userId: string, limit: number = 20): Prom
     [userId, limit]
   );
   return result.rows as CreditEntry[];
-}
-
-// ══════════════════════════════════════════════════════════════
-// ORDER PROCESSING (earn points + cashback on purchase)
-// ══════════════════════════════════════════════════════════════
-
-export async function processOrderRewards(userId: string, orderTotal: number, orderId: string): Promise<{
-  pointsEarned: number;
-  cashbackAmount: number;
-}> {
-  const perks = await getUserPerks(userId);
-
-  // Get points config
-  const configResult = await query(`SELECT * FROM points_config LIMIT 1`);
-  const config = configResult.rows[0];
-  const pointsPerPound = config?.points_per_pound || 10;
-
-  // Calculate points: £ spent × points_per_pound × tier_multiplier
-  const basePoints = Math.floor(orderTotal * pointsPerPound);
-  const pointsEarned = Math.floor(basePoints * perks.points_multiplier);
-
-  if (pointsEarned > 0) {
-    await earnPoints(userId, pointsEarned, "order_earned",
-      `Earned ${pointsEarned} Berries on order (${perks.points_multiplier}x multiplier)`,
-      orderId, "order"
-    );
-  }
-
-  // Calculate cashback: orderTotal × cashback_percent
-  const cashbackAmount = Math.round(orderTotal * (perks.cashback_percent / 100) * 100) / 100;
-  if (cashbackAmount > 0) {
-    await addCredit(userId, cashbackAmount, "cashback",
-      `${perks.cashback_percent}% cashback on £${orderTotal.toFixed(2)} order`,
-      orderId
-    );
-  }
-
-  // Update spending totals
-  await query(
-    `UPDATE users SET annual_spend = annual_spend + $1, total_spend = total_spend + $1, updated_at = NOW() WHERE id = $2`,
-    [orderTotal.toFixed(2), userId]
-  );
-
-  // Recalculate tier (might upgrade)
-  await recalculateTier(userId);
-
-  return { pointsEarned, cashbackAmount };
 }
 
 // ══════════════════════════════════════════════════════════════

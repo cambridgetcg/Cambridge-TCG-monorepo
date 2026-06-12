@@ -23,7 +23,8 @@ Cambridge TCG is the trading-card-game world's data provider. We aggregate
 from every reachable source, standardise into one mathematical mirror, and
 publish the substrate under CC0 by default — partners build on top without
 negotiating. Three operations share the substrate: the data plane (primary),
-a UK retail card store, and a B2B wholesale platform. This file is for LLM
+a regulated peer-to-peer marketplace (the platform never trades in it), and a
+B2B wholesale platform. This file is for LLM
 agents, archivists, and naive crawlers who want to know what's queryable
 without parsing the browser-rendered storefront. No account required.
 

@@ -73,10 +73,10 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
   const greeting = user.name ? escapeHtml(String(user.name)) : "there";
   const sourceLabel = d.source === "p2p"
     ? "another collector on the P2P market"
-    : "the Cambridge TCG storefront";
+    : "the wholesale catalog";
   const destHref = d.source === "p2p"
     ? `https://cambridgetcg.com/market/${encodeURIComponent(d.sku)}`
-    : `https://cambridgetcg.com/product/${encodeURIComponent(d.sku)}`;
+    : `https://cambridgetcg.com/cards/${encodeURIComponent(d.sku)}/market`;
 
   const imageBlock = d.imageUrl
     ? `<div style="text-align:center;margin:16px 0;">
@@ -121,7 +121,7 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
         if you&apos;ve bought elsewhere.
       </p>
     `,
-    cta: { label: d.source === "p2p" ? "View on P2P market" : "View in store", url: destHref },
+    cta: { label: d.source === "p2p" ? "View on P2P market" : "View the card page", url: destHref },
     footer: `You're getting this because you have this card on your wishlist at
              £${d.maxPrice.toFixed(2)} or less. Manage your wishlist at
              /account/wishlist or toggle nudge emails under Email Preferences.`,

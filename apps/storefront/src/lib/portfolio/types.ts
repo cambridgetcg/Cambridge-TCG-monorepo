@@ -20,10 +20,8 @@ export interface PortfolioCard {
 export interface ValuatedCard extends PortfolioCard {
   // Live valuation
   spot_price: number | null;
-  market_price: number | null;  // best ask (could be P2P or CTCG)
+  market_price: number | null;  // best P2P ask
   best_bid: number | null;
-  tradein_credit: number | null;
-  tradein_cash: number | null;
   // Computed
   current_value: number;        // market_price * quantity (or spot * qty)
   total_cost: number | null;    // acquisition_price * quantity
@@ -48,7 +46,7 @@ export interface PortfolioSnapshot {
 }
 
 export interface ListingAction {
-  type: "market_ask" | "auction" | "tradein";
+  type: "market_ask" | "auction";
   label: string;
   description: string;
   estimated_return: number | null;

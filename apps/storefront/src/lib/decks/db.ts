@@ -56,13 +56,13 @@
 //     freezes it at moment-of-assembly so the player can see what the
 //     deck "cost" them at build time.
 //
-//   - apps/storefront/src/lib/tradein/db.ts — the *opposite direction*.
-//     Deck-building gathers cards into meaning; trade-in disperses cards
-//     into credit. The `tradein_credit` field we snapshot in the entry
-//     is the literal value of breaking the deck. Storing it makes the
-//     trade-off visible: every day the deck is held is an ongoing choice
-//     against liquidation. The user can always see what they're saying
-//     no to.
+//   - apps/storefront/src/lib/market/db.ts — the *opposite direction*.
+//     Deck-building gathers cards into meaning; the P2P market disperses
+//     cards back into value. Since kingdom-101 the house desk is closed,
+//     so liquidation means listing asks on the market to other users.
+//     Every day the deck is held is an ongoing choice against
+//     liquidation; the market page shows what the player is saying no
+//     to.
 //
 //   - apps/storefront/src/app/decks/[slug]/page.tsx — the *community
 //     surface*. When `is_public` flips true, the deck steps out of the
@@ -89,7 +89,6 @@ export interface DeckCardSnapshot {
   rarity: string | null;
   image_url: string | null;
   spot_price: number;
-  tradein_credit: number | null;
 }
 
 export interface DeckEntry {

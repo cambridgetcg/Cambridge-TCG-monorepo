@@ -177,7 +177,7 @@ function BranchContent({ picked }: { picked: Audience }) {
             ["Your trade history (sign-in required)", "/account/trades"],
             ["Methodology — commission rate", "/methodology/commission-rate"],
             ["Methodology — escrow tier", "/methodology/escrow-tier"],
-            ["Sell cards to us instead", "/trade-in"],
+            ["Sell to other collectors on the market", "/market"],
           ]} />
         </>
       );

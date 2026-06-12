@@ -11,31 +11,31 @@ export default function StoreCreditMethodology() {
     <>
       <h1>Store credit</h1>
       <p>
-        Store credit is currency you hold on Cambridge TCG that can be spent at checkout. It
-        is recorded in the <code>store_credit_ledger</code> table — every grant and spend is
-        an append-only ledger row, with a <code>balance_after</code> column you can
-        reconcile against.
+        Store credit is non-money value you hold on Cambridge TCG. It is recorded in the{" "}
+        <code>store_credit_ledger</code> table — every grant and deduction is an append-only
+        ledger row, with a <code>balance_after</code> column you can reconcile against. Your
+        balance and full ledger are visible on <code>/account/standing</code>.
       </p>
       <blockquote>
         <strong>Where this lives in code.</strong> The ledger is{" "}
         <code>store_credit_ledger</code>; the balance cache is{" "}
-        <code>users.store_credit_balance</code>; spend at checkout is a one-shot Stripe coupon
-        applied during the checkout session.
+        <code>users.store_credit_balance</code>.
       </blockquote>
       <h2>How credit is earned</h2>
       <ul>
-        <li><strong>Cashback</strong> on B2C orders — % of the line total per your membership tier.</li>
-        <li><strong>Trade-in (credit option)</strong> — accept the credit quote instead of cash.</li>
-        <li><strong>Bounty sell-back</strong> — sell a vault item back to the platform for 77% spot price.</li>
         <li><strong>Refunds to credit</strong> — when applicable, refunds may be issued as credit.</li>
-        <li><strong>Liquidity mining</strong> — the market-maker incentive program (if active).</li>
+        <li><strong>Bounty sell-back</strong> — convert a vault prize back to the prize pool for credit.</li>
+        <li><strong>Liquidity rewards</strong> — credit for resting honest asks on the market.</li>
         <li><strong>Operator grants</strong> — staff or retention adjustments.</li>
       </ul>
-      <h2>How credit is spent</h2>
+      <h2>Where credit goes</h2>
       <p>
-        Credit is applied at checkout as a one-shot Stripe coupon for the available balance
-        (or the order total, whichever is smaller). The deduction happens on{" "}
-        <code>checkout.session.completed</code> via the Stripe webhook.
+        The retail checkout is retired — the platform sells nothing and holds no market
+        position (see <a href="/methodology/regulator">/methodology/regulator</a>). That
+        means credit currently has no first-party spend path. Its sinks are being
+        re-anchored to the prize economy (raffle entries, pull tokens) in a coming change;
+        until then your balance simply persists in the ledger. Nothing is lost — every
+        grant remains an auditable row.
       </p>
       <p>
         Credit cannot be cashed out. It is non-transferable (no gifting between accounts) and
@@ -43,27 +43,13 @@ export default function StoreCreditMethodology() {
         the same PR.
       </p>
 
-      <h2>Why you sometimes can&rsquo;t spend all of it at once</h2>
-      <p>
-        Card payments have to charge at least a tiny amount — our card processor
-        (Stripe) can&rsquo;t take a £0.00 payment. So when your credit could cover
-        the whole order, we leave at least <strong>1p</strong> as cash due. The
-        rest of your credit isn&rsquo;t lost — it stays in your balance for next
-        time.
-      </p>
-      <p>
-        Example: a £45 order paid with £50 of credit applies £44.99 of credit;
-        £5.01 stays in your account. At checkout you see exactly how much credit
-        was used and how much stayed behind — no surprises.
-      </p>
-    
-
       <TypeSignature
         type="methodology-page"
-        origin="store_credit_ledger + checkout coupon flow — non-money value earned and spent at Cambridge TCG"
+        origin="store_credit_ledger — non-money value earned through refunds, prizes, and market participation"
         doctrines={["transparency", "substrate-honesty"]}
         audience="public-documentation"
         recursion={[
+          { label: "/methodology/regulator", href: "/methodology/regulator" },
           { label: "/methodology/commission-rate", href: "/methodology/commission-rate" },
           { label: "/methodology/payout-hold", href: "/methodology/payout-hold" },
           { label: "/methodology/membership-tier", href: "/methodology/membership-tier" },

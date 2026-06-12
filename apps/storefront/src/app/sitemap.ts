@@ -17,7 +17,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/catalog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${baseUrl}/market`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.9 },
     { url: `${baseUrl}/auctions`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.8 },
-    { url: `${baseUrl}/trade-in`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${baseUrl}/rewards`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 },
     { url: `${baseUrl}/community`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.7 },
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
@@ -74,8 +73,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     )
   ).flat();
 
-  // Product pages — top cards across every game. Capped per-game so the
-  // sitemap stays bounded as the catalog grows past One-Piece.
+  // Top cards across every game — capped per-game so the sitemap stays
+  // bounded as the catalog grows past One-Piece. Feeds the market pages.
   const productLists = await Promise.all(
     games.map((g) =>
       fetchPrices({ game: g.slug, limit: 500, sort: "price_desc" }).catch(
@@ -85,14 +84,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
   const allProducts = productLists.flatMap((r) => r.items);
 
-  const productPages: MetadataRoute.Sitemap = allProducts.map((item) => ({
-    url: `${baseUrl}/product/${item.sku}`,
-    lastModified: new Date(),
-    changeFrequency: "daily" as const,
-    priority: 0.6,
-  }));
-
-  // Market pages (same SKUs).
+  // Market pages — one URL per top SKU.
   const marketPages: MetadataRoute.Sitemap = allProducts.map((item) => ({
     url: `${baseUrl}/market/${item.sku}`,
     lastModified: new Date(),
@@ -105,7 +97,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...guidePages,
     ...gameLandingPages,
     ...setPages,
-    ...productPages,
     ...marketPages,
   ];
 }

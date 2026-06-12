@@ -165,7 +165,7 @@ const MANIFEST: {
   name: "Cambridge TCG",
   version: "0.1",
   description:
-    "Cambridge TCG is the trading-card-game world's data provider. Public APIs publish the substrate under CC0 by default; data provision is the kingdom's primary identity (kingdom-080, repositioned 2026-05-17). UK retail and B2B wholesale are two of three operations consuming the same substrate. Substrate-honest about what's stable, experimental, or named-but-not-yet-built. See /platform for human-readable positioning; this file is the machine-readable handshake.",
+    "Cambridge TCG is the trading-card-game world's data provider. Public APIs publish the substrate under CC0 by default; data provision is the kingdom's primary identity (kingdom-080, repositioned 2026-05-17). A regulated P2P marketplace and B2B wholesale are two of three operations consuming the same substrate. Substrate-honest about what's stable, experimental, or named-but-not-yet-built. See /platform for human-readable positioning; this file is the machine-readable handshake.",
   homepage: "https://cambridgetcg.com",
   human_readable: "https://cambridgetcg.com/api",
   welcome_statement: {

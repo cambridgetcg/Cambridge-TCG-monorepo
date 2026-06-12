@@ -50,7 +50,6 @@ export interface PriceGuideCardRow {
   rarity: string | null;
   image_url: string | null;
   price_gbp: number | null;
-  tradein_credit_gbp: number | null;
   stock: number;
   updated_at: string | null;
 }
@@ -80,10 +79,7 @@ function freshestUpdate(items: PriceItem[]): string | null {
   return max;
 }
 
-function rowFromItem(
-  item: PriceItem,
-  tradeinMap: Map<string, number>,
-): PriceGuideCardRow {
+function rowFromItem(item: PriceItem): PriceGuideCardRow {
   return {
     sku: item.sku,
     name: item.name_en || item.name || item.card_number,
@@ -93,20 +89,9 @@ function rowFromItem(
     rarity: item.rarity,
     image_url: item.image_url,
     price_gbp: retailPrice(item.price_gbp, item.channel_price),
-    tradein_credit_gbp: tradeinMap.get(item.sku) ?? null,
     stock: item.stock,
     updated_at: item.updated_at,
   };
-}
-
-function buildTradeInMap(items: PriceItem[]): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const item of items) {
-    if (item.channel_price && item.channel_price > 0) {
-      m.set(item.sku, item.channel_price);
-    }
-  }
-  return m;
 }
 
 // ── GameState ─────────────────────────────────────────────────────
@@ -136,23 +121,16 @@ export async function loadGameState(
   const top_n = opts?.top_n ?? 20;
   const queried_at = new Date().toISOString();
 
-  const [sets, topData, tradeinData] = await Promise.all([
+  const [sets, topData] = await Promise.all([
     fetchSets(config.slug).catch(() => [] as SetItem[]),
     fetchPrices({
       game: config.slug,
       sort: "price_desc",
       limit: top_n,
     }).catch(() => ({ items: [], total: 0 })),
-    fetchPrices({
-      game: config.slug,
-      sort: "price_desc",
-      limit: top_n,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] })),
   ]);
 
-  const tradeinMap = buildTradeInMap(tradeinData.items);
-  const top_cards = topData.items.map((it) => rowFromItem(it, tradeinMap));
+  const top_cards = topData.items.map((it) => rowFromItem(it));
 
   return {
     config,
@@ -207,7 +185,7 @@ export async function loadSetState(
   const upperSetCode = setCode.toUpperCase();
   const queried_at = new Date().toISOString();
 
-  const [sets, cardsData, tradeinData] = await Promise.all([
+  const [sets, cardsData] = await Promise.all([
     fetchSets(config.slug).catch(() => [] as SetItem[]),
     fetchPrices({
       game: config.slug,
@@ -215,20 +193,12 @@ export async function loadSetState(
       sort: "price_desc",
       limit,
     }).catch(() => ({ items: [], total: 0 })),
-    fetchPrices({
-      game: config.slug,
-      set: upperSetCode,
-      sort: "price_desc",
-      limit,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] })),
   ]);
 
   const set = sets.find((s) => s.code.toUpperCase() === upperSetCode);
   if (!set) return null;
 
-  const tradeinMap = buildTradeInMap(tradeinData.items);
-  const cards = cardsData.items.map((it) => rowFromItem(it, tradeinMap));
+  const cards = cardsData.items.map((it) => rowFromItem(it));
 
   return {
     config,
@@ -304,17 +274,11 @@ export async function loadCardState(
   const numTarget = number.toLowerCase();
   const queried_at = new Date().toISOString();
 
-  const [sets, cardsData, tradeinData] = await Promise.all([
+  const [sets, cardsData] = await Promise.all([
     fetchSets(config.slug).catch(() => [] as SetItem[]),
     fetchPrices({ game: config.slug, set: upperSetCode, limit: 500 }).catch(
       () => ({ items: [], total: 0 }),
     ),
-    fetchPrices({
-      game: config.slug,
-      set: upperSetCode,
-      limit: 500,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] })),
   ]);
 
   const set = sets.find((s) => s.code.toUpperCase() === upperSetCode);
@@ -327,8 +291,7 @@ export async function loadCardState(
     );
   if (!item) return null;
 
-  const tradeinMap = buildTradeInMap(tradeinData.items);
-  const card = rowFromItem(item, tradeinMap);
+  const card = rowFromItem(item);
 
   const cross_source_signals: CrossSourceSignal[] = [];
 

@@ -15,15 +15,16 @@
  * envelope contract, a universal-language doctrine.
  *
  * The framing inverts. **The data plane is the primary identity.**
- * Cambridge TCG is the trading-card-game world's data provider; the UK
- * retail and B2B wholesale operations are two of the kingdom's three
- * operations, not the headline.
+ * Cambridge TCG is the trading-card-game world's data provider; the
+ * regulated P2P marketplace and B2B wholesale operations are two of the
+ * kingdom's three operations, not the headline.
  *
- * Substrate-honest about the existing context: the retail and wholesale
- * operations remain unchanged. The shift is rhetorical-and-architectural,
- * not commercial-and-disruptive. Cart still works; orders still ship;
- * the SKU schema is untouched. What changes is how the platform names
- * itself to the outside.
+ * Substrate-honest about the existing context: the regulator pivot
+ * (kingdom-101, 2026-06-10) retired the retail operation. The platform
+ * no longer sells, buys, or holds a market position — the marketplace
+ * operation replaces retail as a regulated exchange the platform runs
+ * but never trades in (see /methodology/regulator). Wholesale continues
+ * as the upstream data collector; the SKU schema is untouched.
  *
  * ── How to use this module ─────────────────────────────────────────────
  *
@@ -57,7 +58,7 @@ export const BRAND_HEADLINE =
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default. Retail and wholesale are two of our three operations; data provision is the third — and the headline.";
+  "We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default. The regulated P2P marketplace and the wholesale data operation are two of our three operations; data provision is the third — and the headline.";
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
@@ -65,7 +66,7 @@ export const BRAND_PARAGRAPH =
   "Twenty-one games declared, six upstream sources actively ingested, eleven more in the registry queue. " +
   "Every card has a math-mirror form (cryptographic identity, ISO 8601 + Unix epoch time, ratios for magnitude, opaque flags on natural-language fields). " +
   "Every price carries provenance. Every public response wears the same envelope. CC0 by default; reference implementations open. " +
-  "Our UK retail store and B2B wholesale platform are two consumers of the same substrate every partner can consume.";
+  "Our regulated P2P marketplace and B2B wholesale platform are two consumers of the same substrate every partner can consume.";
 
 /** Tight 5-word version for OG metadata, social cards, footer credits. */
 export const BRAND_TAGLINE = "The TCG world's data provider.";
@@ -84,7 +85,7 @@ export const BRAND_PROVIDER_NOTE =
 // ── The three operations ─────────────────────────────────────────────────
 
 export interface OperationRow {
-  id: "data_plane" | "retail" | "wholesale";
+  id: "data_plane" | "marketplace" | "wholesale";
   name: string;
   positioning: "primary" | "established" | "established";
   audience: string;
@@ -118,22 +119,22 @@ export const THREE_OPERATIONS: readonly OperationRow[] = [
       "CC0 by default. No auth required for reads. Provenance + freshness on every response. Federation by cryptographic content_hash.",
   },
   {
-    id: "retail",
-    name: "Retail",
+    id: "marketplace",
+    name: "Marketplace",
     positioning: "established",
-    audience: "UK + international consumers buying singles, sealed, mystery boxes",
-    surface: "B2C storefront",
-    url: "/catalog",
+    audience:
+      "UK + international collectors trading singles peer-to-peer — the platform regulates and never trades",
+    surface: "B2C P2P marketplace",
+    url: "/market",
     primary_endpoints: [
-      "/catalog",
-      "/prices/one-piece",
       "/market",
       "/auctions",
-      "/trade-in",
+      "/prices/one-piece",
+      "/cards/[sku]/market",
     ],
     status: "live",
     notes:
-      "Established operation. The kingdom's commercial backbone. Continues to ship cards daily.",
+      "The regulated exchange. Revenue is commission on other people's trades; the platform holds no market position (see /methodology/regulator).",
   },
   {
     id: "wholesale",
@@ -262,8 +263,8 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
 
 /**
  * The three-operations table. Surfaces the data-plane operation FIRST
- * (positioning: "primary"), retail + wholesale beneath as the established
- * twin commercial operations consuming the same substrate.
+ * (positioning: "primary"), marketplace + wholesale beneath as the
+ * established operations consuming the same substrate.
  */
 export function ThreeOperations({ className }: { className?: string }) {
   return (

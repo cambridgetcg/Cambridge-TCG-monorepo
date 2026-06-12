@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { reportSale } from "@/lib/wholesale/client";
 import { query } from "@/lib/db";
-import { processOrderRewards } from "@/lib/membership/db";
-import { postActivity, awardAchievement } from "@/lib/social/db";
 import { getStripe } from "@/lib/stripe";
-import {
-  commitCartToSale,
-  releaseHolder,
-  holderForStripeSession,
-} from "@/lib/stock/reservations";
-import { recordOrderFromStripeSession } from "@/lib/orders/record";
+import { commitCartToSale, holderForStripeSession } from "@/lib/stock/reservations";
 
 export async function POST(request: Request) {
   // Order matters: gate the request on configuration + signature
@@ -336,45 +328,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  // Released-by-Stripe abandonment. Stripe fires checkout.session.expired
-  // when a session times out without payment (default 24h, configurable).
-  // Release the matching reservation so the held stock returns to availability
-  // before the cron sweep would have caught it via TTL.
-  if (event.type === "checkout.session.expired") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    try {
-      const result = await releaseHolder(holderForStripeSession(session.id));
-      if (result.ok) {
-        console.log(
-          `[webhook] session expired ${session.id} — released ${result.released} reservation(s)`,
-        );
-      } else {
-        console.warn(
-          `[webhook] session expired ${session.id} — release failed: ${result.message}`,
-        );
-      }
-    } catch (e) {
-      console.error(`[webhook] release on session.expired threw for ${session.id}:`, e);
-    }
-    return NextResponse.json({ received: true });
-  }
-
-  // Async payment failed — Pay-by-Bank / crypto / other delayed-notification
-  // rails that initiated at checkout but did NOT settle. Release the held
-  // stock so it returns to availability (mirrors checkout.session.expired).
-  if (event.type === "checkout.session.async_payment_failed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    try {
-      const result = await releaseHolder(holderForStripeSession(session.id));
-      console.log(
-        `[webhook] async payment failed ${session.id} — released ${result.ok ? result.released : 0} reservation(s)`,
-      );
-    } catch (e) {
-      console.error(`[webhook] release on async_payment_failed threw for ${session.id}:`, e);
-    }
-    return NextResponse.json({ received: true });
-  }
-
   // Fulfilment fires for synchronous completion (card/wallet) AND for async
   // rails (Pay-by-Bank, crypto) once they settle via async_payment_succeeded.
   if (
@@ -395,7 +348,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true });
     }
 
-    // B2B branch — wholesale consolidation Phase 2.2c. Detected via
+    // B2B branch — wholesale consolidation Phase 2.2c. KEEP-FOR-NOW:
+    // retired in kingdom-102 (B2B retirement), not in the regulator
+    // pivot's Phase 1. Detected via
     // metadata.b2b_channel === 'wholesale' (set by
     // apps/storefront/src/lib/b2b/checkout.ts). The B2B flow writes to
     // b2b_orders (not customer_orders), skips retail-only side-effects
@@ -438,116 +393,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "B2B recording failed" }, { status: 500 });
       }
       return NextResponse.json({ received: true });
-    }
-
-    try {
-      const skus: { sku: string; qty: number; price_gbp: number; name?: string }[] = session.metadata?.skus
-        ? JSON.parse(session.metadata.skus)
-        : [];
-
-      // Report sale to wholesale
-      if (skus.length > 0) {
-        const ok = await reportSale({
-          channel: "cambridgetcg",
-          order_ref: session.id,
-          items: skus.map((s) => ({
-            sku: s.sku,
-            qty: s.qty,
-            price_gbp: s.price_gbp,
-          })),
-        });
-
-        console.log(
-          `[webhook] Order ${session.id} — reportSale ${ok ? "succeeded" : "failed"}`,
-          { skus }
-        );
-      }
-
-      // Record order in customer_orders. Idempotent on stripe_session_id;
-      // /order-confirmation also calls this as a defensive backup, and the
-      // hourly reconciliation cron sweeps any that slipped past both. See
-      // apps/storefront/src/lib/orders/record.ts.
-      const recorded = await recordOrderFromStripeSession(session);
-      const { userId, email, totalGbp: total } = recorded;
-      console.log(`[webhook] Order ${session.id} ${recorded.created ? "recorded" : "already-existed"} for ${email}`);
-
-      // Commit the stock reservation into a sale movement. Idempotent on
-      // Stripe redelivery via @cambridge-tcg/stock's (cardId, referenceId)
-      // UNIQUE — duplicate events become no-ops.
-      // See docs/architecture/storefront-checkout-flow.md.
-      try {
-        const commit = await commitCartToSale(
-          holderForStripeSession(session.id),
-          skus.map((s) => ({ sku: s.sku, quantity: s.qty })),
-          "cambridgetcg.com",
-        );
-        if (!commit.ok) {
-          console.error(
-            `[webhook] stock commit failed for ${session.id}: ${commit.message}`,
-          );
-        } else {
-          console.log(
-            `[webhook] stock committed for ${session.id}: ${commit.committed} movement(s)`,
-          );
-        }
-      } catch (e) {
-        console.error(`[webhook] stock commit threw for ${session.id}:`, e);
-      }
-
-      // Social: activity feed + achievement
-      if (userId) {
-        postActivity(userId, "card_added", "Purchased cards from the store").catch(() => {});
-        awardAchievement(userId, "first_purchase").catch(() => {});
-      }
-
-      // Debit applied store credit. The amount is in metadata (set by
-      // /api/checkout) so we don't have to round-trip. Atomic via a
-      // single UPDATE that refuses to go negative; if balance changed
-      // mid-flight (concurrent debits, manual adjustments), the user
-      // sees a partial debit and a ledger entry reflects what was
-      // actually subtracted.
-      const creditAppliedGbp = session.metadata?.credit_applied_gbp
-        ? parseFloat(session.metadata.credit_applied_gbp)
-        : 0;
-      const creditUserId = session.metadata?.credit_user_id || userId;
-      if (creditUserId && creditAppliedGbp > 0) {
-        try {
-          const debitRes = await query(
-            `UPDATE users
-                SET store_credit_balance = GREATEST(0, store_credit_balance - $2),
-                    updated_at = NOW()
-              WHERE id = $1
-              RETURNING store_credit_balance::numeric AS balance`,
-            [creditUserId, creditAppliedGbp.toFixed(2)]
-          );
-          if (debitRes.rows[0]) {
-            await query(
-              `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
-               VALUES ($1, $2, $3, 'redeemed_checkout', $4, $5)`,
-              [creditUserId, (-creditAppliedGbp).toFixed(2), debitRes.rows[0].balance,
-               `Applied at checkout`, session.id]
-            );
-            console.log(`[webhook] Credit redeemed: £${creditAppliedGbp.toFixed(2)} for ${creditUserId}`);
-          }
-        } catch (creditErr) {
-          console.error("[webhook] Credit debit failed:", creditErr);
-        }
-      }
-
-      // Process membership rewards (points + cashback). `total` is the cash
-      // amount Stripe actually collected — i.e. cart subtotal minus credit
-      // and minus tier discount. So rewards naturally apply to "cash spent",
-      // matching the marketing promise.
-      if (userId && total > 0) {
-        try {
-          const rewards = await processOrderRewards(userId, total, session.id);
-          console.log(`[webhook] Rewards: ${rewards.pointsEarned} points, £${rewards.cashbackAmount} cashback for ${email}`);
-        } catch (rewardErr) {
-          console.error("[webhook] Rewards processing failed (order still recorded):", rewardErr);
-        }
-      }
-    } catch (err) {
-      console.error("[webhook] Error processing order:", err);
     }
 
     // Handle Platinum subscription

@@ -1,8 +1,9 @@
 /**
  * /account/b2b/cards/[sku] — per-card detail at wholesale price.
  *
- * Phase 2.1 of the wholesale consolidation. Mirrors the retail PDP at
- * /product/[sku] but with two key differences:
+ * Phase 2.1 of the wholesale consolidation. Mirrors the retired retail
+ * PDP (whose surviving read-mirror is /cards/[sku]/market) but with two
+ * key differences:
  *   - Fetched via the wholesale channel (dual-key Falcon path).
  *   - Stock is numeric (B2B buyers plan resale by quantity).
  *

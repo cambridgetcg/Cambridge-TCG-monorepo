@@ -9,7 +9,7 @@ export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
       <h2 className="text-2xl font-bold mb-8">Featured Cards</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {cards.map(card => (
-          <Link key={card.sku} href={`/product/${card.sku}`}
+          <Link key={card.sku} href={`/market/${card.sku}`}
             className="group bg-neutral-900 rounded-xl overflow-hidden hover:ring-2 ring-emerald-500 transition">
             <div className="relative aspect-[3/4] bg-neutral-800">
               {card.image_url && (

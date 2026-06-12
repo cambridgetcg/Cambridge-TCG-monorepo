@@ -158,7 +158,6 @@ export default function StartersPage() {
         rarity: detail.leader.rarity,
         image_url: detail.leader.image_url,
         spot_price: 0,
-        tradein_credit: null,
       };
       const entries = detail.cards
         .filter((c) => c.resolved && c.sku)
@@ -174,7 +173,6 @@ export default function StartersPage() {
             rarity: c.rarity,
             image_url: c.image_url,
             spot_price: 0,
-            tradein_credit: null,
           },
         }));
       const starterDeck = {

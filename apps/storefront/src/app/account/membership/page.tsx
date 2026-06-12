@@ -63,7 +63,7 @@ const POINTS_TYPE_STYLE: Record<string, string> = {
 
 const CREDIT_TYPE_STYLE: Record<string, string> = {
   cashback:          "bg-emerald-500/20 text-emerald-400",
-  tradein_credit:    "bg-teal-500/20 text-teal-400",
+  tradein_paid:      "bg-teal-500/20 text-teal-400",
   manual_adjustment: "bg-blue-500/20 text-blue-400",
   redeemed_checkout: "bg-orange-500/20 text-orange-400",
   migration:         "bg-purple-500/20 text-purple-400",

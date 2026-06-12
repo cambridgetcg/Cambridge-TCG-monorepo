@@ -169,17 +169,16 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
   // ── Sell ────────────────────────────────────────────────────────────
   {
     l1: "Sell",
-    l1_href: "/trade-in",
+    l1_href: "/market",
     columns: [
       {
-        heading: "Trade in",
+        heading: "Sell on the market",
         items: [
-          { label: "Trade-in hub", href: "/trade-in" },
-          { label: "Bulk quote", href: "/trade-in/bulk" },
-          { label: "Bundle quote", href: "/trade-in/bundle" },
-          { label: "Custom quote", href: "/trade-in/custom-quote" },
-          { label: "Submit cards", href: "/trade-in/submit" },
-          { label: "Trade-in terms", href: "/trade-in/terms" },
+          { label: "Live market", href: "/market", description: "List cards peer-to-peer — you set the price" },
+          { label: "How escrow routes", href: "/methodology/escrow-tier" },
+          { label: "Market methodology", href: "/methodology/market" },
+          { label: "Trust score", href: "/methodology/trust-score" },
+          { label: "My offers", href: "/account/offers", authed_only: true },
         ],
       },
       {
@@ -206,7 +205,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         ],
       },
     ],
-    footer: { label: "Trade-in & seller methodology →", href: "/methodology" },
+    footer: { label: "Seller methodology →", href: "/methodology" },
   },
 
   // ── Discover ▾ — closes the discovery gap ───────────────────────────

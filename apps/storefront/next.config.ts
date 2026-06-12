@@ -57,6 +57,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // The retail PDP /product/[sku] was deleted in the regulator pivot
+  // (kingdom-101). Indexed URLs, already-sent wishlist emails, and
+  // external links land on the surviving card page instead of a 404.
+  async redirects() {
+    return [
+      {
+        source: "/product/:sku",
+        destination: "/cards/:sku/market",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

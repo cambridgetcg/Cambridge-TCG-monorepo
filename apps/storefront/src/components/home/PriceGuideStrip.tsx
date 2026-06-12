@@ -43,7 +43,8 @@ export default function PriceGuideStrip() {
           <h2 className="text-2xl font-bold text-white">UK Price Guides</h2>
           <p className="mt-1 text-sm text-neutral-400">
             Free, daily-updated card prices across {sorted.length} TCGs. Each
-            page lists every set, every card, retail and trade-in values.
+            page lists every set, every card, with reference prices from live
+            sources.
           </p>
         </div>
         <Link

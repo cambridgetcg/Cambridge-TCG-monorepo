@@ -10,14 +10,14 @@ const THINGS_YOU_CAN_DO = [
   {
     emoji: "🛒",
     label: "Buy a card",
-    href: "/catalog",
-    note: "Browse our shop, or buy straight from other collectors.",
+    href: "/market",
+    note: "Buy straight from other collectors on the market.",
   },
   {
     emoji: "💱",
     label: "Sell or trade your cards",
     href: "/market",
-    note: "List on the market, run an auction, or trade in for credit.",
+    note: "List on the market or run an auction.",
   },
   {
     emoji: "🎴",
@@ -47,7 +47,7 @@ export default function StartPage() {
         <h2 className="text-xl font-bold mt-12 mb-4">What do you want to do?</h2>
         <ul className="space-y-3">
           {THINGS_YOU_CAN_DO.map((d) => (
-            <li key={d.href}>
+            <li key={d.label}>
               <Link
                 href={d.href}
                 className="block bg-neutral-900 rounded-xl p-4 hover:bg-neutral-800 transition"

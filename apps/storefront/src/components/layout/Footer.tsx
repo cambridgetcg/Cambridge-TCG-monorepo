@@ -32,12 +32,12 @@ export default async function Footer() {
             <Image src="/images/icon.png" alt="Cambridge TCG" width={28} height={28} className="w-7 h-7" />
             <p className="text-lg font-black text-white">Cambridge <span className="text-emerald-400">TCG</span></p>
           </div>
-          <p className="text-xs text-neutral-500 mt-2 max-w-xs">{BRAND_TAGLINE} Buy, sell, trade, and collect. Based in Cambridge, UK.</p>
+          <p className="text-xs text-neutral-500 mt-2 max-w-xs">{BRAND_TAGLINE} A peer-to-peer market we regulate and never trade in. Based in Cambridge, UK.</p>
         </div>
 
-        {/* Shop */}
+        {/* Browse */}
         <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
-          <p className="text-white font-medium mb-1">Shop</p>
+          <p className="text-white font-medium mb-1">Browse</p>
           <Link href="/prices/search" className="hover:text-white transition">Price Search</Link>
           <Link href="/catalog" className="hover:text-white transition">Catalog</Link>
           <Link href="/market" className="hover:text-white transition">P2P Market</Link>
@@ -48,10 +48,10 @@ export default async function Footer() {
         {/* Sell */}
         <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
           <p className="text-white font-medium mb-1">Sell</p>
-          <Link href="/trade-in" className="hover:text-white transition">Trade In</Link>
-          <Link href="/trade-in/custom-quote" className="hover:text-white transition">Custom Quote</Link>
-          <Link href="/trade-in/bundle" className="hover:text-white transition">Sell a Bundle</Link>
-          <Link href="/trade-in/bulk" className="hover:text-white transition">Bulk Cards</Link>
+          <Link href="/market" className="hover:text-white transition">List on the Market</Link>
+          <Link href="/auctions/sell" className="hover:text-white transition">Sell at Auction</Link>
+          <Link href="/methodology/fees" className="hover:text-white transition">Fees & Commission</Link>
+          <Link href="/methodology/payout-hold" className="hover:text-white transition">Payouts</Link>
         </div>
 
         {/* Play & Earn */}

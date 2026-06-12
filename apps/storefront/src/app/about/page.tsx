@@ -91,7 +91,7 @@ export default function AboutPage() {
                 <h3 className="text-lg font-bold text-white">A Financial Layer, Done Right</h3>
               </div>
               <p className="text-neutral-400 leading-relaxed">
-                Cards have real value. We do not pretend otherwise. Our market shows real-time prices, bid/ask spreads, and trade history — like a proper exchange. Your portfolio tracks P&L. Our trade-in credit creates a liquidity floor on every card. But the financial layer serves the community, not the other way around. The goal is not speculation — it is giving collectors the information and tools to make good decisions about the cards they love.
+                Cards have real value. We do not pretend otherwise. Our market shows real-time prices, bid/ask spreads, and trade history — like a proper exchange. Your portfolio tracks P&L. Escrow, trust scoring, and provable fairness keep that exchange honest. But the financial layer serves the community, not the other way around. The goal is not speculation — it is giving collectors the information and tools to make good decisions about the cards they love.
               </p>
             </div>
 
@@ -116,7 +116,7 @@ export default function AboutPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="bg-neutral-900 rounded-xl p-5">
               <p className="text-amber-400 font-bold mb-1">Buy</p>
-              <p className="text-sm text-neutral-400">From our store or from other collectors on the P2P market. Always at the best available price.</p>
+              <p className="text-sm text-neutral-400">From other collectors on the P2P market, with live reference prices beside every listing.</p>
             </div>
             <div className="bg-neutral-900 rounded-xl p-5">
               <p className="text-amber-400 font-bold mb-1">Collect</p>
@@ -128,7 +128,7 @@ export default function AboutPage() {
             </div>
             <div className="bg-neutral-900 rounded-xl p-5">
               <p className="text-amber-400 font-bold mb-1">Trade</p>
-              <p className="text-sm text-neutral-400">Sell on the market, list at auction, or trade in for store credit. Multiple paths, your choice.</p>
+              <p className="text-sm text-neutral-400">Sell on the market or list at auction. Multiple paths, your choice.</p>
             </div>
             <div className="bg-neutral-900 rounded-xl p-5">
               <p className="text-amber-400 font-bold mb-1">Earn</p>
@@ -147,7 +147,7 @@ export default function AboutPage() {
         <div className="max-w-3xl mx-auto px-4 py-16">
           <h2 className="text-2xl font-bold text-white mb-6">Based in Cambridge</h2>
           <p className="text-neutral-400 leading-relaxed">
-            We are a UK-based team operating from Cambridge. Every card that passes through our P2P escrow is inspected here. Our trade-in offers are backed by real inventory. When you trade with us, you are trading with people who collect the same cards you do.
+            We are a UK-based team operating from Cambridge. Every card that passes through our P2P escrow is inspected here. When you trade with us, you are trading with people who collect the same cards you do.
           </p>
         </div>
       </section>

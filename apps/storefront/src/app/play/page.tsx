@@ -37,7 +37,6 @@ interface SavedDeckCard {
   rarity: string | null;
   image_url: string | null;
   spot_price: number;
-  tradein_credit: number | null;
 }
 
 interface SavedDeck {
@@ -173,7 +172,6 @@ export default function PlayPage() {
           rarity: detail.leader.rarity,
           image_url: detail.leader.image_url,
           spot_price: 0,
-          tradein_credit: null,
         };
         type CardRef = {
           sku: string | null;
@@ -199,7 +197,6 @@ export default function PlayPage() {
               rarity: c.rarity,
               image_url: c.image_url,
               spot_price: 0,
-              tradein_credit: null,
             } satisfies SavedDeckCard,
           }));
         const starterDeck: SavedDeck = {

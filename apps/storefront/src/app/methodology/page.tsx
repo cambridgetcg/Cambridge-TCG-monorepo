@@ -23,6 +23,12 @@ interface Topic {
 
 const TOPICS: Topic[] = [
   {
+    slug: "regulator",
+    title: "Market regulator (no house position)",
+    blurb: "The platform that runs the market does not trade in it. No house asks, no house bids, no spread, no trade-in desk — revenue is commission on other people's trades. Enforced by pnpm audit:no-house-listing.",
+    status: "published",
+  },
+  {
     slug: "trust-score",
     title: "Trust score",
     blurb: "The 0–100 number that summarises your track record on Cambridge TCG. Drives trade limits, escrow tier, and payout hold.",
@@ -67,13 +73,13 @@ const TOPICS: Topic[] = [
   {
     slug: "store-credit",
     title: "Store credit",
-    blurb: "How credit is earned (cashback, trade-ins, refunds) and how it's spent (one-shot Stripe coupon at checkout).",
+    blurb: "How credit is earned (refunds, prizes, liquidity rewards) and why its spend path is moving to the prize economy now the retail checkout is retired.",
     status: "stub",
   },
   {
     slug: "pricing",
     title: "Pricing",
-    blurb: "How the kingdom converts a Japanese yen listing into the seven retail prices a customer might see. JPY→GBP, margin, VAT, channel multipliers, rounding.",
+    blurb: "How the kingdom converts a Japanese yen listing into the seven channel prices the data plane publishes. JPY→GBP, margin, VAT, channel multipliers, rounding.",
     status: "published",
   },
   {

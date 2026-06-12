@@ -241,34 +241,6 @@ export async function commitCartToSale(
 }
 
 /**
- * Release every reservation held by a holder. Called when checkout fails,
- * is abandoned, or a Stripe session expires.
- */
-export async function releaseHolder(
-  holder: string,
-): Promise<{ ok: true; released: number } | { ok: false; message: string }> {
-  const { db } = wholesaleDb();
-  const { reserver } = service();
-  try {
-    const rows = await db
-      .select({ cardId: stockReservations.cardId })
-      .from(stockReservations)
-      .where(eq(stockReservations.holder, holder));
-    if (rows.length === 0) return { ok: true, released: 0 };
-
-    await db.transaction(async (tx) => {
-      for (const { cardId } of rows) {
-        await reserver.release(tx, { cardId, holder });
-      }
-    });
-    return { ok: true, released: rows.length };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { ok: false, message: msg };
-  }
-}
-
-/**
  * Sweep expired reservations. Called from /api/cron/maintenance once per
  * minute. Returns the number of reservations released.
  */

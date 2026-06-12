@@ -66,12 +66,15 @@ export default function TradeInsPage() {
 
         {submissions.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-neutral-500 mb-4">No trade-ins yet.</p>
+            <p className="text-neutral-500 mb-4">
+              No trade-ins on record. The trade-in desk is closed — sell your
+              cards on the market instead.
+            </p>
             <Link
-              href="/trade-in"
+              href="/market"
               className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition inline-block"
             >
-              Browse Buylist
+              Sell on the Market
             </Link>
           </div>
         ) : (

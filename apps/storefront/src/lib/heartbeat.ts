@@ -63,12 +63,6 @@ const CRON_SCHEDULE: readonly CronJob[] = [
     description:
       "Every minute. Runs platform-wide sweeps (escrow timeouts, offer expirations, etc.).",
   },
-  {
-    path: "/api/cron/reconcile-stripe",
-    schedule: "15 * * * *",
-    description:
-      "Every hour at :15. Reconciles Stripe webhook events against local order state.",
-  },
 ];
 
 export interface HeartbeatState {

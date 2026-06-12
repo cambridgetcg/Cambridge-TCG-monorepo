@@ -15,7 +15,7 @@ const fallbackImage = "/banners/game-general-anime.jpg";
 export default function GameGrid({ games }: { games: GameItem[] }) {
   return (
     <section className="max-w-7xl mx-auto px-4 py-16">
-      <h2 className="text-2xl font-bold mb-8 text-white">Shop by Game</h2>
+      <h2 className="text-2xl font-bold mb-8 text-white">Browse by Game</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {games.map((g) => (
           <Link

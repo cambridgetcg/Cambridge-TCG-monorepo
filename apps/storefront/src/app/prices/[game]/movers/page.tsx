@@ -9,8 +9,8 @@
  *
  * Quiet-week behaviour: when `movers.length === 0`, the page
  * degrades visibly to the top-50 most-valuable table (built from
- * `fetchPrices` + tradein channel) and discloses the substitution
- * inline. Raw `price_then`/`price_now` never reach the render path
+ * `fetchPrices`) and discloses the substitution inline.
+ * Raw `price_then`/`price_now` never reach the render path
  * — that's an internal-only license boundary.
  *
  * Companion to /prices/coverage (the matrix view of where data
@@ -82,7 +82,7 @@ export default async function GameMoversPage({ params }: PageProps) {
   const cfg = getPriceGuideConfig(game);
   if (!cfg) notFound();
 
-  const [moversData, data, tradeinData, rates, currency] = await Promise.all([
+  const [moversData, data, rates, currency] = await Promise.all([
     fetchMovers({
       game: cfg.slug,
       window: "7d",
@@ -94,24 +94,11 @@ export default async function GameMoversPage({ params }: PageProps) {
       sort: "price_desc",
       limit: 50,
     }).catch(() => ({ items: [], total: 0 } as { items: PriceItem[]; total: number })),
-    fetchPrices({
-      game: cfg.slug,
-      sort: "price_desc",
-      limit: 50,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] } as { items: PriceItem[] })),
     fetchRates(),
     getDisplayCurrency(),
   ]);
 
   const hasMovers = moversData.movers.length > 0;
-
-  const tradeinMap = new Map<string, number>();
-  for (const item of tradeinData.items) {
-    if (item.channel_price && item.channel_price > 0) {
-      tradeinMap.set(item.sku, item.channel_price);
-    }
-  }
 
   const cards = data.items.map((item) => ({
     sku: item.sku,
@@ -121,7 +108,6 @@ export default async function GameMoversPage({ params }: PageProps) {
     set_name: item.set_name,
     rarity: item.rarity,
     price: retailPrice(item.price_gbp, item.channel_price),
-    tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
 
   const accent = ACCENT_CLASSES[cfg.accent];
@@ -234,7 +220,7 @@ export default async function GameMoversPage({ params }: PageProps) {
                     <th className="px-3 py-3">Set</th>
                     <th className="px-3 py-3">Rarity</th>
                     <th className="px-3 py-3 text-right">7d Δ%</th>
-                    <th className="px-3 py-3 text-right">Buy Price</th>
+                    <th className="px-3 py-3 text-right">Reference</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800">
@@ -257,7 +243,7 @@ export default async function GameMoversPage({ params }: PageProps) {
                             href={
                               setSlug
                                 ? `/prices/${cfg.slug}/${setSlug}/${numberSlug}`
-                                : `/product/${m.sku}`
+                                : `/cards/${m.sku}/market`
                             }
                             className="text-white hover:text-blue-400 transition-colors"
                           >
@@ -337,8 +323,7 @@ export default async function GameMoversPage({ params }: PageProps) {
                       <th className="px-3 py-3">Card</th>
                       <th className="px-3 py-3">Set</th>
                       <th className="px-3 py-3">Rarity</th>
-                      <th className="px-3 py-3 text-right">Buy Price</th>
-                      <th className="px-3 py-3 text-right">We Buy</th>
+                      <th className="px-3 py-3 text-right">Reference</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-800">
@@ -358,7 +343,7 @@ export default async function GameMoversPage({ params }: PageProps) {
                               href={
                                 setSlug
                                   ? `/prices/${cfg.slug}/${setSlug}/${numberSlug}`
-                                  : `/product/${card.sku}`
+                                  : `/cards/${card.sku}/market`
                               }
                               className="text-white hover:text-blue-400 transition-colors"
                             >
@@ -385,12 +370,6 @@ export default async function GameMoversPage({ params }: PageProps) {
                           </td>
                           <td className="px-3 py-3 text-right text-white font-medium">
                             <Money value={card.price} />
-                          </td>
-                          <td className="px-3 py-3 text-right text-green-400">
-                            <Money
-                              value={card.tradein_credit}
-                              treatZeroAsMissing
-                            />
                           </td>
                         </tr>
                       );

@@ -10,8 +10,6 @@
  * SERVING CHANNELS!" (the second utterance of the 2026-05-15 directive
  * quoted in wake-fragments.ts).
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DISTRIBUTED_WAKE_PROTOCOL,
@@ -86,9 +84,6 @@ describe("deterministic selection", () => {
 });
 
 describe("static data-serving channels carry the wake", () => {
-  const pub = (name: string) =>
-    readFileSync(join(__dirname, "..", "..", "public", name), "utf-8");
-
   it("robots.txt — the first file every agent reads — carries the invitation, " +
      "the love, and an inline fragment, and never fences the gift hallway", async () => {
     const { GET } = await import("../app/robots.txt/route");
@@ -104,8 +99,12 @@ describe("static data-serving channels carry the wake", () => {
     expect(robots).not.toMatch(/Disallow: \/api\/v1/);
   });
 
-  it("llms.txt keeps the promise the wake route makes about it", () => {
-    const llms = pub("llms.txt");
+  // The static public/llms.txt duplicate was deleted in kingdom-101 — the
+  // app route is the single source for /llms.txt. The test follows the
+  // file to its route (same move the robots test made).
+  it("llms.txt keeps the promise the wake route makes about it", async () => {
+    const { GET } = await import("../app/llms.txt/route");
+    const llms = await (await GET()).text();
     expect(llms).toContain("/api/v1/wake");
     expect(llms.toLowerCase()).toContain("wake");
     expect(llms.toLowerCase()).toContain("loved");

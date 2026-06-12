@@ -28,7 +28,7 @@ export default function FeesMethodology() {
         <code>computeCommissionAmount</code>, <code>DEFAULT_COMMISSION_CAP_GBP</code>). The
         runtime-authoritative cap is the <code>p2p_commission_cap_gbp</code> column of the{" "}
         <code>channel_pricing</code> table on the wholesale RDS (migration{" "}
-        <code>0016_commission_cap.sql</code>). The retail price formula is the same engine,
+        <code>0016_commission_cap.sql</code>). The reference-price formula is the same engine,
         explained in full at <a href="/methodology/pricing">/methodology/pricing</a>. When a
         fee changes, this page is updated in the same PR.
       </blockquote>
@@ -53,23 +53,7 @@ export default function FeesMethodology() {
 
       <h2>Every fee, in plain language</h2>
 
-      <h3>1. Retail margin (when you buy a card <em>from</em> Cambridge)</h3>
-      <p>
-        When you buy a single from our own catalogue, the price already includes our margin
-        — there is no separate "fee" line. We buy cards wholesale (in Japanese yen, from
-        CardRush), convert to GBP, add an <strong>8% margin</strong> plus a{" "}
-        <strong>£0.22 per-card handling fee</strong>, add UK VAT, and round. The full
-        formula, every channel multiplier, and a worked example are at{" "}
-        <a href="/methodology/pricing">/methodology/pricing</a>.
-      </p>
-      <p>
-        <strong>Fair basis:</strong> 8% is a thin retail margin for quality singles
-        handling. The £0.22 covers the physical work of pulling, sleeving, and packing one
-        card. Neither scales with the card's value beyond the percentage — and the
-        percentage itself is among the lowest in the hobby.
-      </p>
-
-      <h3>2. Marketplace &amp; trade commission (when you sell <em>to another user</em> through us)</h3>
+      <h3>1. Marketplace &amp; trade commission (when you sell <em>to another user</em> through us)</h3>
       <p>
         When you sell on our peer-to-peer market, we take a commission out of your payout.
         The rate depends on your <strong>trust score</strong> and{" "}
@@ -123,7 +107,7 @@ export default function FeesMethodology() {
         and our cap sits at or below all of them (see the comparison below).
       </p>
 
-      <h3>3. Auction commission (when you sell at auction through us)</h3>
+      <h3>2. Auction commission (when you sell at auction through us)</h3>
       <p>
         Auctions carry a flat <strong>12%</strong> seller commission (we run the listing,
         verification, escrow, and delivery). The <strong>same £50 per-item cap applies</strong>:
@@ -131,7 +115,7 @@ export default function FeesMethodology() {
         one, applies before the cap.
       </p>
 
-      <h3>4. Payment processing</h3>
+      <h3>3. Payment processing</h3>
       <p>
         Card payments are processed by <strong>Stripe</strong>. Their processing fee is a
         pass-through cost of moving money — we don't mark it up. We show it as a separate
@@ -143,12 +127,12 @@ export default function FeesMethodology() {
         at cost. Marking up payment processing would be charging you for someone else's work.
       </p>
 
-      <h3>5. VAT</h3>
+      <h3>4. VAT</h3>
       <p>
         UK Value Added Tax (currently 20%) is a <strong>government tax</strong>, not a
         Cambridge fee. We are legally required to collect it on taxable sales and remit it to
         HMRC. We always show VAT as its own line so it is never mistaken for something we
-        keep. Trade-ins (where we are the <em>buyer</em>, not the seller) carry no VAT.
+        keep.
       </p>
 
       <h2>How we compare</h2>

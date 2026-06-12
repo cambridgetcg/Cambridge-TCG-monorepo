@@ -59,8 +59,6 @@ const ORPHAN_ALLOWLIST: ReadonlyArray<string | RegExp> = [
   "/welcome",
   "/intro",
   "/welcomes",
-  "/checkout",
-  "/order-confirmation",
   "/og",
   "/api",
   // Storefront /admin/* is covered by the admin app's own sidebar.
@@ -73,7 +71,6 @@ const ORPHAN_ALLOWLIST: ReadonlyArray<string | RegExp> = [
   /^\/auctions\/\[id\]/,
   /^\/cards\/\[sku\]/,
   /^\/c\/\[slug\]/,
-  /^\/product\/\[sku\]/,
   /^\/decks\/\[slug\]/,
   /^\/market\/\[/,
   /^\/market\/lots\/\[/,
@@ -97,6 +94,12 @@ const ORPHAN_ALLOWLIST: ReadonlyArray<string | RegExp> = [
   "/contact",
   "/privacy",
   "/terms",
+  // Trade-in desk closure (kingdom-101): intake is closed, so the hub is
+  // a closure notice off the primary nav — reached from history surfaces
+  // (/account/trade-ins) and in-flight quote/confirm emails.
+  "/trade-in",
+  // Linked from the global footer legal row (like /privacy + /terms above).
+  "/trade-in/terms",
   // Linked from the Nav search affordance (Nav.tsx chrome, not parsed here).
   "/find",
   // Linked from the Play section nav (PlayNav.tsx) + the /play hub body.
@@ -116,7 +119,7 @@ const PENDING_ROUTES: string[] = [
   "/contact",
   "/privacy",
   "/terms",
-  "/cards/[sku]", // redirect page → /product/[sku]
+  "/cards/[sku]", // redirect page → /cards/[sku]/market
 ];
 
 /**
@@ -147,6 +150,10 @@ const KNOWN_BROKEN_HREFS: ReadonlyArray<{ file: string; href: string }> = [
   { file: "apps/storefront/src/app/identify/page.tsx", href: "/account/preferences" },
   // Admin-gated ops surface; the methodology topic was never written
   { file: "apps/storefront/src/app/admin/ops/ingest-quarantine/page.tsx", href: "/methodology/ingest-quarantine" },
+  // Pre-existing (absent from git history): the text-mode methodology
+  // topic was never written; the toggle itself ships in FooterToggles.
+  // Nearest real surface: /appearance.
+  { file: "apps/storefront/src/app/methodology/appearance/page.tsx", href: "/methodology/text-mode" },
 ];
 
 function isHrefAllowed(href: string): boolean {

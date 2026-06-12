@@ -448,7 +448,6 @@ export default function PortfolioPage() {
                       let href = "#";
                       if (action.type === "market_ask") href = `/market/${card.sku}?side=ask`;
                       else if (action.type === "auction") href = `/auctions/sell?sku=${card.sku}`;
-                      else if (action.type === "tradein") href = `/trade-in?sku=${card.sku}&name=${encodeURIComponent(card.card_name || "")}`;
 
                       return (
                         <Link
@@ -477,12 +476,6 @@ export default function PortfolioPage() {
                       className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition font-medium"
                     >
                       Auction
-                    </Link>
-                    <Link
-                      href={`/trade-in?sku=${card.sku}&name=${encodeURIComponent(card.card_name || "")}`}
-                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition font-medium"
-                    >
-                      Trade In
                     </Link>
                   </div>
                 )}

@@ -30,8 +30,9 @@
  *
  *   types.ts                    you are here. Shapes + module map.
  *   db.ts                       tier priority chain + ledgers (points,
- *                               credit) + processOrderRewards (the
- *                               post-checkout-reward funnel).
+ *                               credit). The post-checkout reward funnel
+ *                               was retired with retail (kingdom-101);
+ *                               earn re-anchoring is kingdom-104.
  *   subscription.ts             Stripe lifecycle helpers (cancel, resume,
  *                               portal). Stripe is authoritative; we mirror.
  *   commission.ts               where tier × trust_score = the rate we
@@ -47,8 +48,8 @@
  *
  *   trust_profiles              independent reputation signal; combined
  *                               with tier in commission.ts via min().
- *   customer_orders             the input to processOrderRewards (which
- *                               in turn writes points + credit + spend).
+ *   customer_orders             frozen retail history + prize-redemption
+ *                               rows; the retail earn faucet is retired.
  *   tradein_submissions         apply tradein_bonus_percent at quote time.
  *   market_trades + auctions    apply commission_rate at trade-creation.
  *   activity_feed               post tier_upgraded events for social cue.
@@ -148,7 +149,6 @@ export const POINTS_TYPES = {
 
 export const CREDIT_TYPES = {
   CASHBACK: "cashback",
-  TRADEIN_CREDIT: "tradein_credit",
   MANUAL_ADJUSTMENT: "manual_adjustment",
   REDEEMED_AT_CHECKOUT: "redeemed_checkout",
   MIGRATION: "migration",

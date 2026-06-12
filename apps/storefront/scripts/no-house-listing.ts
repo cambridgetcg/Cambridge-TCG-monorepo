@@ -61,7 +61,7 @@ const RULES: Rule[] = [
   },
   {
     id: "tradein-desk",
-    re: /sell-for-credit|We Buy Every Card|tradein_credit\b|tradein_cash\b/,
+    re: /sell-for-credit|We Buy Every Card|tradein_credit(_gbp)?\b|tradein_cash(_gbp)?\b/,
     note: "house trade-in / we-buy desk — sellers liquidate to other participants on the market, not to the house",
   },
   {

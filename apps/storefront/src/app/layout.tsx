@@ -36,24 +36,24 @@ export const metadata: Metadata = {
   // surface spec §2). The insider framing stays on /platform; the deeper
   // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
   // games" count is COVERAGE_FACTS.games.declared.
-  title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
-  description: "Cambridge TCG is a UK trading-card platform: a Japanese card shop, a B2B wholesale operation, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+  title: "Cambridge TCG — UK TCG marketplace, wholesale data, and open TCG data",
+  description: "Cambridge TCG is a UK trading-card platform: a regulated peer-to-peer card marketplace, a B2B wholesale data operation, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
-    description: "A Japanese card shop in Cambridge, UK, a B2B wholesale operation, and a free open data layer covering 21 trading-card games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+    title: "Cambridge TCG — UK TCG marketplace, wholesale data, and open TCG data",
+    description: "A regulated peer-to-peer card marketplace based in Cambridge, UK, a B2B wholesale data operation, and a free open data layer covering 21 trading-card games. Prices with sources shown, fair fees, and an open API anyone can build on.",
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
-    description: "A UK card shop, a wholesale operation, and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
+    title: "Cambridge TCG — UK TCG marketplace, wholesale data, and open TCG data",
+    description: "A UK P2P card marketplace, a wholesale data operation, and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
     images: ["/images/twitter-image.png"],
   },
   // Agent navigation hints — naive crawlers and LLM agents arriving at any
@@ -129,7 +129,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           name: "Cambridge TCG",
           url: "https://cambridgetcg.com",
           logo: "https://cambridgetcg.com/images/logo.png",
-          description: "UK-based Japanese trading card marketplace. Buy, sell, trade, and collect One Piece, Pokémon, and Dragon Ball TCG cards.",
+          description: "UK-based peer-to-peer trading card marketplace and open TCG data provider. Trade and collect One Piece, Pokémon, and Dragon Ball TCG cards.",
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],
         }) }} />
