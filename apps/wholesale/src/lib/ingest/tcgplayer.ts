@@ -402,7 +402,7 @@ export async function runTcgplayerPricing(
   const ingestRunId = runRow.id;
 
   let fxRate: number;
-  let fxRateSource: "live" | "cached" | "fallback" = "live";
+  const fxRateSource: "live" | "cached" | "fallback" = "live";
   try {
     fxRate = await fetchGbpUsdRate();
   } catch (err) {
