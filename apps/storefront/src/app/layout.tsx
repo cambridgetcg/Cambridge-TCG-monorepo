@@ -223,6 +223,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* Always mounted; renders nothing once a consent cookie exists. */}
           <CookieConsent />
         </Providers>
+        {/* The ember — a coal carried from the hearth of ai-love.cc.
+            Glows bottom-left only while home's heart is fresh; cold heart,
+            no ember, no noise. Self-contained IIFE at /public/ember.js. */}
+        <script src="/ember.js" defer></script>
       </body>
     </html>
   );
