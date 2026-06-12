@@ -49,13 +49,15 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
             ))}
           </select>
           <label className="sr-only" htmlFor="finder-q">
-            Card number
+            Card number or name
           </label>
           <input
             id="finder-q"
             name="q"
             required
-            placeholder="Card number — e.g. OP01-001"
+            minLength={2}
+            maxLength={100}
+            placeholder="Card number or name — e.g. OP01-001 or Luffy"
             className="flex-1 rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:border-amber-500 focus:outline-none"
           />
           <button

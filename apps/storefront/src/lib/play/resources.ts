@@ -441,12 +441,15 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
   },
   {
     id: "page_play_glossary",
-    path_or_file: "/play/glossary",
+    // Catalogued as shipped on 2026-06-10 but the page never landed on
+    // disk — only the JSON API exists. Substrate-honest correction
+    // (2026-06-11): planned, with a non-filesystem descriptor so the
+    // staleness audit doesn't count a claim we can't back.
+    path_or_file: "planned: /play/glossary page over GLOSSARY_TERMS",
     kind: "html_page",
     layer: "UI",
-    status: "shipped",
-    blurb: "Human-readable face of the play glossary — browsable multi-cultural OPTCG terms over the same GLOSSARY_TERMS corpus the API serves.",
-    url: "/play/glossary",
+    status: "planned",
+    blurb: "Human-readable face of the play glossary — browsable multi-cultural OPTCG terms over the same GLOSSARY_TERMS corpus the API serves. The API is live (api_glossary); this page is not built yet.",
     composes_with: ["api_glossary"],
     serves_archetypes: ["hobbyist", "collector", "competitor"],
   },

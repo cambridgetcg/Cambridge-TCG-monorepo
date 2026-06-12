@@ -115,7 +115,7 @@ export default async function PricesLandingPage() {
           </Link>
         </div>
 
-        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-10">
+        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-8">
           Cambridge TCG publishes free, daily-updated price guides across the
           TCG landscape. Each card carries a UK retail buy price plus, where
           the upstream license permits, a trade-in store credit value.
@@ -125,6 +125,64 @@ export default async function PricesLandingPage() {
           {totalCards > 0 &&
             `${totalCards.toLocaleString()} cards across ${liveTiles.length} game${liveTiles.length === 1 ? "" : "s"} today.`}
         </p>
+
+        {/* Card search — the single most direct path to "what is my card
+            worth"; previously the hub's only route to /prices/search was a
+            footer link. Plain GET form, zero JS, URL-driven. */}
+        <section
+          aria-label="Search a card price"
+          className="mb-10 rounded-xl border border-neutral-800 bg-neutral-900/50 p-5"
+        >
+          <h2 className="text-lg font-semibold text-white mb-1">
+            Know your card? Search it directly
+          </h2>
+          <p className="text-sm text-neutral-400 mb-4">
+            Type the card number printed on the card (like{" "}
+            <span className="text-neutral-300">OP01-001</span>) or the
+            card&rsquo;s name — price, history, and every print pop up in one
+            view.
+          </p>
+          <form
+            action="/prices/search"
+            method="get"
+            className="flex flex-col sm:flex-row gap-3"
+          >
+            <label htmlFor="hub-search-game" className="sr-only">
+              Game
+            </label>
+            <select
+              id="hub-search-game"
+              name="game"
+              className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500 sm:w-44"
+              defaultValue={liveTiles[0]?.config.game_code ?? ""}
+            >
+              {liveTiles.map(({ config }) => (
+                <option key={config.slug} value={config.game_code}>
+                  {config.display_name}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="hub-search-q" className="sr-only">
+              Card number or name
+            </label>
+            <input
+              id="hub-search-q"
+              type="text"
+              name="q"
+              required
+              minLength={2}
+              maxLength={100}
+              placeholder="e.g. OP01-001 or Luffy"
+              className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition"
+            >
+              Search →
+            </button>
+          </form>
+        </section>
 
         {/* Currency selector + rate table — Yu's directive 2026-05-14 */}
         <div className="mb-10 grid gap-4 lg:grid-cols-[1fr,1.2fr]">

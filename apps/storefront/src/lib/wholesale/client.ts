@@ -144,9 +144,20 @@ export function cardName(
 
 export interface PricesResponse {
   count: number;
-  total: number;
+  /** Total matching rows upstream. Null when the caller opted out of
+   *  counting (skip_count) — substrate-honest "not counted", not zero. */
+  total: number | null;
   channel: string;
   items: PriceItem[];
+  /** True when the Falcon failed (timeout / 401 / 5xx) and this empty
+   *  body is a degradation, NOT a statement that zero cards match.
+   *  Substrate honesty for the failure path: callers that show "no
+   *  results" copy must check this first. Absent on healthy responses. */
+  degraded?: boolean;
+  /** How the wholesale row set was matched: "substring" (ILIKE default)
+   *  or "similarity" (typo-tolerant pg_trgm retry on zero substring
+   *  hits). Passed through so resolvers can label reasons honestly. */
+  match_mode?: "substring" | "similarity";
 }
 
 export interface GameItem {
@@ -169,12 +180,23 @@ export async function fetchPrices(params?: {
   game?: string;
   set?: string;
   q?: string;
+  /** Exact card-number mode (kingdom-090 search fast path): matches
+   *  "<set>-<number>" / (set_code, number) on indexed equality instead
+   *  of substring ILIKE. */
+  number?: string;
   sort?: string;
   in_stock?: boolean;
   limit?: number;
   offset?: number;
   category?: string;
   channel?: string;
+  /** Skip the count(*) query upstream when the caller never reads
+   *  `total` (the search fold path) — halves the DB work per call. */
+  skip_count?: boolean;
+  /** Opt INTO wholesale's typo-tolerant pg_trgm retry on zero substring
+   *  hits. Off by default so existing consumers (catalog, B2B partners)
+   *  keep exact zero-hit semantics. */
+  fuzzy?: boolean;
 }): Promise<PricesResponse> {
   const url = new URL(WHOLESALE_URL + '/api/v1/prices');
   // After wholesale fix #2 the API ignores ?channel= and uses the key's
@@ -185,11 +207,14 @@ export async function fetchPrices(params?: {
   if (params?.game) url.searchParams.set('game', params.game);
   if (params?.set) url.searchParams.set('set', params.set);
   if (params?.q) url.searchParams.set('q', params.q);
+  if (params?.number) url.searchParams.set('number', params.number);
   if (params?.sort) url.searchParams.set('sort', params.sort);
   if (params?.in_stock) url.searchParams.set('in_stock', 'true');
   if (params?.limit) url.searchParams.set('limit', String(params.limit));
   if (params?.offset) url.searchParams.set('offset', String(params.offset));
   if (params?.category) url.searchParams.set('category', params.category);
+  if (params?.skip_count) url.searchParams.set('skip_count', '1');
+  if (params?.fuzzy) url.searchParams.set('fuzzy', '1');
 
   let res: Response;
   try {
@@ -199,12 +224,14 @@ export async function fetchPrices(params?: {
     });
   } catch (err) {
     console.error('[wholesale] prices fetch error', err);
-    return { count: 0, total: 0, channel: '', items: [] };
+    return { count: 0, total: 0, channel: '', items: [], degraded: true };
   }
 
   if (!res.ok) {
     console.error('[wholesale] prices error', res.status, await res.text().catch(() => ''));
-    return { count: 0, total: 0, channel: '', items: [] };
+    // 404 = "game not found" upstream — a real empty, not an outage.
+    const degraded = res.status !== 404;
+    return { count: 0, total: 0, channel: '', items: [], ...(degraded ? { degraded: true } : {}) };
   }
   return res.json();
 }

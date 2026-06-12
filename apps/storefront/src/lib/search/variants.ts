@@ -153,6 +153,19 @@ function containsAny(haystack: string, needles: readonly string[]): boolean {
   return false;
 }
 
+/**
+ * Whether a card name carries any variant/promo/parallel/alt-art marker.
+ * The fold ranker uses the absence of markers as its "base print" signal
+ * when choosing which print of a card number to open by default.
+ */
+export function nameHasVariantMarkers(name: string): boolean {
+  return (
+    containsAny(name, PROMO_NAME_MARKERS) ||
+    containsAny(name, PARALLEL_NAME_MARKERS) ||
+    containsAny(name, ALT_ART_NAME_MARKERS)
+  );
+}
+
 function isPromoSet(setCode: string | null): boolean {
   if (!setCode) return false;
   const upper = setCode.toUpperCase();

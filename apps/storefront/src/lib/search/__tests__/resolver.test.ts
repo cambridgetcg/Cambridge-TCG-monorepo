@@ -1,31 +1,28 @@
 /**
  * Unit tests for the kingdom-090 resolver — the pure-compute spine of the
- * price-search module. These tests LOCK current behaviour rather than
- * refactor it; the modules under test are deliberately untouched.
+ * price-search module.
  *
- * ── The three quiet bugs being locked ─────────────────────────────────
+ * History: the original suite LOCKED three quiet bugs surfaced by live
+ * verification after kingdom-090 shipped (2026-05-14). The 2026-06-11
+ * search overhaul fixed the locked behaviours, so this suite now locks
+ * the FIXED contract:
  *
- * The pillow book (`docs/connections/the-pillow-book.md:13`) records the
- * three quiet bugs that live verification surfaced after kingdom-090
- * shipped on 2026-05-14. Two of them have load-bearing prevention here:
- *
- *   1. **card_number stored as publisher form** (`"OP01-001"`) not bare
- *      digits (`"001"`) — locked by `describe("scoreMatches")` → Tier 2
- *      (publisher form). The 5 OP01-001 fixtures below are the actual
- *      live-verified shape; if a future change reverts to expecting bare
- *      "001" only, Tier 2's reason flips to a fuzzy match and these
- *      tests fail.
- *
- *   2. **Case-tolerant SKU lookup** — `parseSkuShape` accepts uppercase
- *      legacy SKUs ("OP-OP01-001-JP-V11DZ") and emits lowercased parts.
- *      Locked by `describe("parseSkuShape")` → "uppercase legacy SKU".
- *
- *   3. **game-token slug/code drift** (wholesale games table's `code` is
- *      "onepiece"; slug is "one-piece"; SKU prefix is "op"). This bug
- *      lives in the ROUTE layer, not in `resolver.ts`. **Flagged here as
- *      a follow-up coverage gap**: the route-level resolution from
- *      game-slug → game-code is not yet unit-tested. Route tests would
- *      go under `apps/storefront/src/app/api/v1/search/cards/__tests__/`.
+ *   1. **card_number stored as publisher form** ("OP01-001") — still
+ *      locked via the 5 live-verified OP01-001 fixtures.
+ *   2. **Case-tolerant SKU lookup** — parseSkuShape accepts uppercase
+ *      legacy SKUs. The lang tail stays RAW in payloads (partner value
+ *      domain: legacy rows say "jp"/"cn"); the ?lang= fold preference
+ *      ISO-normalizes both sides at the comparison site, so lang=ja
+ *      matches legacy jp prints without changing what partners see.
+ *   3. **Input tolerance** — separators humans type (space, slash,
+ *      en-dash, full-width) all parse; the doc-claimed " OP01 - 001 "
+ *      form is no longer a skipped fixture.
+ *   4. **Honest scoring** — rows the wholesale ILIKE returned that match
+ *      no tier are DROPPED, not labelled "card_number partial match";
+ *      name hits say "name matched".
+ *   5. **Ranked fold** — rankFoldCandidates prefers requested language,
+ *      then base print (no variant markers), then stock, then price —
+ *      OP01-001 no longer opens on an arbitrary alt-art promo.
  */
 
 import { describe, it, expect } from "vitest";
@@ -33,11 +30,13 @@ import { describe, it, expect } from "vitest";
 import type { PriceItem } from "@/lib/wholesale/client";
 import {
   normalizeQuery,
+  foldNameForCompare,
   parseSetNumberShape,
   parseSkuShape,
   scoreMatches,
   groupSiblings,
   summarizeMatches,
+  rankFoldCandidates,
 } from "../resolver";
 
 // ── Live-verified fixtures (the 5 OP01-001 variants from kingdom-090) ──
@@ -123,20 +122,30 @@ describe("normalizeQuery", () => {
     expect(normalizeQuery("OP01   001")).toBe("OP01 001");
   });
 
-  it("preserves dashes", () => {
-    expect(normalizeQuery("op01-001")).toBe("OP01-001");
-  });
-
   it("preserves slashes (publisher collector form)", () => {
     expect(normalizeQuery("op01-001/281")).toBe("OP01-001/281");
+  });
+
+  it("NFKC-folds full-width characters (Japanese keyboards)", () => {
+    expect(normalizeQuery("ＯＰ０１－００１")).toBe("OP01-001");
   });
 
   it("empty string round-trips empty", () => {
     expect(normalizeQuery("")).toBe("");
   });
+});
 
-  it("uppercases mixed case", () => {
-    expect(normalizeQuery("Op-Op01-001-Ja")).toBe("OP-OP01-001-JA");
+// ── foldNameForCompare ────────────────────────────────────────────────
+
+describe("foldNameForCompare", () => {
+  it("makes 'Monkey D Luffy' match catalog 'Monkey.D.Luffy'", () => {
+    expect(foldNameForCompare("Monkey D Luffy")).toBe(
+      foldNameForCompare("Monkey.D.Luffy"),
+    );
+  });
+
+  it("is case-insensitive", () => {
+    expect(foldNameForCompare("LUFFY")).toBe(foldNameForCompare("luffy"));
   });
 });
 
@@ -164,6 +173,59 @@ describe("parseSetNumberShape", () => {
     });
   });
 
+  it("accepts a space separator ('op01 001')", () => {
+    expect(parseSetNumberShape("op01 001")).toEqual({
+      set: "OP01",
+      number: "001",
+    });
+  });
+
+  it("accepts a slash separator ('OP01/001')", () => {
+    expect(parseSetNumberShape("OP01/001")).toEqual({
+      set: "OP01",
+      number: "001",
+    });
+  });
+
+  it("accepts an en-dash separator ('OP01–001')", () => {
+    expect(parseSetNumberShape("OP01–001")).toEqual({
+      set: "OP01",
+      number: "001",
+    });
+  });
+
+  it("accepts full-width input ('ＯＰ０１－００１')", () => {
+    expect(parseSetNumberShape("ＯＰ０１－００１")).toEqual({
+      set: "OP01",
+      number: "001",
+    });
+  });
+
+  it("accepts the doc-claimed whitespace form ' OP01 - 001 '", () => {
+    expect(parseSetNumberShape(" OP01 - 001 ")).toEqual({
+      set: "OP01",
+      number: "001",
+    });
+  });
+
+  it("accepts alphanumeric number tokens ('SV01-TG12')", () => {
+    expect(parseSetNumberShape("SV01-TG12")).toEqual({
+      set: "SV01",
+      number: "TG12",
+    });
+  });
+
+  it("keeps dash-bearing set codes via last-dash capture ('D-BT01/001')", () => {
+    expect(parseSetNumberShape("D-BT01/001")).toEqual({
+      set: "D-BT01",
+      number: "001",
+    });
+  });
+
+  it("returns null on a bare collector number ('025/202') — no set token", () => {
+    expect(parseSetNumberShape("025/202")).toBeNull();
+  });
+
   it("returns null when no set token present", () => {
     expect(parseSetNumberShape("001")).toBeNull();
   });
@@ -176,24 +238,16 @@ describe("parseSetNumberShape", () => {
     expect(parseSetNumberShape("garbage")).toBeNull();
   });
 
-  it("captures legacy double-prefix shape as {set: 'OP-OP01', number: '001'} (greedy)", () => {
-    // The regex is greedy on `[A-Z0-9-]+` then consumes the LAST `-`
-    // before the trailing digits — so "OP-OP01-001" parses with set
-    // "OP-OP01". Surprising-looking but consistent with the comment
-    // about the last-dash anchor. Documented here so a future refactor
-    // doesn't quietly break the legacy SKU path.
-    expect(parseSetNumberShape("OP-OP01-001")).toEqual({
-      set: "OP-OP01",
-      number: "001",
-    });
+  it("returns null on full SKU input — parseSkuShape owns that shape", () => {
+    // The variants grid links pass full SKUs as q; parsing them as
+    // set+number would break the canonical-SKU exact tier.
+    expect(parseSetNumberShape("op-op01-001-ja")).toBeNull();
+    expect(parseSetNumberShape("OP-OP01-001-JP-V11DZ")).toBeNull();
   });
 
-  // Behaviour gap surfaced by the test suite — the function's doc comment
-  // claims " OP01 - 001 " is accepted, but the regex has no allowance for
-  // internal spaces. Skipped so a future fix has a ready-made fixture.
-  it.skip("whitespace-tolerant internal-space form ' OP01 - 001 ' (doc claims yes, regex says no)", () => {
-    expect(parseSetNumberShape(" OP01 - 001 ")).toEqual({
-      set: "OP01",
+  it("captures legacy double-prefix shape as {set: 'OP-OP01', number: '001'} (greedy)", () => {
+    expect(parseSetNumberShape("OP-OP01-001")).toEqual({
+      set: "OP-OP01",
       number: "001",
     });
   });
@@ -212,7 +266,7 @@ describe("parseSkuShape", () => {
     });
   });
 
-  it("accepts uppercase legacy SKU (case-tolerant — locks bug #2)", () => {
+  it("accepts uppercase legacy SKU, keeping the raw lang tail (partner value domain)", () => {
     expect(parseSkuShape("OP-OP01-001-JP-V11DZ")).toEqual({
       game: "op",
       set: "op01",
@@ -220,6 +274,10 @@ describe("parseSkuShape", () => {
       lang: "jp",
       variant: "v11dz",
     });
+  });
+
+  it("keeps cn raw too — ISO normalization happens at comparison sites only", () => {
+    expect(parseSkuShape("op-op01-001-cn")?.lang).toBe("cn");
   });
 
   it("joins multi-segment variant tail with a single dash", () => {
@@ -242,13 +300,11 @@ describe("parseSkuShape", () => {
   });
 });
 
-// ── scoreMatches — the 5-tier confidence ladder ────────────────────────
+// ── scoreMatches — the confidence ladder ───────────────────────────────
 
 describe("scoreMatches — Tier 1: canonical SKU exact", () => {
   it("matches a full SKU input against the same SKU row", () => {
     const fixture = OP01_001_FIXTURES[0]!; // V11DZ
-    // Tier 1 compares c.sku.toLowerCase() === input.q.trim().toLowerCase()
-    // so a canonical lowercase input matches the uppercase legacy SKU.
     const matches = scoreMatches(
       { game: "op", q: "op-op01-001-jp-v11dz" },
       [fixture],
@@ -258,6 +314,37 @@ describe("scoreMatches — Tier 1: canonical SKU exact", () => {
     expect(matches[0]!.confidence).toBe("exact");
     expect(matches[0]!.reason).toContain("canonical SKU exact");
     expect(matches[0]!.sku).toBe("OP-OP01-001-JP-V11DZ");
+  });
+});
+
+describe("scoreMatches — Tier 1b: canonical↔legacy SKU bridge", () => {
+  it("the documented canonical shape finds its legacy-cased row (normalizeSku bridge)", () => {
+    // Catalog stores OP-OP01-001-JP-V11L1; partner types the canonical
+    // op-op01-001-ja-v11l1 from the SKU standard docs. normalizeSku maps
+    // both to the same canonical, so the lookup is exact.
+    const matches = scoreMatches(
+      { game: "op", q: "op-op01-001-ja-v11l1" },
+      [OP01_001_FIXTURES[1]!],
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.confidence).toBe("exact");
+    expect(matches[0]!.reason).toBe("canonical SKU exact");
+  });
+
+  it("a canonical SKU query whose exact print is absent still surfaces its siblings", () => {
+    // op-op01-001-ja (no variant tail) is not stored verbatim — but the
+    // five legacy prints of OP01-001 are the same physical card. They
+    // must surface as fuzzy "same card, different print", not vanish
+    // into "No cards matched".
+    const matches = scoreMatches(
+      { game: "op", q: "op-op01-001-ja" },
+      OP01_001_FIXTURES,
+    );
+    expect(matches.length).toBe(5);
+    for (const m of matches) {
+      expect(m.confidence).toBe("fuzzy");
+      expect(m.reason).toBe("same card, different print");
+    }
   });
 });
 
@@ -275,17 +362,45 @@ describe("scoreMatches — Tier 2: publisher form (the bug-#1 lock)", () => {
     }
   });
 
-  it("populates parsed lang and variant from the SKU tail", () => {
+  it("also matches tolerant separator input ('op01 001')", () => {
+    const matches = scoreMatches(
+      { game: "op", q: "op01 001" },
+      OP01_001_FIXTURES,
+    );
+    expect(matches).toHaveLength(5);
+    for (const m of matches) expect(m.confidence).toBe("exact");
+  });
+
+  it("populates parsed lang (ISO-normalized) and variant from the SKU tail", () => {
     const matches = scoreMatches(
       { game: "op", q: "OP01-001" },
       OP01_001_FIXTURES,
     );
     const variants = matches.map((m) => m.variant);
-    // All 5 variants present, lowercased.
     expect(new Set(variants)).toEqual(
       new Set(["v11dz", "v11l1", "v11l2", "vy12", "vy13"]),
     );
+    // Raw tails — partners filtering on "jp" keep working; the ?lang=
+    // fold preference normalizes at the comparison site instead.
     expect(new Set(matches.map((m) => m.lang))).toEqual(new Set(["jp"]));
+  });
+
+  it("carries price/stock/rarity/set fields for list UIs", () => {
+    const priced = makeItem({
+      sku: "OP-OP01-001-JP-V11L1",
+      card_number: "OP01-001",
+      set_code: "OP01",
+      set_name: "Romance Dawn",
+      name: "ロロノア・ゾロ",
+      rarity: "SR",
+      price_gbp: 12.4,
+      stock: 3,
+    });
+    const [m] = scoreMatches({ game: "op", q: "OP01-001" }, [priced]);
+    expect(m!.price_gbp).toBe(12.4);
+    expect(m!.in_stock).toBe(true);
+    expect(m!.rarity).toBe("SR");
+    expect(m!.set_name).toBe("Romance Dawn");
   });
 
   it("returns name when present and falls back to card_number when not", () => {
@@ -302,11 +417,6 @@ describe("scoreMatches — Tier 2: publisher form (the bug-#1 lock)", () => {
 
 describe("scoreMatches — Tier 3: bare-digit card_number", () => {
   it("classifies a bare-digit row as exact, with publisher-form reason (Tier 2 absorbs it)", () => {
-    // Synthetic fixture: card_number stored as just "001" (some upstream
-    // catalogs). When card_number_norm has no dash, the code builds a
-    // card_number_full = "OP01-001" which satisfies Tier 2 first — so
-    // Tier 3's literal reason "set+number matched" is currently
-    // unreachable. We lock the actual reason here.
     const bareDigit = makeItem({
       sku: "op-op01-001-ja",
       card_number: "001",
@@ -317,16 +427,7 @@ describe("scoreMatches — Tier 3: bare-digit card_number", () => {
 
     expect(matches).toHaveLength(1);
     expect(matches[0]!.confidence).toBe("exact");
-    // Lock current behaviour: Tier 2 absorbs the bare-digit case.
     expect(matches[0]!.reason).toContain("publisher form");
-  });
-
-  it.skip("Tier 3 reason 'set+number matched' is unreachable under current logic — flagged for follow-up", () => {
-    // Tier 3's literal branch is dead code today: any path where Tier 3
-    // would fire is already absorbed by Tier 2's card_number_full
-    // synthesis. Either Tier 3 should be removed, or Tier 2's
-    // card_number_full reassignment should be guarded so Tier 3 fires
-    // when card_number is bare digits. Documented as a behaviour gap.
   });
 });
 
@@ -361,49 +462,104 @@ describe("scoreMatches — Tier 5: fuzzy number-only", () => {
   });
 });
 
+describe("scoreMatches — Tier 6: card number contains query", () => {
+  it("labels OP01-0010 honestly when the input was OP01-001", () => {
+    const noisy = makeItem({
+      sku: "OP-OP01-0010-JP-V1",
+      card_number: "OP01-0010",
+      set_code: "OP01",
+      name: "Noise row",
+    });
+    const matches = scoreMatches(
+      { game: "op", q: "OP01-001" },
+      [...OP01_001_FIXTURES, noisy],
+    );
+    const noise = matches.find((m) => m.card_number === "OP01-0010");
+    expect(noise).toBeDefined();
+    expect(noise!.confidence).toBe("fuzzy");
+    expect(noise!.reason).toBe("card number contains query");
+  });
+});
+
+describe("scoreMatches — Tier 7: name matched (honest reasons)", () => {
+  it("labels a name hit 'name matched', not 'card_number partial match'", () => {
+    const luffy = makeItem({
+      sku: "OP-EB02-010-JP-VWLE",
+      card_number: "EB02-010",
+      set_code: "EB02",
+      name: "Monkey.D.Luffy",
+      name_en: "Monkey.D.Luffy",
+    });
+    const [m] = scoreMatches({ game: "op", q: "luffy" }, [luffy]);
+    expect(m!.confidence).toBe("fuzzy");
+    expect(m!.reason).toBe("name matched");
+  });
+
+  it("matches separator-blind ('Monkey D Luffy' vs 'Monkey.D.Luffy')", () => {
+    const luffy = makeItem({
+      sku: "OP-EB02-010-JP-VWLE",
+      card_number: "EB02-010",
+      set_code: "EB02",
+      name: "Monkey.D.Luffy",
+    });
+    const matches = scoreMatches({ game: "op", q: "Monkey D Luffy" }, [luffy]);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.reason).toBe("name matched");
+  });
+});
+
+describe("scoreMatches — unmatched rows are dropped", () => {
+  it("drops a row that matches no tier instead of faking a reason", () => {
+    const unrelated = makeItem({
+      sku: "op-eb04-061-ja",
+      card_number: "EB04-061",
+      set_code: "EB04",
+      name: "Different card entirely",
+    });
+    const matches = scoreMatches(
+      { game: "op", q: "OP01-001" },
+      [unrelated, OP01_001_FIXTURES[0]!],
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.set_code).toBe("OP01");
+  });
+});
+
+describe("scoreMatches — similarity mode (typo-tolerant retry)", () => {
+  it("labels rows from the wholesale similarity retry honestly", () => {
+    const luffy = makeItem({
+      sku: "OP-EB02-010-JP-VWLE",
+      card_number: "EB02-010",
+      set_code: "EB02",
+      name: "Monkey.D.Luffy",
+    });
+    // "lufy" is not a substring of the name — only the similarity retry
+    // can have produced this row, and the reason must say so.
+    const [m] = scoreMatches(
+      { game: "op", q: "lufy", matchMode: "similarity" },
+      [luffy],
+    );
+    expect(m!.confidence).toBe("fuzzy");
+    expect(m!.reason).toContain("typo-tolerant");
+  });
+});
+
 describe("scoreMatches — sorting", () => {
-  it("places exact matches before fuzzy matches", () => {
-    // Mix an OP01-001 fixture (exact) with a bare-001 fixture for a
-    // different set (will only match Tier 5 fuzzy when input is "001").
-    const otherSet001 = makeItem({
+  it("places exact matches before fuzzy matches, in-stock before out", () => {
+    const inStockFuzzy = makeItem({
       sku: "op-st01-001-ja",
       card_number: "ST01-001",
       set_code: "ST01",
-      name: "Different set card",
+      name: "Starter Zoro",
+      stock: 5,
+      price_gbp: 2,
     });
-    const mixed = [otherSet001, ...OP01_001_FIXTURES];
-
-    // Input "OP01-001" → 5 exact (OP01-001 fixtures) + 1 non-match for
-    // the ST01 row (its card_number "ST01-001" doesn't end with "-001"
-    // in the resolver's Tier-5 path; let's instead use the suffix-only
-    // resolver: input "001" → fuzzy for everything that ends in "-001".
-    const matches = scoreMatches({ game: "op", q: "001" }, mixed);
-    // All 6 fuzzy → sort alphabetic by ${set_code}-${card_number}-${lang}.
-    expect(matches[0]!.set_code).toBe("OP01");
-    expect(matches.at(-1)!.set_code).toBe("ST01");
-  });
-
-  it("within an exact tier, sorts alphabetic on set_code-card_number-lang", () => {
-    // Two different exact-matching cards. The OP01-001 fixtures share
-    // identical (set_code, card_number, lang), so we add a synthetic
-    // card with a different set+number to verify cross-card ordering.
-    const op02 = makeItem({
-      sku: "op-op02-001-ja",
-      card_number: "OP02-001",
-      set_code: "OP02",
-      name: "Different set",
-    });
-    // Score both rows; OP01 should land before OP02 alphabetically.
-    const op01Sample = OP01_001_FIXTURES[1]!; // V11L1 base
     const matches = scoreMatches(
-      { game: "op", q: "op-op02-001-ja" },
-      [op02, op01Sample],
+      { game: "op", q: "001" },
+      [...OP01_001_FIXTURES, inStockFuzzy],
     );
-    // op02 is the SKU-exact (Tier 1); op01Sample doesn't match anything
-    // canonical (its sku differs), so it returns as fuzzy with
-    // "card_number partial match" reason. Exact comes first.
-    expect(matches[0]!.set_code).toBe("OP02");
-    expect(matches[0]!.confidence).toBe("exact");
+    // All fuzzy (number-only input); the in-stock row leads.
+    expect(matches[0]!.sku).toBe("op-st01-001-ja");
   });
 });
 
@@ -429,7 +585,6 @@ describe("groupSiblings", () => {
       set_code: "OP02",
       name: "OP02 card",
     });
-    // Use Tier 5 (fuzzy "001" against all card_numbers ending in -001).
     const matches = scoreMatches(
       { game: "op", q: "001" },
       [...OP01_001_FIXTURES, op02],
@@ -461,6 +616,77 @@ describe("groupSiblings", () => {
   });
 });
 
+// ── rankFoldCandidates ─────────────────────────────────────────────────
+
+describe("rankFoldCandidates", () => {
+  it("prefers the base print over alt-art/promo markers (the OP01-001 fix)", () => {
+    const matches = scoreMatches(
+      { game: "op", q: "OP01-001" },
+      OP01_001_FIXTURES,
+    );
+    const { winner, fold_reason } = rankFoldCandidates(matches);
+    // V11L1 ("ロロノア・ゾロ", no markers) and V11L2 ("Roronoa Zoro")
+    // are both base-ish; alphabetic tiebreak lands on V11L1. The old
+    // behaviour folded to V11DZ (manga-art) purely by array order.
+    expect(winner.sku).toBe("OP-OP01-001-JP-V11L1");
+    expect(fold_reason).toContain("base print");
+  });
+
+  it("prefers the requested language when given", () => {
+    const en = makeItem({
+      sku: "op-op01-001-en",
+      card_number: "OP01-001",
+      set_code: "OP01",
+      name: "Roronoa Zoro",
+    });
+    const matches = scoreMatches(
+      { game: "op", q: "OP01-001" },
+      [...OP01_001_FIXTURES, en],
+    );
+    const { winner, fold_reason } = rankFoldCandidates(matches, "en");
+    expect(winner.sku).toBe("op-op01-001-en");
+    expect(fold_reason).toContain("requested language (en)");
+  });
+
+  it("requesting 'ja' selects legacy 'jp'-tailed prints (ISO compare at the ranker)", () => {
+    const matches = scoreMatches(
+      { game: "op", q: "OP01-001" },
+      OP01_001_FIXTURES,
+    );
+    const { winner, fold_reason } = rankFoldCandidates(matches, "ja");
+    expect(winner.lang).toBe("jp");
+    expect(fold_reason).toContain("requested language (ja)");
+  });
+
+  it("prefers in-stock among equal prints", () => {
+    const out = makeItem({
+      sku: "op-op01-001-ja-a",
+      card_number: "OP01-001",
+      set_code: "OP01",
+      name: "Roronoa Zoro",
+      stock: 0,
+    });
+    const stocked = makeItem({
+      sku: "op-op01-001-ja-b",
+      card_number: "OP01-001",
+      set_code: "OP01",
+      name: "Roronoa Zoro",
+      stock: 2,
+    });
+    const matches = scoreMatches({ game: "op", q: "OP01-001" }, [out, stocked]);
+    const { winner } = rankFoldCandidates(matches);
+    expect(winner.sku).toBe("op-op01-001-ja-b");
+  });
+
+  it("says 'only print' for a single candidate", () => {
+    const matches = scoreMatches(
+      { game: "op", q: "OP01-001" },
+      [OP01_001_FIXTURES[1]!],
+    );
+    expect(rankFoldCandidates(matches).fold_reason).toBe("only print");
+  });
+});
+
 // ── summarizeMatches ───────────────────────────────────────────────────
 
 describe("summarizeMatches", () => {
@@ -471,6 +697,8 @@ describe("summarizeMatches", () => {
       best_confidence: "none",
       distinct_set_number_buckets: 0,
       ambiguous: false,
+      upstream_total: 0,
+      truncated: false,
     });
   });
 
@@ -487,7 +715,7 @@ describe("summarizeMatches", () => {
     expect(summary.ambiguous).toBe(false);
   });
 
-  it("two distinct physical cards: ambiguous=true", () => {
+  it("two distinct physical cards at the best tier: ambiguous=true", () => {
     const op02 = makeItem({
       sku: "OP-OP02-001-JP-V11L1",
       card_number: "OP02-001",
@@ -504,22 +732,34 @@ describe("summarizeMatches", () => {
     expect(summary.ambiguous).toBe(true);
   });
 
-  it("any-exact match wins over fuzzy when summarising", () => {
-    const exactRow = OP01_001_FIXTURES[0]!;
-    const fuzzyOnlyRow = makeItem({
-      sku: "op-eb04-061-ja",
-      card_number: "EB04-061",
-      set_code: "EB04",
-      name: "Different fuzzy match",
+  it("fuzzy noise below an exact match does NOT flag ambiguous", () => {
+    // OP01-001 exact + OP01-0010 substring noise: the user has nothing
+    // to disambiguate — the exact bucket is singular. The old behaviour
+    // returned ambiguous=true here AND still folded, contradicting
+    // itself in one payload.
+    const noisy = makeItem({
+      sku: "OP-OP01-0010-JP-V1",
+      card_number: "OP01-0010",
+      set_code: "OP01",
+      name: "Noise row",
     });
-    // input "OP01-001" gives Tier 2 exact for OP01 row and no-match for
-    // EB04 row (fuzzy fallback "card_number partial match").
     const matches = scoreMatches(
       { game: "op", q: "OP01-001" },
-      [fuzzyOnlyRow, exactRow],
+      [...OP01_001_FIXTURES, noisy],
     );
-
     const summary = summarizeMatches(matches);
     expect(summary.best_confidence).toBe("exact");
+    expect(summary.distinct_set_number_buckets).toBe(2);
+    expect(summary.ambiguous).toBe(false);
+  });
+
+  it("reports upstream_total + truncated when the fetch was capped", () => {
+    const matches = scoreMatches(
+      { game: "op", q: "OP01-001" },
+      OP01_001_FIXTURES,
+    );
+    const summary = summarizeMatches(matches, { upstream_total: 80 });
+    expect(summary.upstream_total).toBe(80);
+    expect(summary.truncated).toBe(true);
   });
 });

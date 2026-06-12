@@ -44,6 +44,16 @@ function normalizeLang(raw: string): string | null {
 }
 
 /**
+ * Normalize a bare language token to ISO 639-1 (jp→ja, cn→zh, kr→ko,
+ * 3-letter forms folded). Returns null when the token isn't a known
+ * language code. Exported for resolvers that compare lang segments
+ * from mixed legacy/canonical SKUs without round-tripping a full SKU.
+ */
+export function normalizeLangCode(raw: string): string | null {
+  return normalizeLang(raw);
+}
+
+/**
  * Normalize a SKU to canonical form. Returns null if it can't be
  * unambiguously canonicalised.
  *
@@ -62,14 +72,25 @@ function normalizeLang(raw: string): string | null {
 export function normalizeSku(sku: string): string | null {
   if (typeof sku !== "string" || sku.length === 0) return null;
 
+  // The lang regex in parseSku accepts ANY two lowercase letters, so a
+  // legacy code like "jp" parses as "valid" and used to short-circuit
+  // here un-remapped (normalizeSku("OP-OP01-001-JP") → "op-op01-001-jp",
+  // contradicting the documented contract above). Re-emit with the
+  // ISO-normalized lang whenever the parsed lang maps to a different code.
+  const withNormalizedLang = (p: SkuParts): string => {
+    const lang = normalizeLang(p.lang);
+    if (!lang || lang === p.lang) return p.canonical;
+    return [p.game, p.set, p.number, lang, ...(p.variant ? [p.variant] : [])].join("-");
+  };
+
   // Fast path: already canonical?
-  const direct = parseSku(sku);
-  if (direct) return direct.canonical;
+  const direct = parseSku(sku.trim());
+  if (direct) return withNormalizedLang(direct);
 
   // Try lowercasing + reparsing.
-  const lower = sku.toLowerCase();
+  const lower = sku.trim().toLowerCase();
   const lowered = parseSku(lower);
-  if (lowered) return lowered.canonical;
+  if (lowered) return withNormalizedLang(lowered);
 
   // Split and try to recover.
   const parts = lower.split("-");

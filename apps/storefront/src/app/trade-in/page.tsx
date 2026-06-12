@@ -35,7 +35,7 @@ export interface BuylistItem {
 async function fetchAllPrices(params: Parameters<typeof fetchPrices>[0]) {
   const pageSize = 500;
   const first = await fetchPrices({ ...params, limit: pageSize, offset: 0 });
-  const remainingPages = Math.max(0, Math.ceil(first.total / pageSize) - 1);
+  const remainingPages = Math.max(0, Math.ceil((first.total ?? 0) / pageSize) - 1);
   const rest = await Promise.all(
     Array.from({ length: remainingPages }, (_, i) =>
       fetchPrices({ ...params, limit: pageSize, offset: (i + 1) * pageSize })

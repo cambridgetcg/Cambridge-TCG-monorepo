@@ -88,7 +88,7 @@ export async function GET(request: Request) {
           tradeinMap.set(item.sku, item.channel_price);
         }
       }
-      tradeinTotal = tradeinPage.total;
+      tradeinTotal = tradeinPage.total ?? 0;
       tradeinOffset += 500;
       if (tradeinPage.items.length < 500) break;
     }

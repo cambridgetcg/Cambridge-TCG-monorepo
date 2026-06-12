@@ -159,7 +159,7 @@ export async function loadGameState(
     sets,
     top_cards,
     total_set_count: sets.length,
-    total_card_count: topData.total,
+    total_card_count: topData.total ?? 0,
     _provenance: {
       kind: "synced",
       queried_at,

@@ -71,6 +71,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "www.cardrush-op.jp",
       },
+      {
+        // The pokemon catalog images ride the same upstream family; an
+        // un-allowed host crashes the whole page render in next/image,
+        // so every cardrush subdomain we ingest from must be listed.
+        protocol: "https",
+        hostname: "www.cardrush-pokemon.jp",
+      },
     ],
   },
 };

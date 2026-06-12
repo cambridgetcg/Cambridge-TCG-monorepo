@@ -51,6 +51,7 @@ export {
 export {
   normalizeSku,
   normalizeAndParse,
+  normalizeLangCode,
 } from "./normalize";
 
 export {

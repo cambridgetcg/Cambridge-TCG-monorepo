@@ -220,7 +220,7 @@ export default async function CatalogPage({
                 <div className="flex items-baseline gap-3 mb-2">
                   <p className="text-sm text-neutral-500">
                     Showing {Math.min(prices.count, PER_PAGE)} of{" "}
-                    {prices.total.toLocaleString()} {prices.total === 1 ? "card" : "cards"}
+                    {(prices.total ?? 0).toLocaleString()} {prices.total === 1 ? "card" : "cards"}
                   </p>
                   {prices.items.length > 0 && (
                     <>
@@ -237,7 +237,7 @@ export default async function CatalogPage({
 
                 <CardGrid cards={prices.items} />
                 <Pagination
-                  total={prices.total}
+                  total={prices.total ?? 0}
                   page={page}
                   perPage={PER_PAGE}
                   searchParams={{ ...params }}

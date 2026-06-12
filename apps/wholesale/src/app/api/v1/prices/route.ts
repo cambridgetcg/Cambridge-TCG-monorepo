@@ -1,9 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, games, sets } from "@/lib/db/schema";
-import { eq, gte, and, sql, gt, ilike, or, asc, desc } from "drizzle-orm";
+import { eq, gte, and, sql, gt, ilike, or, asc, desc, type SQL } from "drizzle-orm";
 import { authenticateApiKey } from "../auth";
 import { priceForChannel } from "@/lib/channel-pricing";
+
+/**
+ * Escape LIKE/ILIKE pattern metacharacters in user input. Without this,
+ * q="L%ffy" matches "Luffy" and q="%" matches the entire catalog —
+ * Postgres treats backslash as the default escape character, so escaping
+ * \ % _ makes the parameter literal. (Parameterization already prevents
+ * SQL injection; this prevents *pattern* injection.)
+ */
+function escapeLike(input: string): string {
+  return input.replace(/[\\%_]/g, (m) => "\\" + m);
+}
+
+/**
+ * pg_trgm availability, checked once per process. The similarity()
+ * relevance path needs the extension (infra/migrations/001_enable_trgm.sql,
+ * applied out-of-band) — when it's absent we degrade to card_number
+ * ordering instead of throwing on every search.
+ */
+let trgmAvailable: boolean | null = null;
+async function hasTrgm(): Promise<boolean> {
+  if (trgmAvailable !== null) return trgmAvailable;
+  try {
+    const result = await db.execute(
+      sql`SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm' LIMIT 1`,
+    );
+    const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+    trgmAvailable = rows.length > 0;
+    return trgmAvailable;
+  } catch {
+    // Transient probe failure (connection blip) — answer false for THIS
+    // request but don't cache it, or one blip would silently disable
+    // relevance + typo tolerance until the next deploy.
+    return false;
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,13 +68,45 @@ export async function GET(req: NextRequest) {
     const gameCode = params.get("game");
     const updatedSince = params.get("updated_since");
 
-    // New filters
+    // New filters — q/number are pattern inputs; cap their length so a
+    // pathological query can't burn planner time (the partner API has no
+    // other guard on these).
+    const MAX_PATTERN_LENGTH = 200;
     const q = params.get("q");
+    if (q && q.length > MAX_PATTERN_LENGTH) {
+      return NextResponse.json(
+        { error: `q is capped at ${MAX_PATTERN_LENGTH} characters` },
+        { status: 400 },
+      );
+    }
+    // Exact card-number mode (kingdom-090 search fast path). Carries
+    // the publisher form "<SET>-<NUMBER>" ("OP01-001"); matched on
+    // case-insensitive equality (no substring wildcards) against both
+    // storage shapes — card_number holding the full form, or set_code +
+    // bare number. Indexed: card_number trgm GIN serves wildcard-free
+    // ILIKE; set_code btree serves the split arm. Takes precedence
+    // over ?q when both are sent.
+    const numberEq = params.get("number");
+    if (numberEq && numberEq.length > MAX_PATTERN_LENGTH) {
+      return NextResponse.json(
+        { error: `number is capped at ${MAX_PATTERN_LENGTH} characters` },
+        { status: 400 },
+      );
+    }
     const sort = params.get("sort") || "card_number";
     const inStock = params.get("in_stock");
     const setCode = params.get("set");
     const category = params.get("category");
     const rarity = params.get("rarity");
+    // ?skip_count=1 — callers that never read `total` (the storefront
+    // search fold path) opt out of the count(*) scan; `total` comes
+    // back null, substrate-honest about not having counted.
+    const skipCount = params.get("skip_count") === "1";
+    // ?fuzzy=1 — opt INTO the typo-tolerant similarity retry on zero
+    // substring hits. Opt-in by design: existing consumers (catalog,
+    // B2B partners) rely on exact zero-hit semantics, and a surprise
+    // page of "closest names" rendered unlabeled would be dishonest.
+    const fuzzyOptIn = params.get("fuzzy") === "1";
 
     const conditions = [];
     // Track the resolved gameId so subsequent filters (set lookup) can
@@ -67,13 +134,33 @@ export async function GET(req: NextRequest) {
       conditions.push(gte(cards.lastSyncedAt, since));
     }
 
-    if (q) {
-      conditions.push(
-        or(
-          ilike(cards.cardNumber, `%${q}%`),
-          ilike(cards.name, `%${q}%`),
-          ilike(cards.nameEn, `%${q}%`),
-        )
+    // The q-derived condition is kept separate from `conditions` so the
+    // zero-hit similarity retry below can swap it out while keeping
+    // every other filter (game, set, stock, category) in place.
+    let qCondition: SQL | undefined;
+    if (numberEq) {
+      const exact = escapeLike(numberEq);
+      const lastDash = numberEq.lastIndexOf("-");
+      const arms: SQL[] = [ilike(cards.cardNumber, exact)];
+      if (lastDash > 0) {
+        const setPart = numberEq.slice(0, lastDash);
+        const numPart = escapeLike(numberEq.slice(lastDash + 1));
+        // set_code is stored uppercase today; eq on upper(input) hits the
+        // btree, with an ILIKE-on-number arm for case drift.
+        arms.push(
+          and(
+            eq(cards.setCode, setPart.toUpperCase()),
+            ilike(cards.cardNumber, numPart),
+          )!,
+        );
+      }
+      qCondition = or(...arms);
+    } else if (q) {
+      const escaped = escapeLike(q);
+      qCondition = or(
+        ilike(cards.cardNumber, `%${escaped}%`),
+        ilike(cards.name, `%${escaped}%`),
+        ilike(cards.nameEn, `%${escaped}%`),
       );
     }
 
@@ -130,7 +217,8 @@ export async function GET(req: NextRequest) {
       conditions.push(eq(cards.rarity, rarity));
     }
 
-    const where = conditions.length ? and(...conditions) : undefined;
+    const allConditions = qCondition ? [...conditions, qCondition] : conditions;
+    const where = allConditions.length ? and(...allConditions) : undefined;
 
     // Sorting
     let orderBy;
@@ -144,43 +232,128 @@ export async function GET(req: NextRequest) {
       case "name_asc":
         orderBy = asc(cards.nameEn);
         break;
+      case "relevance":
+        // Trigram closeness to the query across number + both names —
+        // a name search ranks "Monkey.D.Luffy" above an incidental
+        // substring hit. Needs pg_trgm; degrades to card_number order.
+        if (q && (await hasTrgm())) {
+          orderBy = sql`GREATEST(
+            similarity(${cards.cardNumber}, ${q}),
+            similarity(${cards.name}, ${q}),
+            similarity(coalesce(${cards.nameEn}, ''), ${q})
+          ) DESC, ${cards.cardNumber} ASC`;
+        } else {
+          orderBy = asc(cards.cardNumber);
+        }
+        break;
       case "card_number":
       default:
         orderBy = asc(cards.cardNumber);
         break;
     }
 
-    // Count total matching rows
-    const [{ count: total }] = await db
-      .select({ count: sql<number>`cast(count(*) as integer)` })
-      .from(cards)
-      .where(where);
+    // Count total matching rows (skippable — see ?skip_count above).
+    let total: number | null = null;
+    if (!skipCount) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(cards)
+        .where(where);
+      total = count;
+    }
 
     // Fetch page (include cardrushJpy + gbpJpyRate for channel pricing)
-    const rows = await db
-      .select({
-        sku: cards.sku,
-        cardNumber: cards.cardNumber,
-        priceGbp: cards.price,
-        cardrushJpy: cards.cardrushJpy,
-        gbpJpyRate: cards.gbpJpyRate,
-        cardCategory: cards.category,
-        stock: cards.stock,
-        pendingStock: cards.pendingStock,
-        imageUrl: cards.imageUrl,
-        name: cards.name,
-        nameEn: cards.nameEn,
-        updatedAt: cards.lastSyncedAt,
-        setCode: cards.setCode,
-        setName: cards.setName,
-        rarity: cards.rarity,
-        category: cards.category,
-      })
+    const selection = {
+      sku: cards.sku,
+      cardNumber: cards.cardNumber,
+      priceGbp: cards.price,
+      cardrushJpy: cards.cardrushJpy,
+      gbpJpyRate: cards.gbpJpyRate,
+      cardCategory: cards.category,
+      stock: cards.stock,
+      pendingStock: cards.pendingStock,
+      imageUrl: cards.imageUrl,
+      name: cards.name,
+      nameEn: cards.nameEn,
+      updatedAt: cards.lastSyncedAt,
+      setCode: cards.setCode,
+      setName: cards.setName,
+      rarity: cards.rarity,
+      category: cards.category,
+    };
+    let rows = await db
+      .select(selection)
       .from(cards)
       .where(where)
       .orderBy(orderBy)
       .limit(limit)
       .offset(offset);
+
+    // Typo-tolerant retry: when a NAME-ish substring search found
+    // nothing, rerun the q arm as a pg_trgm similarity match ("lufy" →
+    // "Luffy"). Same non-q filters; ordered by closeness. The response
+    // declares match_mode="similarity" so downstream resolvers can label
+    // the reason honestly instead of claiming a substring hit.
+    //
+    // FIRST PAGE ONLY (offset === 0): an offset past the last substring
+    // row must keep returning items: [] — paginate-until-empty consumers
+    // (the catalog page, B2B partners) terminate on that, and the retry
+    // has no offset of its own, so firing it there would replay page-one
+    // rows at every offset forever.
+    let matchMode: "substring" | "similarity" = "substring";
+    if (
+      rows.length === 0 &&
+      offset === 0 &&
+      fuzzyOptIn &&
+      q &&
+      !numberEq &&
+      q.trim().length >= 3 &&
+      (await hasTrgm())
+    ) {
+      try {
+        // The % operator (similarity over pg_trgm.similarity_threshold,
+        // default 0.3) is what the GIN trgm indexes can serve — a bare
+        // similarity(...) > x call in WHERE cannot use them.
+        const simCondition = sql`(
+          ${cards.name} % ${q} OR
+          coalesce(${cards.nameEn}, '') % ${q}
+        )`;
+        const simWhere = conditions.length
+          ? and(...conditions, simCondition)
+          : simCondition;
+        const simRows = await db
+          .select(selection)
+          .from(cards)
+          .where(simWhere)
+          .orderBy(sql`GREATEST(
+            similarity(${cards.name}, ${q}),
+            similarity(coalesce(${cards.nameEn}, ''), ${q})
+          ) DESC, ${cards.cardNumber} ASC`)
+          .limit(limit);
+        if (simRows.length > 0) {
+          rows = simRows;
+          matchMode = "similarity";
+          if (!skipCount) {
+            // A full page means simRows.length is a floor, not a count —
+            // count the similarity predicate for a truthful total.
+            if (simRows.length === limit) {
+              const [{ count: simTotal }] = await db
+                .select({ count: sql<number>`cast(count(*) as integer)` })
+                .from(cards)
+                .where(simWhere);
+              total = simTotal;
+            } else {
+              total = simRows.length;
+            }
+          } else {
+            total = null;
+          }
+        }
+      } catch (err) {
+        // Similarity is an enhancement, never a failure mode.
+        console.warn("[/api/v1/prices] similarity retry failed:", err);
+      }
+    }
 
     // Compute channel prices if non-wholesale channel requested
     const needsChannelPrice = channel !== "wholesale";
@@ -218,6 +391,7 @@ export async function GET(req: NextRequest) {
       limit,
       offset,
       channel: apiKey.channel,
+      match_mode: matchMode,
       items,
     });
   } catch (err) {
