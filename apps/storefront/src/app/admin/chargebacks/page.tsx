@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Audience } from "@/lib/ui";
+import { WhyLink } from "@/lib/ui";
 interface Chargeback {
   stripe_dispute_id: string;
   stripe_payment_intent: string;
@@ -176,3 +177,6 @@ export default function AdminChargebacksPage() {
     </main>
   );
 }
+
+          {/* Transparency: derived scores link to methodology */}
+          <WhyLink href="https://cambridgetcg.com/methodology/trust-score" />

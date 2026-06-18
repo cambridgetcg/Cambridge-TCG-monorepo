@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Audience } from "@/lib/ui";
+import { WhyLink } from "@/lib/ui";
 interface Signal {
   id: string;
   user_id: string;
@@ -224,3 +225,6 @@ export default function AdminFraudSignalsPage() {
     </main>
   );
 }
+
+          {/* Transparency: derived scores link to methodology */}
+          <WhyLink href="https://cambridgetcg.com/methodology/fraud-signals" />

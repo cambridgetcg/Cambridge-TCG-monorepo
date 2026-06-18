@@ -7,6 +7,7 @@ import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import AdminShell from "@/components/admin/AdminShell";
 
 import { Audience } from "@/lib/ui";
+import { WhyLink } from "@/lib/ui";
 // ── Escrow status config ──
 
 const ESCROW_COLORS: Record<EscrowStatus, string> = {
@@ -902,3 +903,6 @@ function TradeRow({
     </div>
   );
 }
+
+          {/* Transparency: derived scores link to methodology */}
+          <WhyLink href="https://cambridgetcg.com/methodology/commission-rate" />

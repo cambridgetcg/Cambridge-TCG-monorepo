@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WhyLink } from "@/lib/ui";
 
 export const metadata = {
   title: "Start Here — Cambridge TCG",
@@ -125,3 +126,6 @@ export default function StartPage() {
     </main>
   );
 }
+
+          {/* Transparency: derived scores link to methodology */}
+          <WhyLink href="https://cambridgetcg.com/methodology/commission-rate" />

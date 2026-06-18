@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { WhyLink } from "@/lib/ui";
 
 type ClaimStep = "form" | "submitting" | "success" | "error";
 
@@ -237,3 +238,6 @@ export default function OGClaimPage() {
     </main>
   );
 }
+
+          {/* Transparency: derived scores link to methodology */}
+          <WhyLink href="https://cambridgetcg.com/methodology/commission-rate" />
