@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 
 import { Audience } from "@/lib/ui";
-import { WhyLink } from "@/lib/ui";
 interface TierRow {
   id: string;
   name: string;
@@ -131,6 +130,3 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
     </div>
   );
 }
-
-          {/* Transparency: derived scores link to methodology */}
-          <WhyLink href="https://cambridgetcg.com/methodology/commission-rate" />

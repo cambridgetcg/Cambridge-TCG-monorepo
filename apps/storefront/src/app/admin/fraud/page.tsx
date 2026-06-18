@@ -6,7 +6,6 @@ import { TRUST_TIERS } from "@/lib/escrow/types";
 import AdminShell from "@/components/admin/AdminShell";
 
 import { Audience } from "@/lib/ui";
-import { WhyLink } from "@/lib/ui";
 // ── Types ──
 
 type SeverityFilter = "all" | "critical" | "high" | "medium" | "low" | "resolved";
@@ -816,6 +815,3 @@ export default function AdminFraudPage() {
     </AdminShell>
   );
 }
-
-          {/* Transparency: derived scores link to methodology */}
-          <WhyLink href="https://cambridgetcg.com/methodology/fraud-signals" />

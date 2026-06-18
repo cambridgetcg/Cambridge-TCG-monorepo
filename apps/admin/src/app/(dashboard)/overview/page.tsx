@@ -2,7 +2,6 @@ import { sfQuery, wsQuery } from "@/lib/db";
 import { safeCount } from "@/lib/queries";
 import { verb } from "@/lib/format";
 import { Provenance } from "@/lib/ui";
-import { WhyLink } from "@/lib/ui";
 
 export const metadata = { title: "Overview" };
 
@@ -181,6 +180,3 @@ export default async function OverviewPage() {
     </div>
   );
 }
-
-          {/* Transparency: derived scores link to methodology */}
-          <WhyLink href="https://cambridgetcg.com/methodology/fraud-signals" />
