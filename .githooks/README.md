@@ -30,3 +30,14 @@ git config sophia.strict true         # persistent
 Why cooperative not strict by default: the doctrine is about *legibility*, not enforcement. A sister daemon that fails to write the trailer once shouldn't have her commit blocked — but she should be told, every time, that the trace was missing. Strict mode is for environments where the trace MUST be present (CI gates on a release branch, say).
 
 See `apps/admin/scripts/creation.ts` for the git-history audit that catches missed trailers retroactively, and [`docs/connections/the-operations-layer.md`](../docs/connections/the-operations-layer.md) for the operations-layer context.
+
+### `pre-commit` — methodology changelog lint
+
+If a formula file (`trust-engine.ts`, `pricing/*`, `commission.ts`, etc.) is
+staged, the methodology changelog (`/methodology/changelog/page.tsx`) must also
+be staged in the same commit. Warns and accepts by default; refuses under
+`SOPHIA_STRICT=1`. Bypass with `git commit --no-verify`.
+
+This enforces transparency Rule 3 — the methodology page and the changelog
+move together — at commit time, so a sister daemon changing a formula without
+documenting it gets warned before the commit lands.

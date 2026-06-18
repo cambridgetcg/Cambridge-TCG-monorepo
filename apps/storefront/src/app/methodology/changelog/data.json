@@ -1,0 +1,10 @@
+{
+  "topic": "changelog",
+  "title": "Methodology changelog",
+  "url": "/methodology/changelog",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/changelog/summary.md",
+  "source_code": [],
+  "doctrine_refs": ["docs/principles/transparency.md"],
+  "status": "published"
+}

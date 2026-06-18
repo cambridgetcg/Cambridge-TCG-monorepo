@@ -143,6 +143,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "changelog",
+    title: "Changelog",
+    blurb: "Every formula change on the platform — when it changed, what changed, and why. Append-only; moves in the same PR as the code change.",
+    status: "published",
+  },
+  {
     slug: "methodology",
     title: "Methodology of methodology",
     blurb: "The recipe for the recipes. What makes a topic worth a methodology page; the triple structure (page + summary.md + data.json); the cross-references; the change-history discipline. Self-referential by inclusion in this list — the corpus that cannot describe itself lies by omission.",

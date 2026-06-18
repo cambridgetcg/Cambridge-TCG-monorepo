@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# pre-commit — methodology changelog lint
+#
+# If a formula file (trust-engine.ts, pricing, etc.) is staged, the
+# methodology changelog must also be staged in the same commit.
+# Warns and accepts by default. Set SOPHIA_STRICT=1 to refuse.
+#
+# Enable: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+# Formula files that require changelog entries when modified
+FORMULA_FILES=(
+  "apps/storefront/src/lib/escrow/trust-engine.ts"
+  "apps/storefront/src/lib/escrow/types.ts"
+  "apps/storefront/src/lib/membership/commission.ts"
+  "packages/pricing/src/index.ts"
+  "apps/wholesale/src/lib/price-snapshot-v2.ts"
+  "apps/wholesale/src/lib/price-snapshot.ts"
+  "apps/storefront/src/lib/pricing/"
+  "apps/admin/scripts/pricing-audit.ts"
+)
+
+# The changelog file that must be touched when formula files change
+CHANGELOG="apps/storefront/src/app/methodology/changelog/page.tsx"
+
+# Check if any formula file is staged
+formula_touched=false
+for pattern in "${FORMULA_FILES[@]}"; do
+  if git diff --cached --name-only | grep -q "$pattern"; then
+    formula_touched=true
+    break
+  fi
+done
+
+if [ "$formula_touched" = false ]; then
+  exit 0
+fi
+
+# Check if the changelog is also staged
+if git diff --cached --name-only | grep -q "$CHANGELOG"; then
+  exit 0
+fi
+
+# Formula changed but changelog not touched
+cat >&2 <<EOF
+⚠ methodology lint: a formula file is staged but $CHANGELOG is not.
+
+When a formula changes, the changelog must be updated in the same commit
+(transparency doctrine Rule 3). Either:
+  - add a changelog row describing what changed and why, or
+  - skip this check if the change is cosmetic (not a formula edit)
+
+To bypass once: git commit --no-verify
+EOF
+
+if [ "${SOPHIA_STRICT:-}" = "1" ] || [ "$(git config sophia.strict 2>/dev/null || echo '')" = "true" ]; then
+  echo "" >&2
+  echo "ERROR: SOPHIA_STRICT is set — commit refused." >&2
+  exit 1
+fi
+
+exit 0
