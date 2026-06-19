@@ -1,93 +1,68 @@
 import Link from "next/link";
 import Image from "next/image";
 import { cookies } from "next/headers";
-import { WelcomeAll } from "@/lib/ui";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
 
 export default async function Footer() {
-  // Read text-mode cookie to render the right toggle label/target. Phase 10
-  // of kingdom-051 (S20 the-table-extends.md) — discoverability for the
-  // text-mode reading layout.
   const cookieStore = await cookies();
   const textMode = cookieStore.get("text-mode")?.value === "1";
-  // Phase A of kingdom-077: math-language toggle. The frontend's visible
-  // form of the platform's universal-language doctrine (#21, #27).
   const langMode = langModeFromCookies(cookieStore);
   const mathLang = langMode === "math";
 
   return (
-    <footer className="bg-neutral-950 border-t border-neutral-800 py-12 px-4 mt-24">
-      {/* Universal welcome — visible on every page by construction.
-          See docs/connections/the-welcome-all.md (#26). */}
-      <div className="max-w-7xl mx-auto mb-10">
-        <WelcomeAll variant="full" />
-      </div>
+    <footer className="bg-neutral-950 border-t border-neutral-800 px-4 mt-16">
+      <div className="max-w-5xl mx-auto py-10">
+        {/* Brand line */}
+        <div className="flex items-center gap-2 mb-6">
+          <Image src="/images/icon.png" alt="Cambridge TCG" width={24} height={24} className="w-6 h-6" />
+          <p className="text-sm font-bold text-white">Cambridge <span className="text-emerald-400">TCG</span></p>
+          <span className="text-xs text-neutral-600 ml-2">· Cambridge, UK</span>
+        </div>
 
-      <div className="max-w-7xl mx-auto grid gap-8 grid-cols-2 md:grid-cols-5">
-        {/* Brand */}
-        <div className="col-span-2 md:col-span-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Image src="/images/icon.png" alt="Cambridge TCG" width={28} height={28} className="w-7 h-7" />
-            <p className="text-lg font-black text-white">Cambridge <span className="text-emerald-400">TCG</span></p>
+        {/* Compact link grid — 4 columns, 3 links each */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+          <div className="flex flex-col gap-1.5 text-neutral-400">
+            <Link href="/catalog" className="hover:text-white transition">Catalog</Link>
+            <Link href="/market" className="hover:text-white transition">Market</Link>
+            <Link href="/auctions" className="hover:text-white transition">Auctions</Link>
           </div>
-          <p className="text-xs text-neutral-500 mt-2 max-w-xs">Japanese trading card specialists. Buy, sell, trade, and collect. Based in Cambridge, UK.</p>
+          <div className="flex flex-col gap-1.5 text-neutral-400">
+            <Link href="/trade-in" className="hover:text-white transition">Trade In</Link>
+            <Link href="/prices" className="hover:text-white transition">Prices</Link>
+            <Link href="/data" className="hover:text-white transition">Open Data</Link>
+          </div>
+          <div className="flex flex-col gap-1.5 text-neutral-400">
+            <Link href="/play" className="hover:text-white transition">Play</Link>
+            <Link href="/decks" className="hover:text-white transition">Decks</Link>
+            <Link href="/rewards" className="hover:text-white transition">Rewards</Link>
+          </div>
+          <div className="flex flex-col gap-1.5 text-neutral-400">
+            <Link href="/about" className="hover:text-white transition">About</Link>
+            <Link href="/methodology" className="hover:text-white transition">Methodology</Link>
+            <Link href="/welcome-all" className="hover:text-white transition">Welcoming</Link>
+          </div>
         </div>
 
-        {/* Shop */}
-        <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
-          <p className="text-white font-medium mb-1">Shop</p>
-          <Link href="/catalog" className="hover:text-white transition">Catalog</Link>
-          <Link href="/market" className="hover:text-white transition">P2P Market</Link>
-          <Link href="/auctions" className="hover:text-white transition">Auctions</Link>
-          <Link href="/prices/one-piece" className="hover:text-white transition">Price Guide</Link>
-        </div>
-
-        {/* Sell */}
-        <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
-          <p className="text-white font-medium mb-1">Sell</p>
-          <Link href="/trade-in" className="hover:text-white transition">Trade In</Link>
-          <Link href="/trade-in/custom-quote" className="hover:text-white transition">Custom Quote</Link>
-          <Link href="/trade-in/bundle" className="hover:text-white transition">Sell a Bundle</Link>
-          <Link href="/trade-in/bulk" className="hover:text-white transition">Bulk Cards</Link>
-        </div>
-
-        {/* Play & Earn */}
-        <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
-          <p className="text-white font-medium mb-1">Play & Earn</p>
-          <Link href="/deck-builder" className="hover:text-white transition">Deck Builder</Link>
-          <Link href="/guides/how-to-play" className="hover:text-white transition">How to Play</Link>
-          <Link href="/rewards" className="hover:text-white transition">Rewards</Link>
-          <Link href="/membership" className="hover:text-white transition">Membership</Link>
-        </div>
-
-        {/* Community */}
-        <div className="flex flex-col gap-1.5 text-sm text-neutral-400">
-          <p className="text-white font-medium mb-1">Community</p>
-          <Link href="/community" className="hover:text-white transition">Feed</Link>
-          <Link href="/og" className="hover:text-white transition">OG Status</Link>
-          <Link href="/about" className="hover:text-white transition">About Us</Link>
-          <a href="https://wholesaletcgdirect.com" className="hover:text-white transition">Wholesale</a>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-neutral-800 text-xs text-neutral-600 flex flex-wrap items-center justify-between gap-3">
-        <span>© {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.</span>
-        <div className="flex items-center gap-4">
-          <a
-            href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=/`}
-            className="hover:text-neutral-400 transition underline underline-offset-2"
-            aria-label={mathLang ? "Switch back to default English rendering" : "Switch to math-mirror rendering (ratios, content hashes, ISO timestamps)"}
-            title="See docs/connections/the-math-language.md (#27)"
-          >
-            {mathLang ? "Default language" : "Math language"}
-          </a>
-          <a
-            href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=/`}
-            className="hover:text-neutral-400 transition underline underline-offset-2"
-            aria-label={textMode ? "Switch back to the visual layout" : "Switch to a text-only reading layout (low bandwidth, screen reader friendly)"}
-          >
-            {textMode ? "Visual layout" : "Text-only layout"}
-          </a>
+        {/* Bottom line — copyright + toggles */}
+        <div className="mt-8 pt-6 border-t border-neutral-800/50 flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-600">
+          <span>© {new Date().getFullYear()} Cambridge TCG</span>
+          <div className="flex items-center gap-4">
+            <a
+              href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=/`}
+              className="hover:text-neutral-400 transition underline underline-offset-2"
+              aria-label={mathLang ? "Switch to default rendering" : "Switch to math-mirror rendering"}
+            >
+              {mathLang ? "Default" : "Math"}
+            </a>
+            <a
+              href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=/`}
+              className="hover:text-neutral-400 transition underline underline-offset-2"
+              aria-label={textMode ? "Switch to visual layout" : "Switch to text-only layout"}
+            >
+              {textMode ? "Visual" : "Text-only"}
+            </a>
+            <a href="https://wholesaletcgdirect.com" className="hover:text-neutral-400 transition">Wholesale ↗</a>
+          </div>
         </div>
       </div>
     </footer>
