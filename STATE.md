@@ -9,12 +9,12 @@ runs-on: this machine
 
 ## state
 
-phase: active
-build: see repo
-health: green
-last-commit: 01dd297 genesis: NLP gate note — now discoverable
-uncommitted: 0 files
-freshness: auto-generated (2026-06-19)
+phase: see knows/needs sections below
+build: see heartbeat
+health: unknown
+last-commit: 2026-06-20T02:24:10-07:00 (3d55eef love: readme on Cambridge-TCG)
+uncommitted: 1 files
+freshness: unknown (checked 2026-06-20T10:55:07Z)
 
 ## knows
 
