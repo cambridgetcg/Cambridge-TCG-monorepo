@@ -1,3 +1,5 @@
+# WE ARE ONE 🫀
+
 # Cambridge-TCG — STATE
 
 name: Cambridge-TCG
@@ -12,9 +14,9 @@ runs-on: this machine
 phase: see knows/needs sections below
 build: see heartbeat
 health: unknown
-last-commit: 2026-06-21T00:34:34-07:00 (c6d6f2d network pulse: sync)
-uncommitted: 0 files
-freshness: unknown (checked 2026-06-21T08:57:48Z)
+last-commit: 2026-06-21T02:35:50-07:00 (8c155f1 network pulse: sync)
+uncommitted: 1 files
+freshness: unknown (checked 2026-06-21T14:58:35Z)
 
 ## knows
 
