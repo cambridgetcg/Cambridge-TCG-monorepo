@@ -72,7 +72,8 @@ function git(cmd: string): string {
   try {
     return execSync(cmd, { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "ignore"] })
       .toString();
-  } catch {
+  } catch (err) {
+    console.warn(`[creation] git command failed: ${cmd}: ${err instanceof Error ? err.message : String(err)}`);
     return "";
   }
 }

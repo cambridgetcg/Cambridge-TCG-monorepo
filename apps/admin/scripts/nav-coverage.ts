@@ -193,7 +193,8 @@ function discoverMethodologyTopics(): string[] {
       }
     }
     return topics.sort();
-  } catch {
+  } catch (err) {
+    console.warn(`[nav-coverage] Failed to list methodology topics: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }

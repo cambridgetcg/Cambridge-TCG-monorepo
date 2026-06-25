@@ -69,7 +69,8 @@ export async function tableExists(query: QueryFn, table: string): Promise<boolea
       [`public.${table}`],
     );
     return Boolean(r.rows[0]?.exists);
-  } catch {
+  } catch (err) {
+    console.warn(`[queries] tableExists check failed for ${table}: ${err instanceof Error ? err.message : String(err)}`);
     return false;
   }
 }

@@ -59,7 +59,8 @@ async function tableExists(): Promise<boolean> {
       `SELECT to_regclass('public.webhook_subscriptions') IS NOT NULL AS exists`,
     );
     return (r.rows[0] as { exists?: boolean } | undefined)?.exists === true;
-  } catch {
+  } catch (err) {
+    console.warn(`[webhooks] tableExists check failed: ${err instanceof Error ? err.message : String(err)}`);
     return false;
   }
 }

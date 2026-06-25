@@ -51,7 +51,8 @@ const STRICT = process.argv.includes("--strict");
 function read(path: string): string {
   try {
     return readFileSync(path, "utf8");
-  } catch {
+  } catch (err) {
+    console.warn(`[typology] Failed to read ${path}: ${err instanceof Error ? err.message : String(err)}`);
     return "";
   }
 }
@@ -61,11 +62,13 @@ function listSubdirs(dir: string): string[] {
     return readdirSync(dir).filter((e) => {
       try {
         return statSync(join(dir, e)).isDirectory();
-      } catch {
+      } catch (err) {
+        console.warn(`[typology] statSync failed for ${join(dir, e)}: ${err instanceof Error ? err.message : String(err)}`);
         return false;
       }
     });
-  } catch {
+  } catch (err) {
+    console.warn(`[typology] readdirSync failed for ${dir}: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }
@@ -73,7 +76,8 @@ function listSubdirs(dir: string): string[] {
 function listFiles(dir: string, suffix: string): string[] {
   try {
     return readdirSync(dir).filter((e) => e.endsWith(suffix));
-  } catch {
+  } catch (err) {
+    console.warn(`[typology] readdirSync failed for ${dir}: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }

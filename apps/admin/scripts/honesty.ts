@@ -225,7 +225,8 @@ function gitLog(args: string[]): string {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
-  } catch {
+  } catch (err) {
+    console.warn(`[honesty] git log failed: ${err instanceof Error ? err.message : String(err)}`);
     return "";
   }
 }

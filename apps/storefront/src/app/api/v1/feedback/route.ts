@@ -35,7 +35,8 @@ async function feedbackTableExists(): Promise<boolean> {
       `SELECT to_regclass('public.agent_feedback') IS NOT NULL AS exists`,
     );
     return (r.rows[0] as { exists?: boolean } | undefined)?.exists === true;
-  } catch {
+  } catch (err) {
+    console.warn(`[feedback] tableExists check failed: ${err instanceof Error ? err.message : String(err)}`);
     return false;
   }
 }

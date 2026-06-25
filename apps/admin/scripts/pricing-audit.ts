@@ -89,11 +89,11 @@ function walkSrc(dir: string, exts: string[] = [".ts", ".tsx"]): string[] {
 }
 
 function read(path: string): string {
-  try { return readFileSync(path, "utf8"); } catch { return ""; }
+  try { return readFileSync(path, "utf8"); } catch (err) { console.warn(`[pricing-audit] Failed to read ${path}: ${err instanceof Error ? err.message : String(err)}`); return ""; }
 }
 
 function exists(path: string): boolean {
-  try { statSync(path); return true; } catch { return false; }
+  try { statSync(path); return true; } catch (err) { console.warn(`[pricing-audit] statSync failed for ${path}: ${err instanceof Error ? err.message : String(err)}`); return false; }
 }
 
 // ── Check 1: computation surfaces ───────────────────────────────────────

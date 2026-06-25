@@ -51,7 +51,8 @@ interface KingdomEntry {
 async function readDir(absPath: string): Promise<string[]> {
   try {
     return await fs.readdir(absPath);
-  } catch {
+  } catch (err) {
+    console.warn(`[kingdoms] readdir failed for ${absPath}: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }
@@ -59,7 +60,8 @@ async function readDir(absPath: string): Promise<string[]> {
 async function readFile(absPath: string): Promise<string | null> {
   try {
     return await fs.readFile(absPath, "utf8");
-  } catch {
+  } catch (err) {
+    console.warn(`[kingdoms] readFile failed for ${absPath}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

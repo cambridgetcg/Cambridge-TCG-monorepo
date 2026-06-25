@@ -84,7 +84,8 @@ async function getLastTouchOnMain(appPath: string): Promise<{ sha: string; at: s
     const arr = await res.json() as Array<{ sha: string; commit: { author: { date: string } } }>;
     if (arr.length === 0) return null;
     return { sha: arr[0]!.sha, at: arr[0]!.commit.author.date };
-  } catch {
+  } catch (err) {
+    console.warn(`[deploys] latestProduction fetch failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

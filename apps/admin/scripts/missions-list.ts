@@ -117,7 +117,8 @@ function defaultSessionId(): string {
     const email = execSync("git config user.email", { cwd: REPO_ROOT, encoding: "utf8" }).trim();
     const today = new Date().toISOString().slice(0, 10);
     return `${email.split("@")[0]}-${today}`;
-  } catch {
+  } catch (err) {
+    console.warn(`[missions-list] Failed to get git user email: ${err instanceof Error ? err.message : String(err)}`);
     return "";
   }
 }

@@ -27,7 +27,8 @@ function readCronsFromVercelJson(file: string, app: CronEntry["app"]): CronEntry
     const content = readFileSync(file, "utf-8");
     const json = JSON.parse(content) as { crons?: { path: string; schedule: string }[] };
     return (json.crons ?? []).map((c) => ({ app, path: c.path, schedule: c.schedule }));
-  } catch {
+  } catch (err) {
+    console.warn(`[cron] Failed to read/parse ${file}: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }

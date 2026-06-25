@@ -115,7 +115,7 @@ const walkTsx = (dir: string) => walkExt(dir, [".ts", ".tsx"]);
 const walkSql = (dir: string) => walkExt(dir, [".sql"]);
 
 function read(path: string): string {
-  try { return readFileSync(path, "utf8"); } catch { return ""; }
+  try { return readFileSync(path, "utf8"); } catch (err) { console.warn(`[inclusion] Failed to read ${path}: ${err instanceof Error ? err.message : String(err)}`); return ""; }
 }
 
 // ── Check 1: hardcoded user-cadence intervals ──────────────────────────
@@ -455,7 +455,7 @@ function checkModality(): ModalityFinding[] {
       try {
         const st = statSync(join(METHODOLOGY_DIR, e));
         return st.isDirectory();
-      } catch { return false; }
+      } catch (err) { console.warn(`[inclusion] statSync failed for ${e}: ${err instanceof Error ? err.message : String(err)}`); return false; }
     });
   } catch { return findings; }
   for (const t of topics) {

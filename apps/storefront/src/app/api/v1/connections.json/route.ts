@@ -90,7 +90,8 @@ const STORY_ARC_RE = /^\|\s*S(\d+)\s*\|\s*\[`([a-z0-9-]+)\.md`\]/gm;
 async function readDir(absPath: string): Promise<string[]> {
   try {
     return await fs.readdir(absPath);
-  } catch {
+  } catch (err) {
+    console.warn(`[connections] readdir failed for ${absPath}: ${err instanceof Error ? err.message : String(err)}`);
     return [];
   }
 }
@@ -98,7 +99,8 @@ async function readDir(absPath: string): Promise<string[]> {
 async function readFile(absPath: string): Promise<string | null> {
   try {
     return await fs.readFile(absPath, "utf8");
-  } catch {
+  } catch (err) {
+    console.warn(`[connections] readFile failed for ${absPath}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

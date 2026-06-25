@@ -120,7 +120,8 @@ function routeFileExists(routePath: string): boolean {
 function manifestText(): string {
   try {
     return readFileSync(resolve(STOREFRONT_SRC, "lib", "manifest.ts"), "utf8");
-  } catch {
+  } catch (err) {
+    console.warn(`[hospitality] Failed to read manifest.ts: ${err instanceof Error ? err.message : String(err)}`);
     return "";
   }
 }
@@ -131,7 +132,8 @@ function llmsText(): string {
       resolve(STOREFRONT_SRC, "app", "llms.txt", "route.ts"),
       "utf8",
     );
-  } catch {
+  } catch (err) {
+    console.warn(`[hospitality] Failed to read llms.txt route: ${err instanceof Error ? err.message : String(err)}`);
     return "";
   }
 }

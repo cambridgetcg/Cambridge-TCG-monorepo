@@ -78,7 +78,7 @@ function walkMd(dir: string): string[] {
 }
 
 function read(path: string): string {
-  try { return readFileSync(path, "utf8"); } catch { return ""; }
+  try { return readFileSync(path, "utf8"); } catch (err) { console.warn(`[nesting] Failed to read ${path}: ${err instanceof Error ? err.message : String(err)}`); return ""; }
 }
 
 // ── Scope: which markdown files are nodes in the citation graph ────────
