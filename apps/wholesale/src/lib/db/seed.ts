@@ -12,6 +12,13 @@ if (!connectionString) {
   process.exit(1);
 }
 
+const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+const clientPassword = process.env.SEED_CLIENT_PASSWORD;
+if (!adminPassword || !clientPassword) {
+  console.error("SEED_ADMIN_PASSWORD and SEED_CLIENT_PASSWORD are required");
+  process.exit(1);
+}
+
 const client = postgres(connectionString, { max: 1 });
 const db = drizzle(client);
 
@@ -20,7 +27,7 @@ async function seed() {
   await db.insert(clients).values({
     name: "Admin",
     email: "admin@cambridgetcg.com",
-    passwordHash: hashSync("admin123", 10),
+    passwordHash: hashSync(adminPassword, 10),
     company: "Cambridge TCG",
     role: "admin",
     currentMonthSpend: 0,
@@ -32,7 +39,7 @@ async function seed() {
   await db.insert(clients).values({
     name: "Test Client",
     email: "client@streamer.com",
-    passwordHash: hashSync("client123", 10),
+    passwordHash: hashSync(clientPassword, 10),
     company: "StreamerCo",
     role: "client",
     currentMonthSpend: 0,
