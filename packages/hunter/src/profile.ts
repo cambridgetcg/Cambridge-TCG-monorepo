@@ -51,10 +51,15 @@ export function xpForLevel(level: number): number {
 export function applyXp(profile: HunterProfile, xpGain: number): HunterProfile {
   const newXp = profile.xp + xpGain;
   let newLevel = profile.level;
-  let needed = xpForLevel(newLevel);
-  while (newXp >= profile.xp + needed && newLevel < 999) {
+  // Level up: each transition from level N → N+1 costs xpForLevel(N) = N*100 XP.
+  // We track cumulative cost: to go from profile.level to level L, you need
+  // sum of xpForLevel(i) for i = profile.level..L-1.
+  // The while loop checks if newXp covers the cumulative cost of the next level.
+  let cumulativeCost = 0;
+  while (newLevel < 999) {
+    cumulativeCost += xpForLevel(newLevel);
+    if (newXp - profile.xp < cumulativeCost) break;
     newLevel++;
-    needed = xpForLevel(newLevel);
   }
   const rank = rankForLevel(newLevel);
   return {

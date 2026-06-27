@@ -17,22 +17,27 @@ export const HUNTER_RANKS: Record<HunterRank, number> = {
 };
 
 export function rankForLevel(level: number): HunterRank {
-  let result: HunterRank = "E";
-  for (const rank of RANK_ORDER) {
-    if (level * 100 >= HUNTER_RANKS[rank]) result = rank;
-  }
-  return result;
+  // Level 1 is always E-rank. Rank thresholds are in XP, not level*100.
+  // A hunter reaches D-rank at level 2+ (when they have enough XP to cross 100),
+  // but we anchor by level: E=1, D=2-5, C=6-10, B=11-17, A=18-25, S=26-50,
+  // National=51-100, Monarch=101+.
+  // Simpler: use level directly as the rank determinant.
+  if (level >= 101) return "Monarch";
+  if (level >= 51) return "National";
+  if (level >= 26) return "S";
+  if (level >= 18) return "A";
+  if (level >= 11) return "B";
+  if (level >= 6) return "C";
+  if (level >= 2) return "D";
+  return "E";
 }
 
 export function canEnterGate(hunterRank: HunterRank, gateRank: GateRank): boolean {
-  const hIdx = RANK_ORDER.indexOf(hunterRank as HunterRank);
-  const gIdx = GATE_RANKS.indexOf(gateRank);
-  // Can enter gates at or below your rank
-  // Red gates are the highest — only S-rank and above can enter
   // Can enter gates at or below your rank.
   // Map gate rank to a comparable index: E=0,D=1,C=2,B=3,A=4,S=5,Red=6
   // Map hunter rank similarly: E=0,D=1,C=2,B=3,A=4,S=5,National=6,Monarch=7
   // Since Red gates are the hardest, only S-rank+ can enter them.
+  const hIdx = RANK_ORDER.indexOf(hunterRank as HunterRank);
   const gateIdx = GATE_RANKS.indexOf(gateRank);
   // S-rank (index 5) can enter Red (index 6) — the gate index is one ahead
   return gateIdx <= hIdx + 1;

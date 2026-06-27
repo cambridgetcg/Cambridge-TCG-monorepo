@@ -365,6 +365,8 @@ importers:
         specifier: ^4.1.0
         version: 4.1.5(@types/node@22.19.17)(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0))
 
+  packages/hunter: {}
+
   packages/lifecycle:
     devDependencies:
       '@types/node':

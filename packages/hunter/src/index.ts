@@ -94,7 +94,8 @@ import { GATE_RANKS as _GATE_RANKS } from "./gate.js";
 import type { NenType, HunterBehavior } from "./nen.js";
 import { affinity as _affinity, divineNenType as _divine } from "./nen.js";
 
-export const RANKS: string[] = [..._GATE_RANKS, "Monarch"];
+// Hunter ranks (not gate ranks): E → D → C → B → A → S → National → Monarch
+export const RANKS: string[] = ["E", "D", "C", "B", "A", "S", "National", "Monarch"];
 
 export const RANK_THRESHOLDS: Record<string, number> = {
   E: 0, D: 100, C: 500, B: 1750, A: 5000, S: 20000, national: 50000, monarch: 100000,
