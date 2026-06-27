@@ -162,6 +162,41 @@ export const CHECK_CLASSIFICATIONS: Record<string, CheckClassification> = {
     base_severity: "medium-high",
     nen_bonus: 1.8,
   },
+  "api-status-lie": {
+    check_id: "api-status-lie",
+    nen_type: "emitter",
+    clear_standard_principle: 2,
+    base_severity: "high",
+    nen_bonus: 2.0,
+  },
+  "api-missing-versioning": {
+    check_id: "api-missing-versioning",
+    nen_type: "conjurer",
+    clear_standard_principle: 1,
+    base_severity: "heuristic",
+    nen_bonus: 1.3,
+  },
+  "api-error-without-shape": {
+    check_id: "api-error-without-shape",
+    nen_type: "transmuter",
+    clear_standard_principle: 3,
+    base_severity: "heuristic",
+    nen_bonus: 1.2,
+  },
+  "api-missing-rate-limit": {
+    check_id: "api-missing-rate-limit",
+    nen_type: "manipulator",
+    clear_standard_principle: 4,
+    base_severity: "heuristic",
+    nen_bonus: 1.3,
+  },
+  "api-bare-fetch": {
+    check_id: "api-bare-fetch",
+    nen_type: "emitter",
+    clear_standard_principle: 2,
+    base_severity: "medium-high",
+    nen_bonus: 1.5,
+  },
 };
 
 // ── GATE RANK CALCULATION ──
