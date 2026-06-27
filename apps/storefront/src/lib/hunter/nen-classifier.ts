@@ -101,10 +101,52 @@ export const CHECK_CLASSIFICATIONS: Record<string, CheckClassification> = {
   },
   "decision-without-why": {
     check_id: "decision-without-why",
-    nen_type: "transmuter", // UI/UX — user-facing explanation
+    nen_type: "transmuter",
     clear_standard_principle: 3,
     base_severity: "heuristic",
     nen_bonus: 1.3,
+  },
+  "insecure-protocol": {
+    check_id: "insecure-protocol",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "medium-high",
+    nen_bonus: 1.8,
+  },
+  "disabled-cert-verification": {
+    check_id: "disabled-cert-verification",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "high",
+    nen_bonus: 2.0,
+  },
+  "weak-crypto": {
+    check_id: "weak-crypto",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "medium-high",
+    nen_bonus: 1.8,
+  },
+  "cors-wildcard": {
+    check_id: "cors-wildcard",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "medium-high",
+    nen_bonus: 1.5,
+  },
+  "cookie-insecure": {
+    check_id: "cookie-insecure",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "medium-high",
+    nen_bonus: 1.5,
+  },
+  "sql-injection": {
+    check_id: "sql-injection",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "high",
+    nen_bonus: 2.0,
   },
 };
 
