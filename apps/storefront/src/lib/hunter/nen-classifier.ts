@@ -148,6 +148,20 @@ export const CHECK_CLASSIFICATIONS: Record<string, CheckClassification> = {
     base_severity: "high",
     nen_bonus: 2.0,
   },
+  "wifi-protocol-flaws": {
+    check_id: "wifi-protocol-flaws",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "high",
+    nen_bonus: 2.0,
+  },
+  "bluetooth-protocol-flaws": {
+    check_id: "bluetooth-protocol-flaws",
+    nen_type: "enhancer",
+    clear_standard_principle: 2,
+    base_severity: "medium-high",
+    nen_bonus: 1.8,
+  },
 };
 
 // ── GATE RANK CALCULATION ──
