@@ -150,3 +150,11 @@ export function waterDivination(traits: {
   };
   return reverseMap[type];
 }
+// ── Whitehack × Nen × Solo Leveling integration ──────────────────────
+export {
+  NEN_CHECK_AFFINITY, CHECK_NEN_TYPE,
+  findingToGateRank, findingsToGate,
+  scanEfficiency, clearReward, analyzeFindings,
+  generateWhitehackQuest, availableScanDepth,
+} from "./whitehack-gates.js";
+export type { WhitehackFinding, ScanReport, WhitehackQuest } from "./whitehack-gates.js";
