@@ -62,8 +62,8 @@ export default function SetSidebar({
           href={currentGame ? `/catalog?game=${currentGame}` : "/catalog"}
           className={`text-sm px-3 py-1.5 rounded-lg transition ${
             !currentSet
-              ? "bg-emerald-500/15 text-emerald-400 font-medium"
-              : "text-neutral-400 hover:text-white"
+              ? "bg-emerald-500/15 text-secondary font-medium"
+              : "text-ink-muted hover:text-ink"
           }`}
         >
           All Cards
@@ -71,7 +71,7 @@ export default function SetSidebar({
 
         {groups.map((group) => (
           <div key={group.label}>
-            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider px-3 mb-1">
+            <p className="text-xs font-semibold text-ink-faint uppercase tracking-wider px-3 mb-1">
               {group.label}
             </p>
             <ul className="flex flex-col">
@@ -86,11 +86,11 @@ export default function SetSidebar({
                       href={href}
                       className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition ${
                         active
-                          ? "bg-emerald-500/15 text-emerald-400 font-medium"
-                          : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
+                          ? "bg-emerald-500/15 text-secondary font-medium"
+                          : "text-ink-muted hover:text-ink hover:bg-surface-elevated/50"
                       }`}
                     >
-                      <span className="font-mono text-xs text-neutral-500 w-12 shrink-0">
+                      <span className="font-mono text-xs text-ink-faint w-12 shrink-0">
                         {s.code}
                       </span>
                       <span className="truncate">{s.name}</span>

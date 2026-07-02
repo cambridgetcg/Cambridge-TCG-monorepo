@@ -230,16 +230,16 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
         className={`max-w-5xl mx-auto px-4 py-10 ${className ?? ""}`}
         aria-labelledby="brand-headline"
       >
-        <p className="text-[11px] uppercase tracking-[0.2em] text-amber-400 mb-3">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-accent-strong mb-3">
           Cambridge TCG, 2026
         </p>
         <h1
           id="brand-headline"
-          className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-4xl"
+          className="text-3xl sm:text-4xl lg:text-5xl font-bold text-ink leading-tight max-w-4xl"
         >
           {BRAND_HEADLINE}
         </h1>
-        <p className="mt-4 text-base sm:text-lg text-neutral-300 max-w-3xl leading-relaxed">
+        <p className="mt-4 text-base sm:text-lg text-ink-muted max-w-3xl leading-relaxed">
           {BRAND_SUBHEAD}
         </p>
       </section>
@@ -247,15 +247,15 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
   }
   if (size === "compact") {
     return (
-      <p className={`text-xs text-neutral-500 ${className ?? ""}`}>
-        <span className="text-neutral-300 font-medium">{BRAND_TAGLINE}</span>
+      <p className={`text-xs text-ink-faint ${className ?? ""}`}>
+        <span className="text-ink-muted font-medium">{BRAND_TAGLINE}</span>
       </p>
     );
   }
   return (
     <section className={`max-w-3xl mx-auto px-4 py-6 ${className ?? ""}`}>
-      <h2 className="text-xl sm:text-2xl font-bold text-white">{BRAND_HEADLINE}</h2>
-      <p className="mt-2 text-sm text-neutral-300 leading-relaxed">{BRAND_SUBHEAD}</p>
+      <h2 className="text-xl sm:text-2xl font-bold text-ink">{BRAND_HEADLINE}</h2>
+      <p className="mt-2 text-sm text-ink-muted leading-relaxed">{BRAND_SUBHEAD}</p>
     </section>
   );
 }
@@ -273,7 +273,7 @@ export function ThreeOperations({ className }: { className?: string }) {
     >
       <h2
         id="three-operations-heading"
-        className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-4"
+        className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4"
       >
         Three operations · one substrate
       </h2>
@@ -283,28 +283,28 @@ export function ThreeOperations({ className }: { className?: string }) {
             key={op.id}
             className={`rounded-xl p-4 border ${
               op.positioning === "primary"
-                ? "border-amber-500/40 bg-amber-500/[0.04]"
-                : "border-neutral-800 bg-neutral-900/40"
+                ? "border-accent/40 bg-accent/[0.04]"
+                : "border-border-subtle bg-surface/40"
             }`}
           >
             <div className="flex items-baseline justify-between gap-2 mb-2">
               <h3
                 className={`text-base font-semibold ${
-                  op.positioning === "primary" ? "text-amber-400" : "text-white"
+                  op.positioning === "primary" ? "text-accent-strong" : "text-ink"
                 }`}
               >
                 {op.name}
               </h3>
               {op.positioning === "primary" && (
-                <span className="text-[10px] uppercase tracking-wide text-amber-400 px-1.5 py-0.5 bg-amber-500/15 border border-amber-500/30 rounded">
+                <span className="text-[10px] uppercase tracking-wide text-accent-strong px-1.5 py-0.5 bg-accent/15 border border-accent/30 rounded">
                   primary
                 </span>
               )}
             </div>
-            <p className="text-xs text-neutral-400 leading-relaxed mb-3">
+            <p className="text-xs text-ink-muted leading-relaxed mb-3">
               For {op.audience}.
             </p>
-            <p className="text-xs text-neutral-500 leading-relaxed mb-3">
+            <p className="text-xs text-ink-faint leading-relaxed mb-3">
               {op.notes}
             </p>
             {op.url.startsWith("http") ? (
@@ -312,12 +312,12 @@ export function ThreeOperations({ className }: { className?: string }) {
                 href={op.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-amber-400 hover:text-amber-300 font-mono"
+                className="text-xs text-accent-strong hover:text-accent-strong font-mono"
               >
                 {op.url} ↗
               </a>
             ) : (
-              <a href={op.url} className="text-xs text-amber-400 hover:text-amber-300 font-mono">
+              <a href={op.url} className="text-xs text-accent-strong hover:text-accent-strong font-mono">
                 {op.url} →
               </a>
             )}

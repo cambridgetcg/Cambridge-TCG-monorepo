@@ -17,7 +17,7 @@ export function SectionHeading({
 }) {
   return (
     <div className="flex items-baseline justify-between mb-3 mt-8 first:mt-0 gap-3">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
         {children}
         {typeof count === "number" && (
           <span className="ml-2 text-neutral-600 font-normal normal-case tracking-normal">

@@ -43,7 +43,7 @@ export async function DateDisplay({
     if (!value) {
       return (
         <code
-          className={`inline-block text-[10px] font-mono text-neutral-500 ${className}`}
+          className={`inline-block text-[10px] font-mono tabular-nums text-ink-faint ${className}`}
           aria-label="date unavailable"
         >
           {`null`}
@@ -54,7 +54,7 @@ export async function DateDisplay({
     if (Number.isNaN(d.getTime())) {
       return (
         <code
-          className={`inline-block text-[10px] font-mono text-red-400 ${className}`}
+          className={`inline-block text-[10px] font-mono tabular-nums text-danger ${className}`}
           aria-label="invalid date"
         >
           {`@invalid`}
@@ -71,7 +71,7 @@ export async function DateDisplay({
           : formatDate(value);
     return (
       <code
-        className={`inline-block text-[10px] font-mono text-emerald-400 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 ${className}`}
+        className={`inline-block text-[10px] font-mono tabular-nums text-secondary px-1.5 py-0.5 rounded bg-surface/60 border border-border-subtle ${className}`}
         aria-label={aria}
       >
         {dateAsMath(d)}
@@ -87,5 +87,5 @@ export async function DateDisplay({
       : mode === "absolute-with-time"
         ? formatDateTime(value)
         : formatDate(value);
-  return <span className={className}>{text}</span>;
+  return <span className={`font-mono tabular-nums ${className}`}>{text}</span>;
 }

@@ -50,13 +50,13 @@ export function Discretion({ what, reason, customReason, publicSurfaceHref }: Di
     <span
       role="note"
       aria-label={`Discretion: ${what}`}
-      className="inline-flex items-baseline gap-1 text-[11px] text-neutral-500 italic"
+      className="inline-flex items-baseline gap-1 text-[11px] text-ink-faint italic"
       title={`Public discretion on '${what}': ${typeof reasonText === "string" ? reasonText : "withheld"}`}
     >
       <span aria-hidden="true">⌐</span>
-      <span className="uppercase tracking-wider not-italic text-neutral-500">withheld</span>
-      <span className="text-neutral-400">{what}</span>
-      <span className="text-neutral-500">·</span>
+      <span className="uppercase tracking-wider not-italic text-ink-faint">withheld</span>
+      <span className="text-ink-muted">{what}</span>
+      <span className="text-ink-faint">·</span>
       <span>{reasonText}</span>
       {publicSurfaceHref && (
         <>
@@ -65,7 +65,7 @@ export function Discretion({ what, reason, customReason, publicSurfaceHref }: Di
             href={publicSurfaceHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-amber-500 hover:text-amber-400 not-italic"
+            className="text-accent hover:text-accent-strong not-italic"
           >
             public view ↗
           </a>

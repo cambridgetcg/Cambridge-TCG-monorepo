@@ -21,15 +21,15 @@ export function EmptyState({
 }) {
   const tint =
     tone === "warning"
-      ? "border-amber-500/20 bg-amber-500/5"
-      : "border-neutral-800 bg-neutral-900/50";
+      ? "border-accent/20 bg-accent/5"
+      : "border-border-subtle bg-surface/50";
   return (
     <div className={`rounded-xl border ${tint} p-6`}>
-      <p className={tone === "warning" ? "text-sm font-bold text-amber-400 mb-2" : "text-sm font-semibold text-white mb-1"}>
+      <p className={tone === "warning" ? "text-sm font-bold text-accent-strong mb-2" : "text-sm font-semibold text-ink mb-1"}>
         {title}
       </p>
       {description && (
-        <div className="text-sm text-neutral-300">{description}</div>
+        <div className="text-sm text-ink-muted">{description}</div>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

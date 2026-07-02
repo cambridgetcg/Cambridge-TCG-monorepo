@@ -42,7 +42,7 @@ export default function SellForCreditButton({
     <button
       onClick={handleSell}
       disabled={added}
-      className="px-3 py-1.5 text-xs font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition disabled:opacity-50"
+      className="px-3 py-1.5 text-xs font-bold bg-purple-600 text-ink rounded-lg hover:bg-purple-500 transition disabled:opacity-50"
     >
       {added ? "Added!" : "Sell Now"}
     </button>

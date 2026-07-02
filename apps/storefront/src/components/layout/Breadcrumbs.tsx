@@ -26,11 +26,11 @@ export function Breadcrumbs({ pathname, className = "" }: BreadcrumbsProps) {
   return (
     <nav
       aria-label="Breadcrumb"
-      className={`text-xs text-neutral-500 ${className}`}
+      className={`text-xs text-ink-faint ${className}`}
     >
       <ol className="flex flex-wrap items-center gap-1.5">
         <li>
-          <Link href="/" className="text-neutral-400 hover:text-white">
+          <Link href="/" className="text-ink-muted hover:text-ink">
             Home
           </Link>
         </li>
@@ -42,12 +42,12 @@ export function Breadcrumbs({ pathname, className = "" }: BreadcrumbsProps) {
             {step.href ? (
               <Link
                 href={step.href}
-                className="text-neutral-400 hover:text-white"
+                className="text-ink-muted hover:text-ink"
               >
                 {step.label}
               </Link>
             ) : (
-              <span className="text-neutral-300" aria-current="page">
+              <span className="text-ink-muted" aria-current="page">
                 {step.label}
               </span>
             )}

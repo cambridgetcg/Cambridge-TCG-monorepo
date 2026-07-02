@@ -80,31 +80,31 @@ export function ComingSoon({
   return (
     <div className="max-w-lg">
       <div className="flex items-start gap-3 mb-6">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-500/10 shrink-0 mt-0.5">
-          <Construction className="w-5 h-5 text-amber-400" />
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-accent/10 shrink-0 mt-0.5">
+          <Construction className="w-5 h-5 text-accent-strong" />
         </div>
         <div>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <h1 className="text-xl font-semibold text-white">{title}</h1>
+            <h1 className="text-xl font-semibold text-ink">{title}</h1>
             <span
-              className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border bg-amber-500/15 text-amber-400 border-amber-500/40"
+              className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border bg-accent/15 text-accent-strong border-accent/40"
               title="This route exists in the navigation tree but the module has not been built. See substrate-honesty.md."
             >
               Stub
             </span>
           </div>
-          <p className="text-sm text-neutral-400 mt-1">{description}</p>
+          <p className="text-sm text-ink-muted mt-1">{description}</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-5 space-y-3">
-        <p className="text-sm text-neutral-300">
+      <div className="rounded-lg border border-border-subtle bg-surface/50 p-5 space-y-3">
+        <p className="text-sm text-ink-muted">
           This module has not been built yet. It is tracked as mission{" "}
-          <span className="font-mono text-amber-400">{missionId}</span> in
+          <span className="font-mono text-accent-strong">{missionId}</span> in
           the Cambridge TCG admin migration plan.
         </p>
         {operatingFromUrl ? (
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             Until the mission ships, this workflow runs from the legacy
             admin:{" "}
             <a
@@ -117,7 +117,7 @@ export function ComingSoon({
             </a>
           </p>
         ) : (
-          <p className="text-xs text-neutral-500 italic">
+          <p className="text-xs text-ink-faint italic">
             No legacy admin surface exists for this workflow — it must be
             built here before it can run.
           </p>

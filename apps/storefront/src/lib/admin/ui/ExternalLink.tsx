@@ -24,7 +24,7 @@ export function ExternalLink({ href, children, variant = "inline" }: ExternalLin
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="px-4 py-2 text-sm bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+        className="px-4 py-2 text-sm bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition"
       >
         {children} ↗
       </a>

@@ -37,8 +37,8 @@ export default function ConfirmModal({
   if (!open) return null;
 
   const confirmColors = {
-    danger: "bg-red-500 hover:bg-red-400 text-white",
-    warning: "bg-amber-500 hover:bg-amber-400 text-black",
+    danger: "bg-danger hover:bg-red-400 text-ink",
+    warning: "bg-accent hover:bg-accent-strong text-black",
     default: "bg-emerald-500 hover:bg-emerald-400 text-black",
   };
 
@@ -52,14 +52,14 @@ export default function ConfirmModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       {/* Modal */}
-      <div className="relative bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in">
-        <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
-        <p className="text-sm text-neutral-400 mb-6">{message}</p>
+      <div className="relative bg-surface border border-border-subtle rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in">
+        <h3 className="text-lg font-bold text-ink mb-2">{title}</h3>
+        <p className="text-sm text-ink-muted mb-6">{message}</p>
 
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 py-2.5 px-4 bg-neutral-800 text-neutral-300 text-sm font-medium rounded-lg hover:bg-neutral-700 transition"
+            className="flex-1 py-2.5 px-4 bg-surface-elevated text-ink-muted text-sm font-medium rounded-lg hover:bg-neutral-700 transition"
           >
             {cancelLabel}
           </button>

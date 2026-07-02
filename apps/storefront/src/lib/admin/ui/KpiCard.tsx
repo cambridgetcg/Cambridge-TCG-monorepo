@@ -19,18 +19,18 @@ export type Urgency = "critical" | "warning" | "info" | "ok" | "neutral";
 
 const VALUE_COLORS: Record<Urgency, string> = {
   critical: "text-red-400",
-  warning: "text-amber-400",
+  warning: "text-accent-strong",
   info: "text-blue-400",
-  ok: "text-emerald-400",
-  neutral: "text-white",
+  ok: "text-secondary",
+  neutral: "text-ink",
 };
 
 const BORDER_COLORS: Record<Urgency, string> = {
-  critical: "border-red-500/30 bg-red-500/5",
-  warning: "border-amber-500/30 bg-amber-500/5",
+  critical: "border-danger/30 bg-danger/5",
+  warning: "border-accent/30 bg-accent/5",
   info: "border-blue-500/30 bg-blue-500/5",
   ok: "border-emerald-500/30 bg-emerald-500/5",
-  neutral: "border-neutral-800 bg-neutral-900",
+  neutral: "border-border-subtle bg-surface",
 };
 
 interface KpiCardProps {
@@ -60,7 +60,7 @@ export function KpiCard({
   const isLink = Boolean(href);
   const content = (
     <>
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-ink-faint uppercase tracking-wide">{label}</p>
       <p
         className={[
           "text-2xl font-bold mt-1 tabular-nums",
@@ -69,14 +69,14 @@ export function KpiCard({
       >
         {unavailable ? "—" : value}
       </p>
-      {sub && <p className="text-xs text-neutral-500 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-ink-faint mt-1">{sub}</p>}
     </>
   );
 
   const className = [
     "block rounded-xl border p-4 transition-colors",
-    empty ? "border-neutral-800 bg-neutral-900/50" : BORDER_COLORS[urgency],
-    isLink ? "hover:bg-neutral-800" : "",
+    empty ? "border-border-subtle bg-surface/50" : BORDER_COLORS[urgency],
+    isLink ? "hover:bg-surface-elevated" : "",
   ].join(" ");
 
   return isLink ? (

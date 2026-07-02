@@ -29,14 +29,14 @@ export function Pagination({ page, totalPages, totalRows, pageSize, href }: Pagi
 
   return (
     <div className="flex items-center justify-between text-sm mt-4">
-      <span className="text-neutral-500">
+      <span className="text-ink-faint">
         {from.toLocaleString()}–{to.toLocaleString()} of {totalRows.toLocaleString()}
       </span>
       <div className="flex items-center gap-2">
         {page > 1 ? (
           <Link
             href={href(page - 1)}
-            className="px-3 py-1 border border-neutral-800 hover:border-neutral-700 text-white rounded transition"
+            className="px-3 py-1 border border-border-subtle hover:border-border-strong text-ink rounded transition"
           >
             ← Prev
           </Link>
@@ -45,13 +45,13 @@ export function Pagination({ page, totalPages, totalRows, pageSize, href }: Pagi
             ← Prev
           </span>
         )}
-        <span className="px-3 py-1 text-neutral-400 tabular-nums">
+        <span className="px-3 py-1 text-ink-muted tabular-nums">
           Page {page} of {totalPages}
         </span>
         {page < totalPages ? (
           <Link
             href={href(page + 1)}
-            className="px-3 py-1 border border-neutral-800 hover:border-neutral-700 text-white rounded transition"
+            className="px-3 py-1 border border-border-subtle hover:border-border-strong text-ink rounded transition"
           >
             Next →
           </Link>

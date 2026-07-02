@@ -29,17 +29,17 @@ export default function CartDrawer() {
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-neutral-900 shadow-2xl z-50 transform transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-full max-w-md bg-surface shadow-2xl z-50 transform transition-transform duration-300 ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+          <div className="flex items-center justify-between p-4 border-b border-border-subtle">
             <h2 className="text-lg font-bold">Your Cart</h2>
             <button
               onClick={closeDrawer}
-              className="w-10 h-10 flex items-center justify-center text-neutral-400 hover:text-white transition"
+              className="w-10 h-10 flex items-center justify-center text-ink-muted hover:text-ink transition"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -53,7 +53,7 @@ export default function CartDrawer() {
               <svg xmlns="http://www.w3.org/2000/svg" className="w-16 h-16 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
-              <p className="text-neutral-400">Your cart is empty</p>
+              <p className="text-ink-muted">Your cart is empty</p>
               <Link
                 href="/catalog?game=one-piece"
                 onClick={closeDrawer}
@@ -66,8 +66,8 @@ export default function CartDrawer() {
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {items.map((item) => (
-                  <div key={item.sku} className="flex gap-3 bg-neutral-800/50 rounded-xl p-3">
-                    <div className="relative w-16 h-20 rounded-lg overflow-hidden bg-neutral-800 shrink-0">
+                  <div key={item.sku} className="flex gap-3 bg-surface-elevated/50 rounded-xl p-3">
+                    <div className="relative w-16 h-20 rounded-lg overflow-hidden bg-surface-elevated shrink-0">
                       {item.image_url ? (
                         <Image
                           src={item.image_url}
@@ -82,8 +82,8 @@ export default function CartDrawer() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-xs text-neutral-400">{item.card_number}</p>
-                      <p className="text-sm font-bold text-emerald-400 mt-1">
+                      <p className="text-xs text-ink-muted">{item.card_number}</p>
+                      <p className="text-sm font-bold text-secondary mt-1">
                         {"\u00A3"}{(item.price * item.quantity).toFixed(2)}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
@@ -102,7 +102,7 @@ export default function CartDrawer() {
                         </button>
                         <button
                           onClick={() => removeItem(item.sku)}
-                          className="ml-auto text-xs text-neutral-500 hover:text-red-400 transition"
+                          className="ml-auto text-xs text-ink-faint hover:text-red-400 transition"
                         >
                           Remove
                         </button>
@@ -113,10 +113,10 @@ export default function CartDrawer() {
               </div>
 
               {/* Footer */}
-              <div className="p-4 border-t border-neutral-800 space-y-3">
+              <div className="p-4 border-t border-border-subtle space-y-3">
                 <div className="flex justify-between text-lg font-bold">
                   <span>Subtotal</span>
-                  <span className="text-emerald-400">{"\u00A3"}{totalPrice.toFixed(2)}</span>
+                  <span className="text-secondary">{"\u00A3"}{totalPrice.toFixed(2)}</span>
                 </div>
                 <Link
                   href="/checkout"
@@ -127,7 +127,7 @@ export default function CartDrawer() {
                 </Link>
                 <button
                   onClick={closeDrawer}
-                  className="block w-full text-center px-6 py-3 text-neutral-400 hover:text-white transition text-sm"
+                  className="block w-full text-center px-6 py-3 text-ink-muted hover:text-ink transition text-sm"
                 >
                   Continue Shopping
                 </button>

@@ -25,7 +25,7 @@ interface UserChipProps {
 
 const TIER_DOT: Record<string, string> = {
   Elite:   "bg-purple-400",
-  Veteran: "bg-amber-400",
+  Veteran: "bg-accent-strong",
   Trusted: "bg-emerald-400",
   Starter: "bg-sky-400",
   New:     "bg-neutral-500",
@@ -44,15 +44,15 @@ export function UserChip({ username, displayName, avatarUrl, tier, size = "sm" }
         <img
           src={avatarUrl}
           alt=""
-          className={`${avatarSize} rounded-full object-cover bg-neutral-800`}
+          className={`${avatarSize} rounded-full object-cover bg-surface-elevated`}
         />
       ) : (
-        <span className={`${avatarSize} rounded-full bg-neutral-800 text-neutral-400 inline-flex items-center justify-center font-semibold`}>
+        <span className={`${avatarSize} rounded-full bg-surface-elevated text-ink-muted inline-flex items-center justify-center font-semibold`}>
           {initial}
         </span>
       )}
       {tier && <span className={`w-1.5 h-1.5 rounded-full ${TIER_DOT[tier] ?? "bg-neutral-500"}`} aria-hidden />}
-      <span className="text-neutral-200 truncate">{name}</span>
+      <span className="text-ink truncate">{name}</span>
     </span>
   );
 

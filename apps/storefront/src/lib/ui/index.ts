@@ -11,7 +11,7 @@
 export { Badge, type Tone } from "./Badge";
 export { Button, LinkButton } from "./Button";
 export { Callout, type CalloutTone } from "./Callout";
-export { Endpoint } from "./Endpoint";
+export { Endpoint, EndpointChip } from "./Endpoint";
 export {
   KingdomLayers,
   KINGDOM_LAYERS,

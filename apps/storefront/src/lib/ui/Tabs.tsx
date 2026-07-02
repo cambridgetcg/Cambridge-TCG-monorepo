@@ -32,9 +32,9 @@ interface LinkedProps<T extends string> {
 }
 
 const tabBase = "px-4 py-2 text-sm font-medium rounded-md transition";
-const tabActive = "bg-amber-500 text-black";
-const tabIdle = "text-neutral-400 hover:text-white";
-const wrapper = "flex gap-1 bg-neutral-900 rounded-lg p-1 mb-6 w-fit";
+const tabActive = "bg-accent text-on-accent";
+const tabIdle = "text-ink-muted hover:text-ink";
+const wrapper = "flex gap-1 bg-surface rounded-lg p-1 mb-6 w-fit";
 
 export function Tabs<T extends string>({ tabs, selected, onSelect }: ControlledProps<T>) {
   return (

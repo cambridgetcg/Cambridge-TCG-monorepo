@@ -32,7 +32,7 @@ export default function PostWinPanel({ auction, sessionUserId, onRefresh }: Prop
   const currentActor = getCurrentActor(auction);
 
   return (
-    <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5 space-y-4">
+    <div className="bg-surface rounded-xl border border-border-subtle p-5 space-y-4">
       {/* Header — status-specific */}
       {isWinner && auction.status === "ended" && (
         <WinnerAwaitingPayment auction={auction} />
@@ -93,16 +93,16 @@ function WinnerAwaitingPayment({ auction }: { auction: Auction }) {
   return (
     <>
       <div>
-        <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">You won</p>
-        <p className="text-2xl font-bold text-white mb-1">{formatPrice(amount)}</p>
+        <p className="text-xs uppercase tracking-wider text-accent-strong font-bold mb-1">You won</p>
+        <p className="text-2xl font-bold text-ink mb-1">{formatPrice(amount)}</p>
         {deadline && (
-          <p className="text-xs text-neutral-400">Payment due by {deadline}</p>
+          <p className="text-xs text-ink-muted">Payment due by {deadline}</p>
         )}
       </div>
       <button
         onClick={pay}
         disabled={paying}
-        className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {paying ? "Opening Stripe…" : "Pay now"}
       </button>
@@ -128,8 +128,8 @@ function WinnerInProgress({
   return (
     <>
       <div>
-        <p className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-1">In progress</p>
-        <p className="text-sm text-neutral-300">
+        <p className="text-xs uppercase tracking-wider text-secondary font-bold mb-1">In progress</p>
+        <p className="text-sm text-ink-muted">
           {currentActor === "seller"
             ? auction.is_consignment
               ? "Seller is shipping the card to Cambridge TCG for inspection."
@@ -157,8 +157,8 @@ function WinnerInProgress({
 function WinnerComplete({ auction }: { auction: Auction }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-1">Delivered</p>
-      <p className="text-sm text-neutral-300">
+      <p className="text-xs uppercase tracking-wider text-secondary font-bold mb-1">Delivered</p>
+      <p className="text-sm text-ink-muted">
         You received this card on{" "}
         {auction.buyer_received_at
           ? new Date(auction.buyer_received_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
@@ -207,8 +207,8 @@ function SellerInProgress({
     return (
       <>
         <div>
-          <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">Your turn</p>
-          <p className="text-sm text-neutral-300">
+          <p className="text-xs uppercase tracking-wider text-accent-strong font-bold mb-1">Your turn</p>
+          <p className="text-sm text-ink-muted">
             {auction.is_consignment
               ? "Buyer has paid. Ship the card to Cambridge TCG for inspection."
               : "Buyer has paid. Ship the card directly to the buyer."}
@@ -219,7 +219,7 @@ function SellerInProgress({
             <select
               value={carrier}
               onChange={(e) => setCarrier(e.target.value)}
-              className="px-2 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm w-28"
+              className="px-2 py-2 bg-surface-elevated border border-border-strong rounded text-sm w-28"
             >
               <option>Royal Mail</option>
               <option>Evri</option>
@@ -232,13 +232,13 @@ function SellerInProgress({
               value={tracking}
               onChange={(e) => setTracking(e.target.value)}
               placeholder="Tracking number"
-              className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm"
+              className="flex-1 px-3 py-2 bg-surface-elevated border border-border-strong rounded text-sm"
             />
           </div>
           <button
             onClick={ship}
             disabled={shipping || !tracking.trim()}
-            className="w-full py-2.5 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+            className="w-full py-2.5 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
           >
             {shipping ? "Saving…" : "Mark as shipped"}
           </button>
@@ -250,8 +250,8 @@ function SellerInProgress({
 
   return (
     <div>
-      <p className="text-xs uppercase tracking-wider text-neutral-400 font-bold mb-1">Tracking</p>
-      <p className="text-sm text-neutral-300">
+      <p className="text-xs uppercase tracking-wider text-ink-muted font-bold mb-1">Tracking</p>
+      <p className="text-sm text-ink-muted">
         {currentActor === "ctcg" ? "Cambridge TCG has your card. Inspection in progress."
           : currentActor === "buyer" ? "Buyer has the card. Awaiting their confirmation."
           : auction.buyer_received_at ? "Complete — buyer confirmed receipt."
@@ -264,8 +264,8 @@ function SellerInProgress({
 function SellerAwaitingBuyer() {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">Awaiting payment</p>
-      <p className="text-sm text-neutral-300">The winner has been notified and has a window to pay.</p>
+      <p className="text-xs uppercase tracking-wider text-accent-strong font-bold mb-1">Awaiting payment</p>
+      <p className="text-sm text-ink-muted">The winner has been notified and has a window to pay.</p>
     </div>
   );
 }
@@ -273,8 +273,8 @@ function SellerAwaitingBuyer() {
 function LosingBidderEnded() {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wider text-neutral-500 font-bold mb-1">Auction ended</p>
-      <p className="text-sm text-neutral-400">You were outbid. Better luck on the next one.</p>
+      <p className="text-xs uppercase tracking-wider text-ink-faint font-bold mb-1">Auction ended</p>
+      <p className="text-sm text-ink-muted">You were outbid. Better luck on the next one.</p>
     </div>
   );
 }
@@ -282,8 +282,8 @@ function LosingBidderEnded() {
 function NonPartyPaid({ auction }: { auction: Auction }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wider text-neutral-500 font-bold mb-1">Sold</p>
-      <p className="text-sm text-neutral-400">Final price: {formatPrice(parseFloat(auction.current_price))}</p>
+      <p className="text-xs uppercase tracking-wider text-ink-faint font-bold mb-1">Sold</p>
+      <p className="text-sm text-ink-muted">Final price: {formatPrice(parseFloat(auction.current_price))}</p>
     </div>
   );
 }
@@ -291,7 +291,7 @@ function NonPartyPaid({ auction }: { auction: Auction }) {
 function FulfilmentTimelineDisplay({ auction }: { auction: Auction }) {
   const steps = getTimelineSteps(auction);
   return (
-    <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+    <div className="bg-page/40 border border-border-subtle rounded-lg p-3">
       <div className="flex items-center gap-0 overflow-x-auto">
         {steps.map((step, i) => {
           const ts = auction[step.tsField] as string | null | undefined;
@@ -306,18 +306,18 @@ function FulfilmentTimelineDisplay({ auction }: { auction: Auction }) {
                   done
                     ? "bg-emerald-400 text-black"
                     : isCurrent
-                      ? "bg-amber-400 text-black ring-2 ring-offset-2 ring-offset-neutral-900 ring-amber-400/40"
+                      ? "bg-accent-strong text-black ring-2 ring-offset-2 ring-offset-neutral-900 ring-amber-400/40"
                       : "bg-neutral-700 text-neutral-600"
                 }`}>
                   {done ? "✓" : i + 1}
                 </div>
                 <span className={`text-[9px] mt-1 text-center leading-tight ${
-                  done ? "text-emerald-400" : isCurrent ? "text-amber-400" : "text-neutral-600"
+                  done ? "text-secondary" : isCurrent ? "text-accent-strong" : "text-neutral-600"
                 }`}>
                   {step.label}
                 </span>
                 {ts && done && (
-                  <span className="text-[8px] text-neutral-500 font-mono whitespace-nowrap mt-0.5">
+                  <span className="text-[8px] text-ink-faint font-mono whitespace-nowrap mt-0.5">
                     {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </span>
                 )}
@@ -347,18 +347,18 @@ function TrackingDisplay({ auction, isSeller, isWinner }: { auction: Auction; is
   if (legs.length === 0) return null;
 
   return (
-    <div className="bg-neutral-950/60 border border-neutral-800 rounded-lg p-3 space-y-2">
+    <div className="bg-page/60 border border-border-subtle rounded-lg p-3 space-y-2">
       {legs.map((leg) => {
         const url = buildTrackingUrl(leg.carrier, leg.tracking);
         return (
           <div key={leg.label} className="flex items-baseline justify-between gap-3 text-xs">
-            <span className="text-neutral-500">{leg.label}</span>
+            <span className="text-ink-faint">{leg.label}</span>
             {url ? (
-              <a href={url} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 font-mono truncate">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="text-accent-strong hover:text-accent-strong font-mono truncate">
                 {leg.tracking} ↗
               </a>
             ) : (
-              <span className="text-white font-mono truncate">{leg.tracking}</span>
+              <span className="text-ink font-mono truncate">{leg.tracking}</span>
             )}
             {leg.carrier && <span className="text-neutral-600 text-[10px]">via {leg.carrier}</span>}
           </div>

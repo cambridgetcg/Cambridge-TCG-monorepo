@@ -132,7 +132,7 @@ export async function MoneyDisplay({
     if (displayValue == null) {
       return (
         <code
-          className={`inline-block text-[10px] font-mono text-neutral-500 ${className}`}
+          className={`inline-block text-[10px] font-mono tabular-nums text-ink-faint ${className}`}
           aria-label="value unavailable"
         >
           {`{amount:null,unit:"${displayCurrency}"}`}
@@ -156,7 +156,7 @@ export async function MoneyDisplay({
     const ariaPrefix = CURRENCY_META[displayCurrency].symbol;
     return (
       <code
-        className={`inline-block text-[10px] font-mono text-emerald-400 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 ${className}`}
+        className={`inline-block text-[10px] font-mono tabular-nums text-secondary px-1.5 py-0.5 rounded bg-surface/60 border border-border-subtle ${className}`}
         aria-label={`${ariaPrefix}${displayValue}`}
       >
         {`{amount:${amount},unit:"${unit}"${ratio},_id:"${id}"}`}
@@ -178,7 +178,7 @@ export async function MoneyDisplay({
   const space =
     displayCurrency === "HKD" || displayCurrency === "CHF" ? " " : "";
   return (
-    <span className={className}>
+    <span className={`font-mono tabular-nums ${className}`}>
       {meta.symbol}
       {space}
       {formatted}

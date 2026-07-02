@@ -82,23 +82,23 @@ export function CurrencySelector({
   return (
     <section
       aria-label={label}
-      className="rounded-lg border border-neutral-800 bg-neutral-900 p-4"
+      className="rounded-lg border border-border-subtle bg-surface p-4"
     >
       <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
             {label}
           </h3>
-          <p className="text-[11px] text-neutral-500 mt-0.5">
+          <p className="text-[11px] text-ink-faint mt-0.5">
             Prices are computed in GBP. The selector converts the display value;
             the underlying transaction currency on cambridgetcg.com remains GBP.
           </p>
         </div>
-        <div className="text-[10px] text-neutral-500 flex items-center gap-1.5">
+        <div className="text-[10px] text-ink-faint flex items-center gap-1.5">
           <span className="font-mono">{rates.source}</span>
           {rates.is_fallback && (
             <span
-              className="inline-block px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase tracking-wider"
+              className="inline-block px-1.5 py-0.5 rounded bg-accent/10 text-accent-strong border border-accent/30 uppercase tracking-wider"
               title="Upstream FX fetch failed; using approximate static rates"
             >
               fallback
@@ -142,16 +142,16 @@ export function CurrencySelector({
                 "inline-flex items-baseline gap-1.5 px-2.5 py-1.5 rounded border text-xs transition-colors " +
                 (isSelected
                   ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                  : "border-neutral-800 bg-neutral-950 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200")
+                  : "border-border-subtle bg-page text-ink-muted hover:border-border-strong hover:text-ink")
               }
               title={`${meta.name} — 1 GBP = ${formatRateForPill(code, rate)} ${code}`}
             >
               <span className="font-medium font-mono">{code}</span>
-              <span className="text-neutral-500">{meta.symbol}</span>
+              <span className="text-ink-faint">{meta.symbol}</span>
               <span
                 className={
                   "text-[10px] font-mono " +
-                  (isSelected ? "text-emerald-400/80" : "text-neutral-600")
+                  (isSelected ? "text-secondary/80" : "text-neutral-600")
                 }
               >
                 {formatRateForPill(code, rate)}
@@ -207,29 +207,29 @@ export function RateTablePanel({
 
   return (
     <section
-      className="rounded-lg border border-neutral-800 bg-neutral-950 p-5"
+      className="rounded-lg border border-border-subtle bg-page p-5"
       aria-label="Today's Rates"
     >
       <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
-        <h2 className="text-base font-semibold text-white">Today&rsquo;s rates</h2>
-        <div className="text-[11px] text-neutral-500 flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-semibold text-ink">Today&rsquo;s rates</h2>
+        <div className="text-[11px] text-ink-faint flex flex-wrap items-center gap-2">
           <span>
-            base <code className="text-neutral-400">GBP</code>
+            base <code className="text-ink-muted">GBP</code>
           </span>
           <span aria-hidden>·</span>
           <span>
-            source <code className="text-neutral-400">{rates.source}</code>
+            source <code className="text-ink-muted">{rates.source}</code>
           </span>
           <span aria-hidden>·</span>
           <span>
             fetched{" "}
-            <time dateTime={rates.fetched_at} className="text-neutral-400">
+            <time dateTime={rates.fetched_at} className="text-ink-muted">
               {ageHours < 1 ? "<1h ago" : `${ageHours}h ago`}
             </time>
           </span>
           {rates.is_fallback && (
             <span
-              className="inline-block px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase tracking-wider"
+              className="inline-block px-1.5 py-0.5 rounded bg-accent/10 text-accent-strong border border-accent/30 uppercase tracking-wider"
               title="Both upstream FX APIs failed; using approximate static rates from 2026-05"
             >
               fallback rates
@@ -238,9 +238,9 @@ export function RateTablePanel({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded border border-neutral-800">
+      <div className="overflow-x-auto rounded border border-border-subtle">
         <table className="w-full text-sm">
-          <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wider">
+          <thead className="bg-surface text-ink-muted text-xs uppercase tracking-wider">
             <tr>
               <th className="px-3 py-2 text-left">Currency</th>
               <th className="px-3 py-2 text-left">Code</th>
@@ -248,7 +248,7 @@ export function RateTablePanel({
               <th className="px-3 py-2 text-right">1 unit = GBP</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {SUPPORTED_CURRENCIES.map((code) => {
               const meta = CURRENCY_META[code];
               const rate = rates.rates[code];
@@ -260,24 +260,24 @@ export function RateTablePanel({
                   className={
                     isSelected
                       ? "bg-emerald-500/[0.06]"
-                      : "bg-neutral-950 hover:bg-neutral-900/40 transition-colors"
+                      : "bg-page hover:bg-surface/40 transition-colors"
                   }
                 >
-                  <td className="px-3 py-2 text-neutral-200">
-                    <span className="mr-2 text-neutral-500 inline-block w-6 text-center">
+                  <td className="px-3 py-2 text-ink">
+                    <span className="mr-2 text-ink-faint inline-block w-6 text-center">
                       {meta.symbol}
                     </span>
                     {meta.name}
                   </td>
-                  <td className="px-3 py-2 font-mono text-neutral-400">{code}</td>
-                  <td className="px-3 py-2 text-right font-mono text-white">
+                  <td className="px-3 py-2 font-mono text-ink-muted">{code}</td>
+                  <td className="px-3 py-2 text-right font-mono text-ink">
                     {code === "GBP"
                       ? "1.0000"
                       : Number.isFinite(rate)
                         ? rate.toFixed(4)
                         : "—"}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-neutral-300">
+                  <td className="px-3 py-2 text-right font-mono text-ink-muted">
                     {inverse == null
                       ? "—"
                       : code === "GBP"
@@ -291,7 +291,7 @@ export function RateTablePanel({
         </table>
       </div>
 
-      <p className="mt-3 text-[11px] text-neutral-500">
+      <p className="mt-3 text-[11px] text-ink-faint">
         Rates are mid-market reference values, refreshed every six hours from
         the upstream named above. They drive the display only — every
         transaction on cambridgetcg.com clears in GBP. See{" "}

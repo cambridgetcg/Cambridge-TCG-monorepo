@@ -84,7 +84,7 @@ export function UserMention({
     const p = (user.pronouns ?? "").trim();
     if (!p) return null;
     return (
-      <span className="inline text-[11px] uppercase tracking-wider text-neutral-500">
+      <span className="inline text-[11px] uppercase tracking-wider text-ink-faint">
         {p}
       </span>
     );

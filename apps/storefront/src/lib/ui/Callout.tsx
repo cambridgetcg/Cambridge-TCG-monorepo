@@ -21,20 +21,21 @@ export type CalloutTone = "doctrine" | "note" | "warning" | "substrate";
 
 const TONE_CLS: Record<CalloutTone, { box: string; title: string }> = {
   doctrine: {
-    box: "border-amber-500/30 bg-amber-500/5",
-    title: "text-amber-400",
+    box: "border-accent/30 bg-accent/5",
+    title: "text-accent-strong",
   },
   note: {
-    box: "border-neutral-700 bg-neutral-900/50",
-    title: "text-neutral-300",
+    box: "border-border-strong bg-surface/50",
+    title: "text-ink-muted",
   },
   warning: {
-    box: "border-red-500/30 bg-red-500/5",
-    title: "text-red-400",
+    box: "border-danger/30 bg-danger/5",
+    title: "text-danger",
   },
   substrate: {
-    box: "border-emerald-500/30 bg-emerald-500/5",
-    title: "text-emerald-400",
+    // Provenance claim, not a bid/ask: emerald here reads as ok-status.
+    box: "border-ok/30 bg-ok/5",
+    title: "text-ok",
   },
 };
 
@@ -48,7 +49,7 @@ export function Callout({ tone = "note", title, children }: CalloutProps) {
   const cls = TONE_CLS[tone];
   return (
     <aside
-      className={`not-prose my-6 rounded-xl border px-4 py-3 text-sm leading-relaxed text-neutral-300 ${cls.box}`}
+      className={`not-prose my-6 rounded-xl border px-4 py-3 text-sm leading-relaxed text-ink-muted ${cls.box}`}
     >
       {title && (
         <p

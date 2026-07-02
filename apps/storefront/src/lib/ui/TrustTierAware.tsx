@@ -69,7 +69,7 @@ export async function TrustTierAware(props: TrustTierAwareProps) {
 
   return (
     <code
-      className={`inline-block text-[10px] font-mono text-emerald-400 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800 ${className}`}
+      className={`inline-block text-[10px] font-mono text-secondary px-1.5 py-0.5 rounded bg-surface/60 border border-border-subtle ${className}`}
       aria-label={aria}
     >
       {`{${parts.join(",")}}`}

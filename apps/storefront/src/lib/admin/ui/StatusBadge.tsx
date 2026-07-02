@@ -15,14 +15,14 @@ export type Tone =
   | "amber" | "red" | "emerald" | "blue" | "purple" | "neutral" | "green" | "sky";
 
 const TONE_CLS: Record<Tone, string> = {
-  amber:   "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  red:     "bg-red-500/20 text-red-400 border-red-500/30",
-  emerald: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  amber:   "bg-accent/20 text-accent-strong border-accent/30",
+  red:     "bg-danger/20 text-red-400 border-danger/30",
+  emerald: "bg-emerald-500/20 text-secondary border-emerald-500/30",
   blue:    "bg-blue-500/20 text-blue-400 border-blue-500/30",
   purple:  "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  neutral: "bg-neutral-700 text-neutral-300 border-neutral-600",
+  neutral: "bg-neutral-700 text-ink-muted border-neutral-600",
   green:   "bg-green-500/20 text-green-400 border-green-500/30",
-  sky:     "bg-sky-500/20 text-sky-400 border-sky-500/30",
+  sky:     "bg-sky-500/20 text-info border-sky-500/30",
 };
 
 /**

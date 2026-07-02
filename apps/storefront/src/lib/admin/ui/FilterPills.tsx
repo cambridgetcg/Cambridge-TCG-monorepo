@@ -38,7 +38,7 @@ export function FilterPills({ pills, selected = "" }: FilterPillsProps) {
               "px-3 py-1 rounded-full border transition-colors",
               active
                 ? "border-blue-500 bg-blue-500/10 text-blue-300"
-                : "border-neutral-800 text-neutral-400 hover:border-neutral-700",
+                : "border-border-subtle text-ink-muted hover:border-border-strong",
             ].join(" ")}
           >
             {p.label}

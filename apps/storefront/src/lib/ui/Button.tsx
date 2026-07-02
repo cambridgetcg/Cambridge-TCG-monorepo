@@ -9,14 +9,15 @@
 import * as React from "react";
 import Link from "next/link";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "mono";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLS: Record<Variant, string> = {
-  primary:   "bg-amber-500 text-black font-bold hover:bg-amber-400",
-  secondary: "bg-neutral-800 text-white font-medium hover:bg-neutral-700 border border-neutral-800",
-  ghost:     "text-neutral-400 hover:text-white hover:bg-neutral-900 border border-neutral-800",
-  danger:    "bg-red-500 text-white font-bold hover:bg-red-400",
+  primary:   "bg-accent text-on-accent font-bold hover:bg-accent-strong",
+  secondary: "bg-surface-elevated text-ink font-medium hover:bg-neutral-700 border border-border-subtle",
+  ghost:     "text-ink-muted hover:text-ink hover:bg-surface border border-border-subtle",
+  danger:    "bg-danger text-ink font-bold hover:bg-red-400",
+  mono:      "font-mono text-xs rounded-md border border-border-subtle bg-surface text-ink-muted hover:text-ink px-2.5 py-1",
 };
 
 const SIZE_CLS: Record<Size, string> = {

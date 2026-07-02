@@ -98,7 +98,7 @@ export function Money({
   const space =
     displayCurrency === "HKD" || displayCurrency === "CHF" ? " " : "";
   return (
-    <span className={className}>
+    <span className={`font-mono tabular-nums ${className}`}>
       {meta.symbol}
       {space}
       {formatted}

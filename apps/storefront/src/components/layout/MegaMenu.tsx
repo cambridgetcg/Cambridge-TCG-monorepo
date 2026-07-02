@@ -134,7 +134,7 @@ export function MegaMenu({ menu, loggedIn }: MegaMenuProps) {
         onFocus={openMenu}
         aria-expanded={open}
         aria-haspopup="true"
-        className="text-sm text-neutral-300 hover:text-white transition flex items-center gap-1 py-2"
+        className="text-sm text-ink-muted hover:text-ink transition flex items-center gap-1 py-2"
       >
         {menu.l1}
         <svg
@@ -158,11 +158,11 @@ export function MegaMenu({ menu, loggedIn }: MegaMenuProps) {
           onMouseEnter={cancelPendingClose}
           onMouseLeave={scheduleClose}
         >
-          <div className="w-[680px] max-w-[calc(100vw-2rem)] bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl shadow-black/40">
+          <div className="w-[680px] max-w-[calc(100vw-2rem)] bg-page border border-border-subtle rounded-xl shadow-2xl shadow-black/40">
             <div className="grid grid-cols-3 gap-6 p-6">
               {menu.columns.map((col) => (
                 <div key={col.heading}>
-                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500 mb-3">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-3">
                     {col.heading}
                   </h3>
                   <ul className="space-y-2">
@@ -180,11 +180,11 @@ export function MegaMenu({ menu, loggedIn }: MegaMenuProps) {
               ))}
             </div>
             {menu.footer && (
-              <div className="border-t border-neutral-800 px-6 py-3">
+              <div className="border-t border-border-subtle px-6 py-3">
                 <Link
                   href={menu.footer.href}
                   onClick={closeImmediately}
-                  className="text-xs text-emerald-400 hover:text-emerald-300"
+                  className="text-xs text-secondary hover:text-emerald-300"
                 >
                   {menu.footer.label}
                 </Link>
@@ -203,16 +203,16 @@ function MegaMenuItem({ item, onSelect }: { item: MenuItem; onSelect: () => void
       <Link
         href={item.href}
         onClick={onSelect}
-        className="block group rounded-md px-2 py-1.5 -mx-2 hover:bg-neutral-900 transition"
+        className="block group rounded-md px-2 py-1.5 -mx-2 hover:bg-surface transition"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm text-neutral-200 group-hover:text-white">
+          <span className="text-sm text-ink">
             {item.label}
           </span>
           {item.badge && <Badge kind={item.badge} />}
         </div>
         {item.description && (
-          <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">
+          <p className="text-[11px] text-ink-faint mt-0.5 leading-snug">
             {item.description}
           </p>
         )}
@@ -224,10 +224,10 @@ function MegaMenuItem({ item, onSelect }: { item: MenuItem; onSelect: () => void
 function Badge({ kind }: { kind: "live" | "beta" | "coming" }) {
   const styles =
     kind === "live"
-      ? "bg-emerald-950/40 text-emerald-400 ring-emerald-800"
+      ? "bg-emerald-950/40 text-ok ring-emerald-800"
       : kind === "beta"
-        ? "bg-amber-950/40 text-amber-400 ring-amber-800"
-        : "bg-neutral-800 text-neutral-400 ring-neutral-700";
+        ? "bg-amber-950/40 text-accent-strong ring-amber-800"
+        : "bg-surface-elevated text-ink-muted ring-border-strong";
   return (
     <span className={`inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ring-1 ${styles}`}>
       {kind}

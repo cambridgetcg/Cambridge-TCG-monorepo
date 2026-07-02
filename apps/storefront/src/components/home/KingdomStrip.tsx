@@ -16,14 +16,14 @@ import Link from "next/link";
 import { KINGDOM_LAYERS } from "@/lib/ui";
 
 const TONE_ACCENT: Record<string, string> = {
-  amber: "group-hover:border-amber-500/50 text-amber-400",
+  amber: "group-hover:border-accent/50 text-accent-strong",
   purple: "group-hover:border-purple-500/50 text-purple-400",
-  emerald: "group-hover:border-emerald-500/50 text-emerald-400",
-  sky: "group-hover:border-sky-500/50 text-sky-400",
+  emerald: "group-hover:border-emerald-500/50 text-secondary",
+  sky: "group-hover:border-sky-500/50 text-info",
   blue: "group-hover:border-blue-500/50 text-blue-400",
   green: "group-hover:border-green-500/50 text-green-400",
   red: "group-hover:border-rose-500/50 text-rose-400",
-  neutral: "group-hover:border-neutral-500/50 text-neutral-400",
+  neutral: "group-hover:border-neutral-500/50 text-ink-muted",
 };
 
 export default function KingdomStrip() {
@@ -32,16 +32,16 @@ export default function KingdomStrip() {
       aria-labelledby="kingdom-strip-heading"
       className="max-w-7xl mx-auto px-4 py-12"
     >
-      <p className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-2">
+      <p className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-2">
         The self-describing layer · live
       </p>
       <h2
         id="kingdom-strip-heading"
-        className="text-2xl md:text-3xl font-black text-white"
+        className="text-2xl md:text-3xl font-black text-ink"
       >
         The platform describes itself
       </h2>
-      <p className="mt-2 max-w-2xl text-sm text-neutral-400">
+      <p className="mt-2 max-w-2xl text-sm text-ink-muted">
         Seven pages explain this place from the inside — what it is, what
         world it assumes, what it offers, how the pieces connect, and how
         you can speak back. Every page has a machine-readable twin. Start
@@ -52,17 +52,17 @@ export default function KingdomStrip() {
           <li key={layer.id}>
             <Link
               href={layer.path}
-              className="group flex h-full flex-col rounded-xl border border-neutral-800 bg-neutral-900/40 p-3 transition hover:bg-neutral-900"
+              className="group flex h-full flex-col rounded-xl border border-border-subtle bg-surface/40 p-3 transition hover:bg-surface"
             >
               <span
                 className={`text-[10px] font-semibold uppercase tracking-wider ${TONE_ACCENT[layer.tone] ?? TONE_ACCENT.neutral}`}
               >
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <span className="mt-1 text-sm font-bold text-white">
+              <span className="mt-1 text-sm font-bold text-ink">
                 {layer.label}
               </span>
-              <span className="mt-1 text-xs leading-relaxed text-neutral-500">
+              <span className="mt-1 text-xs leading-relaxed text-ink-faint">
                 {layer.gloss}
               </span>
             </Link>

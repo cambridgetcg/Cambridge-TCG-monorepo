@@ -8,6 +8,7 @@
  */
 
 import * as React from "react";
+import Link from "next/link";
 
 interface PageHeaderProps {
   title: string;
@@ -16,9 +17,11 @@ interface PageHeaderProps {
   action?: React.ReactNode;
   /** Substrate-honesty pill. Pass a <Provenance> element. */
   provenance?: React.ReactNode;
+  /** Machine-readable twin of this page. Renders a { } JSON link by the title. */
+  jsonHref?: string;
 }
 
-export function PageHeader({ title, description, action, provenance }: PageHeaderProps) {
+export function PageHeader({ title, description, action, provenance, jsonHref }: PageHeaderProps) {
   return (
     <div className="flex items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
@@ -27,6 +30,15 @@ export function PageHeader({ title, description, action, provenance }: PageHeade
               under terminal defaults, theme-aware in [data-theme] subtrees. */}
           <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
           {provenance}
+          {jsonHref && (
+            <Link
+              href={jsonHref}
+              className="font-mono text-[11px] rounded-md border border-border-subtle bg-surface px-2 py-0.5 text-ink-muted hover:text-ink transition sm:ml-auto"
+              aria-label="Open this page as JSON"
+            >
+              {"{ } JSON"}
+            </Link>
+          )}
         </div>
         {description && (
           <p className="text-sm text-ink-muted mt-1">{description}</p>

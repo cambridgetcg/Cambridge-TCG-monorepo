@@ -35,17 +35,17 @@ export default function SellCartDrawer() {
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-neutral-900 shadow-2xl z-50 transform transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-full max-w-md bg-surface shadow-2xl z-50 transform transition-transform duration-300 ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-            <h2 className="text-lg font-bold text-amber-400">Sell Cart</h2>
+          <div className="flex items-center justify-between p-4 border-b border-border-subtle">
+            <h2 className="text-lg font-bold text-accent-strong">Sell Cart</h2>
             <button
               onClick={closeDrawer}
-              className="w-10 h-10 flex items-center justify-center text-neutral-400 hover:text-white transition"
+              className="w-10 h-10 flex items-center justify-center text-ink-muted hover:text-ink transition"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -59,15 +59,15 @@ export default function SellCartDrawer() {
               <svg xmlns="http://www.w3.org/2000/svg" className="w-16 h-16 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-neutral-400">Your sell cart is empty</p>
-              <p className="text-neutral-500 text-sm">Add cards from the buylist to get started</p>
+              <p className="text-ink-muted">Your sell cart is empty</p>
+              <p className="text-ink-faint text-sm">Add cards from the buylist to get started</p>
             </div>
           ) : (
             <>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {items.map((item) => (
-                  <div key={item.sku} className="flex gap-3 bg-neutral-800/50 rounded-xl p-3">
-                    <div className="relative w-12 h-16 rounded-lg overflow-hidden bg-neutral-800 shrink-0">
+                  <div key={item.sku} className="flex gap-3 bg-surface-elevated/50 rounded-xl p-3">
+                    <div className="relative w-12 h-16 rounded-lg overflow-hidden bg-surface-elevated shrink-0">
                       {item.image_url ? (
                         <Image
                           src={item.image_url}
@@ -82,13 +82,13 @@ export default function SellCartDrawer() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-xs text-neutral-500">{item.card_number} · {gameLabel(item.game)}</p>
+                      <p className="text-xs text-ink-faint">{item.card_number} · {gameLabel(item.game)}</p>
                       <div className="flex gap-3 mt-1">
-                        <span className="text-xs text-neutral-400">
-                          Cash: <span className="text-amber-400">{formatPrice(item.cash_price * item.quantity)}</span>
+                        <span className="text-xs text-ink-muted">
+                          Cash: <span className="text-accent-strong">{formatPrice(item.cash_price * item.quantity)}</span>
                         </span>
-                        <span className="text-xs text-neutral-400">
-                          Credit: <span className="text-amber-400">{formatPrice(item.credit_price * item.quantity)}</span>
+                        <span className="text-xs text-ink-muted">
+                          Credit: <span className="text-accent-strong">{formatPrice(item.credit_price * item.quantity)}</span>
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mt-2">
@@ -107,7 +107,7 @@ export default function SellCartDrawer() {
                         </button>
                         <button
                           onClick={() => removeItem(item.sku)}
-                          className="ml-auto text-xs text-neutral-500 hover:text-red-400 transition"
+                          className="ml-auto text-xs text-ink-faint hover:text-red-400 transition"
                         >
                           Remove
                         </button>
@@ -118,18 +118,18 @@ export default function SellCartDrawer() {
               </div>
 
               {/* Footer */}
-              <div className="p-4 border-t border-neutral-800 space-y-3">
+              <div className="p-4 border-t border-border-subtle space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Cash total</span>
-                  <span className="text-amber-400 font-bold">{formatPrice(cashTotal)}</span>
+                  <span className="text-ink-muted">Cash total</span>
+                  <span className="text-accent-strong font-bold">{formatPrice(cashTotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Credit total</span>
-                  <span className="text-amber-400 font-bold">{formatPrice(creditTotal)}</span>
+                  <span className="text-ink-muted">Credit total</span>
+                  <span className="text-accent-strong font-bold">{formatPrice(creditTotal)}</span>
                 </div>
 
                 {minWarning && (
-                  <p className="text-xs text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2">
+                  <p className="text-xs text-accent-strong/80 bg-accent/10 rounded-lg px-3 py-2">
                     Minimum credit value is £5.00. Add more cards to proceed.
                   </p>
                 )}
@@ -137,13 +137,13 @@ export default function SellCartDrawer() {
                 <Link
                   href="/trade-in/submit"
                   onClick={closeDrawer}
-                  className="block w-full text-center px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+                  className="block w-full text-center px-6 py-3 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition"
                 >
                   Submit Trade-In
                 </Link>
                 <button
                   onClick={closeDrawer}
-                  className="block w-full text-center px-6 py-3 text-neutral-400 hover:text-white transition text-sm"
+                  className="block w-full text-center px-6 py-3 text-ink-muted hover:text-ink transition text-sm"
                 >
                   Continue Browsing
                 </button>

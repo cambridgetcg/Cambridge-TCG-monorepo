@@ -7,11 +7,11 @@ interface TierBadgeProps {
 
 const COLOR_CLASSES: Record<string, { bg: string; text: string; border: string }> = {
   "amber-700":   { bg: "bg-amber-700/20",   text: "text-amber-600",  border: "border-amber-700/40" },
-  "neutral-400": { bg: "bg-neutral-500/20",  text: "text-neutral-300", border: "border-neutral-500/40" },
-  "amber-400":   { bg: "bg-amber-400/20",    text: "text-amber-400",  border: "border-amber-400/40" },
+  "neutral-400": { bg: "bg-neutral-500/20",  text: "text-ink-muted", border: "border-neutral-500/40" },
+  "amber-400":   { bg: "bg-accent-strong/20",    text: "text-accent-strong",  border: "border-accent-strong/40" },
 };
 
-const DEFAULT_COLORS = { bg: "bg-neutral-700/20", text: "text-neutral-300", border: "border-neutral-500/40" };
+const DEFAULT_COLORS = { bg: "bg-neutral-700/20", text: "text-ink-muted", border: "border-neutral-500/40" };
 
 export default function TierBadge({ name, icon, color, size = "sm" }: TierBadgeProps) {
   const c = COLOR_CLASSES[color] ?? DEFAULT_COLORS;

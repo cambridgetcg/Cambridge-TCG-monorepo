@@ -41,20 +41,20 @@ export default function AddToCart({ card }: AddToCartProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={() => updateQty(card.sku, inCart.quantity - 1)}
-          className="w-12 h-12 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition text-lg"
+          className="w-12 h-12 bg-surface-elevated hover:bg-neutral-700 text-ink font-bold rounded-xl transition text-lg"
         >
           -
         </button>
         <span className="text-lg font-bold w-8 text-center">{inCart.quantity}</span>
         <button
           onClick={() => updateQty(card.sku, inCart.quantity + 1)}
-          className="w-12 h-12 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition text-lg"
+          className="w-12 h-12 bg-surface-elevated hover:bg-neutral-700 text-ink font-bold rounded-xl transition text-lg"
         >
           +
         </button>
         <button
           onClick={() => removeItem(card.sku)}
-          className="ml-2 text-sm text-neutral-400 hover:text-red-400 transition"
+          className="ml-2 text-sm text-ink-muted hover:text-red-400 transition"
         >
           Remove
         </button>

@@ -14,15 +14,16 @@ import * as React from "react";
 export type Tone =
   | "amber" | "red" | "emerald" | "blue" | "purple" | "neutral" | "green" | "sky";
 
+// blue/purple/green keep raw palette classes — no semantic token exists for them yet.
 const TONE_CLS: Record<Tone, string> = {
-  amber:   "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  red:     "bg-red-500/15 text-red-400 border-red-500/30",
-  emerald: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  amber:   "bg-accent/15 text-accent-strong border-accent/30",
+  red:     "bg-danger/15 text-danger border-danger/30",
+  emerald: "bg-ok/15 text-ok border-ok/30",
   blue:    "bg-blue-500/15 text-blue-400 border-blue-500/30",
   purple:  "bg-purple-500/15 text-purple-400 border-purple-500/30",
-  neutral: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
+  neutral: "bg-surface-elevated text-ink-muted border-border-subtle",
   green:   "bg-green-500/15 text-green-400 border-green-500/30",
-  sky:     "bg-sky-500/15 text-sky-400 border-sky-500/30",
+  sky:     "bg-info/15 text-info border-info/30",
 };
 
 interface BadgeProps {

@@ -27,8 +27,8 @@ const PATTERN_SHORT: Record<string, string> = {
 const PATTERN_TONE: Record<string, string> = {
   stripped: "bg-emerald-950 text-emerald-300 ring-emerald-800",
   passcode: "bg-blue-950 text-blue-300 ring-blue-800",
-  diverged: "bg-amber-950 text-amber-300 ring-amber-800",
-  "single-lang": "bg-neutral-900 text-neutral-300 ring-neutral-700",
+  diverged: "bg-amber-950 text-accent-strong ring-amber-800",
+  "single-lang": "bg-surface text-ink-muted ring-neutral-700",
 };
 
 export default function PriceGuideStrip() {
@@ -40,15 +40,15 @@ export default function PriceGuideStrip() {
     <section className="max-w-7xl mx-auto px-4 py-12">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">UK Price Guides</h2>
-          <p className="mt-1 text-sm text-neutral-400">
+          <h2 className="text-2xl font-bold text-ink">UK Price Guides</h2>
+          <p className="mt-1 text-sm text-ink-muted">
             Free, daily-updated card prices across {sorted.length} TCGs. Each
             page lists every set, every card, retail and trade-in values.
           </p>
         </div>
         <Link
           href="/prices"
-          className="text-sm text-emerald-400 hover:text-emerald-300 transition"
+          className="text-sm text-secondary hover:text-emerald-300 transition"
         >
           All price guides →
         </Link>
@@ -62,19 +62,19 @@ export default function PriceGuideStrip() {
             <Link
               key={g.slug}
               href={`/prices/${g.slug}`}
-              className={`group rounded-lg border border-neutral-800 ${accent.bg} hover:${accent.border} p-4 transition-colors`}
+              className={`group rounded-lg border border-border-subtle ${accent.bg} hover:${accent.border} p-4 transition-colors`}
             >
               <div className="mb-2 flex items-start justify-between gap-2">
                 <h3 className={`text-sm font-semibold ${accent.text}`}>
                   {g.short_name}
                 </h3>
                 {!summary.confirmed && (
-                  <span className="rounded bg-amber-950 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-300 ring-1 ring-amber-800">
+                  <span className="rounded bg-amber-950 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent-strong ring-1 ring-amber-800">
                     anticipated
                   </span>
                 )}
               </div>
-              <p className="line-clamp-2 text-xs text-neutral-400">
+              <p className="line-clamp-2 text-xs text-ink-muted">
                 {g.seo_description.split(".")[0]}.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px]">
@@ -85,12 +85,12 @@ export default function PriceGuideStrip() {
                   {PATTERN_SHORT[patternKind]}
                 </span>
                 {g.cardrush?.confirmed && (
-                  <span className="rounded bg-neutral-900 px-1.5 py-0.5 text-neutral-400 ring-1 ring-neutral-700">
+                  <span className="rounded bg-surface px-1.5 py-0.5 text-ink-muted ring-1 ring-neutral-700">
                     CardRush JP ✓
                   </span>
                 )}
                 {summary.anticipated_upstream_count > 0 && (
-                  <span className="rounded bg-amber-950 px-1.5 py-0.5 text-amber-300 ring-1 ring-amber-900">
+                  <span className="rounded bg-amber-950 px-1.5 py-0.5 text-accent-strong ring-1 ring-amber-900">
                     {summary.anticipated_upstream_count} anticipated source
                     {summary.anticipated_upstream_count === 1 ? "" : "s"}
                   </span>
@@ -100,7 +100,7 @@ export default function PriceGuideStrip() {
           );
         })}
       </div>
-      <p className="mt-4 text-xs text-neutral-500">
+      <p className="mt-4 text-xs text-ink-faint">
         Pattern: <em>multi-lang</em> = cross-language siblings share an oracle
         (MTG, OP, Lorcana). <em>passcode</em> = Konami passcode anchors identity
         (Yu-Gi-Oh!). <em>diverged</em> = JP/EN tracks have different set codes

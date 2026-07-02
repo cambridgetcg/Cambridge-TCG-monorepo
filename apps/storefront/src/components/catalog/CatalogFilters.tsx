@@ -48,7 +48,7 @@ export default function CatalogFilters({
           className={`px-4 py-2 rounded-full text-sm font-medium transition ${
             !current.game
               ? "bg-emerald-500 text-black"
-              : "bg-neutral-800 text-white hover:bg-neutral-700"
+              : "bg-surface-elevated text-ink hover:bg-neutral-700"
           }`}
         >
           All Games
@@ -60,7 +60,7 @@ export default function CatalogFilters({
             className={`px-4 py-2 rounded-full text-sm font-medium transition ${
               current.game === g.slug
                 ? "bg-emerald-500 text-black"
-                : "bg-neutral-800 text-white hover:bg-neutral-700"
+                : "bg-surface-elevated text-ink hover:bg-neutral-700"
             }`}
           >
             {g.name}
@@ -72,7 +72,7 @@ export default function CatalogFilters({
       {current.game && (
         <div className="flex items-center gap-3 flex-wrap">
           {/* Sort pills */}
-          <span className="text-xs text-neutral-500 uppercase tracking-wider">Sort:</span>
+          <span className="text-xs text-ink-faint uppercase tracking-wider">Sort:</span>
           {[
             { label: "Card #", value: undefined },
             { label: "Price ↑", value: "price_asc" },
@@ -86,8 +86,8 @@ export default function CatalogFilters({
                 href={buildHref({ sort: opt.value })}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition ${
                   active
-                    ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
-                    : "bg-neutral-800 text-neutral-400 hover:text-white"
+                    ? "bg-emerald-500/20 text-secondary ring-1 ring-emerald-500/40"
+                    : "bg-surface-elevated text-ink-muted hover:text-ink"
                 }`}
               >
                 {opt.label}
@@ -96,13 +96,13 @@ export default function CatalogFilters({
           })}
 
           {/* In-stock / All cards toggle */}
-          <span className="text-xs text-neutral-500 ml-2">|</span>
+          <span className="text-xs text-ink-faint ml-2">|</span>
           <Link
             href={toggleInStockHref}
             className={`px-3 py-1 rounded-full text-xs font-medium transition ${
               !effectiveInStock
-                ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
-                : "bg-neutral-800 text-neutral-400 hover:text-white"
+                ? "bg-emerald-500/20 text-secondary ring-1 ring-emerald-500/40"
+                : "bg-surface-elevated text-ink-muted hover:text-ink"
             }`}
           >
             {effectiveInStock ? "Show All Cards" : "In Stock Only"}

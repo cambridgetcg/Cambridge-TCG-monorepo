@@ -13,10 +13,10 @@ import Link from "next/link";
 
 const TIER_FOR_SCORE: Array<{ min: number; name: string; tone: string; ring: string }> = [
   { min: 95, name: "Elite",   tone: "text-fuchsia-400 bg-fuchsia-500/10 border-fuchsia-500/30", ring: "ring-fuchsia-500" },
-  { min: 80, name: "Veteran", tone: "text-amber-400   bg-amber-500/10   border-amber-500/30",   ring: "ring-amber-500" },
-  { min: 50, name: "Trusted", tone: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30", ring: "ring-emerald-500" },
-  { min: 20, name: "Starter", tone: "text-sky-400     bg-sky-500/10     border-sky-500/30",     ring: "ring-sky-500" },
-  { min: 0,  name: "New",     tone: "text-neutral-400 bg-neutral-800     border-neutral-700",   ring: "ring-neutral-600" },
+  { min: 80, name: "Veteran", tone: "text-accent-strong   bg-accent/10   border-accent/30",   ring: "ring-accent" },
+  { min: 50, name: "Trusted", tone: "text-secondary bg-emerald-500/10 border-emerald-500/30", ring: "ring-emerald-500" },
+  { min: 20, name: "Starter", tone: "text-info     bg-sky-500/10     border-sky-500/30",     ring: "ring-sky-500" },
+  { min: 0,  name: "New",     tone: "text-ink-muted bg-surface-elevated     border-border-strong",   ring: "ring-neutral-600" },
 ];
 
 function tierFor(score: number) {

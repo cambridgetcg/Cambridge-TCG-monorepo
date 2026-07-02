@@ -77,20 +77,20 @@ export default function AdminShell({
 
   if (!ready) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <main className="min-h-screen bg-page flex items-center justify-center">
         <div className="text-neutral-600 text-sm">Loading…</div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <AdminTopBar />
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="flex flex-wrap items-start justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold">{title}</h1>
-            {subtitle && <p className="text-sm text-neutral-500 mt-1 max-w-xl">{subtitle}</p>}
+            {subtitle && <p className="text-sm text-ink-faint mt-1 max-w-xl">{subtitle}</p>}
           </div>
           {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
         </header>
@@ -103,10 +103,10 @@ export default function AdminShell({
 function AdminTopBar() {
   const pathname = usePathname();
   return (
-    <nav className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur border-b border-neutral-900">
+    <nav className="sticky top-0 z-30 bg-page/80 backdrop-blur border-b border-neutral-900">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4 flex-wrap">
-        <Link href="/admin" className="text-sm font-bold text-white hover:text-amber-400 transition whitespace-nowrap">
-          <span className="text-amber-400">⚑</span> Admin
+        <Link href="/admin" className="text-sm font-bold text-ink hover:text-accent-strong transition whitespace-nowrap">
+          <span className="text-accent-strong">⚑</span> Admin
         </Link>
         <div className="flex items-center gap-1 flex-wrap text-xs">
           {ADMIN_NAV.filter((i) => i.href !== "/admin").map((item) => {
@@ -117,8 +117,8 @@ function AdminTopBar() {
                 href={item.href}
                 className={`px-2.5 py-1 rounded-full transition whitespace-nowrap ${
                   active
-                    ? "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40"
-                    : "text-neutral-500 hover:text-white hover:bg-neutral-900"
+                    ? "bg-accent/15 text-accent-strong ring-1 ring-accent/40"
+                    : "text-ink-faint hover:text-ink hover:bg-surface"
                 }`}
               >
                 {item.label}
@@ -127,7 +127,7 @@ function AdminTopBar() {
           })}
         </div>
         <div className="ml-auto">
-          <Link href="/" className="text-xs text-neutral-600 hover:text-neutral-400 transition">
+          <Link href="/" className="text-xs text-neutral-600 hover:text-ink-muted transition">
             ← Site
           </Link>
         </div>

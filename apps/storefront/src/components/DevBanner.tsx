@@ -31,7 +31,7 @@ export default function DevBanner() {
       role="region"
       aria-label="Site notice"
       aria-live="polite"
-      className="w-full bg-amber-400 px-4 py-2.5 text-amber-950"
+      className="w-full bg-accent-strong px-4 py-2.5 text-amber-950"
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
         {/* Always shown in full — wraps on every screen size. The previous

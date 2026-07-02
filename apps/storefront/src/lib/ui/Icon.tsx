@@ -130,6 +130,63 @@ const PATHS = {
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </>
   ),
+  "chart-pulse": (
+    <>
+      <path d="M4 4v16h16" />
+      <path d="M6.5 13l3-4 3 6 3-8 3 5" />
+    </>
+  ),
+  scales: (
+    <>
+      <path d="M12 3v18M8 21h8" />
+      <path d="M4 6h16" />
+      <path d="M5 6l-2.5 6a2.5 2.5 0 0 0 5 0L5 6z" />
+      <path d="M19 6l-2.5 6a2.5 2.5 0 0 0 5 0L19 6z" />
+    </>
+  ),
+  "quote-tag": (
+    <>
+      <path d="M4 4h6.5L21 14.5a1.5 1.5 0 0 1 0 2.1l-4.4 4.4a1.5 1.5 0 0 1-2.1 0L4 10.5V4z" />
+      <path d="M8.5 8.5h.01" />
+    </>
+  ),
+  dice: (
+    <>
+      <rect x="4" y="4" width="16" height="16" rx="2.5" />
+      <path d="M9 9h.01M15 9h.01M12 12h.01M9 15h.01M15 15h.01" />
+    </>
+  ),
+  berry: (
+    <>
+      <circle cx="12" cy="13.5" r="6.5" />
+      <path d="M12 7V4.5" />
+      <path d="M12 5c1.5-1.7 3.7-1.9 5.5-.8-1.5 1.7-3.7 1.9-5.5.8z" />
+    </>
+  ),
+  map: (
+    <>
+      <path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" />
+      <path d="M9 4v14M15 6v14" />
+    </>
+  ),
+  "terminal-prompt": (
+    <>
+      <path d="M4 6l6 6-6 6" />
+      <path d="M13 18h7" />
+    </>
+  ),
+  "shield-check": (
+    <>
+      <path d="M12 3l7 3v5c0 4.6-2.9 8.4-7 10-4.1-1.6-7-5.4-7-10V6l7-3z" />
+      <path d="M9 12l2 2 4-4.5" />
+    </>
+  ),
+  "json-braces": (
+    <>
+      <path d="M9 4c-1.7 0-2.5.9-2.5 2.5v2.3c0 1-.6 1.8-1.8 2.2 1.2.4 1.8 1.2 1.8 2.2v2.3C6.5 19.1 7.3 20 9 20" />
+      <path d="M15 4c1.7 0 2.5.9 2.5 2.5v2.3c0 1 .6 1.8 1.8 2.2-1.2.4-1.8 1.2-1.8 2.2v2.3c0 1.6-.8 2.5-2.5 2.5" />
+    </>
+  ),
 } satisfies Record<string, React.ReactNode>;
 
 export type IconName = keyof typeof PATHS;

@@ -33,7 +33,7 @@ function toneFor(r: string): string {
   if (r === "UC") {
     return "bg-blue-500/20 text-blue-400";
   }
-  return "bg-neutral-700 text-neutral-400";
+  return "bg-neutral-700 text-ink-muted";
 }
 
 function sizeFor(size: Size): string {

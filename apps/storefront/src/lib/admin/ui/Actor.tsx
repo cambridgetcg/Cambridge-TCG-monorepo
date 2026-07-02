@@ -52,8 +52,8 @@ export function Actor({ kind, label, handle, modelTag }: ActorProps) {
   }
 
   const TONE_CLS: Record<typeof tone, string> = {
-    neutral: "text-neutral-500",
-    sky: "text-sky-400",
+    neutral: "text-ink-faint",
+    sky: "text-info",
     purple: "text-purple-400",
   };
 

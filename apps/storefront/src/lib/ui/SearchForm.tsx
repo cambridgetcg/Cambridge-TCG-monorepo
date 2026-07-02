@@ -45,18 +45,18 @@ export function SearchForm({
         name="q"
         defaultValue={value}
         placeholder={placeholder}
-        className="flex-1 min-w-[220px] px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+        className="flex-1 min-w-[220px] px-3 py-2 bg-surface border border-border-subtle rounded-lg text-sm text-ink placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-accent/50"
       />
       <button
         type="submit"
-        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition"
+        className="px-4 py-2 bg-accent hover:bg-accent-strong text-on-accent text-sm font-bold rounded-lg transition"
       >
         {submitLabel}
       </button>
       {value && (
         <Link
           href={clearHref}
-          className="px-4 py-2 border border-neutral-800 text-neutral-400 hover:text-white text-sm rounded-lg transition"
+          className="px-4 py-2 border border-border-subtle text-ink-muted hover:text-ink text-sm rounded-lg transition"
         >
           Clear
         </Link>

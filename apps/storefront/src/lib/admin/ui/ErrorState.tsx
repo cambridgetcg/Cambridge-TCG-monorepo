@@ -36,13 +36,13 @@ export function ErrorState({
   description?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
+    <div className="rounded-xl border border-danger/20 bg-danger/5 p-6">
       <div className="flex items-start gap-3">
         <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
         <div>
           <p className="text-sm font-bold text-red-400 mb-1">{title}</p>
           {description && (
-            <div className="text-sm text-neutral-300">{description}</div>
+            <div className="text-sm text-ink-muted">{description}</div>
           )}
         </div>
       </div>

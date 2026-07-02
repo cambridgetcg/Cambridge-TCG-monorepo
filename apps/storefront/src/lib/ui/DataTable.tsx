@@ -51,16 +51,16 @@ export function DataTable<T>({
   minWidth = 600,
 }: DataTableProps<T>) {
   return (
-    <div className="rounded-xl border border-neutral-800 overflow-hidden">
+    <div className="rounded-xl border border-border-subtle overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm" style={{ minWidth: `${minWidth}px` }}>
-          <thead className="bg-neutral-900/80 border-b border-neutral-800">
+          <thead className="bg-surface/80 border-b border-border-subtle">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={[
-                    "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-neutral-500 whitespace-nowrap",
+                    "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint whitespace-nowrap",
                     ALIGN_CLS[col.align ?? "left"],
                     col.hideOnMobile ? "hidden sm:table-cell" : "",
                     col.headerClass ?? "",
@@ -76,7 +76,7 @@ export function DataTable<T>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-8 text-center text-neutral-500 text-sm border-t border-neutral-800"
+                  className="px-4 py-8 text-center text-ink-faint text-sm border-t border-border-subtle"
                 >
                   {emptyMessage}
                 </td>
@@ -85,13 +85,13 @@ export function DataTable<T>({
               rows.map((row, i) => (
                 <tr
                   key={rowKey(row, i)}
-                  className="border-t border-neutral-800/60 transition hover:bg-neutral-800/30"
+                  className="border-t border-border-subtle/60 transition hover:bg-surface-elevated/30"
                 >
                   {columns.map((col) => (
                     <td
                       key={col.key}
                       className={[
-                        "px-4 py-3 text-neutral-200",
+                        "px-4 py-3 text-ink",
                         ALIGN_CLS[col.align ?? "left"],
                         col.hideOnMobile ? "hidden sm:table-cell" : "",
                         col.cellClass ?? "",

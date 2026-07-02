@@ -18,10 +18,10 @@ export default function SetGrid({
   return (
     <section className="max-w-7xl mx-auto px-4 py-16">
       <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-bold text-white">Latest Sets</h2>
+        <h2 className="text-2xl font-bold text-ink">Latest Sets</h2>
         <Link
           href={`/catalog?game=${gameSlug}`}
-          className="text-sm text-emerald-400 hover:text-emerald-300 transition"
+          className="text-sm text-secondary hover:text-emerald-300 transition"
         >
           View all sets →
         </Link>
@@ -31,7 +31,7 @@ export default function SetGrid({
           <Link
             key={set.code}
             href={`/catalog?game=${gameSlug}&set=${set.code}`}
-            className="group relative rounded-xl overflow-hidden bg-neutral-900 hover:ring-2 ring-emerald-500 transition-all"
+            className="group relative rounded-xl overflow-hidden bg-surface hover:ring-2 ring-emerald-500 transition-all"
           >
             {/* Background thumbnail */}
             <div className="relative aspect-[4/3]">
@@ -44,7 +44,7 @@ export default function SetGrid({
                   sizes="(max-width: 768px) 50vw, 25vw"
                 />
               ) : (
-                <div className="w-full h-full bg-neutral-800" />
+                <div className="w-full h-full bg-surface-elevated" />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent" />
 
@@ -57,13 +57,13 @@ export default function SetGrid({
 
               {/* Content */}
               <div className="absolute inset-0 flex flex-col justify-end p-4">
-                <span className="text-xs font-mono bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded w-fit mb-2">
+                <span className="text-xs font-mono bg-emerald-500/20 text-secondary px-2 py-0.5 rounded w-fit mb-2">
                   {set.code}
                 </span>
-                <h3 className="text-sm font-bold text-white leading-tight line-clamp-2">
+                <h3 className="text-sm font-bold text-ink leading-tight line-clamp-2">
                   {set.name}
                 </h3>
-                <p className="text-xs text-neutral-400 mt-1">
+                <p className="text-xs text-ink-muted mt-1">
                   {set.card_count} cards
                 </p>
               </div>

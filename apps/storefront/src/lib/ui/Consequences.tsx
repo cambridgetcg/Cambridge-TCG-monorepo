@@ -51,11 +51,11 @@ interface ConsequencesProps {
 }
 
 const TONE_CLS: Record<ConsequenceTone, string> = {
-  neutral: "text-neutral-300",
-  amber: "text-amber-400",
-  red: "text-red-400",
-  emerald: "text-emerald-400",
-  sky: "text-sky-400",
+  neutral: "text-ink-muted",
+  amber: "text-accent-strong",
+  red: "text-danger",
+  emerald: "text-ok",
+  sky: "text-info",
 };
 
 export function Consequences({
@@ -69,23 +69,23 @@ export function Consequences({
     <div
       role="region"
       aria-label={typeof title === "string" ? title : "Consequences"}
-      className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3"
+      className="rounded-lg border border-border-subtle bg-surface/60 p-3"
     >
       {title !== null && (
-        <div className="text-[10px] uppercase tracking-wider text-neutral-500 mb-2">
+        <div className="text-[10px] uppercase tracking-wider text-ink-faint mb-2">
           {title}
         </div>
       )}
       <ul className="space-y-1.5 text-sm">
         {items.map((c, i) => (
           <li key={i} className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-neutral-400">{c.label}:</span>
+            <span className="text-ink-muted">{c.label}:</span>
             <span className={(c.tone ? TONE_CLS[c.tone] : TONE_CLS.neutral) + " font-medium"}>
               {c.delta}
             </span>
             {c.methodology && <WhyLink href={c.methodology} />}
             {c.detail && variant === "expanded" && (
-              <span className="block w-full text-xs text-neutral-500 ml-2">
+              <span className="block w-full text-xs text-ink-faint ml-2">
                 {c.detail}
               </span>
             )}

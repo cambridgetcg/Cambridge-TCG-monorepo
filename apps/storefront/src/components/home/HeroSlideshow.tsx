@@ -38,7 +38,7 @@ export default function HeroSlideshow() {
   }, [next]);
 
   return (
-    <section className="relative h-[480px] md:h-[580px] w-full overflow-hidden bg-neutral-950">
+    <section className="relative h-[480px] md:h-[580px] w-full overflow-hidden bg-page">
       {slides.map((slide, i) => {
         const isActive = i === current;
         return (
@@ -63,10 +63,10 @@ export default function HeroSlideshow() {
               {/* h2, not h1 — the page's single h1 is the BrandStatement
                   headline; three per-slide h1s broke the heading hierarchy
                   for screen readers and SEO (contact-surface spec §3.1). */}
-              <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight drop-shadow-lg">
+              <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-ink tracking-tight drop-shadow-lg">
                 {slide.headline}
               </h2>
-              <p className="mt-4 text-base md:text-lg text-white/80 max-w-xl drop-shadow">
+              <p className="mt-4 text-base md:text-lg text-ink/80 max-w-xl drop-shadow">
                 {slide.sub}
               </p>
               {/* Each slide renders its own CTA, but only the active one is
@@ -105,7 +105,7 @@ export default function HeroSlideshow() {
       {/* Prev / Next arrows */}
       <button
         onClick={prev}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/30 hover:bg-black/50 text-white/70 hover:text-white transition"
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/30 hover:bg-black/50 text-ink/70 hover:text-ink transition"
         aria-label="Previous slide"
       >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -114,7 +114,7 @@ export default function HeroSlideshow() {
       </button>
       <button
         onClick={next}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/30 hover:bg-black/50 text-white/70 hover:text-white transition"
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/30 hover:bg-black/50 text-ink/70 hover:text-ink transition"
         aria-label="Next slide"
       >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

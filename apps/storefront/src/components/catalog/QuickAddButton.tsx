@@ -41,7 +41,7 @@ export default function QuickAddButton({ card, stock }: QuickAddProps) {
     return (
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-1.5 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-default"
+        className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-1.5 py-1.5 bg-emerald-500/20 text-secondary text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-default"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

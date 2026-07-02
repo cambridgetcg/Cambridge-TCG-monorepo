@@ -50,8 +50,8 @@ export function WhyLink({
   const className =
     "inline-flex items-center justify-center align-middle ml-1 " +
     (label
-      ? "text-[11px] text-amber-400 hover:text-amber-300 underline decoration-dotted underline-offset-2"
-      : "w-4 h-4 rounded-full border border-neutral-700 text-[10px] text-neutral-500 hover:text-amber-400 hover:border-amber-500/40 leading-none");
+      ? "text-[11px] text-accent-strong hover:text-accent-strong underline decoration-dotted underline-offset-2"
+      : "w-4 h-4 rounded-full border border-border-strong text-[10px] text-ink-faint hover:text-accent-strong hover:border-accent/40 leading-none");
 
   const content = label ? `${label} →` : "?";
 

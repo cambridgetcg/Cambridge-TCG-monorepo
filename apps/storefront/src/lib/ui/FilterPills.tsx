@@ -36,8 +36,8 @@ export function FilterPills({ pills, selected = "" }: FilterPillsProps) {
             className={[
               "px-3 py-1.5 rounded-full transition",
               active
-                ? "bg-amber-500 text-black font-bold"
-                : "bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800",
+                ? "bg-accent text-on-accent font-bold"
+                : "bg-surface text-ink-muted hover:text-ink border border-border-subtle",
             ].join(" ")}
           >
             {p.label}

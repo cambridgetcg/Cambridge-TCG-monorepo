@@ -123,26 +123,26 @@ export default function NotificationBell() {
       <button
         onClick={toggle}
         aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""}`}
-        className="relative p-2 text-neutral-300 hover:text-white transition"
+        className="relative p-2 text-ink-muted hover:text-ink transition"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         {count > 0 && (
-          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+          <span className="absolute top-1 right-1 w-4 h-4 bg-danger text-ink text-[10px] font-bold rounded-full flex items-center justify-center">
             {count > 9 ? "9+" : count}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
-            <span className="text-sm font-semibold text-white">Notifications</span>
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-surface border border-border-subtle rounded-xl shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
+            <span className="text-sm font-semibold text-ink">Notifications</span>
             {count > 0 && (
               <button
                 onClick={markAllRead}
-                className="text-xs text-amber-400 hover:text-amber-300 transition"
+                className="text-xs text-accent-strong transition"
               >
                 Mark all read
               </button>
@@ -151,27 +151,27 @@ export default function NotificationBell() {
 
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <p className="text-xs text-neutral-500 text-center py-8">Loading…</p>
+              <p className="text-xs text-ink-faint text-center py-8">Loading…</p>
             ) : items.length === 0 ? (
-              <p className="text-xs text-neutral-500 text-center py-8">No notifications yet.</p>
+              <p className="text-xs text-ink-faint text-center py-8">No notifications yet.</p>
             ) : (
-              <ul className="divide-y divide-neutral-800">
+              <ul className="divide-y divide-border-subtle">
                 {items.map((n) => {
                   const row = (
-                    <div className={`px-4 py-3 hover:bg-neutral-800/50 transition ${!n.read_at ? "bg-neutral-900/80" : ""}`}>
+                    <div className={`px-4 py-3 hover:bg-surface-elevated/50 transition ${!n.read_at ? "bg-surface/80" : ""}`}>
                       <div className="flex items-start gap-3">
                         <span className="text-xl shrink-0">{iconFor(n.kind)}</span>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-sm truncate ${!n.read_at ? "text-white font-semibold" : "text-neutral-400"}`}>
+                          <p className={`text-sm truncate ${!n.read_at ? "text-ink font-semibold" : "text-ink-muted"}`}>
                             {n.title}
                           </p>
                           {n.body && (
-                            <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{n.body}</p>
+                            <p className="text-xs text-ink-faint mt-0.5 line-clamp-2">{n.body}</p>
                           )}
                           <p className="text-[10px] text-neutral-600 mt-1">{timeAgo(n.created_at)}</p>
                         </div>
                         {!n.read_at && (
-                          <span className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0" aria-hidden />
+                          <span className="w-2 h-2 rounded-full bg-accent-strong mt-1.5 shrink-0" aria-hidden />
                         )}
                       </div>
                     </div>
@@ -194,11 +194,11 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="border-t border-neutral-800 px-4 py-2 text-center">
+          <div className="border-t border-border-subtle px-4 py-2 text-center">
             <Link
               href="/account/notifications"
               onClick={() => setOpen(false)}
-              className="text-xs text-amber-400 hover:text-amber-300 transition"
+              className="text-xs text-accent-strong transition"
             >
               View all →
             </Link>

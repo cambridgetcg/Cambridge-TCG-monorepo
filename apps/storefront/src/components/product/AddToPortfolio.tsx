@@ -72,7 +72,7 @@ export default function AddToPortfolio({
     return (
       <a
         href="/login"
-        className="text-sm font-medium text-amber-400 hover:text-amber-300 transition"
+        className="text-sm font-medium text-accent-strong hover:text-accent-strong transition"
       >
         Sign in to track →
       </a>
@@ -85,10 +85,10 @@ export default function AddToPortfolio({
       disabled={status === "loading"}
       className={`text-sm font-medium transition ${
         status === "added"
-          ? "text-emerald-400"
+          ? "text-secondary"
           : status === "error"
             ? "text-red-400"
-            : "text-neutral-400 hover:text-amber-400"
+            : "text-ink-muted hover:text-accent-strong"
       } disabled:opacity-50`}
     >
       {status === "idle" && "Track in Portfolio"}

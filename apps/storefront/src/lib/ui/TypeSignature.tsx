@@ -126,31 +126,31 @@ export function TypeSignature({
     <aside
       role="note"
       aria-label={`Type signature: ${label ?? TYPE_LABELS[type]}`}
-      className="not-prose mt-12 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 text-xs"
+      className="not-prose mt-12 rounded-lg border border-border-subtle bg-surface/40 p-4 text-xs"
       data-artifact-type={type}
       data-artifact-doctrines={doctrines.join(",")}
       data-artifact-audience={audience}
     >
       <header className="mb-3 flex items-baseline gap-2 flex-wrap">
-        <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+        <span className="text-[10px] uppercase tracking-wider text-ink-faint">
           type signature
         </span>
-        <span className="text-amber-300 font-semibold">{label ?? TYPE_LABELS[type]}</span>
+        <span className="text-accent-strong font-semibold">{label ?? TYPE_LABELS[type]}</span>
         <span className="text-neutral-600">·</span>
-        <code className="text-neutral-500 text-[11px]">{type}</code>
+        <code className="text-ink-faint text-[11px]">{type}</code>
       </header>
 
-      <dl className="space-y-1.5 text-neutral-300">
+      <dl className="space-y-1.5 text-ink-muted">
         <div className="flex gap-2 flex-wrap">
-          <dt className="text-neutral-500 w-28 shrink-0">origin</dt>
+          <dt className="text-ink-faint w-28 shrink-0">origin</dt>
           <dd className="flex-1 min-w-0">{origin}</dd>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <dt className="text-neutral-500 w-28 shrink-0">doctrines</dt>
+          <dt className="text-ink-faint w-28 shrink-0">doctrines</dt>
           <dd className="flex-1 min-w-0">
             {doctrines.map((d, i) => (
               <span key={d}>
-                <span className="text-emerald-400">{DOCTRINE_LABELS[d]}</span>
+                <span className="text-secondary">{DOCTRINE_LABELS[d]}</span>
                 {i < doctrines.length - 1 && <span className="text-neutral-600">, </span>}
               </span>
             ))}
@@ -158,21 +158,21 @@ export function TypeSignature({
         </div>
         {audience && (
           <div className="flex gap-2 flex-wrap">
-            <dt className="text-neutral-500 w-28 shrink-0">audience</dt>
+            <dt className="text-ink-faint w-28 shrink-0">audience</dt>
             <dd className="flex-1 min-w-0">
-              <code className="text-sky-400">{audience}</code>
+              <code className="text-info">{audience}</code>
             </dd>
           </div>
         )}
         {recursion.length > 0 && (
           <div className="flex gap-2 flex-wrap">
-            <dt className="text-neutral-500 w-28 shrink-0">read next</dt>
+            <dt className="text-ink-faint w-28 shrink-0">read next</dt>
             <dd className="flex-1 min-w-0">
               {recursion.map((r, i) => (
                 <span key={r.href}>
                   <a
                     href={r.href}
-                    className="text-amber-400 hover:text-amber-300 underline decoration-dotted"
+                    className="text-accent-strong hover:text-accent-strong underline decoration-dotted"
                     {...(r.href.startsWith("http")
                       ? { target: "_blank", rel: "noopener noreferrer" }
                       : {})}
@@ -187,13 +187,13 @@ export function TypeSignature({
         )}
       </dl>
 
-      <footer className="mt-3 pt-2 border-t border-neutral-800 text-[10px] text-neutral-600">
+      <footer className="mt-3 pt-2 border-t border-border-subtle text-[10px] text-neutral-600">
         Type signature is one of the six hidden patterns in{" "}
         <a
           href={`https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/${see}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-neutral-500 hover:text-neutral-300 underline"
+          className="text-ink-faint hover:text-ink-muted underline"
         >
           {see}
         </a>

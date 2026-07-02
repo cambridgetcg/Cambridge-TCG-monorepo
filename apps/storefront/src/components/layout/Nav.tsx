@@ -41,7 +41,7 @@ export default function Nav() {
   }, [pathname]);
 
   return (
-    <nav className="sticky top-0 z-40 bg-neutral-950/90 backdrop-blur border-b border-neutral-800">
+    <nav className="sticky top-0 z-40 bg-page/90 backdrop-blur border-b border-border-subtle">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image
@@ -51,8 +51,8 @@ export default function Nav() {
             height={32}
             className="w-8 h-8"
           />
-          <span className="text-xl font-black text-white hidden sm:inline">
-            Cambridge <span className="text-emerald-400">TCG</span>
+          <span className="text-xl font-black text-ink hidden sm:inline">
+            Cambridge <span className="text-secondary">TCG</span>
           </span>
         </Link>
 
@@ -65,7 +65,7 @@ export default function Nav() {
           <Link
             href="/find"
             aria-label="Find a card"
-            className="text-neutral-300 hover:text-white transition py-2"
+            className="text-ink-muted hover:text-ink transition py-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -84,7 +84,7 @@ export default function Nav() {
           </Link>
           <Link
             href={loggedIn ? "/account" : "/login"}
-            className="text-sm text-neutral-300 hover:text-white transition py-2"
+            className="text-sm text-ink-muted hover:text-ink transition py-2"
           >
             {loggedIn ? "Account" : "Sign In"}
           </Link>
@@ -109,7 +109,7 @@ export default function Nav() {
             </svg>
             Cart
             {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 w-5 h-5 bg-danger text-ink text-xs font-bold rounded-full flex items-center justify-center">
                 {totalItems > 99 ? "99+" : totalItems}
               </span>
             )}
@@ -139,14 +139,14 @@ export default function Nav() {
               />
             </svg>
             {totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-danger text-ink text-xs font-bold rounded-full flex items-center justify-center">
                 {totalItems > 99 ? "99+" : totalItems}
               </span>
             )}
           </button>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 text-neutral-300 hover:text-white transition"
+            className="p-2 text-ink-muted hover:text-ink transition"
             aria-label="Toggle menu"
             aria-expanded={menuOpen}
           >
@@ -187,12 +187,12 @@ export default function Nav() {
 
       {/* Mobile menu drawer — accordion of mega-menus */}
       {menuOpen && (
-        <div className="md:hidden border-t border-neutral-800 bg-neutral-950/95 backdrop-blur max-h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="md:hidden border-t border-border-subtle bg-page/95 backdrop-blur max-h-[calc(100vh-4rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
             {/* Search affordance — mirrors the desktop magnifier */}
             <Link
               href="/find"
-              className="block px-3 py-3 text-sm font-medium text-neutral-200 hover:text-white border-b border-neutral-900"
+              className="block px-3 py-3 text-sm font-medium text-ink border-b border-neutral-900"
             >
               Find a card
             </Link>
@@ -202,7 +202,7 @@ export default function Nav() {
                 <div key={menu.l1} className="border-b border-neutral-900 last:border-b-0">
                   <button
                     onClick={() => setExpanded(isExpanded ? null : menu.l1)}
-                    className="w-full flex items-center justify-between px-3 py-3 text-sm font-medium text-neutral-200 hover:text-white"
+                    className="w-full flex items-center justify-between px-3 py-3 text-sm font-medium text-ink"
                     aria-expanded={isExpanded}
                   >
                     {menu.l1}
@@ -225,7 +225,7 @@ export default function Nav() {
                     <div className="pb-3 pl-3 space-y-3">
                       {menu.columns.map((col) => (
                         <div key={col.heading}>
-                          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500 px-3 mb-1">
+                          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint px-3 mb-1">
                             {col.heading}
                           </h4>
                           <ul className="space-y-0.5">
@@ -235,7 +235,7 @@ export default function Nav() {
                                 <li key={item.href}>
                                   <Link
                                     href={item.href}
-                                    className="block px-3 py-2 text-sm text-neutral-300 hover:text-white hover:bg-neutral-800/50 rounded-md transition"
+                                    className="block px-3 py-2 text-sm text-ink-muted hover:text-ink hover:bg-surface-elevated/50 rounded-md transition"
                                   >
                                     {item.label}
                                   </Link>
@@ -248,7 +248,7 @@ export default function Nav() {
                         <div className="px-3 pt-2 border-t border-neutral-900">
                           <Link
                             href={menu.footer.href}
-                            className="text-xs text-emerald-400 hover:text-emerald-300"
+                            className="text-xs text-secondary hover:text-emerald-300"
                           >
                             {menu.footer.label}
                           </Link>
@@ -261,7 +261,7 @@ export default function Nav() {
             })}
             <Link
               href={loggedIn ? "/account" : "/login"}
-              className="block px-3 py-3 text-sm font-medium text-neutral-200 hover:text-white border-t border-neutral-900 mt-1"
+              className="block px-3 py-3 text-sm font-medium text-ink border-t border-neutral-900 mt-1"
             >
               {loggedIn ? "My Account" : "Sign In"}
             </Link>
