@@ -98,9 +98,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const textMode = cookieStore.get("text-mode")?.value === "1";
 
   // The wardrobe (spec §3.2/§3.3): an explicit theme choice lands on <html>
-  // and re-binds the semantic tokens site-wide; no cookie → no attribute,
-  // `:root` stays terminal-dark, and migrated surfaces default themselves
-  // to gallery on their own wrapper. The site-wide flip is spec §3.6.
+  // and re-binds the semantic tokens site-wide. THE FLIP (spec §3.6, Glass
+  // Exchange 2026-07-02): no cookie now means gallery — the site's default
+  // face is the reading room; terminal remains one click away and pixel-
+  // faithful. Reverting the flip is this one fallback value.
   const appearance = appearanceFromCookies(cookieStore);
   // Analytics consent — default deny. Google Analytics + the Ads conversion
   // tag load only when the visitor has accepted via the CookieConsent banner.
@@ -119,7 +120,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      data-theme={appearance.theme ?? undefined}
+      data-theme={appearance.theme ?? "gallery"}
       className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
     >
       <head>
@@ -140,7 +141,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           url: "https://cambridgetcg.com",
           potentialAction: {
             "@type": "SearchAction",
-            target: "https://cambridgetcg.com/market?q={search_term_string}",
+            target: "https://cambridgetcg.com/prices/search?q={search_term_string}",
             "query-input": "required name=search_term_string",
           },
         }) }} />
@@ -204,14 +205,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Script>
         </>
       )}
-      <body className={`${inter.className}${textMode ? " text-mode" : ""}`}>
+      {/* Body font comes from var(--font-body) via globals.css — Inter under
+          terminal, Schibsted under gallery/midnight. The font *variables*
+          are all mounted on <html> above. */}
+      <body className={textMode ? "text-mode" : undefined}>
         {/* Skip-to-content for keyboard + screen-reader users.
             See docs/connections/the-welcome-all.md (#26) §3 — a welcome
             that doesn't include the sensory-divergent door is no welcome
             at all. */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-amber-500 focus:text-black focus:px-3 focus:py-1.5 focus:rounded-md focus:text-sm focus:font-bold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-accent focus:text-on-accent focus:px-3 focus:py-1.5 focus:rounded-md focus:text-sm focus:font-bold"
         >
           Skip to content
         </a>
