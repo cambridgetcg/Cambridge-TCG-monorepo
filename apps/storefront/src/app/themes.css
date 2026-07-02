@@ -36,6 +36,11 @@
   --color-bid: #34d399; /* emerald-400 */
   --color-ask: #f87171; /* red-400 */
 
+  /* mono voice — every price, SKU, endpoint, timestamp. Terminal re-binds
+   * to the system stack below so the flip never touches its pixels. */
+  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
   /* the mat — gallery's layered warm shadow; flat in terminal */
   --shadow-mat: 0 0 #0000;
 
@@ -67,9 +72,11 @@
   --color-ink-faint: #737373;
   --color-bid: #34d399;
   --color-ask: #f87171;
+  --color-on-accent: #0a0a0a;
   --shadow-mat: 0 0 #0000;
   --font-display: var(--font-inter), system-ui, sans-serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
 }
 
@@ -94,6 +101,7 @@
   --color-ink-faint: #988d7b;
   --color-bid: #1f6f50;
   --color-ask: #8c2b2b;
+  --color-on-accent: #fdfbf6; /* warm near-white on gilt — AA */
   --shadow-mat: 0 1px 2px rgb(33 29 22 / 0.06), 0 10px 28px rgb(33 29 22 / 0.07);
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
@@ -122,6 +130,7 @@
   --color-ink-faint: #5f687e;
   --color-bid: #5bbf8f;
   --color-ask: #e07a6b;
+  --color-on-accent: #0b0f1a; /* dark ink on moonlight gilt */
   --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
@@ -150,10 +159,38 @@
   --color-ink-faint: #333333;
   --color-bid: #00591f;
   --color-ask: #a80000;
+  --color-on-accent: #ffffff; /* white on #00309f */
   --shadow-mat: 0 0 #0000;
   --font-display: system-ui, sans-serif;
   --font-body: system-ui, sans-serif;
   color-scheme: light;
+}
+
+/* ── Prose under light themes ────────────────────────────────────────── */
+/* The 17 exposition pages carry `prose prose-invert` from the dark era.
+ * Rather than editing every page, re-bind the invert variables under the
+ * light bundles: prose-invert becomes theme-aware. Code blocks keep a
+ * dark ground deliberately (machinery stays terminal-dark). Dark themes
+ * (terminal, midnight) are untouched — true inversion there. */
+[data-theme="gallery"] .prose-invert,
+[data-theme="high-contrast"] .prose-invert {
+  --tw-prose-invert-body: #4a4438;
+  --tw-prose-invert-headings: var(--color-ink);
+  --tw-prose-invert-lead: var(--color-ink-muted);
+  --tw-prose-invert-links: var(--color-accent);
+  --tw-prose-invert-bold: var(--color-ink);
+  --tw-prose-invert-counters: var(--color-ink-faint);
+  --tw-prose-invert-bullets: var(--color-border-strong);
+  --tw-prose-invert-hr: var(--color-border-subtle);
+  --tw-prose-invert-quotes: var(--color-ink);
+  --tw-prose-invert-quote-borders: var(--color-border-subtle);
+  --tw-prose-invert-captions: var(--color-ink-faint);
+  --tw-prose-invert-code: var(--color-ink);
+  --tw-prose-invert-pre-code: #e7dfd0;
+  --tw-prose-invert-pre-bg: #211d16;
+  --tw-prose-invert-th-borders: var(--color-border-strong);
+  --tw-prose-invert-td-borders: var(--color-border-subtle);
+  --tw-prose-invert-kbd: var(--color-ink);
 }
 
 /* ── Materials ───────────────────────────────────────────────────────── */
@@ -172,6 +209,22 @@
   background-color: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-mat);
+}
+
+/* The plinth — a dark band for NON-machinery sections (story and sell
+ * interstitials), so `data-theme="terminal"` insets stay semantically
+ * reserved for engine-room/API content. Same values under every theme:
+ * a plinth is a plinth. (Glass Exchange, step 1.) */
+.wardrobe-plinth {
+  background-color: #191512;
+  --color-ink: #f3efe6;
+  --color-ink-muted: #c9c0af;
+  --color-ink-faint: #8f8574;
+  --color-accent: #d9b36c; /* moonlight gilt */
+  --color-on-accent: #191512;
+  --color-surface: #221d18;
+  --color-border-subtle: rgb(243 239 230 / 0.14);
+  --color-border-strong: rgb(243 239 230 / 0.28);
 }
 
 /* Staggered section reveal on load — gallery pages only; the global

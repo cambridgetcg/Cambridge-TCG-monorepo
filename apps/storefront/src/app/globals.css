@@ -48,17 +48,25 @@
   --color-warning: theme("colors.amber.400");
   --color-info: theme("colors.sky.400");
   --color-ok: theme("colors.emerald.400");
+
+  /* text-on-accent — the ink a filled accent surface carries. Until now
+   * Button's text-black on amber was a coincidence that held only in the
+   * dark themes; gallery's gilt needs warm near-white. One name, bound
+   * per-theme in themes.css. (Glass Exchange, step 1.) */
+  --color-on-accent: #0a0a0a;
 }
 
 :root {
   --background: var(--color-page);
-  --foreground: #ededed;
+  --foreground: var(--color-ink);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter);
+  /* --font-body is the wardrobe's voice: Inter under terminal (identical
+   * to the pre-flip look), Schibsted Grotesk under gallery/midnight. */
+  font-family: var(--font-body);
 }
 
 /*
