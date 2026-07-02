@@ -40,7 +40,7 @@ export function AcceptDeclineButtons({ slug }: { slug: string }) {
               else router.refresh();
             })
           }
-          className="px-3 py-1.5 rounded-lg text-xs bg-neutral-800 text-neutral-300 hover:bg-neutral-700 disabled:opacity-50"
+          className="px-3 py-1.5 rounded-lg text-xs bg-surface-elevated text-ink-muted hover:bg-neutral-700 disabled:opacity-50"
         >
           Decline
         </button>

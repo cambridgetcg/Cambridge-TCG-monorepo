@@ -58,16 +58,16 @@ interface CardProps {
 
 function Card({ label, value, sub, tone = "neutral", whyLink }: CardProps) {
   const toneCls: Record<string, string> = {
-    neutral: "text-neutral-200",
-    amber: "text-amber-400",
-    emerald: "text-emerald-400",
+    neutral: "text-ink",
+    amber: "text-accent-strong",
+    emerald: "text-secondary",
     red: "text-red-400",
-    sky: "text-sky-400",
+    sky: "text-info",
   };
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+    <div className="rounded-xl border border-border-subtle bg-surface/60 p-4">
       <div className="flex items-baseline gap-2">
-        <span className="text-[11px] uppercase tracking-wider text-neutral-500">
+        <span className="text-[11px] uppercase tracking-wider text-ink-faint">
           {label}
         </span>
         {whyLink && <WhyLink href={whyLink.href} label={whyLink.label} />}
@@ -76,7 +76,7 @@ function Card({ label, value, sub, tone = "neutral", whyLink }: CardProps) {
         {value}
       </div>
       {sub && (
-        <div className="text-xs text-neutral-500 mt-1">{sub}</div>
+        <div className="text-xs text-ink-faint mt-1">{sub}</div>
       )}
     </div>
   );
@@ -91,9 +91,9 @@ function ExposureSection({ d }: { d: TraderDashboard }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Exposure</h2>
-      <p className="text-sm text-neutral-400 mb-3">
+      <p className="text-sm text-ink-muted mb-3">
         What you have in the kingdom right now —{" "}
-        <strong className="text-neutral-200">
+        <strong className="text-ink">
           <MoneyDisplay value={total} treatZeroAsMissing />
         </strong>{" "}
         total across in-flight trades and active listings.
@@ -137,7 +137,7 @@ function RunRateSection({ d }: { d: TraderDashboard }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Run rate</h2>
-      <p className="text-sm text-neutral-400 mb-3">
+      <p className="text-sm text-ink-muted mb-3">
         Completed sales by window. Success rate over the last 90 days
         across all closed trades (completed / completed + cancelled + refunded).
       </p>
@@ -184,11 +184,11 @@ function OutstandingSection({ d }: { d: TraderDashboard }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Outstanding actions</h2>
-      <p className="text-sm text-neutral-400 mb-3">
+      <p className="text-sm text-ink-muted mb-3">
         What the kingdom is waiting on you for. {total > 0 ? (
-          <strong className="text-amber-400">{total} item(s) need your attention.</strong>
+          <strong className="text-accent-strong">{total} item(s) need your attention.</strong>
         ) : (
-          <span className="text-emerald-400">All clear.</span>
+          <span className="text-secondary">All clear.</span>
         )}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -229,10 +229,10 @@ function TrustSection({ d }: { d: TraderDashboard }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Trust trajectory</h2>
-      <p className="text-sm text-neutral-400 mb-3">
+      <p className="text-sm text-ink-muted mb-3">
         Your current trust score plus 30-day movement. For the full
         breakdown of components and your next-tier unlock checklist, open{" "}
-        <Link href="/account/standing" className="text-amber-400 hover:underline">
+        <Link href="/account/standing" className="text-accent-strong hover:underline">
           /account/standing
         </Link>
         .
@@ -287,7 +287,7 @@ function ListingsSection({ d }: { d: TraderDashboard }) {
   return (
     <section>
       <h2 className="text-lg font-semibold mb-3">Listings health</h2>
-      <p className="text-sm text-neutral-400 mb-3">
+      <p className="text-sm text-ink-muted mb-3">
         Active listings and how many have been on the market for more
         than 30 days without selling. Stale listings often benefit from
         re-pricing or photo refreshes.
@@ -344,7 +344,7 @@ export default async function TraderDashboardPage() {
       <header className="flex items-baseline justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Trader dashboard</h1>
-          <p className="text-sm text-neutral-400 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             What you're exposed to, how you've been doing, what you owe
             the kingdom, where your reputation is going, which listings
             need attention.
@@ -364,7 +364,7 @@ export default async function TraderDashboardPage() {
       <TrustSection d={d} />
       <ListingsSection d={d} />
 
-      <footer className="text-xs text-neutral-500 border-t border-neutral-800 pt-4">
+      <footer className="text-xs text-ink-faint border-t border-border-subtle pt-4">
         <p>
           Composed from <code>market_trades</code>,{" "}
           <code>market_orders</code>, <code>market_lots</code>,{" "}

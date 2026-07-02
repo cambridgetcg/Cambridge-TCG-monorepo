@@ -98,7 +98,7 @@ export default function AdminBountyPullTiers() {
       subtitle="Kill-switch and weekly cap per tier. Disabling a tier blocks all pulls until re-enabled — user tokens are preserved."
       authProbe="/api/admin/bounty/pull-tiers"
       actions={
-        <button onClick={fetchData} disabled={loading} className="px-4 py-2 bg-neutral-800 text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50">
+        <button onClick={fetchData} disabled={loading} className="px-4 py-2 bg-surface-elevated text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50">
           {loading ? "Loading..." : "Refresh"}
         </button>
       }
@@ -108,7 +108,7 @@ export default function AdminBountyPullTiers() {
           <div className="mb-4 bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">{error}</div>
         )}
         {anyDisabled && (
-          <div className="mb-6 bg-amber-900/30 border border-amber-700/50 text-amber-300 rounded-lg px-4 py-3 text-sm">
+          <div className="mb-6 bg-amber-900/30 border border-amber-700/50 text-accent-strong rounded-lg px-4 py-3 text-sm">
             One or more tiers are currently disabled. Player tokens for those tiers cannot be opened.
           </div>
         )}
@@ -132,27 +132,27 @@ export default function AdminBountyPullTiers() {
             return (
               <div
                 key={t.tier}
-                className={`bg-neutral-900 border rounded-xl p-4 flex flex-wrap items-center gap-4 ${
-                  t.enabled ? "border-neutral-800" : "border-red-900/50 bg-red-950/20"
+                className={`bg-surface border rounded-xl p-4 flex flex-wrap items-center gap-4 ${
+                  t.enabled ? "border-border-subtle" : "border-red-900/50 bg-red-950/20"
                 }`}
               >
                 {/* Identity */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold">{t.display_name}</span>
-                    <code className="text-xs bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded">{t.tier}</code>
+                    <code className="text-xs bg-surface-elevated text-ink-muted px-1.5 py-0.5 rounded">{t.tier}</code>
                     {!t.enabled && (
                       <span className="text-xs bg-red-900/60 text-red-300 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                         Disabled
                       </span>
                     )}
                     {hitCap && t.enabled && (
-                      <span className="text-xs bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                      <span className="text-xs bg-amber-900/60 text-accent-strong px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                         Cap hit
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-500 mt-1 font-mono truncate">
+                  <p className="text-xs text-ink-faint mt-1 font-mono truncate">
                     weights: {Object.entries(t.rarity_weights).map(([r, w]) => `${r} ${(w * 100).toFixed(0)}%`).join(" · ")}
                   </p>
                   <p className="text-xs text-neutral-600 mt-0.5">
@@ -161,17 +161,17 @@ export default function AdminBountyPullTiers() {
                 </div>
 
                 {/* Stats */}
-                <div className="flex items-center gap-4 text-xs text-neutral-400 whitespace-nowrap">
+                <div className="flex items-center gap-4 text-xs text-ink-muted whitespace-nowrap">
                   <div>
                     <div className="text-neutral-600">Pulls / 7d</div>
-                    <div className={`font-bold text-white ${hitCap ? "text-amber-400" : ""}`}>
+                    <div className={`font-bold text-ink ${hitCap ? "text-accent-strong" : ""}`}>
                       {t.pulls_this_week}
                       {t.weekly_global_cap != null && <span className="text-neutral-600"> / {t.weekly_global_cap}</span>}
                     </div>
                   </div>
                   <div>
                     <div className="text-neutral-600">Outstanding tokens</div>
-                    <div className="font-bold text-white">{t.outstanding_tokens}</div>
+                    <div className="font-bold text-ink">{t.outstanding_tokens}</div>
                   </div>
                 </div>
 
@@ -182,7 +182,7 @@ export default function AdminBountyPullTiers() {
                     placeholder="none"
                     value={capRaw}
                     onChange={(e) => setCapInputs((p) => ({ ...p, [t.tier]: e.target.value }))}
-                    className="w-20 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-center focus:outline-none focus:border-amber-500"
+                    className="w-20 bg-surface-elevated border border-border-strong rounded px-2 py-1 text-xs text-center focus:outline-none focus:border-accent"
                     title="Weekly global cap. Leave empty to remove the cap."
                   />
                   <button
@@ -201,7 +201,7 @@ export default function AdminBountyPullTiers() {
                   className={`text-xs font-bold rounded px-4 py-1.5 transition-colors whitespace-nowrap ${
                     t.enabled
                       ? "bg-red-900/50 hover:bg-red-900/80 text-red-300"
-                      : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"
+                      : "bg-emerald-500/20 hover:bg-emerald-500/30 text-secondary"
                   }`}
                 >
                   {pending === t.tier ? "..." : t.enabled ? "Disable" : "Enable"}
@@ -212,7 +212,7 @@ export default function AdminBountyPullTiers() {
         </div>
 
         {tiers.length === 0 && !loading && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+          <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
             No tiers configured.
           </div>
         )}
@@ -222,9 +222,9 @@ export default function AdminBountyPullTiers() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-neutral-900 rounded-xl p-4">
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">{label}</p>
-      <p className="text-2xl font-bold mt-1 text-white">{value}</p>
+    <div className="bg-surface rounded-xl p-4">
+      <p className="text-xs text-ink-faint uppercase tracking-wide">{label}</p>
+      <p className="text-2xl font-bold mt-1 text-ink">{value}</p>
     </div>
   );
 }

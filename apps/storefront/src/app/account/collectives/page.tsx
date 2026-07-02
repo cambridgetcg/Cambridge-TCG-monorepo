@@ -40,25 +40,25 @@ export default async function CollectivesAccountPage() {
   const active = rows.filter((r) => r.consent_at != null);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
       <header className="mb-6">
         <div className="flex items-baseline gap-3 mb-2 flex-wrap">
           <h1 className="text-2xl font-bold">Your collectives</h1>
           <Link
             href="/account/collectives/new"
-            className="text-xs uppercase tracking-wider text-amber-400 hover:text-amber-300 underline"
+            className="text-xs uppercase tracking-wider text-accent-strong hover:text-accent-strong underline"
           >
             Create a collective →
           </Link>
         </div>
-        <p className="text-sm text-neutral-400 leading-relaxed">
+        <p className="text-sm text-ink-muted leading-relaxed">
           A collective is a multi-member identity sharing one decision and one
           collection — a shop, a club, a lab, a guild.{" "}
-          <Link href="/methodology/collectives" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/methodology/collectives" className="text-accent-strong hover:text-accent-strong underline">
             How collectives work
           </Link>{" "}
           ·{" "}
-          <Link href="/community/welcome" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/community/welcome" className="text-accent-strong hover:text-accent-strong underline">
             Door 3 in the commons
           </Link>
         </p>
@@ -66,7 +66,7 @@ export default async function CollectivesAccountPage() {
 
       {pending.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-[11px] uppercase tracking-wider text-amber-400 mb-3">
+          <h2 className="text-[11px] uppercase tracking-wider text-accent-strong mb-3">
             Pending invitations ({pending.length})
           </h2>
           <ul className="space-y-2 list-none p-0">
@@ -76,20 +76,20 @@ export default async function CollectivesAccountPage() {
                 className="rounded-xl border border-amber-700/40 bg-amber-900/10 p-4"
               >
                 <div className="flex items-baseline gap-2 flex-wrap mb-1">
-                  <span className="text-[10px] uppercase tracking-wider text-emerald-400">
+                  <span className="text-[10px] uppercase tracking-wider text-secondary">
                     {KIND_LABEL[collective.kind] ?? collective.kind}
                   </span>
-                  <span className="text-white font-semibold">
+                  <span className="text-ink font-semibold">
                     {collective.display_name}
                   </span>
-                  <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  <span className="text-[10px] uppercase tracking-wider text-ink-faint">
                     invited as {role}
                   </span>
                 </div>
                 {collective.region && (
-                  <p className="text-xs text-neutral-400 mb-1">{collective.region}</p>
+                  <p className="text-xs text-ink-muted mb-1">{collective.region}</p>
                 )}
-                <p className="text-xs text-neutral-500 mb-2">
+                <p className="text-xs text-ink-faint mb-2">
                   Invited {new Date(invited_at).toLocaleDateString()}
                 </p>
                 <AcceptDeclineButtons slug={collective.slug} />
@@ -100,15 +100,15 @@ export default async function CollectivesAccountPage() {
       )}
 
       <section>
-        <h2 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+        <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
           Active memberships ({active.length})
         </h2>
         {active.length === 0 ? (
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-ink-faint">
             You're not in any collectives yet.{" "}
             <Link
               href="/account/collectives/new"
-              className="text-amber-400 hover:text-amber-300 underline"
+              className="text-accent-strong hover:text-accent-strong underline"
             >
               Create one
             </Link>{" "}
@@ -119,28 +119,28 @@ export default async function CollectivesAccountPage() {
             {active.map(({ collective, role }) => (
               <li
                 key={collective.id}
-                className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4"
+                className="rounded-xl border border-border-subtle bg-surface/40 p-4"
               >
                 <div className="flex items-baseline gap-2 flex-wrap mb-1">
-                  <span className="text-[10px] uppercase tracking-wider text-emerald-400">
+                  <span className="text-[10px] uppercase tracking-wider text-secondary">
                     {KIND_LABEL[collective.kind] ?? collective.kind}
                   </span>
                   <Link
                     href={`/c/${collective.slug}`}
-                    className="text-white font-semibold hover:underline"
+                    className="text-ink font-semibold hover:underline"
                   >
                     {collective.display_name}
                   </Link>
-                  <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  <span className="text-[10px] uppercase tracking-wider text-ink-faint">
                     {role}
                   </span>
                   {!collective.is_public && (
-                    <span className="text-[10px] uppercase tracking-wider text-amber-400">
+                    <span className="text-[10px] uppercase tracking-wider text-accent-strong">
                       private
                     </span>
                   )}
                 </div>
-                <div className="flex items-baseline gap-3 text-xs text-neutral-400 flex-wrap">
+                <div className="flex items-baseline gap-3 text-xs text-ink-muted flex-wrap">
                   {collective.region && <span>{collective.region}</span>}
                   <span>
                     {collective.active_member_count} member
@@ -149,7 +149,7 @@ export default async function CollectivesAccountPage() {
                   {role === "steward" && (
                     <Link
                       href={`/account/collectives/${collective.slug}/manage`}
-                      className="text-amber-400 hover:text-amber-300 underline ml-auto"
+                      className="text-accent-strong hover:text-accent-strong underline ml-auto"
                     >
                       Manage →
                     </Link>

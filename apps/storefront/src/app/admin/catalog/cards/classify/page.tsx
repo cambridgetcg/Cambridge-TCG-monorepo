@@ -80,7 +80,7 @@ export default async function ClassifyLandingPage() {
       key: "claimed_at",
       header: "When",
       render: (r) => (
-        <span className="text-neutral-400">{fmtDateTime(r.claimed_at)}</span>
+        <span className="text-ink-muted">{fmtDateTime(r.claimed_at)}</span>
       ),
     },
     {
@@ -93,7 +93,7 @@ export default async function ClassifyLandingPage() {
         >
           <span className="font-mono text-xs">{r.sku}</span>
           {r.card_name && (
-            <span className="ml-2 text-neutral-300">{r.card_name}</span>
+            <span className="ml-2 text-ink-muted">{r.card_name}</span>
           )}
         </Link>
       ),
@@ -102,13 +102,13 @@ export default async function ClassifyLandingPage() {
       key: "attribute",
       header: "Attribute",
       render: (r) => (
-        <code className="text-xs text-neutral-300">{r.attribute}</code>
+        <code className="text-xs text-ink-muted">{r.attribute}</code>
       ),
     },
     {
       key: "next_value",
       header: "Value",
-      render: (r) => <span className="text-white">{r.next_value}</span>,
+      render: (r) => <span className="text-ink">{r.next_value}</span>,
     },
     {
       key: "next_source",
@@ -130,16 +130,16 @@ export default async function ClassifyLandingPage() {
       header: "Promoted?",
       render: (r) =>
         r.shadowed ? (
-          <span className="text-xs text-amber-400">shadowed</span>
+          <span className="text-xs text-accent-strong">shadowed</span>
         ) : (
-          <span className="text-xs text-emerald-400">winner</span>
+          <span className="text-xs text-secondary">winner</span>
         ),
     },
     {
       key: "claimed_by",
       header: "Actor",
       render: (r) => (
-        <span className="font-mono text-xs text-neutral-400">
+        <span className="font-mono text-xs text-ink-muted">
           {r.claimed_by}
         </span>
       ),
@@ -169,14 +169,14 @@ export default async function ClassifyLandingPage() {
       ) : (
         <>
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-neutral-400">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-muted">
               Open a card to classify
             </h2>
             <SkuLookupForm />
           </section>
 
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-neutral-400">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-muted">
               Recent activity ({recent.length})
             </h2>
             {recent.length === 0 ? (

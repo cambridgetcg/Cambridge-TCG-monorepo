@@ -70,7 +70,7 @@ const RARITY_OPTIONS = [
 function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
   const r = rarity.toUpperCase();
-  let cls = "bg-neutral-700 text-neutral-400";
+  let cls = "bg-neutral-700 text-ink-muted";
   if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP")
     cls = "bg-yellow-500/20 text-yellow-400";
   else if (r === "R" || r === "RR" || r === "SSR")
@@ -78,7 +78,7 @@ function rarityBadge(rarity: string | null) {
   else if (r === "UC")
     cls = "bg-blue-500/20 text-blue-400";
   else if (r === "C")
-    cls = "bg-neutral-700 text-neutral-400";
+    cls = "bg-neutral-700 text-ink-muted";
   return (
     <span className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cls}`}>
       {rarity.toUpperCase()}
@@ -106,10 +106,10 @@ function setGroupOrder(code: string): number {
 
 function SkeletonCard() {
   return (
-    <div className="bg-neutral-900 rounded-lg p-2 animate-pulse">
-      <div className="aspect-[2.5/3.5] bg-neutral-800 rounded mb-2" />
-      <div className="h-3 bg-neutral-800 rounded w-3/4 mb-1" />
-      <div className="h-3 bg-neutral-800 rounded w-1/2" />
+    <div className="bg-surface rounded-lg p-2 animate-pulse">
+      <div className="aspect-[2.5/3.5] bg-surface-elevated rounded mb-2" />
+      <div className="h-3 bg-surface-elevated rounded w-3/4 mb-1" />
+      <div className="h-3 bg-surface-elevated rounded w-1/2" />
     </div>
   );
 }
@@ -577,23 +577,23 @@ export default function DeckBuilderPage() {
 
   /* ---- Render ---- */
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-[1600px] mx-auto px-4 py-8">
         {/* ========== HEADER ========== */}
         <div className="mb-6">
-          <h1 className="text-3xl font-black text-white mb-1">
+          <h1 className="text-3xl font-black text-ink mb-1">
             Deck Builder
           </h1>
-          <p className="text-neutral-400 text-sm">
+          <p className="text-ink-muted text-sm">
             Build a 50-card One Piece TCG deck. Select a Leader, add cards, and
             buy what you need.
           </p>
         </div>
 
         {/* ========== LEADER SECTION ========== */}
-        <div className="mb-6 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+        <div className="mb-6 bg-surface border border-border-subtle rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">
+            <h2 className="text-sm font-bold text-ink-muted uppercase tracking-wider">
               Leader Card
             </h2>
             {leader && (
@@ -618,13 +618,13 @@ export default function DeckBuilderPage() {
                   className="w-20 h-28 object-cover rounded-lg shadow-lg shadow-amber-500/10"
                 />
               ) : (
-                <div className="w-20 h-28 bg-neutral-800 rounded-lg flex items-center justify-center">
+                <div className="w-20 h-28 bg-surface-elevated rounded-lg flex items-center justify-center">
                   <span className="text-neutral-600 text-[10px]">N/A</span>
                 </div>
               )}
               <div>
-                <h3 className="text-lg font-bold text-white">{leader.name}</h3>
-                <p className="text-xs text-neutral-400 font-mono">
+                <h3 className="text-lg font-bold text-ink">{leader.name}</h3>
+                <p className="text-xs text-ink-muted font-mono">
                   {leader.card_number} &middot; {leader.set_code}
                 </p>
                 {rarityBadge(leader.rarity)}
@@ -632,7 +632,7 @@ export default function DeckBuilderPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center py-4 gap-3">
-              <div className="w-16 h-22 rounded-lg border-2 border-dashed border-neutral-700 flex items-center justify-center">
+              <div className="w-16 h-22 rounded-lg border-2 border-dashed border-border-strong flex items-center justify-center">
                 <svg
                   width="24"
                   height="24"
@@ -645,7 +645,7 @@ export default function DeckBuilderPage() {
                   <path d="M12 5v14M5 12h14" />
                 </svg>
               </div>
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-ink-faint">
                 Select your Leader to start building
               </p>
               <button
@@ -653,7 +653,7 @@ export default function DeckBuilderPage() {
                   setLeaderSearchMode(true);
                   setActiveRarity("L");
                 }}
-                className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+                className="px-4 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition"
               >
                 Search for Leader
               </button>
@@ -667,8 +667,8 @@ export default function DeckBuilderPage() {
           <div className="flex-1 min-w-0 lg:w-[60%]">
             {/* Leader search mode banner */}
             {leaderSearchMode && (
-              <div className="mb-4 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3 flex items-center justify-between">
-                <p className="text-sm text-amber-400 font-medium">
+              <div className="mb-4 bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 flex items-center justify-between">
+                <p className="text-sm text-accent-strong font-medium">
                   Selecting a Leader card — click a card to set as Leader
                 </p>
                 <button
@@ -676,7 +676,7 @@ export default function DeckBuilderPage() {
                     setLeaderSearchMode(false);
                     setActiveRarity("");
                   }}
-                  className="text-xs text-amber-400 hover:text-amber-300 underline"
+                  className="text-xs text-accent-strong hover:text-accent-strong underline"
                 >
                   Cancel
                 </button>
@@ -692,12 +692,12 @@ export default function DeckBuilderPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search cards by name or card number..."
-                  className="w-full px-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/50 transition text-sm"
+                  className="w-full px-4 py-2.5 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition text-sm"
                 />
                 {query && (
                   <button
                     onClick={() => setQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition text-sm"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink transition text-sm"
                   >
                     x
                   </button>
@@ -711,7 +711,7 @@ export default function DeckBuilderPage() {
                   setActiveSet(e.target.value || null);
                   setOffset(0);
                 }}
-                className="px-3 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition min-w-[140px]"
+                className="px-3 py-2.5 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition min-w-[140px]"
               >
                 <option value="">All Sets</option>
                 {setsLoading && <option disabled>Loading...</option>}
@@ -726,7 +726,7 @@ export default function DeckBuilderPage() {
               <select
                 value={activeRarity}
                 onChange={(e) => setActiveRarity(e.target.value)}
-                className="px-3 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition min-w-[130px]"
+                className="px-3 py-2.5 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition min-w-[130px]"
               >
                 {RARITY_OPTIONS.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -738,7 +738,7 @@ export default function DeckBuilderPage() {
 
             {/* Results count */}
             {!loading && (
-              <p className="text-xs text-neutral-500 mb-3">
+              <p className="text-xs text-ink-faint mb-3">
                 Showing {filteredCards.length} of {searchTotal.toLocaleString()}{" "}
                 cards
                 {activeRarity
@@ -760,10 +760,10 @@ export default function DeckBuilderPage() {
             {!loading && filteredCards.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-4xl mb-3 opacity-20">No results</p>
-                <h2 className="text-lg font-bold text-white mb-2">
+                <h2 className="text-lg font-bold text-ink mb-2">
                   No cards found
                 </h2>
-                <p className="text-neutral-400 text-sm mb-4">
+                <p className="text-ink-muted text-sm mb-4">
                   Try a different search term, set, or rarity filter.
                 </p>
                 {(query || activeSet || activeRarity) && (
@@ -773,7 +773,7 @@ export default function DeckBuilderPage() {
                       setActiveSet(null);
                       setActiveRarity("");
                     }}
-                    className="px-4 py-2 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition text-sm"
+                    className="px-4 py-2 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition text-sm"
                   >
                     Clear filters
                   </button>
@@ -793,8 +793,8 @@ export default function DeckBuilderPage() {
                   return (
                     <div
                       key={card.sku}
-                      className={`bg-neutral-900 rounded-xl p-2 hover:bg-neutral-800/80 transition group relative ${
-                        isLeader ? "ring-2 ring-amber-500" : ""
+                      className={`bg-surface rounded-xl p-2 hover:bg-surface-elevated/80 transition group relative ${
+                        isLeader ? "ring-2 ring-accent" : ""
                       } ${inDeck ? "ring-1 ring-emerald-500/50" : ""}`}
                     >
                       {/* Image */}
@@ -806,7 +806,7 @@ export default function DeckBuilderPage() {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="aspect-[2.5/3.5] w-full bg-neutral-800 rounded-lg mb-2 flex items-center justify-center">
+                        <div className="aspect-[2.5/3.5] w-full bg-surface-elevated rounded-lg mb-2 flex items-center justify-center">
                           <span className="text-neutral-600 text-xs">
                             No Image
                           </span>
@@ -824,16 +824,16 @@ export default function DeckBuilderPage() {
 
                       {/* Leader badge */}
                       {isLeader && (
-                        <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-amber-500 rounded text-[9px] font-bold text-black">
+                        <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-accent rounded text-[9px] font-bold text-black">
                           LEADER
                         </div>
                       )}
 
                       {/* Info */}
-                      <h3 className="text-xs font-semibold text-white truncate">
+                      <h3 className="text-xs font-semibold text-ink truncate">
                         {card.name}
                       </h3>
-                      <p className="text-[10px] text-neutral-500 mb-1 truncate">
+                      <p className="text-[10px] text-ink-faint mb-1 truncate">
                         {card.card_number} &middot; {card.set_code}
                       </p>
                       <div className="flex items-center gap-1 mb-2">
@@ -845,7 +845,7 @@ export default function DeckBuilderPage() {
                         {leaderSearchMode ? (
                           <button
                             onClick={() => selectLeader(card)}
-                            className="flex-1 py-1.5 text-[11px] font-bold bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition"
+                            className="flex-1 py-1.5 text-[11px] font-bold bg-accent text-black rounded-lg hover:bg-accent-strong transition"
                           >
                             Set as Leader
                           </button>
@@ -853,7 +853,7 @@ export default function DeckBuilderPage() {
                           <>
                             <button
                               onClick={() => addToDeck(card)}
-                              className="flex-1 py-1.5 text-[11px] font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition"
+                              className="flex-1 py-1.5 text-[11px] font-bold bg-emerald-600 text-ink rounded-lg hover:bg-emerald-500 transition"
                             >
                               + Add
                             </button>
@@ -861,7 +861,7 @@ export default function DeckBuilderPage() {
                               card.rarity?.toUpperCase() === "L" && (
                                 <button
                                   onClick={() => selectLeader(card)}
-                                  className="py-1.5 px-2 text-[11px] font-bold bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition"
+                                  className="py-1.5 px-2 text-[11px] font-bold bg-accent text-black rounded-lg hover:bg-accent-strong transition"
                                   title="Set as Leader"
                                 >
                                   L
@@ -882,7 +882,7 @@ export default function DeckBuilderPage() {
                 <button
                   onClick={() => setOffset(Math.max(0, offset - limit))}
                   disabled={offset === 0}
-                  className="px-3 py-2 bg-neutral-900 text-neutral-300 rounded-lg hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
+                  className="px-3 py-2 bg-surface text-ink-muted rounded-lg hover:bg-surface-elevated disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
                 >
                   Previous
                 </button>
@@ -898,8 +898,8 @@ export default function DeckBuilderPage() {
                       onClick={() => setOffset((p - 1) * limit)}
                       className={`w-9 h-9 rounded-lg text-sm transition ${
                         p === currentPage
-                          ? "bg-amber-500 text-black font-bold"
-                          : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
+                          ? "bg-accent text-black font-bold"
+                          : "bg-surface text-ink-muted hover:bg-surface-elevated"
                       }`}
                     >
                       {p}
@@ -909,7 +909,7 @@ export default function DeckBuilderPage() {
                 <button
                   onClick={() => setOffset(offset + limit)}
                   disabled={currentPage >= totalPages}
-                  className="px-3 py-2 bg-neutral-900 text-neutral-300 rounded-lg hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
+                  className="px-3 py-2 bg-surface text-ink-muted rounded-lg hover:bg-surface-elevated disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
                 >
                   Next
                 </button>
@@ -923,7 +923,7 @@ export default function DeckBuilderPage() {
             <div className="lg:hidden mb-3">
               <button
                 onClick={() => setMobileShowDeck(!mobileShowDeck)}
-                className="w-full py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm font-bold flex items-center justify-center gap-2"
+                className="w-full py-3 bg-surface border border-border-subtle rounded-lg text-ink text-sm font-bold flex items-center justify-center gap-2"
               >
                 <span>
                   Deck ({totalCards}/{MAX_DECK_SIZE})
@@ -946,15 +946,15 @@ export default function DeckBuilderPage() {
               } lg:block lg:sticky lg:top-4`}
             >
               {/* Deck container */}
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+              <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
                 {/* Deck header */}
-                <div className="px-4 py-3 border-b border-neutral-800">
+                <div className="px-4 py-3 border-b border-border-subtle">
                   <div className="flex items-center justify-between mb-2">
                     <input
                       type="text"
                       value={deckName}
                       onChange={(e) => setDeckName(e.target.value)}
-                      className="bg-transparent text-white font-bold text-lg focus:outline-none border-b border-transparent focus:border-amber-500/50 transition"
+                      className="bg-transparent text-ink font-bold text-lg focus:outline-none border-b border-transparent focus:border-accent/50 transition"
                       placeholder="Deck name..."
                     />
                     <div className="flex gap-1">
@@ -966,7 +966,7 @@ export default function DeckBuilderPage() {
                           setSaveNotes("");
                           setShowSaveModal(true);
                         }}
-                        className="p-1.5 text-neutral-400 hover:text-white transition rounded"
+                        className="p-1.5 text-ink-muted hover:text-ink transition rounded"
                         title="Save Deck"
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -983,7 +983,7 @@ export default function DeckBuilderPage() {
                           } catch { /* ignore */ }
                           setShowLoadModal(true);
                         }}
-                        className="p-1.5 text-neutral-400 hover:text-white transition rounded"
+                        className="p-1.5 text-ink-muted hover:text-ink transition rounded"
                         title="Load Deck"
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -993,7 +993,7 @@ export default function DeckBuilderPage() {
                       <button
                         onClick={() => setShowSimulator(true)}
                         disabled={totalCards < 5}
-                        className="p-1.5 text-neutral-400 hover:text-amber-400 transition rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-1.5 text-ink-muted hover:text-accent-strong transition rounded disabled:opacity-30 disabled:cursor-not-allowed"
                         title={totalCards < 5 ? "Add 5+ cards to simulate" : "Simulate opening hand"}
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1003,7 +1003,7 @@ export default function DeckBuilderPage() {
                       </button>
                       <button
                         onClick={() => setShowBulkImport(true)}
-                        className="p-1.5 text-neutral-400 hover:text-amber-400 transition rounded"
+                        className="p-1.5 text-ink-muted hover:text-accent-strong transition rounded"
                         title="Paste a decklist to import"
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1020,16 +1020,16 @@ export default function DeckBuilderPage() {
                     <span
                       className={`font-bold ${
                         totalCards === MAX_DECK_SIZE
-                          ? "text-emerald-400"
+                          ? "text-secondary"
                           : totalCards > MAX_DECK_SIZE
                           ? "text-red-400"
-                          : "text-neutral-300"
+                          : "text-ink-muted"
                       }`}
                     >
                       {totalCards}/{MAX_DECK_SIZE} cards
                     </span>
-                    <span className="text-neutral-500">|</span>
-                    <span className="text-neutral-400">
+                    <span className="text-ink-faint">|</span>
+                    <span className="text-ink-muted">
                       DON!! {DON_COUNT}/{DON_COUNT}
                     </span>
                   </div>
@@ -1037,7 +1037,7 @@ export default function DeckBuilderPage() {
 
                 {/* Warnings */}
                 {deckWarnings.length > 0 && (
-                  <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20">
+                  <div className="px-4 py-2 bg-danger/10 border-b border-danger/20">
                     {deckWarnings.map((w, i) => (
                       <p key={i} className="text-[11px] text-red-400">
                         {w}
@@ -1048,8 +1048,8 @@ export default function DeckBuilderPage() {
 
                 {/* Deck Stats */}
                 {deckEntries.length > 0 && (
-                  <div className="px-4 py-3 border-b border-neutral-800">
-                    <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                  <div className="px-4 py-3 border-b border-border-subtle">
+                    <h3 className="text-[10px] font-bold text-ink-faint uppercase tracking-wider mb-2">
                       Stats
                     </h3>
                     <DeckStatsPanel
@@ -1065,7 +1065,7 @@ export default function DeckBuilderPage() {
                 <div className="max-h-[400px] overflow-y-auto">
                   {deckEntries.length === 0 ? (
                     <div className="px-4 py-8 text-center">
-                      <p className="text-neutral-500 text-sm">
+                      <p className="text-ink-faint text-sm">
                         No cards added yet
                       </p>
                       <p className="text-neutral-600 text-xs mt-1">
@@ -1073,11 +1073,11 @@ export default function DeckBuilderPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-neutral-800/50">
+                    <div className="divide-y divide-border-subtle/50">
                       {deckEntries.map((entry) => (
                         <div
                           key={entry.card.sku}
-                          className="flex items-center gap-3 px-4 py-2 hover:bg-neutral-800/50 transition"
+                          className="flex items-center gap-3 px-4 py-2 hover:bg-surface-elevated/50 transition"
                         >
                           {/* Thumbnail */}
                           {entry.card.image_url ? (
@@ -1088,7 +1088,7 @@ export default function DeckBuilderPage() {
                               loading="lazy"
                             />
                           ) : (
-                            <div className="w-8 h-11 bg-neutral-800 rounded shrink-0 flex items-center justify-center">
+                            <div className="w-8 h-11 bg-surface-elevated rounded shrink-0 flex items-center justify-center">
                               <span className="text-neutral-600 text-[8px]">
                                 N/A
                               </span>
@@ -1097,10 +1097,10 @@ export default function DeckBuilderPage() {
 
                           {/* Card info */}
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-white truncate">
+                            <p className="text-xs font-medium text-ink truncate">
                               {entry.card.name}
                             </p>
-                            <p className="text-[10px] text-neutral-500">
+                            <p className="text-[10px] text-ink-faint">
                               {entry.card.card_number} &middot; {entry.card.set_code}
                             </p>
                           </div>
@@ -1109,16 +1109,16 @@ export default function DeckBuilderPage() {
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => removeFromDeck(entry.card.sku)}
-                              className="w-6 h-6 flex items-center justify-center bg-neutral-800 text-neutral-300 rounded hover:bg-red-500/20 hover:text-red-400 transition text-xs font-bold"
+                              className="w-6 h-6 flex items-center justify-center bg-surface-elevated text-ink-muted rounded hover:bg-danger/20 hover:text-red-400 transition text-xs font-bold"
                             >
                               -
                             </button>
-                            <span className="w-6 text-center text-xs font-bold text-white">
+                            <span className="w-6 text-center text-xs font-bold text-ink">
                               {entry.quantity}
                             </span>
                             <button
                               onClick={() => addToDeck(entry.card)}
-                              className="w-6 h-6 flex items-center justify-center bg-neutral-800 text-neutral-300 rounded hover:bg-emerald-500/20 hover:text-emerald-400 transition text-xs font-bold"
+                              className="w-6 h-6 flex items-center justify-center bg-surface-elevated text-ink-muted rounded hover:bg-emerald-500/20 hover:text-secondary transition text-xs font-bold"
                               disabled={entry.quantity >= MAX_COPIES}
                             >
                               +
@@ -1131,7 +1131,7 @@ export default function DeckBuilderPage() {
                 </div>
 
                 {/* Action buttons */}
-                <div className="px-4 py-3 border-t border-neutral-800 space-y-2">
+                <div className="px-4 py-3 border-t border-border-subtle space-y-2">
                   {/* Yu 2026-05-14: "Buy Missing Cards" CTA removed —
                       play module is fun-only, no commerce nudges. Players
                       who want to acquire cards navigate to /catalog or
@@ -1142,21 +1142,21 @@ export default function DeckBuilderPage() {
                     <button
                       onClick={shareDeck}
                       disabled={deckEntries.length === 0}
-                      className="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="flex-1 py-2 bg-blue-600 text-ink text-xs font-bold rounded-lg hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition"
                     >
                       Share
                     </button>
                     <button
                       onClick={exportDeck}
                       disabled={deckEntries.length === 0}
-                      className="flex-1 py-2 bg-neutral-800 text-neutral-300 text-xs font-bold rounded-lg hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="flex-1 py-2 bg-surface-elevated text-ink-muted text-xs font-bold rounded-lg hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
                     >
                       Export
                     </button>
                     <button
                       onClick={() => setShowClearConfirm(true)}
                       disabled={deckEntries.length === 0 && !leader}
-                      className="flex-1 py-2 bg-neutral-800 text-red-400 text-xs font-bold rounded-lg hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="flex-1 py-2 bg-surface-elevated text-red-400 text-xs font-bold rounded-lg hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed transition"
                     >
                       Clear
                     </button>
@@ -1168,17 +1168,17 @@ export default function DeckBuilderPage() {
         </div>
 
         {/* ========== Mobile sticky summary bar ========== */}
-        <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden border-t border-neutral-800">
-          <div className="bg-neutral-900/95 backdrop-blur">
+        <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden border-t border-border-subtle">
+          <div className="bg-surface/95 backdrop-blur">
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-sm font-bold text-white shrink-0">
+                <span className="text-sm font-bold text-ink shrink-0">
                   {totalCards}/{MAX_DECK_SIZE}
                 </span>
               </div>
               <button
                 onClick={() => setMobileShowDeck(true)}
-                className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition shrink-0"
+                className="px-4 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition shrink-0"
               >
                 View Deck
               </button>
@@ -1210,20 +1210,20 @@ export default function DeckBuilderPage() {
           }}
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-white mb-4">Save Deck</h3>
-            <label className="text-[11px] uppercase tracking-wider text-neutral-500 font-bold">Name</label>
+          <div className="relative bg-surface border border-border-subtle rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-ink mb-4">Save Deck</h3>
+            <label className="text-[11px] uppercase tracking-wider text-ink-faint font-bold">Name</label>
             <input
               type="text"
               value={deckName}
               onChange={(e) => setDeckName(e.target.value)}
               placeholder="Deck name..."
-              className="w-full mt-1 px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/50 transition text-sm"
+              className="w-full mt-1 px-4 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition text-sm"
             />
 
             {signedIn && (
               <>
-                <label className="text-[11px] uppercase tracking-wider text-neutral-500 font-bold mt-4 block">
+                <label className="text-[11px] uppercase tracking-wider text-ink-faint font-bold mt-4 block">
                   Tags <span className="text-neutral-600 normal-case">(comma separated, max 10)</span>
                 </label>
                 <input
@@ -1231,10 +1231,10 @@ export default function DeckBuilderPage() {
                   value={saveTagsRaw}
                   onChange={(e) => setSaveTagsRaw(e.target.value)}
                   placeholder="aggro, budget, tournament-ready"
-                  className="w-full mt-1 px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/50 transition text-sm"
+                  className="w-full mt-1 px-4 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition text-sm"
                 />
 
-                <label className="text-[11px] uppercase tracking-wider text-neutral-500 font-bold mt-4 block">
+                <label className="text-[11px] uppercase tracking-wider text-ink-faint font-bold mt-4 block">
                   Notes <span className="text-neutral-600 normal-case">(optional, 2000 char max)</span>
                 </label>
                 <textarea
@@ -1242,7 +1242,7 @@ export default function DeckBuilderPage() {
                   onChange={(e) => setSaveNotes(e.target.value.slice(0, 2000))}
                   placeholder="Deck guide, mulligan priorities, tech choices..."
                   rows={4}
-                  className="w-full mt-1 px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/50 transition text-sm resize-y"
+                  className="w-full mt-1 px-4 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition text-sm resize-y"
                 />
 
                 <label className="flex items-start gap-3 mt-4 cursor-pointer select-none">
@@ -1253,8 +1253,8 @@ export default function DeckBuilderPage() {
                     className="mt-0.5 w-4 h-4 accent-amber-500"
                   />
                   <div>
-                    <p className="text-sm font-semibold text-white">Publish to community</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">
+                    <p className="text-sm font-semibold text-ink">Publish to community</p>
+                    <p className="text-xs text-ink-faint mt-0.5">
                       Listed at /decks so other players can read and copy it.
                       You can un-publish later by re-saving with this unchecked.
                     </p>
@@ -1264,12 +1264,12 @@ export default function DeckBuilderPage() {
             )}
 
             {!signedIn && (
-              <div className="mt-4 bg-amber-900/20 border border-amber-700/40 text-amber-300 rounded-lg px-3 py-2 text-xs">
+              <div className="mt-4 bg-amber-900/20 border border-amber-700/40 text-accent-strong rounded-lg px-3 py-2 text-xs">
                 Sign in to save to your account, publish publicly, and sync across devices.
               </div>
             )}
 
-            <p className="text-xs text-neutral-500 mt-4">
+            <p className="text-xs text-ink-faint mt-4">
               {totalCards} cards
               {leader ? ` · Leader: ${leader.name}` : ""}
             </p>
@@ -1277,13 +1277,13 @@ export default function DeckBuilderPage() {
             <div className="flex gap-3 mt-5">
               <button
                 onClick={() => setShowSaveModal(false)}
-                className="flex-1 py-2.5 px-4 bg-neutral-800 text-neutral-300 text-sm font-medium rounded-lg hover:bg-neutral-700 transition"
+                className="flex-1 py-2.5 px-4 bg-surface-elevated text-ink-muted text-sm font-medium rounded-lg hover:bg-neutral-700 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={saveDeck}
-                className="flex-1 py-2.5 px-4 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+                className="flex-1 py-2.5 px-4 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition"
               >
                 {saveIsPublic ? "Save & Publish" : "Save"}
               </button>
@@ -1301,10 +1301,10 @@ export default function DeckBuilderPage() {
           }}
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-white mb-4">Load Deck</h3>
+          <div className="relative bg-surface border border-border-subtle rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-ink mb-4">Load Deck</h3>
             {savedDecks.length === 0 ? (
-              <p className="text-sm text-neutral-400 py-4 text-center">
+              <p className="text-sm text-ink-muted py-4 text-center">
                 No saved decks found.
               </p>
             ) : (
@@ -1312,13 +1312,13 @@ export default function DeckBuilderPage() {
                 {savedDecks.map((deck) => (
                   <div
                     key={deck.name}
-                    className="flex items-center justify-between p-3 bg-neutral-800 rounded-lg hover:bg-neutral-750 transition"
+                    className="flex items-center justify-between p-3 bg-surface-elevated rounded-lg hover:bg-neutral-750 transition"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-white truncate">
+                      <p className="text-sm font-medium text-ink truncate">
                         {deck.name}
                       </p>
-                      <p className="text-[11px] text-neutral-500">
+                      <p className="text-[11px] text-ink-faint">
                         {deck.entries.reduce((s, e) => s + e.quantity, 0)} cards
                         &middot;{" "}
                         {deck.leader ? `Leader: ${deck.leader.name}` : "No leader"}
@@ -1329,13 +1329,13 @@ export default function DeckBuilderPage() {
                     <div className="flex gap-1 shrink-0 ml-2">
                       <button
                         onClick={() => loadDeck(deck)}
-                        className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 transition"
+                        className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded hover:bg-accent-strong transition"
                       >
                         Load
                       </button>
                       <button
                         onClick={() => deleteSavedDeck(deck.name)}
-                        className="px-2 py-1.5 bg-neutral-700 text-red-400 text-xs font-bold rounded hover:bg-red-500/20 transition"
+                        className="px-2 py-1.5 bg-neutral-700 text-red-400 text-xs font-bold rounded hover:bg-danger/20 transition"
                       >
                         x
                       </button>
@@ -1346,7 +1346,7 @@ export default function DeckBuilderPage() {
             )}
             <button
               onClick={() => setShowLoadModal(false)}
-              className="w-full mt-4 py-2.5 bg-neutral-800 text-neutral-300 text-sm font-medium rounded-lg hover:bg-neutral-700 transition"
+              className="w-full mt-4 py-2.5 bg-surface-elevated text-ink-muted text-sm font-medium rounded-lg hover:bg-neutral-700 transition"
             >
               Close
             </button>

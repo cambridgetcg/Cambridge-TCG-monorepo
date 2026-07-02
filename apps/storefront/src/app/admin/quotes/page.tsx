@@ -70,14 +70,14 @@ interface ItemPriceState {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-500/20 text-amber-400",
+  pending: "bg-accent/20 text-accent-strong",
   quoted: "bg-blue-500/20 text-blue-400",
-  accepted: "bg-emerald-500/20 text-emerald-400",
+  accepted: "bg-emerald-500/20 text-secondary",
   received: "bg-blue-500/20 text-blue-400",
   paid: "bg-green-500/20 text-green-400",
-  declined: "bg-red-500/20 text-red-400",
-  expired: "bg-neutral-500/20 text-neutral-400",
-  cancelled: "bg-neutral-500/20 text-neutral-400",
+  declined: "bg-danger/20 text-red-400",
+  expired: "bg-neutral-500/20 text-ink-muted",
+  cancelled: "bg-neutral-500/20 text-ink-muted",
 };
 
 // Valid admin-driven transitions per status (API enforces these too).
@@ -297,7 +297,7 @@ export default function AdminQuotesPage() {
         <button
           onClick={fetchQuotes}
           disabled={loading}
-          className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+          className="px-4 py-2 bg-surface-elevated text-ink text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
           {loading ? "Loading..." : "Refresh"}
         </button>
@@ -306,27 +306,27 @@ export default function AdminQuotesPage() {
       <Audience kind="operator" />
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Total</p>
-            <p className="text-2xl font-bold text-white mt-1">{total}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Total</p>
+            <p className="text-2xl font-bold text-ink mt-1">{total}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Pending Review</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{pendingCount}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Pending Review</p>
+            <p className="text-2xl font-bold text-accent-strong mt-1">{pendingCount}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Quoted</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Quoted</p>
             <p className="text-2xl font-bold text-blue-400 mt-1">{quotedCount}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Accepted</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{acceptedCount}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Accepted</p>
+            <p className="text-2xl font-bold text-secondary mt-1">{acceptedCount}</p>
           </div>
         </div>
 
         {/* Quotes list */}
         {quotes.length === 0 && !loading && (
-          <p className="text-neutral-500 text-center py-12">No quote requests yet.</p>
+          <p className="text-ink-faint text-center py-12">No quote requests yet.</p>
         )}
 
         <div className="space-y-3">
@@ -338,31 +338,31 @@ export default function AdminQuotesPage() {
             const isQuoted = q.status === "quoted";
 
             return (
-              <div key={q.reference} className="bg-neutral-900 rounded-xl overflow-hidden">
+              <div key={q.reference} className="bg-surface rounded-xl overflow-hidden">
                 {/* Row */}
                 <button
                   onClick={() => handleExpand(q.reference)}
-                  className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-neutral-800/50 transition"
+                  className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-surface-elevated/50 transition"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-sm font-mono font-bold text-amber-400">{q.reference}</span>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[q.status] || "bg-neutral-700 text-neutral-300"}`}>
+                      <span className="text-sm font-mono font-bold text-accent-strong">{q.reference}</span>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[q.status] || "bg-neutral-700 text-ink-muted"}`}>
                         {q.status}
                       </span>
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs text-ink-faint">
                         {itemCount} item{itemCount !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    <p className="text-sm text-neutral-300 mt-1">{q.customer_name} — {q.customer_email}</p>
+                    <p className="text-sm text-ink-muted mt-1">{q.customer_name} — {q.customer_email}</p>
                   </div>
                   <div className="text-right shrink-0">
                     {q.quoted_total && (
-                      <p className="text-sm font-bold text-white">
+                      <p className="text-sm font-bold text-ink">
                         {formatPrice(parseFloat(q.quoted_total))}
                       </p>
                     )}
-                    <p className="text-xs text-neutral-500">
+                    <p className="text-xs text-ink-faint">
                       {new Date(q.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                   </div>
@@ -371,9 +371,9 @@ export default function AdminQuotesPage() {
 
                 {/* Expanded detail */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 border-t border-neutral-800">
+                  <div className="px-4 pb-4 border-t border-border-subtle">
                     {detailLoading === q.reference && (
-                      <p className="text-neutral-500 text-sm py-4">Loading...</p>
+                      <p className="text-ink-faint text-sm py-4">Loading...</p>
                     )}
 
                     {d && (
@@ -381,20 +381,20 @@ export default function AdminQuotesPage() {
                         {/* Customer details */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 mb-4 text-sm">
                           <div>
-                            <span className="text-neutral-500">Phone</span>
-                            <p className="text-white">{d.request.customer_phone || "\u2014"}</p>
+                            <span className="text-ink-faint">Phone</span>
+                            <p className="text-ink">{d.request.customer_phone || "\u2014"}</p>
                           </div>
                           <div>
-                            <span className="text-neutral-500">Payment</span>
-                            <p className="text-white">{d.request.payment_method === "cash" ? "Cash" : "Credit"}</p>
+                            <span className="text-ink-faint">Payment</span>
+                            <p className="text-ink">{d.request.payment_method === "cash" ? "Cash" : "Credit"}</p>
                           </div>
                           <div>
-                            <span className="text-neutral-500">Delivery</span>
-                            <p className="text-white">{d.request.delivery_method === "mail" ? "Mail" : "In-store"}</p>
+                            <span className="text-ink-faint">Delivery</span>
+                            <p className="text-ink">{d.request.delivery_method === "mail" ? "Mail" : "In-store"}</p>
                           </div>
                           <div>
-                            <span className="text-neutral-500">Expires</span>
-                            <p className="text-white">
+                            <span className="text-ink-faint">Expires</span>
+                            <p className="text-ink">
                               {d.request.offer_expires_at
                                 ? new Date(d.request.offer_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
                                 : "\u2014"}
@@ -404,8 +404,8 @@ export default function AdminQuotesPage() {
 
                         {d.request.notes && (
                           <div className="mb-4">
-                            <span className="text-xs text-neutral-500">Customer Notes</span>
-                            <p className="text-sm text-neutral-300 mt-1">{d.request.notes}</p>
+                            <span className="text-xs text-ink-faint">Customer Notes</span>
+                            <p className="text-sm text-ink-muted mt-1">{d.request.notes}</p>
                           </div>
                         )}
 
@@ -415,7 +415,7 @@ export default function AdminQuotesPage() {
                             const priceState = prices?.find((p) => p.id === item.id);
 
                             return (
-                              <div key={item.id} className="border border-neutral-800 rounded-lg p-3">
+                              <div key={item.id} className="border border-border-subtle rounded-lg p-3">
                                 <div className="flex items-start gap-3">
                                   {/* Images */}
                                   {item.images && item.images.length > 0 && (
@@ -431,7 +431,7 @@ export default function AdminQuotesPage() {
                                           <img
                                             src={img.url}
                                             alt="Card photo"
-                                            className="w-16 h-16 object-cover rounded-lg border border-neutral-700"
+                                            className="w-16 h-16 object-cover rounded-lg border border-border-strong"
                                           />
                                         </a>
                                       ))}
@@ -440,19 +440,19 @@ export default function AdminQuotesPage() {
 
                                   {/* Item info */}
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-white">{item.description}</p>
+                                    <p className="text-sm font-medium text-ink">{item.description}</p>
                                     <div className="flex items-center gap-3 mt-1 flex-wrap">
                                       {item.game && (
-                                        <span className="text-xs text-neutral-400">{item.game}</span>
+                                        <span className="text-xs text-ink-muted">{item.game}</span>
                                       )}
                                       {item.set_name && (
-                                        <span className="text-xs text-neutral-400">{item.set_name}</span>
+                                        <span className="text-xs text-ink-muted">{item.set_name}</span>
                                       )}
-                                      <span className="text-xs text-neutral-400">{item.condition}</span>
-                                      <span className="text-xs text-neutral-500">Qty: {item.quantity}</span>
+                                      <span className="text-xs text-ink-muted">{item.condition}</span>
+                                      <span className="text-xs text-ink-faint">Qty: {item.quantity}</span>
                                     </div>
                                     {item.customer_notes && (
-                                      <p className="text-xs text-neutral-500 mt-1">{item.customer_notes}</p>
+                                      <p className="text-xs text-ink-faint mt-1">{item.customer_notes}</p>
                                     )}
                                   </div>
 
@@ -460,7 +460,7 @@ export default function AdminQuotesPage() {
                                   <div className="shrink-0 text-right">
                                     {isPending && priceState ? (
                                       <div className="flex items-center gap-2">
-                                        <label className="flex items-center gap-1 text-xs text-neutral-400">
+                                        <label className="flex items-center gap-1 text-xs text-ink-muted">
                                           <input
                                             type="checkbox"
                                             checked={priceState.rejected}
@@ -470,7 +470,7 @@ export default function AdminQuotesPage() {
                                           Reject
                                         </label>
                                         <div className="relative">
-                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">£</span>
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint text-sm">£</span>
                                           <input
                                             type="number"
                                             step="0.01"
@@ -479,7 +479,7 @@ export default function AdminQuotesPage() {
                                             value={priceState.offered_price}
                                             onChange={(e) => updateItemPrice(q.reference, item.id, "offered_price", e.target.value)}
                                             disabled={priceState.rejected}
-                                            className="w-24 pl-6 pr-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-30"
+                                            className="w-24 pl-6 pr-2 py-1.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm text-right focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-30"
                                           />
                                         </div>
                                       </div>
@@ -488,11 +488,11 @@ export default function AdminQuotesPage() {
                                         {item.rejected ? (
                                           <span className="text-xs text-red-400 font-medium">Rejected</span>
                                         ) : item.offered_price ? (
-                                          <span className="text-sm font-bold text-white">
+                                          <span className="text-sm font-bold text-ink">
                                             {formatPrice(parseFloat(item.offered_price) * item.quantity)}
                                           </span>
                                         ) : (
-                                          <span className="text-xs text-neutral-500">{"\u2014"}</span>
+                                          <span className="text-xs text-ink-faint">{"\u2014"}</span>
                                         )}
                                       </div>
                                     )}
@@ -508,7 +508,7 @@ export default function AdminQuotesPage() {
                           <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-blue-400">Offer sent — awaiting customer response</span>
-                              <span className="text-lg font-bold text-white">{formatPrice(parseFloat(d.request.quoted_total))}</span>
+                              <span className="text-lg font-bold text-ink">{formatPrice(parseFloat(d.request.quoted_total))}</span>
                             </div>
                           </div>
                         )}
@@ -516,22 +516,22 @@ export default function AdminQuotesPage() {
                         {d.request.status === "accepted" && d.request.quoted_total && (
                           <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-emerald-400">Customer accepted</span>
-                              <span className="text-lg font-bold text-white">{formatPrice(parseFloat(d.request.quoted_total))}</span>
+                              <span className="text-sm text-secondary">Customer accepted</span>
+                              <span className="text-lg font-bold text-ink">{formatPrice(parseFloat(d.request.quoted_total))}</span>
                             </div>
                           </div>
                         )}
 
                         {d.request.status === "declined" && (
-                          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                          <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-lg">
                             <span className="text-sm text-red-400">Customer declined the offer</span>
                           </div>
                         )}
 
                         {d.request.admin_notes && !isPending && (
                           <div className="mb-4">
-                            <span className="text-xs text-neutral-500">Admin Notes</span>
-                            <p className="text-sm text-neutral-300 mt-1">{d.request.admin_notes}</p>
+                            <span className="text-xs text-ink-faint">Admin Notes</span>
+                            <p className="text-sm text-ink-muted mt-1">{d.request.admin_notes}</p>
                           </div>
                         )}
 
@@ -539,27 +539,27 @@ export default function AdminQuotesPage() {
                         {isPending && (
                           <>
                             <div className="mb-4">
-                              <label className="text-xs text-neutral-500 block mb-1">Admin Notes</label>
+                              <label className="text-xs text-ink-faint block mb-1">Admin Notes</label>
                               <textarea
                                 value={adminNotes[q.reference] || ""}
                                 onChange={(e) => setAdminNotes((prev) => ({ ...prev, [q.reference]: e.target.value }))}
                                 placeholder="Internal notes or message to customer..."
                                 rows={2}
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                                className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
                               />
                             </div>
                             <div className="flex items-center gap-3">
                               <button
                                 onClick={() => handleSendOffer(q.reference)}
                                 disabled={submitting === q.reference}
-                                className="px-4 py-2 bg-amber-500 text-black font-bold text-sm rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+                                className="px-4 py-2 bg-accent text-black font-bold text-sm rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
                               >
                                 {submitting === q.reference ? "Sending..." : "Send Offer"}
                               </button>
                               <button
                                 onClick={() => handleCancel(q.reference)}
                                 disabled={submitting === q.reference}
-                                className="px-4 py-2 bg-neutral-800 text-neutral-300 text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+                                className="px-4 py-2 bg-surface-elevated text-ink-muted text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
                               >
                                 Cancel Request
                               </button>
@@ -573,7 +573,7 @@ export default function AdminQuotesPage() {
                             <button
                               onClick={() => handleCancel(q.reference)}
                               disabled={submitting === q.reference}
-                              className="px-4 py-2 bg-neutral-800 text-neutral-300 text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+                              className="px-4 py-2 bg-surface-elevated text-ink-muted text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
                             >
                               Cancel Request
                             </button>
@@ -586,7 +586,7 @@ export default function AdminQuotesPage() {
                         {/* Valid lifecycle transitions post-accept */}
                         {(TRANSITIONS[d.request.status] ?? []).length > 0 && (
                           <div className="flex items-center gap-2 flex-wrap mt-4">
-                            <span className="text-xs text-neutral-500">Advance to:</span>
+                            <span className="text-xs text-ink-faint">Advance to:</span>
                             {(TRANSITIONS[d.request.status] ?? []).map((st) => {
                               const isDanger = st === "cancelled";
                               const isPay = st === "paid";
@@ -595,7 +595,7 @@ export default function AdminQuotesPage() {
                                 ? "bg-emerald-500 hover:bg-emerald-400 text-black"
                                 : isDanger
                                   ? "bg-red-900/40 hover:bg-red-900/60 text-red-300 border border-red-800"
-                                  : "bg-amber-500 hover:bg-amber-400 text-black";
+                                  : "bg-accent hover:bg-accent-strong text-black";
                               return (
                                 <button
                                   key={st}
@@ -638,7 +638,7 @@ export default function AdminQuotesPage() {
 function QuoteTimeline({ request }: { request: QuoteRequest }) {
   if (!["accepted", "received", "paid"].includes(request.status)) return null;
   return (
-    <div className="mt-4 bg-neutral-900/40 border border-neutral-800 rounded-xl p-3">
+    <div className="mt-4 bg-surface/40 border border-border-subtle rounded-xl p-3">
       <div className="flex items-center gap-2 overflow-x-auto">
         {TIMELINE_STEPS.map((step, i) => {
           const ts = request[step.tsField] as string | null | undefined;
@@ -646,23 +646,23 @@ function QuoteTimeline({ request }: { request: QuoteRequest }) {
           const isCurrent = done && !TIMELINE_STEPS.slice(i + 1).some((s) => request[s.tsField]);
           return (
             <div key={step.key} className="flex items-center gap-2 flex-1 min-w-0">
-              <div className={`flex flex-col items-center gap-1 min-w-0 ${done ? "text-white" : "text-neutral-600"}`}>
+              <div className={`flex flex-col items-center gap-1 min-w-0 ${done ? "text-ink" : "text-neutral-600"}`}>
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ring-2 ${
                   done
-                    ? isCurrent ? "bg-amber-500 text-black ring-amber-500/30" : "bg-emerald-500 text-black ring-emerald-500/20"
-                    : "bg-neutral-800 text-neutral-600 ring-neutral-700"
+                    ? isCurrent ? "bg-accent text-black ring-accent/30" : "bg-emerald-500 text-black ring-emerald-500/20"
+                    : "bg-surface-elevated text-neutral-600 ring-neutral-700"
                 }`}>
                   {done ? "✓" : i + 1}
                 </div>
                 <div className="text-[10px] whitespace-nowrap">{step.label}</div>
                 {ts && (
-                  <div className="text-[9px] text-neutral-500 font-mono whitespace-nowrap">
+                  <div className="text-[9px] text-ink-faint font-mono whitespace-nowrap">
                     {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </div>
                 )}
               </div>
               {i < TIMELINE_STEPS.length - 1 && (
-                <div className={`h-px flex-1 ${done ? "bg-emerald-500/40" : "bg-neutral-800"}`} />
+                <div className={`h-px flex-1 ${done ? "bg-emerald-500/40" : "bg-surface-elevated"}`} />
               )}
             </div>
           );
@@ -686,8 +686,8 @@ function QuotePayoutBadges({ request }: { request: QuoteRequest }) {
       {hasCredit && (
         <span className={`px-2 py-1 rounded-full border ${
           creditIssued
-            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-            : "bg-neutral-800 border-neutral-700 text-neutral-500"
+            ? "bg-emerald-500/10 border-emerald-500/30 text-secondary"
+            : "bg-surface-elevated border-border-strong text-ink-faint"
         }`}>
           Credit: {creditIssued
             ? `issued ${new Date(request.credit_issued_at!).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
@@ -697,8 +697,8 @@ function QuotePayoutBadges({ request }: { request: QuoteRequest }) {
       {hasCash && (
         <span className={`px-2 py-1 rounded-full border ${
           cashPaid
-            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-            : "bg-neutral-800 border-neutral-700 text-neutral-500"
+            ? "bg-emerald-500/10 border-emerald-500/30 text-secondary"
+            : "bg-surface-elevated border-border-strong text-ink-faint"
         }`}>
           Cash: {cashPaid
             ? request.stripe_transfer_id

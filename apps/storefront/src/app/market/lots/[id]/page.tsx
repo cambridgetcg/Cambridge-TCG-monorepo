@@ -140,7 +140,7 @@ export default function LotDetailPage() {
 
           <div className="mt-6 mb-3">
             {!loggedIn ? (
-              <Link href="/login" className="inline-block px-5 py-3 bg-accent text-white font-bold rounded-lg hover:bg-accent-strong transition">
+              <Link href="/login" className="inline-block px-5 py-3 bg-accent text-ink font-bold rounded-lg hover:bg-accent-strong transition">
                 Sign in to buy
               </Link>
             ) : lot.status === "sold" ? (
@@ -151,7 +151,7 @@ export default function LotDetailPage() {
               <button
                 onClick={handleBuy}
                 disabled={buying || !canBuy}
-                className="px-5 py-3 bg-accent text-white font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
+                className="px-5 py-3 bg-accent text-ink font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
               >
                 {buying ? "Starting..." : <>Buy lot for <span className="font-mono tabular-nums"><Money value={price} /></span></>}
               </button>

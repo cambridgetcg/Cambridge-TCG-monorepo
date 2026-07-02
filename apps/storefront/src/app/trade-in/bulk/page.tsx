@@ -67,62 +67,62 @@ export default function BulkTradeInPage() {
     }
   }
 
-  const inputClass = "w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50";
+  const inputClass = "w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50";
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <Link href="/trade-in" className="text-sm text-neutral-400 hover:text-white transition mb-6 inline-block">
+        <Link href="/trade-in" className="text-sm text-ink-muted hover:text-ink transition mb-6 inline-block">
           &larr; Back to trade-in
         </Link>
 
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-ink mb-2">
           Bulk Card Trade-In
         </h1>
-        <p className="text-neutral-400 mb-8">
+        <p className="text-ink-muted mb-8">
           Got stacks of commons, uncommons, and rares? We buy them all. No sorting needed — just count and send.
         </p>
 
         {/* How it works */}
         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-5 mb-8">
-          <h3 className="text-sm font-bold text-white mb-4">How Bulk Trade-In Works</h3>
+          <h3 className="text-sm font-bold text-ink mb-4">How Bulk Trade-In Works</h3>
 
           <div className="space-y-4 text-sm">
             <div className="flex items-start gap-3">
-              <span className="shrink-0 w-14 text-right font-bold text-emerald-400">2p</span>
-              <p className="text-neutral-300">
-                <span className="text-white font-semibold">Fixed rate for every C, UC, and R card.</span> No need to look up individual prices. Just count your cards and send them in.
+              <span className="shrink-0 w-14 text-right font-bold text-secondary">2p</span>
+              <p className="text-ink-muted">
+                <span className="text-ink font-semibold">Fixed rate for every C, UC, and R card.</span> No need to look up individual prices. Just count your cards and send them in.
               </p>
             </div>
 
             <div className="flex items-start gap-3">
-              <span className="shrink-0 w-14 text-right font-bold text-amber-400">85%</span>
-              <p className="text-neutral-300">
-                <span className="text-white font-semibold">If we find something valuable in your bulk, we pay 85% of market value</span> instead of the 2p rate. The value of C/UC/R cards varies hugely — some &quot;rare&quot; cards are worth £50+. We check every card and pay you fairly for any gems.
+              <span className="shrink-0 w-14 text-right font-bold text-accent-strong">85%</span>
+              <p className="text-ink-muted">
+                <span className="text-ink font-semibold">If we find something valuable in your bulk, we pay 85% of market value</span> instead of the 2p rate. The value of C/UC/R cards varies hugely — some &quot;rare&quot; cards are worth £50+. We check every card and pay you fairly for any gems.
               </p>
             </div>
 
             <div className="flex items-start gap-3">
               <span className="shrink-0 w-14 text-right font-bold text-purple-400">Credit</span>
-              <p className="text-neutral-300">
-                Paid in <span className="text-white font-semibold">store credit</span>. Use it to buy cards you actually want from our shop. Bulk + credit = the best way to turn unused cards into cards you love.
+              <p className="text-ink-muted">
+                Paid in <span className="text-ink font-semibold">store credit</span>. Use it to buy cards you actually want from our shop. Bulk + credit = the best way to turn unused cards into cards you love.
               </p>
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-emerald-500/10">
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-ink-faint">
               This service is designed for non-players and casual collectors who want to clear out bulk without going through every card. We do the sorting for you. Minimum 50 cards.
             </p>
           </div>
         </div>
 
         {/* Calculator */}
-        <div className="bg-neutral-900 rounded-xl p-5 mb-8">
-          <h3 className="text-sm font-bold text-white mb-4">Quick Calculator</h3>
+        <div className="bg-surface rounded-xl p-5 mb-8">
+          <h3 className="text-sm font-bold text-ink mb-4">Quick Calculator</h3>
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <label className="block text-xs text-neutral-400 mb-1">Number of cards</label>
+              <label className="block text-xs text-ink-muted mb-1">Number of cards</label>
               <input
                 type="number"
                 placeholder="e.g. 500"
@@ -133,66 +133,66 @@ export default function BulkTradeInPage() {
               />
             </div>
             <div className="text-center pt-5">
-              <span className="text-neutral-500">=</span>
+              <span className="text-ink-faint">=</span>
             </div>
             <div className="flex-1 text-center pt-5">
-              <p className="text-2xl font-bold text-emerald-400">{formatPrice(baseTotal)}</p>
-              <p className="text-xs text-neutral-500">base value (+ bonuses for gems)</p>
+              <p className="text-2xl font-bold text-secondary">{formatPrice(baseTotal)}</p>
+              <p className="text-xs text-ink-faint">base value (+ bonuses for gems)</p>
             </div>
           </div>
           {count > 0 && count < 50 && (
-            <p className="text-xs text-amber-400 mt-2">Minimum 50 cards for bulk trade-in.</p>
+            <p className="text-xs text-accent-strong mt-2">Minimum 50 cards for bulk trade-in.</p>
           )}
         </div>
 
         {/* Example value tiers */}
-        <div className="bg-neutral-900 rounded-xl p-5 mb-8">
-          <h3 className="text-sm font-bold text-white mb-3">Example Payouts</h3>
+        <div className="bg-surface rounded-xl p-5 mb-8">
+          <h3 className="text-sm font-bold text-ink mb-3">Example Payouts</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-neutral-500 text-xs uppercase tracking-wide border-b border-neutral-800">
+                <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
                   <th className="text-left py-2">Cards</th>
                   <th className="text-right py-2">Base (2p each)</th>
                   <th className="text-right py-2">If 5 gems found</th>
                 </tr>
               </thead>
-              <tbody className="text-neutral-300">
-                <tr className="border-b border-neutral-800">
+              <tbody className="text-ink-muted">
+                <tr className="border-b border-border-subtle">
                   <td className="py-2">100 cards</td>
-                  <td className="text-right text-emerald-400">£2.00</td>
-                  <td className="text-right text-amber-400">£2.00 + gems bonus</td>
+                  <td className="text-right text-secondary">£2.00</td>
+                  <td className="text-right text-accent-strong">£2.00 + gems bonus</td>
                 </tr>
-                <tr className="border-b border-neutral-800">
+                <tr className="border-b border-border-subtle">
                   <td className="py-2">500 cards</td>
-                  <td className="text-right text-emerald-400">£10.00</td>
-                  <td className="text-right text-amber-400">£10.00 + gems bonus</td>
+                  <td className="text-right text-secondary">£10.00</td>
+                  <td className="text-right text-accent-strong">£10.00 + gems bonus</td>
                 </tr>
-                <tr className="border-b border-neutral-800">
+                <tr className="border-b border-border-subtle">
                   <td className="py-2">1,000 cards</td>
-                  <td className="text-right text-emerald-400">£20.00</td>
-                  <td className="text-right text-amber-400">£20.00 + gems bonus</td>
+                  <td className="text-right text-secondary">£20.00</td>
+                  <td className="text-right text-accent-strong">£20.00 + gems bonus</td>
                 </tr>
                 <tr>
                   <td className="py-2">5,000 cards</td>
-                  <td className="text-right text-emerald-400">£100.00</td>
-                  <td className="text-right text-amber-400">£100.00 + gems bonus</td>
+                  <td className="text-right text-secondary">£100.00</td>
+                  <td className="text-right text-accent-strong">£100.00 + gems bonus</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-neutral-500 mt-3">
+          <p className="text-xs text-ink-faint mt-3">
             &quot;Gems&quot; are cards worth significantly more than 2p — alt art rares, valuable uncommons, tournament staples. We pay 85% of market value for these, credited separately on top of the base payout.
           </p>
         </div>
 
         {/* Form */}
         <div className="space-y-6">
-          <hr className="border-neutral-800" />
+          <hr className="border-border-subtle" />
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1">Game</label>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Game</label>
               <select value={game} onChange={(e) => setGame(e.target.value)} className={inputClass}>
                 <option value="one-piece">One Piece</option>
                 <option value="pokemon">Pokémon</option>
@@ -203,29 +203,29 @@ export default function BulkTradeInPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1">Delivery</label>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Delivery</label>
               <div className="flex gap-3">
-                <label className={`flex-1 cursor-pointer rounded-lg border-2 p-3 text-center transition ${deliveryMethod === "mail" ? "border-emerald-500 bg-emerald-500/10" : "border-neutral-700 hover:border-neutral-600"}`}>
+                <label className={`flex-1 cursor-pointer rounded-lg border-2 p-3 text-center transition ${deliveryMethod === "mail" ? "border-emerald-500 bg-emerald-500/10" : "border-border-strong hover:border-neutral-600"}`}>
                   <input type="radio" name="delivery" value="mail" checked={deliveryMethod === "mail"} onChange={() => setDeliveryMethod("mail")} className="sr-only" />
-                  <p className="text-sm font-bold text-white">Mail-in</p>
+                  <p className="text-sm font-bold text-ink">Mail-in</p>
                 </label>
-                <label className={`flex-1 cursor-pointer rounded-lg border-2 p-3 text-center transition ${deliveryMethod === "instore" ? "border-emerald-500 bg-emerald-500/10" : "border-neutral-700 hover:border-neutral-600"}`}>
+                <label className={`flex-1 cursor-pointer rounded-lg border-2 p-3 text-center transition ${deliveryMethod === "instore" ? "border-emerald-500 bg-emerald-500/10" : "border-border-strong hover:border-neutral-600"}`}>
                   <input type="radio" name="delivery" value="instore" checked={deliveryMethod === "instore"} onChange={() => setDeliveryMethod("instore")} className="sr-only" />
-                  <p className="text-sm font-bold text-white">In-store</p>
+                  <p className="text-sm font-bold text-ink">In-store</p>
                 </label>
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-white">Your Details</h3>
+            <h3 className="text-sm font-bold text-ink">Your Details</h3>
             <input type="text" placeholder="Full name *" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
             <input type="email" placeholder="Email address *" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
             <input type="tel" placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-white mb-2">Notes (optional)</label>
+            <label className="block text-sm font-bold text-ink mb-2">Notes (optional)</label>
             <textarea
               placeholder="Anything else we should know — sets included, storage method, etc."
               value={notes}
@@ -236,7 +236,7 @@ export default function BulkTradeInPage() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3">{error}</p>
+            <p className="text-sm text-red-400 bg-danger/10 rounded-lg px-4 py-3">{error}</p>
           )}
 
           <button
@@ -247,11 +247,11 @@ export default function BulkTradeInPage() {
             {submitting ? "Submitting..." : count >= 50 ? `Submit ${count.toLocaleString()} Cards — Base Value ${formatPrice(baseTotal)}` : "Enter at least 50 cards"}
           </button>
 
-          <p className="text-xs text-neutral-500 text-center">
+          <p className="text-xs text-ink-faint text-center">
             After submission, we&apos;ll confirm your details and provide shipping instructions.
             Final payout may be higher than the base value if valuable cards are found.
             By submitting you agree to our{" "}
-            <Link href="/trade-in/terms" className="text-amber-400 hover:underline">trade-in terms</Link>.
+            <Link href="/trade-in/terms" className="text-accent-strong hover:underline">trade-in terms</Link>.
           </p>
         </div>
       </div>

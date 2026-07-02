@@ -73,10 +73,10 @@ export default async function ChannelPricingPage() {
       header: "Channel",
       render: (r) => (
         <div>
-          <div className="text-sm font-medium text-white">{r.label}</div>
-          <div className="text-xs text-neutral-500 font-mono">{r.channel}</div>
+          <div className="text-sm font-medium text-ink">{r.label}</div>
+          <div className="text-xs text-ink-faint font-mono">{r.channel}</div>
           {r.description && (
-            <div className="text-xs text-neutral-400 mt-1">{r.description}</div>
+            <div className="text-xs text-ink-muted mt-1">{r.description}</div>
           )}
         </div>
       ),
@@ -105,8 +105,8 @@ export default async function ChannelPricingPage() {
         <span
           className={
             r.active
-              ? "text-emerald-400 text-xs uppercase tracking-wider"
-              : "text-neutral-500 text-xs uppercase tracking-wider"
+              ? "text-secondary text-xs uppercase tracking-wider"
+              : "text-ink-faint text-xs uppercase tracking-wider"
           }
         >
           {r.active ? "yes" : "no"}
@@ -119,7 +119,7 @@ export default async function ChannelPricingPage() {
       align: "right",
       render: (r) =>
         r.updated_at ? (
-          <span className="text-xs text-neutral-400" title={r.updated_at}>
+          <span className="text-xs text-ink-muted" title={r.updated_at}>
             {fmtRelative(r.updated_at)}
           </span>
         ) : (
@@ -153,19 +153,19 @@ export default async function ChannelPricingPage() {
         />
       </section>
 
-      <section className="text-xs text-neutral-500 space-y-2 border-t border-neutral-800 pt-6">
+      <section className="text-xs text-ink-faint space-y-2 border-t border-border-subtle pt-6">
         <p>
-          Formula: <code className="text-neutral-300">price = round((base × margin + flatFee) × retail × VAT, roundTo)</code>
+          Formula: <code className="text-ink-muted">price = round((base × margin + flatFee) × retail × VAT, roundTo)</code>
         </p>
         <p>
-          Source code: <code className="text-neutral-300">packages/pricing/src/index.ts</code>.
-          Plan: <code className="text-neutral-300">docs/pricing-current-state.md</code>.
-          Connection: <code className="text-neutral-300">docs/connections/the-pricing-arrow.md</code> (S17).
+          Source code: <code className="text-ink-muted">packages/pricing/src/index.ts</code>.
+          Plan: <code className="text-ink-muted">docs/pricing-current-state.md</code>.
+          Connection: <code className="text-ink-muted">docs/connections/the-pricing-arrow.md</code> (S17).
         </p>
         <p>
           Phase 3 of kingdom-049: silent fallback to JS DEFAULTS removed.
           Missing channels and partial rows now throw. Run the seed
-          migration <code className="text-neutral-300">0010_seed_channel_pricing.sql</code> on every wholesale RDS instance before deploying changes that depend on a new channel.
+          migration <code className="text-ink-muted">0010_seed_channel_pricing.sql</code> on every wholesale RDS instance before deploying changes that depend on a new channel.
         </p>
       </section>
     </div>

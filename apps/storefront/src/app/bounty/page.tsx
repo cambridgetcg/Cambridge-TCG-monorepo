@@ -259,25 +259,25 @@ export default function BountyBoard() {
   const totalTokens = Object.values(tokens).reduce((s, n) => s + n, 0);
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-neutral-800">
+      <section className="relative overflow-hidden border-b border-border-subtle">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-900/20 via-neutral-950 to-fuchsia-900/10" />
         <div className="relative mx-auto max-w-5xl px-4 py-12 sm:py-16">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2">
-                Bounty <span className="text-amber-400">Board</span>
+                Bounty <span className="text-accent-strong">Board</span>
               </h1>
-              <p className="text-neutral-400 max-w-xl">
+              <p className="text-ink-muted max-w-xl">
                 Win phygital cards in Adventure Mode. Keep them in your Vault, sell back for store credit, or redeem for a physical copy shipped to you.
               </p>
             </div>
             <div className="flex gap-3">
-              <Link href="/play/adventure" className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-5 py-2.5 text-sm transition-colors">
+              <Link href="/play/adventure" className="bg-accent hover:bg-accent-strong text-black font-bold rounded-lg px-5 py-2.5 text-sm transition-colors">
                 Play Adventure
               </Link>
-              <Link href="/account" className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-5 py-2.5 text-sm transition-colors">
+              <Link href="/account" className="bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded-lg px-5 py-2.5 text-sm transition-colors">
                 Account
               </Link>
             </div>
@@ -295,7 +295,7 @@ export default function BountyBoard() {
 
         {loading ? (
           <div className="py-16 text-center">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
         ) : authError ? (
           /* Signed-out view — the board explained in three steps, the same
@@ -303,30 +303,30 @@ export default function BountyBoard() {
              sell back. The door in is /login. */
           <section className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-                <p className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-2">1 · Earn pull tokens</p>
-                <p className="text-sm text-neutral-300">
+              <div className="bg-surface border border-border-subtle rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-accent-strong font-semibold mb-2">1 · Earn pull tokens</p>
+                <p className="text-sm text-ink-muted">
                   Clear Adventure Mode levels to earn milestone pulls, from Common up to Legendary. Spare tokens can be merged up a tier.
                 </p>
               </div>
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-                <p className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-2">2 · Open into your Vault</p>
-                <p className="text-sm text-neutral-300">
+              <div className="bg-surface border border-border-subtle rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-accent-strong font-semibold mb-2">2 · Open into your Vault</p>
+                <p className="text-sm text-ink-muted">
                   Each pull rolls a real card and reserves it in your Vault — every roll comes with a proof you can verify yourself.
                 </p>
               </div>
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-                <p className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-2">3 · Redeem or sell back</p>
-                <p className="text-sm text-neutral-300">
+              <div className="bg-surface border border-border-subtle rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-accent-strong font-semibold mb-2">3 · Redeem or sell back</p>
+                <p className="text-sm text-ink-muted">
                   Have the physical card shipped to you (tracked, usually 2–4 business days), or sell it back for store credit at {Math.round(TRADEIN_CREDIT_MULT * 100)}% of its spot price.
                 </p>
               </div>
             </div>
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center">
-              <p className="text-neutral-400 text-sm mb-4">Sign in to see your pull tokens and Vault.</p>
+            <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center">
+              <p className="text-ink-muted text-sm mb-4">Sign in to see your pull tokens and Vault.</p>
               <Link
                 href="/login"
-                className="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-2.5 text-sm transition-colors"
+                className="inline-block bg-accent hover:bg-accent-strong text-black font-bold rounded-lg px-6 py-2.5 text-sm transition-colors"
               >
                 Sign In
               </Link>
@@ -337,17 +337,17 @@ export default function BountyBoard() {
         {/* Eligibility gate */}
         {eligibility && !eligibility.eligible && (
           <div className="bg-amber-900/20 border border-amber-700/50 rounded-xl p-5">
-            <h2 className="font-bold text-amber-400 mb-2">Finish setup to open pulls</h2>
-            <p className="text-neutral-300 text-sm mb-4">
+            <h2 className="font-bold text-accent-strong mb-2">Finish setup to open pulls</h2>
+            <p className="text-ink-muted text-sm mb-4">
               Bounty Board needs a verified phone and a prior paid order before you can redeem or resolve pulls.
             </p>
             <ul className="text-sm space-y-1.5 mb-4">
               {eligibility.reasons.includes("phone_not_verified") && (
                 <li className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-400">Verified phone number</span>
+                  <span className="text-ink-muted">Verified phone number</span>
                   <button
                     onClick={() => setShowPhoneModal(true)}
-                    className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold rounded px-3 py-1.5 transition-colors"
+                    className="text-xs bg-accent hover:bg-accent-strong text-black font-bold rounded px-3 py-1.5 transition-colors"
                   >
                     Verify phone
                   </button>
@@ -355,23 +355,23 @@ export default function BountyBoard() {
               )}
               {eligibility.reasons.includes("no_paid_order") && (
                 <li className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-400">At least one paid order</span>
+                  <span className="text-ink-muted">At least one paid order</span>
                   <Link href="/catalog" className="text-xs bg-neutral-700 hover:bg-neutral-600 rounded px-3 py-1.5 transition-colors">
                     Browse catalog
                   </Link>
                 </li>
               )}
             </ul>
-            <p className="text-xs text-neutral-500">Your pull tokens will still accumulate — you just can&apos;t open them yet.</p>
+            <p className="text-xs text-ink-faint">Your pull tokens will still accumulate — you just can&apos;t open them yet.</p>
           </div>
         )}
 
         {/* Pull tokens */}
         <section>
-          <h2 className="text-lg font-bold mb-3">Pull Tokens {totalTokens > 0 && <span className="text-amber-400">· {totalTokens}</span>}</h2>
+          <h2 className="text-lg font-bold mb-3">Pull Tokens {totalTokens > 0 && <span className="text-accent-strong">· {totalTokens}</span>}</h2>
           {totalTokens === 0 ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
-              No tokens yet. Clear <Link href="/play/adventure" className="text-amber-400 hover:underline">Adventure levels</Link> to earn milestone pulls.
+            <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
+              No tokens yet. Clear <Link href="/play/adventure" className="text-accent-strong hover:underline">Adventure levels</Link> to earn milestone pulls.
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">
@@ -384,11 +384,11 @@ export default function BountyBoard() {
                     key={tier}
                     className={`relative rounded-xl p-5 bg-gradient-to-br ${TIER_COLOR[tier]} border border-white/10 overflow-hidden`}
                   >
-                    <div className="absolute -right-4 -bottom-4 text-8xl font-black text-white/5 select-none">
+                    <div className="absolute -right-4 -bottom-4 text-8xl font-black text-ink/5 select-none">
                       {tokens[tier]}
                     </div>
                     <div className="relative">
-                      <p className="text-xs uppercase tracking-wider text-white/60 font-semibold">{TIER_LABEL[tier]} Pull</p>
+                      <p className="text-xs uppercase tracking-wider text-ink/60 font-semibold">{TIER_LABEL[tier]} Pull</p>
                       <p className="text-3xl font-extrabold my-1">×{tokens[tier]}</p>
                       <button
                         onClick={() => handlePull(tier)}
@@ -404,7 +404,7 @@ export default function BountyBoard() {
                           title={canMergeNow
                             ? `Merge ${MERGE_COST} ${TIER_LABEL[tier]} tokens into 1 ${TIER_LABEL[nextTier]}`
                             : `Need ${MERGE_COST} tokens to merge (you have ${tokens[tier]}).`}
-                          className="mt-1.5 w-full bg-black/30 hover:bg-black/50 disabled:opacity-40 text-white/80 text-[11px] font-medium rounded-lg py-1.5 transition-colors"
+                          className="mt-1.5 w-full bg-black/30 hover:bg-black/50 disabled:opacity-40 text-ink/80 text-[11px] font-medium rounded-lg py-1.5 transition-colors"
                         >
                           {canMergeNow
                             ? `⇧ Merge ${MERGE_COST}× → 1 ${TIER_LABEL[nextTier]}`
@@ -430,8 +430,8 @@ export default function BountyBoard() {
                   onClick={() => setFilter(f)}
                   className={`px-3 py-1.5 rounded-lg transition-colors ${
                     filter === f
-                      ? "bg-amber-500 text-black font-bold"
-                      : "bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
+                      ? "bg-accent text-black font-bold"
+                      : "bg-surface-elevated hover:bg-neutral-700 text-ink-muted"
                   }`}
                 >
                   {f === "all" ? "All" : f.replace("_", " ")}
@@ -441,7 +441,7 @@ export default function BountyBoard() {
           </div>
 
           {items.length === 0 ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+            <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
               Nothing here yet. Open a pull to claim a card.
             </div>
           ) : (
@@ -479,26 +479,26 @@ export default function BountyBoard() {
       {/* Phone verify modal */}
       {showPhoneModal && (
         <Modal onClose={() => setShowPhoneModal(false)} title="Verify phone">
-          <p className="text-neutral-400 text-sm mb-3">
+          <p className="text-ink-muted text-sm mb-3">
             Enter your phone number. (MVP: no SMS yet — submission marks verified for now.)
           </p>
           <input
             value={phoneInput}
             onChange={e => setPhoneInput(e.target.value)}
             placeholder="+44 7..."
-            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 mb-3"
+            className="w-full bg-surface-elevated border border-border-strong rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-accent mb-3"
           />
           <div className="flex gap-2">
             <button
               onClick={handleVerifyPhone}
               disabled={busy}
-              className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-lg py-2 text-sm transition-colors"
+              className="flex-1 bg-accent hover:bg-accent-strong disabled:opacity-50 text-black font-bold rounded-lg py-2 text-sm transition-colors"
             >
               {busy ? "Verifying..." : "Verify"}
             </button>
             <button
               onClick={() => setShowPhoneModal(false)}
-              className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-4 py-2 text-sm transition-colors"
+              className="bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded-lg px-4 py-2 text-sm transition-colors"
             >
               Cancel
             </button>
@@ -518,20 +518,20 @@ export default function BountyBoard() {
 
       {/* Bulk-redeem sticky bar */}
       {selectedIds.size > 0 && !showBulkModal && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-neutral-950/95 backdrop-blur border-t border-amber-500/40 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-page/95 backdrop-blur border-t border-accent/40 px-4 py-3 flex items-center justify-between gap-3">
           <div className="text-sm">
-            <span className="font-bold text-amber-400">{selectedIds.size}</span> selected for bundled shipment
+            <span className="font-bold text-accent-strong">{selectedIds.size}</span> selected for bundled shipment
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="text-xs px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg transition-colors"
+              className="text-xs px-3 py-2 bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded-lg transition-colors"
             >
               Clear
             </button>
             <button
               onClick={() => setShowBulkModal(true)}
-              className="text-xs px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg transition-colors"
+              className="text-xs px-4 py-2 bg-accent hover:bg-accent-strong text-black font-bold rounded-lg transition-colors"
             >
               Redeem {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"}
             </button>
@@ -565,34 +565,34 @@ function BulkRedeemModal({
 
   return (
     <Modal onClose={onClose} title={`Bundle ${count} card${count === 1 ? "" : "s"} into one shipment`}>
-      <p className="text-neutral-400 text-sm mb-3">
+      <p className="text-ink-muted text-sm mb-3">
         All selected cards ship together in a single tracked envelope. Usually 2–4 business days.
       </p>
       <input
         value={name}
         onChange={e => setName(e.target.value)}
         placeholder="Recipient name"
-        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 mb-2"
+        className="w-full bg-surface-elevated border border-border-strong rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-accent mb-2"
       />
       <textarea
         value={address}
         onChange={e => setAddress(e.target.value)}
         placeholder="Full shipping address (street, city, postcode, country)"
         rows={3}
-        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 mb-3"
+        className="w-full bg-surface-elevated border border-border-strong rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-accent mb-3"
       />
       <div className="flex gap-2">
         <button
           onClick={() => onSubmit(name.trim(), address.trim())}
           disabled={busy || name.trim().length < 2 || address.trim().length < 10}
-          className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-lg py-2 text-sm transition-colors"
+          className="flex-1 bg-accent hover:bg-accent-strong disabled:opacity-50 text-black font-bold rounded-lg py-2 text-sm transition-colors"
         >
           {busy ? "Submitting..." : `Ship ${count} card${count === 1 ? "" : "s"}`}
         </button>
         <button
           onClick={onClose}
           disabled={busy}
-          className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-4 py-2 text-sm transition-colors"
+          className="bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded-lg px-4 py-2 text-sm transition-colors"
         >
           Cancel
         </button>
@@ -629,15 +629,15 @@ function VaultCard({
   const selectable = item.status === "reserved" && !item.redemption_order_id && !onHold;
 
   return (
-    <div className={`bg-neutral-900 border rounded-xl overflow-hidden transition-colors ${selected ? "border-amber-500" : "border-neutral-800"}`}>
-      <div className="relative aspect-[5/7] bg-neutral-800">
+    <div className={`bg-surface border rounded-xl overflow-hidden transition-colors ${selected ? "border-accent" : "border-border-subtle"}`}>
+      <div className="relative aspect-[5/7] bg-surface-elevated">
         {item.image_url ? (
           <Image src={item.image_url} alt={item.card_name} fill sizes="200px" className="object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">No image</div>
         )}
         {item.status !== "reserved" && (
-          <div className="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wider bg-neutral-900/90 text-neutral-400 px-2 py-0.5 rounded">
+          <div className="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wider bg-surface/90 text-ink-muted px-2 py-0.5 rounded">
             {item.status.replace("_", " ")}
           </div>
         )}
@@ -648,8 +648,8 @@ function VaultCard({
             aria-label={selected ? "Unselect for bulk shipment" : "Select for bulk shipment"}
             className={`absolute top-2 left-2 w-6 h-6 rounded border-2 flex items-center justify-center text-[10px] font-bold transition-colors ${
               selected
-                ? "bg-amber-500 border-amber-500 text-black"
-                : "bg-neutral-900/80 border-neutral-600 hover:border-amber-500"
+                ? "bg-accent border-accent text-black"
+                : "bg-surface/80 border-neutral-600 hover:border-accent"
             }`}
           >
             {selected ? "✓" : ""}
@@ -659,14 +659,14 @@ function VaultCard({
       <div className="p-3 space-y-2">
         <div>
           <p className="font-semibold text-sm truncate">{item.card_name}</p>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             {item.card_number} · {item.rarity} · £{spot.toFixed(2)}
           </p>
         </div>
         {item.status === "reserved" && (
-          <div className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+          <div className="flex items-center gap-1.5 text-[10px] text-ink-faint">
             {item.redemption_order_id ? (
-              <span className="text-amber-400">Redemption requested (#{item.redemption_order_id})</span>
+              <span className="text-accent-strong">Redemption requested (#{item.redemption_order_id})</span>
             ) : (
               <>
                 <span>Expires in {daysLeft}d</span>
@@ -676,7 +676,7 @@ function VaultCard({
           </div>
         )}
         {item.status === "sold_back" && item.sold_back_credit && (
-          <div className="text-[10px] text-emerald-400">
+          <div className="text-[10px] text-secondary">
             Sold back for £{parseFloat(item.sold_back_credit).toFixed(2)} store credit
           </div>
         )}
@@ -685,7 +685,7 @@ function VaultCard({
             <button
               onClick={onSellBack}
               disabled={busy}
-              className="flex-1 text-[11px] bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-2 py-1.5 transition-colors disabled:opacity-50"
+              className="flex-1 text-[11px] bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded px-2 py-1.5 transition-colors disabled:opacity-50"
               title="77% of spot → store credit"
             >
               Sell £{sellBack.toFixed(2)}
@@ -693,7 +693,7 @@ function VaultCard({
             <button
               onClick={onRedeem}
               disabled={busy || onHold}
-              className="flex-1 text-[11px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded px-2 py-1.5 transition-colors disabled:opacity-50"
+              className="flex-1 text-[11px] bg-accent/20 hover:bg-accent/30 text-accent-strong rounded px-2 py-1.5 transition-colors disabled:opacity-50"
               title={onHold ? "In 48h hold period" : "Request a physical shipment"}
             >
               Redeem
@@ -710,30 +710,30 @@ function PullResultModal({ result, onClose }: { result: PullResult; onClose: () 
   return (
     <Modal onClose={onClose} title="">
       <div className="text-center">
-        <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">You rolled</p>
+        <p className="text-xs uppercase tracking-wider text-accent-strong font-bold mb-1">You rolled</p>
         <p className="text-lg font-bold mb-3">{result.rolled_rarity.toUpperCase()}</p>
-        <div className="relative w-48 h-[264px] mx-auto rounded-xl overflow-hidden border-2 border-amber-500/50 shadow-2xl shadow-amber-500/20">
+        <div className="relative w-48 h-[264px] mx-auto rounded-xl overflow-hidden border-2 border-accent/50 shadow-2xl shadow-amber-500/20">
           {v.image_url ? (
             <Image src={v.image_url} alt={v.card_name} fill sizes="192px" className="object-cover" />
           ) : (
-            <div className="w-full h-full bg-neutral-800 flex items-center justify-center text-neutral-600 text-xs">No image</div>
+            <div className="w-full h-full bg-surface-elevated flex items-center justify-center text-neutral-600 text-xs">No image</div>
           )}
         </div>
         <p className="mt-3 font-bold">{v.card_name}</p>
-        <p className="text-xs text-neutral-500">{v.card_number} · {v.rarity} · £{parseFloat(v.spot_price_gbp).toFixed(2)}</p>
+        <p className="text-xs text-ink-faint">{v.card_number} · {v.rarity} · £{parseFloat(v.spot_price_gbp).toFixed(2)}</p>
         <p className="mt-4 text-[10px] text-neutral-600 font-mono break-all">
           RNG commit: {result.rng_commitment.slice(0, 32)}...
         </p>
         <Link
           href={`/bounty/verify/${result.pull_id}`}
           target="_blank"
-          className="text-[11px] text-amber-400/80 hover:text-amber-400 underline mt-1 inline-block"
+          className="text-[11px] text-accent-strong/80 hover:text-accent-strong underline mt-1 inline-block"
         >
           Verify this pull &rarr;
         </Link>
         <button
           onClick={onClose}
-          className="mt-4 w-full bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg py-2.5 text-sm transition-colors"
+          className="mt-4 w-full bg-accent hover:bg-accent-strong text-black font-bold rounded-lg py-2.5 text-sm transition-colors"
         >
           Add to Vault
         </button>
@@ -781,34 +781,34 @@ function RedeemModal({
 
   return (
     <Modal onClose={onClose} title={`Redeem ${item.card_name}`}>
-      <p className="text-neutral-400 text-sm mb-3">
+      <p className="text-ink-muted text-sm mb-3">
         We&apos;ll ship the physical card to the address below. Tracked delivery; usually 2–4 business days.
       </p>
       <input
         value={name}
         onChange={e => setName(e.target.value)}
         placeholder="Recipient name"
-        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 mb-2"
+        className="w-full bg-surface-elevated border border-border-strong rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-accent mb-2"
       />
       <textarea
         value={address}
         onChange={e => setAddress(e.target.value)}
         placeholder="Full shipping address (street, city, postcode, country)"
         rows={3}
-        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 mb-3"
+        className="w-full bg-surface-elevated border border-border-strong rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-accent mb-3"
       />
       <div className="flex gap-2">
         <button
           onClick={submit}
           disabled={busy}
-          className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-lg py-2 text-sm transition-colors"
+          className="flex-1 bg-accent hover:bg-accent-strong disabled:opacity-50 text-black font-bold rounded-lg py-2 text-sm transition-colors"
         >
           {busy ? "Submitting..." : "Request shipment"}
         </button>
         <button
           onClick={onClose}
           disabled={busy}
-          className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-4 py-2 text-sm transition-colors"
+          className="bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded-lg px-4 py-2 text-sm transition-colors"
         >
           Cancel
         </button>
@@ -824,7 +824,7 @@ function Modal({ children, onClose, title }: { children: React.ReactNode; onClos
       onClick={onClose}
     >
       <div
-        className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 max-w-md w-full shadow-2xl"
+        className="bg-surface border border-border-subtle rounded-xl p-6 max-w-md w-full shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {title && <h2 className="font-bold mb-3">{title}</h2>}

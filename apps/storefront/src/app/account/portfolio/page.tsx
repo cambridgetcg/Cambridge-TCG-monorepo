@@ -157,7 +157,7 @@ export default function PortfolioPage() {
     return (
       <div className="flex items-center justify-center py-12">
       <Audience kind="consumer" />
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-ink-faint">Loading...</p>
       </div>
     );
   }
@@ -165,17 +165,17 @@ export default function PortfolioPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Portfolio</h1>
+        <h1 className="text-2xl font-bold text-ink">Portfolio</h1>
         <div className="flex gap-2">
           <button
             onClick={() => setShowCsv(true)}
-            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-medium rounded-lg transition text-sm"
+            className="px-4 py-2 bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink font-medium rounded-lg transition text-sm"
           >
             Import CSV
           </button>
           <Link
             href="/account/portfolio/add"
-            className="px-4 py-2 bg-amber-500 text-black font-semibold rounded-lg hover:bg-amber-400 transition text-sm"
+            className="px-4 py-2 bg-accent text-black font-semibold rounded-lg hover:bg-accent-strong transition text-sm"
           >
             Add Cards
           </Link>
@@ -185,20 +185,20 @@ export default function PortfolioPage() {
       {/* Summary Bar */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Total Value</p>
-            <p className="text-2xl font-bold text-amber-400"><Money value={summary.total_value} /></p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Total Value</p>
+            <p className="text-2xl font-bold text-accent-strong"><Money value={summary.total_value} /></p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Total Cost</p>
-            <p className="text-lg font-semibold text-neutral-300">
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Total Cost</p>
+            <p className="text-lg font-semibold text-ink-muted">
               {summary.total_cost != null ? <Money value={summary.total_cost} /> : "—"}
             </p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">P&L</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">P&L</p>
             {summary.total_pnl != null ? (
-              <p className={`text-lg font-semibold ${summary.total_pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <p className={`text-lg font-semibold ${summary.total_pnl >= 0 ? "text-secondary" : "text-red-400"}`}>
                 {summary.total_pnl >= 0 ? "+" : ""}
                 <Money value={summary.total_pnl} />
                 {summary.total_pnl_percent != null && (
@@ -209,14 +209,14 @@ export default function PortfolioPage() {
                 )}
               </p>
             ) : (
-              <p className="text-lg font-semibold text-neutral-500">—</p>
+              <p className="text-lg font-semibold text-ink-faint">—</p>
             )}
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Cards</p>
-            <p className="text-lg font-semibold text-neutral-300">
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Cards</p>
+            <p className="text-lg font-semibold text-ink-muted">
               {summary.card_count}
-              <span className="text-sm text-neutral-500 ml-1">({summary.unique_cards} unique)</span>
+              <span className="text-sm text-ink-faint ml-1">({summary.unique_cards} unique)</span>
             </p>
           </div>
         </div>
@@ -237,30 +237,30 @@ export default function PortfolioPage() {
 
       {/* Public showcase banner */}
       {profile && cards.length > 0 && (
-        <div className="mb-6 bg-gradient-to-r from-amber-500/10 via-neutral-900 to-fuchsia-500/10 border border-amber-500/20 rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
+        <div className="mb-6 bg-gradient-to-r from-amber-500/10 via-neutral-900 to-fuchsia-500/10 border border-accent/20 rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">
+            <p className="text-[10px] uppercase tracking-wider text-accent-strong font-bold">
               Your showcase · {showcaseIds.size} featured
             </p>
             {profile.username && profile.is_public ? (
-              <p className="text-sm text-neutral-300 mt-0.5 truncate">
+              <p className="text-sm text-ink-muted mt-0.5 truncate">
                 Public at{" "}
-                <Link href={`/u/${profile.username}`} className="text-amber-400 underline hover:text-amber-300">
+                <Link href={`/u/${profile.username}`} className="text-accent-strong underline hover:text-accent-strong">
                   /u/{profile.username}
                 </Link>
               </p>
             ) : !profile.username ? (
-              <p className="text-xs text-neutral-500 mt-0.5">
+              <p className="text-xs text-ink-faint mt-0.5">
                 Pick a username in{" "}
-                <Link href="/account/profile" className="text-amber-400 hover:text-amber-300 underline">
+                <Link href="/account/profile" className="text-accent-strong hover:text-accent-strong underline">
                   your profile
                 </Link>{" "}
                 to get a shareable URL.
               </p>
             ) : (
-              <p className="text-xs text-neutral-500 mt-0.5">
+              <p className="text-xs text-ink-faint mt-0.5">
                 Profile is private.{" "}
-                <Link href="/account/profile" className="text-amber-400 hover:text-amber-300 underline">
+                <Link href="/account/profile" className="text-accent-strong hover:text-accent-strong underline">
                   Make it public
                 </Link>{" "}
                 to share /u/{profile.username}.
@@ -277,14 +277,14 @@ export default function PortfolioPage() {
                     () => {},
                   );
                 }}
-                className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold rounded px-3 py-1.5 transition-colors whitespace-nowrap"
+                className="text-xs bg-accent hover:bg-accent-strong text-black font-bold rounded px-3 py-1.5 transition-colors whitespace-nowrap"
               >
                 {copiedShareLink ? "Copied!" : "Copy share link"}
               </button>
             )}
             <Link
               href={profile.username ? `/u/${profile.username}` : "/account/profile"}
-              className="text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors whitespace-nowrap"
+              className="text-xs bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded px-3 py-1.5 transition-colors whitespace-nowrap"
             >
               Preview
             </Link>
@@ -302,15 +302,15 @@ export default function PortfolioPage() {
       {/* Sort Controls */}
       {cards.length > 0 && (
         <div className="flex gap-2 mb-4">
-          <span className="text-sm text-neutral-500 py-1">Sort:</span>
+          <span className="text-sm text-ink-faint py-1">Sort:</span>
           {([["value", "Value"], ["pnl", "P&L"], ["recent", "Recent"]] as [SortKey, string][]).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setSort(key)}
               className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
                 sort === key
-                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-800"
+                  ? "bg-accent/15 text-accent-strong border border-accent/30"
+                  : "text-ink-muted hover:text-ink hover:bg-surface-elevated"
               }`}
             >
               {label}
@@ -321,11 +321,11 @@ export default function PortfolioPage() {
 
       {/* Card Grid */}
       {cards.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-12 text-center">
-          <p className="text-neutral-400 mb-4">Your portfolio is empty. Add cards to track their value.</p>
+        <div className="bg-surface rounded-xl p-12 text-center">
+          <p className="text-ink-muted mb-4">Your portfolio is empty. Add cards to track their value.</p>
           <Link
             href="/account/portfolio/add"
-            className="inline-block px-5 py-2.5 bg-amber-500 text-black font-semibold rounded-lg hover:bg-amber-400 transition text-sm"
+            className="inline-block px-5 py-2.5 bg-accent text-black font-semibold rounded-lg hover:bg-accent-strong transition text-sm"
           >
             Add Cards
           </Link>
@@ -333,9 +333,9 @@ export default function PortfolioPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {sorted.map((card) => (
-            <div key={card.id} className="bg-neutral-900 rounded-xl overflow-hidden flex flex-col">
+            <div key={card.id} className="bg-surface rounded-xl overflow-hidden flex flex-col">
               {/* Image */}
-              <div className="relative aspect-[5/7] bg-neutral-800">
+              <div className="relative aspect-[5/7] bg-surface-elevated">
                 {card.image_url ? (
                   <Image
                     src={card.image_url}
@@ -357,8 +357,8 @@ export default function PortfolioPage() {
                       onClick={() => toggleShowcase(card.id, inShowcase)}
                       className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                         inShowcase
-                          ? "bg-amber-500 text-black shadow-lg shadow-amber-500/30 hover:bg-amber-400"
-                          : "bg-black/50 backdrop-blur text-white/70 hover:text-amber-400 hover:bg-black/70"
+                          ? "bg-accent text-black shadow-lg shadow-amber-500/30 hover:bg-accent-strong"
+                          : "bg-black/50 backdrop-blur text-ink/70 hover:text-accent-strong hover:bg-black/70"
                       }`}
                       title={inShowcase ? "Remove from public showcase" : "Feature in public showcase"}
                       aria-label={inShowcase ? "Remove from showcase" : "Add to showcase"}
@@ -373,26 +373,26 @@ export default function PortfolioPage() {
 
               <div className="p-3 flex-1 flex flex-col">
                 {/* Name & Badges */}
-                <h3 className="text-sm font-semibold text-white truncate">{card.card_name || card.sku}</h3>
-                <p className="text-xs text-neutral-500 truncate mb-1.5">
+                <h3 className="text-sm font-semibold text-ink truncate">{card.card_name || card.sku}</h3>
+                <p className="text-xs text-ink-faint truncate mb-1.5">
                   {card.set_name || card.set_code}
                   {card.card_number ? ` #${card.card_number}` : ""}
                 </p>
                 <div className="flex gap-1.5 mb-2">
                   {card.rarity && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-medium uppercase">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-strong font-medium uppercase">
                       {card.rarity}
                     </span>
                   )}
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 font-medium">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-elevated text-ink-muted font-medium">
                     {card.condition}
                   </span>
                 </div>
 
                 {/* Value */}
                 <div className="text-sm mb-1">
-                  <span className="text-neutral-500">{card.quantity} x {card.market_price != null ? <Money value={card.market_price} /> : "—"}</span>
-                  <span className="text-white font-semibold ml-1">= <Money value={card.current_value} /></span>
+                  <span className="text-ink-faint">{card.quantity} x {card.market_price != null ? <Money value={card.market_price} /> : "—"}</span>
+                  <span className="text-ink font-semibold ml-1">= <Money value={card.current_value} /></span>
                 </div>
 
                 {/* Price trend — only rendered if we have history data */}
@@ -406,7 +406,7 @@ export default function PortfolioPage() {
                       <span
                         key={label}
                         className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                          positive ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
+                          positive ? "bg-emerald-500/15 text-secondary" : "bg-danger/15 text-red-400"
                         }`}
                         title={`${label === "7d" ? "Last 7 days" : "Last 30 days"} spot change`}
                       >
@@ -426,9 +426,9 @@ export default function PortfolioPage() {
                 <div className="text-xs mb-3">
                   {card.total_cost != null ? (
                     <>
-                      <span className="text-neutral-500">Cost <Money value={card.total_cost} /></span>
+                      <span className="text-ink-faint">Cost <Money value={card.total_cost} /></span>
                       {card.pnl != null && (
-                        <span className={`ml-1.5 font-medium ${card.pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        <span className={`ml-1.5 font-medium ${card.pnl >= 0 ? "text-secondary" : "text-red-400"}`}>
                           {card.pnl >= 0 ? "+" : ""}<Money value={card.pnl} />
                           {card.pnl_percent != null && (
                             <span className="ml-0.5">({card.pnl_percent >= 0 ? "+" : ""}{card.pnl_percent.toFixed(1)}%)</span>
@@ -454,7 +454,7 @@ export default function PortfolioPage() {
                         <Link
                           key={action.type}
                           href={href}
-                          className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition font-medium"
+                          className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-elevated text-ink-muted hover:bg-neutral-700 hover:text-ink transition font-medium"
                         >
                           {action.label}
                         </Link>
@@ -468,19 +468,19 @@ export default function PortfolioPage() {
                   <div className="flex gap-1.5 mb-2">
                     <Link
                       href={`/market/${card.sku}?side=ask`}
-                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition font-medium"
+                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-elevated text-ink-muted hover:bg-neutral-700 hover:text-ink transition font-medium"
                     >
                       Sell
                     </Link>
                     <Link
                       href={`/auctions/sell?sku=${card.sku}`}
-                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition font-medium"
+                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-elevated text-ink-muted hover:bg-neutral-700 hover:text-ink transition font-medium"
                     >
                       Auction
                     </Link>
                     <Link
                       href={`/trade-in?sku=${card.sku}&name=${encodeURIComponent(card.card_name || "")}`}
-                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white transition font-medium"
+                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-elevated text-ink-muted hover:bg-neutral-700 hover:text-ink transition font-medium"
                     >
                       Trade In
                     </Link>
@@ -491,13 +491,13 @@ export default function PortfolioPage() {
                 <div className="mt-auto flex gap-1.5">
                   <button
                     onClick={() => (editingId === card.id ? setEditingId(null) : startEdit(card))}
-                    className="flex-1 text-xs py-1.5 rounded-lg border border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 transition"
+                    className="flex-1 text-xs py-1.5 rounded-lg border border-border-subtle text-ink-muted hover:text-ink hover:border-neutral-600 transition"
                   >
                     {editingId === card.id ? "Cancel" : "Edit"}
                   </button>
                   <button
                     onClick={() => removeCard(card.id)}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-neutral-800 text-neutral-500 hover:text-red-400 hover:border-red-500/30 transition"
+                    className="text-xs px-3 py-1.5 rounded-lg border border-border-subtle text-ink-faint hover:text-red-400 hover:border-danger/30 transition"
                   >
                     Remove
                   </button>
@@ -505,35 +505,35 @@ export default function PortfolioPage() {
 
                 {/* Inline Edit Form */}
                 {editingId === card.id && (
-                  <div className="mt-3 pt-3 border-t border-neutral-800 space-y-2">
+                  <div className="mt-3 pt-3 border-t border-border-subtle space-y-2">
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <label className="text-[10px] text-neutral-500 block mb-0.5">Qty</label>
+                        <label className="text-[10px] text-ink-faint block mb-0.5">Qty</label>
                         <input
                           type="number"
                           min={1}
                           value={editForm.quantity}
                           onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 1 })}
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white"
+                          className="w-full bg-surface-elevated border border-border-strong rounded px-2 py-1 text-sm text-ink"
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="text-[10px] text-neutral-500 block mb-0.5">Cost</label>
+                        <label className="text-[10px] text-ink-faint block mb-0.5">Cost</label>
                         <input
                           type="text"
                           value={editForm.acquisitionPrice}
                           onChange={(e) => setEditForm({ ...editForm, acquisitionPrice: e.target.value })}
                           placeholder="0.00"
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white"
+                          className="w-full bg-surface-elevated border border-border-strong rounded px-2 py-1 text-sm text-ink"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 block mb-0.5">Condition</label>
+                      <label className="text-[10px] text-ink-faint block mb-0.5">Condition</label>
                       <select
                         value={editForm.condition}
                         onChange={(e) => setEditForm({ ...editForm, condition: e.target.value })}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white"
+                        className="w-full bg-surface-elevated border border-border-strong rounded px-2 py-1 text-sm text-ink"
                       >
                         <option value="NM">Near Mint</option>
                         <option value="LP">Lightly Played</option>
@@ -542,19 +542,19 @@ export default function PortfolioPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 block mb-0.5">Notes</label>
+                      <label className="text-[10px] text-ink-faint block mb-0.5">Notes</label>
                       <input
                         type="text"
                         value={editForm.notes}
                         onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                         placeholder="Optional notes"
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white"
+                        className="w-full bg-surface-elevated border border-border-strong rounded px-2 py-1 text-sm text-ink"
                       />
                     </div>
                     <button
                       onClick={() => saveEdit(card.id)}
                       disabled={saving}
-                      className="w-full py-1.5 bg-amber-500 text-black font-semibold rounded-lg text-sm hover:bg-amber-400 transition disabled:opacity-50"
+                      className="w-full py-1.5 bg-accent text-black font-semibold rounded-lg text-sm hover:bg-accent-strong transition disabled:opacity-50"
                     >
                       {saving ? "Saving..." : "Save Changes"}
                     </button>

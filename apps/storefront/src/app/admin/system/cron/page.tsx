@@ -106,8 +106,8 @@ export default async function Page() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-white">Cron Jobs</h1>
-        <p className="text-sm text-neutral-400 mt-1">
+        <h1 className="text-xl font-semibold text-ink">Cron Jobs</h1>
+        <p className="text-sm text-ink-muted mt-1">
           {allCrons.length} scheduled cron paths across the three apps. Vercel
           executes them; click through to the Vercel dashboard for run history.
         </p>
@@ -123,34 +123,34 @@ export default async function Page() {
 
       {/* Email queue health */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-white flex items-center gap-3">
+        <h2 className="text-sm font-semibold text-ink flex items-center gap-3">
           <span>Email queue</span>
           <Provenance kind="live" />
-          <span className="text-xs text-neutral-500 font-normal">
+          <span className="text-xs text-ink-faint font-normal">
             (storefront, drained by /api/cron/maintenance every minute)
           </span>
         </h2>
         {!emailTableExists ? (
-          <p className="text-sm text-neutral-500 italic">
+          <p className="text-sm text-ink-faint italic">
             No email_queue table found in storefront DB.
           </p>
         ) : emailStats.length === 0 ? (
-          <p className="text-sm text-neutral-500 italic">Queue is empty.</p>
+          <p className="text-sm text-ink-faint italic">Queue is empty.</p>
         ) : (
           <div className="flex flex-wrap gap-3">
             {emailStats.map((r) => {
               const colors: Record<string, string> = {
-                pending: "border-amber-500/30 text-amber-300",
-                queued: "border-amber-500/30 text-amber-300",
+                pending: "border-accent/30 text-accent-strong",
+                queued: "border-accent/30 text-accent-strong",
                 sent: "border-emerald-500/30 text-emerald-300",
-                failed: "border-red-500/30 text-red-300",
-                cancelled: "border-neutral-500/30 text-neutral-400",
+                failed: "border-danger/30 text-red-300",
+                cancelled: "border-neutral-500/30 text-ink-muted",
               };
-              const cls = colors[r.status] ?? "border-neutral-700 text-neutral-300";
+              const cls = colors[r.status] ?? "border-border-strong text-ink-muted";
               return (
                 <div
                   key={r.status}
-                  className={`px-4 py-2 border rounded-md ${cls} bg-neutral-900/30`}
+                  className={`px-4 py-2 border rounded-md ${cls} bg-surface/30`}
                 >
                   <div className="text-xs uppercase tracking-wide opacity-75">
                     {r.status}
@@ -165,13 +165,13 @@ export default async function Page() {
 
       {/* Cron inventory */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-white flex items-center gap-3">
+        <h2 className="text-sm font-semibold text-ink flex items-center gap-3">
           <span>Scheduled crons</span>
           <Provenance kind="scheduled" />
         </h2>
-        <div className="rounded-lg border border-neutral-800 overflow-x-auto">
+        <div className="rounded-lg border border-border-subtle overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wide">
+            <thead className="bg-surface text-ink-muted text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-3 py-2">App</th>
                 <th className="text-left px-3 py-2">Path</th>
@@ -179,19 +179,19 @@ export default async function Page() {
                 <th className="text-left px-3 py-2">Cadence</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-800">
+            <tbody className="divide-y divide-border-subtle">
               {allCrons.map((c) => (
-                <tr key={`${c.app}:${c.path}`} className="hover:bg-neutral-900/50">
+                <tr key={`${c.app}:${c.path}`} className="hover:bg-surface/50">
                   <td className="px-3 py-2">
-                    <span className="inline-block px-2 py-0.5 text-xs bg-neutral-800 text-neutral-300 rounded">
+                    <span className="inline-block px-2 py-0.5 text-xs bg-surface-elevated text-ink-muted rounded">
                       {c.app}
                     </span>
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs text-white">{c.path}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-neutral-400">
+                  <td className="px-3 py-2 font-mono text-xs text-ink">{c.path}</td>
+                  <td className="px-3 py-2 font-mono text-xs text-ink-muted">
                     {c.schedule}
                   </td>
-                  <td className="px-3 py-2 text-xs text-neutral-300">
+                  <td className="px-3 py-2 text-xs text-ink-muted">
                     {describeSchedule(c.schedule)}
                   </td>
                 </tr>

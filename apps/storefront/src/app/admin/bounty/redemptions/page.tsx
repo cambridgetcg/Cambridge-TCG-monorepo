@@ -125,7 +125,7 @@ export default function AdminBountyRedemptions() {
         <button
           onClick={fetchList}
           disabled={loading}
-          className="px-4 py-2 bg-neutral-800 text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+          className="px-4 py-2 bg-surface-elevated text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
           {loading ? "Loading..." : "Refresh"}
         </button>
@@ -140,10 +140,10 @@ export default function AdminBountyRedemptions() {
 
         <section className="mb-8">
           <h2 className="text-lg font-bold mb-3">
-            Pending <span className="text-amber-400">({pending.length})</span>
+            Pending <span className="text-accent-strong">({pending.length})</span>
           </h2>
           {pending.length === 0 ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+            <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
               Nothing to ship right now.
             </div>
           ) : (
@@ -194,12 +194,12 @@ export default function AdminBountyRedemptions() {
                 return (
                   <div
                     key={r.id}
-                    className="flex items-center gap-3 bg-neutral-900 border border-neutral-800/60 rounded-lg px-4 py-2.5 text-sm"
+                    className="flex items-center gap-3 bg-surface border border-border-subtle/60 rounded-lg px-4 py-2.5 text-sm"
                   >
-                    <span className="text-emerald-400">✓</span>
-                    <span className="font-mono text-xs text-neutral-500">#{r.redemption_order_id}</span>
+                    <span className="text-secondary">✓</span>
+                    <span className="font-mono text-xs text-ink-faint">#{r.redemption_order_id}</span>
                     <span className="flex-1 truncate">{r.card_name}</span>
-                    <span className="text-neutral-500 text-xs">{r.shipping_name}</span>
+                    <span className="text-ink-faint text-xs">{r.shipping_name}</span>
                     <span className="text-neutral-600 text-xs">
                       {r.fulfilled_at ? new Date(r.fulfilled_at).toLocaleDateString() : "—"}
                     </span>
@@ -207,7 +207,7 @@ export default function AdminBountyRedemptions() {
                       <button
                         onClick={() => handleUndo(r.id)}
                         disabled={fulfilling === r.id}
-                        className="text-xs text-amber-400 hover:text-amber-300 underline disabled:opacity-50"
+                        className="text-xs text-accent-strong hover:text-accent-strong underline disabled:opacity-50"
                         title="Undo within 30 min of fulfilment"
                       >
                         {fulfilling === r.id ? "..." : "Undo"}
@@ -225,9 +225,9 @@ export default function AdminBountyRedemptions() {
 
 function Stat({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "amber" }) {
   return (
-    <div className="bg-neutral-900 rounded-xl p-4">
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${tone === "amber" ? "text-amber-400" : "text-white"}`}>{value}</p>
+    <div className="bg-surface rounded-xl p-4">
+      <p className="text-xs text-ink-faint uppercase tracking-wide">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${tone === "amber" ? "text-accent-strong" : "text-ink"}`}>{value}</p>
     </div>
   );
 }
@@ -244,25 +244,25 @@ function RedemptionRow({
   fulfilling: boolean;
 }) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-wrap items-center gap-4">
-      <div className="relative w-14 h-20 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+    <div className="bg-surface border border-border-subtle rounded-xl p-4 flex flex-wrap items-center gap-4">
+      <div className="relative w-14 h-20 flex-shrink-0 rounded overflow-hidden bg-surface-elevated">
         {r.image_url && (
           <Image src={r.image_url} alt={r.card_name} fill sizes="56px" className="object-cover" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <a href={`/admin/bounty/vault-items/${r.id}`} className="font-semibold hover:text-amber-400 transition-colors">
+        <a href={`/admin/bounty/vault-items/${r.id}`} className="font-semibold hover:text-accent-strong transition-colors">
           {r.card_name}
         </a>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-ink-faint">
           {r.sku} · {r.rarity} · £{parseFloat(r.spot_price_gbp).toFixed(2)}
         </p>
-        <p className="text-xs text-neutral-500 mt-1">
+        <p className="text-xs text-ink-faint mt-1">
           Order #{r.redemption_order_id} · {r.user_email ?? r.customer_email}
         </p>
       </div>
-      <div className="flex-1 min-w-[220px] text-xs text-neutral-400">
-        <p className="font-semibold text-neutral-300">{r.shipping_name}</p>
+      <div className="flex-1 min-w-[220px] text-xs text-ink-muted">
+        <p className="font-semibold text-ink-muted">{r.shipping_name}</p>
         <p className="whitespace-pre-wrap leading-snug">{r.shipping_address}</p>
       </div>
       <div className="flex items-center gap-2">
@@ -271,7 +271,7 @@ function RedemptionRow({
           onChange={(e) => onCarrier(e.target.value)}
           placeholder="Carrier"
           list="carrier-options"
-          className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs w-24 focus:outline-none focus:border-amber-500"
+          className="bg-surface-elevated border border-border-strong rounded px-2 py-1.5 text-xs w-24 focus:outline-none focus:border-accent"
         />
         <datalist id="carrier-options">
           <option value="Royal Mail" />
@@ -285,12 +285,12 @@ function RedemptionRow({
           value={tracking}
           onChange={(e) => onTracking(e.target.value)}
           placeholder="Tracking #"
-          className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1.5 text-xs w-36 focus:outline-none focus:border-amber-500"
+          className="bg-surface-elevated border border-border-strong rounded px-3 py-1.5 text-xs w-36 focus:outline-none focus:border-accent"
         />
         <button
           onClick={onFulfill}
           disabled={fulfilling}
-          className="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black text-xs font-bold rounded px-4 py-1.5 transition-colors"
+          className="bg-accent hover:bg-accent-strong disabled:opacity-50 text-black text-xs font-bold rounded px-4 py-1.5 transition-colors"
         >
           {fulfilling ? "..." : "Fulfill"}
         </button>
@@ -313,35 +313,35 @@ function BulkRedemptionCard({
 }) {
   const head = items[0];
   return (
-    <div className="bg-neutral-900 border border-amber-500/30 rounded-xl p-4">
+    <div className="bg-surface border border-accent/30 rounded-xl p-4">
       <div className="flex flex-wrap items-start gap-4 mb-3">
         <div className="flex-1 min-w-0">
           <p className="font-semibold flex items-center gap-2">
-            <span className="text-xs bg-amber-500/20 text-amber-400 rounded px-2 py-0.5 font-bold">
+            <span className="text-xs bg-accent/20 text-accent-strong rounded px-2 py-0.5 font-bold">
               {items.length} CARDS · ONE SHIPMENT
             </span>
-            <span className="font-mono text-xs text-neutral-500">#{orderId}</span>
+            <span className="font-mono text-xs text-ink-faint">#{orderId}</span>
           </p>
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="text-xs text-ink-faint mt-1">
             {head.user_email ?? head.customer_email}
           </p>
         </div>
-        <div className="flex-1 min-w-[220px] text-xs text-neutral-400">
-          <p className="font-semibold text-neutral-300">{head.shipping_name}</p>
+        <div className="flex-1 min-w-[220px] text-xs text-ink-muted">
+          <p className="font-semibold text-ink-muted">{head.shipping_name}</p>
           <p className="whitespace-pre-wrap leading-snug">{head.shipping_address}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mb-3">
         {items.map((it) => (
-          <div key={it.id} className="bg-neutral-950/50 rounded p-2">
-            <div className="relative aspect-[5/7] mb-1 rounded overflow-hidden bg-neutral-800">
+          <div key={it.id} className="bg-page/50 rounded p-2">
+            <div className="relative aspect-[5/7] mb-1 rounded overflow-hidden bg-surface-elevated">
               {it.image_url && (
                 <Image src={it.image_url} alt={it.card_name} fill sizes="80px" className="object-cover" />
               )}
             </div>
-            <p className="text-[10px] truncate text-neutral-300">{it.card_name}</p>
-            <p className="text-[10px] text-neutral-500">£{parseFloat(it.spot_price_gbp).toFixed(2)}</p>
+            <p className="text-[10px] truncate text-ink-muted">{it.card_name}</p>
+            <p className="text-[10px] text-ink-faint">£{parseFloat(it.spot_price_gbp).toFixed(2)}</p>
           </div>
         ))}
       </div>
@@ -352,18 +352,18 @@ function BulkRedemptionCard({
           onChange={(e) => onCarrier(e.target.value)}
           placeholder="Carrier"
           list="carrier-options"
-          className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs w-28 focus:outline-none focus:border-amber-500"
+          className="bg-surface-elevated border border-border-strong rounded px-2 py-1.5 text-xs w-28 focus:outline-none focus:border-accent"
         />
         <input
           value={tracking}
           onChange={(e) => onTracking(e.target.value)}
           placeholder="Single tracking number for all"
-          className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1.5 text-xs flex-1 min-w-[200px] focus:outline-none focus:border-amber-500"
+          className="bg-surface-elevated border border-border-strong rounded px-3 py-1.5 text-xs flex-1 min-w-[200px] focus:outline-none focus:border-accent"
         />
         <button
           onClick={onBulkFulfill}
           disabled={fulfilling}
-          className="bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black text-xs font-bold rounded px-4 py-1.5 transition-colors"
+          className="bg-accent hover:bg-accent-strong disabled:opacity-50 text-black text-xs font-bold rounded px-4 py-1.5 transition-colors"
         >
           {fulfilling ? "Shipping..." : `Ship all ${items.length}`}
         </button>

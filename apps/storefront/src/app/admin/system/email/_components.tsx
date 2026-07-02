@@ -53,7 +53,7 @@ export function EmailRowActions({ email }: EmailRowActionsProps) {
         type="button"
         onClick={retry}
         disabled={pending}
-        className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
+        className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-secondary rounded px-3 py-1.5 transition-colors disabled:opacity-40"
       >
         {pending ? "…" : "Retry"}
       </button>
@@ -61,7 +61,7 @@ export function EmailRowActions({ email }: EmailRowActionsProps) {
         type="button"
         onClick={dismiss}
         disabled={pending}
-        className="text-xs bg-neutral-800 hover:bg-red-900/40 text-neutral-400 hover:text-red-400 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
+        className="text-xs bg-surface-elevated hover:bg-red-900/40 text-ink-muted hover:text-red-400 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
       >
         {pending ? "…" : "Dismiss"}
       </button>

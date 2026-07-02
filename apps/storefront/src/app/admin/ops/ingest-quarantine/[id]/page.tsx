@@ -102,66 +102,66 @@ export default async function Page({
         />
       </div>
 
-      <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 space-y-2 text-sm">
-        <h2 className="text-sm font-semibold text-white mb-2">Metadata</h2>
+      <section className="bg-surface border border-border-subtle rounded-lg p-4 space-y-2 text-sm">
+        <h2 className="text-sm font-semibold text-ink mb-2">Metadata</h2>
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
-            <div className="text-neutral-500 uppercase tracking-wide text-[10px]">ingest_run_id</div>
+            <div className="text-ink-faint uppercase tracking-wide text-[10px]">ingest_run_id</div>
             <div className="font-mono">#{row.ingest_run_id}</div>
           </div>
           <div>
-            <div className="text-neutral-500 uppercase tracking-wide text-[10px]">upstream_id</div>
-            <div className="font-mono text-neutral-300 break-all">{row.upstream_id ?? "—"}</div>
+            <div className="text-ink-faint uppercase tracking-wide text-[10px]">upstream_id</div>
+            <div className="font-mono text-ink-muted break-all">{row.upstream_id ?? "—"}</div>
           </div>
           <div>
-            <div className="text-neutral-500 uppercase tracking-wide text-[10px]">as_of</div>
+            <div className="text-ink-faint uppercase tracking-wide text-[10px]">as_of</div>
             <div className="font-mono">{fmtDateTime(row.as_of)}</div>
           </div>
           <div>
-            <div className="text-neutral-500 uppercase tracking-wide text-[10px]">retrieved_at</div>
+            <div className="text-ink-faint uppercase tracking-wide text-[10px]">retrieved_at</div>
             <div className="font-mono">{fmtDateTime(row.retrieved_at)}</div>
           </div>
           <div>
-            <div className="text-neutral-500 uppercase tracking-wide text-[10px]">quarantined_at</div>
+            <div className="text-ink-faint uppercase tracking-wide text-[10px]">quarantined_at</div>
             <div className="font-mono">{fmtDateTime(row.quarantined_at)}</div>
           </div>
           <div>
-            <div className="text-neutral-500 uppercase tracking-wide text-[10px]">reviewed_at</div>
+            <div className="text-ink-faint uppercase tracking-wide text-[10px]">reviewed_at</div>
             <div className="font-mono">{row.reviewed_at ? fmtDateTime(row.reviewed_at) : "—"}</div>
           </div>
           {row.reviewed_by && (
             <div>
-              <div className="text-neutral-500 uppercase tracking-wide text-[10px]">reviewed_by</div>
+              <div className="text-ink-faint uppercase tracking-wide text-[10px]">reviewed_by</div>
               <div className="font-mono">{row.reviewed_by}</div>
             </div>
           )}
           {row.resolution && (
             <div>
-              <div className="text-neutral-500 uppercase tracking-wide text-[10px]">resolution</div>
+              <div className="text-ink-faint uppercase tracking-wide text-[10px]">resolution</div>
               <div className="font-mono">{row.resolution}</div>
             </div>
           )}
         </div>
       </section>
 
-      <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-white mb-3">
-          Raw payload <span className="text-xs text-neutral-500 ml-2">({payloadSize.toLocaleString()} chars)</span>
+      <section className="bg-surface border border-border-subtle rounded-lg p-4">
+        <h2 className="text-sm font-semibold text-ink mb-3">
+          Raw payload <span className="text-xs text-ink-faint ml-2">({payloadSize.toLocaleString()} chars)</span>
         </h2>
         {isLargePayload && (
-          <p className="text-xs text-amber-400 mb-2">
+          <p className="text-xs text-accent-strong mb-2">
             Large payload — only the first 16 KB is rendered inline. Use the API endpoint{" "}
-            <code className="text-amber-300">/api/v1/ingest-quarantine/{row.id}</code>{" "}
+            <code className="text-accent-strong">/api/v1/ingest-quarantine/{row.id}</code>{" "}
             for the full body.
           </p>
         )}
-        <pre className="bg-neutral-950 border border-neutral-800/60 rounded p-3 text-xs font-mono text-neutral-300 overflow-x-auto whitespace-pre-wrap break-words max-h-96">
+        <pre className="bg-page border border-border-subtle/60 rounded p-3 text-xs font-mono text-ink-muted overflow-x-auto whitespace-pre-wrap break-words max-h-96">
           {isLargePayload ? payloadStr.slice(0, 16 * 1024) + "\n…[truncated]" : payloadStr}
         </pre>
       </section>
 
-      <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-white mb-3">Resolution</h2>
+      <section className="bg-surface border border-border-subtle rounded-lg p-4">
+        <h2 className="text-sm font-semibold text-ink mb-3">Resolution</h2>
         <ResolutionForm
           id={row.id}
           currentResolution={row.resolution}

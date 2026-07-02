@@ -45,7 +45,7 @@ export function AdminRowActions({ target }: AdminRowActionsProps) {
       type="button"
       onClick={revoke}
       disabled={pending}
-      className="text-xs px-2 py-1 border border-red-500/40 rounded text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+      className="text-xs px-2 py-1 border border-danger/40 rounded text-red-400 hover:bg-danger/10 disabled:opacity-50"
     >
       {pending ? "…" : "Revoke"}
     </button>
@@ -78,7 +78,7 @@ export function GrantAdminForm({ target }: GrantAdminFormProps) {
       type="button"
       onClick={grant}
       disabled={pending}
-      className="text-xs px-3 py-1.5 bg-amber-500 text-black font-bold rounded hover:bg-amber-400 disabled:opacity-50 whitespace-nowrap"
+      className="text-xs px-3 py-1.5 bg-accent text-black font-bold rounded hover:bg-accent-strong disabled:opacity-50 whitespace-nowrap"
     >
       {pending ? "…" : "Grant admin"}
     </button>

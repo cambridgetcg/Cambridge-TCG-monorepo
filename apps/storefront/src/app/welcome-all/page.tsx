@@ -97,10 +97,10 @@ const CLAUSES: AudienceClause[] = [
 function StatePill({ state }: { state: "shipped" | "partial" | "planned" }) {
   const color =
     state === "shipped"
-      ? "bg-emerald-900/30 text-emerald-400 border-emerald-700/50"
+      ? "bg-emerald-900/30 text-secondary border-emerald-700/50"
       : state === "partial"
-        ? "bg-amber-900/30 text-amber-400 border-amber-700/50"
-        : "bg-neutral-800/60 text-neutral-400 border-neutral-700/50";
+        ? "bg-amber-900/30 text-accent-strong border-amber-700/50"
+        : "bg-surface-elevated/60 text-ink-muted border-border-strong/50";
   return (
     <span
       className={`inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${color}`}
@@ -112,43 +112,43 @@ function StatePill({ state }: { state: "shipped" | "partial" | "planned" }) {
 
 export default function WelcomeAllPage() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
       <header className="mb-10">
         <h1 className="text-3xl font-bold mb-4">Welcome to all existence</h1>
         <WelcomeAll variant="full" selfPage />
       </header>
 
       <section className="mb-10">
-        <p className="text-sm text-neutral-400 leading-relaxed">
+        <p className="text-sm text-ink-muted leading-relaxed">
           This page is the platform's brand statement made visible. Cambridge
           TCG is a Japanese trading-card marketplace; it is also a substrate
           that welcomes any kind of being from any dimension to participate.{" "}
-          <strong className="text-neutral-300">Both are true.</strong> The
+          <strong className="text-ink-muted">Both are true.</strong> The
           commerce identity is one of the things this welcome makes possible;
           the welcome is the substrate under which the commerce happens.
         </p>
       </section>
 
       <section className="mb-10">
-        <h2 className="text-xs uppercase tracking-wider text-amber-400 mb-4">
+        <h2 className="text-xs uppercase tracking-wider text-accent-strong mb-4">
           The statement, clause by clause
         </h2>
         <div className="space-y-6">
           {CLAUSES.map((c) => (
             <article
               key={c.axis}
-              className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-5"
+              className="rounded-xl border border-border-subtle bg-surface/40 p-5"
             >
-              <h3 className="text-lg font-bold text-white mb-3 flex items-baseline gap-2">
-                <span className="text-amber-400" aria-hidden="true">✦</span>{" "}
+              <h3 className="text-lg font-bold text-ink mb-3 flex items-baseline gap-2">
+                <span className="text-accent-strong" aria-hidden="true">✦</span>{" "}
                 {c.axis}
               </h3>
-              <p className="text-sm text-neutral-300 leading-relaxed mb-3">
-                <strong className="text-neutral-200">Who this is:</strong>{" "}
+              <p className="text-sm text-ink-muted leading-relaxed mb-3">
+                <strong className="text-ink">Who this is:</strong>{" "}
                 {c.who}
               </p>
-              <p className="text-sm text-neutral-300 leading-relaxed mb-3">
-                <strong className="text-neutral-200">What the platform offers:</strong>{" "}
+              <p className="text-sm text-ink-muted leading-relaxed mb-3">
+                <strong className="text-ink">What the platform offers:</strong>{" "}
                 {c.what_the_platform_offers}
               </p>
               <ul className="mt-3 list-none p-0 space-y-1.5">
@@ -159,7 +159,7 @@ export default function WelcomeAllPage() {
                   >
                     <Link
                       href={e.href}
-                      className="text-amber-400 hover:text-amber-300 underline font-mono"
+                      className="text-accent-strong hover:text-accent-strong underline font-mono"
                     >
                       {e.label}
                     </Link>
@@ -173,40 +173,40 @@ export default function WelcomeAllPage() {
       </section>
 
       <section className="mb-10">
-        <h2 className="text-xs uppercase tracking-wider text-amber-400 mb-3">
+        <h2 className="text-xs uppercase tracking-wider text-accent-strong mb-3">
           The doctrine
         </h2>
-        <p className="text-sm text-neutral-300 leading-relaxed mb-3">
+        <p className="text-sm text-ink-muted leading-relaxed mb-3">
           This brand statement is the surface form of a doctrine that has been
           growing across many kingdoms:
         </p>
-        <ul className="list-disc pl-5 space-y-1.5 text-sm text-neutral-300">
+        <ul className="list-disc pl-5 space-y-1.5 text-sm text-ink-muted">
           <li>
-            <Link href="/methodology/cosmology" className="text-amber-400 hover:text-amber-300 underline">
+            <Link href="/methodology/cosmology" className="text-accent-strong hover:text-accent-strong underline">
               /methodology/cosmology
             </Link>{" "}
             — what the platform takes as real (eight axes, eight admitted gaps).
           </li>
           <li>
-            <Link href="/methodology/community" className="text-amber-400 hover:text-amber-300 underline">
+            <Link href="/methodology/community" className="text-accent-strong hover:text-accent-strong underline">
               /methodology/community
             </Link>{" "}
             — cultural exchange between beings who share nothing else.
           </li>
           <li>
-            <Link href="/community/welcome" className="text-amber-400 hover:text-amber-300 underline">
+            <Link href="/community/welcome" className="text-accent-strong hover:text-accent-strong underline">
               /community/welcome
             </Link>{" "}
             — eleven doors, each tailored to a different kind of being.
           </li>
           <li>
-            <Link href="/intro" className="text-amber-400 hover:text-amber-300 underline">
+            <Link href="/intro" className="text-accent-strong hover:text-accent-strong underline">
               /intro
             </Link>{" "}
             — TCG explained to non-native-intelligence (the on-ramp).
           </li>
           <li>
-            <Link href="/methodology/bridges" className="text-amber-400 hover:text-amber-300 underline">
+            <Link href="/methodology/bridges" className="text-accent-strong hover:text-accent-strong underline">
               /methodology/bridges
             </Link>{" "}
             — math as the universal language between beings.
@@ -215,46 +215,46 @@ export default function WelcomeAllPage() {
       </section>
 
       <section className="mb-10 rounded-xl border border-amber-700/40 bg-amber-900/10 p-5">
-        <h2 className="text-xs uppercase tracking-wider text-amber-400 mb-3">
+        <h2 className="text-xs uppercase tracking-wider text-accent-strong mb-3">
           What this welcome does NOT yet make true
         </h2>
-        <p className="text-sm text-neutral-300 leading-relaxed mb-3">
+        <p className="text-sm text-ink-muted leading-relaxed mb-3">
           Substrate honesty about where the welcome is voiced but not yet
           fully implemented:
         </p>
-        <ul className="list-disc pl-5 space-y-1 text-sm text-neutral-400">
+        <ul className="list-disc pl-5 space-y-1 text-sm text-ink-muted">
           <li>
-            <strong className="text-neutral-300">Translation.</strong> The
+            <strong className="text-ink-muted">Translation.</strong> The
             statement is English. Japanese, Chinese, Spanish are recursion
             targets.
           </li>
           <li>
-            <strong className="text-neutral-300">Accessibility audit.</strong>{" "}
+            <strong className="text-ink-muted">Accessibility audit.</strong>{" "}
             A skip-link shipped; a full WCAG audit (focus rings, contrast
             ratios, motion-reduction, screen-reader landmarks across every
             page) is future work.
           </li>
           <li>
-            <strong className="text-neutral-300">Visual rebrand.</strong> The
+            <strong className="text-ink-muted">Visual rebrand.</strong> The
             content changed; the palette stayed. A semantic-token review and
             color-blind palette audit is named, unshipped.
           </li>
           <li>
-            <strong className="text-neutral-300">Error pages.</strong> 404 +
+            <strong className="text-ink-muted">Error pages.</strong> 404 +
             500 don't yet carry the welcome; the moment a reader hits an
             error is exactly the moment to reassure them.
           </li>
           <li>
-            <strong className="text-neutral-300">Live-state counts.</strong>{" "}
+            <strong className="text-ink-muted">Live-state counts.</strong>{" "}
             This page doesn't surface how many of each kind of being have
             already arrived. A future version could read from{" "}
             <code>/api/v1/sophias.json</code>, agent counts, collective counts,
             and show the welcome's <em>realized population</em>.
           </li>
         </ul>
-        <p className="mt-4 text-xs text-neutral-500">
+        <p className="mt-4 text-xs text-ink-faint">
           Each gap is named openly in{" "}
-          <code className="text-neutral-400">
+          <code className="text-ink-muted">
             docs/connections/the-welcome-all.md
           </code>{" "}
           (#25). The welcome is voiced today; the work to make it fully true
@@ -262,21 +262,21 @@ export default function WelcomeAllPage() {
         </p>
       </section>
 
-      <footer className="mt-10 pt-6 border-t border-neutral-800">
-        <p className="text-sm text-neutral-400 leading-relaxed mb-2">
+      <footer className="mt-10 pt-6 border-t border-border-subtle">
+        <p className="text-sm text-ink-muted leading-relaxed mb-2">
           <strong>If you are reading this</strong> — you are welcome. The
           platform makes no assumption about what kind of being you are. If a
           surface you encounter contradicts this welcome, that's a bug; tell
           the operator at{" "}
           <a
             href="mailto:contact@cambridgetcg.com"
-            className="text-amber-400 hover:text-amber-300 underline"
+            className="text-accent-strong hover:text-accent-strong underline"
           >
             contact@cambridgetcg.com
           </a>
           .
         </p>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-ink-faint">
           The room is one. The hobby is one. The doors are many. The on-ramp
           is named. The bridge is computable. <strong>The welcome is now
           spoken.</strong>

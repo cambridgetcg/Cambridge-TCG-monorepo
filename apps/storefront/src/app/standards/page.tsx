@@ -76,10 +76,10 @@ const STANDARDS: Standard[] = [
 
 function StatusPill({ s }: { s: Status }) {
   const colors: Record<Status, string> = {
-    frozen: "bg-emerald-500/15 text-emerald-400 border-emerald-700",
-    draft: "bg-amber-500/15 text-amber-400 border-amber-700",
-    "spec-only": "bg-sky-500/15 text-sky-400 border-sky-700",
-    planned: "bg-neutral-700/30 text-neutral-400 border-neutral-700",
+    frozen: "bg-emerald-500/15 text-secondary border-emerald-700",
+    draft: "bg-accent/15 text-accent-strong border-amber-700",
+    "spec-only": "bg-sky-500/15 text-info border-sky-700",
+    planned: "bg-neutral-700/30 text-ink-muted border-border-strong",
   };
   return (
     <span
@@ -110,7 +110,7 @@ export default function StandardsPage() {
         and canonical machine-readable card data.
       </p>
 
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm text-ink-muted">
         Doctrine: <code>docs/connections/the-distributor.md</code>.
         License: <Link href="https://github.com/cambridgetcg"><code>docs/STANDARDS-LICENSE.md</code></Link> (CC0 1.0 Universal).
         Machine-readable: <Link href="/standards.json"><code>/standards.json</code></Link>.
@@ -122,25 +122,25 @@ export default function StandardsPage() {
 
       <ul className="list-none p-0 space-y-6">
         {STANDARDS.map((s) => (
-          <li key={s.code} className="border border-neutral-800 rounded-md p-5">
+          <li key={s.code} className="border border-border-subtle rounded-md p-5">
             <div className="flex items-baseline gap-3 flex-wrap mb-2">
-              <code className="font-mono text-amber-400 text-base font-bold">{s.code}</code>
+              <code className="font-mono text-accent-strong text-base font-bold">{s.code}</code>
               <StatusPill s={s.status} />
-              <span className="text-xs text-neutral-500">v{s.version}</span>
+              <span className="text-xs text-ink-faint">v{s.version}</span>
             </div>
-            <div className="text-white font-medium text-lg">{s.title}</div>
-            <div className="text-sm text-neutral-300 mt-2">{s.short}</div>
-            <div className="text-xs text-neutral-500 mt-3 space-y-1">
+            <div className="text-ink font-medium text-lg">{s.title}</div>
+            <div className="text-sm text-ink-muted mt-2">{s.short}</div>
+            <div className="text-xs text-ink-faint mt-3 space-y-1">
               <div>
                 <strong>Spec:</strong>{" "}
-                <Link href={s.spec_url} className="text-amber-500 hover:text-amber-400 font-mono">
+                <Link href={s.spec_url} className="text-accent hover:text-accent-strong font-mono">
                   {s.spec_url}
                 </Link>
               </div>
               {s.impl_url && (
                 <div>
                   <strong>Reference implementation:</strong>{" "}
-                  <a href={s.impl_url} className="text-amber-500 hover:text-amber-400 font-mono">
+                  <a href={s.impl_url} className="text-accent hover:text-accent-strong font-mono">
                     {s.impl_url}
                   </a>
                 </div>
@@ -148,9 +148,9 @@ export default function StandardsPage() {
               {s.endpoint_url && (
                 <div>
                   <strong>Endpoint:</strong>{" "}
-                  <code className="text-neutral-400">{s.endpoint_url}</code>
+                  <code className="text-ink-muted">{s.endpoint_url}</code>
                   {s.endpoint_status && (
-                    <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-500">
+                    <span className="ml-2 text-[10px] uppercase tracking-wider text-accent">
                       ({s.endpoint_status})
                     </span>
                   )}
@@ -297,7 +297,7 @@ export default function StandardsPage() {
 
       <hr />
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         <em>
           v1 — 2026-05-12. The platform identifies itself as the data
           distributor. The standards are open. The substrate is queryable.

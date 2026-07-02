@@ -125,7 +125,7 @@ function SpinWheel({
       />
 
       {/* Outer ring border */}
-      <div className="absolute inset-[-3px] rounded-full border-2 border-amber-500/30" />
+      <div className="absolute inset-[-3px] rounded-full border-2 border-accent/30" />
 
       {/* Wheel body */}
       <div
@@ -165,7 +165,7 @@ function SpinWheel({
               >
                 <span
                   className={`mt-5 sm:mt-6 text-[10px] sm:text-xs font-bold px-1 text-center leading-tight max-w-[70px] sm:max-w-[80px] ${
-                    isWinner ? "text-white drop-shadow-lg scale-110" : "text-white/90"
+                    isWinner ? "text-ink drop-shadow-lg scale-110" : "text-ink/90"
                   }`}
                   style={{
                     transform: "rotate(180deg)",
@@ -212,7 +212,7 @@ function SpinWheel({
 
       {/* Center hub */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-neutral-900 border-2 border-amber-500/50 shadow-lg shadow-amber-500/20" />
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-surface border-2 border-accent/50 shadow-lg shadow-amber-500/20" />
       </div>
     </div>
   );
@@ -227,24 +227,24 @@ function StreakDisplay({ streak }: { streak: StreakInfo }) {
   const currentDay = ((streak.currentStreak - 1) % maxDisplay) + 1;
 
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
+    <div className="rounded-xl border border-border-subtle bg-surface/50 p-5">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xl">🔥</span>
-        <h3 className="font-bold text-white">Daily Streak</h3>
+        <h3 className="font-bold text-ink">Daily Streak</h3>
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="text-center">
-          <p className="text-2xl font-black text-amber-400">{streak.currentStreak}</p>
-          <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Days</p>
+          <p className="text-2xl font-black text-accent-strong">{streak.currentStreak}</p>
+          <p className="text-[10px] text-ink-faint uppercase tracking-wider">Days</p>
         </div>
         <div className="text-center">
-          <p className="text-2xl font-black text-white">{streak.multiplier.toFixed(2)}x</p>
-          <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Multiplier</p>
+          <p className="text-2xl font-black text-ink">{streak.multiplier.toFixed(2)}x</p>
+          <p className="text-[10px] text-ink-faint uppercase tracking-wider">Multiplier</p>
         </div>
         <div className="text-center">
-          <p className="text-2xl font-black text-neutral-400">{streak.longestStreak}</p>
-          <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Best</p>
+          <p className="text-2xl font-black text-ink-muted">{streak.longestStreak}</p>
+          <p className="text-[10px] text-ink-faint uppercase tracking-wider">Best</p>
         </div>
       </div>
 
@@ -260,10 +260,10 @@ function StreakDisplay({ streak }: { streak: StreakInfo }) {
               <div
                 className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[9px] font-bold transition-all ${
                   filled
-                    ? "bg-amber-500 border-amber-400 text-black"
+                    ? "bg-accent border-accent-strong text-black"
                     : current
-                    ? "bg-amber-500/30 border-amber-400 text-amber-400 animate-pulse"
-                    : "bg-neutral-800 border-neutral-700 text-neutral-600"
+                    ? "bg-accent/30 border-accent-strong text-accent-strong animate-pulse"
+                    : "bg-surface-elevated border-border-strong text-neutral-600"
                 }`}
               >
                 {dayNum}
@@ -273,7 +273,7 @@ function StreakDisplay({ streak }: { streak: StreakInfo }) {
         })}
       </div>
 
-      <p className="text-xs text-neutral-500 text-center">
+      <p className="text-xs text-ink-faint text-center">
         {streak.currentStreak > 0
           ? "Keep your streak alive! Visit daily for bonus multiplier."
           : "Spin today to start a streak!"}
@@ -312,7 +312,7 @@ function ResultPanel({
 
       {/* Panel */}
       <div
-        className="relative w-full sm:w-auto sm:min-w-[380px] bg-neutral-900 border border-neutral-700 rounded-t-2xl sm:rounded-2xl p-8 text-center z-10"
+        className="relative w-full sm:w-auto sm:min-w-[380px] bg-surface border border-border-strong rounded-t-2xl sm:rounded-2xl p-8 text-center z-10"
         style={{
           animation: "slideUp 0.4s ease-out",
         }}
@@ -325,25 +325,25 @@ function ResultPanel({
           </div>
         )}
 
-        <p className="text-neutral-400 text-sm mb-1">You won</p>
-        <h2 className="text-2xl sm:text-3xl font-black text-white mb-1">
+        <p className="text-ink-muted text-sm mb-1">You won</p>
+        <h2 className="text-2xl sm:text-3xl font-black text-ink mb-1">
           {result.reward.label}
         </h2>
-        <p className="text-sm text-neutral-500 mb-6 capitalize">{result.reward.type} reward</p>
+        <p className="text-sm text-ink-faint mb-6 capitalize">{result.reward.type} reward</p>
 
         <div className="flex flex-col gap-3">
           {canPremiumSpin && (
             <button
               onClick={onPremiumSpin}
               disabled={spinning}
-              className="w-full py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-neutral-700 disabled:text-neutral-500 text-black font-bold rounded-xl transition"
+              className="w-full py-3 bg-accent hover:bg-accent-strong disabled:bg-neutral-700 disabled:text-ink-faint text-black font-bold rounded-xl transition"
             >
               {spinning ? "Spinning..." : `Spin Again (${premiumCost.toLocaleString()} Berries)`}
             </button>
           )}
           <button
             onClick={onClose}
-            className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition"
+            className="w-full py-3 bg-surface-elevated hover:bg-neutral-700 text-ink font-bold rounded-xl transition"
           >
             {canPremiumSpin ? "Done" : "Come back tomorrow!"}
           </button>
@@ -352,7 +352,7 @@ function ResultPanel({
               href={`/verify/draw/${result.drawId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-center text-xs text-emerald-400 hover:text-emerald-300 underline mt-1"
+              className="block text-center text-xs text-secondary hover:text-emerald-300 underline mt-1"
             >
               ✓ Verify this spin was fair ↗
             </a>
@@ -494,8 +494,8 @@ export default function SpinWheelPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-page flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-accent-strong border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -504,11 +504,11 @@ export default function SpinWheelPage() {
 
   if (!config) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-page flex items-center justify-center text-ink">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Spin wheel unavailable</h1>
-          <p className="text-neutral-400 mb-4">Please try again later.</p>
-          <Link href="/rewards" className="text-amber-400 hover:underline">
+          <p className="text-ink-muted mb-4">Please try again later.</p>
+          <Link href="/rewards" className="text-accent-strong hover:underline">
             Back to Rewards
           </Link>
         </div>
@@ -522,7 +522,7 @@ export default function SpinWheelPage() {
   /* ---------- Render ---------- */
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div className="min-h-screen bg-page text-ink">
       {/* Keyframe styles */}
       <style>{`
         @keyframes slideUp {
@@ -547,19 +547,19 @@ export default function SpinWheelPage() {
       <div className="max-w-5xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/rewards" className="text-sm text-neutral-400 hover:text-white mb-4 inline-block">
+          <Link href="/rewards" className="text-sm text-ink-muted hover:text-ink mb-4 inline-block">
             &larr; Back to Rewards
           </Link>
           <h1 className="text-3xl font-black mb-2">Daily Spin</h1>
-          <p className="text-neutral-400">
+          <p className="text-ink-muted">
             Spin the wheel every day to win Berries, store credit, and more.
           </p>
         </div>
 
         {/* Berries balance bar */}
         {points !== null && (
-          <div className="mb-8 inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-3">
-            <span className="text-lg font-bold text-amber-400">
+          <div className="mb-8 inline-flex items-center gap-2 bg-accent/10 border border-accent/30 rounded-xl px-5 py-3">
+            <span className="text-lg font-bold text-accent-strong">
               {points.toLocaleString()} Berries
             </span>
           </div>
@@ -572,13 +572,13 @@ export default function SpinWheelPage() {
             {/* Spins remaining badge */}
             <div className="mb-6 flex items-center gap-3">
               {canFreeSpin && (
-                <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm font-semibold px-3 py-1.5 rounded-full">
+                <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-secondary text-sm font-semibold px-3 py-1.5 rounded-full">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   Free spin available!
                 </span>
               )}
               {!canFreeSpin && freeSpinsLeft <= 0 && (
-                <span className="inline-flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm font-semibold px-3 py-1.5 rounded-full">
+                <span className="inline-flex items-center gap-1.5 bg-surface-elevated border border-border-strong text-ink-muted text-sm font-semibold px-3 py-1.5 rounded-full">
                   Free spins used today
                 </span>
               )}
@@ -597,7 +597,7 @@ export default function SpinWheelPage() {
               {!loggedIn ? (
                 <Link
                   href="/login"
-                  className="block w-full py-4 bg-neutral-800 border border-neutral-700 text-center text-white font-bold rounded-xl hover:bg-neutral-700 transition text-lg"
+                  className="block w-full py-4 bg-surface-elevated border border-border-strong text-center text-ink font-bold rounded-xl hover:bg-neutral-700 transition text-lg"
                 >
                   🔒 Sign in to Spin
                 </Link>
@@ -605,7 +605,7 @@ export default function SpinWheelPage() {
                 <button
                   onClick={() => doSpin(false)}
                   disabled={spinning}
-                  className="w-full py-4 bg-amber-500 hover:bg-amber-400 disabled:bg-neutral-700 disabled:text-neutral-500 text-black font-black rounded-xl transition text-lg shadow-lg shadow-amber-500/20"
+                  className="w-full py-4 bg-accent hover:bg-accent-strong disabled:bg-neutral-700 disabled:text-ink-faint text-black font-black rounded-xl transition text-lg shadow-lg shadow-amber-500/20"
                 >
                   {spinning ? "Spinning..." : "SPIN!"}
                 </button>
@@ -613,14 +613,14 @@ export default function SpinWheelPage() {
                 <button
                   onClick={() => doSpin(true)}
                   disabled={spinning}
-                  className="w-full py-4 bg-amber-500 hover:bg-amber-400 disabled:bg-neutral-700 disabled:text-neutral-500 text-black font-bold rounded-xl transition text-lg shadow-lg shadow-amber-500/20"
+                  className="w-full py-4 bg-accent hover:bg-accent-strong disabled:bg-neutral-700 disabled:text-ink-faint text-black font-bold rounded-xl transition text-lg shadow-lg shadow-amber-500/20"
                 >
                   {spinning
                     ? "Spinning..."
                     : `Spin Again (${config.premiumCost.toLocaleString()} Berries)`}
                 </button>
               ) : (
-                <div className="w-full py-4 bg-neutral-800 border border-neutral-700 text-center text-neutral-500 font-bold rounded-xl text-lg">
+                <div className="w-full py-4 bg-surface-elevated border border-border-strong text-center text-ink-faint font-bold rounded-xl text-lg">
                   Come back tomorrow!
                 </div>
               )}
@@ -628,13 +628,13 @@ export default function SpinWheelPage() {
 
             {/* Error message */}
             {error && (
-              <div className="mt-4 w-full max-w-xs rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 text-center">
+              <div className="mt-4 w-full max-w-xs rounded-lg bg-danger/10 border border-danger/30 p-3 text-sm text-red-400 text-center">
                 {error}
               </div>
             )}
 
             {/* Spins info */}
-            <div className="mt-4 text-xs text-neutral-500 text-center">
+            <div className="mt-4 text-xs text-ink-faint text-center">
               {config.freeSpinsPerDay > 0 && (
                 <span>
                   {Math.max(0, freeSpinsLeft)} / {config.freeSpinsPerDay} free spin
@@ -656,19 +656,19 @@ export default function SpinWheelPage() {
 
             {/* Streak warning */}
             {streak && streak.currentStreak > 0 && !canFreeSpin && noSpinsLeft && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-                <p className="text-sm text-amber-400 font-semibold flex items-center gap-2">
+              <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+                <p className="text-sm text-accent-strong font-semibold flex items-center gap-2">
                   <span>⚠️</span> Streak at risk!
                 </p>
-                <p className="text-xs text-neutral-400 mt-1">
+                <p className="text-xs text-ink-muted mt-1">
                   Come back tomorrow to keep your {streak.currentStreak}-day streak alive.
                 </p>
               </div>
             )}
 
             {/* Recent spins */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-              <h3 className="font-bold text-white mb-3 text-sm uppercase tracking-wider text-neutral-400">
+            <div className="rounded-xl border border-border-subtle bg-surface/50 p-5">
+              <h3 className="font-bold text-ink mb-3 text-sm uppercase tracking-wider text-ink-muted">
                 Recent Spins
               </h3>
               {history.length === 0 ? (
@@ -680,13 +680,13 @@ export default function SpinWheelPage() {
                       key={entry.timestamp}
                       className="flex items-center justify-between gap-2 text-sm"
                     >
-                      <span className="text-white font-medium truncate">{entry.label}</span>
+                      <span className="text-ink font-medium truncate">{entry.label}</span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                           entry.type === "credit"
-                            ? "bg-emerald-500/20 text-emerald-400"
+                            ? "bg-emerald-500/20 text-secondary"
                             : entry.type === "points"
-                            ? "bg-amber-500/20 text-amber-400"
+                            ? "bg-accent/20 text-accent-strong"
                             : "bg-purple-500/20 text-purple-400"
                         }`}
                       >
@@ -700,13 +700,13 @@ export default function SpinWheelPage() {
 
             {/* Multiplier info */}
             {streak && streak.multiplier > 1 && (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5">
-                <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-400 mb-2">
+              <div className="rounded-xl border border-border-subtle bg-surface/50 p-5">
+                <h3 className="font-bold text-sm uppercase tracking-wider text-ink-muted mb-2">
                   Streak Bonus
                 </h3>
-                <p className="text-sm text-neutral-300">
+                <p className="text-sm text-ink-muted">
                   Your {streak.currentStreak}-day streak gives you a{" "}
-                  <span className="text-amber-400 font-bold">
+                  <span className="text-accent-strong font-bold">
                     {((streak.multiplier - 1) * 100).toFixed(0)}% bonus
                   </span>{" "}
                   on spin rewards. Multiplier increases 2% per day, up to 50%.

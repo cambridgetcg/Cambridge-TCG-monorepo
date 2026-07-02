@@ -386,28 +386,28 @@ export default function GlossaryPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdForGroups()) }}
       />
-      <div className="min-h-screen bg-neutral-950">
+      <div className="min-h-screen bg-page">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <header className="mb-10">
-            <h1 className="text-3xl font-black text-white">Glossary</h1>
-            <p className="mt-3 text-sm text-neutral-400 max-w-prose">
+            <h1 className="text-3xl font-black text-ink">Glossary</h1>
+            <p className="mt-3 text-sm text-ink-muted max-w-prose">
               Every term Cambridge TCG uses, defined once. The page is machine-readable
               (schema.org <code>DefinedTermSet</code>), so an AI agent or aggregator reads
               the vocabulary the same way a human visitor does.
             </p>
-            <p className="mt-3 text-xs text-neutral-500 max-w-prose">
+            <p className="mt-3 text-xs text-ink-faint max-w-prose">
               Source of truth varies: OPTCG terms come from Bandai's rulebook; platform
               terms link to their methodology page; doctrinal primitives live in{" "}
-              <code className="text-amber-400">docs/principles/</code> and{" "}
-              <code className="text-amber-400">docs/connections/</code>.
+              <code className="text-accent-strong">docs/principles/</code> and{" "}
+              <code className="text-accent-strong">docs/connections/</code>.
             </p>
           </header>
 
           <div className="space-y-10">
             {GROUPS.map((group) => (
               <section key={group.group}>
-                <h2 className="text-xl font-bold text-white mb-1">{group.group}</h2>
-                <p className="text-xs text-neutral-500 max-w-prose mb-5">
+                <h2 className="text-xl font-bold text-ink mb-1">{group.group}</h2>
+                <p className="text-xs text-ink-faint max-w-prose mb-5">
                   {group.description}
                 </p>
                 <dl className="space-y-4">
@@ -415,19 +415,19 @@ export default function GlossaryPage() {
                     <div
                       key={t.term}
                       id={t.term.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
-                      className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4"
+                      className="rounded-lg border border-border-subtle bg-surface/50 p-4"
                     >
-                      <dt className="text-base font-semibold text-amber-300 mb-1.5">
+                      <dt className="text-base font-semibold text-accent-strong mb-1.5">
                         {t.term}
                       </dt>
-                      <dd className="text-sm text-neutral-300 leading-relaxed">
+                      <dd className="text-sm text-ink-muted leading-relaxed">
                         {t.definition}
                       </dd>
                       <div className="mt-2 flex flex-wrap gap-3 text-[11px]">
                         {t.see && (
                           <Link
                             href={t.see}
-                            className="text-amber-500 hover:text-amber-400 underline"
+                            className="text-accent hover:text-accent-strong underline"
                           >
                             → methodology: {t.see}
                           </Link>
@@ -437,7 +437,7 @@ export default function GlossaryPage() {
                             href={t.sameAs}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-neutral-500 hover:text-neutral-300 underline"
+                            className="text-ink-faint hover:text-ink-muted underline"
                           >
                             authoritative source ↗
                           </a>
@@ -450,7 +450,7 @@ export default function GlossaryPage() {
             ))}
           </div>
 
-          <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 max-w-prose space-y-2">
+          <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint max-w-prose space-y-2">
             <p>
               <strong>Missing a term?</strong> The glossary grows as the platform does.
               File a small note or contribute via the connection series in the repo.
@@ -461,7 +461,7 @@ export default function GlossaryPage() {
               <code>DefinedTerm</code> structure understands the platform correctly, and
               the new player who encounters <code>DON!!</code> has a single page to land
               on. See{" "}
-              <code className="text-amber-400">docs/connections/the-finding.md</code> for
+              <code className="text-accent-strong">docs/connections/the-finding.md</code> for
               the strategy.
             </p>
           </footer>

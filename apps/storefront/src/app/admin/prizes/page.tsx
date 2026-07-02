@@ -137,15 +137,15 @@ export default function AdminPrizesPage() {
 
   if (!authed) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <main className="min-h-screen bg-page flex items-center justify-center">
       <Audience kind="operator" />
         <form onSubmit={handleLogin} className="w-full max-w-sm px-4">
-          <h1 className="text-2xl font-bold text-white text-center mb-8">Prize Fulfillment</h1>
+          <h1 className="text-2xl font-bold text-ink text-center mb-8">Prize Fulfillment</h1>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
             placeholder="Admin password"
-            className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white" />
+            className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink" />
           {loginError && <p className="text-red-400 text-sm mt-2">{loginError}</p>}
-          <button type="submit" className="w-full mt-4 px-4 py-3 bg-amber-500 text-black rounded-lg font-bold">
+          <button type="submit" className="w-full mt-4 px-4 py-3 bg-accent text-black rounded-lg font-bold">
             Sign in
           </button>
         </form>
@@ -173,20 +173,20 @@ export default function AdminPrizesPage() {
   const selectionCoherent = selectedUserIds.size <= 1;
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-black text-white mb-1">Prize Fulfillment</h1>
-        <p className="text-sm text-neutral-400 mb-6">
+        <h1 className="text-2xl font-black text-ink mb-1">Prize Fulfillment</h1>
+        <p className="text-sm text-ink-muted mb-6">
           {prizes.length} unfulfilled across raffles + mystery boxes + packs
         </p>
 
         {loading ? (
-          <p className="text-sm text-neutral-500">Loading...</p>
+          <p className="text-sm text-ink-faint">Loading...</p>
         ) : (
           <>
             {readyClusters.size > 0 && (
               <section className="mb-8">
-                <h2 className="text-sm font-bold text-neutral-300 uppercase tracking-wide mb-3">
+                <h2 className="text-sm font-bold text-ink-muted uppercase tracking-wide mb-3">
                   Ready to ship ({readyToShip.length})
                 </h2>
                 <div className="space-y-4">
@@ -222,7 +222,7 @@ export default function AdminPrizesPage() {
                     </button>
                     {undoable && (
                       <button onClick={() => undo(p)} disabled={acting === `${p.kind}:${p.id}`}
-                        className="text-xs text-amber-400 hover:text-amber-300 underline disabled:opacity-50"
+                        className="text-xs text-accent-strong hover:text-accent-strong underline disabled:opacity-50"
                         title="Undo within 30 min of ship">
                         Undo
                       </button>
@@ -232,7 +232,7 @@ export default function AdminPrizesPage() {
               }} />
             <Section title={`Awaiting customer address (${waitingAddress.length})`} prizes={waitingAddress}
               renderActions={() => (
-                <span className="text-xs text-neutral-500">Customer hasn&rsquo;t entered shipping yet</span>
+                <span className="text-xs text-ink-faint">Customer hasn&rsquo;t entered shipping yet</span>
               )} />
           </>
         )}
@@ -240,9 +240,9 @@ export default function AdminPrizesPage() {
 
       {/* Sticky selection bar — bulk ship across clusters */}
       {selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-neutral-950/95 backdrop-blur border-t border-amber-500/40 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-page/95 backdrop-blur border-t border-accent/40 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="text-sm">
-            <span className="font-bold text-amber-400">{selected.size}</span> selected
+            <span className="font-bold text-accent-strong">{selected.size}</span> selected
             {!selectionCoherent && (
               <span className="ml-3 text-xs text-red-400">
                 (bulk ship requires same user — clear selection to retry)
@@ -252,14 +252,14 @@ export default function AdminPrizesPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setSelected(new Set())}
-              className="text-xs px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg transition-colors"
+              className="text-xs px-3 py-2 bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded-lg transition-colors"
             >
               Clear
             </button>
             <button
               onClick={() => bulkShip(selectedPrizes)}
               disabled={!selectionCoherent || selectedPrizes.length === 0}
-              className="text-xs px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg transition-colors disabled:opacity-50"
+              className="text-xs px-4 py-2 bg-accent hover:bg-accent-strong text-black font-bold rounded-lg transition-colors disabled:opacity-50"
             >
               Bulk ship {selected.size} prize{selected.size === 1 ? "" : "s"}
             </button>
@@ -283,21 +283,21 @@ function ClusterCard({
   const head = prizes[0];
   const isBundle = prizes.length > 1;
   return (
-    <div className={`bg-neutral-900 rounded-xl p-4 ${isBundle ? "border border-amber-500/30" : ""}`}>
+    <div className={`bg-surface rounded-xl p-4 ${isBundle ? "border border-accent/30" : ""}`}>
       <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
         <div className="min-w-0">
           {isBundle && (
-            <span className="text-xs bg-amber-500/20 text-amber-400 rounded px-2 py-0.5 font-bold uppercase tracking-wider mr-2">
+            <span className="text-xs bg-accent/20 text-accent-strong rounded px-2 py-0.5 font-bold uppercase tracking-wider mr-2">
               {prizes.length} PRIZES · ONE ENVELOPE
             </span>
           )}
-          <span className="text-xs text-neutral-300">{head.user_name || head.user_email}</span>
+          <span className="text-xs text-ink-muted">{head.user_name || head.user_email}</span>
         </div>
         {isBundle && (
           <button
             onClick={() => onBulkShip(prizes)}
             disabled={acting?.startsWith("bulk:")}
-            className="text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded transition-colors disabled:opacity-50"
+            className="text-xs px-3 py-1.5 bg-accent hover:bg-accent-strong text-black font-bold rounded transition-colors disabled:opacity-50"
           >
             Ship all {prizes.length} together
           </button>
@@ -305,12 +305,12 @@ function ClusterCard({
       </div>
 
       {head.shipping_address && (
-        <p className="text-xs text-neutral-400 mb-3 whitespace-pre-wrap">{head.shipping_address}</p>
+        <p className="text-xs text-ink-muted mb-3 whitespace-pre-wrap">{head.shipping_address}</p>
       )}
 
       <div className="space-y-2">
         {prizes.map((p) => (
-          <div key={`${p.kind}:${p.id}`} className="flex items-start gap-3 p-2 rounded bg-neutral-950/40">
+          <div key={`${p.kind}:${p.id}`} className="flex items-start gap-3 p-2 rounded bg-page/40">
             <input
               type="checkbox"
               checked={selected.has(`${p.kind}:${p.id}`)}
@@ -318,16 +318,16 @@ function ClusterCard({
               className="mt-1 accent-amber-500"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-neutral-500 capitalize">{p.kind.replace("_", " ")}</p>
-              <p className="text-sm font-bold text-white truncate">{p.label}</p>
-              {p.prize_description && <p className="text-xs text-neutral-400 truncate">{p.prize_description}</p>}
+              <p className="text-[10px] text-ink-faint capitalize">{p.kind.replace("_", " ")}</p>
+              <p className="text-sm font-bold text-ink truncate">{p.label}</p>
+              {p.prize_description && <p className="text-xs text-ink-muted truncate">{p.prize_description}</p>}
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-[10px] text-neutral-500">{new Date(p.won_at).toLocaleDateString("en-GB")}</p>
+              <p className="text-[10px] text-ink-faint">{new Date(p.won_at).toLocaleDateString("en-GB")}</p>
               <button
                 onClick={() => onShip(p)}
                 disabled={acting === `${p.kind}:${p.id}`}
-                className="mt-1 px-2 py-1 text-[11px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded disabled:opacity-50"
+                className="mt-1 px-2 py-1 text-[11px] bg-surface-elevated hover:bg-neutral-700 text-ink-muted rounded disabled:opacity-50"
               >
                 Ship solo
               </button>
@@ -345,27 +345,27 @@ function Section({ title, prizes, renderActions }: {
   if (prizes.length === 0) return null;
   return (
     <section className="mb-8">
-      <h2 className="text-sm font-bold text-neutral-300 uppercase tracking-wide mb-3">{title}</h2>
-      <div className="bg-neutral-900 rounded-xl divide-y divide-neutral-800">
+      <h2 className="text-sm font-bold text-ink-muted uppercase tracking-wide mb-3">{title}</h2>
+      <div className="bg-surface rounded-xl divide-y divide-border-subtle">
         {prizes.map((p) => (
           <div key={`${p.kind}:${p.id}`} className="p-4">
             <div className="flex items-baseline justify-between mb-1 gap-3">
               <div className="min-w-0">
-                <p className="text-xs text-neutral-500 capitalize">{p.kind.replace("_", " ")}</p>
-                <p className="text-sm font-bold text-white truncate">{p.label}</p>
-                {p.prize_description && <p className="text-xs text-neutral-400 truncate">{p.prize_description}</p>}
+                <p className="text-xs text-ink-faint capitalize">{p.kind.replace("_", " ")}</p>
+                <p className="text-sm font-bold text-ink truncate">{p.label}</p>
+                {p.prize_description && <p className="text-xs text-ink-muted truncate">{p.prize_description}</p>}
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-xs text-neutral-300">{p.user_name || p.user_email}</p>
-                <p className="text-[10px] text-neutral-500">{new Date(p.won_at).toLocaleDateString("en-GB")}</p>
+                <p className="text-xs text-ink-muted">{p.user_name || p.user_email}</p>
+                <p className="text-[10px] text-ink-faint">{new Date(p.won_at).toLocaleDateString("en-GB")}</p>
               </div>
             </div>
             {p.shipping_address && (
-              <p className="text-xs text-neutral-400 mt-2 whitespace-pre-wrap">{p.shipping_address}</p>
+              <p className="text-xs text-ink-muted mt-2 whitespace-pre-wrap">{p.shipping_address}</p>
             )}
             {p.tracking_number && (
-              <p className="text-xs text-emerald-400 mt-1 font-mono">
-                {p.carrier && <span className="text-neutral-500 mr-1">{p.carrier}</span>}
+              <p className="text-xs text-secondary mt-1 font-mono">
+                {p.carrier && <span className="text-ink-faint mr-1">{p.carrier}</span>}
                 {p.tracking_number}
               </p>
             )}

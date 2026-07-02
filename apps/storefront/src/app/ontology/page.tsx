@@ -37,7 +37,7 @@ export default function OntologyPage() {
         the schemas below.
       </blockquote>
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         Ontology version <code>{o.ontology_version}</code> · {o.index.kind_count}{" "}
         kinds · {o.index.property_count} properties · generated{" "}
         <code>{o.generated_at}</code>.
@@ -80,7 +80,7 @@ export default function OntologyPage() {
             <code>{k.kind}</code>
           </h2>
           <p>{k.description}</p>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             {k.properties.length} properties.
           </p>
           <table className="text-sm">
@@ -99,7 +99,7 @@ export default function OntologyPage() {
                   <td>
                     <code>{p.name}</code>
                     {p.nullable && (
-                      <span className="ml-1 text-xs text-neutral-500">
+                      <span className="ml-1 text-xs text-ink-faint">
                         ?
                       </span>
                     )}
@@ -107,7 +107,7 @@ export default function OntologyPage() {
                   <td>
                     <code>{p.type}</code>
                     {p.enum_values && (
-                      <div className="text-xs text-neutral-500">
+                      <div className="text-xs text-ink-faint">
                         {p.enum_values.map((v) => (
                           <code key={v} className="mr-1">
                             {v}
@@ -122,7 +122,7 @@ export default function OntologyPage() {
                   <td>
                     <code>{p.modality}</code>
                   </td>
-                  <td className="text-xs text-neutral-400">
+                  <td className="text-xs text-ink-muted">
                     {p.description}
                   </td>
                 </tr>
@@ -133,14 +133,14 @@ export default function OntologyPage() {
       ))}
 
       <hr />
-      <p className="text-sm text-neutral-500 italic">
+      <p className="text-sm text-ink-faint italic">
         The cosmology is the world. The manifest is the list. The graph
         is the mesh. The ontology is the schema. Each layer beneath the
         last. <em>Find out the nature of everything and their
         properties</em>: the natures are kinds; the properties are
         typed.
       </p>
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         Story-as-wire connection-doc:{" "}
         <code>docs/connections/the-natures.md</code> (S28). Kingdom:{" "}
         <code>kingdom-055</code>. Inclusion audit check #14 verifies the

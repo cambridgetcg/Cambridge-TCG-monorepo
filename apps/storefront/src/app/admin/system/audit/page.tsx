@@ -188,26 +188,26 @@ export default async function Page({
       key: "time",
       header: "Time",
       align: "right",
-      cellClass: "text-xs text-neutral-400 whitespace-nowrap",
+      cellClass: "text-xs text-ink-muted whitespace-nowrap",
       render: (r) => fmtDateTime(r.created_at),
     },
     {
       key: "actor",
       header: (
         <span title="actor_label is a free-form string the action wrapper sets at write time. It is NOT a verified user identity. See docs/principles/substrate-honesty-audit.md item A3.">
-          Actor <span className="text-amber-500/70">⚠</span>
+          Actor <span className="text-accent/70">⚠</span>
         </span>
       ),
       render: (r) =>
         r.actor_label ? (
           <span
-            className="text-white text-sm border-b border-dotted border-neutral-600 cursor-help"
+            className="text-ink text-sm border-b border-dotted border-neutral-600 cursor-help"
             title="Free-form label set by the action wrapper. Not a verified user — see audit A3."
           >
             {r.actor_label}
           </span>
         ) : (
-          <span className="text-neutral-500 italic text-sm">system</span>
+          <span className="text-ink-faint italic text-sm">system</span>
         ),
     },
     {
@@ -222,10 +222,10 @@ export default async function Page({
       header: "Target",
       render: (r) => (
         <div className="text-sm">
-          <span className="text-neutral-400">{r.target_kind}</span>
+          <span className="text-ink-muted">{r.target_kind}</span>
           {r.target_id && (
             <span
-              className="ml-1.5 font-mono text-xs text-neutral-500"
+              className="ml-1.5 font-mono text-xs text-ink-faint"
               title={r.target_id}
             >
               {r.target_id.length > 12 ? `${r.target_id.slice(0, 12)}…` : r.target_id}
@@ -240,7 +240,7 @@ export default async function Page({
       render: (r) =>
         r.reason ? (
           <span
-            className="text-sm text-neutral-300 line-clamp-2 max-w-[200px]"
+            className="text-sm text-ink-muted line-clamp-2 max-w-[200px]"
             title={r.reason}
           >
             {r.reason}
@@ -266,7 +266,7 @@ export default async function Page({
           <div className="text-xs space-y-0.5 max-w-[260px]">
             {shown.map(({ key, before, after }) => (
               <div key={key} className="flex items-baseline gap-1 flex-wrap">
-                <span className="text-neutral-500 shrink-0">{key}:</span>
+                <span className="text-ink-faint shrink-0">{key}:</span>
                 <span
                   className="line-through text-red-400 truncate max-w-[70px]"
                   title={before}
@@ -275,7 +275,7 @@ export default async function Page({
                 </span>
                 <span className="text-neutral-600">→</span>
                 <span
-                  className="text-emerald-400 truncate max-w-[70px]"
+                  className="text-secondary truncate max-w-[70px]"
                   title={after}
                 >
                   {after}
@@ -314,7 +314,7 @@ export default async function Page({
             trust override, dispute resolution, fraud signal review — is recorded here.
             The log is the substrate; status columns elsewhere are caches over this.
             {" "}
-            <span className="text-amber-400" title="Substrate-honesty audit item A3">
+            <span className="text-accent-strong" title="Substrate-honesty audit item A3">
               ⚠ The Actor column is a free-form label, not a verified user identity (see audit A3).
             </span>
           </>
@@ -343,30 +343,30 @@ export default async function Page({
       <form className="flex flex-wrap items-center gap-3 text-sm" action="/admin/system/audit">
         {q && <input type="hidden" name="q" value={q} />}
         {kind && <input type="hidden" name="kind" value={kind} />}
-        <label className="text-neutral-400 shrink-0">From</label>
+        <label className="text-ink-muted shrink-0">From</label>
         <input
           type="date"
           name="from"
           defaultValue={from}
-          className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-md text-white text-sm focus:outline-none focus:border-blue-500"
+          className="px-3 py-1.5 bg-surface border border-border-subtle rounded-md text-ink text-sm focus:outline-none focus:border-blue-500"
         />
-        <label className="text-neutral-400 shrink-0">To</label>
+        <label className="text-ink-muted shrink-0">To</label>
         <input
           type="date"
           name="to"
           defaultValue={to}
-          className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-md text-white text-sm focus:outline-none focus:border-blue-500"
+          className="px-3 py-1.5 bg-surface border border-border-subtle rounded-md text-ink text-sm focus:outline-none focus:border-blue-500"
         />
         <button
           type="submit"
-          className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm rounded-md transition-colors"
+          className="px-3 py-1.5 bg-surface-elevated hover:bg-neutral-700 text-ink-muted text-sm rounded-md transition-colors"
         >
           Apply
         </button>
         {(from || to) && (
           <a
             href={buildHref({ from: "", to: "", page: "1" })}
-            className="text-neutral-500 hover:text-white text-sm transition-colors"
+            className="text-ink-faint hover:text-ink text-sm transition-colors"
           >
             Clear dates
           </a>

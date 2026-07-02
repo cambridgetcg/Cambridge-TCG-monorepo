@@ -34,12 +34,12 @@ export function RedeployButton({ projectKey }: { projectKey: VercelProject["key"
         type="button"
         onClick={trigger}
         disabled={pending}
-        className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white rounded transition disabled:opacity-50"
+        className="px-3 py-1.5 text-xs bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink rounded transition disabled:opacity-50"
       >
         {pending ? "Triggering…" : "Redeploy from main"}
       </button>
       {status && (
-        <span className="text-xs text-neutral-400 max-w-[140px] truncate" title={status}>
+        <span className="text-xs text-ink-muted max-w-[140px] truncate" title={status}>
           {status}
         </span>
       )}

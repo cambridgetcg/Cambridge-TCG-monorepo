@@ -38,32 +38,32 @@ export default function AccountPaymentIssuesPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">Payment Issues</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-2">Payment Issues</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Stripe payment attempts that didn&apos;t go through. Most resolve by
         trying a different card or contacting your bank. Repeated failures
         in a short window may temporarily restrict trading; see{" "}
-        <Link href="/account/standing" className="text-amber-400 underline">
+        <Link href="/account/standing" className="text-accent-strong underline">
           Account Standing
         </Link>
         .
       </p>
 
       {loading ? (
-        <p className="text-neutral-500">Loading…</p>
+        <p className="text-ink-faint">Loading…</p>
       ) : failed.length === 0 ? (
         <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-xl p-6 text-center">
-          <p className="text-emerald-400 font-bold mb-1">No payment issues ✓</p>
-          <p className="text-xs text-neutral-500">
+          <p className="text-secondary font-bold mb-1">No payment issues ✓</p>
+          <p className="text-xs text-ink-faint">
             All your payments have succeeded on first attempt.
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {failed.map((f, i) => (
-            <div key={i} className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <div key={i} className="rounded-xl border border-accent/30 bg-accent/5 p-4">
               <div className="flex items-baseline justify-between flex-wrap gap-2 mb-2">
-                <h3 className="font-bold text-amber-400">
+                <h3 className="font-bold text-accent-strong">
                   {f.failure_code ? (CODE_COPY[f.failure_code] ?? f.failure_code.replace(/_/g, " ")) : "Payment failed"}
                 </h3>
                 <span className="text-xs opacity-70">

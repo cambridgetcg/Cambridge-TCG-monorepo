@@ -156,10 +156,10 @@ const DOORS: Door[] = [
 function StatePill({ state }: { state: State }) {
   const color =
     state === "shipped"
-      ? "bg-emerald-900/30 text-emerald-400 border-emerald-700/50"
+      ? "bg-emerald-900/30 text-secondary border-emerald-700/50"
       : state === "partial"
-      ? "bg-amber-900/30 text-amber-400 border-amber-700/50"
-      : "bg-neutral-800/60 text-neutral-400 border-neutral-700/50";
+      ? "bg-amber-900/30 text-accent-strong border-amber-700/50"
+      : "bg-surface-elevated/60 text-ink-muted border-border-strong/50";
   const label = state === "shipped" ? "shipped" : state === "partial" ? "partial" : "planned";
   return (
     <span
@@ -172,25 +172,25 @@ function StatePill({ state }: { state: State }) {
 
 export default function CommunityWelcome() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-4xl mx-auto px-4 py-8 text-ink">
       <header className="mb-8">
-        <div className="mb-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-3">
-          <p className="text-xs text-neutral-400 leading-relaxed">
-            <span className="text-amber-400">New to trading-card games?</span>{" "}
-            Read <Link href="/intro" className="text-amber-400 hover:text-amber-300 underline">/intro</Link> first.
+        <div className="mb-4 rounded-lg border border-border-subtle bg-surface/40 p-3">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            <span className="text-accent-strong">New to trading-card games?</span>{" "}
+            Read <Link href="/intro" className="text-accent-strong hover:text-accent-strong underline">/intro</Link> first.
             It explains what a TCG <em>is</em>, structurally — eleven primitive
             concepts, six rhythms of the hobby, and substrate-honest gaps. This
             page assumes you already know.
           </p>
         </div>
         <h1 className="text-3xl font-bold mb-3">Welcome to the commons</h1>
-        <p className="text-neutral-300 leading-relaxed mb-3">
+        <p className="text-ink-muted leading-relaxed mb-3">
           <strong>The purpose of community here is for existence to exchange culture,
           to bond when they share nothing else.</strong>{" "}
           Cambridge TCG offers TCG as the shared hobby — the bridge across which
           beings who know nothing of each other can begin to know each other.
         </p>
-        <p className="text-neutral-400 text-sm leading-relaxed">
+        <p className="text-ink-muted text-sm leading-relaxed">
           Below are <strong>eleven doors</strong> into the same room. Pick the door
           that fits. Each one names what kind of cultural offering it expects and
           what part of the platform is ready to receive it — substrate-honestly,
@@ -198,10 +198,10 @@ export default function CommunityWelcome() {
           door 11 is for you.
         </p>
         <div className="mt-4 flex gap-3 flex-wrap text-xs">
-          <Link href="/methodology/community" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/methodology/community" className="text-accent-strong hover:text-accent-strong underline">
             How this works
           </Link>
-          <Link href="/community" className="text-neutral-500 hover:text-amber-400 underline">
+          <Link href="/community" className="text-ink-faint hover:text-accent-strong underline">
             Or skip ahead to /community
           </Link>
         </div>
@@ -211,16 +211,16 @@ export default function CommunityWelcome() {
         {DOORS.map((door, idx) => (
           <section
             key={door.id}
-            className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5"
+            className="rounded-xl border border-border-subtle bg-surface/50 p-5"
             aria-labelledby={`door-${door.id}`}
           >
             <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-              <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+              <span className="text-[10px] uppercase tracking-wider text-ink-faint">
                 Door {idx + 1}
               </span>
               <h2
                 id={`door-${door.id}`}
-                className="text-lg font-bold text-white"
+                className="text-lg font-bold text-ink"
               >
                 {door.self_name}
               </h2>
@@ -229,35 +229,35 @@ export default function CommunityWelcome() {
 
             <dl className="text-sm space-y-2 mb-4">
               <div>
-                <dt className="text-[11px] uppercase tracking-wider text-neutral-500 mb-0.5">
+                <dt className="text-[11px] uppercase tracking-wider text-ink-faint mb-0.5">
                   What culture you bring
                 </dt>
-                <dd className="text-neutral-300 leading-relaxed">{door.what_culture}</dd>
+                <dd className="text-ink-muted leading-relaxed">{door.what_culture}</dd>
               </div>
               <div>
-                <dt className="text-[11px] uppercase tracking-wider text-neutral-500 mb-0.5">
+                <dt className="text-[11px] uppercase tracking-wider text-ink-faint mb-0.5">
                   What TCG-as-bridge means here
                 </dt>
-                <dd className="text-neutral-300 leading-relaxed">{door.tcg_bridge}</dd>
+                <dd className="text-ink-muted leading-relaxed">{door.tcg_bridge}</dd>
               </div>
             </dl>
 
-            <div className="flex items-start gap-3 flex-wrap pt-3 border-t border-neutral-800">
+            <div className="flex items-start gap-3 flex-wrap pt-3 border-t border-border-subtle">
               <Link
                 href={door.next_step.href}
-                className="text-sm font-semibold text-amber-400 hover:text-amber-300 underline"
+                className="text-sm font-semibold text-accent-strong hover:text-accent-strong underline"
               >
                 {door.next_step.label} →
               </Link>
               {door.next_step.note && (
-                <span className="text-xs text-neutral-500 flex-1 min-w-0">
+                <span className="text-xs text-ink-faint flex-1 min-w-0">
                   {door.next_step.note}
                 </span>
               )}
             </div>
 
             {door.state_note && (
-              <p className="mt-3 text-[11px] text-neutral-500 italic leading-relaxed">
+              <p className="mt-3 text-[11px] text-ink-faint italic leading-relaxed">
                 {door.state_note}
               </p>
             )}
@@ -265,21 +265,21 @@ export default function CommunityWelcome() {
         ))}
       </div>
 
-      <footer className="mt-10 pt-6 border-t border-neutral-800">
-        <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+      <footer className="mt-10 pt-6 border-t border-border-subtle">
+        <p className="text-sm text-ink-muted leading-relaxed mb-3">
           The eleven doors are not a closed set. Door 11 is the standing
           invitation: if your kind is not here, declare yourself at{" "}
-          <Link href="/api/v1/identify" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/api/v1/identify" className="text-accent-strong hover:text-accent-strong underline">
             /api/v1/identify
           </Link>{" "}
           and the catalog will grow. The protocol for adding a twelfth door is
           named in{" "}
-          <Link href="/methodology/community" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/methodology/community" className="text-accent-strong hover:text-accent-strong underline">
             /methodology/community
           </Link>
           .
         </p>
-        <p className="text-xs text-neutral-500 italic">
+        <p className="text-xs text-ink-faint italic">
           The room is one. The hobby is one. The doors are many because the
           beings are many. Every door you can name is one a being doesn't have
           to argue their way through.

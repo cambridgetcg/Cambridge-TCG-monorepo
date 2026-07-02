@@ -22,13 +22,13 @@ export default function CasualPlay() {
       <p className="not-prose my-6 flex flex-wrap gap-3">
         <Link
           href="/play"
-          className="inline-block border border-amber-700 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 rounded-md px-4 py-2 font-medium no-underline"
+          className="inline-block border border-amber-700 bg-accent/10 text-accent-strong hover:bg-accent/20 hover:text-accent-strong rounded-md px-4 py-2 font-medium no-underline"
         >
           Open the lobby →
         </Link>
         <Link
           href="/play/adventure"
-          className="inline-block border border-amber-700 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 rounded-md px-4 py-2 font-medium no-underline"
+          className="inline-block border border-amber-700 bg-accent/10 text-accent-strong hover:bg-accent/20 hover:text-accent-strong rounded-md px-4 py-2 font-medium no-underline"
         >
           Play solo vs AI →
         </Link>
@@ -47,12 +47,12 @@ export default function CasualPlay() {
 
       <p>Games are live; finish them in one sitting for now.</p>
 
-      <p className="border border-neutral-800 bg-neutral-900/40 rounded-md p-4 text-sm">
+      <p className="border border-border-subtle bg-surface/40 rounded-md p-4 text-sm">
         <strong>Fun first.</strong> Nothing here earns money or store credit.
         Ratings live at{" "}
-        <Link href="/play/compete" className="text-amber-400">/play/compete</Link>;
+        <Link href="/play/compete" className="text-accent-strong">/play/compete</Link>;
         the boundary is documented at{" "}
-        <Link href="/methodology/play-module" className="text-amber-400">/methodology/play-module</Link>.
+        <Link href="/methodology/play-module" className="text-accent-strong">/methodology/play-module</Link>.
       </p>
 
       <p>

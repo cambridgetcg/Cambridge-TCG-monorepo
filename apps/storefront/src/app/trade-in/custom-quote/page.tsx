@@ -37,7 +37,7 @@ const GAMES = ["One Piece", "Pokémon", "Dragon Ball", "Yu-Gi-Oh", "Other"];
 const CONDITIONS = ["NM", "LP", "MP", "HP"];
 
 const inputClass =
-  "w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50";
+  "w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50";
 
 export default function CustomQuotePage() {
   const router = useRouter();
@@ -191,19 +191,19 @@ export default function CustomQuotePage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <Link
           href="/trade-in"
-          className="text-sm text-neutral-400 hover:text-white transition mb-6 inline-block"
+          className="text-sm text-ink-muted hover:text-ink transition mb-6 inline-block"
         >
           &larr; Back to trade-in
         </Link>
 
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-ink mb-2">
           Custom Quote Request
         </h1>
-        <p className="text-neutral-400 text-sm mb-8">
+        <p className="text-ink-muted text-sm mb-8">
           Can&apos;t find your card on the buylist? Describe it here and we&apos;ll
           send you a personalised offer.
         </p>
@@ -213,18 +213,18 @@ export default function CustomQuotePage() {
           {cards.map((card, index) => (
             <div
               key={card.id}
-              className="bg-neutral-900 rounded-xl p-5 relative"
+              className="bg-surface rounded-xl p-5 relative"
             >
               {/* Card number badge */}
               <div className="flex items-center justify-between mb-4">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500 text-black text-xs font-bold">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-accent text-black text-xs font-bold">
                   #{index + 1}
                 </span>
                 {cards.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeCard(card.id)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full text-neutral-500 hover:text-red-400 hover:bg-neutral-800 transition"
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-ink-faint hover:text-red-400 hover:bg-surface-elevated transition"
                     aria-label={`Remove card ${index + 1}`}
                   >
                     <svg
@@ -248,7 +248,7 @@ export default function CustomQuotePage() {
               <div className="space-y-4">
                 {/* Description */}
                 <div>
-                  <label className="block text-xs font-medium text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-ink-muted mb-1">
                     Card Description *
                   </label>
                   <input
@@ -265,7 +265,7 @@ export default function CustomQuotePage() {
                 {/* Game & Set — side by side */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-ink-muted mb-1">
                       Game
                     </label>
                     <select
@@ -284,7 +284,7 @@ export default function CustomQuotePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-ink-muted mb-1">
                       Set Name
                     </label>
                     <input
@@ -302,7 +302,7 @@ export default function CustomQuotePage() {
                 {/* Condition & Quantity — side by side */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-ink-muted mb-1">
                       Condition *
                     </label>
                     <select
@@ -320,7 +320,7 @@ export default function CustomQuotePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-neutral-400 mb-1">
+                    <label className="block text-xs font-medium text-ink-muted mb-1">
                       Quantity
                     </label>
                     <input
@@ -339,7 +339,7 @@ export default function CustomQuotePage() {
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-xs font-medium text-neutral-400 mb-1">
+                  <label className="block text-xs font-medium text-ink-muted mb-1">
                     Notes
                   </label>
                   <textarea
@@ -355,7 +355,7 @@ export default function CustomQuotePage() {
 
                 {/* Photo upload */}
                 <div>
-                  <label className="block text-xs font-medium text-neutral-400 mb-2">
+                  <label className="block text-xs font-medium text-ink-muted mb-2">
                     Photos
                   </label>
 
@@ -365,7 +365,7 @@ export default function CustomQuotePage() {
                       {card.images.map((img, imgIdx) => (
                         <div
                           key={imgIdx}
-                          className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-800 group"
+                          className="relative w-16 h-16 rounded-lg overflow-hidden bg-surface-elevated group"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -420,7 +420,7 @@ export default function CustomQuotePage() {
                       fileInputRefs.current.get(card.id)?.click()
                     }
                     disabled={uploadingCardId === card.id}
-                    className="px-4 py-2 text-sm border border-neutral-700 text-neutral-300 rounded-lg hover:border-neutral-600 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm border border-border-strong text-ink-muted rounded-lg hover:border-neutral-600 hover:text-ink transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {uploadingCardId === card.id
                       ? "Uploading..."
@@ -436,14 +436,14 @@ export default function CustomQuotePage() {
         <button
           type="button"
           onClick={addCard}
-          className="w-full py-3 border-2 border-dashed border-neutral-700 text-neutral-400 rounded-xl hover:border-amber-500/50 hover:text-amber-400 transition font-medium mb-10"
+          className="w-full py-3 border-2 border-dashed border-border-strong text-ink-muted rounded-xl hover:border-accent/50 hover:text-accent-strong transition font-medium mb-10"
         >
           + Add Another Card
         </button>
 
         {/* Customer details */}
-        <div className="bg-neutral-900 rounded-xl p-5 mb-6">
-          <h2 className="text-lg font-bold text-white mb-4">Your Details</h2>
+        <div className="bg-surface rounded-xl p-5 mb-6">
+          <h2 className="text-lg font-bold text-ink mb-4">Your Details</h2>
           <div className="space-y-4">
             <input
               type="text"
@@ -470,16 +470,16 @@ export default function CustomQuotePage() {
         </div>
 
         {/* Payment preference */}
-        <div className="bg-neutral-900 rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-white mb-3">
+        <div className="bg-surface rounded-xl p-5 mb-6">
+          <h3 className="text-sm font-bold text-ink mb-3">
             Payment Preference
           </h3>
           <div className="flex gap-3">
             <label
               className={`flex-1 cursor-pointer rounded-lg border-2 p-3 text-center transition ${
                 paymentMethod === "credit"
-                  ? "border-amber-500 bg-amber-500/10"
-                  : "border-neutral-700 hover:border-neutral-600"
+                  ? "border-accent bg-accent/10"
+                  : "border-border-strong hover:border-neutral-600"
               }`}
             >
               <input
@@ -490,13 +490,13 @@ export default function CustomQuotePage() {
                 onChange={() => setPaymentMethod("credit")}
                 className="sr-only"
               />
-              <p className="text-sm font-bold text-white">Store Credit</p>
+              <p className="text-sm font-bold text-ink">Store Credit</p>
             </label>
             <label
               className={`flex-1 cursor-pointer rounded-lg border-2 p-3 text-center transition ${
                 paymentMethod === "cash"
-                  ? "border-amber-500 bg-amber-500/10"
-                  : "border-neutral-700 hover:border-neutral-600"
+                  ? "border-accent bg-accent/10"
+                  : "border-border-strong hover:border-neutral-600"
               }`}
             >
               <input
@@ -507,22 +507,22 @@ export default function CustomQuotePage() {
                 onChange={() => setPaymentMethod("cash")}
                 className="sr-only"
               />
-              <p className="text-sm font-bold text-white">Cash</p>
+              <p className="text-sm font-bold text-ink">Cash</p>
             </label>
           </div>
         </div>
 
         {/* Delivery method */}
-        <div className="bg-neutral-900 rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-white mb-3">
+        <div className="bg-surface rounded-xl p-5 mb-6">
+          <h3 className="text-sm font-bold text-ink mb-3">
             Delivery Method
           </h3>
           <div className="flex gap-3">
             <label
               className={`flex-1 cursor-pointer rounded-lg border-2 p-3 transition ${
                 deliveryMethod === "mail"
-                  ? "border-amber-500 bg-amber-500/10"
-                  : "border-neutral-700 hover:border-neutral-600"
+                  ? "border-accent bg-accent/10"
+                  : "border-border-strong hover:border-neutral-600"
               }`}
             >
               <input
@@ -533,16 +533,16 @@ export default function CustomQuotePage() {
                 onChange={() => setDeliveryMethod("mail")}
                 className="sr-only"
               />
-              <p className="text-sm font-bold text-white">Mail-in</p>
-              <p className="text-xs text-neutral-400 mt-1">
+              <p className="text-sm font-bold text-ink">Mail-in</p>
+              <p className="text-xs text-ink-muted mt-1">
                 Post your cards to us
               </p>
             </label>
             <label
               className={`flex-1 cursor-pointer rounded-lg border-2 p-3 transition ${
                 deliveryMethod === "instore"
-                  ? "border-amber-500 bg-amber-500/10"
-                  : "border-neutral-700 hover:border-neutral-600"
+                  ? "border-accent bg-accent/10"
+                  : "border-border-strong hover:border-neutral-600"
               }`}
             >
               <input
@@ -553,8 +553,8 @@ export default function CustomQuotePage() {
                 onChange={() => setDeliveryMethod("instore")}
                 className="sr-only"
               />
-              <p className="text-sm font-bold text-white">In-store</p>
-              <p className="text-xs text-neutral-400 mt-1">
+              <p className="text-sm font-bold text-ink">In-store</p>
+              <p className="text-xs text-ink-muted mt-1">
                 Drop off in person
               </p>
             </label>
@@ -562,8 +562,8 @@ export default function CustomQuotePage() {
         </div>
 
         {/* Notes */}
-        <div className="bg-neutral-900 rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-white mb-2">
+        <div className="bg-surface rounded-xl p-5 mb-6">
+          <h3 className="text-sm font-bold text-ink mb-2">
             Additional Notes
           </h3>
           <textarea
@@ -577,7 +577,7 @@ export default function CustomQuotePage() {
 
         {/* Error */}
         {error && (
-          <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3 mb-6">
+          <p className="text-sm text-red-400 bg-danger/10 rounded-lg px-4 py-3 mb-6">
             {error}
           </p>
         )}
@@ -587,12 +587,12 @@ export default function CustomQuotePage() {
           type="button"
           onClick={handleSubmit}
           disabled={submitting}
-          className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "Submitting..." : "Request Quote"}
         </button>
 
-        <p className="text-xs text-neutral-500 text-center mt-4">
+        <p className="text-xs text-ink-faint text-center mt-4">
           We&apos;ll review your cards and email you an offer, usually within 24
           hours.
         </p>

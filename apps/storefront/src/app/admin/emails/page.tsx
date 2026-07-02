@@ -73,7 +73,7 @@ export default function AdminEmailsPage() {
       subtitle="Dead-letter rows + recent activity. Retry revives a row to pending; dismiss hard-deletes."
       authProbe="/api/admin/emails"
       actions={
-        <button onClick={load} disabled={loading} className="px-4 py-2 bg-neutral-800 text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50">
+        <button onClick={load} disabled={loading} className="px-4 py-2 bg-surface-elevated text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50">
           {loading ? "Loading..." : "Refresh"}
         </button>
       }
@@ -90,13 +90,13 @@ export default function AdminEmailsPage() {
             {/* 7-day stats */}
             <section className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
               {(["pending", "sent", "cancelled", "failed", "dead"] as const).map((k) => (
-                <div key={k} className="bg-neutral-900 rounded-xl p-4">
-                  <p className="text-[10px] uppercase tracking-wide text-neutral-500">{k} · 7d</p>
+                <div key={k} className="bg-surface rounded-xl p-4">
+                  <p className="text-[10px] uppercase tracking-wide text-ink-faint">{k} · 7d</p>
                   <p className={`text-2xl font-bold mt-0.5 ${
-                    k === "sent" ? "text-emerald-400" :
+                    k === "sent" ? "text-secondary" :
                     k === "dead" ? "text-red-400" :
-                    k === "failed" ? "text-amber-400" :
-                    "text-white"
+                    k === "failed" ? "text-accent-strong" :
+                    "text-ink"
                   }`}>{data.stats7d[k] ?? 0}</p>
                 </div>
               ))}
@@ -104,13 +104,13 @@ export default function AdminEmailsPage() {
 
             {/* By event */}
             {data.byEvent7d.length > 0 && (
-              <section className="mb-8 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-                <h2 className="text-xs font-bold uppercase tracking-wide text-neutral-500 mb-3">By event (7d)</h2>
+              <section className="mb-8 bg-surface border border-border-subtle rounded-xl p-4">
+                <h2 className="text-xs font-bold uppercase tracking-wide text-ink-faint mb-3">By event (7d)</h2>
                 <div className="flex flex-wrap gap-3">
                   {data.byEvent7d.map((e) => (
                     <div key={e.event} className="text-xs">
-                      <code className="text-neutral-400">{e.event}</code>
-                      <span className="text-white font-semibold ml-1">· {e.n}</span>
+                      <code className="text-ink-muted">{e.event}</code>
+                      <span className="text-ink font-semibold ml-1">· {e.n}</span>
                     </div>
                   ))}
                 </div>
@@ -123,7 +123,7 @@ export default function AdminEmailsPage() {
                 Dead letters <span className="text-red-400">({data.dead.length})</span>
               </h2>
               {data.dead.length === 0 ? (
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+                <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
                   Nothing in the dead queue. All emails are landing.
                 </div>
               ) : (
@@ -131,12 +131,12 @@ export default function AdminEmailsPage() {
                   {data.dead.map((r) => (
                     <div
                       key={r.id}
-                      className="bg-neutral-900 border border-red-900/30 rounded-xl p-4 flex flex-wrap items-start gap-4"
+                      className="bg-surface border border-red-900/30 rounded-xl p-4 flex flex-wrap items-start gap-4"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <code className="text-xs font-bold text-red-400">{r.event}</code>
-                          <span className="text-xs text-neutral-500">· {r.user_email ?? r.user_id.slice(0, 8)}</span>
+                          <span className="text-xs text-ink-faint">· {r.user_email ?? r.user_id.slice(0, 8)}</span>
                           <span className="text-[10px] text-neutral-600">
                             · {r.attempt_count} attempts
                             {r.last_attempt_at && ` · last ${new Date(r.last_attempt_at).toLocaleString()}`}
@@ -152,14 +152,14 @@ export default function AdminEmailsPage() {
                         <button
                           onClick={() => mutate(r.id, "retry")}
                           disabled={busy === r.id}
-                          className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
+                          className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-secondary rounded px-3 py-1.5 transition-colors disabled:opacity-40"
                         >
                           Retry
                         </button>
                         <button
                           onClick={() => mutate(r.id, "dismiss")}
                           disabled={busy === r.id}
-                          className="text-xs bg-neutral-800 hover:bg-red-900/40 text-neutral-400 hover:text-red-400 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
+                          className="text-xs bg-surface-elevated hover:bg-red-900/40 text-ink-muted hover:text-red-400 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
                         >
                           Dismiss
                         </button>

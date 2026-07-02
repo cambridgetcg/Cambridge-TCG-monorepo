@@ -46,8 +46,8 @@ export function AddToB2BCart({
       }}
       className={
         compact
-          ? "rounded bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50"
-          : "rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-amber-400 disabled:opacity-50"
+          ? "rounded bg-emerald-500/20 px-2 py-1 text-xs font-medium text-secondary hover:bg-emerald-500/30 disabled:opacity-50"
+          : "rounded bg-accent px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-accent-strong disabled:opacity-50"
       }
     >
       {label}
@@ -73,7 +73,7 @@ export function QtyControl({ sku, initial }: { sku: string; initial: number }) {
         type="button"
         disabled={pending || value <= 1}
         onClick={() => update(value - 1)}
-        className="h-7 w-7 rounded border border-neutral-700 text-neutral-300 hover:bg-neutral-800 disabled:opacity-30"
+        className="h-7 w-7 rounded border border-border-strong text-ink-muted hover:bg-surface-elevated disabled:opacity-30"
       >
         −
       </button>
@@ -85,13 +85,13 @@ export function QtyControl({ sku, initial }: { sku: string; initial: number }) {
         disabled={pending}
         onChange={(e) => setValue(parseInt(e.target.value, 10) || 0)}
         onBlur={(e) => update(parseInt(e.target.value, 10) || 0)}
-        className="h-7 w-14 rounded border border-neutral-700 bg-neutral-900 text-center text-sm"
+        className="h-7 w-14 rounded border border-border-strong bg-surface text-center text-sm"
       />
       <button
         type="button"
         disabled={pending}
         onClick={() => update(value + 1)}
-        className="h-7 w-7 rounded border border-neutral-700 text-neutral-300 hover:bg-neutral-800 disabled:opacity-30"
+        className="h-7 w-7 rounded border border-border-strong text-ink-muted hover:bg-surface-elevated disabled:opacity-30"
       >
         +
       </button>
@@ -106,7 +106,7 @@ export function RemoveButton({ sku }: { sku: string }) {
       type="button"
       disabled={pending}
       onClick={() => start(async () => { await removeB2BCartItem(sku); })}
-      className="text-xs text-neutral-500 hover:text-red-400 disabled:opacity-50"
+      className="text-xs text-ink-faint hover:text-red-400 disabled:opacity-50"
     >
       {pending ? "Removing…" : "Remove"}
     </button>
@@ -123,7 +123,7 @@ export function ClearButton() {
         if (!confirm("Empty the cart?")) return;
         start(async () => { await clearB2BCart(); });
       }}
-      className="text-xs text-neutral-500 hover:text-red-400 disabled:opacity-50"
+      className="text-xs text-ink-faint hover:text-red-400 disabled:opacity-50"
     >
       {pending ? "Clearing…" : "Empty cart"}
     </button>

@@ -41,7 +41,7 @@ export default function AdminHome() {
       actions={
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-neutral-800 text-sm rounded-lg hover:bg-neutral-700 transition"
+          className="px-4 py-2 bg-surface-elevated text-sm rounded-lg hover:bg-neutral-700 transition"
         >
       <Audience kind="operator" />
           Refresh
@@ -135,7 +135,7 @@ function Section({ label, hint, children }: { label: string; hint: string; child
   return (
     <section className="mb-8">
       <div className="flex items-baseline gap-3 mb-3">
-        <h2 className="text-sm font-bold text-white uppercase tracking-wide">{label}</h2>
+        <h2 className="text-sm font-bold text-ink uppercase tracking-wide">{label}</h2>
         <span className="text-xs text-neutral-600">{hint}</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -162,11 +162,11 @@ function QueueCard({
   return (
     <Link
       href={href}
-      className="bg-neutral-900 hover:bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 rounded-xl p-4 transition group"
+      className="bg-surface hover:bg-surface/60 border border-border-subtle hover:border-border-strong rounded-xl p-4 transition group"
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="font-semibold text-white group-hover:text-amber-400 transition">{title}</span>
-        <span className="text-neutral-700 group-hover:text-amber-400 transition text-sm">→</span>
+        <span className="font-semibold text-ink group-hover:text-accent-strong transition">{title}</span>
+        <span className="text-neutral-700 group-hover:text-accent-strong transition text-sm">→</span>
       </div>
       {stats.length === 0 ? (
         <p className="text-xs text-neutral-600">Open the page to manage.</p>
@@ -188,9 +188,9 @@ function QueueCard({
 
 function toneClass(t: Tone | undefined): string {
   switch (t) {
-    case "amber":   return "text-amber-400";
-    case "emerald": return "text-emerald-400";
+    case "amber":   return "text-accent-strong";
+    case "emerald": return "text-secondary";
     case "red":     return "text-red-400";
-    default:        return "text-white";
+    default:        return "text-ink";
   }
 }

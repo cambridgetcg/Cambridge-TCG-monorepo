@@ -79,10 +79,10 @@ export default function AccountVaultPage() {
     <div>
       <Audience kind="consumer" />
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-white">Vault History</h1>
+        <h1 className="text-2xl font-bold text-ink">Vault History</h1>
         <Link
           href="/bounty"
-          className="text-sm bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-4 py-2 transition"
+          className="text-sm bg-accent hover:bg-accent-strong text-black font-bold rounded-lg px-4 py-2 transition"
         >
           Bounty Board →
         </Link>
@@ -110,8 +110,8 @@ export default function AccountVaultPage() {
             onClick={() => setFilter(f.key)}
             className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
               filter === f.key
-                ? "bg-amber-500 text-black"
-                : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                ? "bg-accent text-black"
+                : "bg-surface text-ink-muted hover:text-ink hover:bg-surface-elevated"
             }`}
           >
             {f.label}
@@ -120,9 +120,9 @@ export default function AccountVaultPage() {
       </div>
 
       {loading ? (
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-ink-faint">Loading...</p>
       ) : filtered.length === 0 ? (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+        <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
           {filter === "all"
             ? "No vault items yet — open a Bounty Pull to claim your first card."
             : "Nothing in this category."}
@@ -151,12 +151,12 @@ function VaultItemRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="bg-neutral-900 rounded-xl overflow-hidden">
+    <div className="bg-surface rounded-xl overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-neutral-800/50 transition"
+        className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-surface-elevated/50 transition"
       >
-        <div className="relative w-10 h-14 shrink-0 rounded overflow-hidden bg-neutral-800">
+        <div className="relative w-10 h-14 shrink-0 rounded overflow-hidden bg-surface-elevated">
           {item.image_url && (
             <Image src={item.image_url} alt={item.card_name} fill sizes="40px" className="object-cover" />
           )}
@@ -166,7 +166,7 @@ function VaultItemRow({
             <Badge status={item.status} palette={Palettes.VaultStatusPalette} labels={VAULT_LABELS} />
             <span className="font-semibold text-sm truncate">{item.card_name}</span>
           </div>
-          <p className="text-xs text-neutral-500 mt-0.5">
+          <p className="text-xs text-ink-faint mt-0.5">
             {item.card_number} · {item.rarity} · £{parseFloat(item.spot_price_gbp).toFixed(2)}
           </p>
         </div>
@@ -193,23 +193,23 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
   const trackUrl = buildTrackingUrl(item.carrier, item.tracking_number);
 
   return (
-    <div className="px-3 pb-3 border-t border-neutral-800">
+    <div className="px-3 pb-3 border-t border-border-subtle">
       <div className="grid sm:grid-cols-2 gap-4 mt-3">
         <div>
-          <h3 className="text-[10px] uppercase tracking-wider text-neutral-500 mb-2">Timeline</h3>
+          <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-2">Timeline</h3>
           {!lifecycle ? (
-            <p className="text-xs text-neutral-500">Loading…</p>
+            <p className="text-xs text-ink-faint">Loading…</p>
           ) : lifecycle.length === 0 ? (
-            <p className="text-xs text-neutral-500 italic">No transitions yet — still reserved.</p>
+            <p className="text-xs text-ink-faint italic">No transitions yet — still reserved.</p>
           ) : (
             <ol className="space-y-2">
               {lifecycle.map((e, i) => (
-                <li key={i} className="border-l-2 border-neutral-800 pl-3">
-                  <p className="text-xs font-bold text-white uppercase">{e.action.replace(/_/g, " ")}</p>
-                  <p className="text-[11px] text-neutral-500">
+                <li key={i} className="border-l-2 border-border-subtle pl-3">
+                  <p className="text-xs font-bold text-ink uppercase">{e.action.replace(/_/g, " ")}</p>
+                  <p className="text-[11px] text-ink-faint">
                     {new Date(e.createdAt).toLocaleString()}
                   </p>
-                  {e.notes && <p className="text-[11px] text-neutral-400 mt-0.5">{e.notes}</p>}
+                  {e.notes && <p className="text-[11px] text-ink-muted mt-0.5">{e.notes}</p>}
                 </li>
               ))}
             </ol>
@@ -219,11 +219,11 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
         <div className="space-y-3">
           {item.status === "redeemed" && item.tracking_number && (
             <div>
-              <h3 className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">Shipment</h3>
+              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Shipment</h3>
               <p className="text-sm">
-                {item.carrier && <span className="text-neutral-400">via {item.carrier} · </span>}
+                {item.carrier && <span className="text-ink-muted">via {item.carrier} · </span>}
                 {trackUrl ? (
-                  <a href={trackUrl} target="_blank" rel="noopener noreferrer" className="text-amber-400 underline font-mono">
+                  <a href={trackUrl} target="_blank" rel="noopener noreferrer" className="text-accent-strong underline font-mono">
                     {item.tracking_number} ↗
                   </a>
                 ) : (
@@ -231,7 +231,7 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
                 )}
               </p>
               {item.shipped_at && (
-                <p className="text-[11px] text-neutral-500 mt-0.5">
+                <p className="text-[11px] text-ink-faint mt-0.5">
                   Shipped {new Date(item.shipped_at).toLocaleDateString()}
                 </p>
               )}
@@ -240,10 +240,10 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
 
           {item.sold_back_credit && (
             <div>
-              <h3 className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">
                 {item.status === "expired" ? "Auto-credit" : "Credit received"}
               </h3>
-              <p className="text-sm text-emerald-400 font-semibold">
+              <p className="text-sm text-secondary font-semibold">
                 £{parseFloat(item.sold_back_credit).toFixed(2)}
               </p>
             </div>
@@ -251,11 +251,11 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
 
           {item.status === "reserved" && (
             <div>
-              <h3 className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">Expires</h3>
+              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Expires</h3>
               <p className="text-sm">{new Date(item.expires_at).toLocaleDateString()}</p>
               <Link
                 href="/bounty"
-                className="text-xs text-amber-400 hover:text-amber-300 underline mt-2 inline-block"
+                className="text-xs text-accent-strong hover:text-accent-strong underline mt-2 inline-block"
               >
                 Manage in Bounty Vault →
               </Link>
@@ -264,11 +264,11 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
 
           {item.bounty_pull_id && (
             <div>
-              <h3 className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">Provably fair</h3>
+              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Provably fair</h3>
               <Link
                 href={`/verify/pull/${item.bounty_pull_id}`}
                 target="_blank"
-                className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded px-2 py-1 transition-colors"
+                className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-secondary rounded px-2 py-1 transition-colors"
               >
                 ✓ Verify this pull ↗
               </Link>
@@ -282,13 +282,13 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
 
 function Stat({ label, value, tone = "neutral" }: { label: string; value: string | number; tone?: "neutral" | "amber" | "emerald" | "sky" }) {
   const toneClass =
-    tone === "amber"   ? "text-amber-400" :
-    tone === "emerald" ? "text-emerald-400" :
-    tone === "sky"     ? "text-sky-400" :
-                         "text-white";
+    tone === "amber"   ? "text-accent-strong" :
+    tone === "emerald" ? "text-secondary" :
+    tone === "sky"     ? "text-info" :
+                         "text-ink";
   return (
-    <div className="bg-neutral-900 rounded-lg px-3 py-2">
-      <p className="text-[10px] text-neutral-500 uppercase tracking-wider">{label}</p>
+    <div className="bg-surface rounded-lg px-3 py-2">
+      <p className="text-[10px] text-ink-faint uppercase tracking-wider">{label}</p>
       <p className={`text-lg font-bold ${toneClass}`}>{value}</p>
     </div>
   );

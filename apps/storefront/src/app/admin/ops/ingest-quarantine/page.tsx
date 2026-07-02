@@ -289,7 +289,7 @@ export default async function Page({
                 render: (r) => (
                   <Link
                     href={`/admin/ops/ingest-quarantine/${r.id}`}
-                    className="font-mono text-amber-400 hover:underline"
+                    className="font-mono text-accent-strong hover:underline"
                   >
                     #{r.id}
                   </Link>
@@ -301,7 +301,7 @@ export default async function Page({
                 render: (r) => <span className="text-sm">{r.reason}</span> },
               { key: "upstream_id", header: "upstream id",
                 render: (r) => (
-                  <span className="font-mono text-xs text-neutral-400">
+                  <span className="font-mono text-xs text-ink-muted">
                     {r.upstream_id ? r.upstream_id.slice(0, 60) + (r.upstream_id.length > 60 ? "…" : "") : "—"}
                   </span>
                 ),
@@ -323,11 +323,11 @@ export default async function Page({
                 },
               },
               { key: "raw_payload_size", header: "payload",
-                render: (r) => <span className="text-xs text-neutral-500">{bytesFmt(r.raw_payload_size)}</span> },
+                render: (r) => <span className="text-xs text-ink-faint">{bytesFmt(r.raw_payload_size)}</span> },
               { key: "quarantined_at", header: "quarantined",
-                render: (r) => <span className="text-xs text-neutral-400">{fmtDate(r.quarantined_at)}</span> },
+                render: (r) => <span className="text-xs text-ink-muted">{fmtDate(r.quarantined_at)}</span> },
               { key: "ingest_run_id", header: "run",
-                render: (r) => <span className="text-xs font-mono text-neutral-500">#{r.ingest_run_id}</span> },
+                render: (r) => <span className="text-xs font-mono text-ink-faint">#{r.ingest_run_id}</span> },
             ]}
             rows={rowsResult.rows}
             rowKey={(r) => String(r.id)}
@@ -344,22 +344,22 @@ export default async function Page({
       )}
 
       {byReasonResult.rows.length > 0 && (
-        <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-          <h2 className="text-sm font-semibold mb-3 text-white">Top reasons (full table)</h2>
-          <div className="text-xs text-neutral-400 space-y-1">
+        <section className="bg-surface border border-border-subtle rounded-lg p-4">
+          <h2 className="text-sm font-semibold mb-3 text-ink">Top reasons (full table)</h2>
+          <div className="text-xs text-ink-muted space-y-1">
             {byReasonResult.rows.map((r) => (
               <div key={r.reason} className="flex justify-between font-mono">
                 <Link
                   href={buildHref({ reason: r.reason, page: "1" })}
-                  className="hover:text-amber-400"
+                  className="hover:text-accent-strong"
                 >
                   {r.reason}
                 </Link>
-                <span className="text-neutral-300">{r.count}</span>
+                <span className="text-ink-muted">{r.count}</span>
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+          <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
             Top 10 reasons across the entire table (unfiltered). A wave of one
             reason often indicates an upstream schema change.
           </p>

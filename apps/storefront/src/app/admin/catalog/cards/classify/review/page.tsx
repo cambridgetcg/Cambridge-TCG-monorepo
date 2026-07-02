@@ -109,8 +109,8 @@ export default async function ClassifyReviewPage() {
       header: "Claimed",
       render: (r) => (
         <div className="text-xs">
-          <div className="text-neutral-300">{fmtDateTime(r.claimed_at)}</div>
-          <div className="text-neutral-500">
+          <div className="text-ink-muted">{fmtDateTime(r.claimed_at)}</div>
+          <div className="text-ink-faint">
             {Math.floor(r.age_days)} days ago
           </div>
         </div>
@@ -126,7 +126,7 @@ export default async function ClassifyReviewPage() {
         >
           <div className="font-mono text-xs">{r.sku}</div>
           {r.card_name && (
-            <div className="text-neutral-300">{r.card_name}</div>
+            <div className="text-ink-muted">{r.card_name}</div>
           )}
         </Link>
       ),
@@ -136,8 +136,8 @@ export default async function ClassifyReviewPage() {
       header: "Set / rarity",
       render: (r) => (
         <div className="text-xs">
-          <div className="text-neutral-300">{r.set_code ?? "—"}</div>
-          <div className="text-neutral-500">{r.rarity ?? "—"}</div>
+          <div className="text-ink-muted">{r.set_code ?? "—"}</div>
+          <div className="text-ink-faint">{r.rarity ?? "—"}</div>
         </div>
       ),
     },
@@ -145,13 +145,13 @@ export default async function ClassifyReviewPage() {
       key: "attribute",
       header: "Attribute",
       render: (r) => (
-        <code className="text-xs text-neutral-300">{r.attribute}</code>
+        <code className="text-xs text-ink-muted">{r.attribute}</code>
       ),
     },
     {
       key: "next_value",
       header: "Heuristic value",
-      render: (r) => <span className="text-white">{r.next_value}</span>,
+      render: (r) => <span className="text-ink">{r.next_value}</span>,
     },
     {
       key: "evidence",
@@ -161,9 +161,9 @@ export default async function ClassifyReviewPage() {
           | { rule?: string; marker?: string }
           | null;
         return (
-          <div className="text-[10px] text-neutral-500">
+          <div className="text-[10px] text-ink-faint">
             <div>
-              <code className="text-neutral-400">{ev?.rule ?? "—"}</code>
+              <code className="text-ink-muted">{ev?.rule ?? "—"}</code>
             </div>
             {ev?.marker && (
               <div className="font-mono">{String(ev.marker)}</div>
@@ -219,7 +219,7 @@ export default async function ClassifyReviewPage() {
         />
       ) : (
         <>
-          <div className="rounded-md border border-amber-900 bg-amber-950/30 p-3 text-xs text-amber-300">
+          <div className="rounded-md border border-amber-900 bg-amber-950/30 p-3 text-xs text-accent-strong">
             <StatusBadge status="amber" palette={{ amber: "amber" }} />
             <span className="ml-2">
               {queue.length} card{queue.length === 1 ? "" : "s"} awaiting

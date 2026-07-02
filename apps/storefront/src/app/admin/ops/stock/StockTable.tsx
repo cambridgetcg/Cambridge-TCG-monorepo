@@ -59,15 +59,15 @@ export function SearchBox({
         onChange={handleChange}
         placeholder={placeholder}
         className={[
-          "w-full rounded-md border border-neutral-700 bg-neutral-900",
-          "px-3 py-2 text-sm text-white placeholder:text-neutral-500",
+          "w-full rounded-md border border-border-strong bg-surface",
+          "px-3 py-2 text-sm text-ink placeholder:text-ink-faint",
           "focus:outline-none focus:ring-1 focus:ring-blue-500",
           "transition-opacity",
           isPending ? "opacity-60" : "opacity-100",
         ].join(" ")}
       />
       {isPending && (
-        <span className="absolute right-2.5 top-2.5 text-neutral-500 text-xs">
+        <span className="absolute right-2.5 top-2.5 text-ink-faint text-xs">
           loading…
         </span>
       )}
@@ -113,7 +113,7 @@ export function Pagination({
   const to = Math.min((page + 1) * pageSize, totalRows);
 
   return (
-    <div className="flex items-center justify-between mt-3 text-sm text-neutral-400">
+    <div className="flex items-center justify-between mt-3 text-sm text-ink-muted">
       <span>
         {from}–{to} of {totalRows.toLocaleString()} rows
       </span>
@@ -121,17 +121,17 @@ export function Pagination({
         <button
           onClick={() => navigate(page - 1)}
           disabled={page === 0}
-          className="px-2.5 py-1 rounded border border-neutral-700 hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="px-2.5 py-1 rounded border border-border-strong hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           ← Prev
         </button>
-        <span className="text-neutral-500 text-xs">
+        <span className="text-ink-faint text-xs">
           {page + 1} / {totalPages}
         </span>
         <button
           onClick={() => navigate(page + 1)}
           disabled={page >= totalPages - 1}
-          className="px-2.5 py-1 rounded border border-neutral-700 hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="px-2.5 py-1 rounded border border-border-strong hover:border-neutral-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           Next →
         </button>

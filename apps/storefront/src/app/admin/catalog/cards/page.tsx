@@ -45,17 +45,17 @@ export default function Page() {
             <li key={tool.href}>
               <Link
                 href={tool.href}
-                className="block rounded-md border border-neutral-800 bg-neutral-900 p-4 hover:border-blue-700 hover:bg-neutral-800/60"
+                className="block rounded-md border border-border-subtle bg-surface p-4 hover:border-blue-700 hover:bg-surface-elevated/60"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white">
+                  <h3 className="text-sm font-semibold text-ink">
                     {tool.title}
                   </h3>
-                  <span className="rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-emerald-400 ring-1 ring-emerald-800">
+                  <span className="rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-secondary ring-1 ring-emerald-800">
                     {tool.status}
                   </span>
                 </div>
-                <p className="mt-2 text-xs text-neutral-400">
+                <p className="mt-2 text-xs text-ink-muted">
                   {tool.description}
                 </p>
               </Link>

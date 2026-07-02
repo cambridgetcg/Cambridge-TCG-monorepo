@@ -19,47 +19,47 @@ interface Chargeback {
 const STATUS_COPY: Record<string, { label: string; tone: string; advice: string }> = {
   needs_response: {
     label: "Awaiting our response",
-    tone: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    tone: "bg-accent/10 text-accent-strong border-accent/30",
     advice: "Your bank's chargeback is being reviewed. If you raised this in error, contact support — we can withdraw the dispute.",
   },
   warning_needs_response: {
     label: "Bank inquiry — needs our response",
-    tone: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    tone: "bg-accent/10 text-accent-strong border-accent/30",
     advice: "Your bank flagged this charge. Reach out if it's a misunderstanding.",
   },
   under_review: {
     label: "Under review",
-    tone: "bg-sky-500/10 text-sky-400 border-sky-500/30",
+    tone: "bg-sky-500/10 text-info border-sky-500/30",
     advice: "Stripe is reviewing the dispute. No action needed from you right now.",
   },
   warning_under_review: {
     label: "Bank inquiry — under review",
-    tone: "bg-sky-500/10 text-sky-400 border-sky-500/30",
+    tone: "bg-sky-500/10 text-info border-sky-500/30",
     advice: "Bank inquiry being processed.",
   },
   won: {
     label: "Resolved in our favour",
-    tone: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    tone: "bg-emerald-500/10 text-secondary border-emerald-500/30",
     advice: "The dispute closed without a refund.",
   },
   lost: {
     label: "Refunded to bank",
-    tone: "bg-red-500/10 text-red-400 border-red-500/30",
+    tone: "bg-danger/10 text-red-400 border-danger/30",
     advice: "The bank refunded the disputed amount. Your account standing may have been affected.",
   },
   warning_closed: {
     label: "Inquiry closed",
-    tone: "bg-neutral-800 text-neutral-400 border-neutral-700",
+    tone: "bg-surface-elevated text-ink-muted border-border-strong",
     advice: "The bank inquiry is closed.",
   },
   charge_refunded: {
     label: "Charge refunded",
-    tone: "bg-sky-500/10 text-sky-400 border-sky-500/30",
+    tone: "bg-sky-500/10 text-info border-sky-500/30",
     advice: "The charge was refunded — dispute moot.",
   },
   admin_resolved: {
     label: "Resolved by support",
-    tone: "bg-neutral-800 text-neutral-400 border-neutral-700",
+    tone: "bg-surface-elevated text-ink-muted border-border-strong",
     advice: "Our support team marked this dispute resolved.",
   },
 };
@@ -78,21 +78,21 @@ export default function AccountChargebacksPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">Chargebacks</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-2">Chargebacks</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Bank disputes filed against charges on your account. If anything here is unexpected, contact{" "}
-        <a href="mailto:support@cambridgetcg.com" className="text-amber-400 underline">support@cambridgetcg.com</a>{" "}
+        <a href="mailto:support@cambridgetcg.com" className="text-accent-strong underline">support@cambridgetcg.com</a>{" "}
         — most disputes resolve fastest by reaching out directly.
       </p>
 
       {loading ? (
-        <p className="text-neutral-500">Loading…</p>
+        <p className="text-ink-faint">Loading…</p>
       ) : chargebacks.length === 0 ? (
         <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-xl p-6 text-center">
-          <p className="text-emerald-400 font-bold mb-1">No chargebacks on file ✓</p>
-          <p className="text-xs text-neutral-500">
+          <p className="text-secondary font-bold mb-1">No chargebacks on file ✓</p>
+          <p className="text-xs text-ink-faint">
             See your{" "}
-            <Link href="/account/standing" className="text-amber-400 underline">account standing</Link>{" "}
+            <Link href="/account/standing" className="text-accent-strong underline">account standing</Link>{" "}
             for full reputation status.
           </p>
         </div>
@@ -101,7 +101,7 @@ export default function AccountChargebacksPage() {
           {chargebacks.map((c) => {
             const copy = STATUS_COPY[c.stripe_status] ?? {
               label: c.stripe_status.replace(/_/g, " "),
-              tone: "bg-neutral-800 text-neutral-400 border-neutral-700",
+              tone: "bg-surface-elevated text-ink-muted border-border-strong",
               advice: "",
             };
             return (

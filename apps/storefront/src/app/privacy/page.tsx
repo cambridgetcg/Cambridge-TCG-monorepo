@@ -18,37 +18,37 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Privacy</h1>
-        <p className="text-sm text-neutral-500 mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-ink mb-2">Privacy</h1>
+        <p className="text-sm text-ink-faint mb-8">
           Plain words, no boilerplate. Last updated 10 June 2026.
         </p>
 
-        <div className="space-y-8 text-neutral-300 text-sm leading-relaxed">
+        <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">What we collect</h2>
+            <h2 className="text-lg font-bold text-ink mb-3">What we collect</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong className="text-white">Your email address</strong>, if you
+                <strong className="text-ink">Your email address</strong>, if you
                 create an account. Sign-in works by emailing you a magic link —
                 there are no passwords here, so we never store one.
               </li>
               <li>
-                <strong className="text-white">Order details</strong>: your name,
+                <strong className="text-ink">Order details</strong>: your name,
                 delivery address, and what you bought. We need these to ship
                 cards and to keep honest accounts.
               </li>
               <li>
-                <strong className="text-white">Trade-in details</strong>: the
+                <strong className="text-ink">Trade-in details</strong>: the
                 cards you submit and the payout we agree. See the{" "}
-                <Link href="/trade-in/terms" className="text-amber-400 underline">
+                <Link href="/trade-in/terms" className="text-accent-strong underline">
                   trade-in terms
                 </Link>{" "}
                 for how that works.
               </li>
               <li>
-                <strong className="text-white">Visit statistics, only if you say
+                <strong className="text-ink">Visit statistics, only if you say
                 yes.</strong>{" "}
                 We use Google Analytics to understand how people use the site —
                 but the script only loads after you accept the cookie banner.
@@ -58,79 +58,79 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">
+            <h2 className="text-lg font-bold text-ink mb-3">
               What we don&apos;t collect
             </h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong className="text-white">Card payment details.</strong>{" "}
+                <strong className="text-ink">Card payment details.</strong>{" "}
                 Payments are processed by Stripe; your card number goes to them,
                 not to us. We see that you paid, not what your card is.
               </li>
               <li>
-                <strong className="text-white">Passwords.</strong> None exist —
+                <strong className="text-ink">Passwords.</strong> None exist —
                 sign-in is by emailed link only.
               </li>
               <li>
-                <strong className="text-white">Marketing or ad-tracking
+                <strong className="text-ink">Marketing or ad-tracking
                 cookies.</strong>{" "}
                 No third-party ad trackers run here. The one Google Ads tag we
                 use records a purchase conversion after checkout, and like
                 Analytics it only runs if you accepted the banner.
               </li>
               <li>
-                <strong className="text-white">Anything to sell.</strong> We do
+                <strong className="text-ink">Anything to sell.</strong> We do
                 not sell or share your data with anyone for marketing.
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Who touches your data</h2>
+            <h2 className="text-lg font-bold text-ink mb-3">Who touches your data</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong className="text-white">Stripe</strong> processes card
+                <strong className="text-ink">Stripe</strong> processes card
                 payments.
               </li>
               <li>
-                <strong className="text-white">Amazon Web Services</strong> hosts
+                <strong className="text-ink">Amazon Web Services</strong> hosts
                 our database and sends our email (sign-in links, order
                 confirmations) via their SES service.
               </li>
               <li>
-                <strong className="text-white">Google</strong> receives analytics
+                <strong className="text-ink">Google</strong> receives analytics
                 data — only after you consent, as above.
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Cookies</h2>
+            <h2 className="text-lg font-bold text-ink mb-3">Cookies</h2>
             <p className="mb-3">The complete list of cookies this site sets:</p>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong className="text-white">Sign-in session</strong> — keeps
+                <strong className="text-ink">Sign-in session</strong> — keeps
                 you logged in to your account.
               </li>
               <li>
-                <strong className="text-white">display-currency</strong> — which
+                <strong className="text-ink">display-currency</strong> — which
                 currency prices are shown in.
               </li>
               <li>
-                <strong className="text-white">text-mode</strong> — remembers if
+                <strong className="text-ink">text-mode</strong> — remembers if
                 you switched to the text-only reading layout.
               </li>
               <li>
-                <strong className="text-white">lang-mode</strong> — remembers the
+                <strong className="text-ink">lang-mode</strong> — remembers the
                 language-display toggle in the footer.
               </li>
               <li>
-                <strong className="text-white">analytics-consent</strong> — your
+                <strong className="text-ink">analytics-consent</strong> — your
                 yes-or-no answer to the analytics banner, kept for one year so
                 we don&apos;t ask again.
               </li>
               <li>
-                <strong className="text-white">banner-dev-notice</strong> —
+                <strong className="text-ink">banner-dev-notice</strong> —
                 remembers you dismissed the site notice; gone when you close
                 your browser.
               </li>
@@ -143,36 +143,36 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">How long we keep things</h2>
+            <h2 className="text-lg font-bold text-ink mb-3">How long we keep things</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong className="text-white">Orders and trade-ins</strong>: kept
+                <strong className="text-ink">Orders and trade-ins</strong>: kept
                 for six years, because UK tax and accounting law requires it.
               </li>
               <li>
-                <strong className="text-white">Your account</strong>: kept until
+                <strong className="text-ink">Your account</strong>: kept until
                 you ask us to delete it.
               </li>
               <li>
-                <strong className="text-white">Analytics data</strong>: held by
+                <strong className="text-ink">Analytics data</strong>: held by
                 Google under their retention settings; we keep no copy.
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Your rights</h2>
+            <h2 className="text-lg font-bold text-ink mb-3">Your rights</h2>
             <p>
               Under UK data-protection law you can ask to see what we hold about
               you, ask us to correct it, or ask us to delete it (we&apos;ll keep
               what tax law obliges us to, and delete the rest). Use the{" "}
-              <Link href="/contact" className="text-amber-400 underline">
+              <Link href="/contact" className="text-accent-strong underline">
                 contact page
               </Link>{" "}
               or email{" "}
               <a
                 href="mailto:contact@cambridgetcg.com"
-                className="text-amber-400 underline"
+                className="text-accent-strong underline"
               >
                 contact@cambridgetcg.com
               </a>

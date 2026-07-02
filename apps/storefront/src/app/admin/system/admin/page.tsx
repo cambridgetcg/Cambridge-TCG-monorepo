@@ -134,8 +134,8 @@ export default async function Page({
       header: "User",
       render: (r) => (
         <>
-          <p className="text-white text-sm">{r.name ?? r.email ?? r.id.slice(0, 8)}</p>
-          <p className="text-xs text-neutral-500">{r.email ?? "(no email)"}</p>
+          <p className="text-ink text-sm">{r.name ?? r.email ?? r.id.slice(0, 8)}</p>
+          <p className="text-xs text-ink-faint">{r.email ?? "(no email)"}</p>
         </>
       ),
     },
@@ -143,7 +143,7 @@ export default async function Page({
       key: "role",
       header: "Role",
       render: (r) => (
-        <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border bg-amber-500/15 text-amber-400 border-amber-500/40">
+        <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border bg-accent/15 text-accent-strong border-accent/40">
           {r.role}
         </span>
       ),
@@ -155,7 +155,7 @@ export default async function Page({
       render: (r) => (
         <Link
           href={`/admin/system/audit?q=${encodeURIComponent(r.email ?? "")}`}
-          className="font-mono text-amber-400 hover:text-amber-300 underline"
+          className="font-mono text-accent-strong hover:text-accent-strong underline"
         >
           {r.action_count}
         </Link>
@@ -165,7 +165,7 @@ export default async function Page({
       key: "last_action",
       header: "Last action",
       align: "right",
-      cellClass: "text-xs text-neutral-400 whitespace-nowrap",
+      cellClass: "text-xs text-ink-muted whitespace-nowrap",
       render: (r) => r.last_action_at ? fmtDateTime(r.last_action_at) : <span className="text-neutral-600">—</span>,
       hideOnMobile: true,
     },
@@ -173,7 +173,7 @@ export default async function Page({
       key: "since",
       header: "Admin since",
       align: "right",
-      cellClass: "text-xs text-neutral-400 whitespace-nowrap",
+      cellClass: "text-xs text-ink-muted whitespace-nowrap",
       render: (r) => fmtDateTime(r.created_at),
       hideOnMobile: true,
     },
@@ -201,7 +201,7 @@ export default async function Page({
         action={
           <Link
             href="/admin/system/audit"
-            className="text-xs text-amber-400 hover:text-amber-300 underline whitespace-nowrap"
+            className="text-xs text-accent-strong hover:text-accent-strong underline whitespace-nowrap"
           >
             Audit log →
           </Link>
@@ -259,7 +259,7 @@ function CandidatesView({
         action={
           <Link
             href="/admin/system/admin"
-            className="text-xs text-amber-400 hover:text-amber-300 underline whitespace-nowrap"
+            className="text-xs text-accent-strong hover:text-accent-strong underline whitespace-nowrap"
           >
             ← Current admins
           </Link>
@@ -285,20 +285,20 @@ function CandidatesView({
       />
 
       {q.length < 2 ? (
-        <div className="text-sm text-neutral-500 italic px-1">
+        <div className="text-sm text-ink-faint italic px-1">
           Type at least 2 characters to search.
         </div>
       ) : candidates.length === 0 ? (
-        <div className="text-sm text-neutral-500 italic px-1">
+        <div className="text-sm text-ink-faint italic px-1">
           No matching non-admin users.
         </div>
       ) : (
-        <ul className="divide-y divide-neutral-800 border border-neutral-800 rounded-md">
+        <ul className="divide-y divide-border-subtle border border-border-subtle rounded-md">
           {candidates.map((c) => (
             <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
-                <p className="text-sm text-white truncate">{c.name ?? c.email ?? c.id.slice(0, 8)}</p>
-                <p className="text-xs text-neutral-500 truncate">{c.email ?? "(no email)"}</p>
+                <p className="text-sm text-ink truncate">{c.name ?? c.email ?? c.id.slice(0, 8)}</p>
+                <p className="text-xs text-ink-faint truncate">{c.email ?? "(no email)"}</p>
               </div>
               <GrantAdminForm
                 target={{ user_id: c.id, email: c.email }}

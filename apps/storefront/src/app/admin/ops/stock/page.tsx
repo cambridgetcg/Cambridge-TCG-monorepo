@@ -268,9 +268,9 @@ async function fetchRecentMovements(): Promise<MovementRow[]> {
 function SectionHeader({ title, count }: { title: string; count?: number }) {
   return (
     <div className="flex items-baseline gap-2 mb-3">
-      <h2 className="text-base font-semibold text-white">{title}</h2>
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
       {count !== undefined && (
-        <span className="text-xs text-neutral-500">{count.toLocaleString()}</span>
+        <span className="text-xs text-ink-faint">{count.toLocaleString()}</span>
       )}
     </div>
   );
@@ -278,7 +278,7 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
 
 function TableWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-neutral-800 overflow-hidden">
+    <div className="rounded-lg border border-border-subtle overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">{children}</table>
       </div>
@@ -288,7 +288,7 @@ function TableWrapper({ children }: { children: React.ReactNode }) {
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-4 py-2.5 text-xs font-medium text-neutral-400 uppercase tracking-wide bg-neutral-900/80 whitespace-nowrap">
+    <th className="px-4 py-2.5 text-xs font-medium text-ink-muted uppercase tracking-wide bg-surface/80 whitespace-nowrap">
       {children}
     </th>
   );
@@ -303,7 +303,7 @@ function Td({
 }) {
   return (
     <td
-      className={`px-4 py-2.5 text-neutral-200 border-t border-neutral-800 ${className}`}
+      className={`px-4 py-2.5 text-ink border-t border-border-subtle ${className}`}
     >
       {children}
     </td>
@@ -315,7 +315,7 @@ function EmptyRow({ cols, message }: { cols: number; message: string }) {
     <tr>
       <td
         colSpan={cols}
-        className="px-4 py-8 text-center text-neutral-500 text-sm border-t border-neutral-800"
+        className="px-4 py-8 text-center text-ink-faint text-sm border-t border-border-subtle"
       >
         {message}
       </td>
@@ -326,10 +326,10 @@ function EmptyRow({ cols, message }: { cols: number; message: string }) {
 function DeltaBadge({ delta }: { delta: number }) {
   const isPositive = delta > 0;
   const cls = isPositive
-    ? "text-emerald-400"
+    ? "text-secondary"
     : delta < 0
     ? "text-red-400"
-    : "text-neutral-500";
+    : "text-ink-faint";
   return (
     <span className={`font-mono ${cls}`}>
       {isPositive ? "+" : ""}
@@ -340,19 +340,19 @@ function DeltaBadge({ delta }: { delta: number }) {
 
 function KindBadge({ kind }: { kind: string }) {
   const colours: Record<string, string> = {
-    sale: "bg-red-500/10 text-red-400",
+    sale: "bg-danger/10 text-red-400",
     fulfillment: "bg-orange-500/10 text-orange-400",
-    purchase_received: "bg-emerald-500/10 text-emerald-400",
+    purchase_received: "bg-emerald-500/10 text-secondary",
     return: "bg-blue-500/10 text-blue-400",
     correction: "bg-purple-500/10 text-purple-400",
     reconciliation: "bg-yellow-500/10 text-yellow-400",
-    damage: "bg-neutral-500/10 text-neutral-400",
-    loss: "bg-neutral-500/10 text-neutral-400",
+    damage: "bg-neutral-500/10 text-ink-muted",
+    loss: "bg-neutral-500/10 text-ink-muted",
     found: "bg-teal-500/10 text-teal-400",
     count: "bg-indigo-500/10 text-indigo-400",
-    other: "bg-neutral-500/10 text-neutral-400",
+    other: "bg-neutral-500/10 text-ink-muted",
   };
-  const cls = colours[kind] ?? "bg-neutral-500/10 text-neutral-400";
+  const cls = colours[kind] ?? "bg-neutral-500/10 text-ink-muted";
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono ${cls}`}>
       {kind}
@@ -362,12 +362,12 @@ function KindBadge({ kind }: { kind: string }) {
 
 function MigrationWarning() {
   return (
-    <div className="mb-4 px-4 py-3 rounded-lg border border-amber-700/50 bg-amber-950/30 text-amber-400 text-sm">
+    <div className="mb-4 px-4 py-3 rounded-lg border border-amber-700/50 bg-amber-950/30 text-accent-strong text-sm">
       <strong>Migration pending:</strong> The <code>reserved_stock</code> column
       hasn&apos;t been added to the wholesale DB yet. Reserved and available counts
       show as 0 until the stock package migration runs.
       <br />
-      <span className="text-neutral-500 text-xs mt-1 block">
+      <span className="text-ink-faint text-xs mt-1 block">
         See <code>docs/architecture/stock-prototype-gaps.md#gap-5</code> for the migration SQL.
       </span>
     </div>
@@ -419,21 +419,21 @@ async function LevelsSection({
             />
           ) : (
             rows.map((row) => (
-              <tr key={row.id} className="hover:bg-neutral-800/30 transition-colors">
+              <tr key={row.id} className="hover:bg-surface-elevated/30 transition-colors">
                 <Td>
-                  <span className="text-white font-medium line-clamp-1">{row.name}</span>
+                  <span className="text-ink font-medium line-clamp-1">{row.name}</span>
                 </Td>
                 <Td>
-                  <span className="font-mono text-xs text-neutral-400">{row.sku}</span>
+                  <span className="font-mono text-xs text-ink-muted">{row.sku}</span>
                 </Td>
                 <Td className="font-mono text-right">{row.on_hand}</Td>
-                <Td className="font-mono text-right text-neutral-400">
+                <Td className="font-mono text-right text-ink-muted">
                   {row.reserved}
                 </Td>
                 <Td className="font-mono text-right">
                   <span
                     className={
-                      row.available === 0 ? "text-red-400" : "text-emerald-400"
+                      row.available === 0 ? "text-red-400" : "text-secondary"
                     }
                   >
                     {row.available}
@@ -470,13 +470,13 @@ async function ReorderSection() {
         title="Reorder Queue"
         count={total}
       />
-      <p className="text-sm text-neutral-500 mb-3">
+      <p className="text-sm text-ink-faint mb-3">
         Cards where current stock + pending is below the price-band target.
         Sorted by deficit (largest first).
         {capped && (
           <>
             {" "}
-            <span className="text-amber-400">
+            <span className="text-accent-strong">
               Showing top {rows.length} of {total.toLocaleString()}.
             </span>
           </>
@@ -502,18 +502,18 @@ async function ReorderSection() {
             />
           ) : (
             rows.map((row) => (
-              <tr key={row.cardId} className="hover:bg-neutral-800/30 transition-colors">
+              <tr key={row.cardId} className="hover:bg-surface-elevated/30 transition-colors">
                 <Td>
-                  <span className="text-white font-medium line-clamp-1">{row.name}</span>
+                  <span className="text-ink font-medium line-clamp-1">{row.name}</span>
                 </Td>
                 <Td>
-                  <span className="font-mono text-xs text-neutral-400">{row.sku}</span>
+                  <span className="font-mono text-xs text-ink-muted">{row.sku}</span>
                 </Td>
                 <Td className="font-mono text-right">{row.currentStock}</Td>
                 <Td className="font-mono text-right text-blue-400">
                   {row.pendingStock > 0 ? `+${row.pendingStock}` : "—"}
                 </Td>
-                <Td className="font-mono text-right text-neutral-400">
+                <Td className="font-mono text-right text-ink-muted">
                   {row.targetQty}
                 </Td>
                 <Td className="font-mono text-right">
@@ -539,12 +539,12 @@ async function MovementsSection() {
         title="Recent Movements"
         count={rows.length}
       />
-      <p className="text-sm text-neutral-500 mb-3">
+      <p className="text-sm text-ink-faint mb-3">
         Last {MOVEMENTS_LIMIT} stock movements across all cards, newest first.
         Includes the new movement ledger and legacy adjustments
         (channel{" "}
-        <code className="text-neutral-400 font-mono text-xs">manual_legacy</code>
-        ) until full migration to <code className="text-neutral-400 font-mono text-xs">@cambridge-tcg/stock</code>.
+        <code className="text-ink-muted font-mono text-xs">manual_legacy</code>
+        ) until full migration to <code className="text-ink-muted font-mono text-xs">@cambridge-tcg/stock</code>.
       </p>
 
       <TableWrapper>
@@ -566,9 +566,9 @@ async function MovementsSection() {
             />
           ) : (
             rows.map((row) => (
-              <tr key={row.id} className="hover:bg-neutral-800/30 transition-colors">
+              <tr key={row.id} className="hover:bg-surface-elevated/30 transition-colors">
                 <Td>
-                  <span className="text-neutral-400 text-xs font-mono whitespace-nowrap">
+                  <span className="text-ink-muted text-xs font-mono whitespace-nowrap">
                     {new Date(row.created_at).toLocaleString("en-GB", {
                       dateStyle: "short",
                       timeStyle: "short",
@@ -576,7 +576,7 @@ async function MovementsSection() {
                   </span>
                 </Td>
                 <Td>
-                  <span className="text-white line-clamp-1 max-w-[200px] block">
+                  <span className="text-ink line-clamp-1 max-w-[200px] block">
                     {row.card_name ?? `#${row.card_id}`}
                   </span>
                 </Td>
@@ -587,10 +587,10 @@ async function MovementsSection() {
                   <DeltaBadge delta={row.delta} />
                 </Td>
                 <Td>
-                  <span className="text-neutral-400 text-xs">{row.channel}</span>
+                  <span className="text-ink-muted text-xs">{row.channel}</span>
                 </Td>
                 <Td>
-                  <span className="text-neutral-500 text-xs font-mono truncate max-w-[180px] block">
+                  <span className="text-ink-faint text-xs font-mono truncate max-w-[180px] block">
                     {row.reference_id ?? "—"}
                   </span>
                 </Td>
@@ -618,10 +618,10 @@ export default async function StockPage({ searchParams }: PageProps) {
     <div className="max-w-6xl">
       <div className="mb-6">
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h1 className="text-xl font-semibold text-white">Stock Management</h1>
+          <h1 className="text-xl font-semibold text-ink">Stock Management</h1>
           <Provenance kind="live" />
         </div>
-        <p className="text-sm text-neutral-400 mt-1">
+        <p className="text-sm text-ink-muted mt-1">
           Wholesale inventory — levels, reorder queue, and movement history.
           Read-only view backed by the wholesale database. Dual-ledger:
           <code className="text-xs"> stock_movements</code> (new, append-only) +
@@ -635,8 +635,8 @@ export default async function StockPage({ searchParams }: PageProps) {
       <Suspense
         fallback={
           <section className="mb-10">
-            <div className="h-5 w-40 bg-neutral-800 rounded animate-pulse mb-3" />
-            <div className="rounded-lg border border-neutral-800 h-64 animate-pulse" />
+            <div className="h-5 w-40 bg-surface-elevated rounded animate-pulse mb-3" />
+            <div className="rounded-lg border border-border-subtle h-64 animate-pulse" />
           </section>
         }
       >
@@ -647,8 +647,8 @@ export default async function StockPage({ searchParams }: PageProps) {
       <Suspense
         fallback={
           <section className="mb-10">
-            <div className="h-5 w-36 bg-neutral-800 rounded animate-pulse mb-3" />
-            <div className="rounded-lg border border-neutral-800 h-48 animate-pulse" />
+            <div className="h-5 w-36 bg-surface-elevated rounded animate-pulse mb-3" />
+            <div className="rounded-lg border border-border-subtle h-48 animate-pulse" />
           </section>
         }
       >
@@ -659,8 +659,8 @@ export default async function StockPage({ searchParams }: PageProps) {
       <Suspense
         fallback={
           <section className="mb-10">
-            <div className="h-5 w-44 bg-neutral-800 rounded animate-pulse mb-3" />
-            <div className="rounded-lg border border-neutral-800 h-64 animate-pulse" />
+            <div className="h-5 w-44 bg-surface-elevated rounded animate-pulse mb-3" />
+            <div className="rounded-lg border border-border-subtle h-64 animate-pulse" />
           </section>
         }
       >

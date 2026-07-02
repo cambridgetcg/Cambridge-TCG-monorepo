@@ -144,7 +144,7 @@ export default async function B2BOrdersPage({
             key: "id",
             header: "Order",
             render: (r: OrderRow) => (
-              <Link href={`/admin/commerce/b2b-orders/${r.id}`} className="text-amber-400 hover:underline font-mono text-xs">
+              <Link href={`/admin/commerce/b2b-orders/${r.id}`} className="text-accent-strong hover:underline font-mono text-xs">
                 #{r.id}
               </Link>
             ),
@@ -160,7 +160,7 @@ export default async function B2BOrdersPage({
             key: "status",
             header: "Status",
             render: (r: OrderRow) => (
-              <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-neutral-800 text-neutral-200">
+              <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-surface-elevated text-ink">
                 {r.status}
               </span>
             ),
@@ -184,7 +184,7 @@ export default async function B2BOrdersPage({
             key: "created",
             header: "Created",
             render: (r: OrderRow) => (
-              <span className="text-xs text-neutral-400" title={fmtDateTime(r.created_at)}>
+              <span className="text-xs text-ink-muted" title={fmtDateTime(r.created_at)}>
                 {fmtRelative(r.created_at)}
               </span>
             ),
@@ -197,14 +197,14 @@ export default async function B2BOrdersPage({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm">
-          <div className="text-neutral-500">
+          <div className="text-ink-faint">
             Page {page} of {totalPages} · {total} order{total === 1 ? "" : "s"}
           </div>
           <div className="flex gap-2">
             {page > 1 && (
               <Link
                 href={`/admin/commerce/b2b-orders?${new URLSearchParams({ ...(status !== "open" ? { status } : {}), page: String(page - 1) }).toString()}`}
-                className="rounded border border-neutral-700 px-3 py-1 hover:border-amber-500"
+                className="rounded border border-border-strong px-3 py-1 hover:border-accent"
               >
                 ← Prev
               </Link>
@@ -212,7 +212,7 @@ export default async function B2BOrdersPage({
             {page < totalPages && (
               <Link
                 href={`/admin/commerce/b2b-orders?${new URLSearchParams({ ...(status !== "open" ? { status } : {}), page: String(page + 1) }).toString()}`}
-                className="rounded border border-neutral-700 px-3 py-1 hover:border-amber-500"
+                className="rounded border border-border-strong px-3 py-1 hover:border-accent"
               >
                 Next →
               </Link>

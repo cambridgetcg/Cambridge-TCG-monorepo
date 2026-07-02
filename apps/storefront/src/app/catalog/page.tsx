@@ -92,12 +92,12 @@ export default async function CatalogPage({
           and the market are easy to confuse on first visit; one quiet
           sentence each, cross-linked, keeps both doors legible. */}
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
-        <p className="text-neutral-400">
+        <p className="text-ink-muted">
           The shop — buy cards from Cambridge TCG stock.
         </p>
         <Link
           href="/market"
-          className="text-neutral-500 hover:text-amber-400 transition"
+          className="text-ink-faint hover:text-accent-strong transition"
         >
           Trading with other collectors? →
         </Link>
@@ -119,10 +119,10 @@ export default async function CatalogPage({
         /* Landing view */
         <div className="mt-12">
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-ink mb-4">
               3,000+ Japanese One Piece Cards.
             </h1>
-            <p className="text-lg text-neutral-400">
+            <p className="text-lg text-ink-muted">
               Sourced direct from CardRush. Near Mint. Fast UK shipping.
             </p>
           </div>
@@ -137,9 +137,9 @@ export default async function CatalogPage({
               <Link
                 key={set.code}
                 href={`/catalog?game=one-piece&set=${set.code}`}
-                className="px-5 py-3 bg-neutral-900 hover:bg-neutral-800 rounded-xl text-white font-medium transition-all duration-200 hover:ring-2 ring-emerald-500"
+                className="px-5 py-3 bg-surface hover:bg-surface-elevated rounded-xl text-ink font-medium transition-all duration-200 hover:ring-2 ring-emerald-500"
               >
-                <span className="font-mono text-emerald-400 text-xs mr-2">{set.code}</span>
+                <span className="font-mono text-secondary text-xs mr-2">{set.code}</span>
                 {set.label}
               </Link>
             ))}
@@ -174,10 +174,10 @@ export default async function CatalogPage({
           <div className="flex-1 min-w-0">
             {/* Set header */}
             {selectedSet && (
-              <div className="mb-4 pb-4 border-b border-neutral-800">
-                <h1 className="text-2xl font-bold text-white">{selectedSet.name}</h1>
-                <div className="flex items-center gap-4 mt-1 text-sm text-neutral-400">
-                  <span className="font-mono bg-neutral-800 px-2 py-0.5 rounded text-xs">
+              <div className="mb-4 pb-4 border-b border-border-subtle">
+                <h1 className="text-2xl font-bold text-ink">{selectedSet.name}</h1>
+                <div className="flex items-center gap-4 mt-1 text-sm text-ink-muted">
+                  <span className="font-mono bg-surface-elevated px-2 py-0.5 rounded text-xs">
                     {selectedSet.code}
                   </span>
                   <span>{selectedSet.card_count} cards</span>
@@ -191,13 +191,13 @@ export default async function CatalogPage({
             {/* In-stock filter banner */}
             {isFilteringInStock && (
               <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm">
-                <span className="text-emerald-400">
+                <span className="text-secondary">
                   Showing in-stock cards only
                 </span>
-                <span className="text-neutral-500">·</span>
+                <span className="text-ink-faint">·</span>
                 <Link
                   href={buildShowAllHref(params)}
-                  className="text-neutral-400 hover:text-white transition underline underline-offset-2"
+                  className="text-ink-muted hover:text-ink transition underline underline-offset-2"
                 >
                   Show all
                 </Link>
@@ -218,7 +218,7 @@ export default async function CatalogPage({
               <>
                 {/* Results count */}
                 <div className="flex items-baseline gap-3 mb-2">
-                  <p className="text-sm text-neutral-500">
+                  <p className="text-sm text-ink-faint">
                     Showing {Math.min(prices.count, PER_PAGE)} of{" "}
                     {prices.total.toLocaleString()} {prices.total === 1 ? "card" : "cards"}
                   </p>
@@ -284,7 +284,7 @@ function CatalogSearch({
           name="q"
           defaultValue={current.q || ""}
           placeholder="Search cards..."
-          className="flex-1 px-4 py-2 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="flex-1 px-4 py-2 bg-surface border border-border-strong rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
         <button
           type="submit"

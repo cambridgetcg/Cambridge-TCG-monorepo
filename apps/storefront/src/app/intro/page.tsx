@@ -38,30 +38,30 @@ function ConceptCard({
   return (
     <div
       id={`concept-${concept.name}`}
-      className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 scroll-mt-20"
+      className="rounded-lg border border-border-subtle bg-surface/40 p-4 scroll-mt-20"
     >
       <div className="flex items-baseline gap-2 flex-wrap mb-2">
-        <code className="text-emerald-400 font-mono text-sm">{concept.name}</code>
-        <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+        <code className="text-secondary font-mono text-sm">{concept.name}</code>
+        <span className="text-[10px] uppercase tracking-wider text-ink-faint">
           {concept.category}
         </span>
         {concept.depends_on.length > 0 && (
           <span className="text-[10px] text-neutral-600">
             depends on:{" "}
             {concept.depends_on.map((d) => (
-              <code key={d} className="text-neutral-400 mx-0.5">
+              <code key={d} className="text-ink-muted mx-0.5">
                 {d}
               </code>
             ))}
           </span>
         )}
       </div>
-      <p className="text-sm text-neutral-300 leading-relaxed">{concept.definition}</p>
+      <p className="text-sm text-ink-muted leading-relaxed">{concept.definition}</p>
       {concept.distinguishes_from && concept.distinguishes_from.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-neutral-800">
+        <div className="mt-3 pt-3 border-t border-border-subtle">
           {concept.distinguishes_from.map((d, i) => (
-            <p key={i} className="text-xs text-neutral-500 leading-relaxed">
-              <strong className="text-neutral-400">vs {d.from}:</strong>{" "}
+            <p key={i} className="text-xs text-ink-faint leading-relaxed">
+              <strong className="text-ink-muted">vs {d.from}:</strong>{" "}
               {d.difference}
             </p>
           ))}
@@ -74,30 +74,30 @@ function ConceptCard({
 export default function IntroPage() {
   const intro = INTRODUCTION;
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
       <header className="mb-8">
         <h1 className="text-3xl font-bold mb-3">
           An introduction to TCG, for any kind of intelligence
         </h1>
-        <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+        <p className="text-sm text-ink-muted leading-relaxed mb-3">
           {intro.audience_note}
         </p>
         <div className="flex gap-3 flex-wrap text-xs">
           <Link
             href="/api/v1/introduction"
-            className="text-amber-400 hover:text-amber-300 underline"
+            className="text-accent-strong hover:text-accent-strong underline"
           >
             JSON form
           </Link>
           <Link
             href="/methodology/community"
-            className="text-neutral-500 hover:text-amber-400 underline"
+            className="text-ink-faint hover:text-accent-strong underline"
           >
             How community works
           </Link>
           <Link
             href="/api/v1/manifest"
-            className="text-neutral-500 hover:text-amber-400 underline"
+            className="text-ink-faint hover:text-accent-strong underline"
           >
             Manifest
           </Link>
@@ -105,14 +105,14 @@ export default function IntroPage() {
       </header>
 
       <section className="mb-10">
-        <h2 className="text-xs uppercase tracking-wider text-emerald-400 mb-2">
+        <h2 className="text-xs uppercase tracking-wider text-secondary mb-2">
           Layer 1 · Structural definition
         </h2>
-        <p className="text-base text-neutral-200 leading-relaxed mb-5 italic">
+        <p className="text-base text-ink leading-relaxed mb-5 italic">
           {intro.what_is_a_tcg.one_sentence}
         </p>
 
-        <h3 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
           Primitive concepts
         </h3>
         <div className="space-y-3 mb-6">
@@ -121,13 +121,13 @@ export default function IntroPage() {
           ))}
         </div>
 
-        <h3 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
           Distinguishing features
         </h3>
-        <p className="text-xs text-neutral-500 mb-2">
+        <p className="text-xs text-ink-faint mb-2">
           What separates a TCG from other game-systems a being might know:
         </p>
-        <ol className="space-y-2 list-decimal pl-5 text-sm text-neutral-300">
+        <ol className="space-y-2 list-decimal pl-5 text-sm text-ink-muted">
           {intro.what_is_a_tcg.distinguishing_features.map((f, i) => (
             <li key={i} className="leading-relaxed">
               {f}
@@ -137,48 +137,48 @@ export default function IntroPage() {
       </section>
 
       <section className="mb-10">
-        <h2 className="text-xs uppercase tracking-wider text-emerald-400 mb-2">
+        <h2 className="text-xs uppercase tracking-wider text-secondary mb-2">
           Layer 2 · Cultural origin
         </h2>
-        <p className="text-sm text-neutral-300 leading-relaxed mb-3">
+        <p className="text-sm text-ink-muted leading-relaxed mb-3">
           <strong>{intro.cultural_origin.first_known_tcg}</strong>
         </p>
-        <p className="text-sm text-neutral-300 leading-relaxed mb-5">
+        <p className="text-sm text-ink-muted leading-relaxed mb-5">
           {intro.cultural_origin.why_humans_play}
         </p>
 
-        <h3 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
           Rhythms of the hobby
         </h3>
         <dl className="space-y-3 mb-5">
           {intro.cultural_origin.rhythms.map((r) => (
             <div
               key={r.aspect}
-              className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-3"
+              className="rounded-lg border border-border-subtle bg-surface/40 p-3"
             >
-              <dt className="text-emerald-400 font-mono text-xs uppercase tracking-wider mb-1">
+              <dt className="text-secondary font-mono text-xs uppercase tracking-wider mb-1">
                 {r.aspect}
               </dt>
-              <dd className="text-sm text-neutral-300 leading-relaxed">
+              <dd className="text-sm text-ink-muted leading-relaxed">
                 {r.description}
               </dd>
             </div>
           ))}
         </dl>
 
-        <h3 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
           Economic character
         </h3>
-        <p className="text-sm text-neutral-300 leading-relaxed">
+        <p className="text-sm text-ink-muted leading-relaxed">
           {intro.cultural_origin.economic_character}
         </p>
       </section>
 
       <section className="mb-10">
-        <h2 className="text-xs uppercase tracking-wider text-emerald-400 mb-3">
+        <h2 className="text-xs uppercase tracking-wider text-secondary mb-3">
           Layer 3 · How to engage
         </h2>
-        <p className="text-xs text-neutral-500 mb-4">
+        <p className="text-xs text-ink-faint mb-4">
           Seven entry points, each tailored to a different audience.
           Substrate-honest state on every door.
         </p>
@@ -186,44 +186,44 @@ export default function IntroPage() {
           {intro.engagement_doors.map((d) => (
             <div
               key={d.href}
-              className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-3"
+              className="rounded-lg border border-border-subtle bg-surface/40 p-3"
             >
               <div className="flex items-baseline gap-2 flex-wrap mb-1">
                 <Link
                   href={d.href}
-                  className="text-amber-400 hover:text-amber-300 underline font-mono text-sm"
+                  className="text-accent-strong hover:text-accent-strong underline font-mono text-sm"
                 >
                   {d.href} →
                 </Link>
                 <span
                   className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${
                     d.state === "shipped"
-                      ? "bg-emerald-900/30 text-emerald-400 border-emerald-700/50"
+                      ? "bg-emerald-900/30 text-secondary border-emerald-700/50"
                       : d.state === "partial"
-                        ? "bg-amber-900/30 text-amber-400 border-amber-700/50"
-                        : "bg-neutral-800/60 text-neutral-400 border-neutral-700/50"
+                        ? "bg-amber-900/30 text-accent-strong border-amber-700/50"
+                        : "bg-surface-elevated/60 text-ink-muted border-border-strong/50"
                   }`}
                 >
                   {d.state}
                 </span>
               </div>
-              <p className="text-xs text-neutral-500 mb-1">For: {d.audience}</p>
-              <p className="text-sm text-neutral-300">{d.offer}</p>
+              <p className="text-xs text-ink-faint mb-1">For: {d.audience}</p>
+              <p className="text-sm text-ink-muted">{d.offer}</p>
             </div>
           ))}
         </div>
       </section>
 
       <section className="mb-10">
-        <h2 className="text-xs uppercase tracking-wider text-emerald-400 mb-3">
+        <h2 className="text-xs uppercase tracking-wider text-secondary mb-3">
           Layer 4 · What this platform offers for non-native-intelligence
         </h2>
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <h3 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+            <h3 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
               Math-mirror surfaces
             </h3>
-            <ul className="text-xs text-neutral-300 space-y-1 list-disc pl-4">
+            <ul className="text-xs text-ink-muted space-y-1 list-disc pl-4">
               {intro.what_we_offer.math_mirror_surfaces.map((s) => (
                 <li key={s} className="leading-relaxed">
                   {s}
@@ -232,10 +232,10 @@ export default function IntroPage() {
             </ul>
           </div>
           <div>
-            <h3 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+            <h3 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
               Identification surfaces
             </h3>
-            <ul className="text-xs text-neutral-300 space-y-1 list-disc pl-4">
+            <ul className="text-xs text-ink-muted space-y-1 list-disc pl-4">
               {intro.what_we_offer.identification_surfaces.map((s) => (
                 <li key={s} className="leading-relaxed">
                   {s}
@@ -244,10 +244,10 @@ export default function IntroPage() {
             </ul>
           </div>
           <div>
-            <h3 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+            <h3 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
               Documentation surfaces
             </h3>
-            <ul className="text-xs text-neutral-300 space-y-1 list-disc pl-4">
+            <ul className="text-xs text-ink-muted space-y-1 list-disc pl-4">
               {intro.what_we_offer.documentation_surfaces.map((s) => (
                 <li key={s} className="leading-relaxed">
                   {s}
@@ -259,10 +259,10 @@ export default function IntroPage() {
       </section>
 
       <section className="mb-10">
-        <h2 className="text-xs uppercase tracking-wider text-amber-400 mb-3">
+        <h2 className="text-xs uppercase tracking-wider text-accent-strong mb-3">
           Layer 5 · What we don&apos;t yet offer
         </h2>
-        <p className="text-xs text-neutral-500 mb-4">
+        <p className="text-xs text-ink-faint mb-4">
           Substrate honesty about gaps the platform doesn&apos;t yet bridge.
           Each carries a closure path.
         </p>
@@ -272,10 +272,10 @@ export default function IntroPage() {
               key={i}
               className="rounded-lg border border-amber-700/40 bg-amber-900/10 p-3"
             >
-              <p className="text-sm text-white font-semibold mb-1">{g.gap}</p>
-              <p className="text-xs text-neutral-400 mb-2">{g.reason}</p>
-              <p className="text-xs text-neutral-500">
-                <strong className="text-amber-400">Closes via:</strong>{" "}
+              <p className="text-sm text-ink font-semibold mb-1">{g.gap}</p>
+              <p className="text-xs text-ink-muted mb-2">{g.reason}</p>
+              <p className="text-xs text-ink-faint">
+                <strong className="text-accent-strong">Closes via:</strong>{" "}
                 {g.closes_via}
               </p>
             </div>
@@ -283,8 +283,8 @@ export default function IntroPage() {
         </div>
       </section>
 
-      <footer className="mt-10 pt-6 border-t border-neutral-800">
-        <p className="text-sm text-neutral-300 leading-relaxed mb-3">
+      <footer className="mt-10 pt-6 border-t border-border-subtle">
+        <p className="text-sm text-ink-muted leading-relaxed mb-3">
           <strong>If you have read this far</strong> — the introduction has done
           its work. You now know what kind of system Cambridge TCG hosts, what
           kind of culture surrounds it, and where to walk next. The platform
@@ -292,18 +292,18 @@ export default function IntroPage() {
           have played a TCG before; the platform will accept your declaration
           of what you are.
         </p>
-        <p className="text-xs text-neutral-500 leading-relaxed">
+        <p className="text-xs text-ink-faint leading-relaxed">
           The introduction is a single typed file at{" "}
-          <code className="text-neutral-400">{intro.self_reference.canonical_at}</code>.
+          <code className="text-ink-muted">{intro.self_reference.canonical_at}</code>.
           Its JSON form lives at{" "}
           <Link
             href={intro.self_reference.json_at}
-            className="text-amber-400 hover:text-amber-300 underline"
+            className="text-accent-strong hover:text-accent-strong underline"
           >
             {intro.self_reference.json_at}
           </Link>
           . The doctrine for why this page exists lives at{" "}
-          <code className="text-neutral-400">{intro.self_reference.doctrine_at}</code>.
+          <code className="text-ink-muted">{intro.self_reference.doctrine_at}</code>.
           When the introduction needs amending, the file is edited; both
           renderings update.
         </p>

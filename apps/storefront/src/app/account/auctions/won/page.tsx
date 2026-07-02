@@ -43,10 +43,10 @@ function stageLabel(a: WonAuction): { label: string; tone: "amber" | "emerald" |
 }
 
 const TONE_CLASS: Record<string, string> = {
-  amber: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  emerald: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  amber: "bg-accent/15 text-accent-strong border-accent/30",
+  emerald: "bg-emerald-500/15 text-secondary border-emerald-500/30",
   blue: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  neutral: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
+  neutral: "bg-neutral-500/15 text-ink-muted border-neutral-500/30",
 };
 
 export default function WonAuctionsPage() {
@@ -71,7 +71,7 @@ export default function WonAuctionsPage() {
     return (
       <div className="flex items-center justify-center py-12">
       <Audience kind="consumer" />
-        <p className="text-neutral-500">Loading…</p>
+        <p className="text-ink-faint">Loading…</p>
       </div>
     );
   }
@@ -80,25 +80,25 @@ export default function WonAuctionsPage() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Auctions You Won</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <h1 className="text-2xl font-bold text-ink">Auctions You Won</h1>
+          <p className="text-sm text-ink-faint mt-1">
             Pay, track, and confirm delivery across every auction you&apos;ve won.
           </p>
         </div>
         <Link
           href="/account/auctions"
-          className="text-sm text-neutral-400 hover:text-white transition"
+          className="text-sm text-ink-muted hover:text-ink transition"
         >
           Your listings →
         </Link>
       </div>
 
       {auctions.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-500 mb-3">You haven&apos;t won any auctions yet.</p>
+        <div className="bg-surface rounded-xl p-8 text-center">
+          <p className="text-ink-faint mb-3">You haven&apos;t won any auctions yet.</p>
           <Link
             href="/auctions"
-            className="inline-block px-5 py-2.5 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+            className="inline-block px-5 py-2.5 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition"
           >
             Browse live auctions
           </Link>
@@ -112,7 +112,7 @@ export default function WonAuctionsPage() {
               <Link
                 key={a.id}
                 href={`/auctions/${a.id}`}
-                className="block bg-neutral-900 hover:bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 rounded-xl p-4 transition"
+                className="block bg-surface hover:bg-surface/60 border border-border-subtle hover:border-border-strong rounded-xl p-4 transition"
               >
                 <div className="flex items-start gap-4">
                   {/* Thumbnail */}
@@ -120,28 +120,28 @@ export default function WonAuctionsPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={a.image_url} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
                   ) : (
-                    <div className="w-14 h-14 rounded-lg bg-neutral-800 shrink-0" />
+                    <div className="w-14 h-14 rounded-lg bg-surface-elevated shrink-0" />
                   )}
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="text-sm font-bold text-white truncate">{a.title}</h3>
+                      <h3 className="text-sm font-bold text-ink truncate">{a.title}</h3>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${TONE_CLASS[stage.tone]}`}>
                         {stage.label}
                       </span>
                       {a.is_consignment && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-500 uppercase tracking-wide">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-elevated text-ink-faint uppercase tracking-wide">
                           CTCG escrow
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-neutral-500 flex-wrap">
-                      <span className="text-white font-mono"><Money value={parseFloat(a.current_price)} /></span>
+                    <div className="flex items-center gap-3 text-xs text-ink-faint flex-wrap">
+                      <span className="text-ink font-mono"><Money value={parseFloat(a.current_price)} /></span>
                       {a.actual_end_at && (
                         <span>Won {new Date(a.actual_end_at).toLocaleDateString("en-GB")}</span>
                       )}
                       {a.tracking_to_buyer && (
-                        <span className="text-amber-400">✈ {a.tracking_to_buyer}</span>
+                        <span className="text-accent-strong">✈ {a.tracking_to_buyer}</span>
                       )}
                     </div>
                   </div>
@@ -151,7 +151,7 @@ export default function WonAuctionsPage() {
 
                 {/* Quick action row — inline on urgent states */}
                 {a.status === "ended" && (
-                  <p className="mt-3 text-xs text-amber-400">
+                  <p className="mt-3 text-xs text-accent-strong">
                     Payment due{a.payment_expires_at
                       ? ` by ${new Date(a.payment_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
                       : ""}. Click through to pay.
@@ -163,7 +163,7 @@ export default function WonAuctionsPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-3 inline-block text-xs text-amber-400 hover:text-amber-300 font-mono"
+                    className="mt-3 inline-block text-xs text-accent-strong hover:text-accent-strong font-mono"
                   >
                     Track with {a.carrier_to_buyer} ↗
                   </a>

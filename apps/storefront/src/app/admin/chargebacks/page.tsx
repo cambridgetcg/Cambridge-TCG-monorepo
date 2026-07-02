@@ -24,15 +24,15 @@ interface Chargeback {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  needs_response:         "bg-red-500/15 text-red-400 border-red-500/40",
-  warning_needs_response: "bg-red-500/15 text-red-400 border-red-500/40",
-  under_review:           "bg-amber-500/15 text-amber-400 border-amber-500/40",
-  warning_under_review:   "bg-amber-500/15 text-amber-400 border-amber-500/40",
-  won:                    "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
-  lost:                   "bg-neutral-700 text-neutral-400 border-neutral-600",
-  warning_closed:         "bg-neutral-700 text-neutral-400 border-neutral-600",
-  charge_refunded:        "bg-sky-500/15 text-sky-400 border-sky-500/40",
-  admin_resolved:         "bg-neutral-700 text-neutral-400 border-neutral-600",
+  needs_response:         "bg-danger/15 text-red-400 border-danger/40",
+  warning_needs_response: "bg-danger/15 text-red-400 border-danger/40",
+  under_review:           "bg-accent/15 text-accent-strong border-accent/40",
+  warning_under_review:   "bg-accent/15 text-accent-strong border-accent/40",
+  won:                    "bg-emerald-500/15 text-secondary border-emerald-500/40",
+  lost:                   "bg-neutral-700 text-ink-muted border-neutral-600",
+  warning_closed:         "bg-neutral-700 text-ink-muted border-neutral-600",
+  charge_refunded:        "bg-sky-500/15 text-info border-sky-500/40",
+  admin_resolved:         "bg-neutral-700 text-ink-muted border-neutral-600",
 };
 
 export default function AdminChargebacksPage() {
@@ -68,20 +68,20 @@ export default function AdminChargebacksPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind="operator" />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-baseline justify-between flex-wrap gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Chargebacks</h1>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-ink-muted">
               Stripe disputes. Critical-severity auto-suspends the user via the fraud pipeline.
               <WhyLink href="/methodology/fraud-flag" label="how severity works" />
             </p>
           </div>
           <div className="flex gap-3 text-xs">
-            <Link href="/admin/fraud-signals" className="text-amber-400 hover:text-amber-300 underline">Fraud signals →</Link>
-            <Link href="/admin/governance" className="text-amber-400 hover:text-amber-300 underline">Governance log →</Link>
+            <Link href="/admin/fraud-signals" className="text-accent-strong hover:text-accent-strong underline">Fraud signals →</Link>
+            <Link href="/admin/governance" className="text-accent-strong hover:text-accent-strong underline">Governance log →</Link>
           </div>
         </div>
 
@@ -91,8 +91,8 @@ export default function AdminChargebacksPage() {
               key={t}
               onClick={() => setTab(t)}
               className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-                tab === t ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                tab === t ? "bg-accent text-black font-bold"
+                  : "bg-surface text-ink-muted hover:text-ink hover:bg-surface-elevated"
               }`}
             >
               {t}
@@ -101,9 +101,9 @@ export default function AdminChargebacksPage() {
         </div>
 
         {loading ? (
-          <p className="text-neutral-500">Loading…</p>
+          <p className="text-ink-faint">Loading…</p>
         ) : chargebacks.length === 0 ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+          <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
             No chargebacks match this filter.
           </div>
         ) : (
@@ -113,34 +113,34 @@ export default function AdminChargebacksPage() {
               const dueDays = dueMs != null ? Math.floor(dueMs / 86_400_000) : null;
               const dueWarn = dueDays != null && dueDays <= 3;
               return (
-                <div key={c.stripe_dispute_id} className={`bg-neutral-900 rounded-xl p-4 border ${
-                  dueWarn ? "border-red-500/40" : "border-neutral-800"
+                <div key={c.stripe_dispute_id} className={`bg-surface rounded-xl p-4 border ${
+                  dueWarn ? "border-danger/40" : "border-border-subtle"
                 }`}>
                   <div className="flex items-baseline justify-between flex-wrap gap-2 mb-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                        STATUS_TONE[c.stripe_status] ?? "bg-neutral-700 text-neutral-300 border-neutral-600"
+                        STATUS_TONE[c.stripe_status] ?? "bg-neutral-700 text-ink-muted border-neutral-600"
                       }`}>
                         {c.stripe_status.replace(/_/g, " ")}
                       </span>
-                      <span className="text-lg font-bold text-amber-400">
+                      <span className="text-lg font-bold text-accent-strong">
                         £{parseFloat(c.amount_gbp).toFixed(2)}
                       </span>
                       {c.stripe_reason && (
-                        <span className="text-xs text-neutral-400 italic">{c.stripe_reason}</span>
+                        <span className="text-xs text-ink-muted italic">{c.stripe_reason}</span>
                       )}
                       {c.is_suspended && (
                         <span className="text-[10px] text-red-400 font-bold uppercase">user suspended</span>
                       )}
                     </div>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-ink-faint">
                       {new Date(c.created_at).toLocaleDateString("en-GB")}
                     </span>
                   </div>
 
-                  <div className="text-xs text-neutral-500 grid sm:grid-cols-2 gap-1">
+                  <div className="text-xs text-ink-faint grid sm:grid-cols-2 gap-1">
                     <div>
-                      <span className="text-neutral-400">User:</span>{" "}
+                      <span className="text-ink-muted">User:</span>{" "}
                       {c.user_name ?? c.user_email ?? c.order_email ?? "(orphan)"}
                       {c.trust_score != null && <span className="ml-2">· trust {c.trust_score}</span>}
                     </div>
@@ -150,7 +150,7 @@ export default function AdminChargebacksPage() {
                   </div>
 
                   {c.evidence_due_at && (
-                    <p className={`text-xs mt-2 ${dueWarn ? "text-red-400 font-bold" : "text-neutral-500"}`}>
+                    <p className={`text-xs mt-2 ${dueWarn ? "text-red-400 font-bold" : "text-ink-faint"}`}>
                       Evidence due {new Date(c.evidence_due_at).toLocaleDateString("en-GB")}
                       {dueDays != null && (dueDays >= 0 ? ` (${dueDays}d)` : ` (overdue ${Math.abs(dueDays)}d)`)}
                     </p>
@@ -158,12 +158,12 @@ export default function AdminChargebacksPage() {
 
                   <div className="mt-3 flex gap-2 flex-wrap">
                     <button onClick={() => act(c.stripe_dispute_id, "annotate")} disabled={acting === c.stripe_dispute_id}
-                      className="text-[11px] px-2 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 rounded disabled:opacity-50">
+                      className="text-[11px] px-2 py-1 bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink-muted rounded disabled:opacity-50">
                       Annotate
                     </button>
                     {!["won", "lost", "warning_closed", "charge_refunded", "admin_resolved"].includes(c.stripe_status) && (
                       <button onClick={() => act(c.stripe_dispute_id, "force_resolve")} disabled={acting === c.stripe_dispute_id}
-                        className="text-[11px] px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded disabled:opacity-50">
+                        className="text-[11px] px-2 py-1 bg-danger/10 hover:bg-danger/20 border border-danger/30 text-red-400 rounded disabled:opacity-50">
                         Force resolve
                       </button>
                     )}

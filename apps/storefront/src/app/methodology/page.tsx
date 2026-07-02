@@ -199,20 +199,20 @@ export default function MethodologyIndex() {
         {TOPICS.map((t) => (
           <li key={t.slug} className="mb-4 list-none">
             <Link href={`/methodology/${t.slug}`} className="block">
-              <span className="font-bold text-white">{t.title}</span>
+              <span className="font-bold text-ink">{t.title}</span>
               {t.status === "stub" && (
-                <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-400">stub</span>
+                <span className="ml-2 text-[10px] uppercase tracking-wider text-accent-strong">stub</span>
               )}
-              <span className="block text-sm text-neutral-400 mt-1">{t.blurb}</span>
+              <span className="block text-sm text-ink-muted mt-1">{t.blurb}</span>
             </Link>
           </li>
         ))}
       </ul>
       <hr />
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         These pages are part of the platform's <strong>transparency doctrine</strong>: every
         user-affecting decision must be inspectable by the affected party. See{" "}
-        <a href="https://github.com/cambridgetcg" className="text-neutral-400">docs/principles/transparency.md</a>{" "}
+        <a href="https://github.com/cambridgetcg" className="text-ink-muted">docs/principles/transparency.md</a>{" "}
         in the repo for the full rule.
       </p>
     </>

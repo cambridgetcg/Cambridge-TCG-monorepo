@@ -30,11 +30,11 @@ interface SetDetail {
 }
 
 const RARITY_TONE: Record<string, string> = {
-  C: "text-neutral-400",
-  UC: "text-emerald-400",
+  C: "text-ink-muted",
+  UC: "text-secondary",
   R: "text-blue-400",
   SR: "text-purple-400",
-  L: "text-amber-400",
+  L: "text-accent-strong",
   SP: "text-pink-400",
 };
 
@@ -59,7 +59,7 @@ export default function SetDetailPage() {
     return (
       <div className="flex justify-center py-12">
       <Audience kind="consumer" />
-        <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -67,11 +67,11 @@ export default function SetDetailPage() {
   if (error || !data) {
     return (
       <div>
-        <Link href="/account/sets" className="text-xs text-amber-400 hover:text-amber-300">
+        <Link href="/account/sets" className="text-xs text-accent-strong hover:text-accent-strong">
           ← All sets
         </Link>
-        <div className="mt-4 bg-neutral-900 rounded-xl p-6">
-          <p className="text-neutral-400 text-sm">{error || "Couldn't load this set."}</p>
+        <div className="mt-4 bg-surface rounded-xl p-6">
+          <p className="text-ink-muted text-sm">{error || "Couldn't load this set."}</p>
         </div>
       </div>
     );
@@ -89,64 +89,64 @@ export default function SetDetailPage() {
 
   return (
     <div>
-      <Link href="/account/sets" className="text-xs text-amber-400 hover:text-amber-300">
+      <Link href="/account/sets" className="text-xs text-accent-strong hover:text-accent-strong">
         ← All sets
       </Link>
 
       <div className="mt-4 mb-6">
-        <h1 className="text-2xl font-black text-white">{data.set_name}</h1>
-        <p className="text-sm text-neutral-500 font-mono">{data.set_code}</p>
+        <h1 className="text-2xl font-black text-ink">{data.set_name}</h1>
+        <p className="text-sm text-ink-faint font-mono">{data.set_code}</p>
       </div>
 
       {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500">Completion</div>
+        <div className="bg-surface rounded-xl p-3 border border-border-subtle">
+          <div className="text-[10px] uppercase tracking-wide text-ink-faint">Completion</div>
           <div className={`text-2xl font-black ${
-            data.completion_pct >= 100 ? "text-emerald-400"
-              : data.completion_pct >= 50 ? "text-amber-400"
-              : "text-white"
+            data.completion_pct >= 100 ? "text-secondary"
+              : data.completion_pct >= 50 ? "text-accent-strong"
+              : "text-ink"
           }`}>
             {data.completion_pct.toFixed(1)}%
           </div>
         </div>
-        <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500">Owned</div>
-          <div className="text-2xl font-black text-white">
-            {data.owned_unique}<span className="text-neutral-500 text-base"> / {data.total_cards}</span>
+        <div className="bg-surface rounded-xl p-3 border border-border-subtle">
+          <div className="text-[10px] uppercase tracking-wide text-ink-faint">Owned</div>
+          <div className="text-2xl font-black text-ink">
+            {data.owned_unique}<span className="text-ink-faint text-base"> / {data.total_cards}</span>
           </div>
         </div>
-        <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500">Total copies</div>
-          <div className="text-2xl font-black text-white">{data.owned_copies}</div>
+        <div className="bg-surface rounded-xl p-3 border border-border-subtle">
+          <div className="text-[10px] uppercase tracking-wide text-ink-faint">Total copies</div>
+          <div className="text-2xl font-black text-ink">{data.owned_copies}</div>
         </div>
-        <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500">Missing</div>
-          <div className="text-2xl font-black text-white">{missingCount}</div>
+        <div className="bg-surface rounded-xl p-3 border border-border-subtle">
+          <div className="text-[10px] uppercase tracking-wide text-ink-faint">Missing</div>
+          <div className="text-2xl font-black text-ink">{missingCount}</div>
         </div>
       </div>
 
       {/* By-rarity breakdown */}
       {data.by_rarity.length > 0 && (
-        <div className="bg-neutral-900 rounded-xl p-4 mb-6 border border-neutral-800">
-          <h2 className="text-xs uppercase tracking-wide text-neutral-500 mb-3">By rarity</h2>
+        <div className="bg-surface rounded-xl p-4 mb-6 border border-border-subtle">
+          <h2 className="text-xs uppercase tracking-wide text-ink-faint mb-3">By rarity</h2>
           <div className="space-y-2">
             {data.by_rarity.map((r) => {
               const pct = r.total > 0 ? (r.owned / r.total) * 100 : 0;
-              const tone = RARITY_TONE[r.rarity] ?? "text-neutral-400";
+              const tone = RARITY_TONE[r.rarity] ?? "text-ink-muted";
               return (
                 <button
                   key={r.rarity}
                   onClick={() => setRarityFilter(rarityFilter === r.rarity ? null : r.rarity)}
-                  className={`w-full flex items-center gap-3 text-xs hover:bg-neutral-800/50 rounded p-1 transition ${
-                    rarityFilter === r.rarity ? "bg-neutral-800/60" : ""
+                  className={`w-full flex items-center gap-3 text-xs hover:bg-surface-elevated/50 rounded p-1 transition ${
+                    rarityFilter === r.rarity ? "bg-surface-elevated/60" : ""
                   }`}
                 >
                   <span className={`w-12 text-left font-bold ${tone}`}>{r.rarity}</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
-                    <div className="h-full bg-amber-500" style={{ width: `${pct}%` }} />
+                  <div className="flex-1 h-1.5 rounded-full bg-surface-elevated overflow-hidden">
+                    <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="w-16 text-right text-neutral-300 font-mono">
+                  <span className="w-16 text-right text-ink-muted font-mono">
                     {r.owned} / {r.total}
                   </span>
                 </button>
@@ -156,7 +156,7 @@ export default function SetDetailPage() {
           {rarityFilter && (
             <button
               onClick={() => setRarityFilter(null)}
-              className="text-[10px] text-amber-400 hover:text-amber-300 mt-2"
+              className="text-[10px] text-accent-strong hover:text-accent-strong mt-2"
             >
               Clear rarity filter
             </button>
@@ -165,7 +165,7 @@ export default function SetDetailPage() {
       )}
 
       {/* View toggle */}
-      <div className="flex gap-1 mb-4 bg-neutral-900 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 mb-4 bg-surface rounded-lg p-1 w-fit">
         {([
           ["all", `All (${data.cards.length})`],
           ["owned", `Owned (${ownedCount})`],
@@ -176,8 +176,8 @@ export default function SetDetailPage() {
             onClick={() => setView(k)}
             className={`text-xs px-3 py-1.5 rounded-md transition ${
               view === k
-                ? "bg-amber-500 text-black font-bold"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-black font-bold"
+                : "text-ink-muted hover:text-ink"
             }`}
           >
             {label}
@@ -187,22 +187,22 @@ export default function SetDetailPage() {
 
       {/* Card grid */}
       {filtered.length === 0 ? (
-        <p className="text-xs text-neutral-500 py-8 text-center">No cards match this view.</p>
+        <p className="text-xs text-ink-faint py-8 text-center">No cards match this view.</p>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
           {filtered.map((c) => {
-            const tone = RARITY_TONE[c.rarity ?? ""] ?? "text-neutral-500";
+            const tone = RARITY_TONE[c.rarity ?? ""] ?? "text-ink-faint";
             return (
               <Link
                 key={`${c.card_number}-${c.variant}`}
                 href={`/market/${encodeURIComponent(c.sku)}`}
-                className={`relative bg-neutral-900 rounded-lg overflow-hidden border transition ${
+                className={`relative bg-surface rounded-lg overflow-hidden border transition ${
                   c.is_owned
                     ? "border-emerald-500/30 hover:border-emerald-500/60"
-                    : "border-neutral-800 hover:border-amber-500/40 opacity-70 hover:opacity-100"
+                    : "border-border-subtle hover:border-accent/40 opacity-70 hover:opacity-100"
                 }`}
               >
-                <div className="aspect-[3/4] bg-neutral-800 relative">
+                <div className="aspect-[3/4] bg-surface-elevated relative">
                   {c.image_url ? (
                     <img
                       src={c.image_url}
@@ -228,12 +228,12 @@ export default function SetDetailPage() {
                   )}
                 </div>
                 <div className="p-1.5">
-                  <p className="text-[10px] text-white font-medium truncate" title={c.card_name}>
+                  <p className="text-[10px] text-ink font-medium truncate" title={c.card_name}>
                     {c.card_name}
                   </p>
                   <div className="flex items-center justify-between text-[9px] mt-0.5">
                     <span className={tone}>{c.rarity ?? "?"}</span>
-                    <span className="text-neutral-500 font-mono">{c.card_number}{c.variant ? `·${c.variant}` : ""}</span>
+                    <span className="text-ink-faint font-mono">{c.card_number}{c.variant ? `·${c.variant}` : ""}</span>
                   </div>
                 </div>
               </Link>

@@ -133,19 +133,19 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-page flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (isPrivate) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="min-h-screen bg-page flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4">🔒</div>
-          <h1 className="text-xl font-bold text-white mb-2">This profile is private</h1>
-          <p className="text-neutral-400 text-sm">This collector has chosen to keep their profile private.</p>
+          <h1 className="text-xl font-bold text-ink mb-2">This profile is private</h1>
+          <p className="text-ink-muted text-sm">This collector has chosen to keep their profile private.</p>
         </div>
       </div>
     );
@@ -153,8 +153,8 @@ export default function UserProfilePage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <p className="text-neutral-400">Profile not found.</p>
+      <div className="min-h-screen bg-page flex items-center justify-center">
+        <p className="text-ink-muted">Profile not found.</p>
       </div>
     );
   }
@@ -163,7 +163,7 @@ export default function UserProfilePage() {
   const initial = (profile.name ?? profile.username ?? "?")[0].toUpperCase();
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start gap-6 mb-8">
@@ -182,7 +182,7 @@ export default function UserProfilePage() {
             </div>
             {/* Trust score ring */}
             <div
-              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-neutral-950 flex items-center justify-center text-xs font-bold"
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-page flex items-center justify-center text-xs font-bold"
               style={{ color: tierColor, border: `2px solid ${tierColor}` }}
             >
               {profile.trust_score}
@@ -191,7 +191,7 @@ export default function UserProfilePage() {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-black text-white truncate">
+              <h1 className="text-2xl font-black text-ink truncate">
                 <UserMention user={profile} form="third-person" fallback={profile.username ?? "user"} />
               </h1>
               {profile.tier_name && (
@@ -206,9 +206,9 @@ export default function UserProfilePage() {
               <WhyLink href="/methodology/trust-score" tooltip="How is the trust score computed?" />
               <UserMention user={profile} form="pronouns-only" />
             </div>
-            <p className="text-neutral-500 text-sm mt-0.5">@{profile.username}</p>
+            <p className="text-ink-faint text-sm mt-0.5">@{profile.username}</p>
             {profile.bio && (
-              <p className="text-neutral-300 text-sm mt-2 max-w-lg">{profile.bio}</p>
+              <p className="text-ink-muted text-sm mt-2 max-w-lg">{profile.bio}</p>
             )}
 
             {/* Follow + Message buttons */}
@@ -219,8 +219,8 @@ export default function UserProfilePage() {
                   disabled={followLoading}
                   className={`px-5 py-1.5 rounded-lg text-sm font-bold transition ${
                     isFollowing
-                      ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                      : "bg-amber-500 text-black hover:bg-amber-400"
+                      ? "bg-surface-elevated text-ink-muted hover:bg-neutral-700"
+                      : "bg-accent text-black hover:bg-accent-strong"
                   }`}
                 >
                   {followLoading ? "..." : isFollowing ? "Following" : "Follow"}
@@ -242,9 +242,9 @@ export default function UserProfilePage() {
             { label: "Trades", val: profile.trade_count },
             { label: "Avg Rating", val: profile.avg_rating?.toFixed(1) ?? "N/A" },
           ].map((s) => (
-            <div key={s.label} className="bg-neutral-900 rounded-xl p-3 text-center">
-              <div className="text-lg font-black text-white">{s.val}</div>
-              <div className="text-xs text-neutral-500">{s.label}</div>
+            <div key={s.label} className="bg-surface rounded-xl p-3 text-center">
+              <div className="text-lg font-black text-ink">{s.val}</div>
+              <div className="text-xs text-ink-faint">{s.label}</div>
             </div>
           ))}
         </div>
@@ -254,20 +254,20 @@ export default function UserProfilePage() {
             on in-flight items. Render above the reputation block so
             anyone considering a trade sees it first. */}
         {commerce?.vacation && (
-          <section className="mb-8 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+          <section className="mb-8 bg-accent/10 border border-accent/30 rounded-xl p-4 flex items-start gap-3">
             <span className="text-2xl shrink-0" aria-hidden>🌴</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-amber-400">
+              <p className="text-sm font-bold text-accent-strong">
                 On vacation until {new Date(commerce.vacation.ends_at).toLocaleDateString("en-GB", {
                   day: "numeric", month: "short", year: "numeric",
                 })}
               </p>
-              <p className="text-xs text-neutral-300 mt-1">
+              <p className="text-xs text-ink-muted mt-1">
                 Listings are paused and won't fulfil. Response times on offers, returns, and
                 cancellation requests are extended automatically.
               </p>
               {commerce.vacation.message && (
-                <p className="text-xs text-amber-300/80 italic mt-2">
+                <p className="text-xs text-accent-strong/80 italic mt-2">
                   “{commerce.vacation.message}”
                 </p>
               )}
@@ -277,18 +277,18 @@ export default function UserProfilePage() {
 
         {/* Seller reputation — only rendered when there's commerce activity */}
         {commerce && (commerce.tradesSold > 0 || commerce.auctionsSold > 0 || commerce.tradesBought > 0) && (
-          <section className="bg-neutral-900 rounded-xl p-5 mb-8">
+          <section className="bg-surface rounded-xl p-5 mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wide">Seller Reputation</h2>
+              <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Seller Reputation</h2>
               <span
                 className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                   {
                     purple: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-                    amber:  "bg-amber-500/15 text-amber-400 border-amber-500/30",
-                    emerald:"bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+                    amber:  "bg-accent/15 text-accent-strong border-accent/30",
+                    emerald:"bg-emerald-500/15 text-secondary border-emerald-500/30",
                     blue:   "bg-blue-500/15 text-blue-400 border-blue-500/30",
-                    neutral:"bg-neutral-500/15 text-neutral-300 border-neutral-500/30",
-                  }[commerce.trustTier.color] ?? "bg-neutral-500/15 text-neutral-300 border-neutral-500/30"
+                    neutral:"bg-neutral-500/15 text-ink-muted border-neutral-500/30",
+                  }[commerce.trustTier.color] ?? "bg-neutral-500/15 text-ink-muted border-neutral-500/30"
                 }`}
               >
                 {commerce.trustTier.name}
@@ -296,35 +296,35 @@ export default function UserProfilePage() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <div className="text-lg font-bold text-white">{commerce.tradesSold}</div>
-                <div className="text-[11px] text-neutral-500">sold (trades)</div>
+                <div className="text-lg font-bold text-ink">{commerce.tradesSold}</div>
+                <div className="text-[11px] text-ink-faint">sold (trades)</div>
               </div>
               <div>
-                <div className="text-lg font-bold text-white">{commerce.auctionsSold}</div>
-                <div className="text-[11px] text-neutral-500">sold (auctions)</div>
+                <div className="text-lg font-bold text-ink">{commerce.auctionsSold}</div>
+                <div className="text-[11px] text-ink-faint">sold (auctions)</div>
               </div>
               <div>
-                <div className="text-lg font-bold text-white">£{commerce.totalVolumeGbp.toFixed(2)}</div>
-                <div className="text-[11px] text-neutral-500">total paid out</div>
+                <div className="text-lg font-bold text-ink">£{commerce.totalVolumeGbp.toFixed(2)}</div>
+                <div className="text-[11px] text-ink-faint">total paid out</div>
               </div>
               <div>
-                <div className={`text-lg font-bold ${commerce.disputeRate > 5 ? "text-amber-400" : commerce.disputeRate > 0 ? "text-neutral-300" : "text-emerald-400"}`}>
+                <div className={`text-lg font-bold ${commerce.disputeRate > 5 ? "text-accent-strong" : commerce.disputeRate > 0 ? "text-ink-muted" : "text-secondary"}`}>
                   {commerce.disputeRate.toFixed(1)}%
                 </div>
-                <div className="text-[11px] text-neutral-500">
+                <div className="text-[11px] text-ink-faint">
                   dispute rate {commerce.disputes > 0 ? `(${commerce.disputes})` : ""}
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between flex-wrap gap-2 mt-3 pt-3 border-t border-neutral-800">
-              <p className="text-[11px] text-neutral-500">
+            <div className="flex items-center justify-between flex-wrap gap-2 mt-3 pt-3 border-t border-border-subtle">
+              <p className="text-[11px] text-ink-faint">
                 Member since {new Date(commerce.memberSince).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
               </p>
-              <p className="text-[11px] text-neutral-500">
-                Current commission rate: <span className="font-mono text-emerald-400">{(commerce.commissionRate * 100).toFixed(0)}%</span>
+              <p className="text-[11px] text-ink-faint">
+                Current commission rate: <span className="font-mono text-secondary">{(commerce.commissionRate * 100).toFixed(0)}%</span>
                 <WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />
                 {commerce.commissionRate < 0.08 && (
-                  <span className="text-amber-400 ml-1">&middot; earned by reputation</span>
+                  <span className="text-accent-strong ml-1">&middot; earned by reputation</span>
                 )}
               </p>
             </div>
@@ -337,11 +337,11 @@ export default function UserProfilePage() {
         {activityStats && (activityStats.trades.completed > 0 || activityStats.prizes.shipped > 0
           || activityStats.vault.items_shipped > 0 || activityStats.reviews.received_total > 0
           || activityStats.external_rep.verified_platforms.length > 0) && (
-          <section className="bg-neutral-900 rounded-xl p-5 mb-8">
+          <section className="bg-surface rounded-xl p-5 mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wide">Activity</h2>
+              <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Activity</h2>
               {activityStats.is_suspended && (
-                <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
+                <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-danger/15 text-red-400 border border-danger/30">
                   Suspended
                 </span>
               )}
@@ -371,17 +371,17 @@ export default function UserProfilePage() {
               )}
             </div>
             {activityStats.external_rep.verified_platforms.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-neutral-800">
-                <span className="text-[11px] text-neutral-500 uppercase tracking-wider">Verified on</span>
+              <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border-subtle">
+                <span className="text-[11px] text-ink-faint uppercase tracking-wider">Verified on</span>
                 {activityStats.external_rep.verified_platforms.map((p) => (
-                  <span key={p} className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  <span key={p} className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-secondary border border-emerald-500/30">
                     {p}
                   </span>
                 ))}
               </div>
             )}
             {activityStats.last_active_at && (
-              <p className="text-[11px] text-neutral-500 mt-3 pt-3 border-t border-neutral-800">
+              <p className="text-[11px] text-ink-faint mt-3 pt-3 border-t border-border-subtle">
                 Last active {timeAgo(activityStats.last_active_at)}
               </p>
             )}
@@ -391,14 +391,14 @@ export default function UserProfilePage() {
         {/* Showcase */}
         {showcase.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-lg font-bold text-white mb-4">Showcase</h2>
+            <h2 className="text-lg font-bold text-ink mb-4">Showcase</h2>
             <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
               {showcase.map((card) => (
                 <div
                   key={card.id}
-                  className="shrink-0 w-44 bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800"
+                  className="shrink-0 w-44 bg-surface rounded-xl overflow-hidden border border-border-subtle"
                 >
-                  <div className="aspect-[3/4] bg-neutral-800 relative">
+                  <div className="aspect-[3/4] bg-surface-elevated relative">
                     {card.image_url ? (
                       <img
                         src={card.image_url}
@@ -412,14 +412,14 @@ export default function UserProfilePage() {
                     )}
                   </div>
                   <div className="p-2.5">
-                    <p className="text-white text-sm font-semibold truncate">
+                    <p className="text-ink text-sm font-semibold truncate">
                       {card.card_name}
                     </p>
                     {card.set_name && (
-                      <p className="text-neutral-500 text-xs truncate">{card.set_name}</p>
+                      <p className="text-ink-faint text-xs truncate">{card.set_name}</p>
                     )}
                     {card.caption && (
-                      <p className="text-neutral-400 text-xs mt-1 italic line-clamp-2">
+                      <p className="text-ink-muted text-xs mt-1 italic line-clamp-2">
                         {card.caption}
                       </p>
                     )}
@@ -433,12 +433,12 @@ export default function UserProfilePage() {
         {/* Want List */}
         {wishlist.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-lg font-bold text-white mb-4">Want List</h2>
+            <h2 className="text-lg font-bold text-ink mb-4">Want List</h2>
             <div className="space-y-2">
               {wishlist.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-4 bg-neutral-900 rounded-xl p-3 border border-neutral-800"
+                  className="flex items-center gap-4 bg-surface rounded-xl p-3 border border-border-subtle"
                 >
                   {item.image_url ? (
                     <img
@@ -447,13 +447,13 @@ export default function UserProfilePage() {
                       className="w-10 h-14 object-cover rounded"
                     />
                   ) : (
-                    <div className="w-10 h-14 bg-neutral-800 rounded flex items-center justify-center text-neutral-600 text-xs">
+                    <div className="w-10 h-14 bg-surface-elevated rounded flex items-center justify-center text-neutral-600 text-xs">
                       ?
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-semibold truncate">{item.card_name}</p>
-                    <p className="text-neutral-500 text-xs">
+                    <p className="text-ink text-sm font-semibold truncate">{item.card_name}</p>
+                    <p className="text-ink-faint text-xs">
                       {item.set_name && <span>{item.set_name}</span>}
                       {item.condition_min && (
                         <span className="ml-2">Min: {item.condition_min}</span>
@@ -466,7 +466,7 @@ export default function UserProfilePage() {
                   {item.sku && (
                     <Link
                       href={`/market/${item.sku}`}
-                      className="shrink-0 px-3 py-1.5 bg-amber-500/10 text-amber-400 text-xs font-bold rounded-lg hover:bg-amber-500/20 transition"
+                      className="shrink-0 px-3 py-1.5 bg-accent/10 text-accent-strong text-xs font-bold rounded-lg hover:bg-accent/20 transition"
                     >
                       Offer to trade
                     </Link>
@@ -480,7 +480,7 @@ export default function UserProfilePage() {
         {/* Achievements */}
         {achievements.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-lg font-bold text-white mb-4">Achievements</h2>
+            <h2 className="text-lg font-bold text-ink mb-4">Achievements</h2>
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
               {achievements.map((a) => {
                 const earned = !!a.earned_at;
@@ -489,15 +489,15 @@ export default function UserProfilePage() {
                     key={a.id}
                     className={`flex flex-col items-center gap-1 p-3 rounded-xl text-center transition ${
                       earned
-                        ? "bg-neutral-900 border border-neutral-700"
-                        : "bg-neutral-800 opacity-40"
+                        ? "bg-surface border border-border-strong"
+                        : "bg-surface-elevated opacity-40"
                     }`}
                     title={a.description}
                   >
                     <span className="text-2xl">{a.icon}</span>
                     <span
                       className={`text-[10px] font-medium leading-tight ${
-                        earned ? "text-neutral-300" : "text-neutral-600"
+                        earned ? "text-ink-muted" : "text-neutral-600"
                       }`}
                     >
                       {a.name}
@@ -515,27 +515,27 @@ export default function UserProfilePage() {
         {reviews.length > 0 && (
           <section className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">Reviews</h2>
-              <span className="text-xs text-neutral-500">
+              <h2 className="text-lg font-bold text-ink">Reviews</h2>
+              <span className="text-xs text-ink-faint">
                 {profile.total_reviews} total &middot; avg {profile.avg_rating?.toFixed(1) ?? "—"}/5
               </span>
             </div>
 
             {/* Rating distribution: 5★ → 1★ */}
-            <div className="bg-neutral-900 rounded-xl p-4 mb-4 border border-neutral-800">
+            <div className="bg-surface rounded-xl p-4 mb-4 border border-border-subtle">
               {[5, 4, 3, 2, 1].map((star) => {
                 const count = reviews.filter((r) => r.rating === star).length;
                 const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
                 return (
                   <div key={star} className="flex items-center gap-3 text-xs py-1">
-                    <span className="w-6 text-amber-400 shrink-0">{star}★</span>
-                    <div className="flex-1 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                    <span className="w-6 text-accent-strong shrink-0">{star}★</span>
+                    <div className="flex-1 h-1.5 rounded-full bg-surface-elevated overflow-hidden">
                       <div
-                        className="h-full bg-amber-500"
+                        className="h-full bg-accent"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="w-8 text-right text-neutral-500 shrink-0">{count}</span>
+                    <span className="w-8 text-right text-ink-faint shrink-0">{count}</span>
                   </div>
                 );
               })}
@@ -546,15 +546,15 @@ export default function UserProfilePage() {
               {reviews.slice(0, 5).map((rv) => (
                 <div
                   key={rv.id}
-                  className="bg-neutral-900 rounded-xl p-4 border border-neutral-800"
+                  className="bg-surface rounded-xl p-4 border border-border-subtle"
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-amber-400 text-sm">
+                      <span className="text-accent-strong text-sm">
                         {"★".repeat(rv.rating)}
                         <span className="text-neutral-700">{"★".repeat(5 - rv.rating)}</span>
                       </span>
-                      <span className="text-neutral-400 text-xs truncate">
+                      <span className="text-ink-muted text-xs truncate">
                         {rv.reviewer_name ?? "Trader"}
                         {rv.role && (
                           <span className="text-neutral-600 ml-1.5">
@@ -568,18 +568,18 @@ export default function UserProfilePage() {
                     </span>
                   </div>
                   {rv.comment && (
-                    <p className="text-neutral-300 text-sm mt-2">{rv.comment}</p>
+                    <p className="text-ink-muted text-sm mt-2">{rv.comment}</p>
                   )}
                   {(rv.card_accuracy || rv.shipping_speed || rv.communication) && (
-                    <div className="flex gap-3 mt-2.5 pt-2.5 border-t border-neutral-800 text-[11px] text-neutral-500">
+                    <div className="flex gap-3 mt-2.5 pt-2.5 border-t border-border-subtle text-[11px] text-ink-faint">
                       {rv.card_accuracy != null && (
-                        <span>Accuracy: <span className="text-neutral-300">{rv.card_accuracy}/5</span></span>
+                        <span>Accuracy: <span className="text-ink-muted">{rv.card_accuracy}/5</span></span>
                       )}
                       {rv.shipping_speed != null && (
-                        <span>Shipping: <span className="text-neutral-300">{rv.shipping_speed}/5</span></span>
+                        <span>Shipping: <span className="text-ink-muted">{rv.shipping_speed}/5</span></span>
                       )}
                       {rv.communication != null && (
-                        <span>Comms: <span className="text-neutral-300">{rv.communication}/5</span></span>
+                        <span>Comms: <span className="text-ink-muted">{rv.communication}/5</span></span>
                       )}
                     </div>
                   )}
@@ -597,20 +597,20 @@ export default function UserProfilePage() {
         {/* Activity */}
         {activity.length > 0 && (
           <section>
-            <h2 className="text-lg font-bold text-white mb-4">Recent Activity</h2>
+            <h2 className="text-lg font-bold text-ink mb-4">Recent Activity</h2>
             <div className="space-y-2">
               {activity.map((ev) => (
                 <div
                   key={ev.id}
-                  className="flex items-center gap-3 bg-neutral-900 rounded-xl p-3 border border-neutral-800"
+                  className="flex items-center gap-3 bg-surface rounded-xl p-3 border border-border-subtle"
                 >
                   <span className="text-xl shrink-0">
                     {EVENT_ICONS[ev.event_type] ?? "\u{1F4AC}"}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{ev.title}</p>
+                    <p className="text-ink text-sm font-medium truncate">{ev.title}</p>
                     {ev.description && (
-                      <p className="text-neutral-500 text-xs truncate">{ev.description}</p>
+                      <p className="text-ink-faint text-xs truncate">{ev.description}</p>
                     )}
                   </div>
                   <span className="text-neutral-600 text-xs shrink-0">
@@ -632,14 +632,14 @@ function ActivityStat({ label, value, tone = "default" }: {
   tone?: "default" | "emerald" | "amber" | "red";
 }) {
   const toneClass =
-    tone === "emerald" ? "text-emerald-400" :
-    tone === "amber"   ? "text-amber-400" :
+    tone === "emerald" ? "text-secondary" :
+    tone === "amber"   ? "text-accent-strong" :
     tone === "red"     ? "text-red-400" :
-                         "text-white";
+                         "text-ink";
   return (
     <div>
       <div className={`text-lg font-bold ${toneClass}`}>{value}</div>
-      <div className="text-[11px] text-neutral-500">{label}</div>
+      <div className="text-[11px] text-ink-faint">{label}</div>
     </div>
   );
 }

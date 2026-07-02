@@ -110,7 +110,7 @@ export default function DeckCheckPage() {
         <strong>every</strong> violation, not just the first.
       </p>
 
-      <p className="border border-neutral-800 bg-neutral-900/40 rounded-md p-4 text-sm">
+      <p className="border border-border-subtle bg-surface/40 rounded-md p-4 text-sm">
         Calls <code>POST /api/v1/play/deck/validate</code> — public, no-auth.
         Substrate-honest about the color check gracefully degrading while{" "}
         <code>card_set_cards</code> lacks a colors column; the response flags
@@ -119,22 +119,22 @@ export default function DeckCheckPage() {
 
       <form onSubmit={handleSubmit} className="my-6 space-y-4">
         <label className="block">
-          <span className="block text-sm text-neutral-300 mb-1">Leader card ID</span>
+          <span className="block text-sm text-ink-muted mb-1">Leader card ID</span>
           <input
             type="text"
             value={leaderId}
             onChange={(e) => setLeaderId(e.target.value)}
             placeholder={EXAMPLE_LEADER}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 font-mono text-sm"
+            className="w-full bg-surface border border-border-strong rounded px-3 py-2 font-mono text-sm"
           />
-          <span className="block text-xs text-neutral-500 mt-1">
+          <span className="block text-xs text-ink-faint mt-1">
             e.g., <code>OP01-001</code>. The validator looks this up in the
             storefront catalog (<code>card_set_cards</code>).
           </span>
         </label>
 
         <label className="block">
-          <span className="block text-sm text-neutral-300 mb-1">
+          <span className="block text-sm text-ink-muted mb-1">
             Main deck — one card ID per line (50 total)
           </span>
           <textarea
@@ -142,16 +142,16 @@ export default function DeckCheckPage() {
             onChange={(e) => setDeckText(e.target.value)}
             placeholder={EXAMPLE_DECK_PLACEHOLDER}
             rows={14}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 font-mono text-sm"
+            className="w-full bg-surface border border-border-strong rounded px-3 py-2 font-mono text-sm"
           />
-          <span className="block text-xs text-neutral-500 mt-1">
+          <span className="block text-xs text-ink-faint mt-1">
             Lines starting with <code>(</code> are ignored (comments).
             Duplicates allowed up to 4 per card ID.
           </span>
         </label>
 
         <fieldset className="block">
-          <legend className="text-sm text-neutral-300 mb-1">Format</legend>
+          <legend className="text-sm text-ink-muted mb-1">Format</legend>
           <div className="flex gap-4 text-sm">
             <label className="inline-flex items-center gap-2">
               <input
@@ -189,7 +189,7 @@ export default function DeckCheckPage() {
         <button
           type="submit"
           disabled={loading || !leaderId.trim() || !deckText.trim()}
-          className="bg-amber-600 hover:bg-amber-500 disabled:bg-neutral-700 disabled:text-neutral-500 text-black font-bold px-5 py-2 rounded transition-colors"
+          className="bg-amber-600 hover:bg-accent disabled:bg-neutral-700 disabled:text-ink-faint text-black font-bold px-5 py-2 rounded transition-colors"
         >
           {loading ? "Validating…" : "Check deck"}
         </button>
@@ -198,7 +198,7 @@ export default function DeckCheckPage() {
       {error && (
         <div
           role="alert"
-          className="my-4 border border-red-700 bg-red-500/10 text-red-300 rounded p-4"
+          className="my-4 border border-red-700 bg-danger/10 text-red-300 rounded p-4"
         >
           <strong>Error:</strong> {error}
         </div>
@@ -210,13 +210,13 @@ export default function DeckCheckPage() {
             className={`rounded p-4 border ${
               result.legal
                 ? "border-emerald-700 bg-emerald-500/10"
-                : "border-amber-700 bg-amber-500/10"
+                : "border-amber-700 bg-accent/10"
             }`}
           >
-            <h2 className="m-0 text-white">
+            <h2 className="m-0 text-ink">
               {result.legal ? "✓ Deck is legal" : "× Deck has violations"}
             </h2>
-            <div className="text-sm text-neutral-400 mt-2">
+            <div className="text-sm text-ink-muted mt-2">
               <span className="mr-3">
                 main_deck_count: <strong>{result.summary.main_deck_count}</strong>
               </span>
@@ -236,19 +236,19 @@ export default function DeckCheckPage() {
 
           {result.violations.length > 0 && (
             <div>
-              <h3 className="text-white">Violations ({result.violations.length})</h3>
+              <h3 className="text-ink">Violations ({result.violations.length})</h3>
               <ul className="list-none p-0 space-y-2">
                 {result.violations.map((v, i) => (
                   <li
                     key={i}
-                    className="border border-neutral-800 rounded p-3 bg-neutral-900/40"
+                    className="border border-border-subtle rounded p-3 bg-surface/40"
                   >
-                    <div className="text-xs uppercase tracking-wider text-amber-400 font-mono">
+                    <div className="text-xs uppercase tracking-wider text-accent-strong font-mono">
                       {v.code}
                     </div>
-                    <div className="text-sm text-neutral-300 mt-1">{v.message}</div>
+                    <div className="text-sm text-ink-muted mt-1">{v.message}</div>
                     {v.card_id && (
-                      <div className="text-xs text-neutral-500 font-mono mt-1">
+                      <div className="text-xs text-ink-faint font-mono mt-1">
                         card_id: {v.card_id}
                         {v.detail !== undefined && ` · detail: ${v.detail}`}
                       </div>
@@ -260,11 +260,11 @@ export default function DeckCheckPage() {
           )}
 
           {result.substrate_honest_perimeter.color_check_skipped && (
-            <details className="border border-neutral-800 rounded p-3 bg-neutral-900/40 text-sm">
-              <summary className="cursor-pointer text-neutral-400">
+            <details className="border border-border-subtle rounded p-3 bg-surface/40 text-sm">
+              <summary className="cursor-pointer text-ink-muted">
                 Substrate-honest perimeter (which checks gracefully degraded)
               </summary>
-              <ul className="text-xs text-neutral-500 mt-2 space-y-1">
+              <ul className="text-xs text-ink-faint mt-2 space-y-1">
                 {result.substrate_honest_perimeter.color_check_skipped && (
                   <li>
                     <strong>Color check skipped:</strong>{" "}
@@ -289,7 +289,7 @@ export default function DeckCheckPage() {
 
       <hr />
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         <em>
           Source-of-truth: docs/connections/the-play-substrate.md (S36 — the
           contract this page calls into) and docs/connections/the-play-structure.md

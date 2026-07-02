@@ -64,17 +64,17 @@ export default function AdminReviewsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind="operator" />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-baseline justify-between flex-wrap gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Review Moderation</h1>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-ink-muted">
               Triage flagged + appealed reviews. Hide drops the review from public view + recomputes the reviewee&apos;s score.
             </p>
           </div>
-          <Link href="/admin/governance" className="text-xs text-amber-400 hover:text-amber-300 underline">
+          <Link href="/admin/governance" className="text-xs text-accent-strong hover:text-accent-strong underline">
             Governance log →
           </Link>
         </div>
@@ -85,8 +85,8 @@ export default function AdminReviewsPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-                tab === t.key ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                tab === t.key ? "bg-accent text-black font-bold"
+                  : "bg-surface text-ink-muted hover:text-ink hover:bg-surface-elevated"
               }`}
             >
               {t.label}
@@ -95,9 +95,9 @@ export default function AdminReviewsPage() {
         </div>
 
         {loading ? (
-          <p className="text-neutral-500">Loading…</p>
+          <p className="text-ink-faint">Loading…</p>
         ) : reviews.length === 0 ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+          <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
             No reviews match this filter.
           </div>
         ) : (
@@ -121,20 +121,20 @@ function ReviewCard({
   tab: string;
 }) {
   return (
-    <div className={`bg-neutral-900 rounded-xl p-4 border ${
-      r.appealed_at ? "border-amber-500/30"
-        : r.admin_hidden ? "border-neutral-800/60 opacity-70"
-        : "border-neutral-800"
+    <div className={`bg-surface rounded-xl p-4 border ${
+      r.appealed_at ? "border-accent/30"
+        : r.admin_hidden ? "border-border-subtle/60 opacity-70"
+        : "border-border-subtle"
     }`}>
       <div className="flex items-baseline justify-between flex-wrap gap-2 mb-2">
         <div className="flex items-baseline gap-2">
           <span className={`text-lg font-bold ${
-            r.rating >= 4 ? "text-emerald-400" : r.rating <= 2 ? "text-red-400" : "text-amber-400"
+            r.rating >= 4 ? "text-secondary" : r.rating <= 2 ? "text-red-400" : "text-accent-strong"
           }`}>
             {"★".repeat(r.rating)}
             <span className="text-neutral-700">{"★".repeat(5 - r.rating)}</span>
           </span>
-          <span className="text-xs uppercase tracking-wider text-neutral-500">
+          <span className="text-xs uppercase tracking-wider text-ink-faint">
             as {r.role}
           </span>
           {r.effective_weight && (
@@ -143,7 +143,7 @@ function ReviewCard({
             </span>
           )}
           {r.flagged && (
-            <span className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">
+            <span className="text-[10px] uppercase tracking-wider text-accent-strong font-bold">
               flagged
             </span>
           )}
@@ -153,32 +153,32 @@ function ReviewCard({
             </span>
           )}
         </div>
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs text-ink-faint">
           {new Date(r.created_at).toLocaleString()}
         </span>
       </div>
 
       {r.comment && (
-        <p className="text-sm text-neutral-200 mb-3 whitespace-pre-wrap">
+        <p className="text-sm text-ink mb-3 whitespace-pre-wrap">
           &ldquo;{r.comment}&rdquo;
         </p>
       )}
 
-      <div className="flex items-center justify-between flex-wrap gap-3 text-xs text-neutral-500 border-t border-neutral-800 pt-2">
+      <div className="flex items-center justify-between flex-wrap gap-3 text-xs text-ink-faint border-t border-border-subtle pt-2">
         <div>
-          <span className="text-neutral-400">From:</span> {r.reviewer_name ?? r.reviewer_email ?? "(unknown)"}
+          <span className="text-ink-muted">From:</span> {r.reviewer_name ?? r.reviewer_email ?? "(unknown)"}
           {r.reviewer_trust != null && <span className="ml-2">· trust {r.reviewer_trust}</span>}
         </div>
         <div>
-          <span className="text-neutral-400">About:</span> {r.reviewee_name ?? r.reviewee_email ?? "(unknown)"}
+          <span className="text-ink-muted">About:</span> {r.reviewee_name ?? r.reviewee_email ?? "(unknown)"}
         </div>
       </div>
 
       {r.appealed_at && r.appeal_reason && (
-        <div className="mt-3 bg-amber-500/5 border border-amber-500/30 rounded p-2 text-xs">
-          <p className="text-amber-400 font-bold mb-1">Appeal</p>
-          <p className="text-neutral-300">{r.appeal_reason}</p>
-          <p className="text-[10px] text-neutral-500 mt-1">
+        <div className="mt-3 bg-accent/5 border border-accent/30 rounded p-2 text-xs">
+          <p className="text-accent-strong font-bold mb-1">Appeal</p>
+          <p className="text-ink-muted">{r.appeal_reason}</p>
+          <p className="text-[10px] text-ink-faint mt-1">
             Filed {new Date(r.appealed_at).toLocaleString()}
           </p>
         </div>
@@ -187,19 +187,19 @@ function ReviewCard({
       <div className="mt-3 flex gap-2">
         {!r.admin_hidden && (
           <button onClick={() => onAction("hide")} disabled={acting}
-            className="text-[11px] px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded disabled:opacity-50">
+            className="text-[11px] px-2 py-1 bg-danger/10 hover:bg-danger/20 border border-danger/30 text-red-400 rounded disabled:opacity-50">
             Hide
           </button>
         )}
         {r.admin_hidden && (
           <button onClick={() => onAction("unhide")} disabled={acting}
-            className="text-[11px] px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded disabled:opacity-50">
+            className="text-[11px] px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-secondary rounded disabled:opacity-50">
             Unhide
           </button>
         )}
         {tab === "appealed" && (
           <button onClick={() => onAction("resolve_appeal")} disabled={acting}
-            className="text-[11px] px-2 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 rounded disabled:opacity-50">
+            className="text-[11px] px-2 py-1 bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink-muted rounded disabled:opacity-50">
             Dismiss appeal
           </button>
         )}

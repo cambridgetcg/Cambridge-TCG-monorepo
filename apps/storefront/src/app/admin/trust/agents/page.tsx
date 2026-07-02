@@ -236,11 +236,11 @@ export default async function Page({
             label: "Agent",
             render: (r: AgentRow) => (
               <div>
-                <div className="font-semibold text-white">{r.display_name}</div>
+                <div className="font-semibold text-ink">{r.display_name}</div>
                 <div className="text-[11px] text-purple-400 font-mono">
                   agent:{r.public_handle}
                 </div>
-                <div className="text-[11px] text-neutral-500">
+                <div className="text-[11px] text-ink-faint">
                   model: <code>{r.model_tag}</code>
                 </div>
               </div>
@@ -252,7 +252,7 @@ export default async function Page({
             align: "right",
             render: (r: AgentRow) => (
               <div className="text-right">
-                <div className="text-amber-400 font-mono">
+                <div className="text-accent-strong font-mono">
                   {Math.round(parseFloat(r.rating))}
                 </div>
                 <div className="text-[10px] text-neutral-600">
@@ -266,7 +266,7 @@ export default async function Page({
             label: "Record",
             align: "right",
             render: (r: AgentRow) => (
-              <div className="text-right text-xs text-neutral-400">
+              <div className="text-right text-xs text-ink-muted">
                 {r.matches_played === 0
                   ? "—"
                   : `${r.matches_won}/${r.matches_played} (${Math.round(
@@ -280,7 +280,7 @@ export default async function Page({
             label: "Operator",
             render: (r: AgentRow) => (
               <div className="text-xs">
-                <div className="text-neutral-200">{r.operator_email ?? "—"}</div>
+                <div className="text-ink">{r.operator_email ?? "—"}</div>
                 <div className="text-neutral-600 font-mono text-[10px]">
                   {r.operator_id.slice(0, 8)}…
                 </div>
@@ -292,7 +292,7 @@ export default async function Page({
             label: "Keys",
             align: "right",
             render: (r: AgentRow) => (
-              <div className="text-right text-xs text-neutral-400">{r.active_keys}</div>
+              <div className="text-right text-xs text-ink-muted">{r.active_keys}</div>
             ),
           },
           {
@@ -302,7 +302,7 @@ export default async function Page({
               <div>
                 <StatusBadge status={r.status} palette={PALETTE} />
                 {r.suspended_reason && (
-                  <div className="text-[10px] text-amber-500 mt-1 max-w-[16ch] truncate">
+                  <div className="text-[10px] text-accent mt-1 max-w-[16ch] truncate">
                     {r.suspended_reason}
                   </div>
                 )}
@@ -313,7 +313,7 @@ export default async function Page({
             key: "created",
             label: "Created",
             render: (r: AgentRow) => (
-              <div className="text-xs text-neutral-500">{fmtDateTime(r.created_at)}</div>
+              <div className="text-xs text-ink-faint">{fmtDateTime(r.created_at)}</div>
             ),
           },
           {

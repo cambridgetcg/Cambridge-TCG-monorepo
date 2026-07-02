@@ -42,14 +42,14 @@ export default function SetsPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-2">Set Progress</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-black text-ink mb-2">Set Progress</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Track completion across every set you collect. Click a set to see the full checklist
         with missing cards and links to find them on the market.
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-300">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-4 text-sm text-red-300">
           {error}
         </div>
       )}
@@ -66,8 +66,8 @@ export default function SetsPage() {
             onClick={() => setFilter(k as "all" | "collecting" | "completed")}
             className={`text-xs px-3 py-1.5 rounded-full transition ${
               filter === k
-                ? "bg-amber-500 text-black font-bold"
-                : "bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800"
+                ? "bg-accent text-black font-bold"
+                : "bg-surface text-ink-muted hover:text-ink border border-border-subtle"
             }`}
           >
             {label}
@@ -77,11 +77,11 @@ export default function SetsPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-400 text-sm">
+        <div className="bg-surface rounded-xl p-8 text-center">
+          <p className="text-ink-muted text-sm">
             {filter === "all"
               ? "No sets have been imported yet. An admin needs to seed the catalogue."
               : filter === "collecting"
@@ -89,7 +89,7 @@ export default function SetsPage() {
                 : "No completed sets yet — keep collecting!"}
           </p>
           {filter !== "all" && (
-            <Link href="/account/sets" className="inline-block mt-3 text-amber-400 text-xs font-semibold hover:text-amber-300">
+            <Link href="/account/sets" className="inline-block mt-3 text-accent-strong text-xs font-semibold hover:text-accent-strong">
               View all sets →
             </Link>
           )}
@@ -100,9 +100,9 @@ export default function SetsPage() {
             <Link
               key={s.set_code}
               href={`/account/sets/${encodeURIComponent(s.set_code)}`}
-              className="bg-neutral-900 rounded-xl border border-neutral-800 hover:border-amber-500/40 transition overflow-hidden group"
+              className="bg-surface rounded-xl border border-border-subtle hover:border-accent/40 transition overflow-hidden group"
             >
-              <div className="aspect-[16/9] bg-neutral-800 relative">
+              <div className="aspect-[16/9] bg-surface-elevated relative">
                 {s.cover_image_url ? (
                   <img
                     src={s.cover_image_url}
@@ -122,14 +122,14 @@ export default function SetsPage() {
               </div>
               <div className="p-3">
                 <div className="flex items-baseline justify-between gap-2 mb-1">
-                  <p className="text-white font-semibold text-sm truncate group-hover:text-amber-400 transition">
+                  <p className="text-ink font-semibold text-sm truncate group-hover:text-accent-strong transition">
                     {s.set_name}
                   </p>
-                  <span className="text-[10px] text-neutral-500 font-mono shrink-0">{s.set_code}</span>
+                  <span className="text-[10px] text-ink-faint font-mono shrink-0">{s.set_code}</span>
                 </div>
-                <div className="flex items-center justify-between text-xs text-neutral-400 mb-2">
+                <div className="flex items-center justify-between text-xs text-ink-muted mb-2">
                   <span>
-                    <span className="text-white font-bold">{s.owned_unique}</span>
+                    <span className="text-ink font-bold">{s.owned_unique}</span>
                     {" / "}
                     {s.total_cards}
                     {s.owned_copies > s.owned_unique && (
@@ -137,19 +137,19 @@ export default function SetsPage() {
                     )}
                   </span>
                   <span className={`font-bold ${
-                    s.completion_pct >= 100 ? "text-emerald-400"
-                      : s.completion_pct >= 50 ? "text-amber-400"
-                      : "text-neutral-400"
+                    s.completion_pct >= 100 ? "text-secondary"
+                      : s.completion_pct >= 50 ? "text-accent-strong"
+                      : "text-ink-muted"
                   }`}>
                     {s.completion_pct.toFixed(1)}%
                   </span>
                 </div>
                 {/* Progress bar */}
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-surface-elevated rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all ${
                       s.completion_pct >= 100 ? "bg-emerald-500"
-                        : "bg-amber-500"
+                        : "bg-accent"
                     }`}
                     style={{ width: `${Math.min(s.completion_pct, 100)}%` }}
                   />

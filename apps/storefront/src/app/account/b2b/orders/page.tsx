@@ -20,11 +20,11 @@ export const metadata: Metadata = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  paid: "bg-amber-500/20 text-amber-400 ring-amber-500/40",
+  paid: "bg-accent/20 text-accent-strong ring-accent/40",
   allocated: "bg-blue-500/20 text-blue-400 ring-blue-500/40",
-  shipped: "bg-emerald-500/20 text-emerald-400 ring-emerald-500/40",
+  shipped: "bg-emerald-500/20 text-secondary ring-emerald-500/40",
   delivered: "bg-emerald-500/30 text-emerald-300 ring-emerald-500/50",
-  cancelled: "bg-neutral-700 text-neutral-400 ring-neutral-600",
+  cancelled: "bg-neutral-700 text-ink-muted ring-neutral-600",
   refunded: "bg-purple-500/20 text-purple-400 ring-purple-500/40",
 };
 
@@ -54,11 +54,11 @@ export default async function B2BOrdersPage() {
       <div className="space-y-6 max-w-2xl">
         <PageHeader title="Orders" description="Your wholesale order history." />
         <Card>
-          <div className="space-y-3 text-sm text-neutral-400">
+          <div className="space-y-3 text-sm text-ink-muted">
             <p>No B2B orders yet. Once you place one through the cart, it&rsquo;ll appear here within seconds of Stripe confirming payment.</p>
             <Link
               href="/account/b2b/catalog"
-              className="inline-block rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-amber-400"
+              className="inline-block rounded bg-accent px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-accent-strong"
             >
               Browse catalog →
             </Link>
@@ -90,7 +90,7 @@ export default async function B2BOrdersPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-3">
-                      <span className="text-lg font-semibold group-hover:text-amber-400">
+                      <span className="text-lg font-semibold group-hover:text-accent-strong">
                         Order #{order.id}
                       </span>
                       <span
@@ -102,7 +102,7 @@ export default async function B2BOrdersPage() {
                         {label}
                       </span>
                     </div>
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-xs text-ink-faint">
                       {fmtDate(order.created_at)} · {itemCount} item{itemCount === 1 ? "" : "s"} across {order.items.length} sku{order.items.length === 1 ? "" : "s"}
                     </div>
                   </div>
@@ -110,7 +110,7 @@ export default async function B2BOrdersPage() {
                     <div className="text-xl font-semibold">
                       {formatPrice(order.total_pence / 100)}
                     </div>
-                    <div className="text-xs text-neutral-500">{order.currency.toUpperCase()}</div>
+                    <div className="text-xs text-ink-faint">{order.currency.toUpperCase()}</div>
                   </div>
                 </div>
               </Card>

@@ -129,7 +129,7 @@ export function ChannelEditor(props: ChannelEditorProps) {
           type="button"
           onClick={onPreview}
           disabled={pending}
-          className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 disabled:opacity-50"
+          className="text-xs px-2 py-1 rounded bg-surface-elevated hover:bg-neutral-700 text-ink disabled:opacity-50"
         >
           {pending ? "…" : "Preview"}
         </button>
@@ -137,7 +137,7 @@ export function ChannelEditor(props: ChannelEditorProps) {
           type="button"
           onClick={onSave}
           disabled={pending || !dirty}
-          className="text-xs px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-30"
+          className="text-xs px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-ink disabled:opacity-30"
         >
           {pending ? "Saving…" : "Save"}
         </button>
@@ -146,7 +146,7 @@ export function ChannelEditor(props: ChannelEditorProps) {
             type="button"
             onClick={reset}
             disabled={pending}
-            className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
+            className="text-xs px-2 py-1 rounded bg-surface-elevated hover:bg-neutral-700 text-ink-muted"
           >
             Reset
           </button>
@@ -155,17 +155,17 @@ export function ChannelEditor(props: ChannelEditorProps) {
       </div>
 
       {preview && (
-        <div className="text-xs bg-neutral-900 border border-neutral-800 rounded px-3 py-2 space-y-1">
-          <div className="text-neutral-500 uppercase tracking-wider mb-1">
+        <div className="text-xs bg-surface border border-border-subtle rounded px-3 py-2 space-y-1">
+          <div className="text-ink-faint uppercase tracking-wider mb-1">
             Preview · ¥1000 @ 185 GBP/JPY · singles
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-neutral-300 font-mono">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-ink-muted font-mono">
             <span>base</span><span className="text-right">£{preview.baseGbp.toFixed(4)}</span>
             <span>ex VAT</span><span className="text-right">£{preview.exVat.toFixed(4)}</span>
             <span>VAT</span><span className="text-right">£{preview.vat.toFixed(4)}</span>
             <span>pre-round</span><span className="text-right">£{preview.preRound.toFixed(4)}</span>
-            <span className="text-emerald-400 font-medium">price</span>
-            <span className="text-right text-emerald-400 font-medium">£{preview.price.toFixed(2)}</span>
+            <span className="text-secondary font-medium">price</span>
+            <span className="text-right text-secondary font-medium">£{preview.price.toFixed(2)}</span>
           </div>
         </div>
       )}
@@ -186,13 +186,13 @@ function NumField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] uppercase tracking-wider text-neutral-500">{label}</span>
+      <span className="text-[10px] uppercase tracking-wider text-ink-faint">{label}</span>
       <input
         type="number"
         value={value}
         step={step}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-neutral-200 font-mono text-sm focus:outline-none focus:border-blue-500"
+        className="bg-page border border-border-subtle rounded px-2 py-1 text-ink font-mono text-sm focus:outline-none focus:border-blue-500"
       />
     </label>
   );

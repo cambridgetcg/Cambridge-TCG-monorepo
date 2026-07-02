@@ -42,10 +42,10 @@ function FreshnessPill({ hours }: { hours: number }) {
     hours < 1 ? "<1h" : hours < 24 ? `${Math.round(hours)}h` : `${Math.round(hours / 24)}d`;
   const cls =
     hours < 24
-      ? "text-emerald-400"
+      ? "text-secondary"
       : hours < 72
-        ? "text-amber-400"
-        : "text-neutral-500";
+        ? "text-accent-strong"
+        : "text-ink-faint";
   return <span className={`font-mono ${cls}`}>{label}</span>;
 }
 
@@ -65,25 +65,25 @@ export default async function CoverageMapPage() {
     <main className="max-w-6xl mx-auto px-4 py-12">
       <Audience kind="public-documentation" contexts={["prices", "coverage"]} />
 
-      <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
+      <nav aria-label="Breadcrumb" className="text-sm text-ink-muted mb-8">
         <ol className="flex items-center gap-1.5">
           <li>
-            <Link href="/" className="hover:text-white transition-colors">
+            <Link href="/" className="hover:text-ink transition-colors">
               Home
             </Link>
           </li>
           <li className="text-neutral-600">/</li>
           <li>
-            <Link href="/prices" className="hover:text-white transition-colors">
+            <Link href="/prices" className="hover:text-ink transition-colors">
               Prices
             </Link>
           </li>
           <li className="text-neutral-600">/</li>
-          <li className="text-white">Coverage map</li>
+          <li className="text-ink">Coverage map</li>
         </ol>
       </nav>
 
-      <h1 className="text-3xl font-bold mb-3 text-white">Aggregator coverage map</h1>
+      <h1 className="text-3xl font-bold mb-3 text-ink">Aggregator coverage map</h1>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Provenance
@@ -98,7 +98,7 @@ export default async function CoverageMapPage() {
         />
       </div>
 
-      <p className="text-neutral-300 leading-relaxed max-w-3xl mb-8">
+      <p className="text-ink-muted leading-relaxed max-w-3xl mb-8">
         What Cambridge TCG has actually accumulated, per game and per source —
         observation counts, distinct cards, the freshness of each per-(game ×
         source) snapshot, and the date range we've been collecting. The data
@@ -121,9 +121,9 @@ export default async function CoverageMapPage() {
       )}
 
       {/* ── Always-on footer: methodology + API echo ─────────────── */}
-      <section className="border-t border-neutral-800 pt-6 mt-12 text-xs text-neutral-500 leading-relaxed">
+      <section className="border-t border-border-subtle pt-6 mt-12 text-xs text-ink-faint leading-relaxed">
         <p className="mb-2">
-          Source: <code className="text-neutral-400">price_archive</code>{" "}
+          Source: <code className="text-ink-muted">price_archive</code>{" "}
           (wholesale RDS) — daily snapshots from each upstream source. Coverage
           rolls out as ingest pipelines wire up; the matrix is empty when no
           snapshot has been written yet for a given pair. See{" "}
@@ -153,8 +153,8 @@ export default async function CoverageMapPage() {
 
 function CoverageUnreachable() {
   return (
-    <section className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-5">
-      <h2 className="text-sm font-semibold text-amber-300 uppercase tracking-wider mb-2">
+    <section className="rounded-lg border border-accent/30 bg-accent/5 p-5">
+      <h2 className="text-sm font-semibold text-accent-strong uppercase tracking-wider mb-2">
         Coverage data unreachable
       </h2>
       <p className="text-sm text-amber-100/80 leading-relaxed">
@@ -173,20 +173,20 @@ function CoverageUnreachable() {
 
 function CoverageEmpty({ queriedAt }: { queriedAt: string }) {
   return (
-    <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
-      <h2 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider mb-2">
+    <section className="rounded-lg border border-border-subtle bg-surface p-6">
+      <h2 className="text-sm font-semibold text-ink uppercase tracking-wider mb-2">
         No snapshots yet
       </h2>
-      <p className="text-sm text-neutral-400 leading-relaxed">
-        The <code className="text-neutral-300">price_archive</code> table is
+      <p className="text-sm text-ink-muted leading-relaxed">
+        The <code className="text-ink-muted">price_archive</code> table is
         reachable but carries no observations yet. The price guides still
         render (UK retail prices come from the wholesale catalog, not from
         the cross-source archive); the matrix here will populate as soon as
         the first daily snapshot lands.
       </p>
-      <p className="text-xs text-neutral-500 mt-3">
+      <p className="text-xs text-ink-faint mt-3">
         Last queried:{" "}
-        <time dateTime={queriedAt} className="text-neutral-400">
+        <time dateTime={queriedAt} className="text-ink-muted">
           {new Date(queriedAt).toISOString()}
         </time>
       </p>
@@ -212,21 +212,21 @@ function SummaryGrid({
       ).map((kpi) => (
         <div
           key={kpi.label}
-          className="rounded-lg border border-neutral-800 bg-neutral-900 p-3"
+          className="rounded-lg border border-border-subtle bg-surface p-3"
         >
-          <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+          <div className="text-[10px] uppercase tracking-wider text-ink-faint">
             {kpi.label}
           </div>
-          <div className="text-xl font-bold text-white font-mono mt-1">
+          <div className="text-xl font-bold text-ink font-mono mt-1">
             {kpi.value.toLocaleString()}
           </div>
         </div>
       ))}
-      <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-3 col-span-2 sm:col-span-3 lg:col-span-1">
-        <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+      <div className="rounded-lg border border-border-subtle bg-surface p-3 col-span-2 sm:col-span-3 lg:col-span-1">
+        <div className="text-[10px] uppercase tracking-wider text-ink-faint">
           Date range
         </div>
-        <div className="text-sm font-mono text-neutral-300 mt-1 leading-snug">
+        <div className="text-sm font-mono text-ink-muted mt-1 leading-snug">
           {summary.earliest_snapshot ?? "—"}
           <br />→ {summary.latest_snapshot ?? "—"}
         </div>
@@ -243,10 +243,10 @@ function ByGameTable({
   if (rows.length === 0) return null;
   return (
     <section className="mb-10">
-      <h2 className="text-base font-semibold text-white mb-3">By game</h2>
-      <div className="overflow-x-auto rounded-lg border border-neutral-800">
+      <h2 className="text-base font-semibold text-ink mb-3">By game</h2>
+      <div className="overflow-x-auto rounded-lg border border-border-subtle">
         <table className="w-full text-sm text-left">
-          <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+          <thead className="bg-surface-elevated text-ink-muted text-xs uppercase tracking-wider">
             <tr>
               <th className="px-3 py-3">Game</th>
               <th className="px-3 py-3 text-right">Observations</th>
@@ -255,27 +255,27 @@ function ByGameTable({
               <th className="px-3 py-3">Date range</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {rows.map((row) => (
               <tr
                 key={row.game_code}
-                className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                className="bg-surface hover:bg-surface-elevated/60 transition-colors"
               >
                 <td className="px-3 py-3">
                   <Link
                     href={`/prices/${row.game_slug}`}
-                    className="text-white hover:text-blue-400 transition-colors"
+                    className="text-ink hover:text-blue-400 transition-colors"
                   >
                     {row.game_name}
                   </Link>
-                  <span className="text-neutral-500 text-xs ml-2 font-mono">
+                  <span className="text-ink-faint text-xs ml-2 font-mono">
                     {row.game_code}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-right text-white font-mono">
+                <td className="px-3 py-3 text-right text-ink font-mono">
                   {row.observations.toLocaleString()}
                 </td>
-                <td className="px-3 py-3 text-right text-neutral-300 font-mono">
+                <td className="px-3 py-3 text-right text-ink-muted font-mono">
                   {row.distinct_cards_max.toLocaleString()}
                 </td>
                 <td className="px-3 py-3">
@@ -283,14 +283,14 @@ function ByGameTable({
                     {row.sources.map((s) => (
                       <span
                         key={s}
-                        className="inline-block text-[10px] px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded font-mono"
+                        className="inline-block text-[10px] px-1.5 py-0.5 bg-surface-elevated text-ink-muted rounded font-mono"
                       >
                         {s}
                       </span>
                     ))}
                   </div>
                 </td>
-                <td className="px-3 py-3 text-xs text-neutral-400 font-mono">
+                <td className="px-3 py-3 text-xs text-ink-muted font-mono">
                   {row.earliest_snapshot}
                   <br />→ {row.latest_snapshot}
                 </td>
@@ -311,10 +311,10 @@ function BySourceTable({
   if (rows.length === 0) return null;
   return (
     <section className="mb-10">
-      <h2 className="text-base font-semibold text-white mb-3">By source</h2>
-      <div className="overflow-x-auto rounded-lg border border-neutral-800">
+      <h2 className="text-base font-semibold text-ink mb-3">By source</h2>
+      <div className="overflow-x-auto rounded-lg border border-border-subtle">
         <table className="w-full text-sm text-left">
-          <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+          <thead className="bg-surface-elevated text-ink-muted text-xs uppercase tracking-wider">
             <tr>
               <th className="px-3 py-3">Source</th>
               <th className="px-3 py-3 text-right">Observations</th>
@@ -323,17 +323,17 @@ function BySourceTable({
               <th className="px-3 py-3">Date range</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {rows.map((row) => (
               <tr
                 key={row.source}
-                className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                className="bg-surface hover:bg-surface-elevated/60 transition-colors"
               >
-                <td className="px-3 py-3 text-white font-mono">{row.source}</td>
-                <td className="px-3 py-3 text-right text-white font-mono">
+                <td className="px-3 py-3 text-ink font-mono">{row.source}</td>
+                <td className="px-3 py-3 text-right text-ink font-mono">
                   {row.observations.toLocaleString()}
                 </td>
-                <td className="px-3 py-3 text-right text-neutral-300 font-mono">
+                <td className="px-3 py-3 text-right text-ink-muted font-mono">
                   {row.distinct_cards.toLocaleString()}
                 </td>
                 <td className="px-3 py-3">
@@ -341,14 +341,14 @@ function BySourceTable({
                     {row.games.map((g) => (
                       <span
                         key={g}
-                        className="inline-block text-[10px] px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded font-mono"
+                        className="inline-block text-[10px] px-1.5 py-0.5 bg-surface-elevated text-ink-muted rounded font-mono"
                       >
                         {g}
                       </span>
                     ))}
                   </div>
                 </td>
-                <td className="px-3 py-3 text-xs text-neutral-400 font-mono">
+                <td className="px-3 py-3 text-xs text-ink-muted font-mono">
                   {row.earliest_snapshot}
                   <br />→ {row.latest_snapshot}
                 </td>
@@ -369,12 +369,12 @@ function MatrixTable({
   if (rows.length === 0) return null;
   return (
     <section className="mb-10">
-      <h2 className="text-base font-semibold text-white mb-3">
+      <h2 className="text-base font-semibold text-ink mb-3">
         Per-(game × source) matrix
       </h2>
-      <div className="overflow-x-auto rounded-lg border border-neutral-800">
+      <div className="overflow-x-auto rounded-lg border border-border-subtle">
         <table className="w-full text-sm text-left">
-          <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+          <thead className="bg-surface-elevated text-ink-muted text-xs uppercase tracking-wider">
             <tr>
               <th className="px-3 py-3">Game</th>
               <th className="px-3 py-3">Source</th>
@@ -384,33 +384,33 @@ function MatrixTable({
               <th className="px-3 py-3 text-right">Freshest</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {rows.map((row) => (
               <tr
                 key={`${row.game_code}:${row.source}`}
-                className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                className="bg-surface hover:bg-surface-elevated/60 transition-colors"
               >
                 <td className="px-3 py-3">
                   <Link
                     href={`/prices/${row.game_slug}`}
-                    className="text-white hover:text-blue-400 transition-colors"
+                    className="text-ink hover:text-blue-400 transition-colors"
                   >
                     {row.game_name}
                   </Link>
-                  <span className="text-neutral-500 text-xs ml-2 font-mono">
+                  <span className="text-ink-faint text-xs ml-2 font-mono">
                     {row.game_code}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-neutral-300 font-mono">
+                <td className="px-3 py-3 text-ink-muted font-mono">
                   {row.source}
                 </td>
-                <td className="px-3 py-3 text-right text-white font-mono">
+                <td className="px-3 py-3 text-right text-ink font-mono">
                   {row.observations.toLocaleString()}
                 </td>
-                <td className="px-3 py-3 text-right text-neutral-300 font-mono">
+                <td className="px-3 py-3 text-right text-ink-muted font-mono">
                   {row.distinct_cards.toLocaleString()}
                 </td>
-                <td className="px-3 py-3 text-right text-neutral-400 font-mono">
+                <td className="px-3 py-3 text-right text-ink-muted font-mono">
                   {row.days_of_coverage}
                 </td>
                 <td className="px-3 py-3 text-right">

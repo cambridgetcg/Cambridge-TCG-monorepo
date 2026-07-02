@@ -75,12 +75,12 @@ export default function ContactForm() {
   if (status.state === "sent") {
     return (
       <Card padding="lg">
-        <p className="text-base font-bold text-emerald-400">Message received.</p>
-        <p className="text-sm text-neutral-300 mt-2 leading-relaxed">
+        <p className="text-base font-bold text-secondary">Message received.</p>
+        <p className="text-sm text-ink-muted mt-2 leading-relaxed">
           {status.referenceId && (
             <>
               Your reference is{" "}
-              <code className="text-white bg-neutral-800 px-1.5 py-0.5 rounded text-xs">
+              <code className="text-ink bg-surface-elevated px-1.5 py-0.5 rounded text-xs">
                 {status.referenceId}
               </code>
               {" — quote it if you follow up. "}

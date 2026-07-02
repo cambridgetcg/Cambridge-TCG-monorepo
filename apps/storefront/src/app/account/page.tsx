@@ -310,14 +310,14 @@ export default async function AccountOverviewPage() {
           <div className="flex items-center gap-2 text-sm flex-wrap -mt-2">
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
-                goodStanding ? "bg-emerald-400" : "bg-amber-400"
+                goodStanding ? "bg-emerald-400" : "bg-accent-strong"
               }`}
             />
             {goodStanding ? (
-              <span className="text-emerald-400">Good standing — no active flags</span>
+              <span className="text-secondary">Good standing — no active flags</span>
             ) : (
               <>
-                <span className="text-amber-400">
+                <span className="text-accent-strong">
                   {standing.isSuspended
                     ? `Account suspended${
                         standing.flagCount > 0
@@ -332,7 +332,7 @@ export default async function AccountOverviewPage() {
                 <WhyLink href="/methodology/fraud-flag" tooltip="How does the platform flag accounts?" />
                 <Link
                   href="/account/standing"
-                  className="text-amber-400 underline underline-offset-2 hover:text-amber-300 transition"
+                  className="text-accent-strong underline underline-offset-2 hover:text-accent-strong transition"
                 >
                   See details →
                 </Link>
@@ -345,20 +345,20 @@ export default async function AccountOverviewPage() {
       {/* ── 3. Needs your attention — only rendered when something does ─ */}
       {attention.length > 0 && (
         <Card variant="elevated" padding="none">
-          <h2 className="text-sm font-bold text-amber-400 px-4 py-3 border-b border-neutral-800">
+          <h2 className="text-sm font-bold text-accent-strong px-4 py-3 border-b border-border-subtle">
             Needs your attention
           </h2>
-          <ul className="divide-y divide-neutral-800">
+          <ul className="divide-y divide-border-subtle">
             {attention.map((item) => (
               <li key={item.key}>
                 <Link
                   href={item.href}
-                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-800/50 transition group"
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface-elevated/50 transition group"
                 >
-                  <span className="text-sm text-neutral-200 group-hover:text-white transition">
+                  <span className="text-sm text-ink group-hover:text-ink transition">
                     {item.label}
                   </span>
-                  <span className="text-neutral-600 group-hover:text-amber-400 transition shrink-0">
+                  <span className="text-neutral-600 group-hover:text-accent-strong transition shrink-0">
                     →
                   </span>
                 </Link>
@@ -371,9 +371,9 @@ export default async function AccountOverviewPage() {
       {/* ── 4. Recent orders ────────────────────────────────────────── */}
       <section>
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-semibold text-white">Recent orders</h2>
+          <h2 className="text-lg font-semibold text-ink">Recent orders</h2>
           {recentOrders.length > 0 && (
-            <Link href="/account/orders" className="text-sm text-amber-400 hover:underline">
+            <Link href="/account/orders" className="text-sm text-accent-strong hover:underline">
               View all →
             </Link>
           )}
@@ -385,7 +385,7 @@ export default async function AccountOverviewPage() {
             action={
               <Link
                 href="/catalog"
-                className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition inline-block"
+                className="px-4 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition inline-block"
               >
                 Browse cards
               </Link>
@@ -395,7 +395,7 @@ export default async function AccountOverviewPage() {
           <div className="space-y-2">
             {recentOrders.map((order) => (
               <Link key={order.id} href="/account/orders" className="block group">
-                <Card className="group-hover:border-neutral-700 transition">
+                <Card className="group-hover:border-border-strong transition">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 flex-wrap min-w-0">
                       <Badge
@@ -403,15 +403,15 @@ export default async function AccountOverviewPage() {
                         palette={Palettes.OrderStatusPalette}
                         labels={Palettes.OrderStatusLabels}
                       />
-                      <span className="text-xs text-neutral-500 font-mono">#{order.id}</span>
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs text-ink-faint font-mono">#{order.id}</span>
+                      <span className="text-xs text-ink-faint">
                         {formatDate(order.created_at)}
                       </span>
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs text-ink-faint">
                         {order.item_count} {pluralize(order.item_count, "item")}
                       </span>
                     </div>
-                    <span className="text-sm font-bold text-white shrink-0">
+                    <span className="text-sm font-bold text-ink shrink-0">
                       <MoneyDisplay value={order.total_gbp} />
                     </span>
                   </div>
@@ -426,26 +426,26 @@ export default async function AccountOverviewPage() {
       {tradeIns.length > 0 && (
         <section>
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-lg font-semibold text-white">Trade-ins in progress</h2>
-            <Link href="/account/trade-ins" className="text-sm text-amber-400 hover:underline">
+            <h2 className="text-lg font-semibold text-ink">Trade-ins in progress</h2>
+            <Link href="/account/trade-ins" className="text-sm text-accent-strong hover:underline">
               View all →
             </Link>
           </div>
           <div className="space-y-2">
             {tradeIns.map((sub) => (
               <Link key={sub.reference} href="/account/trade-ins" className="block group">
-                <Card className="group-hover:border-neutral-700 transition">
+                <Card className="group-hover:border-border-strong transition">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 flex-wrap min-w-0">
-                      <span className="text-sm font-mono font-bold text-amber-400">
+                      <span className="text-sm font-mono font-bold text-accent-strong">
                         {sub.reference}
                       </span>
                       <Badge status={sub.status} palette={Palettes.TradeInStatusPalette} />
-                      <span className="text-xs text-neutral-400">
+                      <span className="text-xs text-ink-muted">
                         {TRADEIN_STEP[sub.status] ?? sub.status.replace(/_/g, " ")}
                       </span>
                     </div>
-                    <span className="text-neutral-600 group-hover:text-amber-400 transition shrink-0">
+                    <span className="text-neutral-600 group-hover:text-accent-strong transition shrink-0">
                       →
                     </span>
                   </div>
@@ -460,28 +460,28 @@ export default async function AccountOverviewPage() {
              /account/membership. Three honest states: loaded, no tier
              yet, and read-failed (which never masquerades as either). ── */}
       <section>
-        <h2 className="text-lg font-semibold text-white mb-3">Membership</h2>
+        <h2 className="text-lg font-semibold text-ink mb-3">Membership</h2>
         {membership === null ? (
           <Card variant="subtle">
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-ink-faint">
               Membership details are unavailable right now.{" "}
-              <Link href="/account/membership" className="text-amber-400 hover:underline">
+              <Link href="/account/membership" className="text-accent-strong hover:underline">
                 Open membership →
               </Link>
             </p>
           </Card>
         ) : membership.tier === null ? (
           <Card variant="subtle">
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-ink-muted">
               You&rsquo;re not on a membership tier yet.{" "}
-              <Link href="/account/membership" className="text-amber-400 hover:underline">
+              <Link href="/account/membership" className="text-accent-strong hover:underline">
                 See how tiers and rewards work →
               </Link>
             </p>
           </Card>
         ) : (
           <Link href="/account/membership" className="block group">
-            <Card className="group-hover:border-neutral-700 transition">
+            <Card className="group-hover:border-border-strong transition">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <TierBadge
                   name={membership.tier.name}
@@ -491,20 +491,20 @@ export default async function AccountOverviewPage() {
                 />
                 <div className="flex items-center gap-6">
                   <div>
-                    <p className="text-xs text-neutral-500 uppercase tracking-wider">Berries</p>
-                    <p className="text-lg font-bold text-amber-400">
+                    <p className="text-xs text-ink-faint uppercase tracking-wider">Berries</p>
+                    <p className="text-lg font-bold text-accent-strong">
                       {membership.points_balance.toLocaleString("en-GB")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-neutral-500 uppercase tracking-wider">
+                    <p className="text-xs text-ink-faint uppercase tracking-wider">
                       Store credit
                     </p>
-                    <p className="text-lg font-bold text-emerald-400">
+                    <p className="text-lg font-bold text-secondary">
                       <MoneyDisplay value={membership.store_credit_balance} />
                     </p>
                   </div>
-                  <span className="text-neutral-600 group-hover:text-amber-400 transition">→</span>
+                  <span className="text-neutral-600 group-hover:text-accent-strong transition">→</span>
                 </div>
               </div>
             </Card>
@@ -523,7 +523,7 @@ export default async function AccountOverviewPage() {
       >
         <button
           type="submit"
-          className="text-sm text-neutral-500 hover:text-red-400 transition"
+          className="text-sm text-ink-faint hover:text-red-400 transition"
         >
           Sign out
         </button>

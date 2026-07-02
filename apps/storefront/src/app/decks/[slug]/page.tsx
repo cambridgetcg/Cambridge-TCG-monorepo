@@ -71,7 +71,7 @@ interface PublicDeck {
 function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
   const r = rarity.toUpperCase();
-  let cls = "bg-neutral-700 text-neutral-400";
+  let cls = "bg-neutral-700 text-ink-muted";
   if (r === "SR" || r === "SEC" || r === "L" || r === "SP") cls = "bg-yellow-500/20 text-yellow-400";
   else if (r === "R") cls = "bg-purple-500/20 text-purple-400";
   else if (r === "UC") cls = "bg-blue-500/20 text-blue-400";
@@ -137,15 +137,15 @@ export default function PublicDeckPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <Link href="/decks" className="text-sm text-neutral-500 hover:text-neutral-300">
+        <Link href="/decks" className="text-sm text-ink-faint hover:text-ink-muted">
           &larr; Community Decks
         </Link>
 
         {loading && (
           <div className="py-12 text-center">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
         )}
 
@@ -160,8 +160,8 @@ export default function PublicDeckPage() {
             <div className="mt-4 mb-6 flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{deck.name}</h1>
-                <p className="text-sm text-neutral-500 mt-1">
-                  {deck.user_name && <>by <span className="text-neutral-300">{deck.user_name}</span> · </>}
+                <p className="text-sm text-ink-faint mt-1">
+                  {deck.user_name && <>by <span className="text-ink-muted">{deck.user_name}</span> · </>}
                   Updated {new Date(deck.updated_at).toLocaleDateString()} · {deck.view_count} views
                 </p>
                 {deck.tags.length > 0 && (
@@ -169,7 +169,7 @@ export default function PublicDeckPage() {
                     {deck.tags.map((t) => (
                       <span
                         key={t}
-                        className="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded uppercase tracking-wide"
+                        className="text-[10px] bg-surface-elevated text-ink-muted px-2 py-0.5 rounded uppercase tracking-wide"
                       >
                         {t}
                       </span>
@@ -180,13 +180,13 @@ export default function PublicDeckPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={copyAsText}
-                  className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+                  className="bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-sm font-medium rounded-lg px-4 py-2 transition-colors"
                 >
                   {copied ? "Copied!" : "Copy deck list"}
                 </button>
                 <Link
                   href="/deck-builder"
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm rounded-lg px-4 py-2 transition-colors"
+                  className="bg-accent hover:bg-accent-strong text-black font-bold text-sm rounded-lg px-4 py-2 transition-colors"
                 >
                   Build your own
                 </Link>
@@ -194,9 +194,9 @@ export default function PublicDeckPage() {
             </div>
 
             {deck.notes && (
-              <div className="mb-6 bg-neutral-900/60 border border-neutral-800 rounded-xl p-4">
-                <p className="text-xs uppercase tracking-wider text-neutral-500 font-bold mb-2">Notes</p>
-                <p className="text-sm text-neutral-300 whitespace-pre-wrap leading-relaxed">{deck.notes}</p>
+              <div className="mb-6 bg-surface/60 border border-border-subtle rounded-xl p-4">
+                <p className="text-xs uppercase tracking-wider text-ink-faint font-bold mb-2">Notes</p>
+                <p className="text-sm text-ink-muted whitespace-pre-wrap leading-relaxed">{deck.notes}</p>
               </div>
             )}
 
@@ -204,8 +204,8 @@ export default function PublicDeckPage() {
               {/* Leader + summary */}
               <div className="space-y-4">
                 {leader && (
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-                    <div className="relative aspect-[5/7] bg-neutral-950">
+                  <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
+                    <div className="relative aspect-[5/7] bg-page">
                       {leader.image_url && (
                         <Image
                           src={leader.image_url}
@@ -217,43 +217,43 @@ export default function PublicDeckPage() {
                       )}
                     </div>
                     <div className="p-3">
-                      <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Leader</p>
+                      <p className="text-[10px] uppercase tracking-wider text-accent-strong font-bold">Leader</p>
                       <p className="font-semibold text-sm truncate">{leader.name}</p>
-                      <p className="text-xs text-neutral-500">{leader.card_number}</p>
+                      <p className="text-xs text-ink-faint">{leader.card_number}</p>
                     </div>
                   </div>
                 )}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold text-white">{totalCards}</p>
-                  <p className="text-[10px] text-neutral-500">Cards</p>
+                <div className="bg-surface border border-border-subtle rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-ink">{totalCards}</p>
+                  <p className="text-[10px] text-ink-faint">Cards</p>
                 </div>
               </div>
 
               {/* Card list */}
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+              <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
                   <p className="font-bold text-sm">Main deck</p>
-                  <p className="text-xs text-neutral-500">{mainDeck.length} unique</p>
+                  <p className="text-xs text-ink-faint">{mainDeck.length} unique</p>
                 </div>
-                <div className="divide-y divide-neutral-800/60">
+                <div className="divide-y divide-border-subtle/60">
                   {mainDeck.map((e) => (
                     <div
                       key={e.sku}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-800/40 transition-colors"
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-elevated/40 transition-colors"
                     >
-                      <div className="relative w-10 h-14 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+                      <div className="relative w-10 h-14 flex-shrink-0 rounded overflow-hidden bg-surface-elevated">
                         {e.card.image_url && (
                           <Image src={e.card.image_url} alt={e.card.name} fill sizes="40px" className="object-cover" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{e.card.name}</p>
-                        <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+                        <div className="flex items-center gap-1.5 text-[11px] text-ink-faint">
                           <span>{e.card.card_number}</span>
                           {rarityBadge(e.card.rarity)}
                         </div>
                       </div>
-                      <span className="text-amber-400 font-bold text-sm w-10 text-right">
+                      <span className="text-accent-strong font-bold text-sm w-10 text-right">
                         ×{e.quantity}
                       </span>
                     </div>

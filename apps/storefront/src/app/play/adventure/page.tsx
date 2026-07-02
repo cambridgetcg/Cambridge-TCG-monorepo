@@ -45,22 +45,22 @@ interface PVEData {
 
 const DIFFICULTY_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
   easy:    { bg: "bg-green-900/30",  text: "text-green-400",  border: "border-green-700/50",  glow: "shadow-green-500/20" },
-  medium:  { bg: "bg-amber-900/30",  text: "text-amber-400",  border: "border-amber-700/50",  glow: "shadow-amber-500/20" },
+  medium:  { bg: "bg-amber-900/30",  text: "text-accent-strong",  border: "border-amber-700/50",  glow: "shadow-amber-500/20" },
   hard:    { bg: "bg-red-900/30",    text: "text-red-400",    border: "border-red-700/50",    glow: "shadow-red-500/20" },
   extreme: { bg: "bg-purple-900/30", text: "text-purple-400", border: "border-purple-700/50", glow: "shadow-purple-500/20" },
 };
 
 const DIFFICULTY_NODE: Record<string, string> = {
   easy: "border-green-500",
-  medium: "border-amber-500",
-  hard: "border-red-500",
+  medium: "border-accent",
+  hard: "border-danger",
   extreme: "border-purple-500",
 };
 
 const DIFFICULTY_NODE_BG: Record<string, string> = {
   easy: "bg-green-500",
-  medium: "bg-amber-500",
-  hard: "bg-red-500",
+  medium: "bg-accent",
+  hard: "bg-danger",
   extreme: "bg-purple-500",
 };
 
@@ -202,27 +202,27 @@ export default function AdventureModePage() {
   /* ================================================================ */
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       {/* ---- Hero ---- */}
-      <section className="relative overflow-hidden border-b border-neutral-800">
+      <section className="relative overflow-hidden border-b border-border-subtle">
         <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 via-neutral-950 to-amber-900/10" />
         <div className="relative mx-auto max-w-5xl px-4 py-16 sm:py-20 text-center">
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
-            Adventure <span className="text-amber-400">Mode</span>
+            Adventure <span className="text-accent-strong">Mode</span>
           </h1>
-          <p className="text-neutral-400 text-lg max-w-2xl mx-auto mb-2">
+          <p className="text-ink-muted text-lg max-w-2xl mx-auto mb-2">
             Battle legendary opponents up the Grand Line. Win Berries as you go.
           </p>
           <div className="flex items-center justify-center gap-4 mt-6">
             <Link
               href="/play"
-              className="text-neutral-500 hover:text-neutral-300 text-sm transition-colors"
+              className="text-ink-faint hover:text-ink-muted text-sm transition-colors"
             >
               &larr; Back to Play
             </Link>
             <Link
               href="/deck-builder"
-              className="text-amber-400 hover:text-amber-300 text-sm font-medium transition-colors"
+              className="text-accent-strong hover:text-accent-strong text-sm font-medium transition-colors"
             >
               Build a Deck &rarr;
             </Link>
@@ -233,7 +233,7 @@ export default function AdventureModePage() {
       {/* ---- Loading ---- */}
       {loading && (
         <div className="flex items-center justify-center py-24">
-          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
@@ -254,13 +254,13 @@ export default function AdventureModePage() {
           {data.activeGame && (() => {
             const lvl = levels.find((l) => String(l.id) === String(data.activeGame!.levelId));
             return (
-              <section className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
-                <p className="text-sm text-amber-300">
+              <section className="bg-accent/10 border border-accent/30 rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
+                <p className="text-sm text-accent-strong">
                   Battle in progress{lvl ? <> vs {lvl.opponent_icon} {lvl.opponent_name}</> : null}
                 </p>
                 <Link
                   href={`/play/adventure/${data.activeGame.levelId}?gameId=${data.activeGame.gameId}`}
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-4 py-1.5 text-sm transition-colors"
+                  className="bg-accent hover:bg-accent-strong text-black font-bold rounded-lg px-4 py-1.5 text-sm transition-colors"
                 >
                   Resume &rarr;
                 </Link>
@@ -270,14 +270,14 @@ export default function AdventureModePage() {
 
           {/* ---- Multiplier strip (live) ---- */}
           {mult?.eligible && (mult.tierMultiplier > 1 || mult.streakMultiplier > 1) && (
-            <section className="bg-gradient-to-r from-amber-500/10 via-neutral-900 to-fuchsia-500/10 border border-amber-500/20 rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
+            <section className="bg-gradient-to-r from-amber-500/10 via-neutral-900 to-fuchsia-500/10 border border-accent/20 rounded-xl px-5 py-3 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Your multiplier right now</p>
+                <p className="text-[10px] uppercase tracking-wider text-accent-strong font-bold">Your multiplier right now</p>
                 <p className="text-xl font-extrabold mt-0.5">
                   {(mult.tierMultiplier * mult.streakMultiplier).toFixed(2)}×
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs text-neutral-400 font-mono">
+              <div className="flex items-center gap-3 text-xs text-ink-muted font-mono">
                 {mult.tierMultiplier > 1 && (
                   <span><span className="text-purple-400">{mult.tierMultiplier.toFixed(2)}×</span> tier</span>
                 )}
@@ -289,7 +289,7 @@ export default function AdventureModePage() {
           )}
 
           {/* ---- Visual Level Map ---- */}
-          <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 sm:p-6 overflow-hidden">
+          <section className="bg-surface border border-border-subtle rounded-xl p-5 sm:p-6 overflow-hidden">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-lg">&#127988;&#8205;&#9760;&#65039;</span>
               <h2 className="font-bold text-lg">The Grand Line</h2>
@@ -319,8 +319,8 @@ export default function AdventureModePage() {
                           ${isCleared
                             ? `border-green-500 bg-green-500/20 text-green-400 shadow-lg shadow-green-500/30`
                             : isCurrent
-                              ? `${DIFFICULTY_NODE[diff]} ${DIFFICULTY_NODE_BG[diff]}/20 ${DIFFICULTY_STYLES[diff]?.text ?? "text-white"} animate-pulse shadow-lg ${DIFFICULTY_STYLES[diff]?.glow ?? ""}`
-                              : "border-neutral-700 bg-neutral-800/50 text-neutral-600"
+                              ? `${DIFFICULTY_NODE[diff]} ${DIFFICULTY_NODE_BG[diff]}/20 ${DIFFICULTY_STYLES[diff]?.text ?? "text-ink"} animate-pulse shadow-lg ${DIFFICULTY_STYLES[diff]?.glow ?? ""}`
+                              : "border-border-strong bg-surface-elevated/50 text-neutral-600"
                           }
                           ${!isLocked ? "cursor-pointer hover:scale-110" : "cursor-not-allowed"}
                         `}
@@ -337,7 +337,7 @@ export default function AdventureModePage() {
 
                         {/* Level number label below */}
                         <span className={`absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] whitespace-nowrap ${
-                          isCleared ? "text-green-500" : isCurrent ? (DIFFICULTY_STYLES[diff]?.text ?? "text-white") : "text-neutral-600"
+                          isCleared ? "text-green-500" : isCurrent ? (DIFFICULTY_STYLES[diff]?.text ?? "text-ink") : "text-neutral-600"
                         }`}>
                           {level.level_number}
                         </span>
@@ -355,13 +355,13 @@ export default function AdventureModePage() {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 mt-6 text-xs text-neutral-500">
+              <div className="flex items-center gap-4 mt-6 text-xs text-ink-faint">
                 <div className="flex items-center gap-1.5">
                   <span className="text-green-400">&#10003;</span>
                   <span>Cleared</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-amber-500/60 animate-pulse" />
+                  <div className="w-3 h-3 rounded-full bg-accent/60 animate-pulse" />
                   <span>Current</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -389,12 +389,12 @@ export default function AdventureModePage() {
                   className={`
                     rounded-xl border transition-all
                     ${isCleared
-                      ? "bg-neutral-900/80 border-green-800/40 shadow-md shadow-green-500/5"
+                      ? "bg-surface/80 border-green-800/40 shadow-md shadow-green-500/5"
                       : isCurrent
-                        ? `bg-neutral-900 ${styles.border} shadow-lg ${styles.glow}`
+                        ? `bg-surface ${styles.border} shadow-lg ${styles.glow}`
                         : isLocked
-                          ? "bg-neutral-900/40 border-neutral-800 opacity-60"
-                          : "bg-neutral-900/80 border-neutral-800"
+                          ? "bg-surface/40 border-border-subtle opacity-60"
+                          : "bg-surface/80 border-border-subtle"
                     }
                   `}
                 >
@@ -410,7 +410,7 @@ export default function AdventureModePage() {
                         ? "bg-green-900/30 border border-green-700/40"
                         : isCurrent
                           ? `${styles.bg} border ${styles.border}`
-                          : "bg-neutral-800 border border-neutral-700"
+                          : "bg-surface-elevated border border-border-strong"
                       }
                     `}>
                       {isLocked ? (
@@ -423,15 +423,15 @@ export default function AdventureModePage() {
                     {/* Title + opponent */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-neutral-500 text-xs font-mono">
+                        <span className="text-ink-faint text-xs font-mono">
                           Lv.{level.level_number}
                         </span>
-                        <h3 className={`font-bold truncate ${isLocked ? "text-neutral-500" : "text-white"}`}>
+                        <h3 className={`font-bold truncate ${isLocked ? "text-ink-faint" : "text-ink"}`}>
                           {level.title}
                         </h3>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-sm ${isLocked ? "text-neutral-600" : "text-neutral-400"}`}>
+                        <span className={`text-sm ${isLocked ? "text-neutral-600" : "text-ink-muted"}`}>
                           vs {level.opponent_name}
                         </span>
                         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${styles.bg} ${styles.text}`}>
@@ -453,7 +453,7 @@ export default function AdventureModePage() {
                         </span>
                       )}
                       {isLocked && (
-                        <span className="text-xs bg-neutral-800 text-neutral-600 px-2.5 py-1 rounded-full">
+                        <span className="text-xs bg-surface-elevated text-neutral-600 px-2.5 py-1 rounded-full">
                           Locked
                         </span>
                       )}
@@ -471,18 +471,18 @@ export default function AdventureModePage() {
 
                   {/* Expanded details */}
                   {isExpanded && (
-                    <div className="px-4 sm:px-5 pb-4 pt-1 border-t border-neutral-800/60 space-y-4">
+                    <div className="px-4 sm:px-5 pb-4 pt-1 border-t border-border-subtle/60 space-y-4">
                       {/* Description */}
-                      <p className="text-neutral-400 text-sm leading-relaxed">
+                      <p className="text-ink-muted text-sm leading-relaxed">
                         {level.description}
                       </p>
 
                       {/* Rewards */}
-                      <div className="bg-neutral-800/50 rounded-lg p-3 space-y-1.5">
-                        <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Rewards</h4>
+                      <div className="bg-surface-elevated/50 rounded-lg p-3 space-y-1.5">
+                        <h4 className="text-xs font-bold text-ink-faint uppercase tracking-wider mb-2">Rewards</h4>
                         <div className="flex items-center gap-2 text-sm">
-                          <span className="text-amber-400">&#11088;</span>
-                          <span className="text-neutral-300">
+                          <span className="text-accent-strong">&#11088;</span>
+                          <span className="text-ink-muted">
                             First clear: {level.first_clear_points} Berries
                           </span>
                           {isCleared && (
@@ -490,8 +490,8 @@ export default function AdventureModePage() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <span className="text-neutral-500">&#128260;</span>
-                          <span className="text-neutral-400">
+                          <span className="text-ink-faint">&#128260;</span>
+                          <span className="text-ink-muted">
                             Repeat: {level.repeat_points} Berries
                           </span>
                         </div>
@@ -505,10 +505,10 @@ export default function AdventureModePage() {
                           const daily = isNextFirstClear ? 1.0 : dailyMultiplier(clearsToday);
                           const expected = Math.max(0, Math.floor(base * daily * mult.streakMultiplier * mult.tierMultiplier));
                           return (
-                            <div className="pt-2 mt-1 border-t border-neutral-700/40 flex items-center gap-2 text-sm">
+                            <div className="pt-2 mt-1 border-t border-border-strong/40 flex items-center gap-2 text-sm">
                               <span className="text-neutral-600">▸</span>
-                              <span className="text-neutral-400">If you clear now:</span>
-                              <span className="text-amber-400 font-bold">+{expected} Berries</span>
+                              <span className="text-ink-muted">If you clear now:</span>
+                              <span className="text-accent-strong font-bold">+{expected} Berries</span>
                               {(daily < 1 || mult.streakMultiplier > 1 || mult.tierMultiplier > 1) && (
                                 <span className="text-[10px] text-neutral-600 font-mono ml-auto">
                                   {base}
@@ -524,13 +524,13 @@ export default function AdventureModePage() {
 
                       {/* Progress stats */}
                       {level.progress && (
-                        <div className="flex items-center gap-4 text-xs text-neutral-500">
+                        <div className="flex items-center gap-4 text-xs text-ink-faint">
                           <span>
-                            Clears: <span className="text-neutral-300 font-medium">{level.progress.clearCount}</span>
+                            Clears: <span className="text-ink-muted font-medium">{level.progress.clearCount}</span>
                           </span>
                           {level.progress.bestTurns && (
                             <span>
-                              Best: <span className="text-neutral-300 font-medium">{level.progress.bestTurns} turns</span>
+                              Best: <span className="text-ink-muted font-medium">{level.progress.bestTurns} turns</span>
                             </span>
                           )}
                         </div>
@@ -551,10 +551,10 @@ export default function AdventureModePage() {
                             className={`
                               font-bold rounded-lg px-6 py-2.5 transition-colors text-sm
                               ${isCurrent
-                                ? "bg-amber-500 hover:bg-amber-400 text-black"
+                                ? "bg-accent hover:bg-accent-strong text-black"
                                 : isCleared
-                                  ? "bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white"
-                                  : "bg-amber-500 hover:bg-amber-400 text-black"
+                                  ? "bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink"
+                                  : "bg-accent hover:bg-accent-strong text-black"
                               }
                             `}
                           >
@@ -571,12 +571,12 @@ export default function AdventureModePage() {
 
           {/* ---- Bottom CTA ---- */}
           <div className="text-center pb-8">
-            <p className="text-neutral-500 text-sm mb-3">
+            <p className="text-ink-faint text-sm mb-3">
               Need a better deck to take on tougher opponents?
             </p>
             <Link
               href="/deck-builder"
-              className="inline-block bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold rounded-lg px-6 py-3 transition-colors"
+              className="inline-block bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink font-semibold rounded-lg px-6 py-3 transition-colors"
             >
               Open Deck Builder
             </Link>
@@ -594,12 +594,12 @@ export default function AdventureModePage() {
           onClick={() => { if (!starting) setShowDeckModal(false); }}
         >
           <div
-            className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 sm:p-8 max-w-xl w-full shadow-2xl max-h-[85vh] overflow-y-auto"
+            className="bg-surface border border-border-subtle rounded-xl p-6 sm:p-8 max-w-xl w-full shadow-2xl max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold mb-1">Select Your Deck</h2>
-              <p className="text-neutral-400 text-sm">
+              <p className="text-ink-muted text-sm">
                 Choose a deck to battle with.
                 {targetLevelId && data?.levels && (() => {
                   const lvl = data.levels.find(l => l.id === targetLevelId);
@@ -620,10 +620,10 @@ export default function AdventureModePage() {
 
             {savedDecks.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-neutral-500 mb-4">Loading a starter deck for you&hellip;</p>
+                <p className="text-ink-faint mb-4">Loading a starter deck for you&hellip;</p>
                 <Link
                   href="/play/starters"
-                  className="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
+                  className="inline-block bg-accent hover:bg-accent-strong text-black font-bold rounded-lg px-6 py-3 transition-colors"
                 >
                   Browse Starter Decks
                 </Link>
@@ -639,20 +639,20 @@ export default function AdventureModePage() {
                         onClick={() => setSelectedDeckIdx(i)}
                         className={`w-full text-left p-3 rounded-lg border transition-all ${
                           selectedDeckIdx === i
-                            ? "border-amber-500 bg-amber-500/10"
-                            : "border-neutral-800 bg-neutral-800/50 hover:border-neutral-600"
+                            ? "border-accent bg-accent/10"
+                            : "border-border-subtle bg-surface-elevated/50 hover:border-neutral-600"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="font-semibold">{deck.name}</span>
                             {deck.leader && (
-                              <span className="text-amber-400 text-xs ml-2">
+                              <span className="text-accent-strong text-xs ml-2">
                                 Leader: {deck.leader.name}
                               </span>
                             )}
                           </div>
-                          <span className="text-neutral-500 text-sm">{totalCards} cards</span>
+                          <span className="text-ink-faint text-sm">{totalCards} cards</span>
                         </div>
                       </button>
                     );
@@ -663,7 +663,7 @@ export default function AdventureModePage() {
                   <button
                     onClick={handleStartGame}
                     disabled={selectedDeckIdx === null || starting}
-                    className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-lg py-3 transition-colors text-lg"
+                    className="flex-1 bg-accent hover:bg-accent-strong disabled:opacity-50 text-black font-bold rounded-lg py-3 transition-colors text-lg"
                   >
                     {starting ? (
                       <span className="flex items-center justify-center gap-2">
@@ -677,7 +677,7 @@ export default function AdventureModePage() {
                   <button
                     onClick={() => setShowDeckModal(false)}
                     disabled={starting}
-                    className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 font-semibold rounded-lg px-5 py-3 transition-colors"
+                    className="bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink-muted font-semibold rounded-lg px-5 py-3 transition-colors"
                   >
                     Cancel
                   </button>

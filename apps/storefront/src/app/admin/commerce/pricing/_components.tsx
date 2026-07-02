@@ -72,7 +72,7 @@ export function PriceCell({ cardId, sku, price, base }: PriceCellProps) {
   if (editing) {
     return (
       <span className="inline-flex items-center gap-1">
-        <span className="text-neutral-500 text-xs">£</span>
+        <span className="text-ink-faint text-xs">£</span>
         <input
           ref={inputRef}
           type="text"
@@ -84,7 +84,7 @@ export function PriceCell({ cardId, sku, price, base }: PriceCellProps) {
             if (e.key === "Escape") cancel();
           }}
           onBlur={commit}
-          className="w-20 rounded border border-blue-500 bg-neutral-900 px-2 py-0.5 text-right text-xs font-mono text-white focus:outline-none"
+          className="w-20 rounded border border-blue-500 bg-surface px-2 py-0.5 text-right text-xs font-mono text-ink focus:outline-none"
         />
       </span>
     );
@@ -96,8 +96,8 @@ export function PriceCell({ cardId, sku, price, base }: PriceCellProps) {
       disabled={pending}
       onClick={() => setEditing(true)}
       className={[
-        "font-mono text-sm px-1 -mx-1 rounded hover:bg-neutral-800/60 transition disabled:opacity-50",
-        display == null ? "text-neutral-600 italic" : drift ? "text-blue-400" : "text-white",
+        "font-mono text-sm px-1 -mx-1 rounded hover:bg-surface-elevated/60 transition disabled:opacity-50",
+        display == null ? "text-neutral-600 italic" : drift ? "text-blue-400" : "text-ink",
         error ? "ring-1 ring-red-500/50" : "",
       ].join(" ")}
       title={

@@ -86,7 +86,7 @@ export default async function B2BOrderDetailPage({ params }: PageProps) {
 
       <Link
         href="/account/b2b/orders"
-        className="inline-block text-sm text-neutral-400 hover:text-amber-400"
+        className="inline-block text-sm text-ink-muted hover:text-accent-strong"
       >
         ← All orders
       </Link>
@@ -95,7 +95,7 @@ export default async function B2BOrderDetailPage({ params }: PageProps) {
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Items</h2>
           <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-neutral-500">
+            <thead className="text-xs uppercase tracking-wider text-ink-faint">
               <tr>
                 <th className="pb-2">Card</th>
                 <th className="pb-2 text-right">Qty</th>
@@ -103,12 +103,12 @@ export default async function B2BOrderDetailPage({ params }: PageProps) {
                 <th className="pb-2 text-right">Line</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-800">
+            <tbody className="divide-y divide-border-subtle">
               {enriched.map((it) => (
                 <tr key={it.sku}>
                   <td className="py-2">
                     <div className="font-medium">{it.displayName}</div>
-                    <div className="text-xs font-mono text-neutral-500">
+                    <div className="text-xs font-mono text-ink-faint">
                       {it.cardNumber ? `${it.cardNumber} · ` : ""}{it.sku}
                     </div>
                   </td>
@@ -122,9 +122,9 @@ export default async function B2BOrderDetailPage({ params }: PageProps) {
                 </tr>
               ))}
             </tbody>
-            <tfoot className="border-t border-neutral-800">
+            <tfoot className="border-t border-border-subtle">
               <tr>
-                <td colSpan={3} className="pt-3 text-right text-sm uppercase tracking-wider text-neutral-500">
+                <td colSpan={3} className="pt-3 text-right text-sm uppercase tracking-wider text-ink-faint">
                   Total
                 </td>
                 <td className="pt-3 text-right text-xl font-bold">
@@ -152,11 +152,11 @@ export default async function B2BOrderDetailPage({ params }: PageProps) {
       )}
 
       <Card>
-        <div className="space-y-1 text-sm text-neutral-400">
-          <h2 className="text-lg font-semibold text-neutral-200">Payment</h2>
+        <div className="space-y-1 text-sm text-ink-muted">
+          <h2 className="text-lg font-semibold text-ink">Payment</h2>
           <p>
             Status:{" "}
-            <span className="font-medium text-neutral-200">{label}</span>
+            <span className="font-medium text-ink">{label}</span>
           </p>
           <p>
             Stripe session:{" "}

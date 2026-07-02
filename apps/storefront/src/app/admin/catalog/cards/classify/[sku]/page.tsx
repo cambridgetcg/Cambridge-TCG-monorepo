@@ -143,13 +143,13 @@ function HistoryTable({ rows }: { rows: LogEntry[] }) {
       key: "claimed_at",
       header: "When",
       render: (r) => (
-        <span className="text-neutral-400">{fmtDateTime(r.claimed_at)}</span>
+        <span className="text-ink-muted">{fmtDateTime(r.claimed_at)}</span>
       ),
     },
     {
       key: "next_value",
       header: "Value",
-      render: (r) => <span className="text-white">{r.next_value}</span>,
+      render: (r) => <span className="text-ink">{r.next_value}</span>,
     },
     {
       key: "next_source",
@@ -163,11 +163,11 @@ function HistoryTable({ rows }: { rows: LogEntry[] }) {
       header: "Status",
       render: (r) =>
         r.superseded_at ? (
-          <span className="text-xs text-neutral-500">superseded</span>
+          <span className="text-xs text-ink-faint">superseded</span>
         ) : r.shadowed ? (
-          <span className="text-xs text-amber-400">shadowed</span>
+          <span className="text-xs text-accent-strong">shadowed</span>
         ) : (
-          <span className="text-xs text-emerald-400">winner</span>
+          <span className="text-xs text-secondary">winner</span>
         ),
     },
     {
@@ -175,7 +175,7 @@ function HistoryTable({ rows }: { rows: LogEntry[] }) {
       header: "Confidence",
       render: (r) =>
         r.confidence ? (
-          <span className="text-xs text-neutral-400">{r.confidence}</span>
+          <span className="text-xs text-ink-muted">{r.confidence}</span>
         ) : (
           <span className="text-xs text-neutral-600">—</span>
         ),
@@ -185,7 +185,7 @@ function HistoryTable({ rows }: { rows: LogEntry[] }) {
       header: "Evidence",
       render: (r) =>
         r.evidence ? (
-          <code className="text-[10px] text-neutral-500">
+          <code className="text-[10px] text-ink-faint">
             {JSON.stringify(r.evidence).slice(0, 60)}
             {JSON.stringify(r.evidence).length > 60 ? "…" : ""}
           </code>
@@ -197,7 +197,7 @@ function HistoryTable({ rows }: { rows: LogEntry[] }) {
       key: "claimed_by",
       header: "Actor",
       render: (r) => (
-        <span className="font-mono text-xs text-neutral-400">
+        <span className="font-mono text-xs text-ink-muted">
           {r.claimed_by}
         </span>
       ),
@@ -249,8 +249,8 @@ export default async function ClassifyDetailPage({ params }: PageProps) {
         description="Override edition variant and promo origin for this card. Operator overrides outrank heuristics; publisher feeds (when wired) outrank operator. The log is append-only — shadowed claims are kept for audit."
       />
 
-      <nav className="flex flex-wrap items-center gap-2 text-sm text-neutral-400">
-        <Link href="/admin/catalog/cards/classify" className="hover:text-white">
+      <nav className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+        <Link href="/admin/catalog/cards/classify" className="hover:text-ink">
           ← All recent
         </Link>
         <span className="text-neutral-700">·</span>
@@ -261,7 +261,7 @@ export default async function ClassifyDetailPage({ params }: PageProps) {
         />
       </nav>
 
-      <section className="rounded-md border border-neutral-800 bg-neutral-900 p-4">
+      <section className="rounded-md border border-border-subtle bg-surface p-4">
         <div className="flex flex-wrap items-start gap-6">
           {card.image_url && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -273,37 +273,37 @@ export default async function ClassifyDetailPage({ params }: PageProps) {
           )}
           <dl className="grid flex-1 gap-x-6 gap-y-2 sm:grid-cols-2">
             <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">
+              <dt className="text-xs uppercase tracking-wider text-ink-faint">
                 SKU
               </dt>
-              <dd className="font-mono text-sm text-white">{card.sku}</dd>
+              <dd className="font-mono text-sm text-ink">{card.sku}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">
+              <dt className="text-xs uppercase tracking-wider text-ink-faint">
                 Card number
               </dt>
-              <dd className="text-sm text-white">{card.card_number}</dd>
+              <dd className="text-sm text-ink">{card.card_number}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">
+              <dt className="text-xs uppercase tracking-wider text-ink-faint">
                 Set
               </dt>
-              <dd className="text-sm text-white">
+              <dd className="text-sm text-ink">
                 {card.set_code}
                 {card.set_name && (
-                  <span className="ml-2 text-neutral-400">
+                  <span className="ml-2 text-ink-muted">
                     {card.set_name}
                   </span>
                 )}
               </dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wider text-neutral-500">
+              <dt className="text-xs uppercase tracking-wider text-ink-faint">
                 Rarity / Language
               </dt>
-              <dd className="text-sm text-white">
+              <dd className="text-sm text-ink">
                 {card.rarity ?? "—"}{" "}
-                <span className="text-neutral-500">/</span>{" "}
+                <span className="text-ink-faint">/</span>{" "}
                 {card.language || "—"}
               </dd>
             </div>
@@ -332,15 +332,15 @@ export default async function ClassifyDetailPage({ params }: PageProps) {
             <SectionHeading>
               <code className="text-base">{attribute}</code>
             </SectionHeading>
-            <p className="max-w-3xl text-sm text-neutral-400">
+            <p className="max-w-3xl text-sm text-ink-muted">
               {SECTION_DESCRIPTIONS[attribute]}
             </p>
 
-            <div className="flex flex-wrap items-center gap-3 rounded-md border border-neutral-800 bg-neutral-950 p-3">
-              <span className="text-xs uppercase tracking-wider text-neutral-500">
+            <div className="flex flex-wrap items-center gap-3 rounded-md border border-border-subtle bg-page p-3">
+              <span className="text-xs uppercase tracking-wider text-ink-faint">
                 Current
               </span>
-              <span className="text-sm text-white">
+              <span className="text-sm text-ink">
                 {currentValue ?? <span className="text-neutral-600">—</span>}
               </span>
               <StatusBadge status={currentSource} palette={SOURCE_PALETTE} />
@@ -356,8 +356,8 @@ export default async function ClassifyDetailPage({ params }: PageProps) {
               vocab={vocab}
             />
 
-            <details className="rounded-md border border-neutral-800 bg-neutral-950 p-3">
-              <summary className="cursor-pointer text-xs uppercase tracking-wider text-neutral-400">
+            <details className="rounded-md border border-border-subtle bg-page p-3">
+              <summary className="cursor-pointer text-xs uppercase tracking-wider text-ink-muted">
                 History ({history.length})
               </summary>
               <div className="mt-3">

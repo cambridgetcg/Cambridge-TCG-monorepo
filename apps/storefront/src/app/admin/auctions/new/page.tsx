@@ -206,24 +206,24 @@ export default function NewAuctionPage() {
   // ── Login Screen ──
   if (!authed) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <main className="min-h-screen bg-page flex items-center justify-center">
       <Audience kind="operator" />
         <form onSubmit={handleLogin} className="w-full max-w-sm px-4">
-          <h1 className="text-2xl font-bold text-white text-center mb-8">Admin</h1>
+          <h1 className="text-2xl font-bold text-ink text-center mb-8">Admin</h1>
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
-            className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 mb-4"
+            className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 mb-4"
           />
           {loginError && (
             <p className="text-sm text-red-400 mb-4">{loginError}</p>
           )}
           <button
             type="submit"
-            className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="w-full py-3 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition"
           >
             Log In
           </button>
@@ -235,22 +235,22 @@ export default function NewAuctionPage() {
   // ── Post-create: Image upload ──
   if (createdAuctionId) {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-8">
-          <div className="bg-neutral-900 rounded-xl p-6 mb-6">
+          <div className="bg-surface rounded-xl p-6 mb-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <span className="text-emerald-400 text-sm">&#10003;</span>
+                <span className="text-secondary text-sm">&#10003;</span>
               </div>
-              <h2 className="text-lg font-bold text-white">Auction Created</h2>
+              <h2 className="text-lg font-bold text-ink">Auction Created</h2>
             </div>
-            <p className="text-sm text-neutral-400">
-              ID: <span className="font-mono text-amber-400">{createdAuctionId}</span>
+            <p className="text-sm text-ink-muted">
+              ID: <span className="font-mono text-accent-strong">{createdAuctionId}</span>
             </p>
           </div>
 
-          <div className="bg-neutral-900 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">Upload Images</h3>
+          <div className="bg-surface rounded-xl p-6">
+            <h3 className="text-lg font-bold text-ink mb-4">Upload Images</h3>
 
             {/* Uploaded images */}
             {images.length > 0 && (
@@ -265,7 +265,7 @@ export default function NewAuctionPage() {
                     {img.id && (
                       <button
                         onClick={() => handleRemoveImage(img.id!, createdAuctionId)}
-                        className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full opacity-0 group-hover:opacity-100 transition"
+                        className="absolute top-1 right-1 w-6 h-6 bg-danger text-ink text-xs rounded-full opacity-0 group-hover:opacity-100 transition"
                       >
                         &#10005;
                       </button>
@@ -292,7 +292,7 @@ export default function NewAuctionPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="w-full py-3 border-2 border-dashed border-neutral-700 rounded-lg text-neutral-400 hover:border-amber-500/50 hover:text-amber-400 transition disabled:opacity-50"
+              className="w-full py-3 border-2 border-dashed border-border-strong rounded-lg text-ink-muted hover:border-accent/50 hover:text-accent-strong transition disabled:opacity-50"
             >
               {uploading ? "Uploading..." : "Click to upload images"}
             </button>
@@ -301,7 +301,7 @@ export default function NewAuctionPage() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => router.push("/admin/auctions")}
-              className="flex-1 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition text-center"
+              className="flex-1 py-3 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition text-center"
             >
               Done — Back to Auctions
             </button>
@@ -313,13 +313,13 @@ export default function NewAuctionPage() {
 
   // ── Create form ──
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-white">New Auction</h1>
+          <h1 className="text-2xl font-bold text-ink">New Auction</h1>
           <button
             onClick={() => router.push("/admin/auctions")}
-            className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition"
+            className="px-4 py-2 bg-surface-elevated text-ink text-sm rounded-lg hover:bg-neutral-700 transition"
           >
             Cancel
           </button>
@@ -328,32 +328,32 @@ export default function NewAuctionPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Title */}
           <div>
-            <label className="block text-sm text-neutral-400 mb-2">Title</label>
+            <label className="block text-sm text-ink-muted mb-2">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50"
               placeholder="e.g. Charizard Base Set Holo"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm text-neutral-400 mb-2">Description</label>
+            <label className="block text-sm text-ink-muted mb-2">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
               placeholder="Condition, details, etc."
             />
           </div>
 
           {/* Auction Type */}
           <div>
-            <label className="block text-sm text-neutral-400 mb-2">Auction Type</label>
+            <label className="block text-sm text-ink-muted mb-2">Auction Type</label>
             <div className="grid grid-cols-3 gap-3">
               {TYPE_OPTIONS.map((opt) => (
                 <button
@@ -362,14 +362,14 @@ export default function NewAuctionPage() {
                   onClick={() => setAuctionType(opt.value)}
                   className={`p-4 rounded-xl border text-left transition ${
                     auctionType === opt.value
-                      ? "border-amber-500 bg-amber-500/10"
-                      : "border-neutral-800 bg-neutral-900 hover:border-neutral-700"
+                      ? "border-accent bg-accent/10"
+                      : "border-border-subtle bg-surface hover:border-border-strong"
                   }`}
                 >
-                  <p className={`text-sm font-bold ${auctionType === opt.value ? "text-amber-400" : "text-white"}`}>
+                  <p className={`text-sm font-bold ${auctionType === opt.value ? "text-accent-strong" : "text-ink"}`}>
                     {opt.label}
                   </p>
-                  <p className="text-xs text-neutral-500 mt-1">{opt.desc}</p>
+                  <p className="text-xs text-ink-faint mt-1">{opt.desc}</p>
                 </button>
               ))}
             </div>
@@ -377,10 +377,10 @@ export default function NewAuctionPage() {
 
           {/* Conditional fields */}
           {auctionType === "english" && (
-            <div className="bg-neutral-900 rounded-xl p-4 space-y-4">
+            <div className="bg-surface rounded-xl p-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Starting Price</label>
+                  <label className="block text-sm text-ink-muted mb-2">Starting Price</label>
                   <input
                     type="number"
                     step="0.01"
@@ -388,26 +388,26 @@ export default function NewAuctionPage() {
                     value={startingPrice}
                     onChange={(e) => setStartingPrice(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="0.00"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Reserve Price</label>
+                  <label className="block text-sm text-ink-muted mb-2">Reserve Price</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={reservePrice}
                     onChange={(e) => setReservePrice(e.target.value)}
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="Optional"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Bid Increment</label>
+                  <label className="block text-sm text-ink-muted mb-2">Bid Increment</label>
                   <input
                     type="number"
                     step="0.01"
@@ -415,19 +415,19 @@ export default function NewAuctionPage() {
                     value={bidIncrement}
                     onChange={(e) => setBidIncrement(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="1.00"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Buy Now Price</label>
+                  <label className="block text-sm text-ink-muted mb-2">Buy Now Price</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={buyNowPrice}
                     onChange={(e) => setBuyNowPrice(e.target.value)}
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="Optional"
                   />
                 </div>
@@ -436,10 +436,10 @@ export default function NewAuctionPage() {
           )}
 
           {auctionType === "dutch" && (
-            <div className="bg-neutral-900 rounded-xl p-4 space-y-4">
+            <div className="bg-surface rounded-xl p-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Start Price</label>
+                  <label className="block text-sm text-ink-muted mb-2">Start Price</label>
                   <input
                     type="number"
                     step="0.01"
@@ -447,12 +447,12 @@ export default function NewAuctionPage() {
                     value={dutchStartPrice}
                     onChange={(e) => setDutchStartPrice(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="100.00"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">End Price</label>
+                  <label className="block text-sm text-ink-muted mb-2">End Price</label>
                   <input
                     type="number"
                     step="0.01"
@@ -460,14 +460,14 @@ export default function NewAuctionPage() {
                     value={dutchEndPrice}
                     onChange={(e) => setDutchEndPrice(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="10.00"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Drop Amount</label>
+                  <label className="block text-sm text-ink-muted mb-2">Drop Amount</label>
                   <input
                     type="number"
                     step="0.01"
@@ -475,12 +475,12 @@ export default function NewAuctionPage() {
                     value={dutchDropAmount}
                     onChange={(e) => setDutchDropAmount(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="5.00"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Drop Interval (seconds)</label>
+                  <label className="block text-sm text-ink-muted mb-2">Drop Interval (seconds)</label>
                   <input
                     type="number"
                     step="1"
@@ -488,7 +488,7 @@ export default function NewAuctionPage() {
                     value={dutchDropInterval}
                     onChange={(e) => setDutchDropInterval(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="60"
                   />
                 </div>
@@ -497,9 +497,9 @@ export default function NewAuctionPage() {
           )}
 
           {auctionType === "buy_now" && (
-            <div className="bg-neutral-900 rounded-xl p-4 space-y-4">
+            <div className="bg-surface rounded-xl p-4 space-y-4">
               <div>
-                <label className="block text-sm text-neutral-400 mb-2">Price</label>
+                <label className="block text-sm text-ink-muted mb-2">Price</label>
                 <input
                   type="number"
                   step="0.01"
@@ -507,7 +507,7 @@ export default function NewAuctionPage() {
                   value={buyNowFixedPrice}
                   onChange={(e) => setBuyNowFixedPrice(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                   placeholder="0.00"
                 />
               </div>
@@ -516,41 +516,41 @@ export default function NewAuctionPage() {
                   type="checkbox"
                   checked={allowBestOffer}
                   onChange={(e) => setAllowBestOffer(e.target.checked)}
-                  className="w-4 h-4 rounded bg-neutral-800 border-neutral-700 text-amber-500 focus:ring-amber-500/50"
+                  className="w-4 h-4 rounded bg-surface-elevated border-border-strong text-accent focus:ring-accent/50"
                 />
-                <span className="text-sm text-neutral-300">Allow Best Offer</span>
+                <span className="text-sm text-ink-muted">Allow Best Offer</span>
               </label>
             </div>
           )}
 
           {/* Timing */}
-          <div className="bg-neutral-900 rounded-xl p-4">
+          <div className="bg-surface rounded-xl p-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-neutral-400 mb-2">Starts At</label>
+                <label className="block text-sm text-ink-muted mb-2">Starts At</label>
                 <input
                   type="datetime-local"
                   value={startsAt}
                   onChange={(e) => setStartsAt(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 [color-scheme:dark]"
+                  className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50 [color-scheme:dark]"
                 />
               </div>
               <div>
-                <label className="block text-sm text-neutral-400 mb-2">Ends At</label>
+                <label className="block text-sm text-ink-muted mb-2">Ends At</label>
                 <input
                   type="datetime-local"
                   value={endsAt}
                   onChange={(e) => setEndsAt(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 [color-scheme:dark]"
+                  className="w-full px-4 py-3 bg-surface-elevated border border-border-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50 [color-scheme:dark]"
                 />
               </div>
             </div>
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+            <div className="bg-danger/10 border border-danger/20 rounded-lg p-3">
               <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
@@ -558,7 +558,7 @@ export default function NewAuctionPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+            className="w-full py-3 bg-accent text-black font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
           >
             {submitting ? "Creating..." : "Create Auction"}
           </button>

@@ -95,15 +95,15 @@ function Inner() {
   const metaByKey = Object.fromEntries(meta.map((m) => [m.category, m]));
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind="consumer" />
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-8">
-          <Link href="/account" className="text-sm text-neutral-500 hover:text-neutral-300">&larr; Account</Link>
+          <Link href="/account" className="text-sm text-ink-faint hover:text-ink-muted">&larr; Account</Link>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-3 mb-1">
             Email preferences
           </h1>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-ink-muted">
             Choose what lands in your inbox. Sign-in links, payment receipts, and
             shipment confirmations are always sent.
           </p>
@@ -128,7 +128,7 @@ function Inner() {
 
         {loading && (
           <div className="py-12 text-center">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
         )}
 
@@ -138,7 +138,7 @@ function Inner() {
               <section key={g.title}>
                 <div className="flex items-baseline justify-between mb-3">
                   <h2 className="font-bold">{g.title}</h2>
-                  <span className="text-xs text-neutral-500">{g.caption}</span>
+                  <span className="text-xs text-ink-faint">{g.caption}</span>
                 </div>
                 <div className="space-y-2">
                   {g.keys.map((k) => {
@@ -149,12 +149,12 @@ function Inner() {
                       <div
                         key={k}
                         className={`flex items-start justify-between gap-4 rounded-xl border p-4 transition-colors ${
-                          on ? "bg-neutral-900 border-neutral-800" : "bg-neutral-900/40 border-neutral-800/60"
+                          on ? "bg-surface border-border-subtle" : "bg-surface/40 border-border-subtle/60"
                         }`}
                       >
                         <div className="min-w-0">
                           <p className="font-semibold text-sm">{m?.label ?? k}</p>
-                          <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">
+                          <p className="text-xs text-ink-faint mt-0.5 leading-relaxed">
                             {m?.description}
                           </p>
                         </div>
@@ -163,7 +163,7 @@ function Inner() {
                           disabled={busy}
                           aria-pressed={on}
                           className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${
-                            on ? "bg-amber-500" : "bg-neutral-700"
+                            on ? "bg-accent" : "bg-neutral-700"
                           } ${busy ? "opacity-50" : ""}`}
                         >
                           <span
@@ -179,9 +179,9 @@ function Inner() {
               </section>
             ))}
 
-            <div className="pt-6 mt-6 border-t border-neutral-800 text-xs text-neutral-500 leading-relaxed">
+            <div className="pt-6 mt-6 border-t border-border-subtle text-xs text-ink-faint leading-relaxed">
               <p className="mb-2">
-                <strong className="text-neutral-400">Always on (cannot be disabled):</strong>{" "}
+                <strong className="text-ink-muted">Always on (cannot be disabled):</strong>{" "}
                 Sign-in magic links · Payment receipts · Order shipment confirmations.
               </p>
               <p>

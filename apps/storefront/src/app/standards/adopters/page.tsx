@@ -50,7 +50,7 @@ export default function AdoptersRegistry() {
         self-declaration — the first adopter is welcome to land here.
       </p>
 
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm text-ink-muted">
         Parent: <Link href="/standards">/standards</Link>{" "}
         · Doctrine: <code>docs/connections/the-distributor.md</code>{" "}
         · License: <Link href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0 Universal</Link>
@@ -182,7 +182,7 @@ export default function AdoptersRegistry() {
 
       <hr />
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         <em>
           Empty registry, 2026-05-12. Honest about it. Substrate awaits
           adopters; the door is warm to the touch.

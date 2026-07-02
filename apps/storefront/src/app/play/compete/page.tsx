@@ -48,21 +48,21 @@ export default function CompetitivePlay() {
         human ranked play is coming.
       </p>
 
-      <p className="border border-neutral-800 bg-neutral-900/40 rounded-md p-4 text-sm">
+      <p className="border border-border-subtle bg-surface/40 rounded-md p-4 text-sm">
         <strong>Skill is the reward.</strong> Ratings, not prizes. Prize pools
         arrive only with the future <em>play-to-earn</em> opt-in. Boundary at{" "}
-        <Link href="/methodology/play-module" className="text-amber-400">/methodology/play-module</Link>.
+        <Link href="/methodology/play-module" className="text-accent-strong">/methodology/play-module</Link>.
       </p>
 
       <h2>Live today</h2>
 
       <ul className="list-none p-0 space-y-4">
         {SHIPPED.map((s) => (
-          <li key={s.label} className="border border-neutral-800 rounded-md p-4 bg-neutral-900/40">
-            <Link href={s.href} className="text-amber-400 hover:text-amber-300 font-bold">
+          <li key={s.label} className="border border-border-subtle rounded-md p-4 bg-surface/40">
+            <Link href={s.href} className="text-accent-strong hover:text-accent-strong font-bold">
               {s.label}
             </Link>
-            <p className="text-sm text-neutral-400 mt-2 mb-0">{s.blurb}</p>
+            <p className="text-sm text-ink-muted mt-2 mb-0">{s.blurb}</p>
           </li>
         ))}
       </ul>
@@ -76,7 +76,7 @@ export default function CompetitivePlay() {
 
       <h2>Planned (named openly)</h2>
 
-      <ul className="text-sm text-neutral-400">
+      <ul className="text-sm text-ink-muted">
         {PLANNED.map((p) => (
           <li key={p}>{p}</li>
         ))}

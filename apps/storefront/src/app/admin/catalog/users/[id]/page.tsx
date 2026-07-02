@@ -333,7 +333,7 @@ export default async function Page({
         description={
           <span className="space-x-3">
             <span>{user.email}</span>
-            {user.username && <span className="text-neutral-500">@{user.username}</span>}
+            {user.username && <span className="text-ink-faint">@{user.username}</span>}
             <span className="text-neutral-600 font-mono text-[11px]">{user.id}</span>
           </span>
         }
@@ -356,7 +356,7 @@ export default async function Page({
           size="md"
         />
         {user.membership_tier && (
-          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30">
+          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-accent/10 text-accent-strong border border-accent/30">
             {user.membership_tier}
           </span>
         )}
@@ -371,17 +371,17 @@ export default async function Page({
           </span>
         )}
         {trust?.is_suspended && (
-          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-red-500/15 text-red-400 border border-red-500/40">
+          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-danger/15 text-red-400 border border-danger/40">
             suspended
           </span>
         )}
         {trust?.is_flagged && !trust.is_suspended && (
-          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/40">
+          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-accent/15 text-accent-strong border border-accent/40">
             flagged
           </span>
         )}
         {!isUnavailable(payoutHoldCount) && payoutHoldCount > 0 && (
-          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/40">
+          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-accent/15 text-accent-strong border border-accent/40">
             {payoutHoldCount} payout {payoutHoldCount === 1 ? "hold" : "holds"}
           </span>
         )}
@@ -438,7 +438,7 @@ export default async function Page({
             <span className="flex items-center gap-2">
               <span>{user.email}</span>
               {user.email_verified && (
-                <span className="text-[10px] uppercase tracking-wider text-emerald-400">verified</span>
+                <span className="text-[10px] uppercase tracking-wider text-secondary">verified</span>
               )}
             </span>
           } />
@@ -486,7 +486,7 @@ export default async function Page({
               value={`${fmtGBP(trust.trade_limit)} per trade · ${fmtGBP(trust.daily_limit)} daily`}
             />
             {trust.is_suspended && trust.suspended_reason && (
-              <p className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/30 text-xs text-red-300">
+              <p className="mt-2 p-2 rounded bg-danger/10 border border-danger/30 text-xs text-red-300">
                 <span className="font-bold uppercase tracking-wider">Suspended:</span> {trust.suspended_reason}
                 {trust.suspended_until && (
                   <span className="block mt-1">until {fmtDate(trust.suspended_until)}</span>
@@ -494,7 +494,7 @@ export default async function Page({
               </p>
             )}
             {trust.is_flagged && trust.flag_reason && !trust.is_suspended && (
-              <p className="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+              <p className="mt-2 p-2 rounded bg-accent/10 border border-accent/30 text-xs text-accent-strong">
                 <span className="font-bold uppercase tracking-wider">Flagged:</span> {trust.flag_reason}
               </p>
             )}
@@ -516,7 +516,7 @@ export default async function Page({
             <Fact label="Phone" value={kyc.phone_verified ? "Verified" : "Not verified"} />
             {kyc.verified_at && <Fact label="Verified at" value={fmtDateTime(kyc.verified_at)} />}
             {kyc.rejected_reason && (
-              <p className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/30 text-xs text-red-300">
+              <p className="mt-2 p-2 rounded bg-danger/10 border border-danger/30 text-xs text-red-300">
                 <span className="font-bold uppercase tracking-wider">Rejected:</span> {kyc.rejected_reason}
               </p>
             )}
@@ -530,18 +530,18 @@ export default async function Page({
         {recentAdminActions.rows.length === 0 ? (
           <EmptyState title="No admin actions recorded against this user." />
         ) : (
-          <div className="rounded-lg border border-neutral-800 divide-y divide-neutral-800">
+          <div className="rounded-lg border border-border-subtle divide-y divide-border-subtle">
             {recentAdminActions.rows.map((a) => (
               <div key={a.id} className="px-4 py-3 flex items-baseline justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white font-mono">{a.action}</p>
-                  {a.reason && <p className="text-xs text-neutral-400 mt-0.5">{a.reason}</p>}
+                  <p className="text-sm text-ink font-mono">{a.action}</p>
+                  {a.reason && <p className="text-xs text-ink-muted mt-0.5">{a.reason}</p>}
                   <p className="text-[11px] text-neutral-600 mt-0.5">
                     by {a.actor_label ?? "system"}
                     {a.target_kind !== "user" && ` · ${a.target_kind}${a.target_id ? `:${a.target_id.slice(0, 8)}` : ""}`}
                   </p>
                 </div>
-                <span className="text-xs text-neutral-500 whitespace-nowrap">
+                <span className="text-xs text-ink-faint whitespace-nowrap">
                   {fmtRelative(a.created_at)}
                 </span>
               </div>
@@ -551,7 +551,7 @@ export default async function Page({
         <div className="mt-2 text-right">
           <Link
             href={`/admin/system/audit?q=${encodeURIComponent(user.id)}`}
-            className="text-xs text-amber-400 hover:text-amber-300 underline"
+            className="text-xs text-accent-strong hover:text-accent-strong underline"
           >
             All admin actions →
           </Link>
@@ -564,9 +564,9 @@ export default async function Page({
         {recentOrders.rows.length === 0 ? (
           <EmptyState title="No customer orders for this user." />
         ) : (
-          <div className="rounded-lg border border-neutral-800 overflow-hidden">
+          <div className="rounded-lg border border-border-subtle overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wider">
+              <thead className="bg-surface text-ink-muted text-xs uppercase tracking-wider">
                 <tr>
                   <th className="text-left px-3 py-2">Order</th>
                   <th className="text-left px-3 py-2">Status</th>
@@ -574,11 +574,11 @@ export default async function Page({
                   <th className="text-right px-3 py-2">When</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-800">
+              <tbody className="divide-y divide-border-subtle">
                 {recentOrders.rows.map((o) => (
-                  <tr key={o.id} className="hover:bg-neutral-900/50">
+                  <tr key={o.id} className="hover:bg-surface/50">
                     <td className="px-3 py-2 font-mono text-xs">
-                      <Link href={`/admin/ops/orders?q=${o.id}`} className="text-amber-400 hover:text-amber-300">
+                      <Link href={`/admin/ops/orders?q=${o.id}`} className="text-accent-strong hover:text-accent-strong">
                         #{o.id}
                       </Link>
                     </td>
@@ -586,7 +586,7 @@ export default async function Page({
                       <StatusBadge status={o.status} palette={ORDER_STATUS_TONE} />
                     </td>
                     <td className="px-3 py-2 text-right font-mono">{fmtGBP(o.total_gbp)}</td>
-                    <td className="px-3 py-2 text-right text-xs text-neutral-400 whitespace-nowrap">
+                    <td className="px-3 py-2 text-right text-xs text-ink-muted whitespace-nowrap">
                       {fmtDate(o.created_at)}
                     </td>
                   </tr>
@@ -598,7 +598,7 @@ export default async function Page({
         <div className="mt-2 text-right">
           <Link
             href={`/admin/ops/orders?userId=${user.id}`}
-            className="text-xs text-amber-400 hover:text-amber-300 underline"
+            className="text-xs text-accent-strong hover:text-accent-strong underline"
           >
             All orders →
           </Link>
@@ -609,7 +609,7 @@ export default async function Page({
       {recentChargebacks.rows.length > 0 && (
         <section>
           <SectionHeading count={recentChargebacks.rows.length}>Recent chargebacks</SectionHeading>
-          <div className="rounded-lg border border-neutral-800 divide-y divide-neutral-800">
+          <div className="rounded-lg border border-border-subtle divide-y divide-border-subtle">
             {recentChargebacks.rows.map((c) => {
               const dueMs = c.evidence_due_at ? new Date(c.evidence_due_at).getTime() - Date.now() : null;
               const dueDays = dueMs != null ? Math.floor(dueMs / 86_400_000) : null;
@@ -617,10 +617,10 @@ export default async function Page({
                 <div key={c.stripe_dispute_id} className="px-4 py-3 flex items-baseline justify-between gap-4 flex-wrap">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-amber-400 font-mono">{fmtGBP(c.amount_gbp)}</span>
+                      <span className="text-accent-strong font-mono">{fmtGBP(c.amount_gbp)}</span>
                       <StatusBadge status={c.stripe_status} />
                       {c.stripe_reason && (
-                        <span className="text-xs text-neutral-500 italic">{c.stripe_reason}</span>
+                        <span className="text-xs text-ink-faint italic">{c.stripe_reason}</span>
                       )}
                       <Verifiability
                         source="Stripe"
@@ -629,13 +629,13 @@ export default async function Page({
                       />
                     </div>
                     {c.evidence_due_at && dueDays != null && (
-                      <p className={`text-xs mt-1 ${dueDays <= 3 ? "text-red-400 font-bold" : "text-neutral-500"}`}>
+                      <p className={`text-xs mt-1 ${dueDays <= 3 ? "text-red-400 font-bold" : "text-ink-faint"}`}>
                         Evidence due {fmtDate(c.evidence_due_at)}
                         {dueDays >= 0 ? ` (${dueDays}d)` : ` (overdue ${Math.abs(dueDays)}d)`}
                       </p>
                     )}
                   </div>
-                  <span className="text-xs text-neutral-500 whitespace-nowrap">{fmtDate(c.created_at)}</span>
+                  <span className="text-xs text-ink-faint whitespace-nowrap">{fmtDate(c.created_at)}</span>
                 </div>
               );
             })}
@@ -643,7 +643,7 @@ export default async function Page({
           <div className="mt-2 text-right">
             <Link
               href={`/admin/money/chargebacks?userId=${user.id}`}
-              className="text-xs text-amber-400 hover:text-amber-300 underline"
+              className="text-xs text-accent-strong hover:text-accent-strong underline"
             >
               All chargebacks →
             </Link>
@@ -655,9 +655,9 @@ export default async function Page({
       {recentTrades.rows.length > 0 && (
         <section>
           <SectionHeading count={recentTrades.rows.length}>Recent P2P trades</SectionHeading>
-          <div className="rounded-lg border border-neutral-800 overflow-hidden">
+          <div className="rounded-lg border border-border-subtle overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wider">
+              <thead className="bg-surface text-ink-muted text-xs uppercase tracking-wider">
                 <tr>
                   <th className="text-left px-3 py-2">SKU</th>
                   <th className="text-left px-3 py-2">Side</th>
@@ -667,17 +667,17 @@ export default async function Page({
                   <th className="text-right px-3 py-2">When</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-800">
+              <tbody className="divide-y divide-border-subtle">
                 {recentTrades.rows.map((t) => (
-                  <tr key={t.id} className="hover:bg-neutral-900/50">
+                  <tr key={t.id} className="hover:bg-surface/50">
                     <td className="px-3 py-2 font-mono text-xs">{t.sku}</td>
-                    <td className="px-3 py-2 text-xs uppercase tracking-wider text-neutral-400">{t.side}</td>
+                    <td className="px-3 py-2 text-xs uppercase tracking-wider text-ink-muted">{t.side}</td>
                     <td className="px-3 py-2"><StatusBadge status={t.status} /></td>
                     <td className="px-3 py-2 text-right font-mono">{fmtGBP(t.price)}</td>
-                    <td className="px-3 py-2 text-xs text-neutral-400 truncate max-w-[200px]">
+                    <td className="px-3 py-2 text-xs text-ink-muted truncate max-w-[200px]">
                       {t.counterparty_email ?? <span className="text-neutral-600">—</span>}
                     </td>
-                    <td className="px-3 py-2 text-right text-xs text-neutral-400 whitespace-nowrap">
+                    <td className="px-3 py-2 text-right text-xs text-ink-muted whitespace-nowrap">
                       {fmtDate(t.created_at)}
                     </td>
                   </tr>
@@ -692,20 +692,20 @@ export default async function Page({
       {recentFraud.rows.length > 0 && (
         <section>
           <SectionHeading count={recentFraud.rows.length}>Recent fraud signals</SectionHeading>
-          <div className="rounded-lg border border-neutral-800 divide-y divide-neutral-800">
+          <div className="rounded-lg border border-border-subtle divide-y divide-border-subtle">
             {recentFraud.rows.map((f) => (
               <div key={f.id} className="px-4 py-3 flex items-baseline justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={f.severity} palette={SEVERITY_TONE} />
-                    <span className="text-sm text-white font-mono">{f.signal_type}</span>
+                    <span className="text-sm text-ink font-mono">{f.signal_type}</span>
                     {f.resolved && (
-                      <span className="text-[10px] uppercase tracking-wider text-emerald-400">resolved</span>
+                      <span className="text-[10px] uppercase tracking-wider text-secondary">resolved</span>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-400 mt-1">{f.description}</p>
+                  <p className="text-xs text-ink-muted mt-1">{f.description}</p>
                 </div>
-                <span className="text-xs text-neutral-500 whitespace-nowrap">{fmtDate(f.created_at)}</span>
+                <span className="text-xs text-ink-faint whitespace-nowrap">{fmtDate(f.created_at)}</span>
               </div>
             ))}
           </div>
@@ -729,9 +729,9 @@ function FactCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+    <div className="rounded-lg border border-border-subtle bg-surface/50 p-4">
       <div className="flex items-baseline gap-3 mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{title}</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{title}</h3>
         {provenance}
       </div>
       <dl className="space-y-2">{children}</dl>
@@ -742,8 +742,8 @@ function FactCard({
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
-      <dt className="text-neutral-500 whitespace-nowrap">{label}</dt>
-      <dd className="text-neutral-200 text-right">{value}</dd>
+      <dt className="text-ink-faint whitespace-nowrap">{label}</dt>
+      <dd className="text-ink text-right">{value}</dd>
     </div>
   );
 }

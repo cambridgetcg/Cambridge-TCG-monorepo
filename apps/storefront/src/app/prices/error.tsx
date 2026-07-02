@@ -19,23 +19,23 @@ export default function PricesError({
 }) {
   return (
     <main className="max-w-2xl mx-auto px-4 py-20 text-center">
-      <h1 className="text-2xl font-bold text-white mb-3">
+      <h1 className="text-2xl font-bold text-ink mb-3">
         This price page didn&rsquo;t load
       </h1>
-      <p className="text-neutral-400 mb-6">
+      <p className="text-ink-muted mb-6">
         Something went wrong fetching the prices for this page. It&rsquo;s on
         our side, not yours — try again, or browse the full price guide.
       </p>
       <div className="flex items-center justify-center gap-3">
         <button
           onClick={reset}
-          className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-amber-400 transition"
+          className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-black hover:bg-accent-strong transition"
         >
           Try again
         </button>
         <a
           href="/prices"
-          className="rounded-lg border border-neutral-700 px-5 py-2.5 text-sm text-neutral-300 hover:text-white transition"
+          className="rounded-lg border border-border-strong px-5 py-2.5 text-sm text-ink-muted hover:text-ink transition"
         >
           All games →
         </a>

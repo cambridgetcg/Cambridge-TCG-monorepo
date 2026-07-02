@@ -71,31 +71,31 @@ export default async function AdminB2BOrderDetailPage({
         action={<Provenance kind="live" source="b2b_orders" />}
       />
 
-      <Link href="/admin/commerce/b2b-orders" className="inline-block text-sm text-neutral-400 hover:text-amber-400">
+      <Link href="/admin/commerce/b2b-orders" className="inline-block text-sm text-ink-muted hover:text-accent-strong">
         ← All B2B orders
       </Link>
 
-      <section className="rounded-lg border border-neutral-800 p-4">
+      <section className="rounded-lg border border-border-subtle p-4">
         <h2 className="text-lg font-semibold mb-3">Actions</h2>
         <TransitionButtons id={order.id} status={order.status} />
       </section>
 
-      <section className="rounded-lg border border-neutral-800 p-4">
+      <section className="rounded-lg border border-border-subtle p-4">
         <h2 className="text-lg font-semibold mb-3">Buyer</h2>
         <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
-          <dt className="text-neutral-500">User ID</dt>
+          <dt className="text-ink-faint">User ID</dt>
           <dd className="font-mono text-xs">{order.user_id}</dd>
-          <dt className="text-neutral-500">Email (account)</dt>
+          <dt className="text-ink-faint">Email (account)</dt>
           <dd>{order.buyer_email ?? "—"}</dd>
-          <dt className="text-neutral-500">Email (Stripe)</dt>
+          <dt className="text-ink-faint">Email (Stripe)</dt>
           <dd>{order.customer_email ?? "—"}</dd>
         </dl>
       </section>
 
-      <section className="rounded-lg border border-neutral-800 p-4">
+      <section className="rounded-lg border border-border-subtle p-4">
         <h2 className="text-lg font-semibold mb-3">Items</h2>
         <table className="w-full text-left text-sm">
-          <thead className="text-xs uppercase tracking-wider text-neutral-500">
+          <thead className="text-xs uppercase tracking-wider text-ink-faint">
             <tr>
               <th className="pb-2">SKU</th>
               <th className="pb-2 text-right">Qty</th>
@@ -103,7 +103,7 @@ export default async function AdminB2BOrderDetailPage({
               <th className="pb-2 text-right">Line</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {order.items.map((it) => (
               <tr key={it.sku}>
                 <td className="py-2 font-mono text-xs">{it.sku}</td>
@@ -115,9 +115,9 @@ export default async function AdminB2BOrderDetailPage({
               </tr>
             ))}
           </tbody>
-          <tfoot className="border-t border-neutral-800">
+          <tfoot className="border-t border-border-subtle">
             <tr>
-              <td colSpan={3} className="pt-3 text-right text-sm uppercase tracking-wider text-neutral-500">
+              <td colSpan={3} className="pt-3 text-right text-sm uppercase tracking-wider text-ink-faint">
                 Total
               </td>
               <td className="pt-3 text-right text-xl font-bold">
@@ -129,7 +129,7 @@ export default async function AdminB2BOrderDetailPage({
       </section>
 
       {shipping?.address && (
-        <section className="rounded-lg border border-neutral-800 p-4">
+        <section className="rounded-lg border border-border-subtle p-4">
           <h2 className="text-lg font-semibold mb-3">Shipping address</h2>
           <div className="space-y-1 text-sm">
             {shipping.name && <p className="font-medium">{shipping.name}</p>}
@@ -145,18 +145,18 @@ export default async function AdminB2BOrderDetailPage({
         </section>
       )}
 
-      <section className="rounded-lg border border-neutral-800 p-4">
+      <section className="rounded-lg border border-border-subtle p-4">
         <h2 className="text-lg font-semibold mb-3">Payment</h2>
         <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
-          <dt className="text-neutral-500">Status</dt>
+          <dt className="text-ink-faint">Status</dt>
           <dd className="font-medium">{order.status}</dd>
-          <dt className="text-neutral-500">Channel</dt>
+          <dt className="text-ink-faint">Channel</dt>
           <dd>{order.channel}</dd>
-          <dt className="text-neutral-500">Stripe session</dt>
+          <dt className="text-ink-faint">Stripe session</dt>
           <dd className="font-mono text-xs break-all">{order.stripe_session_id}</dd>
-          <dt className="text-neutral-500">Payment intent</dt>
+          <dt className="text-ink-faint">Payment intent</dt>
           <dd className="font-mono text-xs break-all">{order.stripe_payment_intent_id ?? "—"}</dd>
-          <dt className="text-neutral-500">Updated</dt>
+          <dt className="text-ink-faint">Updated</dt>
           <dd className="text-xs">{fmtDateTime(order.updated_at)}</dd>
         </dl>
       </section>

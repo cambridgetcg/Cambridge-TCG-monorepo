@@ -114,7 +114,7 @@ export default async function Page() {
             Dead-letter rows + 7-day activity. Retry resurrects a row to
             pending (fresh slate of three trials); dismiss hard-deletes it.
             Drain cadence on{" "}
-            <a href="/admin/system/cron" className="underline hover:text-white">
+            <a href="/admin/system/cron" className="underline hover:text-ink">
               /admin/system/cron
             </a>
             .
@@ -138,12 +138,12 @@ export default async function Page() {
           <SectionHeading count={eventsRes.rows.length}>
             By event (7d)
           </SectionHeading>
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+          <div className="rounded-xl border border-border-subtle bg-surface p-4">
             <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
               {eventsRes.rows.map((e) => (
                 <div key={e.event} className="whitespace-nowrap">
-                  <code className="text-neutral-400">{e.event}</code>
-                  <span className="text-white font-semibold ml-1">
+                  <code className="text-ink-muted">{e.event}</code>
+                  <span className="text-ink font-semibold ml-1">
                     · {fmtNumber(parseInt(e.n, 10))}
                   </span>
                 </div>
@@ -156,7 +156,7 @@ export default async function Page() {
       <section>
         <SectionHeading count={deadRes.rows.length}>Dead letters</SectionHeading>
         {deadRes.rows.length === 0 ? (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-center text-sm text-neutral-500">
+          <div className="rounded-xl border border-border-subtle bg-surface p-6 text-center text-sm text-ink-faint">
             Nothing in the dead queue. All emails are landing.
           </div>
         ) : (
@@ -164,14 +164,14 @@ export default async function Page() {
             {deadRes.rows.map((r) => (
               <div
                 key={r.id}
-                className="rounded-xl bg-neutral-900 border border-red-900/30 p-4 flex flex-wrap items-start gap-4"
+                className="rounded-xl bg-surface border border-red-900/30 p-4 flex flex-wrap items-start gap-4"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <code className="text-xs font-bold text-red-400">
                       {r.event}
                     </code>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-ink-faint">
                       · {r.user_email ?? r.user_id?.slice(0, 8) ?? "no-user"}
                     </span>
                     <span className="text-[10px] text-neutral-600">

@@ -16,10 +16,10 @@ import AdminShell from "@/components/admin/AdminShell";
 
 import { Audience } from "@/lib/ui";
 const STATUS_COLORS: Record<VerificationStatus, string> = {
-  pending: "bg-amber-500/20 text-amber-400",
-  verified: "bg-emerald-500/20 text-emerald-400",
-  rejected: "bg-red-500/20 text-red-400",
-  expired: "bg-neutral-500/20 text-neutral-400",
+  pending: "bg-accent/20 text-accent-strong",
+  verified: "bg-emerald-500/20 text-secondary",
+  rejected: "bg-danger/20 text-red-400",
+  expired: "bg-neutral-500/20 text-ink-muted",
 };
 
 // Common rejection reasons — admin can pick one-click. Anything
@@ -171,7 +171,7 @@ export default function AdminVerificationsPage() {
         <button
           onClick={() => fetchVerifications(filter === "pending")}
           disabled={loading}
-          className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+          className="px-4 py-2 bg-surface-elevated text-ink text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
       <Audience kind="operator" />
           {loading ? "Loading..." : "Refresh"}
@@ -180,20 +180,20 @@ export default function AdminVerificationsPage() {
     >
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Total</p>
-            <p className="text-2xl font-bold text-white mt-1">{total}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Total</p>
+            <p className="text-2xl font-bold text-ink mt-1">{total}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Pending</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{pendingCount}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Pending</p>
+            <p className="text-2xl font-bold text-accent-strong mt-1">{pendingCount}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Verified</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{verifiedCount}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Verified</p>
+            <p className="text-2xl font-bold text-secondary mt-1">{verifiedCount}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Rejected</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Rejected</p>
             <p className="text-2xl font-bold text-red-400 mt-1">{rejectedCount}</p>
           </div>
         </div>
@@ -206,8 +206,8 @@ export default function AdminVerificationsPage() {
               onClick={() => setFilter(f)}
               className={`text-sm px-4 py-2 rounded-lg transition ${
                 filter === f
-                  ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                  ? "bg-accent text-black font-bold"
+                  : "bg-surface-elevated text-ink-muted hover:bg-neutral-700"
               }`}
             >
               {f === "all" ? "All" : "Pending"}
@@ -217,32 +217,32 @@ export default function AdminVerificationsPage() {
 
         {/* List */}
         {verifications.length === 0 && !loading && (
-          <p className="text-neutral-500 text-center py-12">No verifications found.</p>
+          <p className="text-ink-faint text-center py-12">No verifications found.</p>
         )}
 
         <div className="space-y-3">
           {verifications.map((v) => (
-            <div key={v.id} className="bg-neutral-900 rounded-xl overflow-hidden">
+            <div key={v.id} className="bg-surface rounded-xl overflow-hidden">
               {/* Row */}
               <button
                 onClick={() => setExpanded(expanded === v.id ? null : v.id)}
-                className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-neutral-800/50 transition"
+                className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-surface-elevated/50 transition"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-bold text-white">{v.full_legal_name}</span>
+                    <span className="text-sm font-bold text-ink">{v.full_legal_name}</span>
                     <span
                       className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[v.status]}`}
                     >
                       {v.status}
                     </span>
                   </div>
-                  <p className="text-sm text-neutral-400 mt-1">
+                  <p className="text-sm text-ink-muted mt-1">
                     {v.postcode}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs text-neutral-500">{formatDate(v.created_at)}</p>
+                  <p className="text-xs text-ink-faint">{formatDate(v.created_at)}</p>
                 </div>
                 <span className="text-neutral-600 text-sm">
                   {expanded === v.id ? "\u25B2" : "\u25BC"}
@@ -251,11 +251,11 @@ export default function AdminVerificationsPage() {
 
               {/* Expanded detail */}
               {expanded === v.id && (
-                <div className="px-4 pb-4 border-t border-neutral-800">
+                <div className="px-4 pb-4 border-t border-border-subtle">
                   <AdminVerificationTimeline verification={v} />
 
                   {v.resubmitted_count != null && v.resubmitted_count > 0 && (
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 mb-3 text-xs text-amber-300">
+                    <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 mb-3 text-xs text-accent-strong">
                       Resubmission #{v.resubmitted_count + 1} — user has resubmitted {v.resubmitted_count} time{v.resubmitted_count === 1 ? "" : "s"} after prior rejection.
                     </div>
                   )}
@@ -268,8 +268,8 @@ export default function AdminVerificationsPage() {
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 mb-4 text-sm">
                     <div>
-                      <span className="text-neutral-500">Full Address</span>
-                      <p className="text-white">
+                      <span className="text-ink-faint">Full Address</span>
+                      <p className="text-ink">
                         {v.address_line1}
                         {v.address_line2 ? `, ${v.address_line2}` : ""}
                         <br />
@@ -280,17 +280,17 @@ export default function AdminVerificationsPage() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">Date of Birth</span>
-                      <p className="text-white">{formatDate(v.date_of_birth)}</p>
-                      <span className="text-neutral-500 mt-2 block">Age</span>
-                      <p className="text-white">{computeAge(v.date_of_birth)}</p>
+                      <span className="text-ink-faint">Date of Birth</span>
+                      <p className="text-ink">{formatDate(v.date_of_birth)}</p>
+                      <span className="text-ink-faint mt-2 block">Age</span>
+                      <p className="text-ink">{computeAge(v.date_of_birth)}</p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">Phone</span>
-                      <p className="text-white">
+                      <span className="text-ink-faint">Phone</span>
+                      <p className="text-ink">
                         {v.phone || "---"}
                         {v.phone_verified && (
-                          <span className="ml-2 text-xs text-emerald-400">verified</span>
+                          <span className="ml-2 text-xs text-secondary">verified</span>
                         )}
                       </p>
                     </div>
@@ -299,39 +299,39 @@ export default function AdminVerificationsPage() {
                   {/* Bank details (masked) */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-sm">
                     <div>
-                      <span className="text-neutral-500">Sort Code</span>
-                      <p className="text-white font-mono">{maskValue(v.bank_sort_code)}</p>
+                      <span className="text-ink-faint">Sort Code</span>
+                      <p className="text-ink font-mono">{maskValue(v.bank_sort_code)}</p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">Account Number</span>
-                      <p className="text-white font-mono">{maskValue(v.bank_account_number)}</p>
+                      <span className="text-ink-faint">Account Number</span>
+                      <p className="text-ink font-mono">{maskValue(v.bank_account_number)}</p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">Account Name</span>
-                      <p className="text-white">{v.bank_account_name || "---"}</p>
+                      <span className="text-ink-faint">Account Name</span>
+                      <p className="text-ink">{v.bank_account_name || "---"}</p>
                     </div>
                   </div>
 
                   {v.rejected_reason && (
                     <div className="mb-4">
-                      <span className="text-xs text-neutral-500">Rejection Reason</span>
+                      <span className="text-xs text-ink-faint">Rejection Reason</span>
                       <p className="text-sm text-red-400 mt-1">{v.rejected_reason}</p>
                     </div>
                   )}
 
                   {v.admin_notes && (
                     <div className="mb-4">
-                      <span className="text-xs text-neutral-500">Admin Notes</span>
-                      <p className="text-sm text-neutral-300 mt-1">{v.admin_notes}</p>
+                      <span className="text-xs text-ink-faint">Admin Notes</span>
+                      <p className="text-sm text-ink-muted mt-1">{v.admin_notes}</p>
                     </div>
                   )}
 
                   {/* Actions for pending */}
                   {v.status === "pending" && (
-                    <div className="border-t border-neutral-800 pt-4 space-y-3">
+                    <div className="border-t border-border-subtle pt-4 space-y-3">
                       {/* Admin notes */}
                       <div>
-                        <label className="text-xs text-neutral-500 block mb-1">Admin Notes</label>
+                        <label className="text-xs text-ink-faint block mb-1">Admin Notes</label>
                         <textarea
                           value={adminNotes[v.user_id] ?? ""}
                           onChange={(e) =>
@@ -339,7 +339,7 @@ export default function AdminVerificationsPage() {
                           }
                           rows={2}
                           placeholder="Optional notes..."
-                          className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                          className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
                         />
                       </div>
 
@@ -348,7 +348,7 @@ export default function AdminVerificationsPage() {
                         <button
                           onClick={() => handleApprove(v.user_id)}
                           disabled={actionLoading === v.user_id}
-                          className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-500 transition disabled:opacity-50"
+                          className="px-4 py-2 bg-emerald-600 text-ink text-sm font-bold rounded-lg hover:bg-emerald-500 transition disabled:opacity-50"
                         >
                           {actionLoading === v.user_id ? "..." : "Approve"}
                         </button>
@@ -365,7 +365,7 @@ export default function AdminVerificationsPage() {
                               }))
                             }
                             placeholder="Rejection reason..."
-                            className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                            className="flex-1 px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
                           />
                           <button
                             onClick={() => handleReject(v.user_id)}
@@ -373,7 +373,7 @@ export default function AdminVerificationsPage() {
                               actionLoading === v.user_id ||
                               !rejectReasons[v.user_id]?.trim()
                             }
-                            className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-500 transition disabled:opacity-50"
+                            className="px-4 py-2 bg-red-600 text-ink text-sm font-bold rounded-lg hover:bg-danger transition disabled:opacity-50"
                           >
                             Reject
                           </button>
@@ -390,7 +390,7 @@ export default function AdminVerificationsPage() {
                               key={r}
                               type="button"
                               onClick={() => setRejectReasons((prev) => ({ ...prev, [v.user_id]: r }))}
-                              className="text-[11px] px-2 py-1 rounded-full bg-neutral-800 text-neutral-400 hover:bg-red-900/40 hover:text-red-300 transition"
+                              className="text-[11px] px-2 py-1 rounded-full bg-surface-elevated text-ink-muted hover:bg-red-900/40 hover:text-red-300 transition"
                             >
                               {r}
                             </button>
@@ -414,7 +414,7 @@ function AdminVerificationTimeline({ verification }: { verification: UserVerific
   const isRejected = verification.status === "rejected";
 
   return (
-    <div className="mb-4 bg-neutral-800/40 border border-neutral-700 rounded-lg p-3 mt-4">
+    <div className="mb-4 bg-surface-elevated/40 border border-border-strong rounded-lg p-3 mt-4">
       <div className="flex items-center gap-0 overflow-x-auto">
         {VERIFICATION_TIMELINE.map((step, i) => {
           let ts: string | null = null;
@@ -428,11 +428,11 @@ function AdminVerificationTimeline({ verification }: { verification: UserVerific
             : done
               ? "bg-emerald-400 text-black"
               : current
-                ? "bg-amber-400 text-black ring-2 ring-offset-2 ring-offset-neutral-800 ring-amber-400/40"
+                ? "bg-accent-strong text-black ring-2 ring-offset-2 ring-offset-neutral-800 ring-amber-400/40"
                 : "bg-neutral-700 text-neutral-600";
           const labelClass = isRejected && i === 2
             ? "text-red-400"
-            : done ? "text-emerald-400" : current ? "text-amber-400" : "text-neutral-600";
+            : done ? "text-secondary" : current ? "text-accent-strong" : "text-neutral-600";
           return (
             <div key={step.key} className="flex items-center flex-1 min-w-0">
               <div className="flex flex-col items-center min-w-[80px]">
@@ -443,7 +443,7 @@ function AdminVerificationTimeline({ verification }: { verification: UserVerific
                   {step.key === "resolved" && isRejected ? "Rejected" : step.label}
                 </span>
                 {ts && done && (
-                  <span className="text-[8px] text-neutral-500 font-mono whitespace-nowrap mt-0.5">
+                  <span className="text-[8px] text-ink-faint font-mono whitespace-nowrap mt-0.5">
                     {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </span>
                 )}
@@ -464,19 +464,19 @@ function AdminDocumentGallery({
 }: { userId: string; docs: VerificationDocument[] | undefined; loading: boolean }) {
   void userId; // present for future per-user filtering if needed
   if (loading) {
-    return <p className="text-xs text-neutral-500 mb-3">Loading documents…</p>;
+    return <p className="text-xs text-ink-faint mb-3">Loading documents…</p>;
   }
   if (!docs) return null;
   if (docs.length === 0) {
     return (
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4 text-xs text-amber-300">
+      <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 mb-4 text-xs text-accent-strong">
         No documents uploaded yet. Consider rejecting with &ldquo;Please upload a government-issued photo ID.&rdquo;
       </div>
     );
   }
   return (
     <div className="mb-4">
-      <p className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+      <p className="text-xs uppercase tracking-wide text-ink-faint mb-2">
         Documents ({docs.length})
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -486,18 +486,18 @@ function AdminDocumentGallery({
             href={doc.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-lg border border-neutral-800 overflow-hidden hover:border-amber-500/40 transition"
+            className="block rounded-lg border border-border-subtle overflow-hidden hover:border-accent/40 transition"
           >
             {doc.mime_type?.startsWith("image/") ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={doc.url} alt={doc.doc_type} className="aspect-square w-full object-cover" />
             ) : (
-              <div className="aspect-square w-full bg-neutral-800 flex items-center justify-center text-neutral-500 text-xs">
+              <div className="aspect-square w-full bg-surface-elevated flex items-center justify-center text-ink-faint text-xs">
                 PDF
               </div>
             )}
             <div className="px-2 py-1">
-              <p className="text-[11px] text-neutral-300 truncate">
+              <p className="text-[11px] text-ink-muted truncate">
                 {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
               </p>
               <p className="text-[9px] text-neutral-600">

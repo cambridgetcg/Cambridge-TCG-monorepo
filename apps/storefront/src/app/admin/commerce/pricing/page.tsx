@@ -238,10 +238,10 @@ export default async function Page({
       header: "Card",
       render: (r) => (
         <div className="min-w-0">
-          <p className="text-white font-medium line-clamp-1 max-w-[280px]">
+          <p className="text-ink font-medium line-clamp-1 max-w-[280px]">
             {r.name ?? r.sku}
           </p>
-          <p className="text-xs text-neutral-500 font-mono">{r.sku}</p>
+          <p className="text-xs text-ink-faint font-mono">{r.sku}</p>
         </div>
       ),
     },
@@ -250,14 +250,14 @@ export default async function Page({
       header: "Set",
       hideOnMobile: true,
       render: (r) => (
-        <span className="text-neutral-400 text-xs uppercase">{r.set_code ?? "—"}</span>
+        <span className="text-ink-muted text-xs uppercase">{r.set_code ?? "—"}</span>
       ),
     },
     {
       key: "jpy",
       header: "JPY (CardRush)",
       align: "right",
-      cellClass: "font-mono text-neutral-400 text-xs",
+      cellClass: "font-mono text-ink-muted text-xs",
       render: (r) => (r.cardrush_jpy && r.cardrush_jpy > 0 ? fmtJPY(r.cardrush_jpy) : "—"),
     },
     {
@@ -265,7 +265,7 @@ export default async function Page({
       header: "Base £",
       align: "right",
       hideOnMobile: true,
-      cellClass: "font-mono text-neutral-400 text-xs",
+      cellClass: "font-mono text-ink-muted text-xs",
       render: (r) => (r.base_gbp ? fmtGBP(r.base_gbp) : "—"),
     },
     {
@@ -286,7 +286,7 @@ export default async function Page({
       header: "Last Sync",
       align: "right",
       hideOnMobile: true,
-      cellClass: "text-xs text-neutral-500 whitespace-nowrap",
+      cellClass: "text-xs text-ink-faint whitespace-nowrap",
       render: (r) => (r.last_synced_at ? fmtRelative(r.last_synced_at) : "never"),
     },
   ];
@@ -451,7 +451,7 @@ export default async function Page({
             attempted, distinct from DB-side freshness. Absence is data —
             no run row means "never run", not 0%. */}
         {latestRun ? (
-          <div className="flex items-baseline gap-3 flex-wrap text-xs text-neutral-500">
+          <div className="flex items-baseline gap-3 flex-wrap text-xs text-ink-faint">
             <Provenance
               kind="snapshot"
               source={`ingest_run #${latestRun.id}`}
@@ -528,14 +528,14 @@ export default async function Page({
           Recent price changes
         </SectionHeading>
         {recentChangesResult.rows.length === 0 ? (
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             No price changes recorded yet. (Empty after a fresh deploy of
             Phase 2; the snapshot cron + admin edits will populate it.)
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="text-neutral-500 uppercase tracking-wider">
+              <thead className="text-ink-faint uppercase tracking-wider">
                 <tr>
                   <th className="text-left py-2 pr-3">When</th>
                   <th className="text-left py-2 pr-3">SKU</th>
@@ -552,19 +552,19 @@ export default async function Page({
                   const delta =
                     before !== null && after !== null ? after - before : null;
                   return (
-                    <tr key={i} className="text-neutral-300">
+                    <tr key={i} className="text-ink-muted">
                       <td className="py-2 pr-3 whitespace-nowrap" title={r.created_at}>
                         {fmtRelative(r.created_at)}
                       </td>
-                      <td className="py-2 pr-3 font-mono text-neutral-400">
+                      <td className="py-2 pr-3 font-mono text-ink-muted">
                         {r.sku ?? "—"}
                       </td>
                       <td className="py-2 pr-3">
                         <span
                           className={
                             r.action === "admin_edit"
-                              ? "text-amber-400"
-                              : "text-neutral-400"
+                              ? "text-accent-strong"
+                              : "text-ink-muted"
                           }
                         >
                           {r.action}
@@ -575,7 +575,7 @@ export default async function Page({
                           </span>
                         )}
                       </td>
-                      <td className="py-2 pr-3 text-neutral-500 font-mono">
+                      <td className="py-2 pr-3 text-ink-faint font-mono">
                         {r.actor_label ?? "—"}
                       </td>
                       <td className="py-2 pr-3 text-right font-mono">

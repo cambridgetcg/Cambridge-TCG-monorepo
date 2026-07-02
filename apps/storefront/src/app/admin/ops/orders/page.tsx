@@ -121,10 +121,10 @@ export default async function Page({
     <div className="space-y-6">
       <header>
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h1 className="text-xl font-semibold text-white">Orders (B2C)</h1>
+          <h1 className="text-xl font-semibold text-ink">Orders (B2C)</h1>
           <Provenance kind="live" />
         </div>
-        <p className="text-sm text-neutral-400 mt-1">
+        <p className="text-sm text-ink-muted mt-1">
           Customer orders from cambridgetcg.com — Stripe-backed, paid + shipped lifecycle.
           Note: <code className="text-xs">status=&apos;shipped&apos;</code> may be carrier-confirmed
           or admin-marked; provenance split is filed as audit item A6.
@@ -138,11 +138,11 @@ export default async function Page({
             <Link href={`/admin/catalog/users/${userId}`} className="font-medium underline">
               {filterUser.name ?? filterUser.email}
             </Link>
-            <span className="text-neutral-500"> ({filterUser.email})</span>
+            <span className="text-ink-faint"> ({filterUser.email})</span>
           </span>
           <Link
             href={buildHref({ userId: "", page: "1" })}
-            className="text-xs text-neutral-400 hover:text-white"
+            className="text-xs text-ink-muted hover:text-ink"
           >
             Clear filter ✕
           </Link>
@@ -156,7 +156,7 @@ export default async function Page({
           className={`px-3 py-1 rounded-full border ${
             !status
               ? "border-blue-500 bg-blue-500/10 text-blue-300"
-              : "border-neutral-800 text-neutral-400 hover:border-neutral-700"
+              : "border-border-subtle text-ink-muted hover:border-border-strong"
           }`}
         >
           All ({byStatusResult.rows.reduce((s, r) => s + parseInt(r.count, 10), 0)})
@@ -168,7 +168,7 @@ export default async function Page({
             className={`px-3 py-1 rounded-full border ${
               status === r.status
                 ? "border-blue-500 bg-blue-500/10 text-blue-300"
-                : "border-neutral-800 text-neutral-400 hover:border-neutral-700"
+                : "border-border-subtle text-ink-muted hover:border-border-strong"
             }`}
           >
             {r.status} ({r.count})
@@ -184,18 +184,18 @@ export default async function Page({
           name="q"
           defaultValue={q}
           placeholder="Search by email, name, or Stripe session ID"
-          className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-md text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-blue-500"
+          className="flex-1 px-3 py-2 bg-surface border border-border-subtle rounded-md text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-blue-500"
         />
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-ink text-sm font-medium rounded-md transition-colors"
         >
           Search
         </button>
         {q && (
           <Link
             href={buildHref({ q: "", page: "1" })}
-            className="px-4 py-2 border border-neutral-800 text-neutral-400 hover:text-white text-sm rounded-md transition-colors"
+            className="px-4 py-2 border border-border-subtle text-ink-muted hover:text-ink text-sm rounded-md transition-colors"
           >
             Clear
           </Link>
@@ -203,9 +203,9 @@ export default async function Page({
       </form>
 
       {/* Results */}
-      <div className="rounded-lg border border-neutral-800 overflow-x-auto">
+      <div className="rounded-lg border border-border-subtle overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-neutral-900 text-neutral-400 text-xs uppercase tracking-wide">
+          <thead className="bg-surface text-ink-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-3 py-2">Order</th>
               <th className="text-left px-3 py-2">Customer</th>
@@ -215,10 +215,10 @@ export default async function Page({
               <th className="text-left px-3 py-2">Created</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {rowsResult.rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-neutral-500">
+                <td colSpan={6} className="px-3 py-8 text-center text-ink-faint">
                   No orders match the current filter.
                 </td>
               </tr>
@@ -229,18 +229,18 @@ export default async function Page({
                   ? items.reduce((s, it) => s + (it.qty ?? 1), 0)
                   : 0;
                 return (
-                  <tr key={r.id} className="hover:bg-neutral-900/50">
+                  <tr key={r.id} className="hover:bg-surface/50">
                     <td className="px-3 py-2">
-                      <div className="font-mono text-xs text-neutral-400">#{r.id}</div>
-                      <div className="text-xs text-neutral-500" title={r.stripe_session_id}>
+                      <div className="font-mono text-xs text-ink-muted">#{r.id}</div>
+                      <div className="text-xs text-ink-faint" title={r.stripe_session_id}>
                         {itemCount} item{itemCount === 1 ? "" : "s"}
                       </div>
                     </td>
                     <td className="px-3 py-2">
-                      <div className="text-white">{r.customer_name || "—"}</div>
-                      <div className="text-xs text-neutral-500">{r.customer_email}</div>
+                      <div className="text-ink">{r.customer_name || "—"}</div>
+                      <div className="text-xs text-ink-faint">{r.customer_email}</div>
                     </td>
-                    <td className="px-3 py-2 font-mono text-white">
+                    <td className="px-3 py-2 font-mono text-ink">
                       £{parseFloat(r.total_gbp).toFixed(2)}
                     </td>
                     <td className="px-3 py-2">
@@ -249,16 +249,16 @@ export default async function Page({
                     <td className="px-3 py-2 text-xs">
                       {r.tracking_number ? (
                         <>
-                          <div className="font-mono text-white">{r.tracking_number}</div>
+                          <div className="font-mono text-ink">{r.tracking_number}</div>
                           {r.carrier && (
-                            <div className="text-neutral-500">{r.carrier}</div>
+                            <div className="text-ink-faint">{r.carrier}</div>
                           )}
                         </>
                       ) : (
                         <span className="text-neutral-600">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs text-neutral-400 whitespace-nowrap">
+                    <td className="px-3 py-2 text-xs text-ink-muted whitespace-nowrap">
                       {fmtDateTime(r.created_at)}
                     </td>
                   </tr>
@@ -272,7 +272,7 @@ export default async function Page({
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-neutral-500">
+          <span className="text-ink-faint">
             Showing {offset + 1}–{Math.min(offset + rowsResult.rows.length, total)} of{" "}
             {total.toLocaleString()}
           </span>
@@ -280,18 +280,18 @@ export default async function Page({
             {page > 1 && (
               <Link
                 href={buildHref({ page: String(page - 1) })}
-                className="px-3 py-1 border border-neutral-800 hover:border-neutral-700 text-white rounded"
+                className="px-3 py-1 border border-border-subtle hover:border-border-strong text-ink rounded"
               >
                 ← Prev
               </Link>
             )}
-            <span className="px-3 py-1 text-neutral-400">
+            <span className="px-3 py-1 text-ink-muted">
               Page {page} of {totalPages}
             </span>
             {page < totalPages && (
               <Link
                 href={buildHref({ page: String(page + 1) })}
-                className="px-3 py-1 border border-neutral-800 hover:border-neutral-700 text-white rounded"
+                className="px-3 py-1 border border-border-subtle hover:border-border-strong text-ink rounded"
               >
                 Next →
               </Link>
@@ -308,11 +308,11 @@ function StatusBadge({ status }: { status: string }) {
     completed: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
     shipped: "bg-blue-500/10 text-blue-300 border-blue-500/20",
     delivered: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-    pending: "bg-amber-500/10 text-amber-300 border-amber-500/20",
-    refunded: "bg-neutral-500/10 text-neutral-300 border-neutral-500/20",
-    cancelled: "bg-red-500/10 text-red-300 border-red-500/20",
+    pending: "bg-accent/10 text-accent-strong border-accent/20",
+    refunded: "bg-neutral-500/10 text-ink-muted border-neutral-500/20",
+    cancelled: "bg-danger/10 text-red-300 border-danger/20",
   };
-  const cls = colors[status] ?? "bg-neutral-500/10 text-neutral-300 border-neutral-500/20";
+  const cls = colors[status] ?? "bg-neutral-500/10 text-ink-muted border-neutral-500/20";
   return (
     <span className={`inline-block px-2 py-0.5 text-xs border rounded ${cls}`}>
       {status}

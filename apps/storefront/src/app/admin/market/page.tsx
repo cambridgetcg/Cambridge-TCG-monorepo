@@ -10,17 +10,17 @@ import { Audience, WhyLink } from "@/lib/ui";
 // ── Escrow status config ──
 
 const ESCROW_COLORS: Record<EscrowStatus, string> = {
-  awaiting_payment: "bg-amber-500/20 text-amber-400",
+  awaiting_payment: "bg-accent/20 text-accent-strong",
   paid: "bg-blue-500/20 text-blue-400",
-  awaiting_shipment: "bg-amber-500/20 text-amber-400",
+  awaiting_shipment: "bg-accent/20 text-accent-strong",
   shipped_to_ctcg: "bg-blue-500/20 text-blue-400",
   received_by_ctcg: "bg-purple-500/20 text-purple-400",
-  verified: "bg-emerald-500/20 text-emerald-400",
-  shipped_to_buyer: "bg-emerald-500/20 text-emerald-400",
+  verified: "bg-emerald-500/20 text-secondary",
+  shipped_to_buyer: "bg-emerald-500/20 text-secondary",
   completed: "bg-green-500/20 text-green-400",
-  disputed: "bg-red-500/20 text-red-400",
-  refunded: "bg-red-500/20 text-red-400",
-  cancelled: "bg-neutral-500/20 text-neutral-400",
+  disputed: "bg-danger/20 text-red-400",
+  refunded: "bg-danger/20 text-red-400",
+  cancelled: "bg-neutral-500/20 text-ink-muted",
 };
 
 const ESCROW_LABELS: Record<EscrowStatus, string> = {
@@ -40,9 +40,9 @@ const ESCROW_LABELS: Record<EscrowStatus, string> = {
 // ── Escrow tier badge config ──
 
 const TIER_BADGE: Record<EscrowTier, { label: string; className: string }> = {
-  direct: { label: "Direct", className: "bg-emerald-500/20 text-emerald-400" },
+  direct: { label: "Direct", className: "bg-emerald-500/20 text-secondary" },
   verified: { label: "Verified", className: "bg-blue-500/20 text-blue-400" },
-  full_escrow: { label: "Full Escrow", className: "bg-amber-500/20 text-amber-400" },
+  full_escrow: { label: "Full Escrow", className: "bg-accent/20 text-accent-strong" },
 };
 
 // ── Status filter tabs (unchanged) ──
@@ -342,7 +342,7 @@ export default function AdminMarketPage() {
         <button
           onClick={fetchTrades}
           disabled={loading}
-          className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+          className="px-4 py-2 bg-surface-elevated text-ink text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
           {loading ? "Loading..." : "Refresh"}
         </button>
@@ -351,35 +351,35 @@ export default function AdminMarketPage() {
       <Audience kind="operator" />
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Total Trades</p>
-            <p className="text-2xl font-bold text-white mt-1">{totalTrades}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Total Trades</p>
+            <p className="text-2xl font-bold text-ink mt-1">{totalTrades}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Awaiting Shipment</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{awaitingShipment}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Awaiting Shipment</p>
+            <p className="text-2xl font-bold text-accent-strong mt-1">{awaitingShipment}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Needs Inspection</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Needs Inspection</p>
             <p className="text-2xl font-bold text-purple-400 mt-1">{needsInspection}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Photo Review</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Photo Review</p>
             <p className="text-2xl font-bold text-blue-400 mt-1">{photoReview}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Disputed</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Disputed</p>
             <p className="text-2xl font-bold text-red-400 mt-1">{disputedCount}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Completed</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Completed</p>
             <p className="text-2xl font-bold text-green-400 mt-1">{completedCount}</p>
           </div>
         </div>
 
         {/* Tier Filter Tabs */}
         <div className="mb-4">
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Escrow Tier</p>
+          <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Escrow Tier</p>
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {TIER_FILTER_TABS.map((tab) => (
               <button
@@ -387,8 +387,8 @@ export default function AdminMarketPage() {
                 onClick={() => setTierFilter(tab.key)}
                 className={`text-sm px-4 py-2 rounded-lg transition whitespace-nowrap ${
                   tierFilter === tab.key
-                    ? "bg-amber-500 text-black font-bold"
-                    : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                    ? "bg-accent text-black font-bold"
+                    : "bg-surface-elevated text-ink-muted hover:bg-neutral-700"
                 }`}
               >
                 {tab.label}
@@ -404,7 +404,7 @@ export default function AdminMarketPage() {
 
         {/* Status Filter Tabs */}
         <div className="mb-6">
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Status</p>
+          <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Status</p>
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {STATUS_FILTER_TABS.map((tab) => (
               <button
@@ -412,8 +412,8 @@ export default function AdminMarketPage() {
                 onClick={() => setStatusFilter(tab.key)}
                 className={`text-sm px-4 py-2 rounded-lg transition whitespace-nowrap ${
                   statusFilter === tab.key
-                    ? "bg-amber-500 text-black font-bold"
-                    : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                    ? "bg-accent text-black font-bold"
+                    : "bg-surface-elevated text-ink-muted hover:bg-neutral-700"
                 }`}
               >
                 {tab.label}
@@ -424,13 +424,13 @@ export default function AdminMarketPage() {
 
         {/* Trade List — Action Needed (Tier 2 & 3, plus any disputed) */}
         {actionNeeded.length === 0 && monitoring.length === 0 && !loading && (
-          <p className="text-neutral-500 text-center py-12">No trades found.</p>
+          <p className="text-ink-faint text-center py-12">No trades found.</p>
         )}
 
         {actionNeeded.length > 0 && (
           <>
             {tierFilter === "all" && (
-              <p className="text-xs text-neutral-500 uppercase tracking-wide mb-3">
+              <p className="text-xs text-ink-faint uppercase tracking-wide mb-3">
                 Needs Attention ({actionNeeded.length})
               </p>
             )}
@@ -459,8 +459,8 @@ export default function AdminMarketPage() {
         {/* Monitoring Section — Direct trades (no admin action needed unless disputed) */}
         {monitoring.length > 0 && (
           <>
-            <div className="border-t border-neutral-800 pt-6 mb-3">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">
+            <div className="border-t border-border-subtle pt-6 mb-3">
+              <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">
                 Monitoring ({monitoring.length})
               </p>
               <p className="text-xs text-neutral-600 mb-3">
@@ -527,11 +527,11 @@ function TradeRow({
   const tierBadge = trade.escrow_tier ? TIER_BADGE[trade.escrow_tier] : null;
 
   return (
-    <div className="bg-neutral-900 rounded-xl overflow-hidden">
+    <div className="bg-surface rounded-xl overflow-hidden">
       {/* Collapsed Row */}
       <button
         onClick={() => setExpanded(isExpanded ? null : trade.id)}
-        className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-neutral-800/50 transition"
+        className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-surface-elevated/50 transition"
       >
         {/* Card Thumbnail */}
         {trade.image_url ? (
@@ -541,14 +541,14 @@ function TradeRow({
             className="w-10 h-14 object-cover rounded shrink-0"
           />
         ) : (
-          <div className="w-10 h-14 bg-neutral-800 rounded shrink-0 flex items-center justify-center">
+          <div className="w-10 h-14 bg-surface-elevated rounded shrink-0 flex items-center justify-center">
             <span className="text-neutral-600 text-xs">?</span>
           </div>
         )}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold text-white truncate">
+            <span className="text-sm font-bold text-ink truncate">
               {trade.card_name || trade.sku}
             </span>
             <span
@@ -564,24 +564,24 @@ function TradeRow({
               </span>
             )}
           </div>
-          <p className="text-sm text-neutral-400 mt-1 truncate">
-            <span className="text-neutral-500">Seller:</span> {trade.seller_name || "Unknown"}{" "}
+          <p className="text-sm text-ink-muted mt-1 truncate">
+            <span className="text-ink-faint">Seller:</span> {trade.seller_name || "Unknown"}{" "}
             <span className="text-neutral-600 mx-1">-&gt;</span>{" "}
-            <span className="text-neutral-500">Buyer:</span> {trade.buyer_name || "Unknown"}
+            <span className="text-ink-faint">Buyer:</span> {trade.buyer_name || "Unknown"}
           </p>
         </div>
 
         <div className="text-right shrink-0">
-          <p className="text-sm font-bold text-white">
+          <p className="text-sm font-bold text-ink">
             {formatPrice(parseFloat(trade.price))}
           </p>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             {formatPrice(parseFloat(trade.commission_amount))} fee
           </p>
         </div>
 
         <div className="text-right shrink-0 hidden sm:block">
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             {formatDate(trade.created_at)}
           </p>
         </div>
@@ -591,34 +591,34 @@ function TradeRow({
 
       {/* Expanded Detail */}
       {isExpanded && (
-        <div className="px-4 pb-4 border-t border-neutral-800">
+        <div className="px-4 pb-4 border-t border-border-subtle">
           {/* Escrow Tier Info */}
           {trade.escrow_tier && (
-            <div className="mt-4 mb-4 bg-neutral-800/40 rounded-lg p-3">
+            <div className="mt-4 mb-4 bg-surface-elevated/40 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
                 {tierBadge && (
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tierBadge.className}`}>
                     {tierBadge.label}
                   </span>
                 )}
-                <p className="text-xs text-neutral-400">{getTierExplanation(trade)}</p>
+                <p className="text-xs text-ink-muted">{getTierExplanation(trade)}</p>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                 <div>
-                  <span className="text-neutral-500">Ships To</span>
-                  <p className="text-neutral-300">{trade.seller_ships_to === "ctcg" ? "CTCG" : "Buyer"}</p>
+                  <span className="text-ink-faint">Ships To</span>
+                  <p className="text-ink-muted">{trade.seller_ships_to === "ctcg" ? "CTCG" : "Buyer"}</p>
                 </div>
                 <div>
-                  <span className="text-neutral-500">Dispute Window</span>
-                  <p className="text-neutral-300">{trade.dispute_window_hours ?? "\u2014"}h</p>
+                  <span className="text-ink-faint">Dispute Window</span>
+                  <p className="text-ink-muted">{trade.dispute_window_hours ?? "\u2014"}h</p>
                 </div>
                 <div>
-                  <span className="text-neutral-500">Payout Hold</span>
-                  <p className="text-neutral-300">{trade.payout_hold_days ?? "\u2014"} day{(trade.payout_hold_days ?? 0) !== 1 ? "s" : ""}</p>
+                  <span className="text-ink-faint">Payout Hold</span>
+                  <p className="text-ink-muted">{trade.payout_hold_days ?? "\u2014"} day{(trade.payout_hold_days ?? 0) !== 1 ? "s" : ""}</p>
                 </div>
                 <div>
-                  <span className="text-neutral-500">Photos Required</span>
-                  <p className="text-neutral-300">{trade.requires_photos ? "Yes" : "No"}</p>
+                  <span className="text-ink-faint">Photos Required</span>
+                  <p className="text-ink-muted">{trade.requires_photos ? "Yes" : "No"}</p>
                 </div>
               </div>
             </div>
@@ -630,21 +630,21 @@ function TradeRow({
           {trade.escrow_tier === "verified" && trade.requires_photos && (
             <div className="mb-4 bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
               <p className="text-xs text-blue-400 uppercase tracking-wide font-medium mb-2">Photo Review</p>
-              <p className="text-sm text-neutral-400 mb-3">
+              <p className="text-sm text-ink-muted mb-3">
                 Seller must upload card photos for review before shipping. Approve to let the seller ship, or reject to request new photos.
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => onPhotoAction(trade.id, "approve")}
                   disabled={updating === trade.id}
-                  className="text-sm px-4 py-1.5 rounded-lg font-medium bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition disabled:opacity-50"
+                  className="text-sm px-4 py-1.5 rounded-lg font-medium bg-emerald-500/20 text-secondary hover:bg-emerald-500/30 transition disabled:opacity-50"
                 >
                   Approve Photos
                 </button>
                 <button
                   onClick={() => onPhotoAction(trade.id, "reject")}
                   disabled={updating === trade.id}
-                  className="text-sm px-4 py-1.5 rounded-lg font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition disabled:opacity-50"
+                  className="text-sm px-4 py-1.5 rounded-lg font-medium bg-danger/20 text-red-400 hover:bg-danger/30 transition disabled:opacity-50"
                 >
                   Reject Photos
                 </button>
@@ -654,9 +654,9 @@ function TradeRow({
 
           {/* Full Escrow tier: Inspection Checklist */}
           {trade.escrow_tier === "full_escrow" && trade.requires_inspection && (
-            <div className="mb-4 bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
-              <p className="text-xs text-amber-400 uppercase tracking-wide font-medium mb-2">Inspection Checklist</p>
-              <ul className="text-sm text-neutral-400 space-y-1.5">
+            <div className="mb-4 bg-accent/5 border border-accent/20 rounded-lg p-3">
+              <p className="text-xs text-accent-strong uppercase tracking-wide font-medium mb-2">Inspection Checklist</p>
+              <ul className="text-sm text-ink-muted space-y-1.5">
                 <li className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded border border-neutral-600 inline-block shrink-0" />
                   Card received and matches listing description
@@ -684,12 +684,12 @@ function TradeRow({
           {/* Direct tier: Minimal info */}
           {trade.escrow_tier === "direct" && (
             <div className="mb-4 bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3">
-              <p className="text-xs text-emerald-400 uppercase tracking-wide font-medium mb-2">Direct Trade</p>
-              <p className="text-sm text-neutral-400">
+              <p className="text-xs text-secondary uppercase tracking-wide font-medium mb-2">Direct Trade</p>
+              <p className="text-sm text-ink-muted">
                 No admin action needed. Seller ships directly to buyer. Only intervene if a dispute is raised.
               </p>
               {trade.tracking_to_buyer && (
-                <p className="text-sm text-neutral-300 mt-2 font-mono">
+                <p className="text-sm text-ink-muted mt-2 font-mono">
                   Tracking: {trade.tracking_to_buyer}
                 </p>
               )}
@@ -698,86 +698,86 @@ function TradeRow({
 
           {/* Buyer / Seller Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 mb-4">
-            <div className="bg-neutral-800/50 rounded-lg p-3">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Seller</p>
-              <p className="text-sm text-white">{trade.seller_name || "Unknown"}</p>
-              <p className="text-sm text-neutral-400">{trade.seller_email || "\u2014"}</p>
-              <p className="text-xs text-neutral-500 mt-1">Payout: {formatPrice(parseFloat(trade.seller_payout))}</p>
+            <div className="bg-surface-elevated/50 rounded-lg p-3">
+              <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Seller</p>
+              <p className="text-sm text-ink">{trade.seller_name || "Unknown"}</p>
+              <p className="text-sm text-ink-muted">{trade.seller_email || "\u2014"}</p>
+              <p className="text-xs text-ink-faint mt-1">Payout: {formatPrice(parseFloat(trade.seller_payout))}</p>
             </div>
-            <div className="bg-neutral-800/50 rounded-lg p-3">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Buyer</p>
-              <p className="text-sm text-white">{trade.buyer_name || "Unknown"}</p>
-              <p className="text-sm text-neutral-400">{trade.buyer_email || "\u2014"}</p>
-              <p className="text-xs text-neutral-500 mt-1">Paid: {formatPrice(parseFloat(trade.price))}</p>
+            <div className="bg-surface-elevated/50 rounded-lg p-3">
+              <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Buyer</p>
+              <p className="text-sm text-ink">{trade.buyer_name || "Unknown"}</p>
+              <p className="text-sm text-ink-muted">{trade.buyer_email || "\u2014"}</p>
+              <p className="text-xs text-ink-faint mt-1">Paid: {formatPrice(parseFloat(trade.price))}</p>
             </div>
           </div>
 
           {/* Trade Details */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
             <div>
-              <span className="text-neutral-500">Quantity</span>
-              <p className="text-white">{trade.quantity}</p>
+              <span className="text-ink-faint">Quantity</span>
+              <p className="text-ink">{trade.quantity}</p>
             </div>
             <div>
-              <span className="text-neutral-500">Commission Rate <WhyLink href="/methodology/commission-rate" /></span>
-              <p className="text-white">{(parseFloat(trade.commission_rate) * 100).toFixed(1)}%</p>
+              <span className="text-ink-faint">Commission Rate <WhyLink href="/methodology/commission-rate" /></span>
+              <p className="text-ink">{(parseFloat(trade.commission_rate) * 100).toFixed(1)}%</p>
             </div>
             <div>
-              <span className="text-neutral-500">SKU</span>
-              <p className="text-white font-mono text-xs">{trade.sku}</p>
+              <span className="text-ink-faint">SKU</span>
+              <p className="text-ink font-mono text-xs">{trade.sku}</p>
             </div>
             <div>
-              <span className="text-neutral-500">Stripe PI</span>
-              <p className="text-white font-mono text-xs truncate">{trade.stripe_payment_intent || "\u2014"}</p>
+              <span className="text-ink-faint">Stripe PI</span>
+              <p className="text-ink font-mono text-xs truncate">{trade.stripe_payment_intent || "\u2014"}</p>
             </div>
           </div>
 
           {/* Tracking Numbers */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm">
             <div>
-              <span className="text-neutral-500">Tracking to CTCG</span>
-              <p className="text-white font-mono text-xs">{trade.tracking_to_ctcg || "\u2014"}</p>
+              <span className="text-ink-faint">Tracking to CTCG</span>
+              <p className="text-ink font-mono text-xs">{trade.tracking_to_ctcg || "\u2014"}</p>
             </div>
             <div>
-              <span className="text-neutral-500">Tracking to Buyer</span>
-              <p className="text-white font-mono text-xs">{trade.tracking_to_buyer || "\u2014"}</p>
+              <span className="text-ink-faint">Tracking to Buyer</span>
+              <p className="text-ink font-mono text-xs">{trade.tracking_to_buyer || "\u2014"}</p>
             </div>
           </div>
 
           {/* Escrow Timeline */}
           <div className="mb-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Escrow Timeline</p>
+            <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Escrow Timeline</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-              <div className="bg-neutral-800/30 rounded p-2">
-                <span className="text-neutral-500">Created</span>
-                <p className="text-neutral-300">{formatDate(trade.created_at)}</p>
+              <div className="bg-surface-elevated/30 rounded p-2">
+                <span className="text-ink-faint">Created</span>
+                <p className="text-ink-muted">{formatDate(trade.created_at)}</p>
               </div>
-              <div className="bg-neutral-800/30 rounded p-2">
-                <span className="text-neutral-500">Buyer Paid</span>
-                <p className="text-neutral-300">{formatDate(trade.buyer_paid_at)}</p>
+              <div className="bg-surface-elevated/30 rounded p-2">
+                <span className="text-ink-faint">Buyer Paid</span>
+                <p className="text-ink-muted">{formatDate(trade.buyer_paid_at)}</p>
               </div>
-              <div className="bg-neutral-800/30 rounded p-2">
-                <span className="text-neutral-500">Seller Shipped</span>
-                <p className="text-neutral-300">{formatDate(trade.seller_shipped_at)}</p>
+              <div className="bg-surface-elevated/30 rounded p-2">
+                <span className="text-ink-faint">Seller Shipped</span>
+                <p className="text-ink-muted">{formatDate(trade.seller_shipped_at)}</p>
               </div>
-              <div className="bg-neutral-800/30 rounded p-2">
-                <span className="text-neutral-500">CTCG Received</span>
-                <p className="text-neutral-300">{formatDate(trade.ctcg_received_at)}</p>
+              <div className="bg-surface-elevated/30 rounded p-2">
+                <span className="text-ink-faint">CTCG Received</span>
+                <p className="text-ink-muted">{formatDate(trade.ctcg_received_at)}</p>
               </div>
-              <div className="bg-neutral-800/30 rounded p-2">
-                <span className="text-neutral-500">Verified</span>
-                <p className="text-neutral-300">{formatDate(trade.ctcg_verified_at)}</p>
+              <div className="bg-surface-elevated/30 rounded p-2">
+                <span className="text-ink-faint">Verified</span>
+                <p className="text-ink-muted">{formatDate(trade.ctcg_verified_at)}</p>
               </div>
-              <div className="bg-neutral-800/30 rounded p-2">
-                <span className="text-neutral-500">Shipped to Buyer</span>
-                <p className="text-neutral-300">{formatDate(trade.shipped_to_buyer_at)}</p>
+              <div className="bg-surface-elevated/30 rounded p-2">
+                <span className="text-ink-faint">Shipped to Buyer</span>
+                <p className="text-ink-muted">{formatDate(trade.shipped_to_buyer_at)}</p>
               </div>
-              <div className="bg-neutral-800/30 rounded p-2">
-                <span className="text-neutral-500">Completed</span>
-                <p className="text-neutral-300">{formatDate(trade.completed_at)}</p>
+              <div className="bg-surface-elevated/30 rounded p-2">
+                <span className="text-ink-faint">Completed</span>
+                <p className="text-ink-muted">{formatDate(trade.completed_at)}</p>
               </div>
               {trade.dispute_reason && (
-                <div className="bg-red-500/10 rounded p-2">
+                <div className="bg-danger/10 rounded p-2">
                   <span className="text-red-400">Dispute Reason</span>
                   <p className="text-red-300">{trade.dispute_reason}</p>
                 </div>
@@ -788,7 +788,7 @@ function TradeRow({
           {/* Escrow Actions */}
           {transitions.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Actions</p>
+              <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Actions</p>
               <div className="flex flex-col gap-2">
                 {transitions.map((transition) => {
                   const inputKey = `${trade.id}_${transition.input}`;
@@ -802,7 +802,7 @@ function TradeRow({
                           onChange={(e) =>
                             setInputValues((prev) => ({ ...prev, [inputKey]: e.target.value }))
                           }
-                          className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 w-64"
+                          className="px-3 py-1.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 w-64"
                         />
                       )}
                       {transition.input === "trackingToBuyer" && (
@@ -813,7 +813,7 @@ function TradeRow({
                           onChange={(e) =>
                             setInputValues((prev) => ({ ...prev, [inputKey]: e.target.value }))
                           }
-                          className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 w-64"
+                          className="px-3 py-1.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 w-64"
                         />
                       )}
                       {transition.input === "disputeReason" && (
@@ -824,7 +824,7 @@ function TradeRow({
                           onChange={(e) =>
                             setInputValues((prev) => ({ ...prev, [inputKey]: e.target.value }))
                           }
-                          className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 w-64"
+                          className="px-3 py-1.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 w-64"
                         />
                       )}
                       <button
@@ -835,8 +835,8 @@ function TradeRow({
                         }
                         className={`text-sm px-4 py-1.5 rounded-lg font-medium transition disabled:opacity-50 ${
                           transition.next === "disputed" || transition.next === "refunded"
-                            ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                            : "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                            ? "bg-danger/20 text-red-400 hover:bg-danger/30"
+                            : "bg-accent/20 text-accent-strong hover:bg-accent/30"
                         }`}
                       >
                         {transition.label}
@@ -854,15 +854,15 @@ function TradeRow({
               the seller a receipt. */}
           {trade.escrow_status === "completed" && (
             <div className="mb-4">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Seller Payout</p>
+              <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Seller Payout</p>
               {trade.seller_paid_at ? (
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-sm">
-                  <p className="text-emerald-400 font-medium">
+                  <p className="text-secondary font-medium">
                     Paid {new Date(trade.seller_paid_at).toLocaleDateString("en-GB")}
                     {trade.payout_method ? ` via ${trade.payout_method}` : ""}
                   </p>
                   {trade.payout_reference && (
-                    <p className="text-xs text-neutral-400 mt-1 font-mono">{trade.payout_reference}</p>
+                    <p className="text-xs text-ink-muted mt-1 font-mono">{trade.payout_reference}</p>
                   )}
                 </div>
               ) : (
@@ -879,7 +879,7 @@ function TradeRow({
 
           {/* Admin Notes */}
           <div>
-            <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Admin Notes</p>
+            <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Admin Notes</p>
             <textarea
               value={notesValue}
               onChange={(e) =>
@@ -887,12 +887,12 @@ function TradeRow({
               }
               rows={3}
               placeholder="Internal notes about this trade..."
-              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-y"
+              className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-y"
             />
             <button
               onClick={() => onSaveNotes(trade)}
               disabled={updating === trade.id}
-              className="mt-2 px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+              className="mt-2 px-4 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
             >
               {updating === trade.id ? "Saving..." : "Save Notes"}
             </button>

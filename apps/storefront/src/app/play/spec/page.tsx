@@ -34,10 +34,10 @@ export const metadata: Metadata = {
 function StatusPill({ status }: { status: ResourceStatus }) {
   const tone =
     status === "shipped"
-      ? "bg-emerald-500/15 text-emerald-400 border-emerald-700"
+      ? "bg-emerald-500/15 text-secondary border-emerald-700"
       : status === "designed"
-        ? "bg-sky-500/15 text-sky-400 border-sky-700"
-        : "bg-neutral-700/30 text-neutral-400 border-neutral-700";
+        ? "bg-sky-500/15 text-info border-sky-700"
+        : "bg-neutral-700/30 text-ink-muted border-border-strong";
   return (
     <span
       className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${tone}`}
@@ -49,7 +49,7 @@ function StatusPill({ status }: { status: ResourceStatus }) {
 
 function LayerPill({ layer }: { layer: ResourceLayer }) {
   return (
-    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-500 border border-neutral-800">
+    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface text-ink-faint border border-border-subtle">
       {layerDisplay(layer)}
     </span>
   );
@@ -58,27 +58,27 @@ function LayerPill({ layer }: { layer: ResourceLayer }) {
 function ResourceRow({ resource }: { resource: PlayResource }) {
   const display = resource.path_or_file;
   return (
-    <li className="border border-neutral-800 rounded p-3 bg-neutral-900/40">
+    <li className="border border-border-subtle rounded p-3 bg-surface/40">
       <div className="flex items-baseline gap-2 flex-wrap">
         {resource.url ? (
           <Link
             href={resource.url}
-            className="text-amber-400 hover:text-amber-300 font-mono font-bold text-sm"
+            className="text-accent-strong hover:text-accent-strong font-mono font-bold text-sm"
           >
             {display}
           </Link>
         ) : (
-          <code className="text-neutral-300 font-bold text-sm">{display}</code>
+          <code className="text-ink-muted font-bold text-sm">{display}</code>
         )}
         <StatusPill status={resource.status} />
         <LayerPill layer={resource.layer} />
         {resource.serves_archetypes.length < 3 && (
-          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-500 border border-neutral-800">
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface text-ink-faint border border-border-subtle">
             {resource.serves_archetypes.join(" · ")}
           </span>
         )}
       </div>
-      <p className="text-sm text-neutral-400 mt-2 mb-0">{resource.blurb}</p>
+      <p className="text-sm text-ink-muted mt-2 mb-0">{resource.blurb}</p>
     </li>
   );
 }
@@ -107,17 +107,17 @@ export default function PlayModuleSpec() {
         future kingdoms.</strong>
       </p>
 
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm text-ink-muted">
         <strong>{counts.shipped} shipped</strong> · {counts.designed} designed ·{" "}
         {counts.planned} planned · {PLAY_RESOURCES.length} total · counts
         rendered from <code>lib/play/resources.ts</code>.
       </p>
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         Machine-readable counterpart:{" "}
         <Link
           href="/api/v1/play/index.json"
-          className="text-amber-400 hover:text-amber-300"
+          className="text-accent-strong hover:text-accent-strong"
         >
           /api/v1/play/index.json
         </Link>
@@ -186,7 +186,7 @@ export default function PlayModuleSpec() {
         if (rows.length === 0) return null;
         return (
           <section key={layer} className="my-6">
-            <h3 className="text-white">{layerDisplay(layer)}</h3>
+            <h3 className="text-ink">{layerDisplay(layer)}</h3>
             <ul className="list-none p-0 space-y-3">
               {rows.map((r) => (
                 <ResourceRow key={r.id} resource={r} />
@@ -234,7 +234,7 @@ export default function PlayModuleSpec() {
 
       <hr />
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         <em>
           Source-of-truth for this page: <code>lib/play/resources.ts</code>.
           Story-arcs: S36 (the play substrate), S38 (the play structure), S40

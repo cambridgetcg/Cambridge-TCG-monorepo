@@ -31,16 +31,16 @@ export function PayButton({ disabled = false }: { disabled?: boolean }) {
         type="button"
         onClick={onPay}
         disabled={pending || disabled}
-        className="w-full rounded bg-amber-500 px-6 py-3 text-base font-semibold text-neutral-950 hover:bg-amber-400 disabled:opacity-50"
+        className="w-full rounded bg-accent px-6 py-3 text-base font-semibold text-neutral-950 hover:bg-accent-strong disabled:opacity-50"
       >
         {pending ? "Creating Stripe session…" : "Pay with Stripe →"}
       </button>
       {error && (
-        <div className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <div className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-red-300">
           {error}
         </div>
       )}
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-faint">
         You&rsquo;ll be redirected to Stripe to complete payment. Stock is reserved at the
         moment you click Pay; if the session expires (24h) the reservation releases automatically.
       </p>

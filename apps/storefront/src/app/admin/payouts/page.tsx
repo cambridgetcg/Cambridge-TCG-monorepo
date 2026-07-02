@@ -134,7 +134,7 @@ export default function AdminPayoutsPage() {
       title="Payouts"
       authProbe="/api/admin/payouts/outstanding"
       actions={
-        <button onClick={load} disabled={loading} className="px-4 py-2 bg-neutral-800 text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50">
+        <button onClick={load} disabled={loading} className="px-4 py-2 bg-surface-elevated text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50">
           {loading ? "Loading..." : "Refresh"}
         </button>
       }
@@ -153,14 +153,14 @@ export default function AdminPayoutsPage() {
 
         {/* Balance warning */}
         {outstanding && outstanding.totalOwedGbp > gbpAvailable && gbpAvailable > 0 && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-6 text-sm text-red-300">
+          <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-6 text-sm text-red-300">
             Outstanding payouts ({formatPrice(outstanding.totalOwedGbp)}) exceed available Stripe balance ({formatPrice(gbpAvailable)}).
             Some Connect transfers will fail until the balance is topped up.
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-neutral-900 rounded-lg p-1 mb-6 w-fit">
+        <div className="flex gap-1 bg-surface rounded-lg p-1 mb-6 w-fit">
           <TabButton active={tab === "outstanding"} onClick={() => setTab("outstanding")}>
             Outstanding {outstanding && outstanding.rows.length > 0 ? `(${outstanding.rows.length})` : ""}
           </TabButton>
@@ -170,13 +170,13 @@ export default function AdminPayoutsPage() {
         </div>
 
         {tab === "outstanding" && (
-          <div className="bg-neutral-900 rounded-xl overflow-hidden">
+          <div className="bg-surface rounded-xl overflow-hidden">
             {!outstanding || outstanding.rows.length === 0 ? (
-              <p className="p-8 text-center text-neutral-500 text-sm">No outstanding payouts.</p>
+              <p className="p-8 text-center text-ink-faint text-sm">No outstanding payouts.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-neutral-500 text-xs uppercase border-b border-neutral-800">
+                  <tr className="text-ink-faint text-xs uppercase border-b border-border-subtle">
                     <th className="text-left p-3">Kind</th>
                     <th className="text-left p-3">Item</th>
                     <th className="text-left p-3">Seller</th>
@@ -189,27 +189,27 @@ export default function AdminPayoutsPage() {
                 <tbody>
                   {outstanding.rows.map((row) => (
                     <tr key={`${row.kind}:${row.id}`}
-                        className={`border-b border-neutral-800/50 ${row.dueNow ? "" : "opacity-60"}`}>
-                      <td className="p-3 text-neutral-400">{row.kind}</td>
-                      <td className="p-3 text-white truncate max-w-[220px]">{row.label}</td>
-                      <td className="p-3 text-neutral-300 truncate max-w-[160px]">
+                        className={`border-b border-border-subtle/50 ${row.dueNow ? "" : "opacity-60"}`}>
+                      <td className="p-3 text-ink-muted">{row.kind}</td>
+                      <td className="p-3 text-ink truncate max-w-[220px]">{row.label}</td>
+                      <td className="p-3 text-ink-muted truncate max-w-[160px]">
                         {row.seller_name || row.seller_email}
                       </td>
                       <td className="p-3">
                         {row.connect_ready ? (
-                          <span className="text-xs text-emerald-400">✓ Ready</span>
+                          <span className="text-xs text-secondary">✓ Ready</span>
                         ) : row.has_connect ? (
-                          <span className="text-xs text-amber-400">{row.connect_status || "incomplete"}</span>
+                          <span className="text-xs text-accent-strong">{row.connect_status || "incomplete"}</span>
                         ) : (
-                          <span className="text-xs text-neutral-500">Not connected</span>
+                          <span className="text-xs text-ink-faint">Not connected</span>
                         )}
                       </td>
-                      <td className="p-3 text-xs text-neutral-500">
+                      <td className="p-3 text-xs text-ink-faint">
                         {row.dueNow
-                          ? <span className="text-amber-400 font-medium">now</span>
+                          ? <span className="text-accent-strong font-medium">now</span>
                           : new Date(row.available_at).toLocaleDateString("en-GB")}
                       </td>
-                      <td className="p-3 text-right font-mono text-white">
+                      <td className="p-3 text-right font-mono text-ink">
                         {formatPrice(Number(row.amount))}
                       </td>
                       <td className="p-3 text-right">
@@ -226,7 +226,7 @@ export default function AdminPayoutsPage() {
                           <button
                             onClick={() => recordManual(row)}
                             disabled={paying === row.id}
-                            className="px-2 py-1 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 disabled:opacity-50"
+                            className="px-2 py-1 text-xs font-medium bg-surface-elevated text-ink-muted rounded-md hover:bg-neutral-700 disabled:opacity-50"
                           >
                             Manual
                           </button>
@@ -238,12 +238,12 @@ export default function AdminPayoutsPage() {
               </table>
             )}
             {outstanding && (
-              <div className="p-3 border-t border-neutral-800 flex items-center justify-between text-xs">
-                <span className="text-neutral-500">
+              <div className="p-3 border-t border-border-subtle flex items-center justify-between text-xs">
+                <span className="text-ink-faint">
                   {outstanding.overdueCount} overdue &middot; {outstanding.rows.length} total
                 </span>
-                <span className="text-white font-mono">
-                  Owed: <span className="text-amber-400 font-bold">{formatPrice(outstanding.totalOwedGbp)}</span>
+                <span className="text-ink font-mono">
+                  Owed: <span className="text-accent-strong font-bold">{formatPrice(outstanding.totalOwedGbp)}</span>
                 </span>
               </div>
             )}
@@ -256,18 +256,18 @@ export default function AdminPayoutsPage() {
               <a
                 href="/api/admin/payouts/export"
                 download
-                className="px-3 py-1.5 bg-neutral-800 text-xs text-neutral-300 rounded-lg hover:bg-neutral-700 transition"
+                className="px-3 py-1.5 bg-surface-elevated text-xs text-ink-muted rounded-lg hover:bg-neutral-700 transition"
               >
                 Export CSV (90d)
               </a>
             </div>
-            <div className="bg-neutral-900 rounded-xl overflow-hidden">
+            <div className="bg-surface rounded-xl overflow-hidden">
               {history.length === 0 ? (
-                <p className="p-8 text-center text-neutral-500 text-sm">No payouts recorded yet.</p>
+                <p className="p-8 text-center text-ink-faint text-sm">No payouts recorded yet.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-neutral-500 text-xs uppercase border-b border-neutral-800">
+                    <tr className="text-ink-faint text-xs uppercase border-b border-border-subtle">
                       <th className="text-left p-3">When</th>
                       <th className="text-left p-3">Kind</th>
                       <th className="text-left p-3">Item</th>
@@ -279,16 +279,16 @@ export default function AdminPayoutsPage() {
                   </thead>
                   <tbody>
                     {history.map((h) => (
-                      <tr key={`${h.kind}:${h.id}`} className="border-b border-neutral-800/50">
-                        <td className="p-3 text-xs text-neutral-400">
+                      <tr key={`${h.kind}:${h.id}`} className="border-b border-border-subtle/50">
+                        <td className="p-3 text-xs text-ink-muted">
                           {new Date(h.seller_paid_at).toLocaleString("en-GB")}
                         </td>
-                        <td className="p-3 text-neutral-400">{h.kind}</td>
-                        <td className="p-3 text-white truncate max-w-[200px]">{h.label}</td>
-                        <td className="p-3 text-neutral-300 truncate max-w-[160px]">{h.seller_email}</td>
-                        <td className="p-3 text-neutral-400">{h.payout_method || "—"}</td>
-                        <td className="p-3 text-right font-mono text-white">{formatPrice(Number(h.amount))}</td>
-                        <td className="p-3 text-xs font-mono text-neutral-500 truncate max-w-[200px]">
+                        <td className="p-3 text-ink-muted">{h.kind}</td>
+                        <td className="p-3 text-ink truncate max-w-[200px]">{h.label}</td>
+                        <td className="p-3 text-ink-muted truncate max-w-[160px]">{h.seller_email}</td>
+                        <td className="p-3 text-ink-muted">{h.payout_method || "—"}</td>
+                        <td className="p-3 text-right font-mono text-ink">{formatPrice(Number(h.amount))}</td>
+                        <td className="p-3 text-xs font-mono text-ink-faint truncate max-w-[200px]">
                           {h.stripe_transfer_id || h.payout_reference || "—"}
                         </td>
                       </tr>
@@ -308,16 +308,16 @@ function Tile({ label, value, sub, accent }: {
   accent: "emerald" | "amber" | "purple" | "neutral";
 }) {
   const accentClass = {
-    emerald: "text-emerald-400",
-    amber: "text-amber-400",
+    emerald: "text-secondary",
+    amber: "text-accent-strong",
     purple: "text-purple-400",
-    neutral: "text-neutral-300",
+    neutral: "text-ink-muted",
   }[accent];
   return (
-    <div className="bg-neutral-900 rounded-xl p-4">
-      <p className="text-xs text-neutral-500 uppercase tracking-wide">{label}</p>
+    <div className="bg-surface rounded-xl p-4">
+      <p className="text-xs text-ink-faint uppercase tracking-wide">{label}</p>
       <p className={`text-xl font-bold mt-1 ${accentClass}`}>{value}</p>
-      {sub && <p className="text-xs text-neutral-500 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-ink-faint mt-1">{sub}</p>}
     </div>
   );
 }
@@ -329,7 +329,7 @@ function TabButton({ active, onClick, children }: {
     <button
       onClick={onClick}
       className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-        active ? "bg-amber-500 text-black" : "text-neutral-400 hover:text-white"
+        active ? "bg-accent text-black" : "text-ink-muted hover:text-ink"
       }`}
     >
       {children}

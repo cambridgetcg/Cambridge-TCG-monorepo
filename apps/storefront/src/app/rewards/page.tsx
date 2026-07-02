@@ -33,14 +33,14 @@ export default function RewardsHubPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Hero */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-black text-white">
-            Rewards <span className="text-amber-400">Hub</span>
+          <h1 className="text-3xl md:text-4xl font-black text-ink">
+            Rewards <span className="text-accent-strong">Hub</span>
           </h1>
-          <p className="text-neutral-400 mt-2">
+          <p className="text-ink-muted mt-2">
             Earn Berries on every purchase. Spend them on packs, spins, raffles, and mystery boxes.
           </p>
         </div>
@@ -48,21 +48,21 @@ export default function RewardsHubPage() {
         {/* Berries + Streak Bar */}
         <div className="flex flex-wrap gap-4 justify-center mb-10">
           {points !== null && (
-            <div className="bg-neutral-900 rounded-xl px-6 py-3 text-center">
-              <p className="text-2xl font-bold text-amber-400">{points.toLocaleString()} ⭐</p>
-              <p className="text-xs text-neutral-500">Your Berries</p>
+            <div className="bg-surface rounded-xl px-6 py-3 text-center">
+              <p className="text-2xl font-bold text-accent-strong">{points.toLocaleString()} ⭐</p>
+              <p className="text-xs text-ink-faint">Your Berries</p>
             </div>
           )}
           {streak > 0 && (
-            <div className="bg-neutral-900 rounded-xl px-6 py-3 text-center">
+            <div className="bg-surface rounded-xl px-6 py-3 text-center">
               <p className="text-2xl font-bold text-orange-400">🔥 {streak} day{streak !== 1 ? "s" : ""}</p>
-              <p className="text-xs text-neutral-500">Daily Streak ({multiplier.toFixed(2)}x bonus)</p>
+              <p className="text-xs text-ink-faint">Daily Streak ({multiplier.toFixed(2)}x bonus)</p>
             </div>
           )}
           {canSpin && (
             <Link href="/rewards/spin" className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-6 py-3 text-center hover:bg-emerald-500/20 transition">
-              <p className="text-lg font-bold text-emerald-400">🎡 Free Spin!</p>
-              <p className="text-xs text-neutral-400">Available now</p>
+              <p className="text-lg font-bold text-secondary">🎡 Free Spin!</p>
+              <p className="text-xs text-ink-muted">Available now</p>
             </Link>
           )}
         </div>
@@ -70,26 +70,26 @@ export default function RewardsHubPage() {
         {/* Main Reward Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-12">
           {/* Pack Opening */}
-          <Link href="/rewards/packs" className="group bg-gradient-to-b from-amber-500/10 to-neutral-900 border border-amber-500/20 rounded-xl p-5 hover:border-amber-500/40 transition">
+          <Link href="/rewards/packs" className="group bg-gradient-to-b from-amber-500/10 to-neutral-900 border border-accent/20 rounded-xl p-5 hover:border-accent/40 transition">
             <div className="text-3xl mb-3">🃏</div>
-            <h2 className="text-lg font-bold text-white group-hover:text-amber-400 transition">Pack Opening</h2>
-            <p className="text-sm text-neutral-400 mt-1">Open virtual booster packs. 5 cards per pack with animated reveals.</p>
+            <h2 className="text-lg font-bold text-ink group-hover:text-accent-strong transition">Pack Opening</h2>
+            <p className="text-sm text-ink-muted mt-1">Open virtual booster packs. 5 cards per pack with animated reveals.</p>
             <div className="mt-3 flex items-center gap-2">
-              <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">{packCount} pack{packCount !== 1 ? "s" : ""}</span>
-              <span className="text-xs text-neutral-500">from 1,500 Berries</span>
+              <span className="text-xs bg-accent/20 text-accent-strong px-2 py-0.5 rounded-full">{packCount} pack{packCount !== 1 ? "s" : ""}</span>
+              <span className="text-xs text-ink-faint">from 1,500 Berries</span>
             </div>
           </Link>
 
           {/* Daily Spin */}
           <Link href="/rewards/spin" className="group bg-gradient-to-b from-emerald-500/10 to-neutral-900 border border-emerald-500/20 rounded-xl p-5 hover:border-emerald-500/40 transition">
             <div className="text-3xl mb-3">🎡</div>
-            <h2 className="text-lg font-bold text-white group-hover:text-emerald-400 transition">Daily Spin</h2>
-            <p className="text-sm text-neutral-400 mt-1">Spin the wheel for Berries, credit, and surprises. 1 free spin daily.</p>
+            <h2 className="text-lg font-bold text-ink group-hover:text-secondary transition">Daily Spin</h2>
+            <p className="text-sm text-ink-muted mt-1">Spin the wheel for Berries, credit, and surprises. 1 free spin daily.</p>
             <div className="mt-3 flex items-center gap-2">
               {canSpin ? (
-                <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full animate-pulse">Free spin ready!</span>
+                <span className="text-xs bg-emerald-500/20 text-secondary px-2 py-0.5 rounded-full animate-pulse">Free spin ready!</span>
               ) : (
-                <span className="text-xs text-neutral-500">500 Berries per premium spin</span>
+                <span className="text-xs text-ink-faint">500 Berries per premium spin</span>
               )}
             </div>
           </Link>
@@ -97,8 +97,8 @@ export default function RewardsHubPage() {
           {/* Raffles — anchors down to the inline list below */}
           <Link href="#raffles" className="group bg-gradient-to-b from-purple-500/10 to-neutral-900 border border-purple-500/20 rounded-xl p-5 hover:border-purple-500/40 transition">
             <div className="text-3xl mb-3">🎰</div>
-            <h2 className="text-lg font-bold text-white group-hover:text-purple-400 transition">Raffles</h2>
-            <p className="text-sm text-neutral-400 mt-1">Enter for a chance to win high-value cards. More entries = better odds.</p>
+            <h2 className="text-lg font-bold text-ink group-hover:text-purple-400 transition">Raffles</h2>
+            <p className="text-sm text-ink-muted mt-1">Enter for a chance to win high-value cards. More entries = better odds.</p>
             <div className="mt-3">
               <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">{raffles.length} active</span>
             </div>
@@ -107,8 +107,8 @@ export default function RewardsHubPage() {
           {/* Mystery Boxes — anchors down to the inline list below */}
           <Link href="#mystery-boxes" className="group bg-gradient-to-b from-pink-500/10 to-neutral-900 border border-pink-500/20 rounded-xl p-5 hover:border-pink-500/40 transition">
             <div className="text-3xl mb-3">📦</div>
-            <h2 className="text-lg font-bold text-white group-hover:text-pink-400 transition">Mystery Boxes</h2>
-            <p className="text-sm text-neutral-400 mt-1">Every box is a winner. Berries, credit, or real cards.</p>
+            <h2 className="text-lg font-bold text-ink group-hover:text-pink-400 transition">Mystery Boxes</h2>
+            <p className="text-sm text-ink-muted mt-1">Every box is a winner. Berries, credit, or real cards.</p>
             <div className="mt-3">
               <span className="text-xs bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full">{boxes.length} available</span>
             </div>
@@ -118,9 +118,9 @@ export default function RewardsHubPage() {
         {/* Active Raffles — inline rows so the headline card's promise is
             kept on this page; each row opens the raffle's own page. */}
         <section id="raffles" className="scroll-mt-24 mb-12">
-          <h2 className="text-lg font-bold text-white mb-4">Active Raffles</h2>
+          <h2 className="text-lg font-bold text-ink mb-4">Active Raffles</h2>
           {raffles.length === 0 ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+            <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
               No raffles running right now. New draws appear here when they open.
             </div>
           ) : (
@@ -129,9 +129,9 @@ export default function RewardsHubPage() {
                 <Link
                   key={raffle.id}
                   href={`/rewards/raffles/${raffle.id}`}
-                  className="group flex gap-4 bg-neutral-900 border border-purple-500/20 rounded-xl p-4 hover:border-purple-500/40 transition"
+                  className="group flex gap-4 bg-surface border border-purple-500/20 rounded-xl p-4 hover:border-purple-500/40 transition"
                 >
-                  <div className="w-16 h-16 rounded-lg bg-neutral-800 overflow-hidden shrink-0">
+                  <div className="w-16 h-16 rounded-lg bg-surface-elevated overflow-hidden shrink-0">
                     {(raffle.image_url || raffle.prize_image_url) && (
                       <img
                         src={raffle.image_url ?? raffle.prize_image_url ?? undefined}
@@ -141,9 +141,9 @@ export default function RewardsHubPage() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-white group-hover:text-purple-400 transition truncate">{raffle.title}</p>
-                    <p className="text-xs text-neutral-400 truncate">{raffle.prize_description}</p>
-                    <p className="text-xs text-neutral-500 mt-1">
+                    <p className="font-bold text-ink group-hover:text-purple-400 transition truncate">{raffle.title}</p>
+                    <p className="text-xs text-ink-muted truncate">{raffle.prize_description}</p>
+                    <p className="text-xs text-ink-faint mt-1">
                       <span className="text-purple-400">{raffle.entry_cost_points.toLocaleString()} Berries</span> / entry
                       {" · "}draws {new Date(raffle.draw_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                     </p>
@@ -156,9 +156,9 @@ export default function RewardsHubPage() {
 
         {/* Mystery Boxes — same promise-keeping list for the second card. */}
         <section id="mystery-boxes" className="scroll-mt-24 mb-12">
-          <h2 className="text-lg font-bold text-white mb-4">Mystery Boxes</h2>
+          <h2 className="text-lg font-bold text-ink mb-4">Mystery Boxes</h2>
           {boxes.length === 0 ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+            <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
               No mystery boxes available right now. New boxes appear here when they open.
             </div>
           ) : (
@@ -167,19 +167,19 @@ export default function RewardsHubPage() {
                 <Link
                   key={box.id}
                   href={`/rewards/mystery-boxes/${box.id}`}
-                  className="group flex gap-4 bg-neutral-900 border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40 transition"
+                  className="group flex gap-4 bg-surface border border-pink-500/20 rounded-xl p-4 hover:border-pink-500/40 transition"
                 >
-                  <div className="w-16 h-16 rounded-lg bg-neutral-800 overflow-hidden shrink-0">
+                  <div className="w-16 h-16 rounded-lg bg-surface-elevated overflow-hidden shrink-0">
                     {box.image_url && (
                       <img src={box.image_url} alt="" className="w-full h-full object-cover" />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-white group-hover:text-pink-400 transition truncate">{box.title}</p>
+                    <p className="font-bold text-ink group-hover:text-pink-400 transition truncate">{box.title}</p>
                     {box.description && (
-                      <p className="text-xs text-neutral-400 truncate">{box.description}</p>
+                      <p className="text-xs text-ink-muted truncate">{box.description}</p>
                     )}
-                    <p className="text-xs text-neutral-500 mt-1">
+                    <p className="text-xs text-ink-faint mt-1">
                       <span className="text-pink-400">{box.cost_points.toLocaleString()} Berries</span> to open
                       {" · "}{box.total_opens.toLocaleString()} opened so far
                     </p>
@@ -191,49 +191,49 @@ export default function RewardsHubPage() {
         </section>
 
         {/* How to Earn */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 mb-8">
-          <h2 className="text-lg font-bold text-white mb-4">How to Earn Berries</h2>
+        <div className="bg-surface border border-border-subtle rounded-xl p-6 mb-8">
+          <h2 className="text-lg font-bold text-ink mb-4">How to Earn Berries</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
             <div className="flex items-start gap-3">
-              <span className="text-amber-400 shrink-0">🛒</span>
-              <p className="text-neutral-300"><strong className="text-white">Buy cards</strong> — 10 Berries per £1 spent, multiplied by your tier</p>
+              <span className="text-accent-strong shrink-0">🛒</span>
+              <p className="text-ink-muted"><strong className="text-ink">Buy cards</strong> — 10 Berries per £1 spent, multiplied by your tier</p>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-amber-400 shrink-0">🤝</span>
-              <p className="text-neutral-300"><strong className="text-white">P2P trades</strong> — earn Berries on completed trades</p>
+              <span className="text-accent-strong shrink-0">🤝</span>
+              <p className="text-ink-muted"><strong className="text-ink">P2P trades</strong> — earn Berries on completed trades</p>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-amber-400 shrink-0">💰</span>
-              <p className="text-neutral-300"><strong className="text-white">Trade-in</strong> — sell cards for credit, earn Berries too</p>
+              <span className="text-accent-strong shrink-0">💰</span>
+              <p className="text-ink-muted"><strong className="text-ink">Trade-in</strong> — sell cards for credit, earn Berries too</p>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-amber-400 shrink-0">🔥</span>
-              <p className="text-neutral-300"><strong className="text-white">Daily streak</strong> — visit daily for up to 1.5x Berries multiplier</p>
+              <span className="text-accent-strong shrink-0">🔥</span>
+              <p className="text-ink-muted"><strong className="text-ink">Daily streak</strong> — visit daily for up to 1.5x Berries multiplier</p>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-amber-400 shrink-0">📈</span>
-              <p className="text-neutral-300"><strong className="text-white">Tier upgrades</strong> — Silver 1.5x, Gold 2x, Platinum 3x Berries</p>
+              <span className="text-accent-strong shrink-0">📈</span>
+              <p className="text-ink-muted"><strong className="text-ink">Tier upgrades</strong> — Silver 1.5x, Gold 2x, Platinum 3x Berries</p>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-amber-400 shrink-0">🎡</span>
-              <p className="text-neutral-300"><strong className="text-white">Spin & win</strong> — daily spins can award bonus Berries</p>
+              <span className="text-accent-strong shrink-0">🎡</span>
+              <p className="text-ink-muted"><strong className="text-ink">Spin & win</strong> — daily spins can award bonus Berries</p>
             </div>
           </div>
         </div>
 
         {/* Quick Links */}
         <div className="grid gap-3 sm:grid-cols-3">
-          <Link href="/membership" className="bg-neutral-900 rounded-xl p-4 hover:bg-neutral-800/70 transition text-center">
-            <p className="text-sm font-bold text-white">Membership Tiers</p>
-            <p className="text-xs text-neutral-500 mt-1">Unlock better rates + multipliers</p>
+          <Link href="/membership" className="bg-surface rounded-xl p-4 hover:bg-surface-elevated/70 transition text-center">
+            <p className="text-sm font-bold text-ink">Membership Tiers</p>
+            <p className="text-xs text-ink-faint mt-1">Unlock better rates + multipliers</p>
           </Link>
-          <Link href="/guides/how-to-play" className="bg-neutral-900 rounded-xl p-4 hover:bg-neutral-800/70 transition text-center">
-            <p className="text-sm font-bold text-white">How to Play OPTCG</p>
-            <p className="text-xs text-neutral-500 mt-1">Learn the game, build decks</p>
+          <Link href="/guides/how-to-play" className="bg-surface rounded-xl p-4 hover:bg-surface-elevated/70 transition text-center">
+            <p className="text-sm font-bold text-ink">How to Play OPTCG</p>
+            <p className="text-xs text-ink-faint mt-1">Learn the game, build decks</p>
           </Link>
-          <Link href="/about" className="bg-neutral-900 rounded-xl p-4 hover:bg-neutral-800/70 transition text-center">
-            <p className="text-sm font-bold text-white">About Cambridge TCG</p>
-            <p className="text-xs text-neutral-500 mt-1">Our mission and community</p>
+          <Link href="/about" className="bg-surface rounded-xl p-4 hover:bg-surface-elevated/70 transition text-center">
+            <p className="text-sm font-bold text-ink">About Cambridge TCG</p>
+            <p className="text-xs text-ink-faint mt-1">Our mission and community</p>
           </Link>
         </div>
       </div>

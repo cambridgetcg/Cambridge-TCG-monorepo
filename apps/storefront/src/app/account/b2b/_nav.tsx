@@ -41,7 +41,7 @@ export function B2BNav({ cartCount = 0 }: { cartCount?: number }) {
   });
 
   return (
-    <nav className="mb-6 border-b border-neutral-800">
+    <nav className="mb-6 border-b border-border-subtle">
       <div className="flex flex-wrap gap-1 -mb-px">
         {visibleItems.map((item) => {
           const active = isActive(pathname, item);
@@ -53,13 +53,13 @@ export function B2BNav({ cartCount = 0 }: { cartCount?: number }) {
               className={
                 "px-3 py-2 text-sm font-medium border-b-2 transition-colors inline-flex items-center gap-1.5 " +
                 (active
-                  ? "border-amber-500 text-amber-400"
-                  : "border-transparent text-neutral-400 hover:text-neutral-200 hover:border-neutral-700")
+                  ? "border-accent text-accent-strong"
+                  : "border-transparent text-ink-muted hover:text-ink hover:border-border-strong")
               }
             >
               {item.label}
               {badge !== null && (
-                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-neutral-950 text-xs font-bold leading-none">
+                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-accent text-neutral-950 text-xs font-bold leading-none">
                   {badge}
                 </span>
               )}

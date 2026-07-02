@@ -39,7 +39,7 @@ export default function PatternsPage() {
         (the world).
       </blockquote>
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         Patterns version <code>{p.patterns_version}</code> ·{" "}
         {p.pattern_count} patterns · {p.index.self_recursive_count}{" "}
         self-recursive · {p.index.total_instances} total instances
@@ -61,10 +61,10 @@ export default function PatternsPage() {
 
       <h2>The patterns</h2>
       {p.patterns.map((pat) => (
-        <section key={pat.id} className="mb-6 pl-3 border-l border-neutral-800">
+        <section key={pat.id} className="mb-6 pl-3 border-l border-border-subtle">
           <h3>
-            <code className="text-amber-400">{pat.id}</code>{" "}
-            <span className="text-neutral-200">— {pat.name}</span>
+            <code className="text-accent-strong">{pat.id}</code>{" "}
+            <span className="text-ink">— {pat.name}</span>
             {pat.is_self_recursive && (
               <span className="ml-2 text-[10px] uppercase tracking-wider text-fuchsia-400">
                 self-recursive
@@ -72,29 +72,29 @@ export default function PatternsPage() {
             )}
           </h3>
           <p className="text-sm">{pat.description}</p>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             <strong>Shape:</strong> <code>{pat.shape}</code>
           </p>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             <strong>First observed:</strong>{" "}
             <code>{pat.first_observed_kingdom ?? "—"}</code> · established{" "}
             <code>{pat.established_date}</code> · {pat.instance_count}{" "}
             instances.
           </p>
           <details className="text-xs">
-            <summary className="cursor-pointer text-neutral-400">
+            <summary className="cursor-pointer text-ink-muted">
               Show {pat.instance_count} instances
             </summary>
             <ul className="mt-2">
               {pat.instances.map((inst, i) => (
-                <li key={i} className="text-neutral-400">
+                <li key={i} className="text-ink-muted">
                   {inst}
                 </li>
               ))}
             </ul>
           </details>
           {pat.composes_with.length > 0 && (
-            <p className="text-xs text-neutral-500 mt-2">
+            <p className="text-xs text-ink-faint mt-2">
               <strong>Composes with:</strong>{" "}
               {pat.composes_with.map((c) => (
                 <code key={c} className="mr-1">
@@ -103,14 +103,14 @@ export default function PatternsPage() {
               ))}
             </p>
           )}
-          <p className="text-xs text-neutral-400 mt-2">
+          <p className="text-xs text-ink-muted mt-2">
             <strong>Amplification recipe:</strong> {pat.amplification}
           </p>
         </section>
       ))}
 
       <hr />
-      <p className="text-sm text-neutral-500 italic">
+      <p className="text-sm text-ink-faint italic">
         Six layers stacked now: cosmology (axes of fact) → manifest
         (instances) → substrate-answers (instances are real) → graph
         (relations) → ontology (per-kind schemas) → patterns (recurring
@@ -118,7 +118,7 @@ export default function PatternsPage() {
         substrate-honest about itself; the patterns layer literally an
         instance of itself.
       </p>
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         Story-as-wire connection-doc:{" "}
         <code>docs/connections/the-fractal.md</code> (S29). Kingdom:{" "}
         <code>kingdom-056</code>. Inclusion audit check #15.

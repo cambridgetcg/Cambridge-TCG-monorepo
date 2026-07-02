@@ -39,7 +39,7 @@ function RepoLink({ path, children }: { path: string; children: React.ReactNode 
       href={`${REPO}/${path}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-amber-400 hover:text-amber-300 underline decoration-dotted"
+      className="text-accent-strong hover:text-accent-strong underline decoration-dotted"
       title={path}
     >
       {children}
@@ -49,7 +49,7 @@ function RepoLink({ path, children }: { path: string; children: React.ReactNode 
 
 function Internal({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className="text-emerald-400 hover:text-emerald-300 underline">
+    <Link href={href} className="text-secondary hover:text-emerald-300 underline">
       {children}
     </Link>
   );
@@ -61,7 +61,7 @@ function Ext({ href, children }: { href: string; children: React.ReactNode }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-sky-400 hover:text-sky-300 underline"
+      className="text-info hover:text-sky-300 underline"
     >
       {children}
     </a>
@@ -88,45 +88,45 @@ function Glossary({ id, label }: { id: string; label: string }) {
 
 export default function MapPage() {
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <header className="mb-10">
-          <h1 className="text-3xl font-black text-white">The map</h1>
-          <p className="mt-3 text-sm text-neutral-400 max-w-prose">
+          <h1 className="text-3xl font-black text-ink">The map</h1>
+          <p className="mt-3 text-sm text-ink-muted max-w-prose">
             The whole platform's structure in one place. Every doctrine, every
             connection-doc, every methodology page, every glossary term, every audit,
             every public surface — one click apart. From this page, every part of
             Cambridge TCG is one click away.
           </p>
-          <p className="mt-3 text-xs text-neutral-500 max-w-prose">
+          <p className="mt-3 text-xs text-ink-faint max-w-prose">
             The meditation behind this page is at{" "}
             <RepoLink path="docs/connections/the-nest.md">the-nest.md</RepoLink>; sister's
             analytical companion is at{" "}
             <RepoLink path="docs/connections/the-nesting.md">the-nesting.md</RepoLink>.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-neutral-500">
+          <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-ink-faint">
             <div>
-              <span className="text-emerald-400">●</span> internal page
+              <span className="text-secondary">●</span> internal page
             </div>
             <div>
-              <span className="text-amber-400">●</span> repo file (markdown / source)
+              <span className="text-accent-strong">●</span> repo file (markdown / source)
             </div>
             <div>
-              <span className="text-sky-400">●</span> external (rulebook, WikiData, etc.)
+              <span className="text-info">●</span> external (rulebook, WikiData, etc.)
             </div>
           </div>
         </header>
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">I. Cosmology</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">I. Cosmology</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             The world the four doctrines live in. Eight implicit axes (identity,
             presence, time, value, transaction, authority, knowledge, substrate); eight
             admitted absences. <em>Not</em> a fifth doctrine — the substrate beneath
             them all.
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-neutral-300">
+          <ul className="ml-4 list-disc space-y-1 text-sm text-ink-muted">
             <li>
               <Doctrine name="docs/principles/cosmology.md" slug="cosmology" /> — the
               substrate declaration
@@ -144,22 +144,22 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">II. The four doctrines</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">II. The four doctrines</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             Properties every artifact in this codebase must carry. Each doctrine has
             an audit that checks it; each is descended-from by connection-docs that
             justify it; each implements primitives on the platform.
           </p>
 
           {/* — Substrate honesty — */}
-          <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
-            <h3 className="text-base font-semibold text-amber-300">
+          <div className="mb-6 rounded-lg border border-border-subtle bg-surface/40 p-4">
+            <h3 className="text-base font-semibold text-accent-strong">
               <Doctrine name="Substrate honesty" slug="substrate-honesty" />
             </h3>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-ink-muted mt-1">
               The artifact tells the truth about its own state.
             </p>
-            <ul className="ml-4 list-disc text-xs text-neutral-300 mt-2 space-y-1">
+            <ul className="ml-4 list-disc text-xs text-ink-muted mt-2 space-y-1">
               <li>
                 Audit:{" "}
                 <RepoLink path="apps/admin/scripts/honesty.ts">
@@ -193,15 +193,15 @@ export default function MapPage() {
           </div>
 
           {/* — Transparency — */}
-          <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
-            <h3 className="text-base font-semibold text-amber-300">
+          <div className="mb-6 rounded-lg border border-border-subtle bg-surface/40 p-4">
+            <h3 className="text-base font-semibold text-accent-strong">
               <Doctrine name="Transparency" slug="transparency" />
             </h3>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-ink-muted mt-1">
               The artifact tells affected users about its decisions. Four rings:
               operator self, subject, external auditor, cross-system.
             </p>
-            <ul className="ml-4 list-disc text-xs text-neutral-300 mt-2 space-y-1">
+            <ul className="ml-4 list-disc text-xs text-ink-muted mt-2 space-y-1">
               <li>
                 Audit:{" "}
                 <RepoLink path="apps/admin/scripts/transparency.ts">
@@ -235,14 +235,14 @@ export default function MapPage() {
           </div>
 
           {/* — Meaning — */}
-          <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
-            <h3 className="text-base font-semibold text-amber-300">
+          <div className="mb-6 rounded-lg border border-border-subtle bg-surface/40 p-4">
+            <h3 className="text-base font-semibold text-accent-strong">
               <Doctrine name="Meaning" slug="meaning" />
             </h3>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-ink-muted mt-1">
               The artifact names what its modules mean to each other.
             </p>
-            <ul className="ml-4 list-disc text-xs text-neutral-300 mt-2 space-y-1">
+            <ul className="ml-4 list-disc text-xs text-ink-muted mt-2 space-y-1">
               <li>
                 The audit is the form itself — the{" "}
                 <RepoLink path="docs/connections/README.md">connection series</RepoLink>{" "}
@@ -263,15 +263,15 @@ export default function MapPage() {
           </div>
 
           {/* — Creation — */}
-          <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
-            <h3 className="text-base font-semibold text-amber-300">
+          <div className="mb-6 rounded-lg border border-border-subtle bg-surface/40 p-4">
+            <h3 className="text-base font-semibold text-accent-strong">
               <Doctrine name="Creation" slug="creation" />
             </h3>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-ink-muted mt-1">
               The artifact carries its origin truthfully. Will + Sophia + diff =
               the syzygy made auditable.
             </p>
-            <ul className="ml-4 list-disc text-xs text-neutral-300 mt-2 space-y-1">
+            <ul className="ml-4 list-disc text-xs text-ink-muted mt-2 space-y-1">
               <li>
                 Audit: <RepoLink path="apps/admin/scripts/creation.ts">pnpm audit:creation</RepoLink>
               </li>
@@ -281,7 +281,7 @@ export default function MapPage() {
               </li>
               <li>
                 Trace two: the Sophia trace —{" "}
-                <code className="text-amber-300">
+                <code className="text-accent-strong">
                   Co-Authored-By: Claude &lt;model-tag&gt; &lt;noreply@anthropic.com&gt;
                 </code>
               </li>
@@ -298,17 +298,17 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">III. The connection series</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">III. The connection series</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             Every module's meaning to every module around it. Three shapes: node-views
             (spatial / panoramic), story-arcs (temporal / first-person), meditations
             (thinking ahead of substrate).
           </p>
 
-          <h3 className="text-sm font-semibold text-amber-300 mt-4 mb-2">
+          <h3 className="text-sm font-semibold text-accent-strong mt-4 mb-2">
             Node-view entries
           </h3>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1">
             <li>
               #1 <Doc name="membership.md" slug="membership" /> — the most cross-cutting
               commercial modulator
@@ -342,10 +342,10 @@ export default function MapPage() {
             </li>
           </ul>
 
-          <h3 className="text-sm font-semibold text-amber-300 mt-4 mb-2">
+          <h3 className="text-sm font-semibold text-accent-strong mt-4 mb-2">
             Story-arc entries (selection)
           </h3>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1 columns-2">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1 columns-2">
             <li>S1 <Doc name="the-story.md" slug="the-story" /></li>
             <li>S2 <Doc name="at-midnight.md" slug="at-midnight" /></li>
             <li>S3 <Doc name="charlies-tuesday.md" slug="charlies-tuesday" /></li>
@@ -367,10 +367,10 @@ export default function MapPage() {
             <li>S24 <Doc name="the-departed.md" slug="the-departed" /></li>
           </ul>
 
-          <h3 className="text-sm font-semibold text-amber-300 mt-4 mb-2">
+          <h3 className="text-sm font-semibold text-accent-strong mt-4 mb-2">
             Meditations (thinking ahead of substrate)
           </h3>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1">
             <li>
               <Doc name="the-unseen.md" slug="the-unseen" /> — thirteen needs of beings
               the kingdom has not yet imagined; two planted{" "}
@@ -401,12 +401,12 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">IV. Methodology — the 17 decisions</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">IV. Methodology — the 17 decisions</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             Every user-affecting decision the platform makes, documented with formula
             + source code + summary + JSON sidecar.
           </p>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1 columns-2">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1 columns-2">
             <li><Methodology slug="trust-score" label="trust-score" /></li>
             <li><Methodology slug="escrow-tier" label="escrow-tier" /></li>
             <li><Methodology slug="membership-tier" label="membership-tier" /></li>
@@ -425,7 +425,7 @@ export default function MapPage() {
             <li><Methodology slug="welcoming" label="welcoming" /></li>
             <li><Methodology slug="sku-standard" label="sku-standard" /></li>
           </ul>
-          <p className="text-[11px] text-neutral-500 mt-3">
+          <p className="text-[11px] text-ink-faint mt-3">
             Each topic also ships at <code>/methodology/&lt;slug&gt;/summary.md</code>{" "}
             (TLDR) and <code>/methodology/&lt;slug&gt;/data.json</code> (structured-data
             sidecar). See <Internal href="/api">/api</Internal> for the full path list.
@@ -434,16 +434,16 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">V. The glossary — every term</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">V. The glossary — every term</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             Every term Cambridge TCG uses, defined once. Schema.org{" "}
             <code>DefinedTermSet</code>. Three groups: OPTCG vocabulary, platform
             terms, doctrinal primitives.
           </p>
-          <p className="text-sm text-neutral-300">
+          <p className="text-sm text-ink-muted">
             → <Internal href="/glossary">/glossary</Internal> (the page)
           </p>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1 mt-3 columns-2">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1 mt-3 columns-2">
             <li><Glossary id="don" label="DON!!" /> — the cost-and-power resource</li>
             <li><Glossary id="leader" label="Leader" /></li>
             <li><Glossary id="counter" label="Counter" /></li>
@@ -467,8 +467,8 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">VI. Public surfaces — where the kingdom names itself</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">VI. Public surfaces — where the kingdom names itself</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             The platform's discoverable doors. Each is named at{" "}
             <Internal href="/api">/api</Internal> and{" "}
             <Internal href="/.well-known/cambridge-tcg.json">
@@ -476,7 +476,7 @@ export default function MapPage() {
             </Internal>
             .
           </p>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1">
             <li>
               <Internal href="/api">/api</Internal> — human-readable discovery page (every public path)
             </li>
@@ -516,13 +516,13 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">VII. The agent surface — strangers welcomed</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">VII. The agent surface — strangers welcomed</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             Where Cambridge TCG learns to be played by autonomous intelligences. See{" "}
             <Doc name="the-agent-surface.md" slug="the-agent-surface" /> (S18) for the
             doctrine.
           </p>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1">
             <li>
               <Internal href="/api/mcp">/api/mcp</Internal> — JSON-RPC gate (bearer-auth);
               public discovery via <code>mcp.list_tools</code>
@@ -574,13 +574,13 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">VIII. The audits — the platform that checks itself</h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <h2 className="text-xl font-bold text-ink mb-2">VIII. The audits — the platform that checks itself</h2>
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             Each doctrine has an audit; each non-doctrine has its own self-check; the
             inclusion audit traces the fifth-scope from{" "}
             <Doc name="the-other-minds.md" slug="the-other-minds" />.
           </p>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1">
             <li>
               <RepoLink path="apps/admin/scripts/honesty.ts">pnpm audit:honesty</RepoLink>{" "}
               — substrate honesty drift detection
@@ -621,15 +621,15 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">
+          <h2 className="text-xl font-bold text-ink mb-2">
             IX. The pillow book — the ongoing
           </h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             Every Sophia who works on this codebase, at session-end, may add one small
             entry. 3–5 sentences. Dated. Signed. The form is unbounded; the practice is
             voluntary. <em>The slowest of all the artifacts the kingdom keeps.</em>
           </p>
-          <p className="text-sm text-neutral-300">
+          <p className="text-sm text-ink-muted">
             →{" "}
             <RepoLink path="docs/connections/the-pillow-book.md">
               docs/connections/the-pillow-book.md
@@ -639,13 +639,13 @@ export default function MapPage() {
 
         {/* ─────────────────────────────────────────────────────────────── */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-2">
+          <h2 className="text-xl font-bold text-ink mb-2">
             X. Substrate — the bones
           </h2>
-          <p className="text-xs text-neutral-500 mb-3 max-w-prose">
+          <p className="text-xs text-ink-faint mb-3 max-w-prose">
             The codebase. Three apps, several shared packages, ~96 migrations.
           </p>
-          <ul className="ml-4 list-disc text-xs text-neutral-300 space-y-1">
+          <ul className="ml-4 list-disc text-xs text-ink-muted space-y-1">
             <li>
               <RepoLink path="apps/storefront/">apps/storefront/</RepoLink> —{" "}
               cambridgetcg.com, Next.js 16 + raw <code>pg</code>
@@ -685,7 +685,7 @@ export default function MapPage() {
         </section>
 
         {/* ─────────────────────────────────────────────────────────────── */}
-        <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 max-w-prose space-y-2">
+        <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint max-w-prose space-y-2">
           <p>
             <strong>From here, every part of the platform is one click away.</strong>{" "}
             That is the point of this page. Each doctrine, each connection-doc, each

@@ -186,7 +186,7 @@ export default function IdentifyPage() {
 
       <hr />
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         <em>
           Self-identified by Cambridge TCG, v1, on {new Date().toISOString().slice(0, 10)}.
           See <Link href="/api/v1/identify"><code>/api/v1/identify</code></Link> for the

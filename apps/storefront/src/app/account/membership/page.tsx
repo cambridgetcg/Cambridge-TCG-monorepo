@@ -16,17 +16,17 @@ const TIER_COLORS: Record<string, {
     glow: "ring-amber-700/30", progressBg: "bg-amber-700/20", progressBar: "bg-amber-700",
   },
   "neutral-400": {
-    border: "border-neutral-400/50", text: "text-neutral-300", bg: "bg-neutral-400/10",
+    border: "border-neutral-400/50", text: "text-ink-muted", bg: "bg-neutral-400/10",
     glow: "ring-neutral-400/30", progressBg: "bg-neutral-400/20", progressBar: "bg-neutral-400",
   },
   "amber-400": {
-    border: "border-amber-400/50", text: "text-amber-400", bg: "bg-amber-400/10",
-    glow: "ring-amber-400/30", progressBg: "bg-amber-400/20", progressBar: "bg-amber-400",
+    border: "border-accent-strong/50", text: "text-accent-strong", bg: "bg-accent-strong/10",
+    glow: "ring-amber-400/30", progressBg: "bg-accent-strong/20", progressBar: "bg-accent-strong",
   },
 };
 
 const DEFAULT_TC = {
-  border: "border-neutral-600/50", text: "text-neutral-400", bg: "bg-neutral-700/10",
+  border: "border-neutral-600/50", text: "text-ink-muted", bg: "bg-neutral-700/10",
   glow: "ring-neutral-600/30", progressBg: "bg-neutral-600/20", progressBar: "bg-neutral-500",
 };
 
@@ -52,17 +52,17 @@ function relativeDate(iso: string) {
 
 // ── Type badge colors ────────────────────────────────────────────────────────
 const POINTS_TYPE_STYLE: Record<string, string> = {
-  order_earned:  "bg-emerald-500/20 text-emerald-400",
+  order_earned:  "bg-emerald-500/20 text-secondary",
   tradein_earned: "bg-teal-500/20 text-teal-400",
   manual_credit: "bg-blue-500/20 text-blue-400",
-  manual_debit:  "bg-red-500/20 text-red-400",
+  manual_debit:  "bg-danger/20 text-red-400",
   redeemed:      "bg-orange-500/20 text-orange-400",
-  expired:       "bg-neutral-500/20 text-neutral-500",
+  expired:       "bg-neutral-500/20 text-ink-faint",
   migration:     "bg-purple-500/20 text-purple-400",
 };
 
 const CREDIT_TYPE_STYLE: Record<string, string> = {
-  cashback:          "bg-emerald-500/20 text-emerald-400",
+  cashback:          "bg-emerald-500/20 text-secondary",
   tradein_credit:    "bg-teal-500/20 text-teal-400",
   manual_adjustment: "bg-blue-500/20 text-blue-400",
   redeemed_checkout: "bg-orange-500/20 text-orange-400",
@@ -134,7 +134,7 @@ export default function MembershipPage() {
     return (
       <div className="flex items-center justify-center py-20">
       <Audience kind="consumer" />
-        <div className="text-neutral-500 animate-pulse">Loading membership...</div>
+        <div className="text-ink-faint animate-pulse">Loading membership...</div>
       </div>
     );
   }
@@ -142,7 +142,7 @@ export default function MembershipPage() {
   if (!profile) {
     return (
       <div className="text-center py-20">
-        <p className="text-neutral-400">Unable to load membership data.</p>
+        <p className="text-ink-muted">Unable to load membership data.</p>
       </div>
     );
   }
@@ -170,7 +170,7 @@ export default function MembershipPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-white">
+      <h1 className="text-2xl font-bold text-ink">
         Membership
         <WhyLink href="/methodology/membership-tier" tooltip="How is my tier assigned?" />
       </h1>
@@ -182,23 +182,23 @@ export default function MembershipPage() {
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-1">
               <span className="text-3xl">⭐</span>
-              <h2 className="text-xl font-bold text-white">
+              <h2 className="text-xl font-bold text-ink">
                 Go Pro — <Money value={proMonthly} />/mo
               </h2>
             </div>
-            <p className="text-neutral-400 mb-2">
+            <p className="text-ink-muted mb-2">
               5% off every order, lower selling fees, and early access to restocks.
             </p>
-            <p className="text-xs text-neutral-500 mb-6">
+            <p className="text-xs text-ink-faint mb-6">
               No catch — nothing free is taken away, and you reach Pro free at £300/yr
               spend. <WhyLink href="/methodology/pro" tooltip="What is Pro?" />
             </p>
             <div className="grid gap-4 sm:grid-cols-2 max-w-md">
-              <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-4 text-center">
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Monthly</p>
-                <p className="text-2xl font-bold text-white mb-1">
+              <div className="rounded-xl border border-border-strong bg-surface/80 p-4 text-center">
+                <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Monthly</p>
+                <p className="text-2xl font-bold text-ink mb-1">
                   <Money value={proMonthly} />
-                  <span className="text-sm font-normal text-neutral-500"> /month</span>
+                  <span className="text-sm font-normal text-ink-faint"> /month</span>
                 </p>
                 <button
                   onClick={() => handleSubscribe("monthly", "Pro")}
@@ -210,11 +210,11 @@ export default function MembershipPage() {
               </div>
               <div className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-4 text-center">
                 <p className="text-xs font-medium uppercase tracking-wider mb-2 text-sky-300">Annual</p>
-                <p className="text-2xl font-bold text-white mb-1">
+                <p className="text-2xl font-bold text-ink mb-1">
                   <Money value={proAnnual} />
-                  <span className="text-sm font-normal text-neutral-500"> /year</span>
+                  <span className="text-sm font-normal text-ink-faint"> /year</span>
                 </p>
-                <p className="text-xs text-emerald-400 font-medium">
+                <p className="text-xs text-secondary font-medium">
                   Save <Money value={proMonthly * 12 - proAnnual} />
                 </p>
                 <button
@@ -250,7 +250,7 @@ export default function MembershipPage() {
                 <span className="text-3xl">💎</span>
                 <div>
                   <h2 className="text-xl font-bold" style={{ color: "#E5E4E2" }}>Platinum Member</h2>
-                  <p className="text-sm text-neutral-400">
+                  <p className="text-sm text-ink-muted">
                     {profile.tier_source === "subscription" ? "Active subscription" : "Active"}
                   </p>
                 </div>
@@ -303,16 +303,16 @@ export default function MembershipPage() {
               <span className="text-3xl">💎</span>
               <h2 className="text-xl font-bold" style={{ color: "#E5E4E2" }}>Upgrade to Platinum</h2>
             </div>
-            <p className="text-neutral-400 mb-6">Zero fees. Maximum rewards. 12% off everything.</p>
+            <p className="text-ink-muted mb-6">Zero fees. Maximum rewards. 12% off everything.</p>
 
             {/* Pricing cards */}
             <div className="grid gap-4 sm:grid-cols-2 max-w-md mb-6">
               {/* Monthly */}
-              <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-4 text-center">
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Monthly</p>
-                <p className="text-2xl font-bold text-white mb-1">
+              <div className="rounded-xl border border-border-strong bg-surface/80 p-4 text-center">
+                <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Monthly</p>
+                <p className="text-2xl font-bold text-ink mb-1">
                   <Money value={monthlyPrice} />
-                  <span className="text-sm font-normal text-neutral-500"> /month</span>
+                  <span className="text-sm font-normal text-ink-faint"> /month</span>
                 </p>
                 <button
                   onClick={() => handleSubscribe("monthly")}
@@ -338,11 +338,11 @@ export default function MembershipPage() {
                 }}
               >
                 <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "#E5E4E2" }}>Annual</p>
-                <p className="text-2xl font-bold text-white mb-1">
+                <p className="text-2xl font-bold text-ink mb-1">
                   <Money value={annualPrice} />
-                  <span className="text-sm font-normal text-neutral-500"> /year</span>
+                  <span className="text-sm font-normal text-ink-faint"> /year</span>
                 </p>
-                <p className="text-xs text-emerald-400 font-medium">
+                <p className="text-xs text-secondary font-medium">
                   Save <Money value={annualSavings} /> ({annualSavingsPercent}%)
                 </p>
                 <button
@@ -371,8 +371,8 @@ export default function MembershipPage() {
                 "3x Berries",
                 "Priority everything",
               ].map(perk => (
-                <div key={perk} className="flex items-center gap-2 text-sm text-neutral-300">
-                  <span className="text-emerald-400 shrink-0">&#10003;</span>
+                <div key={perk} className="flex items-center gap-2 text-sm text-ink-muted">
+                  <span className="text-secondary shrink-0">&#10003;</span>
                   {perk}
                 </div>
               ))}
@@ -398,8 +398,8 @@ export default function MembershipPage() {
               <p className="text-sm text-amber-600 font-medium">Start earning to unlock perks!</p>
             )}
 
-            <div className="text-sm text-neutral-400">
-              Annual spend: <span className="text-white font-semibold"><Money value={profile.annual_spend} /></span>
+            <div className="text-sm text-ink-muted">
+              Annual spend: <span className="text-ink font-semibold"><Money value={profile.annual_spend} /></span>
             </div>
           </div>
 
@@ -412,8 +412,8 @@ export default function MembershipPage() {
             ) : (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Progress to {profile.next_tier!.icon} {profile.next_tier!.name}</span>
-                  <span className="text-neutral-300 font-medium">{profile.progress_to_next}%</span>
+                  <span className="text-ink-muted">Progress to {profile.next_tier!.icon} {profile.next_tier!.name}</span>
+                  <span className="text-ink-muted font-medium">{profile.progress_to_next}%</span>
                 </div>
                 <div className={`h-3 rounded-full ${nextTierColor.progressBg} overflow-hidden`}>
                   <div
@@ -421,7 +421,7 @@ export default function MembershipPage() {
                     style={{ width: `${profile.progress_to_next}%` }}
                   />
                 </div>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-ink-faint">
                   <Money value={profile.amount_to_next} /> more to reach {profile.next_tier!.name}
                 </p>
               </div>
@@ -432,7 +432,7 @@ export default function MembershipPage() {
 
       {/* ── 2. PERKS GRID ──────────────────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-white mb-4">Your Perks</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Your Perks</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <PerkCard
             label="Cashback"
@@ -476,12 +476,12 @@ export default function MembershipPage() {
 
         {/* Extra benefits from tier data */}
         {tier && tier.benefits.length > 0 && (
-          <div className="mt-4 bg-neutral-900/50 rounded-xl p-4 border border-neutral-800">
-            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Additional Benefits</p>
+          <div className="mt-4 bg-surface/50 rounded-xl p-4 border border-border-subtle">
+            <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Additional Benefits</p>
             <ul className="space-y-1.5">
               {tier.benefits.map((b, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-neutral-300">
-                  <span className="text-emerald-400 mt-0.5 shrink-0">&#10003;</span>
+                <li key={i} className="flex items-start gap-2 text-sm text-ink-muted">
+                  <span className="text-secondary mt-0.5 shrink-0">&#10003;</span>
                   {b}
                 </li>
               ))}
@@ -493,27 +493,27 @@ export default function MembershipPage() {
       {/* ── 3. POINTS & CREDIT ─────────────────────────────────────────────── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Berries */}
-        <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
+        <div className="bg-surface rounded-xl border border-border-subtle p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h3 className="text-base font-semibold text-white">Berries</h3>
-            <span className="text-2xl font-bold text-amber-400">{profile.points_balance.toLocaleString()}</span>
+            <h3 className="text-base font-semibold text-ink">Berries</h3>
+            <span className="text-2xl font-bold text-accent-strong">{profile.points_balance.toLocaleString()}</span>
           </div>
-          <p className="text-xs text-neutral-500 mb-4">
-            Lifetime earned: <span className="text-neutral-400">{profile.lifetime_points.toLocaleString()}</span>
+          <p className="text-xs text-ink-faint mb-4">
+            Lifetime earned: <span className="text-ink-muted">{profile.lifetime_points.toLocaleString()}</span>
           </p>
 
           {visiblePoints.length > 0 ? (
             <div className="space-y-2">
               {visiblePoints.map(entry => (
-                <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-neutral-800/50 last:border-0">
+                <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-border-subtle/50 last:border-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${POINTS_TYPE_STYLE[entry.type] ?? "bg-neutral-700 text-neutral-400"}`}>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${POINTS_TYPE_STYLE[entry.type] ?? "bg-neutral-700 text-ink-muted"}`}>
                       {typeLabel(entry.type)}
                     </span>
-                    <span className="text-xs text-neutral-500 truncate">{entry.description}</span>
+                    <span className="text-xs text-ink-faint truncate">{entry.description}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-2">
-                    <span className={`text-sm font-medium ${entry.amount > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    <span className={`text-sm font-medium ${entry.amount > 0 ? "text-secondary" : "text-red-400"}`}>
                       {entry.amount > 0 ? "+" : ""}{entry.amount}
                     </span>
                     <span className="text-[10px] text-neutral-600 w-14 text-right">{relativeDate(entry.created_at)}</span>
@@ -528,7 +528,7 @@ export default function MembershipPage() {
           {pointsHistory.length > 5 && (
             <button
               onClick={() => setShowAllPoints(v => !v)}
-              className="mt-3 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+              className="mt-3 text-xs text-accent-strong hover:text-accent-strong transition-colors"
             >
               {showAllPoints ? "Show less" : `View all (${pointsHistory.length})`}
             </button>
@@ -536,10 +536,10 @@ export default function MembershipPage() {
         </div>
 
         {/* Store Credit */}
-        <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
+        <div className="bg-surface rounded-xl border border-border-subtle p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h3 className="text-base font-semibold text-white">Store Credit</h3>
-            <span className="text-2xl font-bold text-emerald-400"><Money value={profile.store_credit_balance} /></span>
+            <h3 className="text-base font-semibold text-ink">Store Credit</h3>
+            <span className="text-2xl font-bold text-secondary"><Money value={profile.store_credit_balance} /></span>
           </div>
 
           {visibleCredits.length > 0 ? (
@@ -547,15 +547,15 @@ export default function MembershipPage() {
               {visibleCredits.map(entry => {
                 const amt = parseFloat(entry.amount);
                 return (
-                  <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-neutral-800/50 last:border-0">
+                  <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-border-subtle/50 last:border-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${CREDIT_TYPE_STYLE[entry.type] ?? "bg-neutral-700 text-neutral-400"}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${CREDIT_TYPE_STYLE[entry.type] ?? "bg-neutral-700 text-ink-muted"}`}>
                         {typeLabel(entry.type)}
                       </span>
-                      <span className="text-xs text-neutral-500 truncate">{entry.description}</span>
+                      <span className="text-xs text-ink-faint truncate">{entry.description}</span>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-2">
-                      <span className={`text-sm font-medium ${amt > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      <span className={`text-sm font-medium ${amt > 0 ? "text-secondary" : "text-red-400"}`}>
                         {amt > 0 ? "+" : ""}<Money value={Math.abs(amt)} />
                       </span>
                       <span className="text-[10px] text-neutral-600 w-14 text-right">{relativeDate(entry.created_at)}</span>
@@ -571,7 +571,7 @@ export default function MembershipPage() {
           {creditHistory.length > 5 && (
             <button
               onClick={() => setShowAllCredits(v => !v)}
-              className="mt-3 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+              className="mt-3 text-xs text-secondary hover:text-emerald-300 transition-colors"
             >
               {showAllCredits ? "Show less" : `View all (${creditHistory.length})`}
             </button>
@@ -582,7 +582,7 @@ export default function MembershipPage() {
       {/* ── 4. ALL TIERS COMPARISON ────────────────────────────────────────── */}
       {tiers.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-white mb-4">All Tiers</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">All Tiers</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {tiers.map(t => {
               const isCurrent = tier?.id === t.id;
@@ -595,8 +595,8 @@ export default function MembershipPage() {
                     isPlatinumTier
                       ? "relative"
                       : isCurrent
-                        ? `bg-neutral-900 border ${c.border} ring-2 ${c.glow}`
-                        : "bg-neutral-900 border border-neutral-800"
+                        ? `bg-surface border ${c.border} ring-2 ${c.glow}`
+                        : "bg-surface border border-border-subtle"
                   }`}
                   style={isPlatinumTier ? {
                     background: "linear-gradient(135deg, #0d0d1a 0%, #121228 50%, #0d0d1a 100%)",
@@ -609,11 +609,11 @@ export default function MembershipPage() {
                   <div className="flex items-center justify-between mb-3">
                     <TierBadge name={t.name} icon={t.icon} color={t.color} />
                     {isCurrent && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Current</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">Current</span>
                     )}
                   </div>
 
-                  <p className="text-xs text-neutral-500 mb-3">
+                  <p className="text-xs text-ink-faint mb-3">
                     {t.is_paid && t.monthly_price && t.annual_price
                       ? `${formatPrice(parseFloat(t.monthly_price))}/mo or ${formatPrice(parseFloat(t.annual_price))}/yr`
                       : parseFloat(t.min_annual_spend) === 0
@@ -645,10 +645,10 @@ export default function MembershipPage() {
                   </div>
 
                   {t.benefits.length > 0 && (
-                    <ul className="space-y-1.5 border-t border-neutral-800 pt-3">
+                    <ul className="space-y-1.5 border-t border-border-subtle pt-3">
                       {t.benefits.map((b, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-neutral-400">
-                          <span className="text-emerald-400 mt-0.5 shrink-0">&#10003;</span>
+                        <li key={i} className="flex items-start gap-2 text-xs text-ink-muted">
+                          <span className="text-secondary mt-0.5 shrink-0">&#10003;</span>
                           {b}
                         </li>
                       ))}
@@ -673,13 +673,13 @@ function PerkCard({ label, value, description, highlight }: {
     <div className={`rounded-lg border p-4 ${
       highlight
         ? "border-emerald-500/30 bg-emerald-500/5"
-        : "border-neutral-800 bg-neutral-900/50"
+        : "border-border-subtle bg-surface/50"
     }`}>
-      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-white">
-        <span className={`text-xl font-bold ${highlight ? "text-emerald-400" : "text-neutral-300"}`}>{value}</span>
+      <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-ink">
+        <span className={`text-xl font-bold ${highlight ? "text-secondary" : "text-ink-muted"}`}>{value}</span>
         {" "}
-        <span className="text-sm text-neutral-400">{description}</span>
+        <span className="text-sm text-ink-muted">{description}</span>
       </p>
     </div>
   );
@@ -688,8 +688,8 @@ function PerkCard({ label, value, description, highlight }: {
 function TierStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex justify-between text-xs">
-      <span className="text-neutral-500">{label}</span>
-      <span className={`font-medium ${highlight ? "text-emerald-400" : "text-neutral-300"}`}>{value}</span>
+      <span className="text-ink-faint">{label}</span>
+      <span className={`font-medium ${highlight ? "text-secondary" : "text-ink-muted"}`}>{value}</span>
     </div>
   );
 }

@@ -51,17 +51,17 @@ function StatCard({
   href?: string;
 }) {
   const toneCls: Record<string, string> = {
-    neutral: "text-neutral-100",
-    amber: "text-amber-400",
-    emerald: "text-emerald-400",
-    sky: "text-sky-400",
+    neutral: "text-ink",
+    amber: "text-accent-strong",
+    emerald: "text-secondary",
+    sky: "text-info",
   };
   const body = (
     <Card>
       <div className="space-y-1">
-        <div className="text-xs uppercase tracking-wider text-neutral-500">{label}</div>
+        <div className="text-xs uppercase tracking-wider text-ink-faint">{label}</div>
         <div className={`text-2xl font-semibold ${toneCls[tone]}`}>{value}</div>
-        {sub && <div className="text-xs text-neutral-500">{sub}</div>}
+        {sub && <div className="text-xs text-ink-faint">{sub}</div>}
       </div>
     </Card>
   );
@@ -129,8 +129,8 @@ export default async function WholesaleShellPage() {
         <Link href="/account/b2b/catalog" className="block group">
           <Card>
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold group-hover:text-amber-400">Catalog →</h2>
-              <p className="text-sm text-neutral-400">
+              <h2 className="text-lg font-semibold group-hover:text-accent-strong">Catalog →</h2>
+              <p className="text-sm text-ink-muted">
                 Browse the full Cambridge TCG catalog at wholesale prices. Filter by game, set,
                 search by name, sort by price.
               </p>
@@ -144,10 +144,10 @@ export default async function WholesaleShellPage() {
         >
           <Card>
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold group-hover:text-amber-400">
+              <h2 className="text-lg font-semibold group-hover:text-accent-strong">
                 {cartCount > 0 ? "Checkout →" : "Start a cart →"}
               </h2>
-              <p className="text-sm text-neutral-400">
+              <p className="text-sm text-ink-muted">
                 {cartCount > 0
                   ? `${cartCount} item${cartCount === 1 ? "" : "s"} waiting in your cart. Stripe handles payment at wholesale prices.`
                   : "Add cards from the catalog and check out via Stripe."}
@@ -164,7 +164,7 @@ export default async function WholesaleShellPage() {
               <h2 className="text-lg font-semibold">Recent orders</h2>
               <Link
                 href="/account/b2b/orders"
-                className="text-sm text-amber-400 hover:underline"
+                className="text-sm text-accent-strong hover:underline"
               >
                 View all →
               </Link>
@@ -176,14 +176,14 @@ export default async function WholesaleShellPage() {
                   <li key={order.id}>
                     <Link
                       href={`/account/b2b/orders/${order.id}`}
-                      className="flex items-baseline justify-between gap-3 rounded border border-neutral-800 px-3 py-2 hover:border-neutral-700 hover:bg-neutral-900"
+                      className="flex items-baseline justify-between gap-3 rounded border border-border-subtle px-3 py-2 hover:border-border-strong hover:bg-surface"
                     >
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-neutral-100">
+                        <div className="text-sm font-medium text-ink">
                           Order #{order.id}{" "}
-                          <span className="ml-1 text-xs text-neutral-500">· {order.status}</span>
+                          <span className="ml-1 text-xs text-ink-faint">· {order.status}</span>
                         </div>
-                        <div className="text-xs text-neutral-500">
+                        <div className="text-xs text-ink-faint">
                           {fmtDate(order.created_at)} · {itemCount} item{itemCount === 1 ? "" : "s"}
                         </div>
                       </div>
@@ -198,12 +198,12 @@ export default async function WholesaleShellPage() {
       )}
 
       <Card>
-        <div className="space-y-2 text-sm text-neutral-400">
-          <p className="font-medium text-neutral-200">How pricing works here</p>
+        <div className="space-y-2 text-sm text-ink-muted">
+          <p className="font-medium text-ink">How pricing works here</p>
           <p>
             Public pages on cambridgetcg.com always show the retail price — even
             when you&rsquo;re logged in. The wholesale channel applies only inside
-            this <code className="rounded bg-neutral-800 px-1 py-0.5 text-xs">/account/b2b/*</code>{" "}
+            this <code className="rounded bg-surface-elevated px-1 py-0.5 text-xs">/account/b2b/*</code>{" "}
             section. This keeps public prices stable for everyone and the B2B
             view crisply separate.
           </p>

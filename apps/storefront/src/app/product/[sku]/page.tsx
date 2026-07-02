@@ -46,7 +46,7 @@ function rarityBadgeClasses(rarity: string | null): string | null {
   if (r === "UC")
     return "bg-blue-500/20 text-blue-400";
   if (r === "C")
-    return "bg-neutral-700 text-neutral-400";
+    return "bg-neutral-700 text-ink-muted";
   return null;
 }
 
@@ -107,28 +107,28 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
     <Audience kind="consumer" contexts={["product-detail"]} />
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-8">
-        <Link href="/" className="hover:text-white transition">Home</Link>
+      <nav className="flex items-center gap-2 text-sm text-ink-faint mb-8">
+        <Link href="/" className="hover:text-ink transition">Home</Link>
         <span>/</span>
-        <Link href={`/catalog?game=${gameSlug}`} className="hover:text-white transition">{gameLabel}</Link>
+        <Link href={`/catalog?game=${gameSlug}`} className="hover:text-ink transition">{gameLabel}</Link>
         {card.set_name && (
           <>
             <span>/</span>
             <Link
               href={`/catalog?game=${gameSlug}&set=${card.set_code}`}
-              className="hover:text-white transition"
+              className="hover:text-ink transition"
             >
               {card.set_name}
             </Link>
           </>
         )}
         <span>/</span>
-        <span className="text-neutral-400">{card.card_number}</span>
+        <span className="text-ink-muted">{card.card_number}</span>
       </nav>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
         {/* Card image */}
-        <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-neutral-900">
+        <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-surface">
           {card.image_url && (
             <Image
               src={card.image_url}
@@ -143,7 +143,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
         {/* Card details */}
         <div className="flex flex-col gap-6">
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-400 uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-sm text-ink-muted uppercase tracking-wider">
               <span>{card.set_name}</span>
               {card.rarity && rarityClasses && (
                 <span className={`px-2 py-0.5 text-xs font-bold rounded-full normal-case ${rarityClasses}`}>
@@ -152,11 +152,11 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
               )}
             </div>
             <h1 className="text-3xl font-bold mt-1">{card.name_en || card.name}</h1>
-            <p className="text-neutral-400 mt-1">{card.card_number}</p>
+            <p className="text-ink-muted mt-1">{card.card_number}</p>
           </div>
 
           <div className="flex flex-col gap-1">
-            <div className="text-4xl font-bold text-emerald-400">{formatRetailPrice(card.price_gbp, card.channel_price)}</div>
+            <div className="text-4xl font-bold text-secondary">{formatRetailPrice(card.price_gbp, card.channel_price)}</div>
             <div className="flex items-center gap-3">
               <Provenance kind="synced" source="wholesale" at={card.updated_at} cadence="daily" />
               <WhyLink href="/methodology/pricing" />
@@ -166,9 +166,9 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
           {/* Stock indicator */}
           <div className="text-sm">
             {card.stock > 5 ? (
-              <span className="text-neutral-400">In Stock · Near Mint · Japanese</span>
+              <span className="text-ink-muted">In Stock · Near Mint · Japanese</span>
             ) : card.stock > 0 ? (
-              <span className="text-amber-400">
+              <span className="text-accent-strong">
                 ⚠️ Only {card.stock} left · Near Mint · Japanese
               </span>
             ) : (
@@ -192,7 +192,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             <div className="flex flex-col gap-3">
               <button
                 disabled
-                className="opacity-50 cursor-not-allowed px-8 py-4 rounded-xl bg-neutral-800 font-bold"
+                className="opacity-50 cursor-not-allowed px-8 py-4 rounded-xl bg-surface-elevated font-bold"
               >
                 Out of Stock
               </button>
@@ -234,7 +234,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
               return (
                 <Link
                   href={`/market/${sku}`}
-                  className="text-sm text-neutral-500 hover:text-white transition"
+                  className="text-sm text-ink-faint hover:text-ink transition"
                 >
                   Trade this card P2P &rarr;
                 </Link>
@@ -243,26 +243,26 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
             if (!hasActivity && hasTradeinCredit) {
               return (
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col gap-3">
-                  <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Market</h3>
+                <div className="bg-surface border border-border-subtle rounded-xl p-4 flex flex-col gap-3">
+                  <h3 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">Market</h3>
                   <div className="flex items-start gap-2">
                     <span className="shrink-0 mt-0.5 px-2 py-0.5 text-xs font-bold rounded-full bg-purple-500/20 text-purple-400">
                       We Buy
                     </span>
-                    <div className="text-sm text-neutral-300">
+                    <div className="text-sm text-ink-muted">
                       We buy this card for{" "}
                       <MoneyDisplay value={market.tradein_credit!} className="text-purple-400 font-semibold" />{" "}
                       <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1 py-0.5 rounded font-semibold">store credit</span>
-                      <span className="text-xs text-neutral-500 ml-1">&mdash; always available, unlimited</span>
+                      <span className="text-xs text-ink-faint ml-1">&mdash; always available, unlimited</span>
                     </div>
                   </div>
                   <SellForCreditButton sku={sku} creditAmount={market.tradein_credit!} cardName={cardName} cardNumber={card.card_number} setCode={card.set_code} imageUrl={card.image_url} />
-                  <p className="text-[11px] text-neutral-500">
+                  <p className="text-[11px] text-ink-faint">
                     Instant store credit. Can only be used at Cambridge TCG.
                   </p>
                   <Link
                     href={`/market/${sku}`}
-                    className="text-sm text-neutral-500 hover:text-white transition"
+                    className="text-sm text-ink-faint hover:text-ink transition"
                   >
                     View full order book &rarr;
                   </Link>
@@ -280,27 +280,27 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                 : null;
 
             return (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Market</h3>
+              <div className="bg-surface border border-border-subtle rounded-xl p-4 flex flex-col gap-3">
+                <h3 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">Market</h3>
 
                 {/* P2P asks below store price */}
                 {hasP2pAsks && p2pBelowStore && (
                   <div className="flex items-start gap-2">
-                    <span className="shrink-0 mt-0.5 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-400">
+                    <span className="shrink-0 mt-0.5 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-secondary">
                       P2P Available
                     </span>
-                    <div className="text-sm text-neutral-300">
+                    <div className="text-sm text-ink-muted">
                       Also available from sellers:{" "}
-                      <span className="text-white font-medium">
+                      <span className="text-ink font-medium">
                         From <MoneyDisplay value={bestP2pAsk!} />
                       </span>{" "}
-                      <span className="text-emerald-400">
+                      <span className="text-secondary">
                         ({p2pDiscountPct}% below our price)
                       </span>
                       {" "}&nbsp;
                       <Link
                         href={`/market/${sku}`}
-                        className="text-emerald-400 hover:text-emerald-300 font-medium transition"
+                        className="text-secondary hover:text-emerald-300 font-medium transition"
                       >
                         View on Market
                       </Link>
@@ -310,13 +310,13 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
                 {/* P2P asks at or above store price (still worth mentioning) */}
                 {hasP2pAsks && !p2pBelowStore && (
-                  <div className="text-sm text-neutral-400">
+                  <div className="text-sm text-ink-muted">
                     Also available from sellers from{" "}
-                    <MoneyDisplay value={bestP2pAsk!} className="text-white font-medium" />
+                    <MoneyDisplay value={bestP2pAsk!} className="text-ink font-medium" />
                     {" "}&nbsp;
                     <Link
                       href={`/market/${sku}`}
-                      className="text-emerald-400 hover:text-emerald-300 font-medium transition"
+                      className="text-secondary hover:text-emerald-300 font-medium transition"
                     >
                       View on Market
                     </Link>
@@ -325,13 +325,13 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
                 {/* Highest bid (demand signal) */}
                 {hasBids && (
-                  <div className="text-sm text-neutral-400">
+                  <div className="text-sm text-ink-muted">
                     Highest buy offer:{" "}
-                    <MoneyDisplay value={market.best_bid!} className="text-white font-medium" />
+                    <MoneyDisplay value={market.best_bid!} className="text-ink font-medium" />
                     {" "}&nbsp;
                     <Link
                       href={`/market/${sku}`}
-                      className="text-amber-400 hover:text-amber-300 font-medium transition"
+                      className="text-accent-strong hover:text-accent-strong font-medium transition"
                     >
                       Sell yours
                     </Link>
@@ -344,12 +344,12 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                     <span className="shrink-0 mt-0.5 px-2 py-0.5 text-xs font-bold rounded-full bg-purple-500/20 text-purple-400">
                       We Buy
                     </span>
-                    <div className="text-sm text-neutral-300 flex flex-col gap-1.5">
+                    <div className="text-sm text-ink-muted flex flex-col gap-1.5">
                       <span>
                         We buy this card for{" "}
                         <MoneyDisplay value={market.tradein_credit!} className="text-purple-400 font-semibold" />{" "}
                         <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1 py-0.5 rounded font-semibold">store credit</span>
-                        <span className="text-xs text-neutral-500 ml-1">&mdash; always available, unlimited</span>
+                        <span className="text-xs text-ink-faint ml-1">&mdash; always available, unlimited</span>
                       </span>
                       <SellForCreditButton sku={sku} creditAmount={market.tradein_credit!} cardName={cardName} cardNumber={card.card_number} setCode={card.set_code} imageUrl={card.image_url} />
                     </div>
@@ -358,7 +358,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
                 {/* Recent trade count */}
                 {hasRecentTrades && (
-                  <p className="text-sm text-neutral-500">
+                  <p className="text-sm text-ink-faint">
                     {recentTrades24h.length} P2P trade{recentTrades24h.length !== 1 ? "s" : ""} in the last 24h
                   </p>
                 )}
@@ -366,7 +366,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                 {/* Always link to full order book */}
                 <Link
                   href={`/market/${sku}`}
-                  className="text-sm text-neutral-500 hover:text-white transition"
+                  className="text-sm text-ink-faint hover:text-ink transition"
                 >
                   View full order book &rarr;
                 </Link>
@@ -379,8 +379,8 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
       {/* Related cards */}
       {relatedCards.length > 0 && (
         <div className="mt-16">
-          <h2 className="text-xl font-bold text-white mb-2">You may also like</h2>
-          <p className="text-sm text-neutral-500 mb-4">More cards from {card.set_name}</p>
+          <h2 className="text-xl font-bold text-ink mb-2">You may also like</h2>
+          <p className="text-sm text-ink-faint mb-4">More cards from {card.set_name}</p>
           <CardGrid cards={relatedCards} />
         </div>
       )}

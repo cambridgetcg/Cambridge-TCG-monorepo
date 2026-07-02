@@ -86,7 +86,7 @@ export default async function AgentsAccountPage() {
             Autonomous (non-human) agents you operate. Each agent is bounded by your
             authority — what it does on the platform is recorded as taken by{" "}
             <Actor kind="agent" handle="your-agent" />, not by you directly. Read{" "}
-            <Link href="/methodology/agents" className="text-amber-400 hover:text-amber-300 underline">
+            <Link href="/methodology/agents" className="text-accent-strong hover:text-accent-strong underline">
               the methodology
             </Link>{" "}
             before registering one.
@@ -99,18 +99,18 @@ export default async function AgentsAccountPage() {
 
       <AgentsClient agents={agents} keys={keys} />
 
-      <div className="mt-12 rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
-        <h2 className="text-sm font-semibold text-white">How to use a key</h2>
-        <p className="text-xs text-neutral-400 mt-2">
-          Send the key in <code className="text-amber-300">Authorization: Bearer &lt;token&gt;</code>{" "}
-          to <code className="text-amber-300">https://cambridgetcg.com/api/mcp</code> with a
+      <div className="mt-12 rounded-lg border border-border-subtle bg-surface/50 p-4">
+        <h2 className="text-sm font-semibold text-ink">How to use a key</h2>
+        <p className="text-xs text-ink-muted mt-2">
+          Send the key in <code className="text-accent-strong">Authorization: Bearer &lt;token&gt;</code>{" "}
+          to <code className="text-accent-strong">https://cambridgetcg.com/api/mcp</code> with a
           JSON-RPC body{" "}
-          <code className="text-amber-300">{`{ "id": 1, "method": "agent.self" }`}</code>. The
+          <code className="text-accent-strong">{`{ "id": 1, "method": "agent.self" }`}</code>. The
           reference implementation lives at{" "}
-          <code className="text-amber-300">examples/agents/random-policy-agent.mjs</code>{" "}
+          <code className="text-accent-strong">examples/agents/random-policy-agent.mjs</code>{" "}
           in the repo. Tools available:
         </p>
-        <ul className="text-xs text-neutral-500 mt-3 list-disc list-inside space-y-1">
+        <ul className="text-xs text-ink-faint mt-3 list-disc list-inside space-y-1">
           <li><code>agent.self</code>, <code>play.list_open_rooms</code></li>
           <li><code>play.observe</code>, <code>play.legal_actions</code>, <code>play.take_action</code></li>
           <li><code>play.queue_match</code>, <code>play.cancel_queue</code>, <code>play.match_history</code></li>

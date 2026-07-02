@@ -153,10 +153,10 @@ export default async function Page() {
                 <code className="text-xs">apps/storefront/.env.local</code> (local) and to the
                 cambridgetcg-storefront Vercel project (prod):
               </p>
-              <pre className="text-xs font-mono bg-neutral-900 px-3 py-2 rounded border border-neutral-800 overflow-x-auto">
+              <pre className="text-xs font-mono bg-surface px-3 py-2 rounded border border-border-subtle overflow-x-auto">
                 VERCEL_TOKEN=&lt;create at vercel.com/account/tokens, scope: cambridgetcgs-projects&gt;
               </pre>
-              <p className="mt-2 text-xs text-neutral-500">
+              <p className="mt-2 text-xs text-ink-faint">
                 Optional: set GITHUB_TOKEN for SHA drift detection against main.
               </p>
             </>
@@ -195,7 +195,7 @@ export default async function Page() {
                 <strong>Fix:</strong> create a long-lived token in the Vercel
                 dashboard and rotate it into all three places:
               </p>
-              <ol className="list-decimal pl-5 space-y-1 text-sm text-neutral-300 mb-3">
+              <ol className="list-decimal pl-5 space-y-1 text-sm text-ink-muted mb-3">
                 <li>
                   Visit{" "}
                   <a
@@ -228,7 +228,7 @@ export default async function Page() {
                   Redeploy the storefront so the new env takes effect.
                 </li>
               </ol>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-ink-faint">
                 See <code>docs/ops-deploy-runbook.md</code> for the full procedure.
               </p>
             </>
@@ -313,9 +313,9 @@ function ProjectCard({ row }: { row: ProjectRow }) {
   const urgency = urgencyForState(state);
   const tint = {
     ok:       "border-emerald-500/20 bg-emerald-500/5",
-    warning:  "border-amber-500/20 bg-amber-500/5",
-    critical: "border-red-500/20 bg-red-500/5",
-    neutral:  "border-neutral-800 bg-neutral-900/50",
+    warning:  "border-accent/20 bg-accent/5",
+    critical: "border-danger/20 bg-danger/5",
+    neutral:  "border-border-subtle bg-surface/50",
   }[urgency];
 
   return (
@@ -323,7 +323,7 @@ function ProjectCard({ row }: { row: ProjectRow }) {
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="text-base font-semibold text-white">{p.name}</h3>
+            <h3 className="text-base font-semibold text-ink">{p.name}</h3>
             <a
               href={`https://${p.domain}`}
               target="_blank"
@@ -336,7 +336,7 @@ function ProjectCard({ row }: { row: ProjectRow }) {
               <StatusBadge status="drift" palette={{ drift: "amber" }} label="DRIFT" />
             )}
           </div>
-          <p className="text-xs text-neutral-500 mt-1 font-mono">{p.appPath}</p>
+          <p className="text-xs text-ink-faint mt-1 font-mono">{p.appPath}</p>
         </div>
         <RedeployButton projectKey={p.key} />
       </div>
@@ -347,7 +347,7 @@ function ProjectCard({ row }: { row: ProjectRow }) {
 
       <div className="grid sm:grid-cols-3 gap-4 text-sm">
         <div>
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Latest prod</p>
+          <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Latest prod</p>
           {deploy ? (
             <>
               <StatusBadge
@@ -355,7 +355,7 @@ function ProjectCard({ row }: { row: ProjectRow }) {
                 palette={STATE_PALETTE}
                 label={state}
               />
-              <p className="text-xs text-neutral-500 mt-1.5">
+              <p className="text-xs text-ink-faint mt-1.5">
                 {fmtRelative(new Date(deploy.created))} · {fmtDateTime(new Date(deploy.created))}
               </p>
               {deploy.errorMessage && (
@@ -363,21 +363,21 @@ function ProjectCard({ row }: { row: ProjectRow }) {
               )}
             </>
           ) : (
-            <span className="text-neutral-500">—</span>
+            <span className="text-ink-faint">—</span>
           )}
         </div>
 
         <div>
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Commit</p>
+          <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Commit</p>
           {deploy?.meta ? (
             <>
-              <p className="font-mono text-xs text-amber-400">
+              <p className="font-mono text-xs text-accent-strong">
                 {(deploy.meta.githubCommitSha ?? "").slice(0, 8) || "—"}
               </p>
-              <p className="text-xs text-neutral-300 line-clamp-1 max-w-[280px]">
+              <p className="text-xs text-ink-muted line-clamp-1 max-w-[280px]">
                 {deploy.meta.githubCommitMessage?.split("\n")[0] ?? "—"}
               </p>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-ink-faint">
                 {deploy.meta.githubCommitAuthorName ?? "—"}
                 {deploy.meta.githubCommitAuthorLogin && (
                   <span className="text-neutral-600"> @{deploy.meta.githubCommitAuthorLogin}</span>
@@ -385,31 +385,31 @@ function ProjectCard({ row }: { row: ProjectRow }) {
               </p>
             </>
           ) : (
-            <span className="text-neutral-500">—</span>
+            <span className="text-ink-faint">—</span>
           )}
         </div>
 
         <div>
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Domain probe</p>
+          <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Domain probe</p>
           <span
             className={
               probe.status === 0 || probe.status >= 500
                 ? "text-red-400 font-mono text-sm"
                 : probe.status >= 400
-                  ? "text-amber-400 font-mono text-sm"
-                  : "text-emerald-400 font-mono text-sm"
+                  ? "text-accent-strong font-mono text-sm"
+                  : "text-secondary font-mono text-sm"
             }
           >
             HTTP {probe.status || "—"}
           </span>
-          <p className="text-xs text-neutral-500 mt-1">live HEAD request</p>
+          <p className="text-xs text-ink-faint mt-1">live HEAD request</p>
         </div>
       </div>
 
       {drift && row.lastTouchSha && (
-        <p className="text-xs text-amber-400 mt-3 border-t border-amber-500/10 pt-3">
-          ⚠ Latest commit touching <code className="text-amber-300">{p.appPath}</code> on main is{" "}
-          <code className="font-mono text-amber-300">{row.lastTouchSha.slice(0, 8)}</code>
+        <p className="text-xs text-accent-strong mt-3 border-t border-accent/10 pt-3">
+          ⚠ Latest commit touching <code className="text-accent-strong">{p.appPath}</code> on main is{" "}
+          <code className="font-mono text-accent-strong">{row.lastTouchSha.slice(0, 8)}</code>
           {row.lastTouchAt && <> ({fmtRelative(row.lastTouchAt)})</>} — newer than the live deploy.
         </p>
       )}

@@ -46,7 +46,7 @@ function timeAgo(iso: string | null): string {
 // Suspense boundary for useSearchParams (Next 16 CSR-bailout guard)
 export default function MessagesPage() {
   return (
-    <Suspense fallback={<p className="text-neutral-500 text-sm">Loading…</p>}>
+    <Suspense fallback={<p className="text-ink-faint text-sm">Loading…</p>}>
       <Audience kind="consumer" />
       <MessagesPageInner />
     </Suspense>
@@ -179,33 +179,33 @@ function MessagesPageInner() {
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-2">Messages</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-black text-ink mb-2">Messages</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Direct messages with other traders. Different from dispute messages — those live on
         the trade. Block list is bidirectional; profile setting controls whether you accept
         unsolicited messages.
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-300">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-4 text-sm text-red-300">
           {error}
         </div>
       )}
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden h-[600px]">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 bg-page border border-border-subtle rounded-xl overflow-hidden h-[600px]">
           {/* Inbox list */}
-          <aside className="border-r border-neutral-800 overflow-y-auto bg-neutral-900">
+          <aside className="border-r border-border-subtle overflow-y-auto bg-surface">
             {conversations.length === 0 ? (
-              <p className="p-4 text-xs text-neutral-500">
+              <p className="p-4 text-xs text-ink-faint">
                 No conversations yet. Start one from a profile or trade.
               </p>
             ) : (
-              <ul className="divide-y divide-neutral-800">
+              <ul className="divide-y divide-border-subtle">
                 {conversations.map((c) => {
                   const initial = (c.other_name ?? c.other_username ?? "?")[0].toUpperCase();
                   const active = activeId === c.id;
@@ -214,7 +214,7 @@ function MessagesPageInner() {
                       <button
                         onClick={() => setActiveId(c.id)}
                         className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 transition ${
-                          active ? "bg-amber-500/10" : "hover:bg-neutral-800/60"
+                          active ? "bg-accent/10" : "hover:bg-surface-elevated/60"
                         }`}
                       >
                         <div
@@ -225,23 +225,23 @@ function MessagesPageInner() {
                               : "rgb(38,38,38)",
                           }}
                         >
-                          {!c.other_avatar_url && <span className="text-amber-400">{initial}</span>}
+                          {!c.other_avatar_url && <span className="text-accent-strong">{initial}</span>}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
-                            <p className={`text-sm truncate ${c.unread ? "font-bold text-white" : "text-neutral-200"}`}>
+                            <p className={`text-sm truncate ${c.unread ? "font-bold text-ink" : "text-ink"}`}>
                               {c.other_name || (c.other_username ? `@${c.other_username}` : "Anonymous")}
                             </p>
-                            <span className="text-[10px] text-neutral-500 shrink-0">
+                            <span className="text-[10px] text-ink-faint shrink-0">
                               {timeAgo(c.last_message_at)}
                             </span>
                           </div>
-                          <p className="text-xs text-neutral-500 truncate">
+                          <p className="text-xs text-ink-faint truncate">
                             {c.last_message_preview || "(no messages)"}
                           </p>
                         </div>
                         {c.unread && (
-                          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                          <span className="w-2 h-2 rounded-full bg-accent shrink-0" />
                         )}
                       </button>
                     </li>
@@ -252,23 +252,23 @@ function MessagesPageInner() {
           </aside>
 
           {/* Active thread */}
-          <section className="flex flex-col bg-neutral-950 min-h-0">
+          <section className="flex flex-col bg-page min-h-0">
             {!activeId || !otherUser ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-neutral-500">
+              <div className="flex-1 flex items-center justify-center text-sm text-ink-faint">
                 Select a conversation to view messages.
               </div>
             ) : (
               <>
                 {/* Thread header */}
-                <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-neutral-800">
+                <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border-subtle">
                   <div className="min-w-0">
-                    <p className="text-white font-bold text-sm truncate">
+                    <p className="text-ink font-bold text-sm truncate">
                       {otherUser.name || (otherUser.username ? `@${otherUser.username}` : "Anonymous")}
                     </p>
                     {otherUser.username && (
                       <Link
                         href={`/u/${otherUser.username}`}
-                        className="text-[10px] text-amber-400 hover:text-amber-300"
+                        className="text-[10px] text-accent-strong hover:text-accent-strong"
                       >
                         View profile →
                       </Link>
@@ -277,7 +277,7 @@ function MessagesPageInner() {
                   <div className="flex gap-1">
                     <button
                       onClick={() => archive(activeId)}
-                      className="px-2 py-1 text-[10px] font-medium text-neutral-400 hover:text-white transition"
+                      className="px-2 py-1 text-[10px] font-medium text-ink-muted hover:text-ink transition"
                     >
                       Archive
                     </button>
@@ -302,17 +302,17 @@ function MessagesPageInner() {
                         <div
                           className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                             mine
-                              ? "bg-amber-500/15 text-amber-100 border border-amber-500/20"
-                              : "bg-neutral-900 text-neutral-200 border border-neutral-800"
+                              ? "bg-accent/15 text-amber-100 border border-accent/20"
+                              : "bg-surface text-ink border border-border-subtle"
                           }`}
                         >
                           <p className="whitespace-pre-wrap break-words">{m.body}</p>
                           {m.reference_type && (
-                            <p className="text-[9px] text-neutral-500 mt-1 uppercase tracking-wide">
+                            <p className="text-[9px] text-ink-faint mt-1 uppercase tracking-wide">
                               re: {m.reference_type.replace(/_/g, " ")}
                             </p>
                           )}
-                          <p className="text-[9px] text-neutral-500 mt-1">
+                          <p className="text-[9px] text-ink-faint mt-1">
                             {new Date(m.created_at).toLocaleString("en-GB", {
                               day: "numeric", month: "short",
                               hour: "2-digit", minute: "2-digit",
@@ -326,7 +326,7 @@ function MessagesPageInner() {
                 </div>
 
                 {/* Compose */}
-                <footer className="border-t border-neutral-800 p-3">
+                <footer className="border-t border-border-subtle p-3">
                   <div className="flex gap-2">
                     <textarea
                       value={composeText}
@@ -341,12 +341,12 @@ function MessagesPageInner() {
                       placeholder="Type a message…"
                       rows={2}
                       maxLength={2000}
-                      className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm resize-none"
+                      className="flex-1 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm resize-none"
                     />
                     <button
                       onClick={send}
                       disabled={sendingPending || !composeText.trim()}
-                      className="px-4 py-2 text-xs font-bold bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition disabled:opacity-50 self-end"
+                      className="px-4 py-2 text-xs font-bold bg-accent text-black rounded-lg hover:bg-accent-strong transition disabled:opacity-50 self-end"
                     >
                       {sendingPending ? "..." : "Send"}
                     </button>

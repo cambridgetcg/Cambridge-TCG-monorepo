@@ -59,7 +59,7 @@ export function AgentRowActions({
         <button
           onClick={onSuspend}
           disabled={pending}
-          className="text-amber-400 hover:text-amber-300 disabled:opacity-50"
+          className="text-accent-strong hover:text-accent-strong disabled:opacity-50"
         >
           suspend
         </button>
@@ -68,7 +68,7 @@ export function AgentRowActions({
         <button
           onClick={onUnsuspend}
           disabled={pending}
-          className="text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+          className="text-secondary hover:text-emerald-300 disabled:opacity-50"
         >
           unsuspend
         </button>
@@ -76,7 +76,7 @@ export function AgentRowActions({
       <button
         onClick={onArchive}
         disabled={pending}
-        className="text-neutral-500 hover:text-red-400 disabled:opacity-50"
+        className="text-ink-faint hover:text-red-400 disabled:opacity-50"
       >
         archive
       </button>

@@ -135,10 +135,10 @@ export default async function Page({
         // Make the User cell the link target — semantic anchor inside the
         // cell (rather than wrapping the whole <tr>, which is invalid HTML).
         <Link href={`/admin/catalog/users/${u.id}`} className="block group">
-          <p className="text-white font-medium group-hover:text-amber-300">
+          <p className="text-ink font-medium group-hover:text-accent-strong">
             {u.name ?? u.username ?? "—"}
           </p>
-          <p className="text-xs text-neutral-500">{u.email}</p>
+          <p className="text-xs text-ink-faint">{u.email}</p>
           {u.username && <p className="text-xs text-neutral-600">@{u.username}</p>}
         </Link>
       ),
@@ -198,7 +198,7 @@ export default async function Page({
       key: "joined",
       header: "Joined",
       hideOnMobile: true,
-      cellClass: "text-xs text-neutral-400 whitespace-nowrap",
+      cellClass: "text-xs text-ink-muted whitespace-nowrap",
       render: (u) => fmtDate(u.created_at),
     },
     {

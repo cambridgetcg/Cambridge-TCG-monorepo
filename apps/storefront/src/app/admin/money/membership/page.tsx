@@ -172,28 +172,28 @@ export default async function Page() {
             return (
               <div
                 key={t.id}
-                className="rounded-xl border border-neutral-800 bg-neutral-900 p-5"
+                className="rounded-xl border border-border-subtle bg-surface p-5"
               >
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{t.icon}</span>
-                      <h3 className="text-lg font-bold text-white">{t.name}</h3>
+                      <h3 className="text-lg font-bold text-ink">{t.name}</h3>
                       {t.is_paid && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 uppercase tracking-wider">
                           Paid
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-neutral-500 mt-1">
+                    <p className="text-xs text-ink-faint mt-1">
                       Threshold: {fmtGBP(t.min_spend)} annual spend
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-white tabular-nums">
+                    <p className="text-2xl font-bold text-ink tabular-nums">
                       {fmtNumber(userCount)}
                     </p>
-                    <p className="text-[11px] text-neutral-500">users</p>
+                    <p className="text-[11px] text-ink-faint">users</p>
                   </div>
                 </div>
 
@@ -215,7 +215,7 @@ export default async function Page() {
                   <Stat label="Avg annual spend" value={fmtGBP(avgAnnual)} />
                 </div>
 
-                <div className="flex items-center gap-3 text-xs text-neutral-500 pt-3 border-t border-neutral-800 flex-wrap">
+                <div className="flex items-center gap-3 text-xs text-ink-faint pt-3 border-t border-border-subtle flex-wrap">
                   <span className="uppercase tracking-wider text-[10px]">
                     Source
                   </span>
@@ -242,14 +242,14 @@ function Stat({
   accent?: "emerald";
 }) {
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-2.5">
-      <p className="text-[10px] text-neutral-500 uppercase tracking-wide">
+    <div className="rounded-lg border border-border-subtle bg-page p-2.5">
+      <p className="text-[10px] text-ink-faint uppercase tracking-wide">
         {label}
       </p>
       <p
         className={[
           "text-sm font-bold mt-0.5 tabular-nums",
-          accent === "emerald" ? "text-emerald-400" : "text-white",
+          accent === "emerald" ? "text-secondary" : "text-ink",
         ].join(" ")}
       >
         {value}

@@ -42,10 +42,10 @@ function TransitionButton({
   onClick: () => void;
 }) {
   const toneCls: Record<string, string> = {
-    amber: "bg-amber-500 text-neutral-950 hover:bg-amber-400",
+    amber: "bg-accent text-neutral-950 hover:bg-accent-strong",
     emerald: "bg-emerald-500 text-neutral-950 hover:bg-emerald-400",
-    red: "bg-red-500/80 text-white hover:bg-red-500",
-    neutral: "border border-neutral-700 text-neutral-300 hover:border-amber-500",
+    red: "bg-danger/80 text-ink hover:bg-danger",
+    neutral: "border border-border-strong text-ink-muted hover:border-accent",
   };
   return (
     <button
@@ -144,7 +144,7 @@ export function TransitionButtons({ id, status }: Props) {
 
   if (buttons.length === 0) {
     return (
-      <div className="text-sm text-neutral-500">
+      <div className="text-sm text-ink-faint">
         No transitions available — this order is in a terminal state.
       </div>
     );

@@ -153,16 +153,16 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         />
 
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-muted mb-8">
           <ol className="flex items-center gap-1.5 flex-wrap">
             <li>
-              <Link href="/" className="hover:text-white">
+              <Link href="/" className="hover:text-ink">
                 Home
               </Link>
             </li>
             <li className="text-neutral-600">/</li>
             <li>
-              <Link href="/prices" className="hover:text-white">
+              <Link href="/prices" className="hover:text-ink">
                 Prices
               </Link>
             </li>
@@ -170,7 +170,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             <li>
               <Link
                 href={`/prices/${config.slug}`}
-                className="hover:text-white"
+                className="hover:text-ink"
               >
                 {config.short_name}
               </Link>
@@ -179,13 +179,13 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             <li>
               <Link
                 href={`/prices/${config.slug}/${setSlug}`}
-                className="hover:text-white"
+                className="hover:text-ink"
               >
                 {setCode}
               </Link>
             </li>
             <li className="text-neutral-600">/</li>
-            <li className="text-white truncate max-w-[40ch]">{card.card_number}</li>
+            <li className="text-ink truncate max-w-[40ch]">{card.card_number}</li>
           </ol>
         </nav>
 
@@ -197,21 +197,21 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               <img
                 src={card.image_url}
                 alt={card.name + " card art"}
-                className="rounded-xl border border-neutral-800 w-full max-w-[280px] aspect-[5/7] object-cover bg-neutral-900"
+                className="rounded-xl border border-border-subtle w-full max-w-[280px] aspect-[5/7] object-cover bg-surface"
                 loading="eager"
               />
             </div>
           ) : (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900 aspect-[5/7] flex items-center justify-center text-neutral-600 text-xs">
+            <div className="rounded-xl border border-border-subtle bg-surface aspect-[5/7] flex items-center justify-center text-neutral-600 text-xs">
               No image
             </div>
           )}
 
           <div>
             <div className="flex items-center gap-3 mb-2 text-xs">
-              <span className="font-mono text-neutral-500">{card.card_number}</span>
+              <span className="font-mono text-ink-faint">{card.card_number}</span>
               <RarityBadge rarity={card.rarity} size="sm" />
-              <span className="text-neutral-500">{setCode}</span>
+              <span className="text-ink-faint">{setCode}</span>
             </div>
 
             <h1 className={`text-3xl font-bold mb-3 ${accent.text}`}>
@@ -250,37 +250,37 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             </div>
 
             {/* Headline price */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 mb-4">
+            <div className="rounded-xl border border-border-subtle bg-surface p-5 mb-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
-                  <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">
+                  <div className="text-xs text-ink-faint uppercase tracking-wider mb-1">
                     Buy from us
                   </div>
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-2xl font-bold text-ink">
                     <Money value={card.price_gbp} />
                   </div>
-                  <div className="text-[10px] text-neutral-500 mt-1">
+                  <div className="text-[10px] text-ink-faint mt-1">
                     {card.stock > 0
                       ? `${card.stock} in UK stock`
                       : "currently out of stock"}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">
+                  <div className="text-xs text-ink-faint uppercase tracking-wider mb-1">
                     We buy (credit)
                   </div>
-                  <div className="text-2xl font-bold text-emerald-400">
+                  <div className="text-2xl font-bold text-secondary">
                     <Money value={card.tradein_credit_gbp} />
                   </div>
-                  <div className="text-[10px] text-neutral-500 mt-1">
+                  <div className="text-[10px] text-ink-faint mt-1">
                     instant store credit
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-neutral-500 uppercase tracking-wider mb-1">
+                  <div className="text-xs text-ink-faint uppercase tracking-wider mb-1">
                     SKU
                   </div>
-                  <div className="text-sm font-mono text-neutral-300 break-all">
+                  <div className="text-sm font-mono text-ink-muted break-all">
                     {card.sku}
                   </div>
                 </div>
@@ -290,19 +290,19 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             <div className="flex flex-wrap gap-3">
               <Link
                 href={`/product/${card.sku}`}
-                className="inline-block rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-900 font-semibold text-sm px-4 py-2 transition-colors"
+                className="inline-block rounded-lg bg-accent hover:bg-accent-strong text-neutral-900 font-semibold text-sm px-4 py-2 transition-colors"
               >
                 View in store →
               </Link>
               <Link
                 href={`/market/${card.sku}`}
-                className="inline-block rounded-lg border border-neutral-700 hover:border-neutral-500 text-white text-sm px-4 py-2 transition-colors"
+                className="inline-block rounded-lg border border-border-strong hover:border-neutral-500 text-ink text-sm px-4 py-2 transition-colors"
               >
                 Open market depth
               </Link>
               <Link
                 href={`/cards/${card.sku}/market`}
-                className="inline-block rounded-lg border border-neutral-700 hover:border-neutral-500 text-white text-sm px-4 py-2 transition-colors"
+                className="inline-block rounded-lg border border-border-strong hover:border-neutral-500 text-ink text-sm px-4 py-2 transition-colors"
               >
                 Read-only mirror
               </Link>
@@ -312,10 +312,10 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
 
         {/* Cross-source signals */}
         <section className="mb-10">
-          <h2 className="text-xl font-semibold text-white mb-4">
+          <h2 className="text-xl font-semibold text-ink mb-4">
             Cross-source price signals
           </h2>
-          <p className="text-sm text-neutral-400 mb-5 max-w-2xl">
+          <p className="text-sm text-ink-muted mb-5 max-w-2xl">
             The Cambridge TCG aggregator holds price data from multiple
             upstream markets. Per-source license tier is declared honestly;
             full history (USD per-condition for TCGplayer, JPY daily for
@@ -325,25 +325,25 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             {signals.map((sig) => (
               <div
                 key={sig.source_id}
-                className="rounded-lg border border-neutral-800 bg-neutral-900 p-4"
+                className="rounded-lg border border-border-subtle bg-surface p-4"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-white font-semibold text-sm">
+                  <h3 className="text-ink font-semibold text-sm">
                     {sig.label}
                   </h3>
                   <span
                     className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${
                       sig.available
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                        : "bg-neutral-700/40 text-neutral-400 border-neutral-700"
+                        ? "bg-emerald-500/10 text-secondary border-emerald-500/30"
+                        : "bg-neutral-700/40 text-ink-muted border-border-strong"
                     }`}
                   >
                     {sig.available ? "available" : "pending"}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-400 mb-3">{sig.detail}</p>
+                <p className="text-xs text-ink-muted mb-3">{sig.detail}</p>
                 <div className="flex items-center justify-between text-[10px]">
-                  <span className="px-2 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                  <span className="px-2 py-0.5 rounded bg-surface-elevated text-ink-muted">
                     license: {sig.license}
                   </span>
                   {sig.available && sig.signed_in_path ? (
@@ -359,7 +359,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             ))}
           </div>
 
-          <p className="text-[11px] text-neutral-500 mt-5 max-w-2xl">
+          <p className="text-[11px] text-ink-faint mt-5 max-w-2xl">
             Why signed-in for history? CardRush&apos;s ToS restricts compiled
             price-data redistribution; TCGplayer&apos;s partner agreement
             permits display + computation but not bulk re-export. Cambridge
@@ -370,13 +370,13 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         </section>
 
         {/* Where this card lives */}
-        <section className="border-t border-neutral-800 pt-8">
-          <h2 className="text-lg font-semibold text-white mb-3">
+        <section className="border-t border-border-subtle pt-8">
+          <h2 className="text-lg font-semibold text-ink mb-3">
             About this card
           </h2>
           <dl className="grid gap-3 sm:grid-cols-2 text-sm">
             <div>
-              <dt className="text-neutral-500 text-xs uppercase tracking-wider">
+              <dt className="text-ink-faint text-xs uppercase tracking-wider">
                 Game
               </dt>
               <dd>
@@ -389,7 +389,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               </dd>
             </div>
             <div>
-              <dt className="text-neutral-500 text-xs uppercase tracking-wider">
+              <dt className="text-ink-faint text-xs uppercase tracking-wider">
                 Set
               </dt>
               <dd>
@@ -402,21 +402,21 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               </dd>
             </div>
             <div>
-              <dt className="text-neutral-500 text-xs uppercase tracking-wider">
+              <dt className="text-ink-faint text-xs uppercase tracking-wider">
                 Card number
               </dt>
-              <dd className="font-mono text-neutral-300">{card.card_number}</dd>
+              <dd className="font-mono text-ink-muted">{card.card_number}</dd>
             </div>
             <div>
-              <dt className="text-neutral-500 text-xs uppercase tracking-wider">
+              <dt className="text-ink-faint text-xs uppercase tracking-wider">
                 Canonical SKU
               </dt>
-              <dd className="font-mono text-neutral-300 text-xs break-all">
+              <dd className="font-mono text-ink-muted text-xs break-all">
                 {card.sku}
               </dd>
             </div>
           </dl>
-          <p className="text-sm text-neutral-400 mt-6 max-w-2xl">
+          <p className="text-sm text-ink-muted mt-6 max-w-2xl">
             The canonical SKU is the federation-stable identifier — a partner
             with this SKU can resolve through{" "}
             <Link

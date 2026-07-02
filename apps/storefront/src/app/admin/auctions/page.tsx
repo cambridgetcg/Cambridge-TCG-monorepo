@@ -31,12 +31,12 @@ interface AuctionSummary {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-neutral-500/20 text-neutral-400",
+  draft: "bg-neutral-500/20 text-ink-muted",
   scheduled: "bg-blue-500/20 text-blue-400",
-  live: "bg-emerald-500/20 text-emerald-400",
-  ended: "bg-amber-500/20 text-amber-400",
+  live: "bg-emerald-500/20 text-secondary",
+  ended: "bg-accent/20 text-accent-strong",
   paid: "bg-green-500/20 text-green-400",
-  cancelled: "bg-red-500/20 text-red-400",
+  cancelled: "bg-danger/20 text-red-400",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -46,9 +46,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const APPROVAL_COLORS: Record<string, string> = {
-  pending_review: "bg-amber-500/20 text-amber-400",
-  approved: "bg-emerald-500/20 text-emerald-400",
-  rejected: "bg-red-500/20 text-red-400",
+  pending_review: "bg-accent/20 text-accent-strong",
+  approved: "bg-emerald-500/20 text-secondary",
+  rejected: "bg-danger/20 text-red-400",
 };
 
 const STATUSES = ["draft", "scheduled", "live", "ended", "paid", "cancelled"];
@@ -209,13 +209,13 @@ export default function AdminAuctionsPage() {
           <button
             onClick={fetchAuctions}
             disabled={loading}
-            className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+            className="px-4 py-2 bg-surface-elevated text-ink text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
           >
             {loading ? "Loading..." : "Refresh"}
           </button>
           <Link
             href="/admin/auctions/new"
-            className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+            className="px-4 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition"
           >
             New Auction
           </Link>
@@ -227,35 +227,35 @@ export default function AdminAuctionsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <button
             onClick={() => setShowPendingOnly(false)}
-            className={`bg-neutral-900 rounded-xl p-4 text-left transition ${!showPendingOnly ? "ring-2 ring-amber-500/50" : "hover:bg-neutral-800/50"}`}
+            className={`bg-surface rounded-xl p-4 text-left transition ${!showPendingOnly ? "ring-2 ring-accent/50" : "hover:bg-surface-elevated/50"}`}
           >
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Total</p>
-            <p className="text-2xl font-bold text-white mt-1">{total}</p>
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Total</p>
+            <p className="text-2xl font-bold text-ink mt-1">{total}</p>
           </button>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Live</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{live}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Live</p>
+            <p className="text-2xl font-bold text-secondary mt-1">{live}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Ended</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{ended}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Ended</p>
+            <p className="text-2xl font-bold text-accent-strong mt-1">{ended}</p>
           </div>
           <button
             onClick={() => setShowPendingOnly(true)}
-            className={`bg-neutral-900 rounded-xl p-4 text-left transition ${showPendingOnly ? "ring-2 ring-amber-500/50" : "hover:bg-neutral-800/50"}`}
+            className={`bg-surface rounded-xl p-4 text-left transition ${showPendingOnly ? "ring-2 ring-accent/50" : "hover:bg-surface-elevated/50"}`}
           >
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Pending Review</p>
-            <p className={`text-2xl font-bold mt-1 ${pendingReview > 0 ? "text-amber-400" : "text-neutral-500"}`}>{pendingReview}</p>
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Pending Review</p>
+            <p className={`text-2xl font-bold mt-1 ${pendingReview > 0 ? "text-accent-strong" : "text-ink-faint"}`}>{pendingReview}</p>
           </button>
         </div>
 
         {/* Auction list */}
         {showPendingOnly && (
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-amber-400 font-medium">Showing pending review auctions only</span>
+            <span className="text-sm text-accent-strong font-medium">Showing pending review auctions only</span>
             <button
               onClick={() => setShowPendingOnly(false)}
-              className="text-xs text-neutral-400 hover:text-white transition underline"
+              className="text-xs text-ink-muted hover:text-ink transition underline"
             >
               Show all
             </button>
@@ -263,18 +263,18 @@ export default function AdminAuctionsPage() {
         )}
 
         {displayAuctions.length === 0 && !loading && (
-          <p className="text-neutral-500 text-center py-12">
+          <p className="text-ink-faint text-center py-12">
             {showPendingOnly ? "No auctions pending review." : "No auctions yet."}
           </p>
         )}
 
         <div className="space-y-3">
           {displayAuctions.map((a) => (
-            <div key={a.id} className="bg-neutral-900 rounded-xl overflow-hidden">
+            <div key={a.id} className="bg-surface rounded-xl overflow-hidden">
               {/* Row */}
               <button
                 onClick={() => setExpanded(expanded === a.id ? null : a.id)}
-                className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-neutral-800/50 transition"
+                className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-surface-elevated/50 transition"
               >
                 {a.image_url && (
                   <img
@@ -285,10 +285,10 @@ export default function AdminAuctionsPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-bold text-white truncate">{a.title}</span>
+                    <span className="text-sm font-bold text-ink truncate">{a.title}</span>
                     <span
                       className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        STATUS_COLORS[a.status] || "bg-neutral-700 text-neutral-300"
+                        STATUS_COLORS[a.status] || "bg-neutral-700 text-ink-muted"
                       }`}
                     >
                       {a.status}
@@ -296,15 +296,15 @@ export default function AdminAuctionsPage() {
                     {a.seller_user_id && a.approval_status && (
                       <span
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          APPROVAL_COLORS[a.approval_status] || "bg-neutral-700 text-neutral-300"
+                          APPROVAL_COLORS[a.approval_status] || "bg-neutral-700 text-ink-muted"
                         }`}
                       >
                         {a.approval_status.replace("_", " ")}
                       </span>
                     )}
-                    <span className="text-xs text-neutral-500">{TYPE_LABELS[a.auction_type] || a.auction_type}</span>
+                    <span className="text-xs text-ink-faint">{TYPE_LABELS[a.auction_type] || a.auction_type}</span>
                   </div>
-                  <p className="text-xs text-neutral-500 mt-1">
+                  <p className="text-xs text-ink-faint mt-1">
                     {a.bid_count} bid{a.bid_count !== 1 ? "s" : ""} &middot; ends{" "}
                     {new Date(a.ends_at).toLocaleDateString("en-GB", {
                       day: "numeric",
@@ -316,11 +316,11 @@ export default function AdminAuctionsPage() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-white">
+                  <p className="text-sm font-bold text-ink">
                     {formatPrice(parseFloat(a.current_price))}
                   </p>
                   {a.buy_now_price && (
-                    <p className="text-xs text-neutral-500">
+                    <p className="text-xs text-ink-faint">
                       BIN {formatPrice(parseFloat(a.buy_now_price))}
                     </p>
                   )}
@@ -330,23 +330,23 @@ export default function AdminAuctionsPage() {
 
               {/* Expanded detail */}
               {expanded === a.id && (
-                <div className="px-4 pb-4 border-t border-neutral-800">
+                <div className="px-4 pb-4 border-t border-border-subtle">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 mb-4 text-sm">
                     <div>
-                      <span className="text-neutral-500">Starting Price</span>
-                      <p className="text-white">{formatPrice(parseFloat(a.starting_price))}</p>
+                      <span className="text-ink-faint">Starting Price</span>
+                      <p className="text-ink">{formatPrice(parseFloat(a.starting_price))}</p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">Current Price</span>
-                      <p className="text-white">{formatPrice(parseFloat(a.current_price))}</p>
+                      <span className="text-ink-faint">Current Price</span>
+                      <p className="text-ink">{formatPrice(parseFloat(a.current_price))}</p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">Bids</span>
-                      <p className="text-white">{a.bid_count}</p>
+                      <span className="text-ink-faint">Bids</span>
+                      <p className="text-ink">{a.bid_count}</p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">Starts</span>
-                      <p className="text-white">
+                      <span className="text-ink-faint">Starts</span>
+                      <p className="text-ink">
                         {new Date(a.starts_at).toLocaleDateString("en-GB", {
                           day: "numeric",
                           month: "short",
@@ -359,14 +359,14 @@ export default function AdminAuctionsPage() {
 
                   {/* Approval controls for customer auctions pending review */}
                   {a.seller_user_id && a.approval_status === "pending_review" && (
-                    <div className="mb-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                      <h4 className="text-sm font-bold text-amber-400 mb-3">Customer Auction -- Pending Review</h4>
+                    <div className="mb-4 p-4 bg-accent/5 border border-accent/20 rounded-xl">
+                      <h4 className="text-sm font-bold text-accent-strong mb-3">Customer Auction -- Pending Review</h4>
                       {(a.seller_name || a.seller_email) && (
-                        <div className="text-sm text-neutral-300 mb-3">
-                          <span className="text-neutral-500">Seller: </span>
+                        <div className="text-sm text-ink-muted mb-3">
+                          <span className="text-ink-faint">Seller: </span>
                           {a.seller_name && <span className="font-medium">{a.seller_name}</span>}
                           {a.seller_email && (
-                            <span className="text-neutral-400 ml-1">({a.seller_email})</span>
+                            <span className="text-ink-muted ml-1">({a.seller_email})</span>
                           )}
                         </div>
                       )}
@@ -374,7 +374,7 @@ export default function AdminAuctionsPage() {
                         <button
                           onClick={() => handleApproval(a.id, "approve")}
                           disabled={approving === a.id}
-                          className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-500 transition disabled:opacity-50"
+                          className="px-4 py-2 bg-emerald-600 text-ink text-sm font-bold rounded-lg hover:bg-emerald-500 transition disabled:opacity-50"
                         >
                           {approving === a.id ? "Processing..." : "Approve"}
                         </button>
@@ -386,12 +386,12 @@ export default function AdminAuctionsPage() {
                             onChange={(e) =>
                               setRejectNotes((prev) => ({ ...prev, [a.id]: e.target.value }))
                             }
-                            className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                            className="flex-1 px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-sm text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
                           />
                           <button
                             onClick={() => handleApproval(a.id, "reject")}
                             disabled={approving === a.id}
-                            className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-500 transition disabled:opacity-50"
+                            className="px-4 py-2 bg-red-600 text-ink text-sm font-bold rounded-lg hover:bg-danger transition disabled:opacity-50"
                           >
                             Reject
                           </button>
@@ -402,7 +402,7 @@ export default function AdminAuctionsPage() {
 
                   {/* Status update */}
                   <div className="flex items-center gap-2 flex-wrap mb-3">
-                    <span className="text-xs text-neutral-500">Update status:</span>
+                    <span className="text-xs text-ink-faint">Update status:</span>
                     {STATUSES.map((st) => (
                       <button
                         key={st}
@@ -411,7 +411,7 @@ export default function AdminAuctionsPage() {
                         className={`text-xs px-2 py-1 rounded-full transition ${
                           a.status === st
                             ? STATUS_COLORS[st] + " font-bold"
-                            : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                            : "bg-surface-elevated text-ink-muted hover:bg-neutral-700"
                         } disabled:opacity-50`}
                       >
                         {st}
@@ -422,7 +422,7 @@ export default function AdminAuctionsPage() {
                   {a.status === "draft" && (
                     <button
                       onClick={() => handleDelete(a.id)}
-                      className="text-xs px-3 py-1 bg-red-500/20 text-red-400 rounded-full hover:bg-red-500/30 transition"
+                      className="text-xs px-3 py-1 bg-danger/20 text-red-400 rounded-full hover:bg-danger/30 transition"
                     >
                       Delete Draft
                     </button>
@@ -430,16 +430,16 @@ export default function AdminAuctionsPage() {
 
                   {/* Seller payout — only for consigned auctions that have been paid by buyer */}
                   {a.seller_user_id && a.status === "paid" && (
-                    <div className="mt-3 pt-3 border-t border-neutral-800">
-                      <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Seller Payout</p>
+                    <div className="mt-3 pt-3 border-t border-border-subtle">
+                      <p className="text-xs text-ink-faint uppercase tracking-wide mb-2">Seller Payout</p>
                       {a.seller_paid_at ? (
                         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-sm">
-                          <p className="text-emerald-400 font-medium">
+                          <p className="text-secondary font-medium">
                             Paid {new Date(a.seller_paid_at).toLocaleDateString("en-GB")}
                             {a.payout_method ? ` via ${a.payout_method}` : ""}
                           </p>
                           {a.payout_reference && (
-                            <p className="text-xs text-neutral-400 mt-1 font-mono">{a.payout_reference}</p>
+                            <p className="text-xs text-ink-muted mt-1 font-mono">{a.payout_reference}</p>
                           )}
                         </div>
                       ) : a.seller_payout ? (
@@ -451,7 +451,7 @@ export default function AdminAuctionsPage() {
                           Record Payout (£{a.seller_payout})
                         </button>
                       ) : (
-                        <p className="text-xs text-neutral-500">Calculate seller_payout first (action: calculate_payout).</p>
+                        <p className="text-xs text-ink-faint">Calculate seller_payout first (action: calculate_payout).</p>
                       )}
                     </div>
                   )}

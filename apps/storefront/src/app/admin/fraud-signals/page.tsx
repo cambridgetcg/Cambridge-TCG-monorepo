@@ -22,10 +22,10 @@ interface Signal {
 }
 
 const SEVERITY_TONE: Record<string, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/40",
-  high:     "bg-amber-500/15 text-amber-400 border-amber-500/40",
-  medium:   "bg-sky-500/15 text-sky-400 border-sky-500/40",
-  low:      "bg-neutral-700 text-neutral-400 border-neutral-600",
+  critical: "bg-danger/15 text-red-400 border-danger/40",
+  high:     "bg-accent/15 text-accent-strong border-accent/40",
+  medium:   "bg-sky-500/15 text-info border-sky-500/40",
+  low:      "bg-neutral-700 text-ink-muted border-neutral-600",
 };
 
 export default function AdminFraudSignalsPage() {
@@ -87,18 +87,18 @@ export default function AdminFraudSignalsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind="operator" />
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-baseline justify-between flex-wrap gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Fraud Signals</h1>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-ink-muted">
               Triage queue. Critical + suspend-action signals trigger auto-suspend on next cron tick.
               <WhyLink href="/methodology/fraud-flag" label="how severity works" />
             </p>
           </div>
-          <Link href="/admin/governance" className="text-xs text-amber-400 hover:text-amber-300 underline">
+          <Link href="/admin/governance" className="text-xs text-accent-strong hover:text-accent-strong underline">
             Governance log →
           </Link>
         </div>
@@ -107,8 +107,8 @@ export default function AdminFraudSignalsPage() {
           {(["open", "resolved", "all"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-                filter === f ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                filter === f ? "bg-accent text-black font-bold"
+                  : "bg-surface text-ink-muted hover:text-ink hover:bg-surface-elevated"
               }`}>
               {f}
             </button>
@@ -116,16 +116,16 @@ export default function AdminFraudSignalsPage() {
         </div>
 
         {loading ? (
-          <p className="text-neutral-500">Loading…</p>
+          <p className="text-ink-faint">Loading…</p>
         ) : signals.length === 0 ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+          <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
             No signals match this filter.
           </div>
         ) : (
           <div className="space-y-2">
             {signals.map((s) => (
-              <div key={s.id} className={`bg-neutral-900 rounded-xl p-3 border ${
-                s.resolved ? "border-neutral-800/60 opacity-60" : "border-neutral-800"
+              <div key={s.id} className={`bg-surface rounded-xl p-3 border ${
+                s.resolved ? "border-border-subtle/60 opacity-60" : "border-border-subtle"
               }`}>
                 <div className="flex items-start gap-3 flex-wrap">
                   {!s.resolved && (
@@ -142,12 +142,12 @@ export default function AdminFraudSignalsPage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${SEVERITY_TONE[s.severity] ?? "bg-neutral-700 text-neutral-300"}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${SEVERITY_TONE[s.severity] ?? "bg-neutral-700 text-ink-muted"}`}>
                         {s.severity}
                       </span>
-                      <span className="text-xs font-mono text-neutral-300">{s.signal_type}</span>
+                      <span className="text-xs font-mono text-ink-muted">{s.signal_type}</span>
                       {s.auto_action !== "none" && (
-                        <span className="text-[10px] text-neutral-500">
+                        <span className="text-[10px] text-ink-faint">
                           auto: {s.auto_action}
                         </span>
                       )}
@@ -155,14 +155,14 @@ export default function AdminFraudSignalsPage() {
                         <span className="text-[10px] text-red-400 font-bold uppercase">user suspended</span>
                       )}
                     </div>
-                    <p className="text-sm text-neutral-200 mt-1">{s.description}</p>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                    <p className="text-sm text-ink mt-1">{s.description}</p>
+                    <p className="text-[11px] text-ink-faint mt-0.5">
                       {s.user_name ?? s.user_email ?? "unknown user"}
                       {s.trust_score != null && <span className="ml-2">· trust {s.trust_score}</span>}
                       <span className="ml-2">· {new Date(s.created_at).toLocaleString()}</span>
                     </p>
                     {s.resolved_notes && !s.resolved_notes.startsWith("dedupe:") && (
-                      <p className="text-[11px] text-neutral-400 mt-1 italic">
+                      <p className="text-[11px] text-ink-muted mt-1 italic">
                         {s.resolved ? "Resolved: " : ""}{s.resolved_notes}
                       </p>
                     )}
@@ -172,21 +172,21 @@ export default function AdminFraudSignalsPage() {
                       <button
                         onClick={() => act(s, "resolve")}
                         disabled={acting === s.id}
-                        className="text-[11px] px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded disabled:opacity-50"
+                        className="text-[11px] px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-secondary rounded disabled:opacity-50"
                       >
                         Resolve
                       </button>
                       <button
                         onClick={() => act(s, "escalate")}
                         disabled={acting === s.id}
-                        className="text-[11px] px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded disabled:opacity-50"
+                        className="text-[11px] px-2 py-1 bg-accent/10 hover:bg-accent/20 border border-accent/30 text-accent-strong rounded disabled:opacity-50"
                       >
                         Escalate
                       </button>
                       <button
                         onClick={() => act(s, "dismiss")}
                         disabled={acting === s.id}
-                        className="text-[11px] px-2 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 rounded disabled:opacity-50"
+                        className="text-[11px] px-2 py-1 bg-surface-elevated hover:bg-neutral-700 border border-border-strong text-ink-muted rounded disabled:opacity-50"
                       >
                         Dismiss
                       </button>
@@ -201,14 +201,14 @@ export default function AdminFraudSignalsPage() {
 
       {/* Sticky bulk-action bar */}
       {selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-neutral-950/95 backdrop-blur border-t border-amber-500/40 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-page/95 backdrop-blur border-t border-accent/40 px-4 py-3 flex items-center justify-between gap-3">
           <div className="text-sm">
-            <span className="font-bold text-amber-400">{selected.size}</span> selected
+            <span className="font-bold text-accent-strong">{selected.size}</span> selected
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setSelected(new Set())}
-              className="text-xs px-3 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg"
+              className="text-xs px-3 py-2 bg-surface-elevated hover:bg-neutral-700 border border-border-strong rounded-lg"
             >
               Clear
             </button>

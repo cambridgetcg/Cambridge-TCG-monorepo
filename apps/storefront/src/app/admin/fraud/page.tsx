@@ -37,14 +37,14 @@ interface InspectionTrade {
 // ── Helpers ──
 
 const SEVERITY_BADGE: Record<string, string> = {
-  critical: "bg-red-500/20 text-red-400 animate-pulse",
-  high: "bg-red-500/20 text-red-400",
-  medium: "bg-amber-500/20 text-amber-400",
-  low: "bg-neutral-500/20 text-neutral-400",
+  critical: "bg-danger/20 text-red-400 animate-pulse",
+  high: "bg-danger/20 text-red-400",
+  medium: "bg-accent/20 text-accent-strong",
+  low: "bg-neutral-500/20 text-ink-muted",
 };
 
 function severityBadge(severity: string) {
-  return SEVERITY_BADGE[severity] || "bg-neutral-500/20 text-neutral-400";
+  return SEVERITY_BADGE[severity] || "bg-neutral-500/20 text-ink-muted";
 }
 
 function formatDate(iso: string): string {
@@ -323,7 +323,7 @@ export default function AdminFraudPage() {
             fetchInspections();
           }}
           disabled={loading}
-          className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+          className="px-4 py-2 bg-surface-elevated text-ink text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
       <Audience kind="operator" />
           {loading ? "Loading..." : "Refresh"}
@@ -335,25 +335,25 @@ export default function AdminFraudPage() {
         ═══════════════════════════════════════════ */}
 
         <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-4">Fraud Signals <WhyLink href="/methodology/fraud-flag" label="methodology" /></h2>
+          <h2 className="text-lg font-bold text-ink mb-4">Fraud Signals <WhyLink href="/methodology/fraud-flag" label="methodology" /></h2>
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-neutral-900 rounded-xl p-4">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide">Total</p>
-              <p className="text-2xl font-bold text-white mt-1">{totalSignals}</p>
+            <div className="bg-surface rounded-xl p-4">
+              <p className="text-xs text-ink-faint uppercase tracking-wide">Total</p>
+              <p className="text-2xl font-bold text-ink mt-1">{totalSignals}</p>
             </div>
-            <div className="bg-neutral-900 rounded-xl p-4">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide">Critical</p>
+            <div className="bg-surface rounded-xl p-4">
+              <p className="text-xs text-ink-faint uppercase tracking-wide">Critical</p>
               <p className="text-2xl font-bold text-red-400 mt-1">{criticalCount}</p>
             </div>
-            <div className="bg-neutral-900 rounded-xl p-4">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide">High</p>
-              <p className="text-2xl font-bold text-amber-400 mt-1">{highCount}</p>
+            <div className="bg-surface rounded-xl p-4">
+              <p className="text-xs text-ink-faint uppercase tracking-wide">High</p>
+              <p className="text-2xl font-bold text-accent-strong mt-1">{highCount}</p>
             </div>
-            <div className="bg-neutral-900 rounded-xl p-4">
-              <p className="text-xs text-neutral-500 uppercase tracking-wide">Unresolved</p>
-              <p className="text-2xl font-bold text-white mt-1">{unresolvedCount}</p>
+            <div className="bg-surface rounded-xl p-4">
+              <p className="text-xs text-ink-faint uppercase tracking-wide">Unresolved</p>
+              <p className="text-2xl font-bold text-ink mt-1">{unresolvedCount}</p>
             </div>
           </div>
 
@@ -374,8 +374,8 @@ export default function AdminFraudPage() {
                 onClick={() => setSignalFilter(tab.key)}
                 className={`text-sm px-4 py-2 rounded-lg transition ${
                   signalFilter === tab.key
-                    ? "bg-amber-500 text-black font-bold"
-                    : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                    ? "bg-accent text-black font-bold"
+                    : "bg-surface-elevated text-ink-muted hover:bg-neutral-700"
                 }`}
               >
                 {tab.label}
@@ -385,7 +385,7 @@ export default function AdminFraudPage() {
 
           {/* Signal list */}
           {filtered.length === 0 && !loading && (
-            <p className="text-neutral-500 text-center py-8">No signals found.</p>
+            <p className="text-ink-faint text-center py-8">No signals found.</p>
           )}
 
           <div className="space-y-3">
@@ -395,11 +395,11 @@ export default function AdminFraudPage() {
               const isBlocking = s.auto_action === "block_trade" || s.auto_action === "suspend";
 
               return (
-                <div key={s.id} className="bg-neutral-900 rounded-xl overflow-hidden">
+                <div key={s.id} className="bg-surface rounded-xl overflow-hidden">
                   {/* Row */}
                   <button
                     onClick={() => handleExpand(s.id, s.user_id)}
-                    className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-neutral-800/50 transition"
+                    className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-surface-elevated/50 transition"
                   >
                     {/* Severity badge */}
                     <span
@@ -410,15 +410,15 @@ export default function AdminFraudPage() {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-sm font-bold text-white">{s.signal_type}</span>
-                        <span className="text-sm text-neutral-400">
+                        <span className="text-sm font-bold text-ink">{s.signal_type}</span>
+                        <span className="text-sm text-ink-muted">
                           {s.user_name || s.user_email || "Unknown user"}
                           {s.user_name && s.user_email && (
                             <span className="text-neutral-600 ml-1 text-xs">({s.user_email})</span>
                           )}
                         </span>
                       </div>
-                      <p className="text-sm text-neutral-500 mt-1 truncate">{s.description}</p>
+                      <p className="text-sm text-ink-faint mt-1 truncate">{s.description}</p>
                     </div>
 
                     {/* Auto-action badge */}
@@ -426,8 +426,8 @@ export default function AdminFraudPage() {
                       <span
                         className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
                           isBlocking
-                            ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                            : "bg-neutral-700 text-neutral-300"
+                            ? "bg-danger/20 text-red-400 border border-danger/30"
+                            : "bg-neutral-700 text-ink-muted"
                         }`}
                       >
                         {s.auto_action}
@@ -435,30 +435,30 @@ export default function AdminFraudPage() {
                     )}
 
                     <div className="text-right shrink-0">
-                      <p className="text-xs text-neutral-500">{formatDate(s.created_at)}</p>
+                      <p className="text-xs text-ink-faint">{formatDate(s.created_at)}</p>
                     </div>
                     <span className="text-neutral-600 text-sm">{isExp ? "\u25B2" : "\u25BC"}</span>
                   </button>
 
                   {/* Expanded detail */}
                   {isExp && (
-                    <div className="px-4 pb-4 border-t border-neutral-800">
+                    <div className="px-4 pb-4 border-t border-border-subtle">
                       {/* Full description */}
                       <div className="mt-4 mb-4 text-sm">
-                        <span className="text-neutral-500">Description</span>
-                        <p className="text-neutral-300 mt-1">{s.description}</p>
+                        <span className="text-ink-faint">Description</span>
+                        <p className="text-ink-muted mt-1">{s.description}</p>
                       </div>
 
                       {s.trade_id && (
                         <div className="mb-4 text-sm">
-                          <span className="text-neutral-500">Trade ID</span>
-                          <p className="text-white font-mono text-xs mt-1">{s.trade_id}</p>
+                          <span className="text-ink-faint">Trade ID</span>
+                          <p className="text-ink font-mono text-xs mt-1">{s.trade_id}</p>
                         </div>
                       )}
 
                       {/* Auto-action prominent display */}
                       {isBlocking && (
-                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm">
+                        <div className="mb-4 p-3 bg-danger/10 border border-danger/20 rounded-lg text-sm">
                           <span className="text-red-400 font-bold">Auto-action taken: {s.auto_action}</span>
                           <p className="text-red-300 mt-1 text-xs">
                             This action was applied automatically by the fraud detection system.
@@ -468,32 +468,32 @@ export default function AdminFraudPage() {
 
                       {/* User trust profile summary */}
                       {profileLoading === s.user_id && (
-                        <p className="text-neutral-500 text-sm mb-4">Loading trust profile...</p>
+                        <p className="text-ink-faint text-sm mb-4">Loading trust profile...</p>
                       )}
                       {profile && (
-                        <div className="mb-4 p-3 bg-neutral-800 rounded-lg">
-                          <span className="text-xs text-neutral-500 uppercase tracking-wide block mb-2">
+                        <div className="mb-4 p-3 bg-surface-elevated rounded-lg">
+                          <span className="text-xs text-ink-faint uppercase tracking-wide block mb-2">
                             User Trust Profile
                           </span>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                             <div>
-                              <span className="text-neutral-500">Trust Score</span>
-                              <p className="text-white font-bold">
+                              <span className="text-ink-faint">Trust Score</span>
+                              <p className="text-ink font-bold">
                                 {profile.trust_score}
-                                <span className="text-xs text-neutral-500 ml-1">
+                                <span className="text-xs text-ink-faint ml-1">
                                   ({tierForScore(profile.trust_score).name})
                                 </span>
                               </p>
                             </div>
                             <div>
-                              <span className="text-neutral-500">Trades</span>
-                              <p className="text-white">
+                              <span className="text-ink-faint">Trades</span>
+                              <p className="text-ink">
                                 {profile.completed_trades}/{profile.total_trades}
                               </p>
                             </div>
                             <div>
-                              <span className="text-neutral-500">Disputes</span>
-                              <p className={`${profile.disputed_trades > 0 ? "text-red-400" : "text-white"}`}>
+                              <span className="text-ink-faint">Disputes</span>
+                              <p className={`${profile.disputed_trades > 0 ? "text-red-400" : "text-ink"}`}>
                                 {profile.disputed_trades}
                                 {profile.disputed_trades > 0 && (
                                   <span className="text-xs ml-1">
@@ -503,8 +503,8 @@ export default function AdminFraudPage() {
                               </p>
                             </div>
                             <div>
-                              <span className="text-neutral-500">Avg Rating</span>
-                              <p className="text-white">{profile.avg_rating}</p>
+                              <span className="text-ink-faint">Avg Rating</span>
+                              <p className="text-ink">{profile.avg_rating}</p>
                             </div>
                           </div>
                           {profile.is_suspended && (
@@ -518,14 +518,14 @@ export default function AdminFraudPage() {
 
                       {/* Actions */}
                       {!s.resolved && (
-                        <div className="border-t border-neutral-800 pt-4 space-y-3">
-                          <span className="text-xs text-neutral-500 uppercase tracking-wide block">
+                        <div className="border-t border-border-subtle pt-4 space-y-3">
+                          <span className="text-xs text-ink-faint uppercase tracking-wide block">
                             Actions
                           </span>
 
                           {/* Resolve notes */}
                           <div>
-                            <label className="text-xs text-neutral-500 block mb-1">Notes</label>
+                            <label className="text-xs text-ink-faint block mb-1">Notes</label>
                             <textarea
                               value={resolveNotes[s.id] ?? ""}
                               onChange={(e) =>
@@ -533,14 +533,14 @@ export default function AdminFraudPage() {
                               }
                               rows={2}
                               placeholder="Resolution notes..."
-                              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                              className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
                             />
                           </div>
 
                           {/* Suspend fields */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <label className="text-xs text-neutral-500 block mb-1">
+                              <label className="text-xs text-ink-faint block mb-1">
                                 Suspend Reason (optional)
                               </label>
                               <input
@@ -550,11 +550,11 @@ export default function AdminFraudPage() {
                                   setSuspendReason((prev) => ({ ...prev, [s.id]: e.target.value }))
                                 }
                                 placeholder="Reason for suspension..."
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                                className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50"
                               />
                             </div>
                             <div>
-                              <label className="text-xs text-neutral-500 block mb-1">
+                              <label className="text-xs text-ink-faint block mb-1">
                                 Suspend Duration
                               </label>
                               <select
@@ -562,7 +562,7 @@ export default function AdminFraudPage() {
                                 onChange={(e) =>
                                   setSuspendDuration((prev) => ({ ...prev, [s.id]: e.target.value }))
                                 }
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 appearance-none"
+                                className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 appearance-none"
                               >
                                 <option value="1d">1 Day</option>
                                 <option value="3d">3 Days</option>
@@ -579,21 +579,21 @@ export default function AdminFraudPage() {
                             <button
                               onClick={() => handleResolve(s.id)}
                               disabled={actionLoading === s.id || !resolveNotes[s.id]?.trim()}
-                              className="px-5 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+                              className="px-5 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
                             >
                               {actionLoading === s.id ? "..." : "Resolve"}
                             </button>
                             <button
                               onClick={() => handleSuspend(s.id, s.user_id)}
                               disabled={actionLoading === s.id || !suspendReason[s.id]?.trim()}
-                              className="px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-400 transition disabled:opacity-50"
+                              className="px-5 py-2 bg-danger text-ink text-sm font-bold rounded-lg hover:bg-red-400 transition disabled:opacity-50"
                             >
                               {actionLoading === s.id ? "..." : "Suspend User"}
                             </button>
                             <button
                               onClick={() => handleResolve(s.id, true)}
                               disabled={actionLoading === s.id}
-                              className="px-5 py-2 bg-neutral-700 text-neutral-300 text-sm font-medium rounded-lg hover:bg-neutral-600 transition disabled:opacity-50"
+                              className="px-5 py-2 bg-neutral-700 text-ink-muted text-sm font-medium rounded-lg hover:bg-neutral-600 transition disabled:opacity-50"
                             >
                               Dismiss
                             </button>
@@ -613,18 +613,18 @@ export default function AdminFraudPage() {
         ═══════════════════════════════════════════ */}
 
         <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-4">
+          <h2 className="text-lg font-bold text-ink mb-4">
             Pending External Rep Verifications
             {repRows.length > 0 && (
-              <span className="text-sm font-normal text-neutral-500 ml-2">({repRows.length})</span>
+              <span className="text-sm font-normal text-ink-faint ml-2">({repRows.length})</span>
             )}
           </h2>
 
-          {repLoading && <p className="text-neutral-500 text-sm py-4">Loading...</p>}
+          {repLoading && <p className="text-ink-faint text-sm py-4">Loading...</p>}
 
           {!repLoading && repRows.length === 0 && (
-            <div className="bg-neutral-900 rounded-xl p-6 text-center">
-              <p className="text-neutral-500">No pending verifications.</p>
+            <div className="bg-surface rounded-xl p-6 text-center">
+              <p className="text-ink-faint">No pending verifications.</p>
             </div>
           )}
 
@@ -636,18 +636,18 @@ export default function AdminFraudPage() {
               return (
                 <div
                   key={key}
-                  className="bg-neutral-900 rounded-xl px-4 py-4 flex items-center gap-4 flex-wrap"
+                  className="bg-surface rounded-xl px-4 py-4 flex items-center gap-4 flex-wrap"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-sm font-bold text-white">
+                      <span className="text-sm font-bold text-ink">
                         {r.user_name || r.user_email}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-700 text-neutral-300">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-700 text-ink-muted">
                         {r.platform}
                       </span>
                     </div>
-                    <p className="text-sm text-neutral-400 mt-1">
+                    <p className="text-sm text-ink-muted mt-1">
                       @{r.username}
                       {r.profile_url && (
                         <>
@@ -656,7 +656,7 @@ export default function AdminFraudPage() {
                             href={r.profile_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-amber-400 hover:text-amber-300 underline"
+                            className="text-accent-strong hover:text-accent-strong underline"
                           >
                             View Profile
                           </a>
@@ -670,7 +670,7 @@ export default function AdminFraudPage() {
                         rel="noopener noreferrer"
                         className="inline-block mt-2"
                       >
-                        <div className="w-24 h-16 bg-neutral-800 rounded-lg overflow-hidden">
+                        <div className="w-24 h-16 bg-surface-elevated rounded-lg overflow-hidden">
                           <img
                             src={r.screenshot_url}
                             alt="Screenshot"
@@ -692,7 +692,7 @@ export default function AdminFraudPage() {
                     <button
                       onClick={() => handleRejectRep(r.user_id, r.platform)}
                       disabled={isActioning}
-                      className="px-4 py-2 bg-red-500/20 text-red-400 text-sm font-medium rounded-lg hover:bg-red-500/30 transition disabled:opacity-50"
+                      className="px-4 py-2 bg-danger/20 text-red-400 text-sm font-medium rounded-lg hover:bg-danger/30 transition disabled:opacity-50"
                     >
                       Reject
                     </button>
@@ -708,20 +708,20 @@ export default function AdminFraudPage() {
         ═══════════════════════════════════════════ */}
 
         <section className="mb-12">
-          <h2 className="text-lg font-bold text-white mb-4">
+          <h2 className="text-lg font-bold text-ink mb-4">
             Escrow Inspection Queue
             {inspectionTrades.length > 0 && (
-              <span className="text-sm font-normal text-neutral-500 ml-2">
+              <span className="text-sm font-normal text-ink-faint ml-2">
                 ({inspectionTrades.length})
               </span>
             )}
           </h2>
 
-          {inspectionLoading && <p className="text-neutral-500 text-sm py-4">Loading...</p>}
+          {inspectionLoading && <p className="text-ink-faint text-sm py-4">Loading...</p>}
 
           {!inspectionLoading && inspectionTrades.length === 0 && (
-            <div className="bg-neutral-900 rounded-xl p-6 text-center">
-              <p className="text-neutral-500">No trades pending inspection.</p>
+            <div className="bg-surface rounded-xl p-6 text-center">
+              <p className="text-ink-faint">No trades pending inspection.</p>
             </div>
           )}
 
@@ -730,12 +730,12 @@ export default function AdminFraudPage() {
               const isActioning = inspectionActionLoading === t.trade_id;
 
               return (
-                <div key={t.trade_id} className="bg-neutral-900 rounded-xl overflow-hidden">
+                <div key={t.trade_id} className="bg-surface rounded-xl overflow-hidden">
                   <div className="px-4 py-4">
                     <div className="flex items-start gap-4">
                       {/* Card image */}
                       {t.card_image && (
-                        <div className="w-16 h-22 shrink-0 bg-neutral-800 rounded-lg overflow-hidden">
+                        <div className="w-16 h-22 shrink-0 bg-surface-elevated rounded-lg overflow-hidden">
                           <img
                             src={t.card_image}
                             alt={t.card_name || "Card"}
@@ -746,26 +746,26 @@ export default function AdminFraudPage() {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-3 flex-wrap">
-                          <span className="text-sm font-bold text-white">
+                          <span className="text-sm font-bold text-ink">
                             {t.card_name || "Unknown Card"}
                           </span>
-                          <span className="text-sm font-bold text-amber-400">
+                          <span className="text-sm font-bold text-accent-strong">
                             {t.value}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-4 mt-2 text-sm">
                           <div>
-                            <span className="text-neutral-500">Seller: </span>
-                            <span className="text-white">{t.seller_name || "---"}</span>
-                            <span className="text-xs text-neutral-500 ml-1">
+                            <span className="text-ink-faint">Seller: </span>
+                            <span className="text-ink">{t.seller_name || "---"}</span>
+                            <span className="text-xs text-ink-faint ml-1">
                               (trust: {t.seller_trust_score})
                             </span>
                           </div>
                           <div>
-                            <span className="text-neutral-500">Buyer: </span>
-                            <span className="text-white">{t.buyer_name || "---"}</span>
-                            <span className="text-xs text-neutral-500 ml-1">
+                            <span className="text-ink-faint">Buyer: </span>
+                            <span className="text-ink">{t.buyer_name || "---"}</span>
+                            <span className="text-xs text-ink-faint ml-1">
                               (trust: {t.buyer_trust_score})
                             </span>
                           </div>
@@ -783,7 +783,7 @@ export default function AdminFraudPage() {
                             }
                             rows={2}
                             placeholder="Inspector notes..."
-                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                            className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
                           />
                         </div>
 
@@ -799,7 +799,7 @@ export default function AdminFraudPage() {
                           <button
                             onClick={() => handleInspection(t.trade_id, false)}
                             disabled={isActioning}
-                            className="px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-400 transition disabled:opacity-50"
+                            className="px-5 py-2 bg-danger text-ink text-sm font-bold rounded-lg hover:bg-red-400 transition disabled:opacity-50"
                           >
                             {isActioning ? "..." : "Fail"}
                           </button>

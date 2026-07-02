@@ -25,7 +25,7 @@ interface EscrowRoutingData {
 const TIER_BADGE: Record<EscrowTier, { bg: string; text: string; border: string; label: string }> = {
   direct: {
     bg: "bg-emerald-500/15",
-    text: "text-emerald-400",
+    text: "text-secondary",
     border: "border-emerald-500/30",
     label: "Seller ships to you directly",
   },
@@ -36,9 +36,9 @@ const TIER_BADGE: Record<EscrowTier, { bg: string; text: string; border: string;
     label: "Photo-verified, seller ships to you",
   },
   full_escrow: {
-    bg: "bg-amber-500/15",
-    text: "text-amber-400",
-    border: "border-amber-500/30",
+    bg: "bg-accent/15",
+    text: "text-accent-strong",
+    border: "border-accent/30",
     label: "Ships through Cambridge TCG",
   },
 };
@@ -60,7 +60,7 @@ function EscrowTimeline({ tier, escrowStatus }: { tier: EscrowTier; escrowStatus
           ? style.bg.replace("/15", "") + " ring-2 ring-offset-1 ring-offset-neutral-900 " + style.border.replace("border-", "ring-")
           : "bg-neutral-700";
         const lineColor = isDone ? "bg-emerald-400/50" : "bg-neutral-700";
-        const textColor = isDone ? "text-emerald-400" : isCurrent ? style.text : "text-neutral-600";
+        const textColor = isDone ? "text-secondary" : isCurrent ? style.text : "text-neutral-600";
 
         return (
           <div key={i} className="flex items-center">
@@ -118,19 +118,19 @@ function DisputeTimeline({ dispute }: { dispute: TradeDispute }) {
                   done
                     ? "bg-emerald-400 text-black"
                     : isCurrent
-                      ? "bg-amber-400 text-black ring-2 ring-offset-2 ring-offset-neutral-900 ring-amber-400/40"
+                      ? "bg-accent-strong text-black ring-2 ring-offset-2 ring-offset-neutral-900 ring-amber-400/40"
                       : "bg-neutral-700 text-neutral-600"
                 }`}
               >
                 {done ? "✓" : i + 1}
               </div>
               <span className={`text-[10px] mt-1.5 text-center leading-tight ${
-                done ? "text-emerald-400" : isCurrent ? "text-amber-400" : "text-neutral-600"
+                done ? "text-secondary" : isCurrent ? "text-accent-strong" : "text-neutral-600"
               }`}>
                 {step.label}
               </span>
               {ts && done && (
-                <span className="text-[9px] text-neutral-500 font-mono whitespace-nowrap mt-0.5">
+                <span className="text-[9px] text-ink-faint font-mono whitespace-nowrap mt-0.5">
                   {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                 </span>
               )}
@@ -165,15 +165,15 @@ function EscrowBadgeSection({ tradeId, escrowStatus }: { tradeId: string; escrow
         <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${badge.border} ${badge.text}`}>
           {data.routing.label}
         </span>
-        <span className="text-sm text-neutral-300">{badge.label}</span>
-        <span className="ml-auto text-xs text-neutral-500">{data.routing.estimatedDays}</span>
+        <span className="text-sm text-ink-muted">{badge.label}</span>
+        <span className="ml-auto text-xs text-ink-faint">{data.routing.estimatedDays}</span>
       </div>
 
       <EscrowTimeline tier={data.routing.tier} escrowStatus={escrowStatus} />
 
-      <ul className="space-y-1 pt-1 border-t border-neutral-800">
+      <ul className="space-y-1 pt-1 border-t border-border-subtle">
         {data.summary.map((point, i) => (
-          <li key={i} className="text-xs text-neutral-400 flex items-start gap-1.5">
+          <li key={i} className="text-xs text-ink-muted flex items-start gap-1.5">
             <span className={`mt-0.5 ${badge.text}`}>&bull;</span>
             <span>{point}</span>
           </li>
@@ -484,13 +484,13 @@ export default function TradeDetailPage() {
   }
 
   const statusColors: Record<string, string> = {
-    open: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    under_review: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    open: "bg-accent/15 text-accent-strong border-accent/30",
+    under_review: "bg-accent/15 text-accent-strong border-accent/30",
     awaiting_evidence: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    resolved_buyer: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    resolved_seller: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    resolved_split: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-    closed: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
+    resolved_buyer: "bg-emerald-500/15 text-secondary border-emerald-500/30",
+    resolved_seller: "bg-emerald-500/15 text-secondary border-emerald-500/30",
+    resolved_split: "bg-emerald-500/15 text-secondary border-emerald-500/30",
+    closed: "bg-neutral-500/15 text-ink-muted border-neutral-500/30",
   };
 
   const statusLabels: Record<string, string> = {
@@ -516,17 +516,17 @@ export default function TradeDetailPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 bg-neutral-800 rounded w-48 animate-pulse" />
-        <div className="h-64 bg-neutral-900 rounded-xl animate-pulse" />
+        <div className="h-8 bg-surface-elevated rounded w-48 animate-pulse" />
+        <div className="h-64 bg-surface rounded-xl animate-pulse" />
       </div>
     );
   }
 
   if (loggedIn === false) {
     return (
-      <div className="bg-neutral-900 rounded-xl p-8 text-center">
-        <p className="text-neutral-400 mb-3">You need to be signed in to view trade details.</p>
-        <a href="/login" className="text-amber-400 hover:underline text-sm font-medium">
+      <div className="bg-surface rounded-xl p-8 text-center">
+        <p className="text-ink-muted mb-3">You need to be signed in to view trade details.</p>
+        <a href="/login" className="text-accent-strong hover:underline text-sm font-medium">
           Sign in
         </a>
       </div>
@@ -537,15 +537,15 @@ export default function TradeDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/account/trades" className="text-neutral-500 hover:text-white transition text-sm">
+        <Link href="/account/trades" className="text-ink-faint hover:text-ink transition text-sm">
           &larr; Back to Trades
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-white">Trade #{tradeId.slice(0, 8)}</h1>
+      <h1 className="text-2xl font-bold text-ink">Trade #{tradeId.slice(0, 8)}</h1>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+        <div className="bg-danger/10 border border-danger/30 rounded-xl p-4">
           <p className="text-red-400 text-sm">{error}</p>
         </div>
       )}
@@ -555,39 +555,39 @@ export default function TradeDetailPage() {
 
       {/* Trade info */}
       {trade && (
-        <div className="bg-neutral-900 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-3">Trade Details</h2>
+        <div className="bg-surface rounded-xl p-6">
+          <h2 className="text-sm font-bold text-ink uppercase tracking-wide mb-3">Trade Details</h2>
           <div className="grid grid-cols-2 gap-3 text-sm">
             {trade.card_name && (
               <>
-                <span className="text-neutral-500">Card</span>
-                <span className="text-white">{trade.card_name}</span>
+                <span className="text-ink-faint">Card</span>
+                <span className="text-ink">{trade.card_name}</span>
               </>
             )}
             {trade.price && (
               <>
-                <span className="text-neutral-500">Price</span>
-                <span className="text-white font-mono">
+                <span className="text-ink-faint">Price</span>
+                <span className="text-ink font-mono">
                   &pound;{Number(trade.price).toFixed(2)}
                 </span>
               </>
             )}
             {trade.quantity && (
               <>
-                <span className="text-neutral-500">Quantity</span>
-                <span className="text-white">{trade.quantity}</span>
+                <span className="text-ink-faint">Quantity</span>
+                <span className="text-ink">{trade.quantity}</span>
               </>
             )}
             {trade.status && (
               <>
-                <span className="text-neutral-500">Status</span>
-                <span className="text-white capitalize">{trade.status}</span>
+                <span className="text-ink-faint">Status</span>
+                <span className="text-ink capitalize">{trade.status}</span>
               </>
             )}
             {(viewerIsBuyer || viewerIsSeller) && counterpartyId && (
               <>
-                <span className="text-neutral-500">{viewerIsBuyer ? "Seller" : "Buyer"}</span>
-                <span className="text-white flex items-center gap-2 flex-wrap">
+                <span className="text-ink-faint">{viewerIsBuyer ? "Seller" : "Buyer"}</span>
+                <span className="text-ink flex items-center gap-2 flex-wrap">
                   <span>{counterpartyUsername || "—"}</span>
                   {/* The logistics channel — traders arrange shipping between
                       themselves over DMs, referenced to this trade. */}
@@ -603,8 +603,8 @@ export default function TradeDetailPage() {
             )}
             {trade.created_at && (
               <>
-                <span className="text-neutral-500">Date</span>
-                <span className="text-white">{formatDate(trade.created_at)}</span>
+                <span className="text-ink-faint">Date</span>
+                <span className="text-ink">{formatDate(trade.created_at)}</span>
               </>
             )}
           </div>
@@ -620,15 +620,15 @@ export default function TradeDetailPage() {
             return (
               <Link
                 href={`/account/trades/${tradeId}/pay`}
-                className="flex items-center justify-between bg-amber-500/15 border-2 border-amber-500/40 rounded-xl p-5 hover:bg-amber-500/20 transition group"
+                className="flex items-center justify-between bg-accent/15 border-2 border-accent/40 rounded-xl p-5 hover:bg-accent/20 transition group"
               >
                 <div>
-                  <p className="text-amber-400 font-bold text-base">Payment required</p>
-                  <p className="text-neutral-400 text-sm mt-0.5">
+                  <p className="text-accent-strong font-bold text-base">Payment required</p>
+                  <p className="text-ink-muted text-sm mt-0.5">
                     Complete your bank transfer to proceed with this trade.
                   </p>
                 </div>
-                <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">
+                <span className="text-accent-strong font-bold text-sm group-hover:translate-x-1 transition-transform">
                   Pay Now &rarr;
                 </span>
               </Link>
@@ -636,12 +636,12 @@ export default function TradeDetailPage() {
           }
           if (isSeller) {
             return (
-              <div className="bg-neutral-900 border border-amber-500/30 rounded-xl p-5 flex items-center gap-3">
+              <div className="bg-surface border border-accent/30 rounded-xl p-5 flex items-center gap-3">
                 <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-strong opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-accent-strong" />
                 </span>
-                <p className="text-amber-400 text-sm font-medium">
+                <p className="text-accent-strong text-sm font-medium">
                   Waiting for buyer payment...
                 </p>
               </div>
@@ -657,24 +657,24 @@ export default function TradeDetailPage() {
           pending; the buyer sees their own address echoed back, plus
           tracking once the seller has set it. */}
       {trade?.shipping_address && (viewerIsBuyer || viewerIsSeller) && (
-        <div className="bg-neutral-900 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-3">
+        <div className="bg-surface rounded-xl p-6">
+          <h2 className="text-sm font-bold text-ink uppercase tracking-wide mb-3">
             {viewerIsSeller ? "Ship to" : "Shipping"}
           </h2>
           <div className="space-y-0.5">
             {addressLines(trade.shipping_address).map((line, i) => (
-              <p key={i} className="text-sm font-mono text-neutral-200">{line}</p>
+              <p key={i} className="text-sm font-mono text-ink">{line}</p>
             ))}
           </div>
           {(trade.tracking_to_buyer || trade.carrier) && (
             <p className="text-sm mt-3">
-              <span className="text-neutral-500">Tracking:</span>{" "}
-              <span className="text-neutral-200 font-mono">
+              <span className="text-ink-faint">Tracking:</span>{" "}
+              <span className="text-ink font-mono">
                 {[trade.carrier, trade.tracking_to_buyer].filter(Boolean).join(" — ")}
               </span>
             </p>
           )}
-          <p className="text-xs text-neutral-500 mt-3">
+          <p className="text-xs text-ink-faint mt-3">
             You arrange shipping yourself — including internationally. Use messaging to agree on timing and customs.
           </p>
 
@@ -685,19 +685,19 @@ export default function TradeDetailPage() {
                 value={shipCarrier}
                 onChange={(e) => setShipCarrier(e.target.value)}
                 placeholder="Carrier (optional)"
-                className="w-36 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition"
+                className="w-36 px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
               />
               <input
                 type="text"
                 value={shipTracking}
                 onChange={(e) => setShipTracking(e.target.value)}
                 placeholder="Tracking number"
-                className="flex-1 min-w-[160px] px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition"
+                className="flex-1 min-w-[160px] px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
               />
               <button
                 type="submit"
                 disabled={markingShipped || !shipTracking.trim()}
-                className="px-4 py-2 rounded-lg font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition disabled:opacity-50"
+                className="px-4 py-2 rounded-lg font-bold text-sm bg-accent text-black hover:bg-accent-strong transition disabled:opacity-50"
               >
                 {markingShipped ? "..." : "Mark as shipped"}
               </button>
@@ -714,15 +714,15 @@ export default function TradeDetailPage() {
         ["completed", "refunded"].includes(trade.escrow_status) && (
           <Link
             href={`/account/trades/${tradeId}/review`}
-            className="flex items-center justify-between bg-neutral-900 border border-amber-500/30 rounded-xl p-4 hover:bg-amber-500/10 transition group"
+            className="flex items-center justify-between bg-surface border border-accent/30 rounded-xl p-4 hover:bg-accent/10 transition group"
           >
             <div>
-              <p className="text-white font-bold text-sm">Leave a review</p>
-              <p className="text-neutral-400 text-xs mt-0.5">
+              <p className="text-ink font-bold text-sm">Leave a review</p>
+              <p className="text-ink-muted text-xs mt-0.5">
                 How did this trade go? Your review builds the other party&apos;s reputation.
               </p>
             </div>
-            <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">
+            <span className="text-accent-strong font-bold text-sm group-hover:translate-x-1 transition-transform">
               Review &rarr;
             </span>
           </Link>
@@ -732,9 +732,9 @@ export default function TradeDetailPage() {
       {dispute ? (
         <div className="space-y-4">
           {/* Dispute header + status */}
-          <div className="bg-neutral-900 rounded-xl p-6">
+          <div className="bg-surface rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wide">Dispute</h2>
+              <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Dispute</h2>
               <span
                 className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${
                   statusColors[dispute.status] || statusColors.open
@@ -748,14 +748,14 @@ export default function TradeDetailPage() {
 
             <div className="space-y-2 text-sm mt-5">
               <div className="flex gap-2">
-                <span className="text-neutral-500 shrink-0">Reason:</span>
-                <span className="text-white">
+                <span className="text-ink-faint shrink-0">Reason:</span>
+                <span className="text-ink">
                   {DISPUTE_REASONS.find((r) => r.value === dispute.reason)?.label || dispute.reason}
                 </span>
               </div>
               <div className="flex gap-2">
-                <span className="text-neutral-500 shrink-0">Description:</span>
-                <span className="text-neutral-300">{dispute.description}</span>
+                <span className="text-ink-faint shrink-0">Description:</span>
+                <span className="text-ink-muted">{dispute.description}</span>
               </div>
             </div>
 
@@ -763,20 +763,20 @@ export default function TradeDetailPage() {
             {isDisputeTerminal(dispute.status) && dispute.resolution_notes && (
               <div className={`mt-4 rounded-lg p-4 border ${
                 dispute.status === "closed"
-                  ? "bg-neutral-800/60 border-neutral-700"
+                  ? "bg-surface-elevated/60 border-border-strong"
                   : "bg-emerald-500/10 border-emerald-500/30"
               }`}>
                 <div className="flex items-baseline justify-between mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+                  <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">
                     {dispute.status === "closed" ? "Withdrawn" : "Resolution"}
                   </span>
                   {dispute.resolved_at && (
-                    <span className="text-xs text-neutral-500">{formatDate(dispute.resolved_at)}</span>
+                    <span className="text-xs text-ink-faint">{formatDate(dispute.resolved_at)}</span>
                   )}
                 </div>
-                <p className="text-sm text-neutral-200">{dispute.resolution_notes}</p>
+                <p className="text-sm text-ink">{dispute.resolution_notes}</p>
                 {dispute.refund_amount && parseFloat(dispute.refund_amount) > 0 && (
-                  <p className="text-xs text-emerald-400 mt-2">
+                  <p className="text-xs text-secondary mt-2">
                     Refund: £{Number(dispute.refund_amount).toFixed(2)}
                   </p>
                 )}
@@ -787,19 +787,19 @@ export default function TradeDetailPage() {
             {sessionUserId === dispute.raised_by && !isDisputeTerminal(dispute.status) && (
               <div className="mt-4">
                 {showWithdrawConfirm ? (
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-amber-300">Withdraw this dispute? The trade will continue normally.</span>
+                  <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-accent-strong">Withdraw this dispute? The trade will continue normally.</span>
                     <button
                       onClick={handleWithdraw}
                       disabled={withdrawing}
-                      className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold rounded px-3 py-1.5 disabled:opacity-50"
+                      className="text-xs bg-accent hover:bg-accent-strong text-black font-bold rounded px-3 py-1.5 disabled:opacity-50"
                     >
                       {withdrawing ? "..." : "Confirm withdraw"}
                     </button>
                     <button
                       onClick={() => setShowWithdrawConfirm(false)}
                       disabled={withdrawing}
-                      className="text-xs text-neutral-400 hover:text-white px-2"
+                      className="text-xs text-ink-muted hover:text-ink px-2"
                     >
                       Cancel
                     </button>
@@ -807,7 +807,7 @@ export default function TradeDetailPage() {
                 ) : (
                   <button
                     onClick={() => setShowWithdrawConfirm(true)}
-                    className="text-xs text-neutral-500 hover:text-white underline"
+                    className="text-xs text-ink-faint hover:text-ink underline"
                   >
                     Withdraw dispute
                   </button>
@@ -818,12 +818,12 @@ export default function TradeDetailPage() {
 
           {/* Evidence */}
           {(evidence.length > 0 || !isDisputeTerminal(dispute.status)) && (
-            <div className="bg-neutral-900 rounded-xl p-6">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-4">
-                Evidence <span className="text-neutral-500 font-normal">({evidence.length})</span>
+            <div className="bg-surface rounded-xl p-6">
+              <h2 className="text-sm font-bold text-ink uppercase tracking-wide mb-4">
+                Evidence <span className="text-ink-faint font-normal">({evidence.length})</span>
               </h2>
               {evidence.length === 0 && (
-                <p className="text-sm text-neutral-500 mb-4">
+                <p className="text-sm text-ink-faint mb-4">
                   Upload photos of the card, packaging, tracking screenshots — anything relevant.
                 </p>
               )}
@@ -841,10 +841,10 @@ export default function TradeDetailPage() {
                       <img
                         src={ev.url}
                         alt={ev.label || "Evidence"}
-                        className="aspect-square w-full object-cover rounded-lg border border-neutral-800 group-hover:border-amber-500/50 transition"
+                        className="aspect-square w-full object-cover rounded-lg border border-border-subtle group-hover:border-accent/50 transition"
                       />
                       {ev.label && (
-                        <p className="text-[11px] text-neutral-400 mt-1 truncate">{ev.label}</p>
+                        <p className="text-[11px] text-ink-muted mt-1 truncate">{ev.label}</p>
                       )}
                       <p className="text-[10px] text-neutral-600">{formatDate(ev.created_at)}</p>
                     </a>
@@ -860,12 +860,12 @@ export default function TradeDetailPage() {
                     value={evidenceLabel}
                     onChange={(e) => setEvidenceLabel(e.target.value)}
                     placeholder="Label (optional, e.g. 'front of card')"
-                    className="flex-1 min-w-[180px] px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                    className="flex-1 min-w-[180px] px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50"
                   />
                   <label className={`cursor-pointer px-4 py-2 rounded-lg font-bold text-sm transition ${
                     uploadingEvidence
-                      ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
-                      : "bg-amber-500 text-black hover:bg-amber-400"
+                      ? "bg-surface-elevated text-ink-faint cursor-not-allowed"
+                      : "bg-accent text-black hover:bg-accent-strong"
                   }`}>
                     {uploadingEvidence ? "Uploading..." : "Upload photo"}
                     <input
@@ -889,11 +889,11 @@ export default function TradeDetailPage() {
           )}
 
           {/* Messages thread */}
-          <div className="bg-neutral-900 rounded-xl p-6">
-            <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-4">Messages</h2>
+          <div className="bg-surface rounded-xl p-6">
+            <h2 className="text-sm font-bold text-ink uppercase tracking-wide mb-4">Messages</h2>
 
             {messages.length === 0 ? (
-              <p className="text-neutral-500 text-sm py-4 text-center">No messages yet.</p>
+              <p className="text-ink-faint text-sm py-4 text-center">No messages yet.</p>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
                 {messages.map((msg) => (
@@ -901,16 +901,16 @@ export default function TradeDetailPage() {
                     key={msg.id}
                     className={`p-3 rounded-lg text-sm ${
                       msg.is_admin
-                        ? "bg-amber-500/10 border border-amber-500/20"
-                        : "bg-neutral-800 border border-neutral-700"
+                        ? "bg-accent/10 border border-accent/20"
+                        : "bg-surface-elevated border border-border-strong"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-white font-medium text-xs">
+                      <span className="text-ink font-medium text-xs">
                         {msg.sender_name || "User"}
                       </span>
                       {msg.is_admin && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-accent/20 text-accent-strong border border-accent/30">
                           Admin
                         </span>
                       )}
@@ -918,7 +918,7 @@ export default function TradeDetailPage() {
                         {formatDate(msg.created_at)}
                       </span>
                     </div>
-                    <p className="text-neutral-300">{msg.message}</p>
+                    <p className="text-ink-muted">{msg.message}</p>
                   </div>
                 ))}
               </div>
@@ -932,12 +932,12 @@ export default function TradeDetailPage() {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition"
+                  className="flex-1 px-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
                 />
                 <button
                   type="submit"
                   disabled={sendingMessage || !newMessage.trim()}
-                  className="px-4 py-2.5 rounded-lg font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition disabled:opacity-50"
+                  className="px-4 py-2.5 rounded-lg font-bold text-sm bg-accent text-black hover:bg-accent-strong transition disabled:opacity-50"
                 >
                   {sendingMessage ? "..." : "Send"}
                 </button>
@@ -947,19 +947,19 @@ export default function TradeDetailPage() {
         </div>
       ) : (
         /* Raise dispute form */
-        <div className="bg-neutral-900 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-4">Raise Dispute</h2>
-          <p className="text-neutral-400 text-sm mb-4">
+        <div className="bg-surface rounded-xl p-6">
+          <h2 className="text-sm font-bold text-ink uppercase tracking-wide mb-4">Raise Dispute</h2>
+          <p className="text-ink-muted text-sm mb-4">
             If there is an issue with this trade, you can raise a dispute and our team will review it.
           </p>
 
           <form onSubmit={handleRaiseDispute} className="space-y-4">
             <div>
-              <label className="block text-xs text-neutral-500 mb-1">Reason *</label>
+              <label className="block text-xs text-ink-faint mb-1">Reason *</label>
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition"
+                className="w-full px-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
               >
                 {DISPUTE_REASONS.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -970,19 +970,19 @@ export default function TradeDetailPage() {
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-500 mb-1">Description *</label>
+              <label className="block text-xs text-ink-faint mb-1">Description *</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
                 rows={4}
-                className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50 transition resize-none"
+                className="w-full px-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition resize-none"
                 placeholder="Describe the issue in detail..."
               />
             </div>
 
             {disputeError && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+              <div className="bg-danger/10 border border-danger/30 rounded-xl p-3">
                 <p className="text-red-400 text-sm">{disputeError}</p>
               </div>
             )}
@@ -990,7 +990,7 @@ export default function TradeDetailPage() {
             <button
               type="submit"
               disabled={submittingDispute || !description.trim()}
-              className="w-full py-3 rounded-lg font-bold text-sm bg-red-500 text-white hover:bg-red-400 transition disabled:opacity-50"
+              className="w-full py-3 rounded-lg font-bold text-sm bg-danger text-ink hover:bg-red-400 transition disabled:opacity-50"
             >
               {submittingDispute ? "Submitting..." : "Raise Dispute"}
             </button>

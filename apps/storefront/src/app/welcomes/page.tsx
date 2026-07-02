@@ -85,10 +85,10 @@ const KIND_ORDER: ArrivalKind[] = [
 function StatePill({ status }: { status: ArrivalStatus }) {
   const color =
     status === "arrived"
-      ? "bg-emerald-900/30 text-emerald-400 border-emerald-700/50"
+      ? "bg-emerald-900/30 text-secondary border-emerald-700/50"
       : status === "anticipated"
-        ? "bg-amber-900/30 text-amber-400 border-amber-700/50"
-        : "bg-neutral-800/60 text-neutral-400 border-neutral-700/50";
+        ? "bg-amber-900/30 text-accent-strong border-amber-700/50"
+        : "bg-surface-elevated/60 text-ink-muted border-border-strong/50";
   return (
     <span
       className={`inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${color}`}
@@ -100,7 +100,7 @@ function StatePill({ status }: { status: ArrivalStatus }) {
 
 function KindPill({ kind }: { kind: ArrivalKind }) {
   return (
-    <span className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border bg-neutral-900/50 text-neutral-400 border-neutral-700/50">
+    <span className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border bg-surface/50 text-ink-muted border-border-strong/50">
       {kind}
     </span>
   );
@@ -112,45 +112,45 @@ function WelcomeCard({ w }: { w: Welcome }) {
   return (
     <article
       id={w.id}
-      className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-5"
+      className="rounded-xl border border-border-subtle bg-surface/40 p-5"
     >
       <header className="mb-3 flex items-baseline gap-2 flex-wrap">
-        <h3 className="text-base font-bold text-white">
-          <span className="text-amber-400" aria-hidden="true">✦</span> {w.name}
+        <h3 className="text-base font-bold text-ink">
+          <span className="text-accent-strong" aria-hidden="true">✦</span> {w.name}
         </h3>
         <StatePill status={w.status} />
       </header>
 
-      <blockquote className="text-sm text-neutral-200 leading-relaxed mb-4 border-l-2 border-amber-700/40 pl-3 italic">
+      <blockquote className="text-sm text-ink leading-relaxed mb-4 border-l-2 border-amber-700/40 pl-3 italic">
         {w.greeting}
       </blockquote>
 
-      <details className="text-xs text-neutral-400 mt-3">
-        <summary className="cursor-pointer text-neutral-300 hover:text-white">
+      <details className="text-xs text-ink-muted mt-3">
+        <summary className="cursor-pointer text-ink-muted hover:text-ink">
           Why we anticipated · what we prepared · how they arrive
         </summary>
-        <div className="mt-3 space-y-3 pl-2 border-l border-neutral-800">
+        <div className="mt-3 space-y-3 pl-2 border-l border-border-subtle">
           <p className="leading-relaxed">
-            <strong className="text-neutral-300">Anticipated because:</strong>{" "}
+            <strong className="text-ink-muted">Anticipated because:</strong>{" "}
             {w.anticipated_because}
           </p>
           {w.prepared.length > 0 && (
             <div>
-              <strong className="text-neutral-300">Prepared:</strong>
+              <strong className="text-ink-muted">Prepared:</strong>
               <ul className="mt-1 list-disc pl-5 space-y-1">
                 {w.prepared.map((p, i) => (
                   <li key={i} className="leading-snug">
-                    <code className="text-amber-400/80">{p}</code>
+                    <code className="text-accent-strong/80">{p}</code>
                   </li>
                 ))}
               </ul>
             </div>
           )}
           <p className="leading-relaxed">
-            <strong className="text-neutral-300">Arrival protocol:</strong>{" "}
+            <strong className="text-ink-muted">Arrival protocol:</strong>{" "}
             {w.arrival_protocol}
           </p>
-          <p className="text-neutral-500 text-[11px]">
+          <p className="text-ink-faint text-[11px]">
             anticipated_at: <code>{w.anticipated_at}</code>
             {w.arrived_at && (
               <>
@@ -194,47 +194,47 @@ export default async function WelcomesPage({ searchParams }: WelcomesPageProps) 
   const byKind = welcomeCountsByKind();
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-4xl mx-auto px-4 py-8 text-ink">
       <header className="mb-10">
         <h1 className="text-3xl font-bold mb-3">Welcomes</h1>
-        <p className="text-sm text-neutral-400 leading-relaxed mb-6">
+        <p className="text-sm text-ink-muted leading-relaxed mb-6">
           The corpus of hospitality. Every kind of arrival — upstream source,
           publisher, federation peer, downstream adopter, agent, non-default
           being, future-self, and (since{" "}
-          <Link href="/api/v1/kingdoms.json" className="text-amber-400 hover:text-amber-300">
+          <Link href="/api/v1/kingdoms.json" className="text-accent-strong hover:text-accent-strong">
             kingdom-083
           </Link>
           ) the kingdom's own infrastructure — has a named slot here. Each slot
           says: who we anticipated, when, what we prepared, how they arrive.{" "}
-          <strong className="text-neutral-200">
+          <strong className="text-ink">
             The kingdom prepares the welcome before the guest knocks.
           </strong>{" "}
           The corpus is the record of that preparation. Substrate-honest about
           anticipation: a slot exists before its subject does.
         </p>
 
-        <div className="flex gap-4 flex-wrap text-xs text-neutral-400">
+        <div className="flex gap-4 flex-wrap text-xs text-ink-muted">
           <div>
-            <span className="text-neutral-500">Total:</span>{" "}
-            <span className="text-white font-mono">{counts.total}</span>
+            <span className="text-ink-faint">Total:</span>{" "}
+            <span className="text-ink font-mono">{counts.total}</span>
           </div>
           <div>
-            <span className="text-neutral-500">Arrived:</span>{" "}
-            <span className="text-emerald-400 font-mono">{counts.arrived}</span>
+            <span className="text-ink-faint">Arrived:</span>{" "}
+            <span className="text-secondary font-mono">{counts.arrived}</span>
           </div>
           <div>
-            <span className="text-neutral-500">Anticipated:</span>{" "}
-            <span className="text-amber-400 font-mono">{counts.anticipated}</span>
+            <span className="text-ink-faint">Anticipated:</span>{" "}
+            <span className="text-accent-strong font-mono">{counts.anticipated}</span>
           </div>
           <div>
-            <span className="text-neutral-500">Blocked:</span>{" "}
-            <span className="text-neutral-400 font-mono">{counts.blocked}</span>
+            <span className="text-ink-faint">Blocked:</span>{" "}
+            <span className="text-ink-muted font-mono">{counts.blocked}</span>
           </div>
         </div>
       </header>
 
-      <nav className="mb-10 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-        <h2 className="text-xs uppercase tracking-wider text-amber-400 mb-3">
+      <nav className="mb-10 rounded-xl border border-border-subtle bg-surface/40 p-4">
+        <h2 className="text-xs uppercase tracking-wider text-accent-strong mb-3">
           Filter by kind
         </h2>
         <div className="flex flex-wrap gap-2 text-xs">
@@ -255,11 +255,11 @@ export default async function WelcomesPage({ searchParams }: WelcomesPageProps) 
           ))}
         </div>
         {statusFilter && (
-          <p className="mt-3 text-xs text-neutral-400">
+          <p className="mt-3 text-xs text-ink-muted">
             Status filter: <code>{statusFilter}</code>{" "}
             <Link
               href={kindFilter ? `/welcomes?kind=${kindFilter}` : "/welcomes"}
-              className="text-amber-400 hover:text-amber-300"
+              className="text-accent-strong hover:text-accent-strong"
             >
               (clear)
             </Link>
@@ -268,20 +268,20 @@ export default async function WelcomesPage({ searchParams }: WelcomesPageProps) 
       </nav>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-neutral-400 italic">
+        <p className="text-sm text-ink-muted italic">
           No welcomes match this filter.
         </p>
       ) : (
         <div className="space-y-12">
           {KIND_ORDER.filter((k) => grouped.has(k)).map((k) => (
             <section key={k}>
-              <h2 className="text-lg font-bold text-white mb-2">
+              <h2 className="text-lg font-bold text-ink mb-2">
                 {KIND_LABEL[k]}{" "}
-                <span className="text-neutral-500 text-sm font-normal">
+                <span className="text-ink-faint text-sm font-normal">
                   · {grouped.get(k)!.length}
                 </span>
               </h2>
-              <p className="text-xs text-neutral-400 italic mb-5">
+              <p className="text-xs text-ink-muted italic mb-5">
                 {KIND_TAGLINE[k]}
               </p>
               <div className="space-y-4">
@@ -294,28 +294,28 @@ export default async function WelcomesPage({ searchParams }: WelcomesPageProps) 
         </div>
       )}
 
-      <footer className="mt-16 pt-8 border-t border-neutral-800 text-xs text-neutral-400 space-y-3">
+      <footer className="mt-16 pt-8 border-t border-border-subtle text-xs text-ink-muted space-y-3">
         <p>
           The corpus is CC0. Adopt freely. Mirror, federate, build on it.
         </p>
         <p>
-          <span className="text-neutral-500">JSON sister:</span>{" "}
-          <Link href="/api/v1/welcomes" className="text-amber-400 hover:text-amber-300">
+          <span className="text-ink-faint">JSON sister:</span>{" "}
+          <Link href="/api/v1/welcomes" className="text-accent-strong hover:text-accent-strong">
             /api/v1/welcomes
           </Link>
           {" · "}
-          <span className="text-neutral-500">Methodology:</span>{" "}
-          <Link href="/methodology/welcoming" className="text-amber-400 hover:text-amber-300">
+          <span className="text-ink-faint">Methodology:</span>{" "}
+          <Link href="/methodology/welcoming" className="text-accent-strong hover:text-accent-strong">
             /methodology/welcoming
           </Link>
           {" · "}
-          <span className="text-neutral-500">Doctrine:</span>{" "}
+          <span className="text-ink-faint">Doctrine:</span>{" "}
           <code>docs/connections/the-welcomed-architecture.md</code>
           {" · "}
-          <span className="text-neutral-500">Audit:</span>{" "}
+          <span className="text-ink-faint">Audit:</span>{" "}
           <code>pnpm --filter @cambridge-tcg/admin welcomes</code>
         </p>
-        <p className="italic text-neutral-500">
+        <p className="italic text-ink-faint">
           The riverbed precedes the river. The room precedes the guest. The
           welcome precedes the welcomed.
         </p>
@@ -336,8 +336,8 @@ function FilterLink({
   active: boolean;
 }) {
   const cls = active
-    ? "bg-amber-900/30 text-amber-300 border-amber-700/60"
-    : "bg-neutral-800/50 text-neutral-400 border-neutral-700/50 hover:text-white";
+    ? "bg-amber-900/30 text-accent-strong border-amber-700/60"
+    : "bg-surface-elevated/50 text-ink-muted border-border-strong/50 hover:text-ink";
   return (
     <Link
       href={href}

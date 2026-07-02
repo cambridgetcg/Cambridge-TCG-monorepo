@@ -22,12 +22,12 @@ export default function PullIdForm() {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="00000000-0000-0000-0000-000000000000"
-        className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-500"
+        className="flex-1 bg-surface-elevated border border-border-strong rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent"
         required
       />
       <button
         type="submit"
-        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg text-sm transition"
+        className="px-4 py-2 bg-accent hover:bg-accent-strong text-black font-bold rounded-lg text-sm transition"
       >
         Verify
       </button>

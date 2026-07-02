@@ -14,14 +14,14 @@ import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust
 
 import { Audience } from "@/lib/ui";
 const STATUS_COLORS: Record<DisputeStatus, string> = {
-  open: "bg-amber-500/20 text-amber-400",
+  open: "bg-accent/20 text-accent-strong",
   under_review: "bg-blue-500/20 text-blue-400",
-  escalated: "bg-red-500/20 text-red-400",
-  awaiting_evidence: "bg-amber-500/20 text-amber-400",
-  resolved_buyer: "bg-emerald-500/20 text-emerald-400",
-  resolved_seller: "bg-emerald-500/20 text-emerald-400",
+  escalated: "bg-danger/20 text-red-400",
+  awaiting_evidence: "bg-accent/20 text-accent-strong",
+  resolved_buyer: "bg-emerald-500/20 text-secondary",
+  resolved_seller: "bg-emerald-500/20 text-secondary",
   resolved_split: "bg-blue-500/20 text-blue-400",
-  closed: "bg-neutral-500/20 text-neutral-400",
+  closed: "bg-neutral-500/20 text-ink-muted",
 };
 
 const STATUS_LABELS: Record<DisputeStatus, string> = {
@@ -238,7 +238,7 @@ export default function AdminDisputesPage() {
         <button
           onClick={fetchDisputes}
           disabled={loading}
-          className="px-4 py-2 bg-neutral-800 text-white text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+          className="px-4 py-2 bg-surface-elevated text-ink text-sm rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
         >
           {loading ? "Loading..." : "Refresh"}
         </button>
@@ -247,21 +247,21 @@ export default function AdminDisputesPage() {
       <Audience kind="operator" />
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Total</p>
-            <p className="text-2xl font-bold text-white mt-1">{total}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Total</p>
+            <p className="text-2xl font-bold text-ink mt-1">{total}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Open</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{openCount}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Open</p>
+            <p className="text-2xl font-bold text-accent-strong mt-1">{openCount}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Under Review</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Under Review</p>
             <p className="text-2xl font-bold text-blue-400 mt-1">{reviewCount}</p>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide">Resolved</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{resolvedCount}</p>
+          <div className="bg-surface rounded-xl p-4">
+            <p className="text-xs text-ink-faint uppercase tracking-wide">Resolved</p>
+            <p className="text-2xl font-bold text-secondary mt-1">{resolvedCount}</p>
           </div>
         </div>
 
@@ -280,8 +280,8 @@ export default function AdminDisputesPage() {
               onClick={() => setFilter(tab.key)}
               className={`text-sm px-4 py-2 rounded-lg transition ${
                 filter === tab.key
-                  ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                  ? "bg-accent text-black font-bold"
+                  : "bg-surface-elevated text-ink-muted hover:bg-neutral-700"
               }`}
             >
               {tab.label}
@@ -291,7 +291,7 @@ export default function AdminDisputesPage() {
 
         {/* List */}
         {disputes.length === 0 && !loading && (
-          <p className="text-neutral-500 text-center py-12">No disputes found.</p>
+          <p className="text-ink-faint text-center py-12">No disputes found.</p>
         )}
 
         <div className="space-y-3">
@@ -301,15 +301,15 @@ export default function AdminDisputesPage() {
             const isExp = expanded === d.id;
 
             return (
-              <div key={d.id} className="bg-neutral-900 rounded-xl overflow-hidden">
+              <div key={d.id} className="bg-surface rounded-xl overflow-hidden">
                 {/* Row */}
                 <button
                   onClick={() => handleExpand(d.id)}
-                  className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-neutral-800/50 transition"
+                  className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-surface-elevated/50 transition"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-sm font-bold text-white">
+                      <span className="text-sm font-bold text-ink">
                         {reasonLabel(d.reason)}
                       </span>
                       <span
@@ -318,7 +318,7 @@ export default function AdminDisputesPage() {
                         {STATUS_LABELS[d.status]}
                       </span>
                     </div>
-                    <p className="text-sm text-neutral-400 mt-1">
+                    <p className="text-sm text-ink-muted mt-1">
                       {d.card_name || "Unknown card"}
                       {d.trade_price ? ` \u00B7 ${formatPrice(parseFloat(d.trade_price))}` : ""}
                       {d.buyer_name && d.seller_name
@@ -327,7 +327,7 @@ export default function AdminDisputesPage() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs text-neutral-500">{formatDate(d.created_at)}</p>
+                    <p className="text-xs text-ink-faint">{formatDate(d.created_at)}</p>
                   </div>
                   <span className="text-neutral-600 text-sm">
                     {isExp ? "\u25B2" : "\u25BC"}
@@ -336,54 +336,54 @@ export default function AdminDisputesPage() {
 
                 {/* Expanded detail */}
                 {isExp && (
-                  <div className="px-4 pb-4 border-t border-neutral-800">
+                  <div className="px-4 pb-4 border-t border-border-subtle">
                     {detailLoading === d.id && (
-                      <p className="text-neutral-500 text-sm py-4">Loading details...</p>
+                      <p className="text-ink-faint text-sm py-4">Loading details...</p>
                     )}
 
                     {/* Trade details */}
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 mb-4 text-sm">
                       <div>
-                        <span className="text-neutral-500">Card</span>
-                        <p className="text-white">{d.card_name || "---"}</p>
+                        <span className="text-ink-faint">Card</span>
+                        <p className="text-ink">{d.card_name || "---"}</p>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Trade Price</span>
-                        <p className="text-white">
+                        <span className="text-ink-faint">Trade Price</span>
+                        <p className="text-ink">
                           {d.trade_price ? formatPrice(parseFloat(d.trade_price)) : "---"}
                         </p>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Buyer</span>
-                        <p className="text-white">{d.buyer_name || "---"}</p>
+                        <span className="text-ink-faint">Buyer</span>
+                        <p className="text-ink">{d.buyer_name || "---"}</p>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Seller</span>
-                        <p className="text-white">{d.seller_name || "---"}</p>
+                        <span className="text-ink-faint">Seller</span>
+                        <p className="text-ink">{d.seller_name || "---"}</p>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Raised By</span>
-                        <p className="text-white">
+                        <span className="text-ink-faint">Raised By</span>
+                        <p className="text-ink">
                           {d.raiser_name || "---"}
                           {d.raiser_email && (
-                            <span className="text-neutral-500 ml-1 text-xs">
+                            <span className="text-ink-faint ml-1 text-xs">
                               ({d.raiser_email})
                             </span>
                           )}
                         </p>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Trade ID</span>
-                        <p className="text-white font-mono text-xs">{d.trade_id}</p>
+                        <span className="text-ink-faint">Trade ID</span>
+                        <p className="text-ink font-mono text-xs">{d.trade_id}</p>
                       </div>
                     </div>
 
                     {/* Dispute info */}
                     <div className="mb-4 text-sm">
-                      <span className="text-neutral-500">Reason</span>
-                      <p className="text-white">{reasonLabel(d.reason)}</p>
-                      <span className="text-neutral-500 mt-2 block">Description</span>
-                      <p className="text-neutral-300">{d.description}</p>
+                      <span className="text-ink-faint">Reason</span>
+                      <p className="text-ink">{reasonLabel(d.reason)}</p>
+                      <span className="text-ink-faint mt-2 block">Description</span>
+                      <p className="text-ink-muted">{d.description}</p>
                     </div>
 
                     {/* Lifecycle timeline */}
@@ -392,7 +392,7 @@ export default function AdminDisputesPage() {
                     {/* Stage transitions — only surface for unresolved disputes */}
                     {!isDisputeTerminal(d.status) && (
                       <div className="flex items-center gap-2 flex-wrap mb-4">
-                        <span className="text-xs text-neutral-500">Advance to:</span>
+                        <span className="text-xs text-ink-faint">Advance to:</span>
                         {d.status === "open" && (
                           <button
                             onClick={() => handleSetStatus(d.id, "under_review")}
@@ -406,7 +406,7 @@ export default function AdminDisputesPage() {
                           <button
                             onClick={() => handleSetStatus(d.id, "awaiting_evidence")}
                             disabled={resolving === d.id}
-                            className="text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50"
+                            className="text-xs bg-accent/20 hover:bg-accent/30 text-accent-strong border border-accent/30 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50"
                           >
                             → Awaiting evidence
                           </button>
@@ -416,24 +416,24 @@ export default function AdminDisputesPage() {
 
                     {/* Resolution info (if resolved) */}
                     {d.resolution_type && (
-                      <div className="mb-4 p-3 bg-neutral-800 rounded-lg text-sm">
-                        <span className="text-neutral-500">Resolution</span>
-                        <p className="text-white">
+                      <div className="mb-4 p-3 bg-surface-elevated rounded-lg text-sm">
+                        <span className="text-ink-faint">Resolution</span>
+                        <p className="text-ink">
                           {RESOLUTION_TYPES.find((r) => r.value === d.resolution_type)?.label ||
                             d.resolution_type}
                         </p>
                         {d.refund_amount && (
                           <>
-                            <span className="text-neutral-500 mt-1 block">Refund Amount</span>
-                            <p className="text-white">
+                            <span className="text-ink-faint mt-1 block">Refund Amount</span>
+                            <p className="text-ink">
                               {formatPrice(parseFloat(d.refund_amount))}
                             </p>
                           </>
                         )}
                         {d.resolution_notes && (
                           <>
-                            <span className="text-neutral-500 mt-1 block">Notes</span>
-                            <p className="text-neutral-300">{d.resolution_notes}</p>
+                            <span className="text-ink-faint mt-1 block">Notes</span>
+                            <p className="text-ink-muted">{d.resolution_notes}</p>
                           </>
                         )}
                       </div>
@@ -442,7 +442,7 @@ export default function AdminDisputesPage() {
                     {/* Evidence gallery */}
                     {disputeEvidence.length > 0 && (
                       <div className="mb-4">
-                        <span className="text-xs text-neutral-500 uppercase tracking-wide block mb-2">
+                        <span className="text-xs text-ink-faint uppercase tracking-wide block mb-2">
                           Evidence
                         </span>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -454,7 +454,7 @@ export default function AdminDisputesPage() {
                               rel="noopener noreferrer"
                               className="block group"
                             >
-                              <div className="aspect-square bg-neutral-800 rounded-lg overflow-hidden">
+                              <div className="aspect-square bg-surface-elevated rounded-lg overflow-hidden">
                                 <img
                                   src={ev.url}
                                   alt={ev.label || "Evidence"}
@@ -462,7 +462,7 @@ export default function AdminDisputesPage() {
                                 />
                               </div>
                               {ev.label && (
-                                <p className="text-xs text-neutral-400 mt-1 truncate">
+                                <p className="text-xs text-ink-muted mt-1 truncate">
                                   {ev.label}
                                 </p>
                               )}
@@ -474,7 +474,7 @@ export default function AdminDisputesPage() {
 
                     {/* Message thread */}
                     <div className="mb-4">
-                      <span className="text-xs text-neutral-500 uppercase tracking-wide block mb-2">
+                      <span className="text-xs text-ink-faint uppercase tracking-wide block mb-2">
                         Messages
                       </span>
                       {disputeMessages.length === 0 && detailLoading !== d.id && (
@@ -486,23 +486,23 @@ export default function AdminDisputesPage() {
                             key={msg.id}
                             className={`p-3 rounded-lg text-sm ${
                               msg.is_admin
-                                ? "bg-amber-500/10 border border-amber-500/20"
-                                : "bg-neutral-800"
+                                ? "bg-accent/10 border border-accent/20"
+                                : "bg-surface-elevated"
                             }`}
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <span
                                 className={`font-medium ${
-                                  msg.is_admin ? "text-amber-400" : "text-white"
+                                  msg.is_admin ? "text-accent-strong" : "text-ink"
                                 }`}
                               >
                                 {msg.is_admin ? "Admin" : msg.sender_name || "User"}
                               </span>
-                              <span className="text-xs text-neutral-500">
+                              <span className="text-xs text-ink-faint">
                                 {formatDateTime(msg.created_at)}
                               </span>
                             </div>
-                            <p className="text-neutral-300">{msg.message}</p>
+                            <p className="text-ink-muted">{msg.message}</p>
                           </div>
                         ))}
                       </div>
@@ -522,14 +522,14 @@ export default function AdminDisputesPage() {
                             }
                           }}
                           placeholder="Send a message as admin..."
-                          className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                          className="flex-1 px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50"
                         />
                         <button
                           onClick={() => handleSendMessage(d.id)}
                           disabled={
                             sendingMessage === d.id || !newMessage[d.id]?.trim()
                           }
-                          className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+                          className="px-4 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
                         >
                           {sendingMessage === d.id ? "..." : "Send"}
                         </button>
@@ -538,13 +538,13 @@ export default function AdminDisputesPage() {
 
                     {/* Resolution panel (only for non-resolved) */}
                     {!isResolved(d.status) && (
-                      <div className="border-t border-neutral-800 pt-4">
-                        <span className="text-xs text-neutral-500 uppercase tracking-wide block mb-3">
+                      <div className="border-t border-border-subtle pt-4">
+                        <span className="text-xs text-ink-faint uppercase tracking-wide block mb-3">
                           Resolve Dispute
                         </span>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                           <div>
-                            <label className="text-xs text-neutral-500 block mb-1">
+                            <label className="text-xs text-ink-faint block mb-1">
                               Resolution Type
                             </label>
                             <select
@@ -555,7 +555,7 @@ export default function AdminDisputesPage() {
                                   [d.id]: e.target.value,
                                 }))
                               }
-                              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 appearance-none"
+                              className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 appearance-none"
                             >
                               <option value="">Select...</option>
                               {RESOLUTION_TYPES.map((rt) => (
@@ -568,7 +568,7 @@ export default function AdminDisputesPage() {
                           {(resolutionType[d.id] === "refund_buyer" ||
                             resolutionType[d.id] === "split") && (
                             <div>
-                              <label className="text-xs text-neutral-500 block mb-1">
+                              <label className="text-xs text-ink-faint block mb-1">
                                 Refund Amount
                               </label>
                               <input
@@ -581,13 +581,13 @@ export default function AdminDisputesPage() {
                                   }))
                                 }
                                 placeholder="0.00"
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                                className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50"
                               />
                             </div>
                           )}
                         </div>
                         <div className="mb-3">
-                          <label className="text-xs text-neutral-500 block mb-1">
+                          <label className="text-xs text-ink-faint block mb-1">
                             Resolution Notes (required)
                           </label>
                           <textarea
@@ -600,7 +600,7 @@ export default function AdminDisputesPage() {
                             }
                             rows={3}
                             placeholder="Describe the resolution..."
-                            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                            className="w-full px-3 py-2 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
                           />
                         </div>
                         <button
@@ -610,7 +610,7 @@ export default function AdminDisputesPage() {
                             !resolutionType[d.id] ||
                             !resolutionNotes[d.id]?.trim()
                           }
-                          className="px-6 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+                          className="px-6 py-2 bg-accent text-black text-sm font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
                         >
                           {resolving === d.id ? "Resolving..." : "Resolve Dispute"}
                         </button>
@@ -638,7 +638,7 @@ function AdminDisputeTimeline({ dispute }: { dispute: TradeDispute }) {
   const anyResolvedStatus = ["resolved_buyer", "resolved_seller", "resolved_split"].includes(dispute.status);
 
   return (
-    <div className="mb-4 bg-neutral-800/40 border border-neutral-700 rounded-lg p-3">
+    <div className="mb-4 bg-surface-elevated/40 border border-border-strong rounded-lg p-3">
       <div className="flex items-center gap-0 overflow-x-auto">
         {DISPUTE_TIMELINE.map((step, i) => {
           const ts = dispute[step.tsField] as string | null | undefined;
@@ -658,19 +658,19 @@ function AdminDisputeTimeline({ dispute }: { dispute: TradeDispute }) {
                     done
                       ? "bg-emerald-400 text-black"
                       : isCurrent
-                        ? "bg-amber-400 text-black ring-2 ring-offset-2 ring-offset-neutral-800 ring-amber-400/40"
+                        ? "bg-accent-strong text-black ring-2 ring-offset-2 ring-offset-neutral-800 ring-amber-400/40"
                         : "bg-neutral-700 text-neutral-600"
                   }`}
                 >
                   {done ? "✓" : i + 1}
                 </div>
                 <span className={`text-[9px] mt-1 text-center leading-tight ${
-                  done ? "text-emerald-400" : isCurrent ? "text-amber-400" : "text-neutral-600"
+                  done ? "text-secondary" : isCurrent ? "text-accent-strong" : "text-neutral-600"
                 }`}>
                   {step.label}
                 </span>
                 {ts && done && (
-                  <span className="text-[8px] text-neutral-500 font-mono whitespace-nowrap mt-0.5">
+                  <span className="text-[8px] text-ink-faint font-mono whitespace-nowrap mt-0.5">
                     {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </span>
                 )}

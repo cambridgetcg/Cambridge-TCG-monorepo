@@ -37,7 +37,7 @@ export default function ManifestPage() {
         <code>{m.provenance.canonical_at}</code>.
       </blockquote>
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         Manifest version <code>{m.manifest_version}</code> · cosmology
         version <code>{m.cosmology_version}</code> · generated at{" "}
         <code>{m.generated_at}</code>.
@@ -65,7 +65,7 @@ export default function ManifestPage() {
             {a.extensions.length > 0 && (
               <ul>
                 {a.extensions.map((ext, i) => (
-                  <li key={i} className="text-sm text-neutral-400">
+                  <li key={i} className="text-sm text-ink-muted">
                     + {ext}
                   </li>
                 ))}
@@ -100,7 +100,7 @@ export default function ManifestPage() {
           <li key={p.kind}>
             <strong>{p.kind}.</strong> {p.description}
             <br />
-            <span className="text-sm text-neutral-400">
+            <span className="text-sm text-ink-muted">
               Auth: <code>{p.auth_method}</code>
               {p.methodology_url && (
                 <>
@@ -132,19 +132,19 @@ export default function ManifestPage() {
                 <li key={r.id} className="mb-3">
                   <code>
                     {r.host === "wholesale" && (
-                      <span className="text-neutral-500">
+                      <span className="text-ink-faint">
                         wholesaletcgdirect.com
                       </span>
                     )}
                     {r.path}
                   </code>{" "}
-                  <span className="text-xs text-neutral-500">
+                  <span className="text-xs text-ink-faint">
                     [{r.methods.join(", ")}]
                   </span>
                   <br />
                   <span className="text-sm">{r.description}</span>
                   <br />
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-ink-muted">
                     modality:{" "}
                     {r.modalities.map((mod) => (
                       <code key={mod} className="mr-1">
@@ -176,7 +176,7 @@ export default function ManifestPage() {
                   {r.notes && (
                     <>
                       <br />
-                      <span className="text-xs text-neutral-500 italic">
+                      <span className="text-xs text-ink-faint italic">
                         {r.notes}
                       </span>
                     </>
@@ -202,7 +202,7 @@ export default function ManifestPage() {
             <strong>
               <code>{c.id}</code>
             </strong>{" "}
-            <span className="text-xs uppercase tracking-wider text-amber-400">
+            <span className="text-xs uppercase tracking-wider text-accent-strong">
               {c.status}
             </span>
             <br />
@@ -210,7 +210,7 @@ export default function ManifestPage() {
             {c.notes && (
               <>
                 <br />
-                <span className="text-xs text-neutral-500 italic">
+                <span className="text-xs text-ink-faint italic">
                   {c.notes}
                 </span>
               </>
@@ -232,11 +232,11 @@ export default function ManifestPage() {
           <li key={t.slug}>
             <Link href={`/methodology/${t.slug}`}>{t.title}</Link>
             {t.status === "stub" && (
-              <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-400">
+              <span className="ml-2 text-[10px] uppercase tracking-wider text-accent-strong">
                 stub
               </span>
             )}
-            <span className="ml-2 text-xs text-neutral-500">
+            <span className="ml-2 text-xs text-ink-faint">
               formats:{" "}
               {t.formats_available.map((f) => (
                 <code key={f} className="mr-1">
@@ -261,7 +261,7 @@ export default function ManifestPage() {
           <li key={d.name}>
             <strong>{d.name}.</strong> {d.description}
             <br />
-            <span className="text-xs text-neutral-400">
+            <span className="text-xs text-ink-muted">
               source: <code>{d.url}</code> · audit:{" "}
               <code>{d.audit_command}</code>
             </span>
@@ -304,7 +304,7 @@ export default function ManifestPage() {
       {/* ── Provenance ──────────────────────────────────────── */}
 
       <hr />
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         This page is rendered from{" "}
         <code>{m.provenance.canonical_at}</code> — the typed
         source-of-truth. The JSON sibling lives at{" "}
@@ -314,7 +314,7 @@ export default function ManifestPage() {
         . The inclusion audit verifies manifest currency via{" "}
         <code>{m.provenance.audit_check}</code>.
       </p>
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         Story-as-wire connection-doc for this manifest:{" "}
         <code>docs/connections/the-manifest.md</code> (S25). Companion
         cosmology page:{" "}
@@ -323,7 +323,7 @@ export default function ManifestPage() {
         </Link>
         .
       </p>
-      <p className="text-sm text-neutral-500 italic">
+      <p className="text-sm text-ink-faint italic">
         The platform that declares its own manifest is the platform a
         fresh participant can orient inside before committing.
       </p>

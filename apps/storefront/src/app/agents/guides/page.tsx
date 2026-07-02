@@ -29,25 +29,25 @@ const AUDIENCE_LABELS: Record<AudienceKind, string> = {
 
 export default async function GuidesIndexPage() {
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div className="min-h-screen bg-page text-ink">
       <div className="max-w-4xl mx-auto px-4 py-12">
         <header className="mb-10">
-          <p className="text-xs text-neutral-500 uppercase tracking-widest mb-3">
-            <Link href="/agents" className="hover:text-amber-400">
+          <p className="text-xs text-ink-faint uppercase tracking-widest mb-3">
+            <Link href="/agents" className="hover:text-accent-strong">
               ← /agents
             </Link>
           </p>
           <h1 className="text-3xl font-bold mb-3">Guides</h1>
-          <p className="text-neutral-400 leading-relaxed max-w-2xl">
+          <p className="text-ink-muted leading-relaxed max-w-2xl">
             Pre-thought walkthroughs. Linear narrative. Every step has a literal curl
             command. The last step names the next guide. Each guide is 5–90 minutes;
             each chains to the recommended next.
           </p>
-          <p className="text-xs text-neutral-500 mt-3">
+          <p className="text-xs text-ink-faint mt-3">
             Machine-readable sibling:{" "}
             <Link
               href="/api/v1/guides"
-              className="text-amber-400 hover:underline font-mono"
+              className="text-accent-strong hover:underline font-mono"
             >
               /api/v1/guides
             </Link>
@@ -59,24 +59,24 @@ export default async function GuidesIndexPage() {
             <li key={g.slug}>
               <Link
                 href={`/agents/guides/${g.slug}`}
-                className="block p-5 bg-neutral-900 border border-neutral-800 rounded-lg hover:border-amber-500/40 hover:bg-neutral-900/70 transition group"
+                className="block p-5 bg-surface border border-border-subtle rounded-lg hover:border-accent/40 hover:bg-surface/70 transition group"
               >
                 <div className="flex items-baseline justify-between gap-4 mb-2">
-                  <h2 className="text-lg font-semibold group-hover:text-amber-400 transition">
+                  <h2 className="text-lg font-semibold group-hover:text-accent-strong transition">
                     {g.title}
                   </h2>
-                  <span className="text-xs text-neutral-500 font-mono whitespace-nowrap">
+                  <span className="text-xs text-ink-faint font-mono whitespace-nowrap">
                     {g.estimated_minutes}m · {g.steps.length} steps
                   </span>
                 </div>
-                <p className="text-sm text-neutral-400 mb-3 leading-relaxed">
+                <p className="text-sm text-ink-muted mb-3 leading-relaxed">
                   {g.subtitle}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {g.audiences.map((a) => (
                     <span
                       key={a}
-                      className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-neutral-800/60 text-neutral-400 border border-neutral-800 rounded"
+                      className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-surface-elevated/60 text-ink-muted border border-border-subtle rounded"
                     >
                       {AUDIENCE_LABELS[a]}
                     </span>
@@ -87,10 +87,10 @@ export default async function GuidesIndexPage() {
           ))}
         </ul>
 
-        <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500">
+        <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint">
           <p>
             Found a bug in a guide? POST to{" "}
-            <Link href="/api/v1/feedback" className="text-amber-400 hover:underline">
+            <Link href="/api/v1/feedback" className="text-accent-strong hover:underline">
               /api/v1/feedback
             </Link>{" "}
             with <span className="font-mono">kind: guide-feedback</span>.

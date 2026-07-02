@@ -16,10 +16,10 @@ interface Refund {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  succeeded: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-  pending:   "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  failed:    "bg-red-500/10 text-red-400 border-red-500/30",
-  canceled:  "bg-neutral-800 text-neutral-400 border-neutral-700",
+  succeeded: "bg-emerald-500/10 text-secondary border-emerald-500/30",
+  pending:   "bg-accent/10 text-accent-strong border-accent/30",
+  failed:    "bg-danger/10 text-red-400 border-danger/30",
+  canceled:  "bg-surface-elevated text-ink-muted border-border-strong",
 };
 
 const REASON_COPY: Record<string, string> = {
@@ -42,27 +42,27 @@ export default function AccountRefundsPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">Refunds</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-2">Refunds</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Refunds processed against payments on your account. For
         chargebacks (bank disputes), see{" "}
-        <Link href="/account/chargebacks" className="text-amber-400 underline">
+        <Link href="/account/chargebacks" className="text-accent-strong underline">
           Chargebacks
         </Link>
         .
       </p>
 
       {loading ? (
-        <p className="text-neutral-500">Loading…</p>
+        <p className="text-ink-faint">Loading…</p>
       ) : refunds.length === 0 ? (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-sm text-neutral-500">
+        <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-sm text-ink-faint">
           No refunds on your account.
         </div>
       ) : (
         <div className="space-y-3">
           {refunds.map((r) => (
             <div key={r.stripe_refund_id} className={`rounded-xl border p-4 ${
-              STATUS_TONE[r.stripe_status] ?? "bg-neutral-900 border-neutral-800"
+              STATUS_TONE[r.stripe_status] ?? "bg-surface border-border-subtle"
             }`}>
               <div className="flex items-baseline justify-between flex-wrap gap-2 mb-2">
                 <h3 className="font-bold capitalize">{r.stripe_status}</h3>

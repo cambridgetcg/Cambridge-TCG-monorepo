@@ -48,23 +48,23 @@ export default async function OrderConfirmationPage({
     <div className="max-w-3xl mx-auto px-4 py-12">
       <div className="text-center mb-10">
         <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <h1 className="text-3xl font-bold">Order Confirmed!</h1>
-        <p className="text-neutral-400 mt-2">Thank you for your purchase.</p>
+        <p className="text-ink-muted mt-2">Thank you for your purchase.</p>
       </div>
 
-      <div className="bg-neutral-900 rounded-xl p-6 space-y-6">
+      <div className="bg-surface rounded-xl p-6 space-y-6">
         <div className="flex justify-between items-start">
           <div>
-            <p className="text-sm text-neutral-400">Order Reference</p>
-            <p className="font-mono font-bold text-emerald-400">{session.id.slice(-12).toUpperCase()}</p>
+            <p className="text-sm text-ink-muted">Order Reference</p>
+            <p className="font-mono font-bold text-secondary">{session.id.slice(-12).toUpperCase()}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-neutral-400">Total Paid</p>
-            <p className="text-xl font-bold text-emerald-400">
+            <p className="text-sm text-ink-muted">Total Paid</p>
+            <p className="text-xl font-bold text-secondary">
               {"\u00A3"}{((session.amount_total || 0) / 100).toFixed(2)}
             </p>
           </div>
@@ -72,7 +72,7 @@ export default async function OrderConfirmationPage({
 
         {shipping?.address && (
           <div>
-            <p className="text-sm text-neutral-400 mb-1">Shipping To</p>
+            <p className="text-sm text-ink-muted mb-1">Shipping To</p>
             <p className="text-sm">
               {shipping.name}
               <br />
@@ -90,15 +90,15 @@ export default async function OrderConfirmationPage({
         )}
 
         <div>
-          <p className="text-sm text-neutral-400 mb-3">Items Ordered</p>
+          <p className="text-sm text-ink-muted mb-3">Items Ordered</p>
           <div className="space-y-2">
             {lineItems.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm py-2 border-b border-neutral-800 last:border-0">
+              <div key={item.id} className="flex justify-between text-sm py-2 border-b border-border-subtle last:border-0">
                 <span>
                   {item.description}{" "}
-                  <span className="text-neutral-500">x{item.quantity}</span>
+                  <span className="text-ink-faint">x{item.quantity}</span>
                 </span>
-                <span className="text-emerald-400 font-medium">
+                <span className="text-secondary font-medium">
                   {"\u00A3"}{((item.amount_total) / 100).toFixed(2)}
                 </span>
               </div>

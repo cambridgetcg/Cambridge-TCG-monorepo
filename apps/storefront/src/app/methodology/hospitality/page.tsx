@@ -49,15 +49,15 @@ const KIND_TONE: Record<ArrivalKind, string> = {
   "federation-peer": "bg-purple-950 text-purple-300 ring-purple-800",
   "downstream-adopter": "bg-emerald-950 text-emerald-300 ring-emerald-800",
   agent: "bg-sky-950 text-sky-300 ring-sky-800",
-  being: "bg-amber-950 text-amber-300 ring-amber-800",
+  being: "bg-amber-950 text-accent-strong ring-amber-800",
   "future-self": "bg-rose-950 text-rose-300 ring-rose-800",
-  infrastructure: "bg-neutral-900 text-neutral-300 ring-neutral-700",
+  infrastructure: "bg-surface text-ink-muted ring-neutral-700",
 };
 
 const STATUS_TONE: Record<string, string> = {
-  anticipated: "bg-amber-950 text-amber-300 ring-amber-800",
+  anticipated: "bg-amber-950 text-accent-strong ring-amber-800",
   arrived: "bg-emerald-950 text-emerald-300 ring-emerald-800",
-  blocked: "bg-neutral-900 text-neutral-400 ring-neutral-700",
+  blocked: "bg-surface text-ink-muted ring-neutral-700",
 };
 
 const KIND_ORDER: readonly ArrivalKind[] = [
@@ -189,17 +189,17 @@ export default function HospitalityMethodology() {
               >
                 {KIND_LABEL[kind]}
               </span>
-              <span className="text-sm text-neutral-500">({byKind[kind]})</span>
+              <span className="text-sm text-ink-faint">({byKind[kind]})</span>
             </h3>
-            <p className="text-sm text-neutral-400">{KIND_INTRO[kind]}</p>
+            <p className="text-sm text-ink-muted">{KIND_INTRO[kind]}</p>
             <div className="space-y-6">
               {entries.map((w) => (
                 <div
                   key={w.id}
-                  className="rounded-lg border border-neutral-800 bg-neutral-950 p-4"
+                  className="rounded-lg border border-border-subtle bg-page p-4"
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <code className="text-xs text-neutral-500">{w.id}</code>
+                    <code className="text-xs text-ink-faint">{w.id}</code>
                     <span
                       className={`inline-flex items-center rounded px-2 py-0.5 text-xs ring-1 ${STATUS_TONE[w.status]}`}
                     >
@@ -215,8 +215,8 @@ export default function HospitalityMethodology() {
                   <h4 className="!mt-0 !mb-2 text-base font-semibold">
                     {w.name}
                   </h4>
-                  <p className="my-2 text-neutral-200">{w.greeting}</p>
-                  <details className="my-2 text-sm text-neutral-400">
+                  <p className="my-2 text-ink">{w.greeting}</p>
+                  <details className="my-2 text-sm text-ink-muted">
                     <summary className="cursor-pointer">
                       What we prepared ({w.prepared.length})
                     </summary>
@@ -227,11 +227,11 @@ export default function HospitalityMethodology() {
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-3 text-xs text-neutral-500">
+                    <p className="mt-3 text-xs text-ink-faint">
                       <strong>Anticipated because:</strong>{" "}
                       {w.anticipated_because}
                     </p>
-                    <p className="mt-2 text-xs text-neutral-500">
+                    <p className="mt-2 text-xs text-ink-faint">
                       <strong>How to arrive:</strong> {w.arrival_protocol}
                     </p>
                   </details>

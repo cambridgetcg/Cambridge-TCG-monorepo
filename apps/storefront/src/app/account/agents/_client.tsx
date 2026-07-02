@@ -124,22 +124,22 @@ export function AgentsClient({
         <Card>
           <div className="p-4">
             <div className="flex items-baseline justify-between mb-2">
-              <h3 className="text-sm font-semibold text-amber-400">
+              <h3 className="text-sm font-semibold text-accent-strong">
                 Copy this key now — you won't see it again
               </h3>
               <button
                 onClick={() => setFresh(null)}
-                className="text-xs text-neutral-500 hover:text-neutral-300"
+                className="text-xs text-ink-faint hover:text-ink-muted"
               >
                 dismiss
               </button>
             </div>
-            <p className="text-xs text-neutral-400 mb-3">
+            <p className="text-xs text-ink-muted mb-3">
               {fresh.reason === "created"
                 ? `Default key for agent:${fresh.agent_handle}. The platform stores only the hash — there is no recovery path.`
                 : `New key for agent:${fresh.agent_handle}. Same rule: store it now or mint another later.`}
             </p>
-            <pre className="bg-neutral-950 border border-neutral-800 rounded p-3 text-xs text-emerald-400 font-mono overflow-x-auto select-all">
+            <pre className="bg-page border border-border-subtle rounded p-3 text-xs text-secondary font-mono overflow-x-auto select-all">
               {fresh.token}
             </pre>
             <p className="text-[11px] text-neutral-600 mt-2">
@@ -151,11 +151,11 @@ export function AgentsClient({
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">Your agents</h2>
+        <h2 className="text-sm font-semibold text-ink">Your agents</h2>
         {!showCreate && (
           <button
             onClick={() => setShowCreate(true)}
-            className="text-xs text-amber-400 hover:text-amber-300"
+            className="text-xs text-accent-strong hover:text-accent-strong"
           >
             + new agent
           </button>
@@ -187,7 +187,7 @@ export function AgentsClient({
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="text-xs text-neutral-500 hover:text-neutral-300"
+                className="text-xs text-ink-faint hover:text-ink-muted"
               >
                 cancel
               </button>
@@ -199,7 +199,7 @@ export function AgentsClient({
       {agents.length === 0 && !showCreate && (
         <Card>
           <div className="p-6 text-center">
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-ink-muted">
               You haven't registered any agents yet.
             </p>
           </div>
@@ -215,13 +215,13 @@ export function AgentsClient({
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-semibold text-white">{a.display_name}</h3>
+                    <h3 className="text-base font-semibold text-ink">{a.display_name}</h3>
                     <Actor kind="agent" handle={a.public_handle} modelTag={a.model_tag} />
                   </div>
-                  <p className="text-[11px] text-neutral-500 mt-1">
-                    model: <code className="text-neutral-400">{a.model_tag}</code>
+                  <p className="text-[11px] text-ink-faint mt-1">
+                    model: <code className="text-ink-muted">{a.model_tag}</code>
                     {" · "}
-                    rating <span className="text-amber-400">{Math.round(a.rating)}</span>
+                    rating <span className="text-accent-strong">{Math.round(a.rating)}</span>
                     {" ± "}
                     {Math.round(a.rating_deviation)}
                     {" · "}
@@ -229,22 +229,22 @@ export function AgentsClient({
                     {a.matches_played > 0 && ` · ${Math.round((a.matches_won / a.matches_played) * 100)}% win`}
                   </p>
                   {a.description && (
-                    <p className="text-xs text-neutral-400 mt-2 max-w-prose">{a.description}</p>
+                    <p className="text-xs text-ink-muted mt-2 max-w-prose">{a.description}</p>
                   )}
                   {a.status === "suspended" && (
-                    <p className="text-xs text-amber-400 mt-2">
+                    <p className="text-xs text-accent-strong mt-2">
                       Suspended{a.suspended_reason ? `: ${a.suspended_reason}` : ""}
                     </p>
                   )}
                   {a.status === "archived" && (
-                    <p className="text-xs text-neutral-500 mt-2">Archived. Keys revoked; handle reserved.</p>
+                    <p className="text-xs text-ink-faint mt-2">Archived. Keys revoked; handle reserved.</p>
                   )}
                 </div>
                 <div className="flex flex-col gap-1 items-end">
                   {a.status === "active" && (
                     <button
                       onClick={() => handleMint(a.id, a.public_handle)}
-                      className="text-xs text-amber-400 hover:text-amber-300"
+                      className="text-xs text-accent-strong hover:text-accent-strong"
                       disabled={pending}
                     >
                       + mint key
@@ -253,7 +253,7 @@ export function AgentsClient({
                   {a.status !== "archived" && (
                     <button
                       onClick={() => handleArchive(a.id, a.public_handle)}
-                      className="text-xs text-neutral-500 hover:text-red-400"
+                      className="text-xs text-ink-faint hover:text-red-400"
                       disabled={pending}
                     >
                       archive
@@ -261,7 +261,7 @@ export function AgentsClient({
                   )}
                   <Link
                     href={`/leaderboards/agents`}
-                    className="text-[11px] text-neutral-500 hover:text-neutral-300"
+                    className="text-[11px] text-ink-faint hover:text-ink-muted"
                   >
                     ↗ ladder
                   </Link>
@@ -269,8 +269,8 @@ export function AgentsClient({
               </div>
 
               {agentKeys.length > 0 && (
-                <div className="mt-4 border-t border-neutral-800 pt-3">
-                  <h4 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+                <div className="mt-4 border-t border-border-subtle pt-3">
+                  <h4 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
                     Keys{" "}
                     <span className="text-neutral-700">
                       · {liveKeys.length} live{" "}
@@ -285,11 +285,11 @@ export function AgentsClient({
                         className="flex items-center justify-between text-xs gap-3"
                       >
                         <div className="flex-1 min-w-0">
-                          <code className="text-neutral-400 font-mono">{k.key_prefix}…</code>
+                          <code className="text-ink-muted font-mono">{k.key_prefix}…</code>
                           <span className="text-neutral-600 ml-2">{k.name}</span>
                           <span className="text-neutral-700 ml-2">· {k.rate_limit_tier}</span>
                           {k.revoked_at && (
-                            <span className="text-red-500 ml-2">revoked</span>
+                            <span className="text-danger ml-2">revoked</span>
                           )}
                           {!k.revoked_at && k.last_used_at && (
                             <span className="text-neutral-600 ml-2">
@@ -303,7 +303,7 @@ export function AgentsClient({
                         {!k.revoked_at && (
                           <button
                             onClick={() => handleRevoke(k.id, k.key_prefix)}
-                            className="text-neutral-500 hover:text-red-400"
+                            className="text-ink-faint hover:text-red-400"
                             disabled={pending}
                           >
                             revoke

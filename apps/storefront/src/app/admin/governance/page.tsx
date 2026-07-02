@@ -18,16 +18,16 @@ interface Entry {
 }
 
 const ACTION_TONE: Record<string, string> = {
-  "user.suspend":         "text-red-400 border-red-500/40",
-  "user.auto_suspend":    "text-red-400 border-red-500/40",
-  "user.unsuspend":       "text-emerald-400 border-emerald-500/40",
-  "user.trust_override":  "text-amber-400 border-amber-500/40",
-  "fraud.resolve":        "text-emerald-400 border-emerald-500/40",
-  "fraud.escalate":       "text-amber-400 border-amber-500/40",
-  "fraud.dismiss":        "text-neutral-400 border-neutral-700",
-  "review.hide":          "text-amber-400 border-amber-500/40",
-  "review.unhide":        "text-emerald-400 border-emerald-500/40",
-  "dispute.force_resolve":"text-amber-400 border-amber-500/40",
+  "user.suspend":         "text-red-400 border-danger/40",
+  "user.auto_suspend":    "text-red-400 border-danger/40",
+  "user.unsuspend":       "text-secondary border-emerald-500/40",
+  "user.trust_override":  "text-accent-strong border-accent/40",
+  "fraud.resolve":        "text-secondary border-emerald-500/40",
+  "fraud.escalate":       "text-accent-strong border-accent/40",
+  "fraud.dismiss":        "text-ink-muted border-border-strong",
+  "review.hide":          "text-accent-strong border-accent/40",
+  "review.unhide":        "text-secondary border-emerald-500/40",
+  "dispute.force_resolve":"text-accent-strong border-accent/40",
 };
 
 export default function AdminGovernancePage() {
@@ -47,17 +47,17 @@ export default function AdminGovernancePage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind="operator" />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-baseline justify-between flex-wrap gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Governance Log</h1>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-ink-muted">
               Every consequential admin or system action — append-only, with before/after diff.
             </p>
           </div>
-          <Link href="/admin/fraud-signals" className="text-xs text-amber-400 hover:text-amber-300 underline">
+          <Link href="/admin/fraud-signals" className="text-xs text-accent-strong hover:text-accent-strong underline">
             Fraud queue →
           </Link>
         </div>
@@ -67,49 +67,49 @@ export default function AdminGovernancePage() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Filter by user_id (UUID) — leave blank for all"
-            className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm font-mono focus:outline-none focus:border-amber-500"
+            className="flex-1 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm font-mono focus:outline-none focus:border-accent"
           />
           <button
             onClick={load}
-            className="px-4 py-2 bg-amber-500 text-black font-bold rounded-lg text-sm"
+            className="px-4 py-2 bg-accent text-black font-bold rounded-lg text-sm"
           >
             Apply
           </button>
         </div>
 
         {loading ? (
-          <p className="text-neutral-500">Loading…</p>
+          <p className="text-ink-faint">Loading…</p>
         ) : entries.length === 0 ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+          <div className="bg-surface border border-border-subtle rounded-xl p-6 text-center text-ink-faint text-sm">
             No governance entries match.
           </div>
         ) : (
           <div className="space-y-2">
             {entries.map((e) => (
-              <article key={e.id} className={`bg-neutral-900 rounded-xl p-4 border ${ACTION_TONE[e.action] ?? "border-neutral-800"}`}>
+              <article key={e.id} className={`bg-surface rounded-xl p-4 border ${ACTION_TONE[e.action] ?? "border-border-subtle"}`}>
                 <div className="flex items-baseline justify-between gap-3 flex-wrap">
                   <div className="font-mono text-sm">
-                    <span className={ACTION_TONE[e.action]?.split(" ")[0] ?? "text-neutral-300"}>
+                    <span className={ACTION_TONE[e.action]?.split(" ")[0] ?? "text-ink-muted"}>
                       {e.action}
                     </span>
-                    <span className="text-xs text-neutral-500 ml-2">
+                    <span className="text-xs text-ink-faint ml-2">
                       {e.target_kind}:{e.target_id?.slice(0, 8) ?? "—"}
                     </span>
                   </div>
-                  <span className="text-xs text-neutral-500">
+                  <span className="text-xs text-ink-faint">
                     {new Date(e.created_at).toLocaleString()}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-500 mt-1">
+                <p className="text-xs text-ink-faint mt-1">
                   by {e.actor_label ?? "(unknown)"}
-                  {e.reason && <span className="text-neutral-300"> · {e.reason}</span>}
+                  {e.reason && <span className="text-ink-muted"> · {e.reason}</span>}
                 </p>
                 {(e.before_value || e.after_value) && (
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <pre className="bg-red-500/5 border border-red-500/20 rounded p-2 overflow-x-auto text-neutral-400">
+                    <pre className="bg-danger/5 border border-danger/20 rounded p-2 overflow-x-auto text-ink-muted">
                       {e.before_value ? JSON.stringify(e.before_value, null, 2) : "(no before)"}
                     </pre>
-                    <pre className="bg-emerald-500/5 border border-emerald-500/20 rounded p-2 overflow-x-auto text-neutral-400">
+                    <pre className="bg-emerald-500/5 border border-emerald-500/20 rounded p-2 overflow-x-auto text-ink-muted">
                       {e.after_value ? JSON.stringify(e.after_value, null, 2) : "(no after)"}
                     </pre>
                   </div>
