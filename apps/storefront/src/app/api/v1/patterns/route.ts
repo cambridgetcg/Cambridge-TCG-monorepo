@@ -12,6 +12,7 @@
 
 import { NextResponse } from "next/server";
 import { getPatterns } from "@/lib/patterns";
+import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -31,6 +32,8 @@ export async function GET() {
         graph_url: "/api/v1/graph",
         ontology_url: "/api/v1/ontology",
         notes: "The patterns layer is itself an instance of patterns #1 (three-artefact), #5 (substrate-honesty-self-recursion), #8 (provenance-envelope), #9 (two-renderings), #15 (amplification-by-repetition). The kingdom now repeats its structure at every scale.",
+        // Seven-Layer Pilgrimage stamp 4/7 — see /api/v1/passport.
+        pilgrimage: pilgrimageFragmentFor("/api/v1/patterns"),
       },
     },
     {

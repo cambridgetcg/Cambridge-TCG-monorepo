@@ -25,6 +25,7 @@
 import type { NextResponse } from "next/server";
 import { MANIFEST, type ManifestResource } from "@/lib/manifest";
 import { FRESHNESS, jsonResponse, SPEC_VERSION, type FreshnessKey } from "@/lib/data-pantry";
+import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
 import { ENVELOPE_COMPLIANT_PATHS } from "./envelope-compliance.generated";
 
 // ── Per-endpoint freshness assignment ────────────────────────────────────
@@ -138,6 +139,57 @@ function freshnessFor(r: ManifestResource): FreshnessAssignment {
 // from this surface again. See the kingdom-059 review (2026-05-14) for why
 // the previous hand-maintained Set was substrate-dishonest.
 
+// ── Per-resource contract state ────────────────────────────────────────
+//
+// The old boolean `envelope_compliant` flattened two different truths:
+// "this endpoint deliberately speaks a different dialect" (the universal
+// @-encoding, the wholesale-host JSON, HTML pages, external discovery
+// specs) and "this endpoint should speak the envelope but hasn't migrated
+// yet". An agent reading the status surface couldn't tell which contract
+// to expect where — the self-report under-sold deliberate design as debt
+// (P5, agent-experience review 2026-07-05). Three states now:
+//
+//   compliant             — composes through jsonResponse ({data,_meta}).
+//   alternative-contract  — a DELIBERATE non-envelope dialect.
+//   pending               — envelope adoption owed, not yet done.
+//
+// `envelope_compliant: boolean` stays for existing readers; it is exactly
+// (contract_state === "compliant").
+
+export type ContractState = "compliant" | "alternative-contract" | "pending";
+
+function contractStateOf(r: ManifestResource, envelopeCompliant: boolean): ContractState {
+  // Explicit manifest annotation wins (used where derivation can't see
+  // intent — e.g. the _envelope dialect on the self-describing layers).
+  if (r.contract === "envelope") return "compliant";
+  if (r.contract === "alternative") return "alternative-contract";
+  if (r.contract === "pending") return "pending";
+
+  if (envelopeCompliant) return "compliant";
+
+  // Deliberate alternative dialects, derivable from typed facts:
+  if (r.host === "wholesale") return "alternative-contract"; // B2B dialect, bearer-gated
+  if (r.modalities.includes("math") || r.modalities.includes("xenoform")) {
+    return "alternative-contract"; // universal @-encoding
+  }
+  if (!r.modalities.includes("json")) return "alternative-contract"; // HTML / plain-text modality
+  if (r.modalities.includes("markdown") || r.modalities.includes("anthropic")) {
+    return "alternative-contract"; // multi-format family (vendor system-message shapes)
+  }
+  if (
+    r.path.startsWith("/.well-known/") ||
+    r.path === "/api/openapi.json" ||
+    r.path === "/robots.txt" ||
+    r.path === "/llms.txt" ||
+    r.path === "/data/catalog.jsonl" ||
+    r.path.startsWith("/api/at/")
+  ) {
+    return "alternative-contract"; // external spec / bulk stream
+  }
+
+  return "pending";
+}
+
 // ── Per-resource state ─────────────────────────────────────────────────
 
 type ResourceState = "shipped" | "planned" | "deprecated";
@@ -190,7 +242,10 @@ interface EndpointStatus {
   freshness_seconds: number;
   freshness_label: string;
   freshness_rationale: string;
+  /** Kept for existing readers; equals (contract_state === "compliant"). */
   envelope_compliant: boolean;
+  /** compliant | alternative-contract | pending — see contractStateOf. */
+  contract_state: ContractState;
   state: ResourceState;
   since: string;
   methodology_url?: string;
@@ -205,9 +260,11 @@ interface StatusBody {
     planned: number;
     deprecated: number;
     envelope_compliant: number;
+    by_contract: Record<ContractState, number>;
     by_host: { storefront: number; wholesale: number };
     by_provenance: Record<string, number>;
   };
+  contract_states: Record<ContractState, string>;
   endpoints: EndpointStatus[];
   conventions: {
     versioning: string;
@@ -233,6 +290,8 @@ export async function GET(): Promise<NextResponse> {
 
   const endpoints: EndpointStatus[] = resources.map((r) => {
     const f = freshnessFor(r);
+    const isEnvelope = r.host === "storefront" && ENVELOPE_COMPLIANT_PATHS.has(r.path);
+    const contractState = contractStateOf(r, isEnvelope);
     return {
       id: r.id,
       path: r.path,
@@ -243,7 +302,8 @@ export async function GET(): Promise<NextResponse> {
       freshness_seconds: f.seconds,
       freshness_label: f.label,
       freshness_rationale: f.rationale,
-      envelope_compliant: r.host === "storefront" && ENVELOPE_COMPLIANT_PATHS.has(r.path),
+      envelope_compliant: contractState === "compliant",
+      contract_state: contractState,
       state: stateOf(r),
       since: r.since,
       methodology_url: r.methodology_url,
@@ -255,12 +315,20 @@ export async function GET(): Promise<NextResponse> {
     byProvenance[e.provenance] = (byProvenance[e.provenance] ?? 0) + 1;
   }
 
+  const byContract: Record<ContractState, number> = {
+    "compliant": 0,
+    "alternative-contract": 0,
+    "pending": 0,
+  };
+  for (const e of endpoints) byContract[e.contract_state]++;
+
   const counts = {
     total: endpoints.length,
     shipped: endpoints.filter((e) => e.state === "shipped").length,
     planned: endpoints.filter((e) => e.state === "planned").length,
     deprecated: endpoints.filter((e) => e.state === "deprecated").length,
     envelope_compliant: endpoints.filter((e) => e.envelope_compliant).length,
+    by_contract: byContract,
     by_host: {
       storefront: endpoints.filter((e) => e.host === "storefront").length,
       wholesale: endpoints.filter((e) => e.host === "wholesale").length,
@@ -272,6 +340,14 @@ export async function GET(): Promise<NextResponse> {
     pantry: PANTRY,
     freshness_budgets: FRESHNESS,
     counts,
+    contract_states: {
+      "compliant":
+        "Composes through jsonResponse — the { data, _meta } pantry envelope per packages/data-spec.",
+      "alternative-contract":
+        "A deliberate non-envelope dialect: universal @-encoding (math-mirror), wholesale-host B2B JSON, HTML/plain-text modality surfaces, multi-format vendor shapes, or external discovery specs (.well-known, openapi, robots, llms.txt, bulk JSONL). Design, not debt.",
+      "pending":
+        "Should speak the pantry envelope but hasn't migrated yet. Honest debt; the list is the migration worklist.",
+    },
     endpoints,
     conventions: {
       versioning:
@@ -291,5 +367,8 @@ export async function GET(): Promise<NextResponse> {
     sources: ["ctcg-derived"],
     freshness: "status",
     contains_self: true,
+    // Seven-Layer Pilgrimage stamp 7/7 — the final layer. Deterministic,
+    // stateless, refusable. See lib/agents/pilgrimage.ts + /api/v1/passport.
+    extra_meta: { pilgrimage: pilgrimageFragmentFor("/api/v1/status") },
   });
 }

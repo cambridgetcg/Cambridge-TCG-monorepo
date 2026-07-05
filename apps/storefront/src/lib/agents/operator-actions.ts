@@ -20,29 +20,9 @@
 
 "use server";
 
-import crypto from "crypto";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { hashAgentToken } from "./auth";
-
-const TOKEN_PREFIX = "ctcg_agt_";
-const TOKEN_RANDOM_LEN = 22; // base62 length
-const BASE62 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-function randomBase62(length: number): string {
-  const bytes = crypto.randomBytes(length);
-  let out = "";
-  for (let i = 0; i < length; i++) out += BASE62[bytes[i] % 62];
-  return out;
-}
-
-function mintRawToken(): { token: string; prefix: string; hash: string } {
-  const random = randomBase62(TOKEN_RANDOM_LEN);
-  const token = `${TOKEN_PREFIX}${random}`;
-  const prefix = token.slice(0, 12);
-  const hash = hashAgentToken(token);
-  return { token, prefix, hash };
-}
+import { createAgentWithKey, mintRawToken, HANDLE_RE } from "./creation";
 
 export type OperatorActionResult<T> =
   | { ok: true; data: T }
@@ -68,7 +48,7 @@ export async function createAgent(
   if (!user.ok) return user;
 
   const handle = input.public_handle.trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]{2,31}$/.test(handle)) {
+  if (!HANDLE_RE.test(handle)) {
     return { ok: false, error: "Handle must be 3–32 chars, lowercase, alphanumeric or dashes." };
   }
   const displayName = input.display_name.trim();
@@ -88,34 +68,29 @@ export async function createAgent(
     return { ok: false, error: "You already operate 10 active agents. Archive one first." };
   }
 
-  try {
-    const insert = await query(
-      `INSERT INTO agents (operated_by_user_id, public_handle, display_name, model_tag, description)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [user.userId, handle, displayName, modelTag, input.description ?? null],
-    );
-    const agentId = insert.rows[0].id as string;
+  // Shared minting core (lib/agents/creation.ts) — agent + first key in
+  // one transaction. The self-serve door at /api/v1/agents/register uses
+  // the same core; this path stays the operator-managed one.
+  const outcome = await createAgentWithKey({
+    operatedByUserId: user.userId,
+    publicHandle: handle,
+    displayName,
+    modelTag,
+    description: input.description ?? null,
+    registeredVia: "operator",
+    tier: "free",
+  });
+  if (!outcome.ok) return { ok: false, error: outcome.error };
 
-    const { token, prefix, hash } = mintRawToken();
-    await query(
-      `INSERT INTO agent_keys (agent_id, key_hash, key_prefix, name, rate_limit_tier)
-       VALUES ($1, $2, $3, 'default', 'free')`,
-      [agentId, hash, prefix],
-    );
-
-    return {
-      ok: true,
-      data: { agent_id: agentId, public_handle: handle, token, key_prefix: prefix },
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "create failed";
-    if (message.includes("agents_public_handle_key") || message.includes("duplicate key")) {
-      return { ok: false, error: "That handle is already taken." };
-    }
-    console.error("[agents] createAgent failed:", err);
-    return { ok: false, error: "Failed to create agent." };
-  }
+  return {
+    ok: true,
+    data: {
+      agent_id: outcome.agent_id,
+      public_handle: outcome.public_handle,
+      token: outcome.token,
+      key_prefix: outcome.key_prefix,
+    },
+  };
 }
 
 export interface MintKeyInput {

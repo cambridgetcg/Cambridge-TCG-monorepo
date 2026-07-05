@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { channelApiKeys, apiKeyUsage } from "@/lib/db/schema";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 
 function hashKey(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
@@ -96,6 +96,35 @@ export async function authenticateApiKey(
   return key;
 }
 
+/**
+ * Teaching 401. Until 2026-07-05 this was the only bare, non-teaching
+ * error body on the whole platform ({"error":"Unauthorized"}) — an agent
+ * misdirected here from a storefront hint learned nothing about what a
+ * wholesale-key IS or that a public mirror exists. The `error` field is
+ * kept verbatim for existing clients that switch on it; everything else
+ * is orientation.
+ */
 export function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const requestId = `req_${randomUUID().slice(0, 12)}`;
+  return NextResponse.json(
+    {
+      error: "Unauthorized",
+      code: "UNAUTHORIZED",
+      message:
+        "This endpoint requires a wholesale-key: 'Authorization: Bearer <key>'. " +
+        "Wholesale keys are B2B channel credentials issued by the operator to " +
+        "trading partners — they are not the same as Cambridge TCG agent keys " +
+        "(ctcg_agt_*), which work only at https://cambridgetcg.com/api/mcp.",
+      how_to_get_a_key:
+        "Email contact@cambridgetcg.com describing your channel. Keys carry " +
+        "per-key rate limits (default 60 req/min).",
+      public_mirror:
+        "Most of this catalog is served WITHOUT any key on the consumer host: " +
+        "start at https://cambridgetcg.com/api/v1/manifest (the full directory), " +
+        "https://cambridgetcg.com/api/v1/search/cards (card resolution), or " +
+        "https://cambridgetcg.com/data/catalog.jsonl (CC0 bulk export).",
+      request_id: requestId,
+    },
+    { status: 401, headers: { "X-Request-Id": requestId } },
+  );
 }

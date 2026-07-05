@@ -90,6 +90,32 @@ export async function GET() {
       _links,
       count: games.length,
       games,
+      // Substrate-honest empty state. count:0 with no explanation is a
+      // violation of the platform's own first doctrine — an agent led
+      // here by the mirror-the-catalog guide deserves to know WHY the
+      // shelf is empty and which doors are stocked meanwhile.
+      ...(games.length === 0
+        ? {
+            empty_state: {
+              why:
+                "The storefront card_sets table has not been restocked from the " +
+                "wholesale catalog since the platform's outage window. The wholesale " +
+                "substrate itself holds the full catalog (11k+ cards); the mirror " +
+                "you are reading is the empty half. The restock script exists " +
+                "(apps/storefront/scripts/restock-card-sets.mjs) and awaits its " +
+                "production run.",
+              working_doors_meanwhile: {
+                search_cards:
+                  "https://cambridgetcg.com/api/v1/search/cards?game=op&q=OP01-001 — resolves against the wholesale catalog directly and works today",
+                card_everything:
+                  "https://cambridgetcg.com/api/v1/cards/{sku}/everything — full per-card composition, works today",
+                price_guide: "https://cambridgetcg.com/prices — the human-browsable catalog",
+              },
+              this_will_change:
+                "When the restock lands, this endpoint serves every game with no contract change. Poll at the catalog freshness budget (21600s); no faster is needed.",
+            },
+          }
+        : {}),
     };
 
     const selfHash = sha256(canonicalize(document));
@@ -117,6 +143,7 @@ export async function OPTIONS() {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "86400",
     },
   });

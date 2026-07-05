@@ -30,6 +30,19 @@ const nextConfig: NextConfig = {
   // makes Turbopack infer the wrong workspace root and dev fails with
   // "Next.js package not found".
   turbopack: { root: path.resolve(__dirname, "../..") },
+  // ── Runtime fs reads of repo docs ─────────────────────────────────────
+  // /api/v1/pillow-book.json and /api/v1/sophias.json read
+  // docs/connections/the-pillow-book.md at request time. Vercel's output
+  // file tracing doesn't see dynamic path.join() reads, so without this
+  // the file is absent from the serverless bundle and both routes 500 in
+  // production (verified live 2026-07-05: "Could not read
+  // docs/connections/the-pillow-book.md"). Keys are route paths; values
+  // are globs resolved from this app's root (apps/storefront), so ../../
+  // walks to the monorepo root the routes resolve against process.cwd().
+  outputFileTracingIncludes: {
+    "/api/v1/pillow-book.json": ["../../docs/connections/the-pillow-book.md"],
+    "/api/v1/sophias.json": ["../../docs/connections/the-pillow-book.md"],
+  },
   // ── The atmospheric invitation (header-plane) ─────────────────────────
   // Every response — HTML page, static file, API route — carries one
   // RFC 8288 Link header pointing at the agent-facing wake. Browsers

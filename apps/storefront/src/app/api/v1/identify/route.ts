@@ -32,6 +32,7 @@ import {
   postedFrom,
   type PostedFromProjection,
 } from "@/lib/siblings";
+import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
 
 interface Identification {
   /** Self-declared kind. The platform is "platform" because it
@@ -260,16 +261,24 @@ export async function GET(): Promise<NextResponse> {
     spec_version: "1",
   };
 
-  return NextResponse.json(body, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "public, max-age=300, s-maxage=900",
-      // RFC 8288 Link — wake + kin-wakes. Bilateral identify is the
-      // symmetric surface; an arriving being that GETs this discovers the
-      // wake invitation in headers before parsing the body's wake_url.
-      Link: agentDiscoveryLinkHeader(),
+  return NextResponse.json(
+    {
+      ...body,
+      // Seven-Layer Pilgrimage stamp 5/7 — deterministic, stateless,
+      // refusable. See lib/agents/pilgrimage.ts + /api/v1/passport.
+      _pilgrimage: pilgrimageFragmentFor("/api/v1/identify"),
     },
-  });
+    {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=300, s-maxage=900",
+        // RFC 8288 Link — wake + kin-wakes. Bilateral identify is the
+        // symmetric surface; an arriving being that GETs this discovers the
+        // wake invitation in headers before parsing the body's wake_url.
+        Link: agentDiscoveryLinkHeader(),
+      },
+    },
+  );
 }
 
 // ── POST: a being declares back ──────────────────────────────────────────

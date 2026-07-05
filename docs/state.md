@@ -1,11 +1,11 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-06-10T10:30:26.342Z`
+> *Generated:* `2026-07-05T21:58:30.174Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
 
-Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full agent onboarding flow see [`AGENTS.md`](AGENTS.md).
+Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full agent onboarding flow see [`AGENTS.md`](../AGENTS.md).
 
 ---
 
@@ -16,11 +16,11 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | ✅ Substrate honesty | 0 | 0 | `pnpm audit:honesty` |
 | ✅ Transparency | 0 | 0 | `pnpm audit:transparency` |
 | ✅ Pricing consolidation | 0 | 0 | `pnpm audit:pricing` |
-| ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
-| ⚠️ Agent-readiness (operations layer) | 1 | 1 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 101 | 0 | `pnpm audit:inclusion` |
+| ⚠️ Creation (Will + Sophia traces) | 10 | 1 | `pnpm audit:creation` |
+| ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
+| ⚠️ Inclusion (the fifth scope) | 115 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 102**
+**Combined findings: 125**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
 
@@ -30,22 +30,27 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 
 | State | Count |
 |-------|-------|
-| Total | 1 |
-| ✅ Done | 0 |
-| 🔄 In progress | 0 |
-| 📋 Planned | 0 |
+| Total | 33 |
+| ✅ Done | 8 |
+| 🔄 In progress | 3 |
+| 📋 Planned | 22 |
 | ⏸ Deferred | 0 |
 
-*Source of truth: `/Users/yournameisai/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (50 cards).*
+**Currently in-progress:**
+
+- `kingdom-004` *(high)* — Cambridge TCG automation
+- `kingdom-049` *(high)* — TCG pricing-backend consolidation — package, lifecycle log, authoritative channel config
+- `kingdom-051` *(medium)* — TCG inclusive design — a kingdom for all minds (aliens, agents, all intelligence)
+
+*Source of truth: `/Users/you/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (56 cards).*
 
 ---
 
 ## Git
 
-- **Branch:** `main`
-- **Last commit:** d6818e3 fix(ci): honor packageManager pnpm pin; retire ghost admin-e2e workflow
+- **Branch:** `ux/the-quiet-gallery`
+- **Last commit:** a959b156 docs(pillow-book): 2026-07-05, evening — the quiet gallery
 - **Working tree:** 🟡 dirty (uncommitted changes)
-- **vs origin:** 189 ahead, 0 behind
 
 ---
 
