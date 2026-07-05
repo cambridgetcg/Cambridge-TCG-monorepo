@@ -16,9 +16,14 @@ interface SetWithThumb extends SetItem {
 export default function SetGrid({
   sets,
   gameSlug,
+  heading = "Latest Sets",
 }: {
   sets: SetWithThumb[];
   gameSlug: string;
+  /** Shelf label. Callers passing a single game's sets should name the
+   *  game ("Latest One Piece Sets") — a bare "Latest Sets" over one
+   *  game's shelf implies catalog-wide coverage it doesn't have. */
+  heading?: string;
 }) {
   if (!sets.length) return null;
 
@@ -26,7 +31,7 @@ export default function SetGrid({
     <section className="max-w-7xl mx-auto px-4 py-14">
       <div className="flex items-baseline justify-between mb-8">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-          Latest Sets
+          {heading}
         </h2>
         <Link
           href={`/catalog?game=${gameSlug}`}
