@@ -218,6 +218,10 @@ interface CardFilterParams {
  * fallback). Returns null when the game doesn't exist — the HTTP API 404s
  * there and the Falcon renders that as an empty page, so "no such game →
  * no rows" is the truthful equivalent.
+ *
+ * One deliberate divergence: the q predicate also matches sku, which the
+ * retired wholesale HTTP route (its API is dark) never did — the
+ * storefront's full-SKU deep links depend on it.
  */
 async function buildCardFilter(
   params: CardFilterParams,
@@ -239,7 +243,10 @@ async function buildCardFilter(
 
   if (params.q) {
     const n = push(`%${params.q}%`);
-    clauses.push(`(card_number ILIKE $${n} OR name ILIKE $${n} OR name_en ILIKE $${n})`);
+    // sku is included so full-SKU deep links (e.g. /market/list?sku=OP-OP01-024-JP,
+    // the "list yours" affordance) can resolve: a full SKU is not a
+    // substring of card_number, so without this the lookup returns nothing.
+    clauses.push(`(card_number ILIKE $${n} OR name ILIKE $${n} OR name_en ILIKE $${n} OR sku ILIKE $${n})`);
   }
 
   if (params.in_stock) {

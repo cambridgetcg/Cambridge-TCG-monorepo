@@ -87,6 +87,16 @@ describe("validateListing", () => {
     expect(validateListing("abc", "1").price).toBeTruthy();
   });
 
+  it("accepts 2-dp prices that are not exactly representable in binary floats", () => {
+    // 19.99 * 100 === 1998.9999999999998 — exact comparison rejected these.
+    for (const p of ["19.99", "4.10", "1.15", "0.29", "2.22", "8.20", "1.10"]) {
+      expect(validateListing(p, "1")).toEqual({});
+    }
+    // Epsilon must not open the door to sub-penny prices.
+    expect(validateListing("1.999", "1").price).toBeTruthy();
+    expect(validateListing("0.001", "1").price).toBeTruthy();
+  });
+
   it("rejects non-integer, zero, and oversized quantities", () => {
     expect(validateListing("5", "0").quantity).toBeTruthy();
     expect(validateListing("5", "1.5").quantity).toBeTruthy();

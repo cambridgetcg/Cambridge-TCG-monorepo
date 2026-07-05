@@ -11,6 +11,7 @@ import {
   buildBrowseUrl,
   buildCatalogSearch,
   derivePageStats,
+  parseBrowseParams,
   parseCatalogError,
   PAGE_SIZE,
   SORT_OPTIONS,
@@ -131,6 +132,25 @@ export default function MarketBrowser({
     const t = setTimeout(() => apply({ q: searchInput, page: 1 }, "replace"), 300);
     return () => clearTimeout(t);
   }, [searchInput, apply]);
+
+  // Back/forward: the app router restores the URL only (the pushState in
+  // apply() copies the current router tree into every history entry, so
+  // popstate triggers no server re-render and the page's `key` never
+  // changes). Content must therefore re-seed from the URL here.
+  useEffect(() => {
+    const onPop = () => {
+      const next = parseBrowseParams(new URL(window.location.href).searchParams);
+      queryRef.current = next;
+      setQuery(next);
+      setSearchInput(next.q);
+      if (queryKey(next) !== lastFetchedKey.current) {
+        lastFetchedKey.current = queryKey(next);
+        void fetchCatalog(next);
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [fetchCatalog]);
 
   /** Session check deferred to first quick-sell click — most visits never sell. */
   async function quickSell(card: CatalogCard, e: React.MouseEvent) {

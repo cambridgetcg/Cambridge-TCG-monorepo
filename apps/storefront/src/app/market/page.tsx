@@ -11,8 +11,10 @@
  * catalog route handler in-process (no HTTP hop to ourselves). All later
  * interaction (search-as-you-type, sets, paging) is client-side in
  * <MarketBrowser>, which syncs the URL via history.pushState — so every
- * view stays shareable and back/forward re-enters through this page
- * (the `key` on the browser remounts it with fresh server data).
+ * view stays shareable. Back/forward does NOT re-enter this page (the
+ * app router restores the URL without a server re-render); MarketBrowser
+ * re-seeds its own state from the URL in a popstate listener, using the
+ * same parseBrowseParams this page parses with.
  */
 
 import { Suspense } from "react";
@@ -23,7 +25,7 @@ import MarketBrowser, { CatalogSkeleton } from "@/components/market/MarketBrowse
 import { catalogSourceBadges } from "@/components/market/source-provenance";
 import {
   buildCatalogSearch,
-  isSortKey,
+  parseBrowseParams,
   parseCatalogError,
   sortSetsForDisplay,
   DEFAULT_GAME,
@@ -31,17 +33,7 @@ import {
   type CatalogResult,
   type CatalogSource,
   type SetsResult,
-  type ViewMode,
 } from "@/components/market/catalog";
-
-interface MarketSearchParams {
-  game?: string;
-  q?: string;
-  set?: string;
-  sort?: string;
-  page?: string;
-  view?: string;
-}
 
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
@@ -53,23 +45,14 @@ export default async function MarketPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const raw = await searchParams;
-  const params: MarketSearchParams = {
-    game: first(raw.game),
-    q: first(raw.q),
-    set: first(raw.set),
-    sort: first(raw.sort),
-    page: first(raw.page),
-    view: first(raw.view),
-  };
-
-  const query: CatalogQuery = {
-    game: (params.game || DEFAULT_GAME).trim() || DEFAULT_GAME,
-    q: (params.q || "").trim(),
-    set: (params.set || "").trim() || null,
-    sort: isSortKey(params.sort) ? params.sort : "name_asc",
-    page: Math.max(1, parseInt(params.page || "1", 10) || 1),
-    view: (params.view === "grid" ? "grid" : "table") as ViewMode,
-  };
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(raw)) {
+    const s = first(v);
+    if (s !== undefined) sp.set(k, s);
+  }
+  // Shared with MarketBrowser's popstate handler — the URL must mean the
+  // same query on the server pass and on client back/forward.
+  const query: CatalogQuery = parseBrowseParams(sp);
 
   const listHref =
     query.game !== DEFAULT_GAME
@@ -188,8 +171,10 @@ async function CatalogSection({ query }: { query: CatalogQuery }) {
 
   return (
     <MarketBrowser
-      // Remount on real navigations (back/forward, shared links) so the
-      // client state re-seeds from the freshly server-fetched data.
+      // Remount on real server navigations (fresh loads, shared links) so
+      // client state re-seeds from the server-fetched data. Back/forward
+      // never re-renders this server component — MarketBrowser's popstate
+      // listener owns that case.
       key={[query.game, query.q, query.set ?? "", query.sort, query.page, query.view].join("|")}
       initial={query}
       initialCatalog={initialCatalog}

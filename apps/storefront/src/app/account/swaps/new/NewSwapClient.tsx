@@ -186,6 +186,12 @@ export default function NewSwapClient({
         return;
       }
       router.push(`/account/swaps/${data.swap.id}`);
+    } catch {
+      // A dropped connection can land either side of the write — the
+      // proposal may or may not exist, so the copy says to check first.
+      setError(
+        "Network problem while sending — the proposal may not have been created. Check your swaps list before trying again.",
+      );
     } finally {
       setSubmitting(null);
     }

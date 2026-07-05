@@ -5,7 +5,8 @@
  * steps from the market front door. This page is the friction killer:
  * search → confirm the exact printing → price it with the live book in
  * view → posted. Signed-out collectors build the whole listing and only
- * sign in to post; the draft survives the round-trip in sessionStorage.
+ * sign in to post; the draft survives the round-trip in localStorage
+ * (the magic link opens in a new tab of the same browser).
  *
  * Server half: session check + commission bounds + pre-rendered
  * <Provenance> nodes (server-only) handed to the client wizard.
@@ -13,7 +14,7 @@
 
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { Icon } from "@/lib/ui";
+import { Icon, WhyLink } from "@/lib/ui";
 import { COMMISSION_RATE_BY_TIER } from "@/lib/market/types";
 import ListingWizard from "@/components/market/ListingWizard";
 import { catalogSourceBadges } from "@/components/market/source-provenance";
@@ -58,7 +59,8 @@ export default async function MarketListPage({
           </h1>
           <p className="text-sm text-ink-muted">
             Pick the card, set your price, and it&rsquo;s live for every collector on its market
-            page. Free to list; commission applies only when a sale settles.
+            page. Free to list; commission applies only when a sale settles.{" "}
+            <WhyLink href="/methodology/commission-rate" tooltip="How commission is computed" />
           </p>
         </div>
 

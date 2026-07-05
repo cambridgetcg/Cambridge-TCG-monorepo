@@ -3,10 +3,11 @@
  * login round-trip, listing validation, and price guidance derived from
  * the catalog row the seller already fetched.
  *
- * Draft persistence uses sessionStorage (per-tab): a signed-out collector
- * builds the listing, is sent to /login, and finds the draft intact when
- * they return in the same tab. The parse side is defensive — a corrupt or
- * foreign value must never crash the wizard, only fall back to a fresh start.
+ * Draft persistence uses localStorage (per-browser, matching the cart /
+ * trade-in / deck-builder convention): the magic-link sign-in opens in a
+ * NEW tab of the same browser, so a per-tab store would lose the draft.
+ * The parse side is defensive — a corrupt or foreign value must never
+ * crash the wizard, only fall back to a fresh start.
  */
 
 import type { CatalogCard, CatalogSource } from "./catalog";
@@ -146,7 +147,11 @@ export function validateListing(price: string, quantity: string): ListingErrors 
     errors.price = "Enter a price.";
   } else if (p <= 0) {
     errors.price = "Price must be above zero.";
-  } else if (Math.round(p * 100) !== p * 100) {
+  } else if (Math.abs(p * 100 - Math.round(p * 100)) > 1e-6) {
+    // Epsilon, not exact equality: most 2-dp prices (19.99, 4.10, …) are
+    // not exactly representable in binary floating point, so p*100 lands
+    // a hair off its integer. Sub-penny inputs (1.999) sit ~0.1 away and
+    // are still rejected.
     errors.price = "Price can have at most two decimal places.";
   }
   const q = Number(quantity);

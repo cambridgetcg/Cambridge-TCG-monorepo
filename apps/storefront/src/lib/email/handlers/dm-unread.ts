@@ -107,8 +107,9 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
       <p style="margin:0;font-size:13px;color:#a3a3a3;">
         Replies happen on the site, not over email. To keep your inbox
         quiet we send at most one email per conversation every
-        ${DM_EMAIL_WINDOW_HOURS} hours — further messages collect in your
-        Cambridge TCG inbox either way.
+        ${DM_EMAIL_WINDOW_HOURS} hours — none once you've read the thread,
+        unless something new arrives after that. Further messages collect
+        in your Cambridge TCG inbox either way.
       </p>
     `,
     cta: { label: "Read + reply", url: threadUrl },

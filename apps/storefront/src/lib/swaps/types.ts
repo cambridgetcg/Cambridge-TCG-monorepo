@@ -83,8 +83,11 @@ export interface SwapItemInput {
   sku: string;
   condition: SwapCondition;
   quantity: number;
-  /** Display snapshots supplied by the composer UI (labels, not money —
-   *  indicative prices are always recomputed server-side). */
+  /** Composer display fields — accepted on the wire but IGNORED by the
+   *  server. snapshot_name / snapshot_image_url are resolved from the
+   *  catalog by sku (lib/swaps/catalog.ts): client strings here could
+   *  fabricate card provenance or plant a tracking-pixel image URL on
+   *  the counterparty's page. */
   name?: string | null;
   imageUrl?: string | null;
 }

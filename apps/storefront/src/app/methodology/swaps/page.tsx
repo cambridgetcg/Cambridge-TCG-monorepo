@@ -71,10 +71,12 @@ export default function SwapsMethodology() {
           proposer pays), the note, and the response deadline.
         </li>
         <li>
-          <strong>Name/image/price snapshots.</strong> Card names, images, and indicative
-          prices are frozen at proposal time (<code>snapshot_*</code> columns) so the
-          record stays legible even after the catalog or market moves. They are labelled
-          &ldquo;snapshot&rdquo; on the swap page.
+          <strong>Name/image/price snapshots.</strong> Card names and images are resolved
+          from the catalog by sku — never taken from the proposer — and indicative prices
+          from the guidance sources, all frozen at proposal time (<code>snapshot_*</code>{" "}
+          columns) so the record stays legible even after the catalog or market moves. A
+          sku the catalog can&apos;t resolve shows as the raw sku with no image. They are
+          labelled &ldquo;snapshot&rdquo; on the swap page.
         </li>
         <li>
           <strong>An append-only lifecycle log.</strong> Every transition — proposed,
@@ -166,12 +168,20 @@ export default function SwapsMethodology() {
         guidance underneath it.
       </p>
 
-      <h2>6. Notifications</h2>
+      <h2>6. Notifications and reach</h2>
       <p>
         Proposals, counters, accepts, declines, cancellations, shipping marks, receipt
         confirmations, and expiries each notify the other party in-app (subject to your{" "}
         <Link href="/methodology/sabbath">Sabbath</Link> setting). v1 sends no swap
         emails.
+      </p>
+      <p>
+        A fresh proposal can only reach a collector the proposer could also message: the
+        same block list and messages opt-out that gate{" "}
+        <Link href="/methodology/messaging">direct messages</Link> gate new swap
+        proposals, and each collector can create at most 10 fresh proposals per hour.
+        Counters inside an existing negotiation are exempt from the block gate — the
+        counter&apos;s recipient opened that negotiation by proposing.
       </p>
 
       <h2>Known v1 gaps (named, not hidden)</h2>

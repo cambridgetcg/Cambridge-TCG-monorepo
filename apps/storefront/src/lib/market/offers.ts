@@ -357,6 +357,12 @@ async function createTradeForAcceptedOffer(input: {
     if (!agreedPriceStr) {
       return { ok: false as const, reason: "No active counter to accept.", status: 409 };
     }
+    // Re-check expiry under the lock: the every-minute cron flips stale
+    // offers to 'expired', but an acceptance landing inside that window
+    // must not turn a lapsed offer into a binding trade.
+    if (offer.expires_at && new Date(offer.expires_at) <= new Date()) {
+      return { ok: false as const, reason: "This offer has expired.", status: 409 };
+    }
 
     const askRows = await q(
       `SELECT id, user_id, sku, card_name, condition, price, quantity,
@@ -370,6 +376,29 @@ async function createTradeForAcceptedOffer(input: {
     }
     if (ask.quantity - ask.filled_quantity < offer.quantity) {
       return { ok: false as const, reason: "Not enough remaining qty on the ask.", status: 409 };
+    }
+
+    // Re-gate the BUYER at accept-time — the offer may have sat for the
+    // seller's whole response window, and the buyer's standing
+    // (suspension, per-trade/daily limits) may have moved since makeOffer
+    // gated it. Mirrors acceptSwap's accept-time re-gate. Only the buyer
+    // takes on a payment obligation here, so only the buyer is re-gated;
+    // gate.reason (suspension reason, exact limits) is participant-only,
+    // so the seller sees a generic refusal while the buyer (accepting a
+    // counter) sees their own account's reason.
+    const buyerGate = await canTrade(
+      offer.buyer_id,
+      parseFloat(agreedPriceStr) * offer.quantity,
+    );
+    if (!buyerGate.allowed) {
+      return {
+        ok: false as const,
+        reason:
+          input.priceField === "counter_price"
+            ? `Can't accept: your account doesn't currently pass the trade gate. ${buyerGate.reason ?? ""}`.trim()
+            : "Can't accept: the buyer's account can't take on a trade of this size right now.",
+        status: 403,
+      };
     }
 
     // Both parties' standing in one round trip: trust for escrow routing,
@@ -419,13 +448,20 @@ async function createTradeForAcceptedOffer(input: {
     ).toISOString();
 
     // Synthesize a 'bid' order so market_trades's bid_order_id FK is
-    // satisfied. Marked filled immediately — it's a paper trail for
-    // the offer-driven match, not an order on the book.
+    // satisfied — a paper trail for the offer-driven match, never an
+    // order on the book. Status MUST be 'cancelled', not 'filled': the
+    // trade-cancellation restore paths (sweepExpired in lib/market/db.ts,
+    // approveCancel in lib/market/trade-cancels.ts) restore only orders
+    // with status IN ('filled','partially_filled'), so a 'filled'
+    // synthetic bid would resurrect as a live standing buy order — with
+    // no expires_at, it would never leave the book and would match
+    // future asks the buyer never authorized. 'cancelled' is skipped by
+    // both restore paths and excluded by all book/match queries.
     const synthBid = await q(
       `INSERT INTO market_orders
          (user_id, side, sku, card_name, condition, price, quantity, status,
           filled_quantity, allow_offers)
-       VALUES ($1, 'bid', $2, $3, $4, $5, $6, 'filled', $6, false)
+       VALUES ($1, 'bid', $2, $3, $4, $5, $6, 'cancelled', $6, false)
        RETURNING id`,
       [offer.buyer_id, ask.sku, ask.card_name, ask.condition,
        agreedPriceStr, offer.quantity],
@@ -515,12 +551,14 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
 
   // Notify the buyer to pay. The window in the copy is the same one the
   // trade row enforces (payment_expires_at) — never a fixed hour count.
+  // Deep-link the trade itself: the /account/trades list defaults to a
+  // tab where a fresh awaiting-payment trade doesn't appear.
   await notify({
     userId: offer.buyer_id,
     kind: "offer.accepted",
     title: `Offer accepted: ${formatPrice(agreedPrice)} for ${cardLabel}`,
     body: `Pay within ${paymentWindowHours}h to lock in the trade.`,
-    linkUrl: "/account/trades",
+    linkUrl: `/account/trades/${trade.id}`,
     referenceType: "market_offer",
     referenceId: `${offerId}:accepted`,
   });
@@ -677,12 +715,13 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
   if (!result.ok) return result;
   const { trade, cardLabel, agreedPrice } = result.value;
 
+  // Deep-link the trade itself — see the matching note in acceptOffer.
   await notify({
     userId: offer.seller_id,
     kind: "offer.counter_accepted",
     title: `Counter accepted: ${formatPrice(agreedPrice)} for ${cardLabel}`,
     body: "The buyer accepted your counter. Trade is now awaiting payment.",
-    linkUrl: "/account/trades",
+    linkUrl: `/account/trades/${trade.id}`,
     referenceType: "market_offer",
     referenceId: `${offerId}:counter_accepted`,
   });

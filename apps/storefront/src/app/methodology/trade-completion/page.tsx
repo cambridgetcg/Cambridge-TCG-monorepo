@@ -67,7 +67,11 @@ export default function TradeCompletionMethodology() {
         <li>a pending cancellation handshake.</li>
       </ul>
       <p>
-        Any of those pauses the clock until it resolves. Auto-completion does <em>not</em>{" "}
+        Any of those <strong>withholds completion</strong> while it is open — the sweep skips
+        the trade for as long as the blocker stands. The deadline itself does not move: no
+        time is paused or added back, so if the blocker resolves after the window has already
+        elapsed, the trade completes at the next sweep run rather than restarting or resuming
+        a remainder. Auto-completion does <em>not</em>{" "}
         verify that the card arrived — it means the protection window passed without anyone
         raising a problem. No <code>delivered_at</code> is recorded on this path.
       </p>

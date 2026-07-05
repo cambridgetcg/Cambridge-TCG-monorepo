@@ -479,7 +479,9 @@ export default function CardMarketPage() {
     message: string;
     // Set when the order matched immediately — the success box links to
     // the trade and names the payment deadline the trade row enforces.
-    matched?: { count: number; paymentExpiresAt: string | null };
+    // tradeId is only set for a single match; multiple matches fall back
+    // to the trades list, whose default tab does not show them.
+    matched?: { count: number; paymentExpiresAt: string | null; tradeId: string | null };
   } | null>(null);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   // Own trading limits (trust engine) — fetched once after sign-in so
@@ -701,6 +703,7 @@ export default function CardMarketPage() {
           matched: {
             count: trades.length,
             paymentExpiresAt: trades[0]?.payment_expires_at ?? null,
+            tradeId: trades.length === 1 ? trades[0]?.id ?? null : null,
           },
         });
       } else {
@@ -1198,9 +1201,20 @@ export default function CardMarketPage() {
                     <p>{result.message}</p>
                     {result.matched && (
                       <p className="text-xs text-ink-muted mt-1.5">
-                        <Link href="/account/trades" className="text-accent hover:underline font-medium">
-                          View your trade{result.matched.count !== 1 ? "s" : ""} &rarr;
-                        </Link>{" "}
+                        {result.matched.tradeId ? (
+                          <Link
+                            href={`/account/trades/${result.matched.tradeId}`}
+                            className="text-accent hover:underline font-medium"
+                          >
+                            View your trade &rarr;
+                          </Link>
+                        ) : (
+                          // /account/trades opens on Open Orders; matched
+                          // trades live under Trade History — name it.
+                          <Link href="/account/trades" className="text-accent hover:underline font-medium">
+                            View your trades (under Trade History) &rarr;
+                          </Link>
+                        )}{" "}
                         {result.matched.paymentExpiresAt ? (
                           tab === "buy"
                             ? <>Payment is due by <span className="font-mono tabular-nums">{formatDateTime(result.matched.paymentExpiresAt)}</span> (your payment window) or the trade cancels.</>

@@ -17,8 +17,11 @@ import type { CatalogSource } from "./catalog";
 
 export function catalogSourceBadges(): Record<CatalogSource, ReactNode> {
   return {
-    // Live HTTP read of the wholesale pricing API, queried this request.
-    "wholesale-api": <Provenance kind="live" />,
+    // The wholesale pricing API is read through Next's Data Cache —
+    // fetchPrices revalidates at 300s (client.ts), so a response can be
+    // minutes old with no HTTP request during this render. "cached",
+    // never "live".
+    "wholesale-api": <Provenance kind="cached" source="wholesale api" ttl="5m" />,
     // Direct read of the wholesale Postgres — prices there are synced
     // from upstream on a daily cadence, so this must not claim "live".
     "wholesale-db": <Provenance kind="synced" source="wholesale db" cadence="daily" />,

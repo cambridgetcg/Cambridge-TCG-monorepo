@@ -353,6 +353,10 @@ export async function GET(request: Request) {
       tradeCompletionSweep.status === "fulfilled"
         ? { status: "fulfilled", ...tradeCompletionSweep.value }
         : { status: "rejected" },
+    swapExpirySweep:
+      swapExpirySweep.status === "fulfilled"
+        ? { status: "fulfilled", ...swapExpirySweep.value }
+        : { status: "rejected" },
     durationMs: Date.now() - start,
   };
 

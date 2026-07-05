@@ -15,10 +15,12 @@ import { query, transaction } from "@/lib/db";
 import type { CompatQueryFn } from "@cambridge-tcg/db/compat";
 import { notify } from "@/lib/notifications/db";
 import { canTrade } from "@/lib/escrow/trust-engine";
+import { assertCanMessage } from "@/lib/messages/db";
 import { responseExpiresAtForUser } from "@/lib/users/response-window";
 import { logSwapTransition } from "./lifecycle-log";
 import { swapGuidance } from "./guidance";
 import { gateValueGbp } from "./guidance-core";
+import { catalogSnapshotsForSkus } from "./catalog";
 import {
   SWAP_CONDITIONS,
   type SwapAddress,
@@ -38,6 +40,16 @@ const DEFAULT_SWAP_RESPONSE_WINDOW_HOURS = 48;
 const MAX_ITEMS_PER_SIDE = 40;
 const MAX_QTY_PER_ITEM = 99;
 const MAX_NOTE_LEN = 1000;
+// Fresh (non-counter) swap creations per proposer per hour. Every fresh
+// swap is a new id, so the notify() dedupe key never collapses repeats —
+// without a cap the recipient's bell is spammable. Mirrors
+// THREAD_OPENS_PER_HOUR in lib/messages/db.ts, the DM-side gate for the
+// same inbox-reach class.
+const SWAP_CREATES_PER_HOUR = 10;
+// Sentinel thrown inside createSwap's transaction when the countered
+// original stopped being 'proposed' between the pre-check and the
+// superseding UPDATE — the whole counter must roll back.
+const SWAP_COUNTER_CONFLICT = "SWAP_COUNTER_CONFLICT";
 // Proposer-set expiry bounds — same 1h..1y range the 0092 column enforces.
 const MIN_EXPIRES_HOURS = 1;
 const MAX_EXPIRES_HOURS = 8760;
@@ -60,12 +72,17 @@ export async function getSwapForUser(
   userId: string,
 ): Promise<{ swap: SwapProposal; items: SwapItem[] } | null> {
   if (!UUID_RE.test(swapId)) return null;
+  // A draft is invisible to its recipient until proposed — the same
+  // invariant listSwapsForUser enforces for mode=incoming. Without the
+  // status clause the recipient could read a draft's contents (and probe
+  // its status via transition errors) through GET /api/swaps/[id].
   const res = await query(
     `SELECT s.*, ${USER_JOIN}
        FROM swap_proposals s
        JOIN users p ON p.id = s.proposer_id
        JOIN users r ON r.id = s.recipient_id
-      WHERE s.id = $1 AND (s.proposer_id = $2 OR s.recipient_id = $2)`,
+      WHERE s.id = $1 AND (s.proposer_id = $2 OR s.recipient_id = $2)
+        AND (s.status <> 'draft' OR s.proposer_id = $2)`,
     [swapId, userId],
   );
   const swap = res.rows[0] as SwapProposal | undefined;
@@ -248,12 +265,44 @@ export async function createSwap(input: CreateSwapInput): Promise<Result<SwapPro
     }
   }
 
-  // Snapshot indicative prices server-side (never trust composer numbers)
-  // and gate both parties on the same canTrade() placeOrder uses.
-  const guidance = await swapGuidance(
-    input.items.filter((i) => i.side === "proposer"),
-    input.items.filter((i) => i.side === "recipient"),
-  );
+  // A fresh proposal reaches the recipient's bell the way a DM reaches
+  // their inbox, so the same gate applies: block list (either direction)
+  // and the accepts_messages opt-out, checked BEFORE any read of the
+  // recipient's trust standing so a blocked or opted-out-of proposer
+  // can't use the recipient gate below as a standing probe. Counters are
+  // exempt: the counter's recipient opened the negotiation themselves by
+  // proposing, and a counter supersedes rather than adds.
+  if (!input.counterOf) {
+    const guard = await assertCanMessage(input.proposerId, recipientId);
+    if (!guard.ok) return guard;
+
+    const recentCreates = await query(
+      `SELECT COUNT(*)::int AS n FROM swap_proposals
+        WHERE proposer_id = $1 AND counter_of IS NULL
+          AND created_at > NOW() - INTERVAL '1 hour'`,
+      [input.proposerId],
+    );
+    if (recentCreates.rows[0].n >= SWAP_CREATES_PER_HOUR) {
+      return {
+        ok: false,
+        reason: `You can create at most ${SWAP_CREATES_PER_HOUR} swap proposals per hour.`,
+        status: 429,
+      };
+    }
+  }
+
+  // Snapshot indicative prices AND card identity server-side — composer
+  // numbers, names, and image URLs are never trusted (a client-supplied
+  // name/image could fabricate card provenance on the counterparty's
+  // page; see ./catalog.ts). Gate both parties on the same canTrade()
+  // placeOrder uses.
+  const [guidance, catalog] = await Promise.all([
+    swapGuidance(
+      input.items.filter((i) => i.side === "proposer"),
+      input.items.filter((i) => i.side === "recipient"),
+    ),
+    catalogSnapshotsForSkus(input.items.map((i) => i.sku)),
+  ]);
   const gateValue = gateValueGbp(guidance.proposer, guidance.recipient, cashDeltaPence);
   const proposerGate = await canTrade(input.proposerId, gateValue);
   if (!proposerGate.allowed) {
@@ -271,76 +320,100 @@ export async function createSwap(input: CreateSwapInput): Promise<Result<SwapPro
   const isDraft = input.draft === true && !input.counterOf;
   const expiresAt = isDraft ? null : await resolveExpiresAt(recipientId, input.expiresInHours);
 
-  const swap = await transaction(async (tx) => {
-    const inserted = await tx(
-      `INSERT INTO swap_proposals
-         (proposer_id, recipient_id, status, cash_delta_pence, note, counter_of, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [
-        input.proposerId,
-        recipientId,
-        isDraft ? "draft" : "proposed",
-        cashDeltaPence,
-        note,
-        input.counterOf ?? null,
-        expiresAt,
-      ],
-    );
-    const created = inserted.rows[0] as SwapProposal;
-
-    for (const item of input.items) {
-      const g = guidance.perSku[item.sku];
-      await tx(
-        `INSERT INTO swap_proposal_items
-           (swap_id, side, sku, condition, quantity,
-            snapshot_name, snapshot_image_url, snapshot_indicative_price_pence)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+  let swap: SwapProposal;
+  try {
+    swap = await transaction(async (tx) => {
+      const inserted = await tx(
+        `INSERT INTO swap_proposals
+           (proposer_id, recipient_id, status, cash_delta_pence, note, counter_of, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
         [
-          created.id,
-          item.side,
-          item.sku,
-          item.condition,
-          item.quantity,
-          item.name?.trim().slice(0, 300) || null,
-          item.imageUrl?.trim().slice(0, 2000) || null,
-          g?.indicativePence ?? null,
+          input.proposerId,
+          recipientId,
+          isDraft ? "draft" : "proposed",
+          cashDeltaPence,
+          note,
+          input.counterOf ?? null,
+          expiresAt,
         ],
       );
-    }
+      const created = inserted.rows[0] as SwapProposal;
 
-    await logSwapTransition(tx, {
-      swapId: created.id,
-      action: isDraft ? "created" : "proposed",
-      actorId: input.proposerId,
-      actorLabel: "proposer",
-      reason: note,
-      metadata: {
-        cash_delta_pence: cashDeltaPence,
-        counter_of: input.counterOf ?? null,
-        expires_at: expiresAt,
-        gate_value_gbp: gateValue.toFixed(2),
-        guidance_computed_at: guidance.computedAt,
-      },
-    });
+      for (const item of input.items) {
+        const g = guidance.perSku[item.sku];
+        // Catalog-resolved identity only — a sku the catalog can't resolve
+        // stores null name/image (the page falls back to the raw sku),
+        // never the composer's strings.
+        const snap = catalog.get(item.sku);
+        await tx(
+          `INSERT INTO swap_proposal_items
+             (swap_id, side, sku, condition, quantity,
+              snapshot_name, snapshot_image_url, snapshot_indicative_price_pence)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            created.id,
+            item.side,
+            item.sku,
+            item.condition,
+            item.quantity,
+            snap?.name?.slice(0, 300) ?? null,
+            snap?.imageUrl?.slice(0, 2000) ?? null,
+            g?.indicativePence ?? null,
+          ],
+        );
+      }
 
-    if (original) {
-      await tx(
-        `UPDATE swap_proposals SET status = 'countered', updated_at = NOW()
-          WHERE id = $1 AND status = 'proposed'`,
-        [original.id],
-      );
       await logSwapTransition(tx, {
-        swapId: original.id,
-        action: "countered",
+        swapId: created.id,
+        action: isDraft ? "created" : "proposed",
         actorId: input.proposerId,
-        actorLabel: "recipient",
-        metadata: { superseded_by: created.id },
+        actorLabel: "proposer",
+        reason: note,
+        metadata: {
+          cash_delta_pence: cashDeltaPence,
+          counter_of: input.counterOf ?? null,
+          expires_at: expiresAt,
+          gate_value_gbp: gateValue.toFixed(2),
+          guidance_computed_at: guidance.computedAt,
+        },
       });
-    }
 
-    return created;
-  });
+      if (original) {
+        const superseded = await tx(
+          `UPDATE swap_proposals SET status = 'countered', updated_at = NOW()
+            WHERE id = $1 AND status = 'proposed'`,
+          [original.id],
+        );
+        // The pre-check above ran OUTSIDE this transaction; a concurrent
+        // accept/decline/cancel/expire lands here as rowCount 0. The whole
+        // counter must roll back — an accepted original coexisting with a
+        // live counter double-commits the same cards, and the 'countered'
+        // log row below must only record a transition that happened.
+        if (superseded.rowCount === 0) {
+          throw new Error(SWAP_COUNTER_CONFLICT);
+        }
+        await logSwapTransition(tx, {
+          swapId: original.id,
+          action: "countered",
+          actorId: input.proposerId,
+          actorLabel: "recipient",
+          metadata: { superseded_by: created.id },
+        });
+      }
+
+      return created;
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === SWAP_COUNTER_CONFLICT) {
+      return {
+        ok: false,
+        reason: "Original is no longer proposed — it can no longer be countered.",
+        status: 409,
+      };
+    }
+    throw err;
+  }
 
   if (!isDraft) {
     const proposerLabel = await userLabel(input.proposerId);
@@ -372,6 +445,12 @@ export async function proposeDraft(swapId: string, userId: string): Promise<Resu
   if (swap.status !== "draft") {
     return { ok: false, reason: `Swap is ${swap.status} — not a draft.`, status: 409 };
   }
+
+  // The draft may predate a block or a messages opt-out — this is the
+  // moment it first reaches the recipient, so the same gate createSwap
+  // runs for fresh proposals runs here.
+  const guard = await assertCanMessage(userId, swap.recipient_id);
+  if (!guard.ok) return guard;
 
   const expiresAt = await resolveExpiresAt(swap.recipient_id, undefined);
   const updated = await transaction(async (tx) => {
@@ -431,15 +510,19 @@ export async function acceptSwap(swapId: string, userId: string): Promise<Result
       .reduce((sum, i) => sum + (i.snapshot_indicative_price_pence ?? 0) * i.quantity, 0);
   const gateValue =
     (Math.max(side("proposer"), side("recipient")) + Math.abs(swap.cash_delta_pence)) / 100;
-  for (const [partyId, who] of [
-    [swap.recipient_id, "your account"],
-    [swap.proposer_id, "the proposer's account"],
-  ] as const) {
+  for (const partyId of [swap.recipient_id, swap.proposer_id]) {
     const gate = await canTrade(partyId, gateValue);
     if (!gate.allowed) {
+      // gate.reason can carry a suspension reason and exact trade/daily
+      // limits — facts private to that account. Only the caller's own
+      // failure passes through; the proposer's is masked with the same
+      // generic phrasing createSwap uses for the recipient's gate.
       return {
         ok: false,
-        reason: `Can't accept: ${who} doesn't currently pass the trade gate. ${gate.reason ?? ""}`.trim(),
+        reason:
+          partyId === userId
+            ? `Can't accept: your account doesn't currently pass the trade gate. ${gate.reason ?? ""}`.trim()
+            : "Can't accept: the other collector's account can't take on a swap of this size right now.",
         status: 403,
       };
     }
@@ -647,6 +730,17 @@ export async function setSwapAddress(
   if (swap.status !== "accepted" && swap.status !== "shipping") {
     return { ok: false, reason: `Swap is ${swap.status} — addresses are entered after acceptance.`, status: 409 };
   }
+  // Addresses lock once EITHER side has posted: cards may already be in
+  // transit to the address on record, and the lifecycle log deliberately
+  // excludes address contents, so a post-shipment rewrite would leave no
+  // trace of where anything was actually sent.
+  if (swap.proposer_shipped_at || swap.recipient_shipped_at) {
+    return {
+      ok: false,
+      reason: "Cards have already been posted — addresses are locked once either side ships.",
+      status: 409,
+    };
+  }
   const address = sanitizeAddress(addressInput);
   if (!address) {
     return { ok: false, reason: "Address needs at least a name and address line 1.", status: 400 };
@@ -656,7 +750,9 @@ export async function setSwapAddress(
   const updated = await transaction(async (tx) => {
     const r = await tx(
       `UPDATE swap_proposals SET ${col} = $2::jsonb, updated_at = NOW()
-        WHERE id = $1 AND status IN ('accepted','shipping') RETURNING *`,
+        WHERE id = $1 AND status IN ('accepted','shipping')
+          AND proposer_shipped_at IS NULL AND recipient_shipped_at IS NULL
+        RETURNING *`,
       [swapId, JSON.stringify(address)],
     );
     if (r.rows.length === 0) return null;
@@ -768,6 +864,21 @@ export async function confirmSwapReceipt(
   }
   const already = side === "proposer" ? swap.proposer_confirmed_at : swap.recipient_confirmed_at;
   if (already) return { ok: false, reason: "You've already confirmed receipt.", status: 409 };
+  // You can only receive what the OTHER side has posted. Without this,
+  // both parties could confirm seconds after entering addresses and the
+  // record would assert a completed physical exchange with zero shipping
+  // events — the platform's role is to record and witness, so the record
+  // must not be able to say cards arrived that nobody marked shipped.
+  const otherSide = side === "proposer" ? "recipient" : "proposer";
+  const otherShippedAt =
+    side === "proposer" ? swap.recipient_shipped_at : swap.proposer_shipped_at;
+  if (!otherShippedAt) {
+    return {
+      ok: false,
+      reason: "The other collector hasn't marked their cards shipped yet — confirm receipt once they have.",
+      status: 409,
+    };
+  }
 
   const prefix = side;
   const updated = await transaction(async (tx) => {
@@ -775,6 +886,7 @@ export async function confirmSwapReceipt(
       `UPDATE swap_proposals
           SET ${prefix}_confirmed_at = NOW(), updated_at = NOW()
         WHERE id = $1 AND status = 'shipping' AND ${prefix}_confirmed_at IS NULL
+          AND ${otherSide}_shipped_at IS NOT NULL
         RETURNING *`,
       [swapId],
     );
@@ -854,8 +966,8 @@ async function expireOne(swap: SwapProposal): Promise<boolean> {
  * Expire proposed swaps past their own expires_at. Each row carries its
  * deadline (stamped at propose-time from the recipient's 0092 cadence or
  * the proposer's explicit choice) — the sweep reads the column, never a
- * constant. Exported for the maintenance cron; NOT yet wired there (the
- * cron route belongs to another workstream — see build followups).
+ * constant. Runs from /api/cron/maintenance, which reports the result in
+ * its status JSON.
  */
 export async function runSwapExpirySweep(): Promise<{ expired: number }> {
   const due = await query(

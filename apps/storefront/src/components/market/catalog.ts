@@ -76,6 +76,24 @@ export function isSortKey(v: string | undefined | null): v is SortKey {
   return SORT_OPTIONS.some((o) => o.value === v);
 }
 
+/**
+ * Parse /market's URL params into a CatalogQuery. One interpretation,
+ * two readers: the server page (initial render) and MarketBrowser's
+ * popstate handler (back/forward, which the app router restores as a
+ * URL-only sync — no server re-render) must agree on what a URL means.
+ */
+export function parseBrowseParams(sp: URLSearchParams): CatalogQuery {
+  const sort = sp.get("sort");
+  return {
+    game: (sp.get("game") || DEFAULT_GAME).trim() || DEFAULT_GAME,
+    q: (sp.get("q") || "").trim(),
+    set: (sp.get("set") || "").trim() || null,
+    sort: isSortKey(sort) ? sort : "name_asc",
+    page: Math.max(1, parseInt(sp.get("page") || "1", 10) || 1),
+    view: sp.get("view") === "grid" ? "grid" : "table",
+  };
+}
+
 /** Query string for GET /api/market/catalog from a CatalogQuery. */
 export function buildCatalogSearch(q: CatalogQuery, limit = PAGE_SIZE): string {
   const params = new URLSearchParams({

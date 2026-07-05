@@ -7,9 +7,12 @@
  * price it (condition + price with guidance from the catalog row already
  * in hand + returns opt-in), posted (the live listing with links onward).
  *
- * Signed-out collectors can build the whole listing; posting saves the
- * draft to sessionStorage and routes through /login. The draft is
- * restored when they return in the same tab.
+ * Signed-out collectors can build the whole listing; posting routes
+ * through /login (the API's 401 is the single source of truth for
+ * "signed out" — the server-rendered prop can go stale in a bfcache
+ * restore). The draft lives in localStorage because the magic-link
+ * sign-in opens in a NEW tab of the same browser; sessionStorage is
+ * per-tab and would lose it.
  */
 
 import Link from "next/link";
@@ -132,7 +135,7 @@ export default function ListingWizard({
 
   // Mount: restore a saved draft (login round-trip), else honor ?sku=.
   useEffect(() => {
-    const draft = parseListingDraft(sessionStorage.getItem(LISTING_DRAFT_KEY));
+    const draft = parseListingDraft(localStorage.getItem(LISTING_DRAFT_KEY));
     if (draft && draft.game === game) {
       setPicked(draft.card);
       setCondition(draft.condition);
@@ -189,7 +192,7 @@ export default function ListingWizard({
   // login round-trip (and accidental tab reloads) lose nothing.
   useEffect(() => {
     if (!picked || step !== "details") return;
-    sessionStorage.setItem(
+    localStorage.setItem(
       LISTING_DRAFT_KEY,
       serializeListingDraft({
         v: 1,
@@ -213,7 +216,7 @@ export default function ListingWizard({
   }
 
   function reset() {
-    sessionStorage.removeItem(LISTING_DRAFT_KEY);
+    localStorage.removeItem(LISTING_DRAFT_KEY);
     setPicked(null);
     setPrice("");
     setQuantity("1");
@@ -235,12 +238,11 @@ export default function ListingWizard({
     setErrors(nextErrors);
     if (nextErrors.price || nextErrors.quantity) return;
 
-    if (!isSignedIn) {
-      // Draft is already in sessionStorage via the effect above.
-      window.location.assign(loginHref);
-      return;
-    }
-
+    // No isSignedIn short-circuit: the prop is frozen at server render and
+    // goes stale (bfcache restore after the magic-link round trip). The
+    // POST's 401 branch below is the one truth for "signed out"; the prop
+    // only drives button copy. Draft is already in localStorage via the
+    // effect above.
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -257,10 +259,10 @@ export default function ListingWizard({
           condition,
           price: Number.parseFloat(price),
           quantity: Number(quantity),
-          // Returns opt-in — the orders API is gaining these params; they
-          // ride along harmlessly until it does.
-          accepts_returns: acceptsReturns,
-          ...(acceptsReturns ? { return_window_days: returnWindowDays } : {}),
+          // Returns opt-in — camelCase per the orders API contract, which
+          // 400s if returnWindowDays arrives without acceptsReturns: true.
+          acceptsReturns,
+          ...(acceptsReturns ? { returnWindowDays } : {}),
         }),
       });
       const body = await res.json().catch(() => null);
@@ -275,11 +277,11 @@ export default function ListingWizard({
         );
         return;
       }
-      sessionStorage.removeItem(LISTING_DRAFT_KEY);
+      localStorage.removeItem(LISTING_DRAFT_KEY);
       setPosted({ order: body.order, matched: body.matched ?? 0 });
       setStep("done");
     } catch {
-      setSubmitError("Network problem while posting — your draft is still saved in this tab.");
+      setSubmitError("Network problem while posting — your draft is still saved in this browser.");
     } finally {
       setSubmitting(false);
     }
@@ -390,7 +392,7 @@ export default function ListingWizard({
           {restored && (
             <div className="mb-4">
               <Callout tone="note" title="Draft restored">
-                We kept the listing you were building in this tab.
+                We kept the listing you were building in this browser.
               </Callout>
             </div>
           )}
@@ -399,7 +401,8 @@ export default function ListingWizard({
             <div className="mb-4">
               <Callout tone="note" title="You're signed out">
                 Build the listing now — posting will ask you to sign in first. Your draft stays
-                saved in this browser tab while you do.
+                saved in this browser while you do, so it survives the sign-in link opening in
+                a new tab. (Signing in on a different device won&rsquo;t carry it over.)
               </Callout>
             </div>
           )}

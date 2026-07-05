@@ -260,17 +260,36 @@ export async function runTradeCompletionSweep(): Promise<TradeCompletionSweepRes
 
   for (const row of candidates.rows) {
     try {
-      // Guarded per-row flip: a buyer confirm or a fresh dispute between
-      // the candidate SELECT and this UPDATE makes it a no-op.
+      // Guarded per-row flip. The escrow_status re-check catches a buyer
+      // confirm and a fresh dispute (raiseDispute flips escrow_status to
+      // 'disputed'), but return and cancellation requests write only
+      // their own rows and change no escrow_status — so all three
+      // blocker sub-checks from the candidate SELECT are repeated here.
+      // A request filed between the SELECT and this UPDATE must block
+      // completion, or the payout clock starts over an open claim.
       const upd = await query(
-        `UPDATE market_trades
+        `UPDATE market_trades t
             SET escrow_status = 'completed',
                 completed_at = NOW(),
                 completed_via = 'auto_window',
                 updated_at = NOW()
-          WHERE id = $1
-            AND (escrow_status = 'shipped_to_buyer'
-                 OR (escrow_status = 'verified' AND escrow_tier = 'direct'))
+          WHERE t.id = $1
+            AND (t.escrow_status = 'shipped_to_buyer'
+                 OR (t.escrow_status = 'verified' AND t.escrow_tier = 'direct'))
+            AND NOT EXISTS (
+              SELECT 1 FROM trade_disputes d
+               WHERE d.trade_id = t.id
+                 AND d.status NOT IN ('resolved_buyer', 'resolved_seller', 'resolved_split', 'closed')
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM market_returns r
+               WHERE r.trade_id = t.id
+                 AND r.status NOT IN ('declined', 'cancelled', 'expired', 'refunded')
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM market_trade_cancellations c
+               WHERE c.trade_id = t.id AND c.status = 'requested'
+            )
           RETURNING *`,
         [row.id],
       );
