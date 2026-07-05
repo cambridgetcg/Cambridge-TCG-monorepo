@@ -30,7 +30,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           <AccountNav />

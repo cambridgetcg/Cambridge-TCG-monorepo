@@ -176,9 +176,9 @@ function ProvenanceDefault({
   }
 
   const TONE_CLS = {
-    neutral: "text-neutral-500",
-    amber: "text-amber-400",
-    red: "text-red-400",
+    neutral: "text-ink-faint",
+    amber: "text-warning",
+    red: "text-danger",
   };
 
   return (
@@ -219,7 +219,7 @@ function ProvenanceMath({
   }`;
   return (
     <code
-      className="inline-block text-[10px] font-mono text-emerald-400 px-1.5 py-0.5 rounded bg-neutral-900/60 border border-neutral-800"
+      className="inline-block text-[10px] font-mono text-ok px-1.5 py-0.5 rounded bg-surface-subtle border border-border-subtle"
       aria-label={aria}
     >
       {`{${parts.join(",")}}`}

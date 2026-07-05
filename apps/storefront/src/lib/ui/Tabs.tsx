@@ -6,8 +6,10 @@
  *   <Tabs>           — controlled (state lives in parent)
  *   <Tabs href="…">  — link-driven (URL carries the active tab)
  *
- * Both share the same visual surface: amber pill on dark background,
- * matching the storefront's primary accent.
+ * Both share the same visual surface: accent-wash pill with a hairline
+ * border on a subtle track (the quiet gallery — docs/plans/
+ * the-quiet-gallery.md). The old amber-on-black pill died with the old
+ * theme.
  */
 
 import * as React from "react";
@@ -31,10 +33,10 @@ interface LinkedProps<T extends string> {
   selected: T;
 }
 
-const tabBase = "px-4 py-2 text-sm font-medium rounded-md transition";
-const tabActive = "bg-amber-500 text-black";
-const tabIdle = "text-neutral-400 hover:text-white";
-const wrapper = "flex gap-1 bg-neutral-900 rounded-lg p-1 mb-6 w-fit";
+const tabBase = "px-4 py-2 text-sm font-medium rounded-md transition border";
+const tabActive = "bg-accent-wash text-accent-strong border-accent/30";
+const tabIdle = "border-transparent text-ink-muted hover:text-ink";
+const wrapper = "flex gap-1 bg-surface-subtle rounded-lg p-1 mb-6 w-fit";
 
 export function Tabs<T extends string>({ tabs, selected, onSelect }: ControlledProps<T>) {
   return (

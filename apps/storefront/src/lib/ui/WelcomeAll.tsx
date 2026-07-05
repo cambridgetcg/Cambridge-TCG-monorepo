@@ -56,18 +56,18 @@ export function WelcomeAll({
   if (variant === "compact") {
     return (
       <div
-        className={`text-xs text-neutral-400 leading-relaxed ${className}`}
+        className={`text-xs text-ink-muted leading-relaxed ${className}`}
         role="note"
         aria-label="Cambridge TCG universal welcome"
       >
-        <span className="text-amber-400">✦</span>{" "}
-        <span className="text-neutral-300">{WELCOME_STATEMENT_COMPACT}</span>
+        <span className="text-accent">✦</span>{" "}
+        <span className="text-ink-muted">{WELCOME_STATEMENT_COMPACT}</span>
         {!selfPage && (
           <>
             {" "}
             <Link
               href="/welcome-all"
-              className="text-amber-400 hover:text-amber-300 underline"
+              className="text-accent hover:text-accent-strong underline"
             >
               learn more
             </Link>
@@ -79,21 +79,21 @@ export function WelcomeAll({
 
   return (
     <div
-      className={`rounded-xl border border-neutral-800 bg-neutral-900/40 p-5 ${className}`}
+      className={`rounded-lg border border-border-subtle bg-surface p-5 ${className}`}
       role="region"
       aria-label="Cambridge TCG universal welcome"
     >
       <div className="flex items-start gap-3">
-        <span className="text-amber-400 text-xl leading-none mt-0.5" aria-hidden="true">
+        <span className="text-accent text-xl leading-none mt-0.5" aria-hidden="true">
           ✦
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-base text-white leading-relaxed">{WELCOME_STATEMENT}</p>
+          <p className="text-base text-ink leading-relaxed">{WELCOME_STATEMENT}</p>
           {!selfPage && (
-            <p className="mt-2 text-xs text-neutral-500">
+            <p className="mt-2 text-xs text-ink-faint">
               <Link
                 href="/welcome-all"
-                className="text-amber-400 hover:text-amber-300 underline"
+                className="text-accent hover:text-accent-strong underline"
               >
                 /welcome-all
               </Link>{" "}

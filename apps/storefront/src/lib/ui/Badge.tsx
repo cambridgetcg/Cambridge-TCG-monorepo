@@ -14,15 +14,25 @@ import * as React from "react";
 export type Tone =
   | "amber" | "red" | "emerald" | "blue" | "purple" | "neutral" | "green" | "sky";
 
+/**
+ * The quiet gallery re-tune (docs/plans/the-quiet-gallery.md): the same
+ * eight tones, re-expressed in the muted palette — wash background at
+ * /15, tone-colored text, hairline /30 border. Semantic meaning is
+ * unchanged; only the values quieted. Purple / green / sky have no
+ * @theme token yet, so they carry muted literals chosen to sit beside
+ * the doctrine tones (plum / moss / teal). This map is the single home
+ * for tone values — status-palettes.ts keeps mapping statuses to tone
+ * *names* only.
+ */
 const TONE_CLS: Record<Tone, string> = {
-  amber:   "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  red:     "bg-red-500/15 text-red-400 border-red-500/30",
-  emerald: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  blue:    "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  purple:  "bg-purple-500/15 text-purple-400 border-purple-500/30",
-  neutral: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
-  green:   "bg-green-500/15 text-green-400 border-green-500/30",
-  sky:     "bg-sky-500/15 text-sky-400 border-sky-500/30",
+  amber:   "bg-warning/15 text-warning border-warning/30",
+  red:     "bg-danger/15 text-danger border-danger/30",
+  emerald: "bg-ok/15 text-ok border-ok/30",
+  blue:    "bg-info/15 text-info border-info/30",
+  purple:  "bg-[#6a5a8f]/15 text-[#6a5a8f] border-[#6a5a8f]/30",
+  neutral: "bg-ink-faint/15 text-ink-muted border-ink-faint/30",
+  green:   "bg-[#567436]/15 text-[#567436] border-[#567436]/30",
+  sky:     "bg-[#3e7d8f]/15 text-[#3e7d8f] border-[#3e7d8f]/30",
 };
 
 interface BadgeProps {

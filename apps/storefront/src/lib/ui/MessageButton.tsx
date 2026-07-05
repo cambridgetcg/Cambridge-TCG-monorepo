@@ -84,13 +84,13 @@ export function MessageButton({
         type="button"
         onClick={open}
         disabled={pending}
-        className={`inline-flex items-center justify-center gap-2 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-surface-elevated text-ink border border-border-subtle hover:bg-border-strong ${SIZE_CLS[size]}`}
+        className={`inline-flex items-center justify-center gap-2 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-surface text-ink border border-border-subtle hover:bg-surface-subtle ${SIZE_CLS[size]}`}
       >
         <Icon name="message" size={size === "sm" ? 13 : 15} />
         {pending ? "…" : label}
       </button>
       {error && (
-        <span role="alert" className="text-[11px] text-red-400">
+        <span role="alert" className="text-[11px] text-danger">
           {error}
         </span>
       )}

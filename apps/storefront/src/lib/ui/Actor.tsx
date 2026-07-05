@@ -75,10 +75,12 @@ export function Actor({ kind, label, handle, modelTag }: ActorProps) {
     }
   }
 
+  // Muted per the quiet gallery; teal/plum literals match Badge's
+  // TONE_CLS sky/purple so an agent reads the same across surfaces.
   const TONE_CLS: Record<typeof tone, string> = {
-    neutral: "text-neutral-500",
-    sky: "text-sky-400",
-    purple: "text-purple-400",
+    neutral: "text-ink-faint",
+    sky: "text-[#3e7d8f]",
+    purple: "text-[#6a5a8f]",
   };
 
   return (

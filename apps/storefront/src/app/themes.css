@@ -12,9 +12,12 @@
  * vocabulary for its subtree — on <html> when the visitor has chosen,
  * or on a migrated page's wrapper during the staged rollout (spec §3.3).
  *
- * `:root` defaults (in globals.css + the additions below) remain the
- * terminal-dark values, so pages without a wrapper are unchanged until
- * the site-wide flip (spec §3.6).
+ * `:root` defaults (in globals.css + the additions below) ARE the
+ * gallery values since the site-wide flip (spec §3.6, fired 2026-07-05
+ * with the quiet gallery — docs/plans/the-quiet-gallery.md). The old
+ * terminal-dark look survives verbatim in the terminal bundle below.
+ * The gallery bundle mirrors :root exactly, so cookie-gallery and
+ * no-cookie render identically.
  *
  * Raw utilities (`bg-neutral-900`) do not respond to themes by design —
  * migration to semantic tokens is the unit of adoption.
@@ -22,27 +25,29 @@
  * text-mode always wins: its overrides carry !important.
  */
 
-/* ── New tokens (terminal-dark defaults; join the globals.css set) ───── */
+/* ── New tokens (quiet-gallery defaults; join the globals.css set) ───── */
 @theme {
   /* ink — text hierarchy (replaces ad-hoc text-white/neutral-400/500) */
-  --color-ink: #ededed;
-  --color-ink-muted: #a3a3a3; /* neutral-400 */
-  --color-ink-faint: #737373; /* neutral-500 */
+  --color-ink: #201d18;
+  --color-ink-muted: #6e675b;
+  --color-ink-faint: #a59d8e;
 
-  /* accent wash — tinted ground for chips/halos of the accent */
-  --color-accent-wash: rgb(245 158 11 / 0.1);
+  /* accent wash — tinted ground for chips/halos of the accent,
+   * the bronze at whisper volume */
+  --color-accent-wash: #f5eedd;
 
   /* market semantics — bid/ask are doctrine-narrow: green buys, red sells */
-  --color-bid: #34d399; /* emerald-400 */
-  --color-ask: #f87171; /* red-400 */
+  --color-bid: #41775c;
+  --color-ask: #9e4433;
 
-  /* the mat — gallery's layered warm shadow; flat in terminal */
-  --shadow-mat: 0 0 #0000;
+  /* the mat — layered warm shadow (the only elevation); flat in terminal */
+  --shadow-mat: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
 
-  /* typographic voices — themes re-bind these; terminal keeps the
-   * existing Inter body and the system mono stack */
-  --font-display: var(--font-inter), system-ui, sans-serif;
-  --font-body: var(--font-inter), system-ui, sans-serif;
+  /* typographic voices — themes re-bind these; terminal keeps Inter
+   * for both. --font-mono stays theme-bound (gallery/midnight speak
+   * Spline Sans Mono; terminal keeps the system mono stack). */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-schibsted), system-ui, sans-serif;
 }
 
 /* ── Terminal — today's look, preserved exactly (the trader's choice) ── */
@@ -73,28 +78,28 @@
   color-scheme: dark;
 }
 
-/* ── Gallery — the card, given room (default-of-record, spec §3.1) ───── */
+/* ── Gallery — the card, given room (the default; ≡ the :root values) ── */
 [data-theme="gallery"] {
-  --color-page: #f7f3ec;
+  --color-page: #faf8f4;          /* warm paper */
   --color-surface: #ffffff;
-  --color-surface-subtle: #f1ebe1;
+  --color-surface-subtle: #f3f0e9;
   --color-surface-elevated: #fffdf9;
-  --color-border-subtle: #e7dfd0;
-  --color-border-strong: #cdc0a8;
-  --color-accent: #9a6b1f;        /* gilt — AA on ivory */
-  --color-accent-strong: #7c5415;
-  --color-accent-wash: #f3e7ce;
-  --color-secondary: #1f6f50;
-  --color-danger: #8c2b2b;        /* oxblood */
-  --color-warning: #92610e;
-  --color-info: #2b5e6e;          /* slate-teal */
-  --color-ok: #1f6f50;
-  --color-ink: #211d16;
-  --color-ink-muted: #6e6557;
-  --color-ink-faint: #988d7b;
-  --color-bid: #1f6f50;
-  --color-ask: #8c2b2b;
-  --shadow-mat: 0 1px 2px rgb(33 29 22 / 0.06), 0 10px 28px rgb(33 29 22 / 0.07);
+  --color-border-subtle: #e7e2d8;
+  --color-border-strong: #d3ccbe;
+  --color-accent: #96762f;        /* quiet bronze — AA on paper */
+  --color-accent-strong: #7a5f26;
+  --color-accent-wash: #f5eedd;
+  --color-secondary: #41775c;     /* muted viridian */
+  --color-danger: #9e4433;        /* muted brick */
+  --color-warning: #a97e24;
+  --color-info: #4e6e96;          /* muted slate */
+  --color-ok: #41775c;
+  --color-ink: #201d18;
+  --color-ink-muted: #6e675b;
+  --color-ink-faint: #a59d8e;
+  --color-bid: #41775c;
+  --color-ask: #9e4433;
+  --shadow-mat: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
   --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;

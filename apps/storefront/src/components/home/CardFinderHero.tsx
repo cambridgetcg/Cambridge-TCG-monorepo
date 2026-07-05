@@ -15,16 +15,20 @@ import type { GameItem } from "@/lib/wholesale/client";
  *
  * North star (Yu, 2026-06-04): simple, clean, accessible, minimum fees
  * (looking up a card costs nothing), let people find what they need.
+ *
+ * Dressed for the quiet gallery (docs/plans/the-quiet-gallery.md):
+ * white mount, hairline border, ink primary button. rounded-xl is the
+ * hero-card exception the design doc reserves.
  */
 export default function CardFinderHero({ games }: { games: GameItem[] }) {
   const sorted = [...games].sort((a, b) => b.card_count - a.card_count);
   return (
     <section aria-label="Find any card" className="max-w-7xl mx-auto px-4 py-6">
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-5 sm:p-7">
-        <h2 className="text-xl sm:text-2xl font-semibold text-white">
+      <div className="wardrobe-mat rounded-xl p-5 sm:p-7">
+        <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
           Find any card
         </h2>
-        <p className="mt-1 text-sm text-neutral-400">
+        <p className="mt-1 text-sm text-ink-muted">
           Price, transaction history, every source, every language — in one
           view. No account, no fee to look. Just find what you need.
         </p>
@@ -40,7 +44,7 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
             id="finder-game"
             name="game"
             defaultValue={sorted[0]?.code ?? ""}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none sm:w-52"
+            className="rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-accent/50 transition sm:w-52"
           >
             {sorted.map((g) => (
               <option key={g.code} value={g.code}>
@@ -56,22 +60,22 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
             name="q"
             required
             placeholder="Card number — e.g. OP01-001"
-            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:border-amber-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition"
           />
           <button
             type="submit"
-            className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-neutral-950 hover:bg-amber-400 transition-colors"
+            className="rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-page hover:opacity-90 transition"
           >
             Find →
           </button>
         </form>
-        <p className="mt-2.5 text-xs text-neutral-500">
+        <p className="mt-2.5 text-xs text-ink-faint">
           The card number is the small code on the card — usually bottom-left,
-          like <span className="text-neutral-400">OP01-001</span>. Don&rsquo;t
+          like <span className="font-mono text-ink-muted">OP01-001</span>. Don&rsquo;t
           have it?{" "}
           <a
             href="/prices"
-            className="text-amber-400 hover:text-amber-300 underline"
+            className="text-accent hover:text-accent-strong underline"
           >
             browse by game →
           </a>

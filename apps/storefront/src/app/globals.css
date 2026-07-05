@@ -19,46 +19,83 @@
 /*
  * Storefront design tokens — Tailwind 4 @theme.
  *
- * Semantic names complementing the raw Tailwind colour scale. Pages can
- * opt into these tokens (`bg-page`, `bg-card`, `border-subtle`, etc.)
- * to express *intent* rather than literal colour. The doctrine-mapped
- * tones (accent, secondary, danger, info, ok) match the storefront's
- * existing convention: amber-500 for primary, emerald for secondary, etc.
+ * Semantic names complementing the raw Tailwind colour scale. Pages opt
+ * into these tokens (`bg-page`, `bg-surface`, `border-border-subtle`,
+ * etc.) to express *intent* rather than literal colour.
+ *
+ * The :root defaults ARE the quiet gallery (docs/plans/
+ * the-quiet-gallery.md, flipped 2026-07-05): warm paper ground, ink
+ * type, hairline borders, one bronze accent, muted doctrine tones.
+ * The old terminal-dark values survive verbatim in the
+ * `[data-theme="terminal"]` bundle (themes.css) for whoever loved them.
  *
  * The raw Tailwind classes (`bg-neutral-900`, `text-amber-400`) keep
- * working unchanged. Migration to semantic tokens is incremental.
+ * working unchanged — and keep NOT responding to themes; migration to
+ * semantic tokens is the unit of adoption.
  */
 @theme {
-  /* surfaces — match the existing dark-theme convention */
-  --color-page: theme("colors.neutral.950");
-  --color-surface: theme("colors.neutral.900");
-  --color-surface-subtle: rgb(23 23 23 / 0.5);     /* neutral-900 @ 50% */
-  --color-surface-elevated: theme("colors.neutral.800");
+  /* surfaces — warm paper ground, white mounts */
+  --color-page: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f3f0e9;
+  --color-surface-elevated: #fffdf9;
 
-  /* borders */
-  --color-border-subtle: theme("colors.neutral.800");
-  --color-border-strong: theme("colors.neutral.700");
+  /* borders — hairlines everywhere */
+  --color-border-subtle: #e7e2d8;
+  --color-border-strong: #d3ccbe;
 
   /* tones — single-source for accent/secondary/etc. The Badge palette
    * (lib/ui/Badge.tsx) carries the same vocabulary. */
-  --color-accent: theme("colors.amber.500");
-  --color-accent-strong: theme("colors.amber.400");
-  --color-secondary: theme("colors.emerald.400");
-  --color-danger: theme("colors.red.500");
-  --color-warning: theme("colors.amber.400");
-  --color-info: theme("colors.sky.400");
-  --color-ok: theme("colors.emerald.400");
+  --color-accent: #96762f;         /* quiet bronze — links, primary action */
+  --color-accent-strong: #7a5f26;
+  --color-secondary: #41775c;      /* muted viridian */
+  --color-danger: #9e4433;         /* muted brick */
+  --color-warning: #a97e24;
+  --color-info: #4e6e96;           /* muted slate */
+  --color-ok: #41775c;
 }
 
 :root {
   --background: var(--color-page);
-  --foreground: #ededed;
+  --foreground: var(--color-ink);
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter);
+  font-family: var(--font-body, sans-serif);
+}
+
+/*
+ * Prose reads ink-on-paper by default — the typography plugin's stock
+ * palette assumes the old dark ground (pages historically said `prose
+ * prose-invert`). Re-bind the plugin's variables to the semantic tokens
+ * so long-form text follows the wardrobe: gallery gets ink on paper,
+ * terminal/midnight resolve the same vars to their own light-on-dark
+ * inks. (Sweep agents remove the now-redundant `prose-invert`; this
+ * unlayered rule outranks the layered utility either way, so nothing
+ * renders unreadable in the meantime.) text-mode still wins — its
+ * overrides carry !important.
+ */
+.prose {
+  --tw-prose-body: var(--color-ink);
+  --tw-prose-headings: var(--color-ink);
+  --tw-prose-lead: var(--color-ink-muted);
+  --tw-prose-links: var(--color-accent);
+  --tw-prose-bold: var(--color-ink);
+  --tw-prose-counters: var(--color-ink-faint);
+  --tw-prose-bullets: var(--color-border-strong);
+  --tw-prose-hr: var(--color-border-subtle);
+  --tw-prose-quotes: var(--color-ink);
+  --tw-prose-quote-borders: var(--color-border-strong);
+  --tw-prose-captions: var(--color-ink-muted);
+  --tw-prose-kbd: var(--color-ink);
+  --tw-prose-code: var(--color-ink);
+  --tw-prose-pre-code: var(--color-ink);
+  --tw-prose-pre-bg: var(--color-surface-subtle);
+  --tw-prose-th-borders: var(--color-border-strong);
+  --tw-prose-td-borders: var(--color-border-subtle);
 }
 
 /*

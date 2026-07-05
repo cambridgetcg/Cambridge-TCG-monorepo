@@ -34,9 +34,9 @@ export const THEMES: readonly WardrobeTheme[] = [
   {
     id: "gallery",
     label: "Gallery",
-    gloss: "The card, given room — ivory ground, editorial serif, art does the talking.",
+    gloss: "The quiet room — warm paper, ink type, one bronze accent; the cards are the art.",
     entitlement: "free",
-    swatches: ["#f7f3ec", "#ffffff", "#211d16", "#9a6b1f"],
+    swatches: ["#faf8f4", "#ffffff", "#201d18", "#96762f"],
     scheme: "light",
   },
   {
@@ -65,8 +65,9 @@ export const THEMES: readonly WardrobeTheme[] = [
   },
 ] as const;
 
-/** The default face of migrated surfaces (spec §3.3); the site-wide
- * `:root` flip is §3.6 and lands with the home sweep. */
+/** The default face of the whole site since the flip (spec §3.6, fired
+ * 2026-07-05 with the quiet gallery): <html> always carries
+ * `data-theme` — an explicit cookie choice wins, no cookie means this. */
 export const DEFAULT_THEME: ThemeId = "gallery";
 
 export const THEME_COOKIE = "theme";

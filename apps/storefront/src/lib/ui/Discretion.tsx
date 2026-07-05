@@ -71,19 +71,19 @@ export function Discretion({ what, reason, selfInspectHref, customReason }: Disc
     <div
       role="note"
       aria-label={`Discretion: ${what}`}
-      className="inline-flex items-baseline gap-1.5 text-[11px] text-neutral-500 italic"
+      className="inline-flex items-baseline gap-1.5 text-[11px] text-ink-faint italic"
     >
       <span aria-hidden="true">⌐</span>
       <span>
-        <span className="text-neutral-400">{what}</span>
-        <span className="text-neutral-500"> — withheld; </span>
+        <span className="text-ink-muted">{what}</span>
+        <span className="text-ink-faint"> — withheld; </span>
         <span>{reasonText}</span>
         {selfInspectHref && (
           <>
             {" — "}
             <a
               href={selfInspectHref}
-              className="text-amber-500 hover:text-amber-400 not-italic"
+              className="text-accent hover:text-accent-strong not-italic"
             >
               you can see it here
             </a>

@@ -21,13 +21,12 @@ interface ErrorAlertProps {
 
 export function ErrorAlert({ title = "Could not load", description, action }: ErrorAlertProps) {
   return (
-    <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+    <div className="rounded-lg border border-danger/30 bg-danger/5 p-4">
       <div className="flex items-start gap-3">
-        <span aria-hidden className="text-red-400 text-lg leading-none mt-0.5">⚠</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-red-400">{title}</p>
+          <p className="text-sm font-semibold text-danger">{title}</p>
           {description && (
-            <div className="text-sm text-neutral-300 mt-1">{description}</div>
+            <div className="text-sm text-ink-muted mt-1">{description}</div>
           )}
           {action && <div className="mt-3">{action}</div>}
         </div>

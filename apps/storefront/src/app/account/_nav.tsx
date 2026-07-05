@@ -115,8 +115,8 @@ export function AccountNav() {
             href={item.href}
             className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition ${
               isActive(pathname, item.href)
-                ? "bg-amber-500 text-black"
-                : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                ? "bg-accent-wash text-accent-strong"
+                : "text-ink-muted hover:text-ink hover:bg-surface-subtle"
             }`}
           >
             {item.label}
@@ -129,7 +129,7 @@ export function AccountNav() {
         <nav className="flex flex-col gap-1 sticky top-8">
           {ACCOUNT_NAV_SECTIONS.map((section) => (
             <div key={section.label} className="mb-1">
-              <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
                 {section.label}
               </div>
               <ul className="space-y-0.5">
@@ -139,8 +139,8 @@ export function AccountNav() {
                       href={item.href}
                       className={`block px-4 py-2 rounded-lg text-sm font-medium transition ${
                         isActive(pathname, item.href)
-                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                          : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                          ? "bg-accent-wash text-accent-strong"
+                          : "text-ink-muted hover:text-ink hover:bg-surface-subtle"
                       }`}
                     >
                       {item.label}
@@ -152,13 +152,13 @@ export function AccountNav() {
           ))}
 
           {/* The long tail lives behind one door. */}
-          <div className="border-t border-neutral-800 mt-1 pt-2">
+          <div className="border-t border-border-subtle mt-1 pt-2">
             <Link
               href={MORE_TOOLS_ITEM.href}
               className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition ${
                 isActive(pathname, MORE_TOOLS_ITEM.href)
-                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                  ? "bg-accent-wash text-accent-strong"
+                  : "text-ink-muted hover:text-ink hover:bg-surface-subtle"
               }`}
             >
               {MORE_TOOLS_ITEM.label} →

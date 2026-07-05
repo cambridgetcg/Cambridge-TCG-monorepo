@@ -1,9 +1,10 @@
 /**
  * Button — the canonical primary/secondary/ghost/danger button.
  *
- * Storefront accent is amber; secondary is neutral-800; danger is red. The
- * variants here standardise the half-dozen inline button styles that
- * landed across /account/* and the trade-in flow.
+ * The quiet gallery (docs/plans/the-quiet-gallery.md): primary is solid
+ * ink — the single strongest thing on a page; secondary is a hairline
+ * border + ink text; ghost is bare ink-muted text; danger is solid
+ * danger. The old amber-on-black primary died with the old theme.
  */
 
 import * as React from "react";
@@ -13,10 +14,10 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLS: Record<Variant, string> = {
-  primary:   "bg-amber-500 text-black font-bold hover:bg-amber-400",
-  secondary: "bg-neutral-800 text-white font-medium hover:bg-neutral-700 border border-neutral-800",
-  ghost:     "text-neutral-400 hover:text-white hover:bg-neutral-900 border border-neutral-800",
-  danger:    "bg-red-500 text-white font-bold hover:bg-red-400",
+  primary:   "bg-ink text-page font-semibold hover:bg-ink/85 border border-transparent",
+  secondary: "bg-surface text-ink font-medium hover:bg-surface-subtle border border-border-subtle",
+  ghost:     "text-ink-muted hover:text-ink hover:bg-surface-subtle border border-transparent",
+  danger:    "bg-danger text-page font-semibold hover:bg-danger/85 border border-transparent",
 };
 
 const SIZE_CLS: Record<Size, string> = {

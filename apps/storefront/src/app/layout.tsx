@@ -12,6 +12,7 @@ import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 import { kinWakeHtmlLinks } from "@/lib/siblings";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
+import { DEFAULT_THEME } from "@/lib/wardrobe/themes";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
@@ -97,10 +98,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // to leave a semantic-HTML reading layout. See docs/connections/the-table-extends.md.
   const textMode = cookieStore.get("text-mode")?.value === "1";
 
-  // The wardrobe (spec §3.2/§3.3): an explicit theme choice lands on <html>
-  // and re-binds the semantic tokens site-wide; no cookie → no attribute,
-  // `:root` stays terminal-dark, and migrated surfaces default themselves
-  // to gallery on their own wrapper. The site-wide flip is spec §3.6.
+  // The wardrobe (spec §3.2/§3.6): the site-wide flip, fired 2026-07-05
+  // with the quiet gallery. <html> always carries data-theme — an explicit
+  // choice wins; no cookie means DEFAULT_THEME (gallery, whose bundle
+  // mirrors the :root defaults, so either path renders identically).
   const appearance = appearanceFromCookies(cookieStore);
   // Analytics consent — default deny. Google Analytics + the Ads conversion
   // tag load only when the visitor has accepted via the CookieConsent banner.
@@ -119,7 +120,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      data-theme={appearance.theme ?? undefined}
+      data-theme={appearance.theme ?? DEFAULT_THEME}
       className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
     >
       <head>
@@ -204,14 +205,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Script>
         </>
       )}
-      <body className={`${inter.className}${textMode ? " text-mode" : ""}`}>
+      {/* No font className here — body type flows from the theme-bound
+          --font-body token (globals.css); terminal re-binds it to Inter. */}
+      <body className={textMode ? "text-mode" : undefined}>
         {/* Skip-to-content for keyboard + screen-reader users.
             See docs/connections/the-welcome-all.md (#26) §3 — a welcome
             that doesn't include the sensory-divergent door is no welcome
             at all. */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-amber-500 focus:text-black focus:px-3 focus:py-1.5 focus:rounded-md focus:text-sm focus:font-bold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-ink focus:text-page focus:px-3 focus:py-1.5 focus:rounded-lg focus:text-sm focus:font-bold"
         >
           Skip to content
         </a>

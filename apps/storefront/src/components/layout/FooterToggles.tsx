@@ -24,7 +24,7 @@ export default function FooterToggles({ mathLang, textMode }: FooterTogglesProps
     <div className="flex items-center gap-4">
       <a
         href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=${back}`}
-        className="hover:text-neutral-400 transition underline underline-offset-2"
+        className="hover:text-ink transition underline underline-offset-2"
         aria-label={
           mathLang
             ? "Switch back to default English rendering"
@@ -36,7 +36,7 @@ export default function FooterToggles({ mathLang, textMode }: FooterTogglesProps
       </a>
       <a
         href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=${back}`}
-        className="hover:text-neutral-400 transition underline underline-offset-2"
+        className="hover:text-ink transition underline underline-offset-2"
         aria-label={
           textMode
             ? "Switch back to the visual layout"

@@ -23,12 +23,14 @@ interface UserChipProps {
   size?: "sm" | "md";
 }
 
+// Muted tier dots — tone semantics unchanged; plum/teal literals match
+// Badge's TONE_CLS purple/sky.
 const TIER_DOT: Record<string, string> = {
-  Elite:   "bg-purple-400",
-  Veteran: "bg-amber-400",
-  Trusted: "bg-emerald-400",
-  Starter: "bg-sky-400",
-  New:     "bg-neutral-500",
+  Elite:   "bg-[#6a5a8f]",
+  Veteran: "bg-warning",
+  Trusted: "bg-ok",
+  Starter: "bg-[#3e7d8f]",
+  New:     "bg-ink-faint",
 };
 
 export function UserChip({ username, displayName, avatarUrl, tier, size = "sm" }: UserChipProps) {
@@ -44,15 +46,15 @@ export function UserChip({ username, displayName, avatarUrl, tier, size = "sm" }
         <img
           src={avatarUrl}
           alt=""
-          className={`${avatarSize} rounded-full object-cover bg-neutral-800`}
+          className={`${avatarSize} rounded-full object-cover bg-surface-subtle`}
         />
       ) : (
-        <span className={`${avatarSize} rounded-full bg-neutral-800 text-neutral-400 inline-flex items-center justify-center font-semibold`}>
+        <span className={`${avatarSize} rounded-full bg-surface-subtle text-ink-muted inline-flex items-center justify-center font-semibold`}>
           {initial}
         </span>
       )}
-      {tier && <span className={`w-1.5 h-1.5 rounded-full ${TIER_DOT[tier] ?? "bg-neutral-500"}`} aria-hidden />}
-      <span className="text-neutral-200 truncate">{name}</span>
+      {tier && <span className={`w-1.5 h-1.5 rounded-full ${TIER_DOT[tier] ?? "bg-ink-faint"}`} aria-hidden />}
+      <span className="text-ink truncate">{name}</span>
     </span>
   );
 

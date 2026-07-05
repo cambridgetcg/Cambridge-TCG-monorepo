@@ -70,6 +70,18 @@ export const BRAND_PARAGRAPH =
 /** Tight 5-word version for OG metadata, social cards, footer credits. */
 export const BRAND_TAGLINE = "The TCG world's data provider.";
 
+/** The front door's statement — the quiet gallery home hero (docs/plans/
+ *  the-quiet-gallery.md, 2026-07-05). Honest and small: what the shop does
+ *  for the person standing at the door. The data-provider identity
+ *  (BRAND_HEADLINE) still leads /platform, the manifest, and every
+ *  partner-facing surface; the home page speaks to collectors first. */
+export const HOME_HERO_HEADLINE = "Cards, traded between collectors.";
+
+/** The quiet subhead under the home hero. Substrate-honest: looking is
+ *  free, and every number carries its source. */
+export const HOME_HERO_SUBHEAD =
+  "Look up any card for free — price, history, every source we know. Buy, sell, or trade; every number says where it came from.";
+
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
 export const BRAND_SELF_LABEL =
@@ -230,16 +242,16 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
         className={`max-w-5xl mx-auto px-4 py-10 ${className ?? ""}`}
         aria-labelledby="brand-headline"
       >
-        <p className="text-[11px] uppercase tracking-[0.2em] text-amber-400 mb-3">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-ink-faint mb-3">
           Cambridge TCG, 2026
         </p>
         <h1
           id="brand-headline"
-          className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-4xl"
+          className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-ink leading-tight max-w-4xl"
         >
           {BRAND_HEADLINE}
         </h1>
-        <p className="mt-4 text-base sm:text-lg text-neutral-300 max-w-3xl leading-relaxed">
+        <p className="mt-4 text-base sm:text-lg text-ink-muted max-w-3xl leading-relaxed">
           {BRAND_SUBHEAD}
         </p>
       </section>
@@ -247,15 +259,17 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
   }
   if (size === "compact") {
     return (
-      <p className={`text-xs text-neutral-500 ${className ?? ""}`}>
-        <span className="text-neutral-300 font-medium">{BRAND_TAGLINE}</span>
+      <p className={`text-xs text-ink-faint ${className ?? ""}`}>
+        <span className="text-ink-muted font-medium">{BRAND_TAGLINE}</span>
       </p>
     );
   }
   return (
     <section className={`max-w-3xl mx-auto px-4 py-6 ${className ?? ""}`}>
-      <h2 className="text-xl sm:text-2xl font-bold text-white">{BRAND_HEADLINE}</h2>
-      <p className="mt-2 text-sm text-neutral-300 leading-relaxed">{BRAND_SUBHEAD}</p>
+      <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
+        {BRAND_HEADLINE}
+      </h2>
+      <p className="mt-2 text-sm text-ink-muted leading-relaxed">{BRAND_SUBHEAD}</p>
     </section>
   );
 }
@@ -273,7 +287,7 @@ export function ThreeOperations({ className }: { className?: string }) {
     >
       <h2
         id="three-operations-heading"
-        className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-4"
+        className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4"
       >
         Three operations · one substrate
       </h2>
@@ -281,30 +295,26 @@ export function ThreeOperations({ className }: { className?: string }) {
         {THREE_OPERATIONS.map((op) => (
           <div
             key={op.id}
-            className={`rounded-xl p-4 border ${
+            className={`rounded-lg p-4 bg-surface border ${
               op.positioning === "primary"
-                ? "border-amber-500/40 bg-amber-500/[0.04]"
-                : "border-neutral-800 bg-neutral-900/40"
+                ? "border-border-strong"
+                : "border-border-subtle"
             }`}
           >
             <div className="flex items-baseline justify-between gap-2 mb-2">
-              <h3
-                className={`text-base font-semibold ${
-                  op.positioning === "primary" ? "text-amber-400" : "text-white"
-                }`}
-              >
+              <h3 className="font-display text-base font-semibold text-ink">
                 {op.name}
               </h3>
               {op.positioning === "primary" && (
-                <span className="text-[10px] uppercase tracking-wide text-amber-400 px-1.5 py-0.5 bg-amber-500/15 border border-amber-500/30 rounded">
+                <span className="text-[10px] uppercase tracking-wide text-accent px-1.5 py-0.5 bg-accent-wash border border-accent/30 rounded">
                   primary
                 </span>
               )}
             </div>
-            <p className="text-xs text-neutral-400 leading-relaxed mb-3">
+            <p className="text-xs text-ink-muted leading-relaxed mb-3">
               For {op.audience}.
             </p>
-            <p className="text-xs text-neutral-500 leading-relaxed mb-3">
+            <p className="text-xs text-ink-faint leading-relaxed mb-3">
               {op.notes}
             </p>
             {op.url.startsWith("http") ? (
@@ -312,12 +322,12 @@ export function ThreeOperations({ className }: { className?: string }) {
                 href={op.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-amber-400 hover:text-amber-300 font-mono"
+                className="text-xs text-accent hover:text-accent-strong font-mono"
               >
                 {op.url} ↗
               </a>
             ) : (
-              <a href={op.url} className="text-xs text-amber-400 hover:text-amber-300 font-mono">
+              <a href={op.url} className="text-xs text-accent hover:text-accent-strong font-mono">
                 {op.url} →
               </a>
             )}

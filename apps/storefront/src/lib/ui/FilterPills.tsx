@@ -1,9 +1,10 @@
 /**
  * FilterPills — a row of "All / open / shipped / completed" filter pills.
  *
- * Selected pill is amber (storefront accent). Clicking a pill navigates
- * via Link — the URL carries the filter intent. Pages drive this with a
- * buildHref helper that preserves other search params.
+ * Selected pill sits on the accent wash (the quiet gallery — docs/plans/
+ * the-quiet-gallery.md). Clicking a pill navigates via Link — the URL
+ * carries the filter intent. Pages drive this with a buildHref helper
+ * that preserves other search params.
  */
 
 import * as React from "react";
@@ -34,10 +35,10 @@ export function FilterPills({ pills, selected = "" }: FilterPillsProps) {
             key={p.value || "_all"}
             href={p.href}
             className={[
-              "px-3 py-1.5 rounded-full transition",
+              "px-3 py-1.5 rounded-full transition border",
               active
-                ? "bg-amber-500 text-black font-bold"
-                : "bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800",
+                ? "bg-accent-wash text-accent-strong font-medium border-accent/30"
+                : "bg-surface text-ink-muted hover:text-ink border-border-subtle",
             ].join(" ")}
           >
             {p.label}

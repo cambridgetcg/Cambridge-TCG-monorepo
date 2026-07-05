@@ -39,7 +39,7 @@ export function Term({ def, children }: TermProps) {
           if (e.key === "Escape") setOpen(false);
         }}
         onBlur={() => setOpen(false)}
-        className="cursor-help border-b border-dotted border-neutral-500 text-inherit hover:border-amber-400 hover:text-amber-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500"
+        className="cursor-help border-b border-dotted border-ink-faint text-inherit hover:border-accent hover:text-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
       >
         {children}
       </button>
@@ -47,7 +47,7 @@ export function Term({ def, children }: TermProps) {
         <span
           id={id}
           role="tooltip"
-          className="absolute left-1/2 top-full z-30 mt-1.5 w-64 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-neutral-200 shadow-xl"
+          className="absolute left-1/2 top-full z-30 mt-1.5 w-64 -translate-x-1/2 rounded-lg border border-border-subtle bg-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed text-ink shadow-mat"
         >
           {def}
         </span>

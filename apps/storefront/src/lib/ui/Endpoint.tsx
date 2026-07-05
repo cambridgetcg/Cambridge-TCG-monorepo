@@ -26,16 +26,16 @@ export function Endpoint({ path, method = "GET", format = "JSON" }: EndpointProp
   return (
     <a
       href={path}
-      className="not-prose inline-flex max-w-full items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-0.5 align-middle font-mono text-xs text-neutral-300 transition hover:border-neutral-500 hover:text-white"
+      className="not-prose inline-flex max-w-full items-center gap-1.5 rounded-md border border-border-subtle bg-surface px-2 py-0.5 align-middle font-mono text-xs text-ink transition hover:border-border-strong hover:text-accent"
     >
-      <span aria-hidden="true" className="text-neutral-500">
+      <span aria-hidden="true" className="text-ink-faint">
         {"{ }"}
       </span>
       {method !== "GET" && (
-        <span className="font-semibold text-amber-400">{method}</span>
+        <span className="font-semibold text-accent">{method}</span>
       )}
       <span className="truncate">{path}</span>
-      <span className="rounded-sm bg-neutral-800 px-1 text-[10px] uppercase tracking-wide text-neutral-400">
+      <span className="rounded-sm bg-surface-subtle px-1 text-[10px] uppercase tracking-wide text-ink-muted">
         {format}
       </span>
     </a>
