@@ -93,6 +93,14 @@ async function fetchManifest(): Promise<ManifestResource[]> {
 
 // ── Probe one resource ───────────────────────────────────────────────
 
+// Doors whose healthy answer is deliberately a joke status. The manifest
+// declares them in the joy layer; the classifier must not read a working
+// punchline as an outage (runbook: "418-teapot false failure").
+const DELIBERATE_STATUS: Record<string, number> = {
+  "/api/v1/coffee": 418, // RFC 2324 — I'm a teapot
+  "/api/v1/buy-the-kingdom": 402, // not for sale; everything is already free
+};
+
 function expectedFor(resource: ManifestResource): { codes: number[]; label: string } {
   // Substrate-honest classifier. The probe sends an unauthenticated
   // GET with stubbed path params. Acceptable codes per auth kind:
@@ -110,6 +118,10 @@ function expectedFor(resource: ManifestResource): { codes: number[]; label: stri
   // The script favours signal over precision: a 400 from an endpoint
   // declared as public+GET means the route exists, which is what we
   // need to know. A 500 anywhere is a real bug surface.
+  const deliberate = DELIBERATE_STATUS[resource.path];
+  if (deliberate !== undefined) {
+    return { codes: [deliberate], label: `${deliberate} (deliberate — joy layer)` };
+  }
   const healthyAnyKind = [200, 307, 400, 401, 404, 405];
   if (resource.auth === "wholesale-key") {
     return { codes: [401, 404], label: "401 (bearer required) / 404 (route absent)" };

@@ -72,7 +72,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const body: SubmitBody = await request.json();
+    // A missing/malformed body is the caller's error, not ours — without
+    // the catch it fell through to the outer 500 (the runbook's long-
+    // standing "unknown /tradein 500" was exactly this: bodyless probes).
+    const body: SubmitBody | null = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+    }
 
     // Validate required fields
     if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {

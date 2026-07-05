@@ -15,7 +15,12 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").t
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    // Bad/absent JSON is a 400, not a 500 — the outer catch used to
+    // swallow this as a server error (half of the "checkout 500 flake").
+    const body = await request.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: "Request body must be JSON." }, { status: 400 });
+    }
     const items: CartItem[] = body.items;
     const requestedCreditGbp = typeof body.creditToApply === "number" ? body.creditToApply : 0;
 
