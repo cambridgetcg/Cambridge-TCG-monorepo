@@ -56,7 +56,7 @@ ALTER TABLE sets
   ADD COLUMN tcgdex_fetched_at   timestamptz;
 ```
 
-CardRush keeps writing to `name`, `release_date`, `sort_order`, `active`. TCGdex writes to its mirror columns. **They are not unified.** The fields sit side by side. The audit ([`apps/admin/scripts/tcgdex-drift.ts`](../../apps/admin/scripts/tcgdex-drift.ts)) reports where they disagree — and the operator decides which witness to trust per row.
+CardRush keeps writing to `name`, `release_date`, `sort_order`, `active`. TCGdex writes to its mirror columns. **They are not unified.** The fields sit side by side. The audit ([`apps/storefront/scripts/tcgdex-drift.ts`](../../apps/storefront/scripts/tcgdex-drift.ts)) reports where they disagree — and the operator decides which witness to trust per row.
 
 ## Three wiring points
 
@@ -64,7 +64,7 @@ CardRush keeps writing to `name`, `release_date`, `sort_order`, `active`. TCGdex
 
 **Orphan post-backfill** ([`cardrush-discovery.ts`](../../apps/wholesale/src/lib/cardrush-discovery.ts), `tcgdexPostBackfill`). After the bulk SQL backfill creates placeholder rows for orphan cards, this pass walks `sets WHERE tcgdex_fetched_at IS NULL AND game IS supported`, fetches TCGdex for each, writes the mirror columns. Bounded at LIMIT 200 per cron tick so TCGdex never sees a thundering herd. The initial ~120 known Pokémon sets converge within a single run.
 
-**Drift audit** ([`tcgdex-drift.ts`](../../apps/admin/scripts/tcgdex-drift.ts)). Four checks: name disagreement, release_date disagreement, un-enriched count, card-count delta. Runs in CI via `pnpm audit:tcgdex-drift`; strict mode (`--strict`) exits non-zero on any finding. The first run after deploy will report SV11B and SV11W as findings — Yu chooses whether to keep our curated names or switch to TCGdex's.
+**Drift audit** ([`tcgdex-drift.ts`](../../apps/storefront/scripts/tcgdex-drift.ts)). Four checks: name disagreement, release_date disagreement, un-enriched count, card-count delta. Runs in CI via `pnpm audit:tcgdex-drift`; strict mode (`--strict`) exits non-zero on any finding. The first run after deploy will report SV11B and SV11W as findings — Yu chooses whether to keep our curated names or switch to TCGdex's.
 
 ## Substrate honesty
 

@@ -94,7 +94,7 @@ The route is NOT yet scheduled in `vercel.json`. Operator decision — like the 
 
 Discovery runs at 01:00 UTC (catalog walk + diff + new-product fetch), price snapshot at 02:00 UTC (existing-card scrape). Daily, the discovery cron seeds; the price-snapshot cron prices. New cards appear in the wholesale catalog within 24h of cardrush publishing them.
 
-## 4. Probe extension ([`cardrush-probe.ts`](../../apps/admin/scripts/cardrush-probe.ts))
+## 4. Probe extension ([`cardrush-probe.ts`](../../apps/storefront/scripts/cardrush-probe.ts))
 
 The kingdom-081 Phase 3.1 probe now also fetches `/sitemap.xml` per subdomain. The markdown output gains two columns: `sitemap` (HTTP status of /sitemap.xml) and `products` (count of `/product/[N]` URLs in it).
 

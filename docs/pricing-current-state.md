@@ -1,6 +1,6 @@
 # Pricing backend — current state and consolidation plan (2026-05-09)
 
-This document is the input artefact for the pricing-consolidation work. It snapshots the platform's pricing fragmentation today, names the gaps, and lays out the seven-phase plan that closes them. Re-run [`pnpm --filter @cambridge-tcg/admin pricing`](../apps/admin/scripts/pricing-audit.ts) after each phase to watch the findings shrink.
+This document is the input artefact for the pricing-consolidation work. It snapshots the platform's pricing fragmentation today, names the gaps, and lays out the seven-phase plan that closes them. Re-run [`pnpm --filter @cambridge-tcg/admin pricing`](../apps/storefront/scripts/pricing-audit.ts) after each phase to watch the findings shrink.
 
 > **Snapshot caveat.** Compiled from the codebase on 2026-05-09 against commit `d073059`. The narrative is hand-written; the findings table at §3 is machine-generated and reproducible.
 

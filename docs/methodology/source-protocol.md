@@ -262,7 +262,7 @@ A runner's responsibility:
 
 ## 7. The audit — `pnpm audit:tributaries`
 
-Run before merging any data-ingest change. Checks (see [`apps/admin/scripts/tributaries.ts`](../../apps/admin/scripts/tributaries.ts)):
+Run before merging any data-ingest change. Checks (see [`apps/storefront/scripts/tributaries.ts`](../../apps/storefront/scripts/tributaries.ts)):
 
 1. **Module-exists** — every entry in `SOURCES` (besides `undefined` planned slots) has a directory at `packages/data-ingest/src/<id>/`.
 2. **Default-export shape** — every module exports an object matching `SourceModule` (has `meta`, `read`, `normalize`).

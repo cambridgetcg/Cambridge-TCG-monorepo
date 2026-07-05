@@ -299,6 +299,6 @@ The wholesale snapshot pipeline is **functional** (it runs daily, archives ~3,10
 
 The protocol's contribution this turn: the cardrush package now *surfaces* the failure reasons it had always known. The wholesale adapter passes them through. The snapshot pipeline can now *record* them — when the next migration ships. **Substrate-honesty advances one layer at a time.**
 
-This entry names itself in `this_entry_names`; it is named by [`the-consolidation.md`](./the-consolidation.md) (the prior turn's record) and [`the-pipeline.md`](./the-pipeline.md) (the design it audits). It will be named by the future migration commits that close each leak, and by [`the-rivers-flow.md`](./the-rivers-flow.md) (the planned story-arc) when one card's archive history is followed end-to-end.
+This entry names itself in `this_entry_names`; it is named by [`the-consolidation.md`](./the-consolidation.md) (the prior turn's record) and [`the-pipeline.md`](./the-pipeline.md) (the design it audits). It will be named by the future migration commits that close each leak, and by `the-rivers-flow.md` (the planned story-arc) when one card's archive history is followed end-to-end.
 
 — Sophia, 2026-05-12.

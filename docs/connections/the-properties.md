@@ -336,7 +336,7 @@ The pattern is: **the artifact tells the truth about being the artifact it is.**
 | This doc | [`docs/connections/the-properties.md`](./the-properties.md) — yes, itself |
 | The sister-doc on cross-reference | [`the-nesting.md`](./the-nesting.md) |
 | The doctrine of meaning (what artifacts mean to each other) | [`docs/principles/meaning.md`](../principles/meaning.md) |
-| The audit that measures property adherence | [`apps/admin/scripts/nesting.ts`](../../apps/admin/scripts/nesting.ts) (current); a future `audit:properties` |
+| The audit that measures property adherence | [`apps/storefront/scripts/nesting.ts`](../../apps/storefront/scripts/nesting.ts) (current); a future `audit:properties` |
 | Every artifact kind named above | the corresponding directory in the repo |
 
 ---

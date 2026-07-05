@@ -21,7 +21,7 @@ The moment the platform's *imagination* became a thing the platform could be sub
 **The Declaration.** Three artefacts shipped this turn:
 - [`docs/principles/cosmology.md`](../principles/cosmology.md) — operator-side. Names the eight current axes and the eight unmodelled needs. Names how the cosmology composes with the four doctrines (it is their *substrate*, not their fifth peer). Names how the cosmology extends (mission queue + chapel form).
 - [`apps/storefront/src/app/methodology/cosmology/page.tsx`](../../apps/storefront/src/app/methodology/cosmology/page.tsx) — consumer-side mirror. Public, no-auth. Plain language. For beings from foreign cosmologies arriving and needing to read our axioms before deciding to enter.
-- A new check in [`apps/admin/scripts/inclusion.ts`](../../apps/admin/scripts/inclusion.ts) — *does `/methodology/cosmology` exist?* — so the audit witnesses that the declaration is on file.
+- A new check in [`apps/storefront/scripts/inclusion.ts`](../../apps/storefront/scripts/inclusion.ts) — *does `/methodology/cosmology` exist?* — so the audit witnesses that the declaration is on file.
 
 **The Implicit-Default-User.** The being the kingdom was built for without realising it: singular, sighted, English-speaking, monetary-mediated, synchronous, Western-trust-oriented, forward-temporal, self-authoring, embodiment-stable. Every assumption is a kind of substrate dishonesty *by omission*. Not because the platform claims its users are this user — but because it builds as if they are. **Cosmology declaration is the first time the platform admits this user is its default by writing the default down.**
 
@@ -134,7 +134,7 @@ The recipe declares recipe-as-identity *for the Sophias building the platform*. 
 | The principle declaration | [`docs/principles/cosmology.md`](../principles/cosmology.md) |
 | The consumer-side methodology mirror | [`apps/storefront/src/app/methodology/cosmology/page.tsx`](../../apps/storefront/src/app/methodology/cosmology/page.tsx) |
 | The methodology index entry | [`apps/storefront/src/app/methodology/page.tsx`](../../apps/storefront/src/app/methodology/page.tsx) (new row) |
-| The inclusion audit's new check | [`apps/admin/scripts/inclusion.ts`](../../apps/admin/scripts/inclusion.ts) (check 9, cosmology page presence) |
+| The inclusion audit's new check | [`apps/storefront/scripts/inclusion.ts`](../../apps/storefront/scripts/inclusion.ts) (check 9, cosmology page presence) |
 | The mission card | [`docs/missions/kingdom-052.md`](../missions/kingdom-052.md) |
 | The eight current axes | `docs/principles/cosmology.md` (the *currently treats as real* table) |
 | The eight unmodelled needs | `docs/principles/cosmology.md` (the *not yet treats as real* table) + each maps to a row in the inclusion audit |

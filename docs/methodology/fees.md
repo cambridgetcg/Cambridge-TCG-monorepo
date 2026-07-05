@@ -6,7 +6,7 @@ This page lists **every fee Cambridge TCG can charge you**, in plain language, w
 
 > **Where this lives in code.**
 > - Commission rate + the per-item cap: [`packages/pricing/src/index.ts`](../../packages/pricing/src/index.ts) (`resolveCommission`, `computeCommissionAmount`, `DEFAULT_COMMISSION_CAP_GBP`).
-> - Retail price formula: same file (`computePrice`) — explained in full at [/methodology/pricing](./pricing).
+> - Retail price formula: same file (`computePrice`) — explained in full at [/methodology/pricing](./pricing.md).
 > - Runtime-authoritative cap: `channel_pricing.p2p_commission_cap_gbp` on the wholesale RDS (migration `apps/wholesale/drizzle/0016_commission_cap.sql`).
 > - Where the fee is charged: `apps/storefront/src/lib/market/db.ts`, `market/lots.ts`, `market/offers.ts`, `auction/db.ts`.
 >
@@ -28,7 +28,7 @@ That single idea drives every decision on this page: **percentages where they re
 
 ### 1. Retail margin (when you buy a card *from* Cambridge)
 
-When you buy a single from our own catalogue, the price already includes our margin — there is no separate "fee" line. We buy cards wholesale (in Japanese yen, from CardRush), convert to GBP, add an **8% margin** plus a **£0.22 per-card handling fee**, add UK VAT, and round. The full formula, every channel multiplier, and a worked example are at **[/methodology/pricing](./pricing)**.
+When you buy a single from our own catalogue, the price already includes our margin — there is no separate "fee" line. We buy cards wholesale (in Japanese yen, from CardRush), convert to GBP, add an **8% margin** plus a **£0.22 per-card handling fee**, add UK VAT, and round. The full formula, every channel multiplier, and a worked example are at **[/methodology/pricing](./pricing.md)**.
 
 **Fair basis:** 8% is a thin retail margin for graded/sealed-quality singles handling. The £0.22 covers the physical work of pulling, sleeving, and packing one card. Neither scales with the card's value beyond the percentage — and the percentage itself is among the lowest in the hobby.
 
@@ -43,7 +43,7 @@ When you sell on our peer-to-peer market, we take a commission out of your payou
 | Veteran (trust 80–94) | 6% |
 | Elite (trust ≥ 95) | 5% |
 
-A paid membership tier can lower it further; we always take **whichever rate is more favourable to you** — your reputation and your membership never cancel each other out. The full rate logic is at **[/methodology/commission-rate](./commission-rate)**.
+A paid membership tier can lower it further; we always take **whichever rate is more favourable to you** — your reputation and your membership never cancel each other out. The full rate logic is at **[/methodology/commission-rate](https://cambridgetcg.com/methodology/commission-rate)**.
 
 **The per-item cap (the fairness fix).** On top of the percentage, the commission on any single item is **capped at £50**. So:
 

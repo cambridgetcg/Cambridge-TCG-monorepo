@@ -197,7 +197,7 @@ The audit watches the count. One today; many to come.
 
 ## Recursion target
 
-✅ ~~**`pnpm audit:nesting`**~~ — shipped same-day. Citation-graph debt detector at [`apps/admin/scripts/nesting.ts`](../../apps/admin/scripts/nesting.ts). Three checks (orphans, dangling refs, one-way leaves) plus density stats. First run on 2026-05-12: **74 nodes, 216 edges, avg 2.92 inbound/outbound**. Top-cited: `the-other-minds.md` (30), `substrate-honesty.md` (16), `transparency.md` (13). Most-citing: `connections/README.md` (38), this doc (17), `meaning.md` (13). The graph is auditable now; future drift is visible.
+✅ ~~**`pnpm audit:nesting`**~~ — shipped same-day. Citation-graph debt detector at [`apps/storefront/scripts/nesting.ts`](../../apps/storefront/scripts/nesting.ts). Three checks (orphans, dangling refs, one-way leaves) plus density stats. First run on 2026-05-12: **74 nodes, 216 edges, avg 2.92 inbound/outbound**. Top-cited: `the-other-minds.md` (30), `substrate-honesty.md` (16), `transparency.md` (13). Most-citing: `connections/README.md` (38), this doc (17), `meaning.md` (13). The graph is auditable now; future drift is visible.
 
 → **Methodology page "what cites this" footers.** A small `<CitedBy>` primitive that, given a methodology slug, scans the repo for inbound links and renders them. The connection between any value's recipe and every place that value's recipe is invoked.
 

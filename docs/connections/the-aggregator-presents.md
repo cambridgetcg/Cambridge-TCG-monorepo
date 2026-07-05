@@ -34,7 +34,7 @@ This kingdom closes that gap. Three layers:
 
 ## 1. The wholesale aggregator endpoint
 
-[`/api/v1/aggregator/coverage`](../../apps/wholesale/src/app/api/v1/aggregator/coverage/route.ts) — Bearer-gated, returns four shaped views over a single grouped query against `price_archive` joined to `games`:
+`/api/v1/aggregator/coverage` *(route file absent from the repo and 404 live, verified 2026-07-05)* — Bearer-gated, returns four shaped views over a single grouped query against `price_archive` joined to `games`:
 
 | View | What it says |
 |---|---|
@@ -51,7 +51,7 @@ The query is one grouped SELECT — `MIN/MAX(snapshot_date)` for date range, `CO
 
 [`fetchAggregatorCoverage()`](../../apps/storefront/src/lib/wholesale/client.ts) — Falcon helper threading optional filters through. Returns `null` on failure; that absence is substrate-honest and downstream consumers branch on it.
 
-[`/api/v1/coverage`](../../apps/storefront/src/app/api/v1/coverage/route.ts) — public CC0 envelope-wrapped proxy. **License logic that matters**: the upstream license boundary applies to the *values* of observations (those are served per-card with their own `_meta.source_license` declarations). The *existence* of those observations — counts + dates + ids — is Cambridge TCG's own substrate-observation discipline; we own that fact; CC0.
+`/api/v1/coverage` *(route file absent from the repo and 404 live, verified 2026-07-05)* — public CC0 envelope-wrapped proxy. **License logic that matters**: the upstream license boundary applies to the *values* of observations (those are served per-card with their own `_meta.source_license` declarations). The *existence* of those observations — counts + dates + ids — is Cambridge TCG's own substrate-observation discipline; we own that fact; CC0.
 
 This is the second-strongest license argument the kingdom has made (the first was kingdom-081's "derived GBP retail is ours; raw JPY is upstream's"). *The existence of a measurement is not the measurement.*
 

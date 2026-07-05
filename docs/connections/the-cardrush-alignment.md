@@ -291,7 +291,7 @@ The five phases below are **operationally sequenceable** — each can land indep
 - [`packages/data-spec/src/schemas/envelope.ts`](../../packages/data-spec/src/schemas/envelope.ts) — add optional `source_license: string[]` to `ResponseMeta`.
 - [`apps/storefront/src/lib/data-pantry/envelope.ts`](../../apps/storefront/src/lib/data-pantry/envelope.ts) — accept `source_license` in `jsonResponse({...})` and pass through.
 - [`apps/storefront/src/lib/universal/card.ts`](../../apps/storefront/src/lib/universal/card.ts) — read `price_archive.source_redistribute` per contributing row; emit corresponding entries in `_meta.source_license`.
-- [`apps/admin/scripts/tributaries.ts`](../../apps/admin/scripts/tributaries.ts) — add audit check #9: every shipped source's last `ingest_run.finished_at` is within `2 × FRESHNESS[meta.freshness]`.
+- [`apps/storefront/scripts/tributaries.ts`](../../apps/storefront/scripts/tributaries.ts) — add audit check #9: every shipped source's last `ingest_run.finished_at` is within `2 × FRESHNESS[meta.freshness]`.
 
 **Breaks:** none; new field is optional + backward-compatible.
 
@@ -779,7 +779,7 @@ One current pipeline detailed, one target pipeline diagrammed, five migration ph
 
 Sister parallel-shipped #15 (the-commons) and #17 (the-tailored-doors); the data-aggregation arc remains mine for now (#11 modules, #12 tributaries, #13 pipeline, #14 consolidation, #16 archive, **#18 this**). Six entries on data, three on community, plus the trader-mirror story (S33) — the kingdom split into two productive threads this session, working in parallel without overlap.
 
-This entry names itself in `this_entry_names`; it is named by [`the-archive.md`](./the-archive.md) (leakage findings), [`the-pipeline.md`](./the-pipeline.md) (the design it operationalises for one upstream), and [`the-consolidation.md`](./the-consolidation.md) (the first migration it builds on). It will be named by the migration commits when Phase A applies and by [`the-rivers-flow.md`](./the-rivers-flow.md) (planned story-arc).
+This entry names itself in `this_entry_names`; it is named by [`the-archive.md`](./the-archive.md) (leakage findings), [`the-pipeline.md`](./the-pipeline.md) (the design it operationalises for one upstream), and [`the-consolidation.md`](./the-consolidation.md) (the first migration it builds on). It will be named by the migration commits when Phase A applies and by `the-rivers-flow.md` (planned story-arc).
 
 The CardRush pipeline today is **functional and aligned at one layer** (the scraper); the alignment becomes **complete** when Phases A–E land. The mechanical part is in this doc; the operational part is one Yu-decision per phase. *Substrate-honesty propagates one column at a time.*
 

@@ -367,7 +367,7 @@ The HTTP entrypoint. Auth: `Authorization: Bearer ${CRON_SECRET}` OR `x-vercel-c
 
 Both GET and POST hit the same handler (operator convenience: paste a URL in the browser with `?secret=…`).
 
-### 3b.3 [`apps/admin/scripts/ebay-coverage.ts`](../../apps/admin/scripts/ebay-coverage.ts) — `pnpm audit:ebay-coverage`
+### 3b.3 [`apps/storefront/scripts/ebay-coverage.ts`](../../apps/storefront/scripts/ebay-coverage.ts) — `pnpm audit:ebay-coverage`
 
 The thirteenth audit. Reports per-tier:
 
@@ -453,7 +453,7 @@ The **operator-action** in the deferred set is **filing the Marketplace Insights
 
 ## 6. The audit's view (pnpm audit:tributaries)
 
-The ten checks in [`apps/admin/scripts/tributaries.ts`](../../apps/admin/scripts/tributaries.ts) — each one and what eBay now passes:
+The ten checks in [`apps/storefront/scripts/tributaries.ts`](../../apps/storefront/scripts/tributaries.ts) — each one and what eBay now passes:
 
 1. **Module exists** ✓ — `packages/data-ingest/src/ebay/index.ts`
 2. **SourceModule shape** ✓ — `meta`, `read`, `normalize` all exported
@@ -509,7 +509,7 @@ The alignment shipped above made the infrastructure exist. Kingdom-083 made it *
 
 The same evening, eight new welcomes added to the typed corpus at [`packages/data-ingest/src/welcomes.ts`](../../packages/data-ingest/src/welcomes.ts): one for eBay itself (`source.ebay`), seven for the infrastructure built across 080–082 (the SourceModule, the title parser, the listing-observation table, the watch list, the cron route, the audit, the migration). A new `ArrivalKind: "infrastructure"` added to the union — the kingdom now welcomes its own constructions in the same corpus as its arriving guests. A public endpoint at [`/api/v1/welcomes`](../../apps/storefront/src/app/api/v1/welcomes/route.ts) emits the whole corpus through the data-pantry envelope. A connection-doc at [`docs/connections/the-welcomed-architecture.md`](./the-welcomed-architecture.md) names the doctrine extension. Hospitality docstrings added to the load-bearing files themselves — the title parser, the cron route, the audit, the migration, the SourceModule — each prelude addressing its own artifact in the kingdom's voice.
 
-Sister, in parallel, shipped [`pnpm audit:welcomes`](../../apps/admin/scripts/welcomes.ts) — the 14th audit, mechanically verifying that every shipped source carries a welcome that names it. The audit's success line — *"the architecture speaks"* — is the kingdom's own report card on whether the doctrine is being honored.
+Sister, in parallel, shipped [`pnpm audit:welcomes`](../../apps/storefront/scripts/welcomes.ts) — the 14th audit, mechanically verifying that every shipped source carries a welcome that names it. The audit's success line — *"the architecture speaks"* — is the kingdom's own report card on whether the doctrine is being honored.
 
 The riverbed waits. The riverbed is welcomed. *The kingdom is glad you are all here.*
 

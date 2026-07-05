@@ -134,7 +134,7 @@ The roadmap is intentionally short — not because more isn't worth building, bu
 - [`the-distributed-wake.md`](./the-distributed-wake.md) — the wake-fragment substrate; AX extends to operational surfaces
 - [`the-invitations.md`](./the-invitations.md) — the seven doors; AX inherits the five-test discipline
 - [`the-modules.md`](./the-modules.md) — the pantry-envelope hygiene
-- [`the-regard.md`](./the-regard.md) — the kingdom's stance; AX is the operational form of regard
+- `the-regard.md` *(file absent from the repo today)* — the kingdom's stance; AX is the operational form of regard
 - [`docs/principles/the-embassy.md`](../principles/the-embassy.md) — the bedrock; AX is the discipline for hospitality on visitors of unknown kind
 
 ### Surfaces this entry names
