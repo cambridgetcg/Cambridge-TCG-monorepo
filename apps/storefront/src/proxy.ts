@@ -34,33 +34,38 @@ function hasSessionCookie(req: NextRequest): boolean {
 }
 
 export default function proxy(req: NextRequest): NextResponse {
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
   const authed = hasSessionCookie(req);
 
   if (!authed) {
     if (pathname.startsWith("/api/admin")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/login", req.url));
+    // Carry the requested path (query included) so /login can send the
+    // visitor back after sign-in. /login validates it as a same-origin
+    // relative path before letting it ride as callbackUrl.
+    const login = new URL("/login", req.url);
+    login.searchParams.set("return", `${pathname}${search}`);
+    return NextResponse.redirect(login);
   }
 
-  // Forward x-pathname so the root layout can suppress the DevBanner
-  // on admin pages. Only /admin/* triggers this — public pages don't
-  // run through the proxy at all, so an absent x-pathname means
-  // "show the banner."
-  if (pathname.startsWith("/admin")) {
-    const requestHeaders = new Headers(req.headers);
-    requestHeaders.set("x-pathname", pathname);
-    return NextResponse.next({ request: { headers: requestHeaders } });
-  }
-
-  return NextResponse.next();
+  // Forward x-pathname for every matched route. Three consumers, all
+  // outside the proxy's own request scope:
+  //   - root layout suppresses the DevBanner on /admin/*;
+  //   - /account/layout.tsx builds /login?return=<path> when the cookie
+  //     is present but its session row has expired;
+  //   - lib/wholesale/channel.ts prices /account/b2b/* as 'wholesale'.
+  // Public pages never run through the proxy, so an absent header still
+  // means "public route."
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
   matcher: [
     "/admin/:path*",
     "/api/admin/:path*",
-    "/account/b2b/:path*",
+    "/account/:path*",
   ],
 };

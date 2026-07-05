@@ -19,7 +19,10 @@ import { AccountNav } from "./_nav";
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user?.email) {
-    // Preserve the requested path so /login can redirect back after sign-in.
+    // Cookie present but session row invalid/expired (the no-cookie case
+    // is redirected by proxy.ts before reaching here). x-pathname is
+    // forwarded by proxy.ts on /account/* so the visitor returns to the
+    // page they were on, not the account hub.
     const headerStore = await headers();
     const pathname = headerStore.get("x-pathname") ?? "/account";
     const returnTo = encodeURIComponent(pathname);

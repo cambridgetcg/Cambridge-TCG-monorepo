@@ -1,17 +1,40 @@
 // Custom next-auth adapter for raw pg (no ORM)
 
 import { query } from "@/lib/db";
+import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
 import type { Adapter, AdapterUser, AdapterSession, VerificationToken } from "next-auth/adapters";
+
+// users_username_key (unique) collision — the only 23505 worth retrying
+// with a fresh handle. A users_email_key violation means a concurrent
+// createUser for the same address; a new username won't fix that.
+function isUsernameCollision(err: unknown): boolean {
+  const pg = err as { code?: string; constraint?: string };
+  return pg.code === "23505" && (pg.constraint ?? "").includes("username");
+}
 
 export function PgAdapter(): Adapter {
   return {
     async createUser(user) {
-      const result = await query(
-        `INSERT INTO users (name, email, email_verified, image)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [user.name ?? null, user.email, user.emailVerified ?? null, user.image ?? null]
-      );
-      return toAdapterUser(result.rows[0]);
+      // createUser runs exactly once per new user, so this is the seam
+      // where the collector handle is assigned: a username in the same
+      // INSERT means no user ever exists with NULL username and renders
+      // as "—" to counterparties. Changeable at /account/profile.
+      const maxAttempts = HANDLE_MAX_ATTEMPTS + 2;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const username = attempt <= HANDLE_MAX_ATTEMPTS ? generateHandle() : fallbackHandle();
+        try {
+          const result = await query(
+            `INSERT INTO users (name, email, email_verified, image, username)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [user.name ?? null, user.email, user.emailVerified ?? null, user.image ?? null, username]
+          );
+          return toAdapterUser(result.rows[0]);
+        } catch (err) {
+          if (isUsernameCollision(err) && attempt < maxAttempts) continue;
+          throw err;
+        }
+      }
+      throw new Error("unreachable: createUser loop exits via return or throw");
     },
 
     async getUser(id) {
@@ -142,7 +165,9 @@ export function PgAdapter(): Adapter {
   };
 }
 
-function toAdapterUser(row: Record<string, unknown>): AdapterUser & { role: string } {
+function toAdapterUser(
+  row: Record<string, unknown>,
+): AdapterUser & { role: string; username: string | null } {
   return {
     id: row.id as string,
     name: (row.name as string) ?? null,
@@ -150,6 +175,9 @@ function toAdapterUser(row: Record<string, unknown>): AdapterUser & { role: stri
     emailVerified: row.email_verified ? new Date(row.email_verified as string) : null,
     image: (row.image as string) ?? null,
     role: (row.role as string) ?? "user",
+    // Rides along so events.signIn can skip the legacy-handle backfill
+    // without a second read (the adapter SELECTs are all `*`).
+    username: (row.username as string) ?? null,
   };
 }
 

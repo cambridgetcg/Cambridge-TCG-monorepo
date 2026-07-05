@@ -11,9 +11,13 @@
 //
 // The `u` param carries the full callback URL. We validate it is
 // same-origin and points at the email callback path — never a free
-// redirect.
+// redirect. The post-sign-in destination (callbackUrl, e.g. a ?return=
+// path from /login) rides *inside* `u` as one of the callback URL's own
+// query params, so passing `u` through untouched preserves it across
+// this hop — including in a different browser than the one that
+// requested the link, where no callback-url cookie exists.
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -32,10 +36,16 @@ function safeCallbackUrl(raw: string | null): string | null {
 function VerifyInner() {
   const params = useSearchParams();
   const [continuing, setContinuing] = useState(false);
-  const target = useMemo(
-    () => (typeof window === "undefined" ? null : safeCallbackUrl(params.get("u"))),
-    [params],
-  );
+  // Validation needs window.location.origin, so it runs after mount.
+  // Evaluating during SSR (where it could only ever say "invalid")
+  // hydration-mismatched against the client on every valid link;
+  // `undefined` = not yet evaluated, render nothing until then.
+  const [target, setTarget] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    setTarget(safeCallbackUrl(params.get("u")));
+  }, [params]);
+
+  if (target === undefined) return null;
 
   if (!target) {
     return (

@@ -286,6 +286,9 @@ export default function EditProfilePage() {
         {usernameError && (
           <p className="text-red-400 text-xs mt-1">{usernameError}</p>
         )}
+        <p className="text-neutral-600 text-xs mt-1">
+          New accounts get a starter handle picked at first sign-in — change it here any time.
+        </p>
       </div>
 
       {/* Bio */}

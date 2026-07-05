@@ -1,9 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+// ?return= arrives from the account layout / proxy when an
+// unauthenticated visitor hits a gated page. Only a same-origin relative
+// path may ride the flow as callbackUrl — anything else (protocol-
+// relative "//", backslash tricks, absolute URLs, a loop back into
+// /login) falls back to /account.
+function safeReturnPath(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  if (raw === "/login" || raw.startsWith("/login/") || raw.startsWith("/login?")) return null;
+  return raw;
+}
+
+// Mirrors @auth/core's email normalizer (no quotes, exactly one "@",
+// non-empty local + domain). Server-side that failure collapses into a
+// generic error redirect, so catching it here is the only way to tell
+// the user "the address is malformed" rather than "sending failed".
+function isValidEmail(email: string): boolean {
+  if (email.includes('"')) return false;
+  const parts = email.split("@");
+  return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0;
+}
+
+// The signin POST answers with a redirect chain; the error code (if any)
+// is a query param on the final URL fetch() landed on.
+function errorCodeFrom(res: Response): string | null {
+  try {
+    return new URL(res.url).searchParams.get("error");
+  } catch {
+    return null;
+  }
+}
+
+// Honest mapping of what the auth API actually exposes. There is no
+// application-level rate limit; 429 can still arrive from platform
+// protection in front of the app, so it gets named — nothing else is
+// invented.
+function messageFor(res: Response): string | null {
+  if (res.status === 429) {
+    return "Too many sign-in attempts right now. Wait a minute, then try again.";
+  }
+  const code = errorCodeFrom(res);
+  if (code === "Configuration") {
+    // Send failures surface as this code — the failure is ours, not theirs.
+    return "We couldn't send the email — a problem on our side. Please try again in a minute.";
+  }
+  if (code === "MissingCSRF") {
+    return "The sign-in form expired. Please try again.";
+  }
+  if (code === "AccessDenied") {
+    return "Sign-in was declined for this email address.";
+  }
+  if (code) {
+    return `Sign-in failed (${code}). Please try again.`;
+  }
+  if (!res.ok) {
+    return `Something went wrong (HTTP ${res.status}). Please try again.`;
+  }
+  return null;
+}
+
+function LoginInner() {
+  const params = useSearchParams();
+  const returnTo = safeReturnPath(params.get("return"));
+
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -12,23 +76,30 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
+    const trimmed = email.trim().toLowerCase();
+    if (!isValidEmail(trimmed)) {
+      setError("That doesn't look like a valid email address — check for typos.");
+      return;
+    }
+
+    setLoading(true);
     try {
       const res = await fetch("/api/auth/signin/email", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          email: email.trim().toLowerCase(),
+          email: trimmed,
           csrfToken: await getCsrfToken(),
-          callbackUrl: "/account",
+          callbackUrl: returnTo ?? "/account",
         }),
       });
 
-      if (res.ok || res.redirected) {
-        setSent(true);
+      const failure = messageFor(res);
+      if (failure) {
+        setError(failure);
       } else {
-        setError("Something went wrong. Please try again.");
+        setSent(true);
       }
     } catch {
       setError("Network error. Please try again.");
@@ -46,6 +117,12 @@ export default function LoginPage() {
           <p className="text-neutral-400 mb-6">
             We sent a sign-in link to <span className="text-white font-medium">{email}</span>
           </p>
+          {returnTo && (
+            <p className="text-sm text-neutral-400 mb-6">
+              Signing in will take you back to{" "}
+              <span className="text-white font-medium">{returnTo}</span>.
+            </p>
+          )}
           <p className="text-sm text-neutral-500">
             Check your spam folder if you don&apos;t see it.
           </p>
@@ -92,6 +169,14 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }
 
