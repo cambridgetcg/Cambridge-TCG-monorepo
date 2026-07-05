@@ -45,6 +45,7 @@ export function renderEntry(entry: LifecycleEntry): JourneyEvent | null {
     saved_search:   renderSavedSearch,
     watch_alert:    renderWatchAlert,
     match:          renderMatch,
+    swap:           renderSwap,
   };
   return dispatch[entry.domain](entry);
 }
@@ -542,5 +543,47 @@ function matchSummary(action: string, opponent: string, result: string | null): 
     case "match_cancelled": return `Match cancelled vs ${opponent}`;
     case "rating_changed":  return `Rating changed after match vs ${opponent}`;
     default:                return action.replace(/_/g, " ");
+  }
+}
+
+// ── swap ───────────────────────────────────────────────────────────────
+// Collector swap proposals (swap_lifecycle_log). Metadata carries the
+// viewer's role so summaries read from their side of the table.
+function renderSwap(e: LifecycleEntry): JourneyEvent {
+  const role = str(e.metadata, "role"); // "proposer" | "recipient" | "unknown"
+  return {
+    kind: `swap.${e.action}`,
+    summary: swapSummary(e.action, role),
+    at: e.at,
+    link: `/account/swaps/${e.subject_id}`,
+    group: "trade",
+    tone:
+      e.action === "accepted" || e.action === "completed" || e.action === "receipt_confirmed"
+        ? "emerald"
+      : e.action === "declined" || e.action === "cancelled" || e.action === "expired"
+        ? "red"
+      : e.action === "shipped" || e.action === "shipping"
+        ? "sky"
+      : "default",
+  };
+}
+
+function swapSummary(action: string, role: string | null): string {
+  const mine = role === "proposer";
+  switch (action) {
+    case "created":           return "Swap drafted";
+    case "proposed":          return mine ? "Swap proposed" : "Swap proposal received";
+    case "countered":         return "Swap counter-proposed";
+    case "accepted":          return "Swap accepted";
+    case "declined":          return "Swap declined";
+    case "cancel_requested":  return "Swap cancellation requested";
+    case "cancelled":         return "Swap cancelled";
+    case "expired":           return "Swap proposal expired";
+    case "address_set":       return "Swap shipping address added";
+    case "shipping":          return "Swap moved to shipping — both addresses in";
+    case "shipped":           return "Swap parcel marked shipped";
+    case "receipt_confirmed": return "Swap receipt confirmed";
+    case "completed":         return "Swap completed — both sides received";
+    default:                  return `Swap ${action.replace(/_/g, " ")}`;
   }
 }

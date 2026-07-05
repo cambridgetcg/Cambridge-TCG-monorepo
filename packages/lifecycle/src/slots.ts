@@ -806,8 +806,72 @@ export function createMatchSlot(query: QueryFn): LifecycleSlot {
   };
 }
 
+// ── swap ───────────────────────────────────────────────────────────────
+// The collector-swap book (storefront migration 0109_swap_proposals.sql).
+// The user is either party of swap_proposals; role lands in metadata so
+// renderers can compose "you proposed / you received" without a second
+// query.
+//
+// "swap" is in the LifecycleDomain union and createAllSlots(); every
+// host journey dispatch must therefore carry a swap renderer (the
+// dispatch is an exhaustive Record — tsc enforces it).
+export type SwapLifecycleEntry = Omit<LifecycleEntry, "domain"> & { domain: "swap" };
+export type SwapLifecycleSlot = Omit<LifecycleSlot, "domain" | "forUser"> & {
+  domain: "swap";
+  forUser(userId: string, opts?: Parameters<LifecycleSlot["forUser"]>[1]): Promise<SwapLifecycleEntry[]>;
+};
+
+export function createSwapSlot(query: QueryFn): SwapLifecycleSlot {
+  return {
+    domain: "swap",
+    async forUser(userId, opts = {}): Promise<SwapLifecycleEntry[]> {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const sinceClause = opts.since ? `AND log.created_at >= $3` : "";
+      const params: unknown[] = [userId, limit];
+      if (opts.since) params.push(opts.since.toISOString());
+
+      const r = await query(
+        `SELECT log.id::text AS id, log.action, log.actor_id, log.actor_label,
+                log.reason, log.metadata, log.created_at,
+                log.swap_id::text AS subject_id,
+                s.status, s.cash_delta_pence,
+                CASE WHEN s.proposer_id = $1::uuid THEN 'proposer'
+                     WHEN s.recipient_id = $1::uuid THEN 'recipient'
+                     ELSE 'unknown' END AS role
+           FROM swap_lifecycle_log log
+           JOIN swap_proposals s ON s.id = log.swap_id
+          WHERE (s.proposer_id = $1::uuid OR s.recipient_id = $1::uuid)
+            ${sinceClause}
+          ORDER BY log.created_at DESC
+          LIMIT $2`,
+        params,
+      );
+
+      return r.rows.map((row) => {
+        const baseMeta = (row.metadata as Record<string, unknown> | null) ?? {};
+        return {
+          domain: "swap" as const,
+          action: String(row.action),
+          actor_label: (row.actor_label as string | null) ?? null,
+          actor_user_id: (row.actor_id as string | null) ?? null,
+          subject_id: String(row.subject_id),
+          user_id: userId,
+          reason: (row.reason as string | null) ?? null,
+          metadata: {
+            ...baseMeta,
+            role: row.role,
+            status: row.status,
+            cash_delta_pence: row.cash_delta_pence,
+          },
+          at: new Date(row.created_at as string | Date),
+        };
+      });
+    },
+  };
+}
+
 // ── createAllSlots ─────────────────────────────────────────────────────
-// Convenience: produce all seventeen slots from one query function. Most
+// Convenience: produce all eighteen slots from one query function. Most
 // app-side registries call this and use the result directly. Apps that
 // want a subset can pick individual factories above.
 export function createAllSlots(query: QueryFn): readonly LifecycleSlot[] {
@@ -829,5 +893,6 @@ export function createAllSlots(query: QueryFn): readonly LifecycleSlot[] {
     createSavedSearchSlot(query),
     createWatchAlertSlot(query),
     createMatchSlot(query),
+    createSwapSlot(query),
   ];
 }

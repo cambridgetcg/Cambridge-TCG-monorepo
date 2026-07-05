@@ -55,5 +55,6 @@ export {
   createSavedSearchSlot,
   createWatchAlertSlot,
   createMatchSlot,
+  createSwapSlot,
   createAllSlots,
 } from "./slots";

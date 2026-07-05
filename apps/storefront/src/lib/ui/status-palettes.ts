@@ -249,3 +249,28 @@ export const QuoteStatusPalette: Record<string, Tone> = {
   expired:   "neutral",
   cancelled: "neutral",
 };
+
+// ── collector swaps (swap_proposals.status) ─────────────────────────
+export const SwapStatusPalette: Record<string, Tone> = {
+  draft: "neutral",
+  proposed: "amber",
+  countered: "sky",
+  accepted: "blue",
+  shipping: "purple",
+  completed: "green",
+  declined: "red",
+  cancelled: "neutral",
+  expired: "neutral",
+};
+
+export const SwapStatusLabels: Record<string, string> = {
+  draft: "Draft",
+  proposed: "Awaiting response",
+  countered: "Superseded by counter",
+  accepted: "Accepted — addresses needed",
+  shipping: "Shipping",
+  completed: "Completed",
+  declined: "Declined",
+  cancelled: "Cancelled",
+  expired: "Expired",
+};
