@@ -20,6 +20,65 @@ import NotificationBell from "./NotificationBell";
 import { MegaMenu } from "./MegaMenu";
 import { STOREFRONT_PRIMARY_NAV } from "@/lib/nav/menu-config";
 
+// Unread-DM badge on an envelope link to /account/messages. Counts
+// unread CONVERSATIONS (same source as the /account attention list),
+// not messages — ten replies in one thread is one unit of "go look".
+// Own 60s interval: the bell's poll lives inside <NotificationBell>
+// and counts notifications only; DM notifications dedupe per
+// (conversation, day), so same-day follow-ups would otherwise stay
+// silent. Skips ticks while the tab is hidden.
+function MessagesIndicator() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/messages/unread-count");
+        if (r.ok) {
+          const d = await r.json();
+          if (!cancelled) setCount(d.count ?? 0);
+        }
+      } catch {
+        // Nav polling shouldn't surface transient errors.
+      }
+    };
+    load();
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  return (
+    <Link
+      href="/account/messages"
+      aria-label={`Messages${count > 0 ? ` (${count} unread conversation${count === 1 ? "" : "s"})` : ""}`}
+      className="relative p-2 text-neutral-300 hover:text-white transition"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5l9 6 9-6" />
+      </svg>
+      {count > 0 && (
+        <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export default function Nav() {
   const { totalItems, openDrawer } = useCart();
   const [loggedIn, setLoggedIn] = useState(false);
@@ -88,6 +147,7 @@ export default function Nav() {
           >
             {loggedIn ? "Account" : "Sign In"}
           </Link>
+          {loggedIn && <MessagesIndicator />}
           {loggedIn && <NotificationBell />}
           <button
             onClick={openDrawer}
@@ -116,8 +176,9 @@ export default function Nav() {
           </button>
         </div>
 
-        {/* Mobile: bell + cart + hamburger */}
+        {/* Mobile: messages + bell + cart + hamburger */}
         <div className="flex md:hidden items-center gap-3">
+          {loggedIn && <MessagesIndicator />}
           {loggedIn && <NotificationBell />}
           <button
             onClick={openDrawer}

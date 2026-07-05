@@ -9,8 +9,9 @@
 // (user_a_id < user_b_id) so one DB row covers both directions.
 // The sortPair helper hides the ordering from callers.
 
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { notify } from "@/lib/notifications/db";
+import { dispatchDmUnreadEmail } from "@/lib/email/handlers/dm-unread";
 
 export interface DmConversation {
   id: string;
@@ -24,6 +25,7 @@ export interface DmConversation {
   last_read_at_b: string | null;
   archived_a: boolean;
   archived_b: boolean;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
   // Joined for inbox render — the OTHER party's profile fields.
@@ -46,8 +48,14 @@ export interface DmMessage {
 
 type Result<T> = { ok: true; value: T } | { ok: false; reason: string; status: number };
 
-const RATE_LIMIT_PER_MINUTE = 5;
+// 10/min: a shipping-address exchange is several short lines in quick
+// succession — the old 5/min tripped mid-exchange. 50/day still caps
+// broadcast abuse. Documented at /methodology/messaging.
+const RATE_LIMIT_PER_MINUTE = 10;
 const RATE_LIMIT_PER_DAY = 50;
+// New threads (distinct counterparties) opened per hour. Messaging ten
+// strangers in an hour is already unusual; opening more is a spam shape.
+const THREAD_OPENS_PER_HOUR = 10;
 const MAX_BODY_LEN = 2000;
 
 // ── Internal: canonicalise the user pair ──
@@ -70,6 +78,45 @@ export async function isBlockedEither(a: string, b: string): Promise<boolean> {
     [a, b],
   );
   return r.rows.length > 0;
+}
+
+// ── Shared pre-condition guard ──
+//
+// One gate for BOTH ways a conversation reaches another user's inbox:
+// sending a message and opening an (empty) thread. Before this guard
+// existed at thread-open, anyone could park empty threads in a blocked
+// user's inbox via POST /api/messages/conversations.
+export async function assertCanMessage(
+  senderId: string, recipientId: string,
+): Promise<Result<void>> {
+  if (senderId === recipientId) {
+    return { ok: false, reason: "You can't message yourself.", status: 400 };
+  }
+
+  const rcpt = await query(
+    `SELECT id, accepts_messages FROM users WHERE id = $1`,
+    [recipientId],
+  );
+  if (rcpt.rows.length === 0) {
+    return { ok: false, reason: "Recipient not found.", status: 404 };
+  }
+  if (!rcpt.rows[0].accepts_messages) {
+    return {
+      ok: false,
+      reason: "This user isn't accepting messages.",
+      status: 403,
+    };
+  }
+
+  if (await isBlockedEither(senderId, recipientId)) {
+    return {
+      ok: false,
+      reason: "Cannot send — block list prevents this conversation.",
+      status: 403,
+    };
+  }
+
+  return { ok: true, value: undefined };
 }
 
 // ── Trade-context references (allowlist + relationship check) ──
@@ -165,9 +212,6 @@ export async function sendMessage(input: {
   referenceType?: string;
   referenceId?: string;
 }): Promise<Result<DmMessage>> {
-  if (input.senderId === input.recipientId) {
-    return { ok: false, reason: "You can't message yourself.", status: 400 };
-  }
   const body = input.body?.trim();
   if (!body || body.length === 0) {
     return { ok: false, reason: "Message body is empty.", status: 400 };
@@ -191,30 +235,10 @@ export async function sendMessage(input: {
     return { ok: false, reason: `Daily message cap of ${RATE_LIMIT_PER_DAY} reached.`, status: 429 };
   }
 
-  // Recipient existence + accepts_messages opt-out check
-  const rcpt = await query(
-    `SELECT id, accepts_messages FROM users WHERE id = $1`,
-    [input.recipientId],
-  );
-  if (rcpt.rows.length === 0) {
-    return { ok: false, reason: "Recipient not found.", status: 404 };
-  }
-  if (!rcpt.rows[0].accepts_messages) {
-    return {
-      ok: false,
-      reason: "This user isn't accepting messages.",
-      status: 403,
-    };
-  }
-
-  // Block check
-  if (await isBlockedEither(input.senderId, input.recipientId)) {
-    return {
-      ok: false,
-      reason: "Cannot send — block list prevents this conversation.",
-      status: 403,
-    };
-  }
+  // Self / recipient-exists / accepts_messages / block gate — shared
+  // with openConversation so both inbox-entry paths refuse identically.
+  const guard = await assertCanMessage(input.senderId, input.recipientId);
+  if (!guard.ok) return guard;
 
   // Trade-context reference (if any) — allowlist + sender-relationship
   // check before the chip is stored. See validateReference above.
@@ -225,43 +249,47 @@ export async function sendMessage(input: {
 
   const [aId, bId] = sortPair(input.senderId, input.recipientId);
 
-  // Find-or-create the conversation. INSERT ... ON CONFLICT (canonical
-  // unique) so concurrent first-messages from both sides don't race.
-  const convRow = await query(
-    `INSERT INTO dm_conversations (user_a_id, user_b_id)
-     VALUES ($1, $2)
-     ON CONFLICT (user_a_id, user_b_id) DO UPDATE SET updated_at = NOW()
-     RETURNING *`,
-    [aId, bId],
-  );
-  const convId = convRow.rows[0].id as string;
+  // Conversation upsert + message insert + cache bump are one atomic
+  // unit: a crash between them must not leave a message the inbox list
+  // can't see (the list orders by the cached last_message_at).
+  const { convId, msg } = await transaction(async (tx) => {
+    // Find-or-create the conversation. INSERT ... ON CONFLICT (canonical
+    // unique) so concurrent first-messages from both sides don't race.
+    // created_by only lands on genuine creation — DO UPDATE leaves the
+    // original opener in place.
+    const convRow = await tx(
+      `INSERT INTO dm_conversations (user_a_id, user_b_id, created_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_a_id, user_b_id) DO UPDATE SET updated_at = NOW()
+       RETURNING *`,
+      [aId, bId, input.senderId],
+    );
+    const convId = convRow.rows[0].id as string;
 
-  // Insert the message + bump conversation cache atomically. Two
-  // queries — pg doesn't support multi-statement inside a single
-  // call here without a transaction, but the bumps are idempotent
-  // on retry (last_message_at = MAX, message_count is incremented
-  // exactly once via the RETURNING).
-  const msg = await query(
-    `INSERT INTO dm_messages
-       (conversation_id, sender_id, body, reference_type, reference_id)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [convId, input.senderId, body,
-     input.referenceType ?? null, input.referenceId ?? null],
-  );
+    const msg = await tx(
+      `INSERT INTO dm_messages
+         (conversation_id, sender_id, body, reference_type, reference_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [convId, input.senderId, body,
+       input.referenceType ?? null, input.referenceId ?? null],
+    );
 
-  // Bump the conversation cache. Un-archives for both parties (a
-  // new message wakes the thread). Preview = first 120 chars of body.
-  await query(
-    `UPDATE dm_conversations
-        SET last_message_at = NOW(),
-            last_sender_id = $2,
-            last_message_preview = $3,
-            message_count = message_count + 1,
-            archived_a = false, archived_b = false,
-            updated_at = NOW()
-      WHERE id = $1`,
-    [convId, input.senderId, body.slice(0, 120)],
-  );
+    // Bump the conversation cache. Un-archives for both parties (a
+    // new message wakes the thread). Preview = first 120 chars of body.
+    await tx(
+      `UPDATE dm_conversations
+          SET last_message_at = NOW(),
+              last_sender_id = $2,
+              last_message_preview = $3,
+              message_count = message_count + 1,
+              archived_a = false, archived_b = false,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [convId, input.senderId, body.slice(0, 120)],
+    );
+
+    return { convId, msg };
+  });
 
   // Notify the recipient. Dedup keyed by (conversation, day) so a
   // burst of messages within one day collapses to one notification
@@ -286,6 +314,20 @@ export async function sendMessage(input: {
     referenceId: `${convId}:${today}`,
   });
 
+  // Email the recipient (best-effort, own dedup window — see the
+  // handler). Awaited because a detached promise dies with the
+  // serverless invocation; caught because an email failure must not
+  // fail the send.
+  try {
+    await dispatchDmUnreadEmail({
+      conversationId: convId,
+      recipientId: input.recipientId,
+      senderId: input.senderId,
+    });
+  } catch (err) {
+    console.error("[messages] dm email dispatch failed:", err);
+  }
+
   return { ok: true, value: msg.rows[0] as DmMessage };
 }
 
@@ -295,6 +337,11 @@ export async function listConversations(userId: string): Promise<DmConversation[
   // Self-join users twice to resolve the OTHER party's profile. The
   // OR-WHERE matches both sides of the canonical pair; the CASE
   // picks the non-self side. archived_<role> hides per-user.
+  //
+  // Zero-message threads show only to their creator (they opened it and
+  // may still be composing); the other party sees the thread when the
+  // first message lands. Pre-0110 rows have created_by NULL, so stale
+  // empty threads disappear from both inboxes.
   const r = await query(
     `SELECT c.*,
             CASE WHEN c.user_a_id = $1 THEN c.user_b_id ELSE c.user_a_id END AS other_user_id,
@@ -314,8 +361,9 @@ export async function listConversations(userId: string): Promise<DmConversation[
        FROM dm_conversations c
        JOIN users ou ON ou.id = CASE
             WHEN c.user_a_id = $1 THEN c.user_b_id ELSE c.user_a_id END
-      WHERE (c.user_a_id = $1 AND NOT c.archived_a)
-         OR (c.user_b_id = $1 AND NOT c.archived_b)
+      WHERE ((c.user_a_id = $1 AND NOT c.archived_a)
+         OR (c.user_b_id = $1 AND NOT c.archived_b))
+        AND (c.message_count > 0 OR c.created_by = $1)
       ORDER BY c.last_message_at DESC NULLS LAST
       LIMIT 100`,
     [userId],
@@ -327,11 +375,15 @@ export async function listConversations(userId: string): Promise<DmConversation[
 
 export interface ConversationView {
   conversation: DmConversation;
+  /** Ascending (oldest → newest) — but always the NEWEST page. */
   messages: DmMessage[];
+  /** True when messages older than the returned page exist. */
+  hasEarlier: boolean;
 }
 
 export async function getConversation(
-  conversationId: string, userId: string, options: { limit?: number } = {},
+  conversationId: string, userId: string,
+  options: { limit?: number; before?: string } = {},
 ): Promise<Result<ConversationView>> {
   const r = await query(
     `SELECT c.*,
@@ -353,15 +405,30 @@ export async function getConversation(
     return { ok: false, reason: "Not your conversation.", status: 403 };
   }
 
-  const limit = Math.min(options.limit ?? 200, 500);
+  // Read the NEWEST page (a busy thread must never hide its latest
+  // replies), then reverse to ascending for the renderer. `before`
+  // pages backwards through history — "load earlier". limit+1 probes
+  // whether an earlier page exists without a second COUNT query.
+  const limit = Math.min(Math.max(options.limit ?? 200, 1), 500);
+  let before: string | null = null;
+  if (options.before !== undefined) {
+    const parsed = new Date(options.before);
+    if (Number.isNaN(parsed.getTime())) {
+      return { ok: false, reason: "Invalid 'before' cursor.", status: 400 };
+    }
+    before = parsed.toISOString();
+  }
   const m = await query(
     `SELECT * FROM dm_messages
       WHERE conversation_id = $1
-      ORDER BY created_at ASC LIMIT $2`,
-    [conversationId, limit],
+        AND ($3::timestamptz IS NULL OR created_at < $3)
+      ORDER BY created_at DESC LIMIT $2`,
+    [conversationId, limit + 1, before],
   );
+  const hasEarlier = m.rows.length > limit;
+  const page = (m.rows as DmMessage[]).slice(0, limit).reverse();
 
-  return { ok: true, value: { conversation: conv, messages: m.rows as DmMessage[] } };
+  return { ok: true, value: { conversation: conv, messages: page, hasEarlier } };
 }
 
 // ── Mark conversation read ──
@@ -465,21 +532,51 @@ export async function unreadConversationCount(userId: string): Promise<number> {
   return r.rows[0].n;
 }
 
-// ── Find-or-load by other-user pair (for "Message" button on profile) ──
+// ── Find-or-open by other-user pair (for "Message" button on profile) ──
+//
+// Runs the same assertCanMessage gate as sendMessage, so a blocked or
+// opted-out recipient is refused BEFORE the initiator composes anything
+// — the honest error surfaces at the button, not after typing. Opening
+// an already-existing thread is never rate-limited; only genuine
+// creation counts against THREAD_OPENS_PER_HOUR.
 
-export async function findOrCreateConversation(
-  userA: string, userB: string,
-): Promise<DmConversation> {
-  if (userA === userB) {
-    throw new Error("Can't message yourself.");
-  }
-  const [a, b] = sortPair(userA, userB);
-  const r = await query(
-    `INSERT INTO dm_conversations (user_a_id, user_b_id)
-     VALUES ($1, $2)
-     ON CONFLICT (user_a_id, user_b_id) DO UPDATE SET updated_at = NOW()
-     RETURNING *`,
+export async function openConversation(
+  initiatorId: string, otherUserId: string,
+): Promise<Result<DmConversation>> {
+  const guard = await assertCanMessage(initiatorId, otherUserId);
+  if (!guard.ok) return guard;
+
+  const [a, b] = sortPair(initiatorId, otherUserId);
+  const existing = await query(
+    `SELECT * FROM dm_conversations WHERE user_a_id = $1 AND user_b_id = $2`,
     [a, b],
   );
-  return r.rows[0] as DmConversation;
+  if (existing.rows.length > 0) {
+    return { ok: true, value: existing.rows[0] as DmConversation };
+  }
+
+  const opens = await query(
+    `SELECT COUNT(*)::int AS n FROM dm_conversations
+      WHERE created_by = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
+    [initiatorId],
+  );
+  if (opens.rows[0].n >= THREAD_OPENS_PER_HOUR) {
+    return {
+      ok: false,
+      reason: `You can open at most ${THREAD_OPENS_PER_HOUR} new conversations per hour.`,
+      status: 429,
+    };
+  }
+
+  // ON CONFLICT covers the race with a concurrent first-message from
+  // either side; DO UPDATE only touches updated_at so the racer's
+  // created_by wins and stays.
+  const r = await query(
+    `INSERT INTO dm_conversations (user_a_id, user_b_id, created_by)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_a_id, user_b_id) DO UPDATE SET updated_at = NOW()
+     RETURNING *`,
+    [a, b, initiatorId],
+  );
+  return { ok: true, value: r.rows[0] as DmConversation };
 }

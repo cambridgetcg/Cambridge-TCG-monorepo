@@ -19,6 +19,7 @@ const KIND_ICON: Record<string, string> = {
   verification: "🪪",
   auction: "🔨",
   subscription: "💎",
+  message: "✉️",
 };
 
 function iconFor(kind: string): string {

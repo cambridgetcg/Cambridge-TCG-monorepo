@@ -27,6 +27,12 @@ const GROUPS: { title: string; caption: string; keys: string[]; tone: "activity"
     tone: "nudge",
   },
   {
+    title: "Messages",
+    caption: "When another trader writes to you.",
+    keys: ["messages"],
+    tone: "activity",
+  },
+  {
     title: "Optional",
     caption: "Off by default. Turn on if you want us to reach out.",
     keys: ["streak_at_risk", "marketing"],

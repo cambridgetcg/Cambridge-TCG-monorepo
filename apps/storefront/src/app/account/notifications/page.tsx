@@ -18,6 +18,7 @@ const KIND_ICON: Record<string, string> = {
   verification: "🪪",
   auction: "🔨",
   subscription: "💎",
+  message: "✉️",
 };
 function iconFor(kind: string): string {
   return KIND_ICON[kind.split(".")[0]] ?? "🔔";
