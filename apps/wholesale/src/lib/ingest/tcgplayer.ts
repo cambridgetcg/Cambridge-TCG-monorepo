@@ -22,6 +22,22 @@
  *      https://developer.tcgplayer.com if not yet).
  *   3. For pricing mode: at least one card has `cards.tcgplayer_product_id`
  *      set (run the catalog mode / seed-set CLI first).
+ *
+ * ── Activation status (honest, 2026-07-05 investigation) ────────────────
+ *
+ * Code-complete but INERT in production: migration 0015 IS applied (the
+ * tables/columns exist), but 0 cards are mapped, card_tcgplayer_sku_ids
+ * is empty, no vercel.json cron entry references
+ * `/api/cron/ingest/tcgplayer`, and the credentials are unset. Activation
+ * is the operator's call (credentials); the full list is:
+ *
+ *   1. Set TCGPLAYER_CLIENT_ID + TCGPLAYER_CLIENT_SECRET in the wholesale
+ *      deployment env.
+ *   2. One manual catalog seed:
+ *      `/api/cron/ingest/tcgplayer?mode=catalog&dryRun=1`, then the real run.
+ *   3. Add two vercel.json cron entries: mode=bulk-pricing nightly and
+ *      mode=live-pricing every 5 minutes during US trading hours.
+ *   4. Confirm price_archive gains source='tcgplayer' rows.
  */
 
 import { db } from "@/lib/db";
