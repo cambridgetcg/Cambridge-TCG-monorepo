@@ -60,7 +60,7 @@ export default function AppearanceMethodology() {
         </li>
         <li>
           <strong>Never paywalled</strong>: high contrast,{" "}
-          <Link href="/methodology/text-mode">text-only layout</Link>, reduced
+          <Link href="/appearance">text-only layout</Link>, reduced
           motion, tone. Anything a visitor might need rather than want is free, by
           rule. If we ever break this rule, this sentence must be edited first —
           treat its presence as the guarantee.
@@ -95,7 +95,7 @@ export default function AppearanceMethodology() {
         <li>No tracking of which theme you wear.</li>
         <li>No flash-of-wrong-theme: the cookie is read server-side at render.</li>
         <li>
-          No override of <Link href="/methodology/text-mode">text-mode</Link>: the
+          No override of <Link href="/appearance">text-mode</Link>: the
           text-only layout wins over any theme, by construction.
         </li>
       </ul>
