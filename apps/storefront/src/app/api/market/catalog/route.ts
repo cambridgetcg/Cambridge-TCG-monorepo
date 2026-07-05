@@ -1,9 +1,41 @@
 import { NextResponse } from "next/server";
-import { fetchPrices, fetchSets, fetchGames } from "@/lib/wholesale/client";
+import {
+  fetchPrices,
+  fetchGamesDetailed,
+  fetchSetsDetailed,
+  type WholesaleSource,
+} from "@/lib/wholesale/client";
+import { dbFetchChannelPriceMap } from "@/lib/wholesale/db-source";
 import { retailPrice } from "@/lib/pricing";
 import { query } from "@/lib/db";
 
 // GET /api/market/catalog — all cards with spot + P2P data for Cardmarket-style browse
+//
+// Source provenance: every response carries a `source` field and an
+// `x-catalog-source` header — 'wholesale-api' (live HTTP), 'wholesale-db'
+// (direct read of the wholesale Postgres; the API is retired), or a 503
+// when both substrates failed. The UI keys its <Provenance> label off
+// this; a database read must never pass itself off as a live API, and an
+// outage must never render as an empty catalog.
+
+function sourceHeaders(source: WholesaleSource) {
+  return { "x-catalog-source": source };
+}
+
+function catalogUnavailable() {
+  return NextResponse.json(
+    {
+      error: {
+        code: "catalog_unavailable",
+        message:
+          "The card catalog can't be loaded right now: the wholesale API is unreachable and the direct database read also failed. This is a source outage, not an empty catalog — please try again shortly.",
+      },
+      source: "unavailable" as const,
+    },
+    { status: 503, headers: sourceHeaders("unavailable") },
+  );
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const game = url.searchParams.get("game") || "one-piece";
@@ -16,14 +48,16 @@ export async function GET(request: Request) {
 
   // List games
   if (view === "games") {
-    const games = await fetchGames();
-    return NextResponse.json({ games });
+    const { games, source } = await fetchGamesDetailed();
+    if (source === "unavailable") return catalogUnavailable();
+    return NextResponse.json({ games, source }, { headers: sourceHeaders(source) });
   }
 
   // List sets for a game
   if (view === "sets") {
-    const sets = await fetchSets(game);
-    return NextResponse.json({ sets, game });
+    const { sets, source } = await fetchSetsDetailed(game);
+    if (source === "unavailable") return catalogUnavailable();
+    return NextResponse.json({ sets, game, source }, { headers: sourceHeaders(source) });
   }
 
   // Fetch cards from wholesale catalog
@@ -43,6 +77,11 @@ export async function GET(request: Request) {
     limit,
     offset,
   });
+
+  // fetchPrices always stamps a source; if the invariant ever breaks we
+  // fail loud (503) rather than fabricate a "live" label.
+  const source: WholesaleSource = data.source ?? "unavailable";
+  if (source === "unavailable") return catalogUnavailable();
 
   // Enrich with P2P market data (best bid/ask for each SKU)
   const skus = data.items.map(i => i.sku);
@@ -74,9 +113,19 @@ export async function GET(request: Request) {
   }
 
   // Fetch trade-in credit prices (CTCG standing bids)
-  // Must paginate — API caps at 500 per request
-  const tradeinMap = new Map<string, number>();
-  {
+  let tradeinMap = new Map<string, number>();
+  if (source === "wholesale-db") {
+    // The main list came from the direct DB read, so the credit list can
+    // too — one query instead of the ~23-request HTTP pagination loop.
+    // Optional enrichment either way: a failure here degrades to "no
+    // standing bids", same as the HTTP path's per-page catch.
+    try {
+      tradeinMap = await dbFetchChannelPriceMap({ game, set, channel: "tradein-credit" });
+    } catch (err) {
+      console.error("[catalog] tradein-credit db read failed", err);
+    }
+  } else {
+    // HTTP mode: must paginate — the API caps at 500 per request.
     let tradeinOffset = 0;
     let tradeinTotal = Infinity;
     while (tradeinOffset < tradeinTotal) {
@@ -128,10 +177,14 @@ export async function GET(request: Request) {
     };
   });
 
-  return NextResponse.json({
-    cards,
-    total: data.total,
-    game,
-    set: set || null,
-  });
+  return NextResponse.json(
+    {
+      cards,
+      total: data.total,
+      game,
+      set: set || null,
+      source,
+    },
+    { headers: sourceHeaders(source) },
+  );
 }
