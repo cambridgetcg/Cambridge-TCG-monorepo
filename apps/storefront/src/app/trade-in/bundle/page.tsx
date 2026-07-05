@@ -172,7 +172,9 @@ export default function BundleTradeInPage() {
                 <option value="one-piece">One Piece</option>
                 <option value="pokemon">Pokémon</option>
                 <option value="dragon-ball">Dragon Ball</option>
-                <option value="yugioh">Yu-Gi-Oh</option>
+                {/* Value matches the catalog slug (games.slug = "yu-gi-oh"),
+                    not the freeform "yugioh" it once was. */}
+                <option value="yu-gi-oh">Yu-Gi-Oh</option>
                 <option value="mixed">Mixed / Multiple</option>
                 <option value="other">Other</option>
               </select>

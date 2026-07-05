@@ -133,6 +133,11 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
+  // one-piece is the honest default, not a placeholder: the parser and
+  // merge rules below encode One Piece's deck format (leader-rarity L
+  // lines, OP/EB/ST card numbers, 4-copy clamp). Callers importing
+  // another game's list must send `game` explicitly — and will need
+  // format rules that don't exist yet.
   const game = body.game ?? "one-piece";
 
   // ── Parse ────────────────────────────────────────────────────────────

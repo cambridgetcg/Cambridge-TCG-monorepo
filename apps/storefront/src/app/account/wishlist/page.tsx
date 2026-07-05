@@ -449,7 +449,8 @@ export default function WishlistPage() {
 
             // Resolve each SKU via the catalog search so we can store a
             // full card snapshot, then POST to /api/social/wishlist which
-            // upserts on (user_id, sku).
+            // upserts on (user_id, sku). No game param needed: the search
+            // route derives the game from the SKU prefix.
             const resolved = await Promise.all(
               rows.map(async (r) => {
                 try {

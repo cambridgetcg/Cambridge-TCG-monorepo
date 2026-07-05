@@ -585,6 +585,8 @@ export default function PortfolioPage() {
             let added = 0;
 
             // Resolve all in parallel — the wholesale API is fast.
+            // No game param needed: the search route derives the game
+            // from the SKU prefix (PK-… → pokemon, FB-/SB-… → dragon-ball).
             const resolved = await Promise.all(
               rows.map(async (r) => {
                 try {

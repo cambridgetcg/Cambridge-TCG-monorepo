@@ -89,39 +89,27 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     accent: "yellow",
   },
   {
-    slug: "dragon-ball-super",
-    game_code: "dbs",
-    display_name: "Dragon Ball Super CCG",
-    short_name: "Dragon Ball Super",
-    seo_title: "Dragon Ball Super CCG Price Guide UK — Updated Daily",
+    // The catalog's live slug is "dragon-ball" (game code dbf — Bandai's
+    // Fusion World line, ingested from cardrush-db.jp). Earlier curated
+    // rows used slugs "dragon-ball-super" (dbs) and "dragon-ball-fusion"
+    // that could never match the catalog — the live game was hidden from
+    // the landing while two dead tiles advertised coverage that would
+    // never arrive under those slugs. One row, the catalog's slug.
+    slug: "dragon-ball",
+    game_code: "dbf",
+    display_name: "Dragon Ball Super Fusion World",
+    short_name: "Dragon Ball",
+    seo_title: "Dragon Ball Super Fusion World Price Guide UK — Updated Daily",
     seo_description:
-      "Daily-updated Dragon Ball Super Card Game prices in the UK. Every set, every card — retail buy prices and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Bandai's Dragon Ball Super Fusion World card game — daily-updated UK retail and trade-in prices. Japanese-first catalog, every card priced. Free price guide from Cambridge TCG.",
     hero_paragraph:
-      "This is a complete, daily-updated price guide for Dragon Ball Super Card Game sets available in the UK. Each card lists a retail buy price and a trade-in store credit value. Sourced from the Cambridge TCG marketplace; updated nightly.",
+      "This is a daily-updated price guide for Dragon Ball Super Fusion World — Bandai's successor card line to the original DBSCG — sold in the UK. The catalog is Japanese-first, sourced from CardRush JP; English card names are shown where available. Each card lists a retail buy price and a trade-in store credit value from the Cambridge TCG marketplace.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from the Dragon Ball Super Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices in GBP, updated daily.",
+      "Complete price list for {{setName}} ({{setCode}}) from Dragon Ball Super Fusion World. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
     cardrush: { subdomain: "cardrush-db.jp", confirmed: true },
     display_priority: 3,
-    accent: "orange",
-  },
-  {
-    slug: "dragon-ball-fusion",
-    game_code: "dbf",
-    display_name: "Dragon Ball Super Fusion World",
-    short_name: "DBF Fusion World",
-    seo_title: "Dragon Ball Super Fusion World Price Guide UK — Updated Daily",
-    seo_description:
-      "Bandai's Dragon Ball Super Fusion World card game — daily-updated UK retail and trade-in prices. Every set, every card. Free price guide from Cambridge TCG.",
-    hero_paragraph:
-      "This is a daily-updated price guide for Dragon Ball Super Fusion World — Bandai's successor card line to the original DBSCG. UK retail prices plus instant trade-in store credit values, sourced from the Cambridge TCG marketplace.",
-    set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Dragon Ball Super Fusion World. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
-    pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily via our @cambridge-tcg/pricing engine. UK retail in GBP. CardRush Fusion World subdomain registered as anticipated; first confirmed scrape flips coverage to ✓.",
-    cardrush: { subdomain: "cardrush-fw.jp", confirmed: false },
-    display_priority: 4,
     accent: "orange",
   },
   {

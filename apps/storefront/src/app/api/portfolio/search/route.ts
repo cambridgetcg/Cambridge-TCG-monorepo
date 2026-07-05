@@ -23,6 +23,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { fetchPrices } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
+import { gameFromSku } from "@/lib/games/sku-game";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -32,7 +33,13 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const q = url.searchParams.get("q") || "";
-  const game = url.searchParams.get("game") || "one-piece";
+  // Game resolution, most-specific first: a SKU-shaped query names its
+  // own game via the prefix (PK-… is pokemon whatever the caller said);
+  // otherwise the caller's explicit ?game=; otherwise One Piece, the
+  // catalog's founding game. Before this, the default silently locked
+  // portfolio/wishlist search to one-piece for every caller.
+  const requestedGame = (url.searchParams.get("game") || "").trim();
+  const game = gameFromSku(q.trim()) ?? (requestedGame || "one-piece");
 
   if (!q.trim() || q.length < 2) {
     return NextResponse.json({ results: [] });

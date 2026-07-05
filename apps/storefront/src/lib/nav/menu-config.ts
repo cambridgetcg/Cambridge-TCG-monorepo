@@ -66,7 +66,10 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Prices",
         items: [
           { label: "Price guide", href: "/prices", description: "Per-game UK price guides" },
-          { label: "Movers", href: "/prices/one-piece/movers", description: "Biggest price changes 7d" },
+          // Movers is per-game (/prices/<game>/movers); the nav sends
+          // people to the game-agnostic landing rather than silently
+          // assuming One Piece for a tri-game catalog.
+          { label: "Movers", href: "/prices", description: "Pick a game for its biggest 7-day price changes" },
           { label: "Coverage map", href: "/prices/coverage", description: "Per-source coverage rollup" },
           { label: "How prices work", href: "/methodology/pricing" },
           { label: "Cross-source pricing", href: "/methodology/cross-source-pricing" },

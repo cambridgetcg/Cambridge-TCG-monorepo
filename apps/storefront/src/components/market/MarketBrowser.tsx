@@ -340,10 +340,22 @@ export default function MarketBrowser({
             />
           )}
 
+          {/* Empty with filters = "nothing matched"; empty with none =
+              this game's catalog genuinely holds no cards yet. Say which
+              — an unstocked game must not read like a failed search
+              (and never like an error; outages take the branch above). */}
           {!loading && catalog.ok && cards.length === 0 && (
             <EmptyState
-              title={v("market.empty.catalog.title")}
-              description={v("market.empty.catalog.description")}
+              title={
+                query.q || query.set
+                  ? v("market.empty.catalog.title")
+                  : "No cards in this game yet"
+              }
+              description={
+                query.q || query.set
+                  ? v("market.empty.catalog.description")
+                  : "The catalog doesn't hold any cards for this game yet — nothing failed, there's just nothing to show. Check back as coverage grows."
+              }
               action={
                 query.q || query.set ? (
                   <button

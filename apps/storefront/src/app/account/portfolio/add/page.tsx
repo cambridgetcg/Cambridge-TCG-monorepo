@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { formatPrice } from "@/lib/format";
+import { SKU_GAMES, type SkuGameSlug } from "@/lib/games/sku-game";
 
 import { Audience } from "@/lib/ui";
 interface SearchResult {
@@ -23,6 +24,10 @@ export default function AddToPortfolioPage() {
   const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [query, setQuery] = useState("");
+  // Name searches need an explicit game (the wholesale search is
+  // per-game); SKU-shaped queries override it server-side via the SKU
+  // prefix. Without this the search was silently one-piece-locked.
+  const [game, setGame] = useState<SkuGameSlug>("one-piece");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
@@ -50,13 +55,13 @@ export default function AddToPortfolioPage() {
       });
   }, [router]);
 
-  const search = useCallback((q: string) => {
+  const search = useCallback((q: string, g: SkuGameSlug) => {
     if (!q.trim()) {
       setResults([]);
       return;
     }
     setSearching(true);
-    fetch(`/api/portfolio/search?q=${encodeURIComponent(q)}`)
+    fetch(`/api/portfolio/search?q=${encodeURIComponent(q)}&game=${encodeURIComponent(g)}`)
       .then((r) => r.json())
       .then((data) => {
         setResults(data.results || []);
@@ -70,7 +75,14 @@ export default function AddToPortfolioPage() {
     setSelectedSku(null);
     setSuccess(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(val), 300);
+    debounceRef.current = setTimeout(() => search(val, game), 300);
+  }
+
+  function handleGameChange(g: SkuGameSlug) {
+    setGame(g);
+    setSelectedSku(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.trim()) search(query, g);
   }
 
   function selectCard(card: SearchResult) {
@@ -161,6 +173,25 @@ export default function AddToPortfolioPage() {
           </div>
         </div>
       )}
+
+      {/* Game tabs — the search is per-game; SKU queries override via prefix */}
+      <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label="Game">
+        {SKU_GAMES.map((g) => (
+          <button
+            key={g.slug}
+            type="button"
+            onClick={() => handleGameChange(g.slug)}
+            aria-pressed={game === g.slug}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+              game === g.slug
+                ? "bg-ink text-page"
+                : "bg-surface border border-border-subtle text-ink-muted hover:text-ink"
+            }`}
+          >
+            {g.label}
+          </button>
+        ))}
+      </div>
 
       {/* Search */}
       <div className="relative mb-6">

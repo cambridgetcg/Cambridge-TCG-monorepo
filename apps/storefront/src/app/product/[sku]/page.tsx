@@ -33,8 +33,8 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 import SellForCreditButton from "@/components/product/SellForCreditButton";
 import CardGrid from "@/components/catalog/CardGrid";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
-import { parseSkuShape } from "@/lib/search/resolver";
-import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
+import { gameFromSku, gameBrand } from "@/lib/games/sku-game";
+import { getPriceGuideConfig } from "@/lib/prices/games-config";
 
 function rarityBadgeClasses(rarity: string | null): string | null {
   if (!rarity) return null;
@@ -66,18 +66,17 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
   const rarityClasses = rarityBadgeClasses(card.rarity);
 
-  // Derive the breadcrumb's game slug from the SKU's game segment
-  // (canonical SKUs are <game>-<set>-<number>-<lang>), cross-referenced
-  // against the curated price-guide corpus — a real game_code lookup,
-  // not prefix matching. Pre-canonical SKUs fall back to One Piece, the
-  // catalog's founding game. (The old hardcoded "onepiece" 404'd: the
-  // catalog's real slug is "one-piece".)
-  const skuGameCode = parseSkuShape(card.sku)?.game ?? null;
-  const gameConfig = skuGameCode
-    ? PRICE_GUIDE_GAMES.find((g) => g.game_code === skuGameCode) ?? null
-    : null;
-  const gameSlug = gameConfig?.slug ?? "one-piece";
+  // Derive the game from the SKU via the shared @/lib/games/sku-game map
+  // (one truth: it handles both production's legacy prefix-typed SKUs
+  // like PK-SV2A-011-JP and canonical <game>-<set>-<number>-<lang>
+  // SKUs). The old canonical-only parse yielded "pk" which matched no
+  // game_code, so every pokemon/dragon-ball page silently wore the One
+  // Piece breadcrumb and brand. Underivable SKUs (SEALED-, unknown
+  // prefixes) fall back to One Piece, the catalog's founding game.
+  const gameSlug = gameFromSku(card.sku) ?? "one-piece";
+  const gameConfig = getPriceGuideConfig(gameSlug) ?? null;
   const gameLabel = gameConfig?.short_name ?? "One Piece";
+  const brandName = gameBrand(gameSlug);
   const cardName = card.name_en || card.name || card.card_number;
   const cardPrice = retailPrice(card.price_gbp, card.channel_price);
 
@@ -89,7 +88,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
     description: `${cardName} from ${card.set_name || ""} (${card.card_number}). ${card.rarity || ""} rarity. Japanese, Near Mint.`,
     image: card.image_url || undefined,
     sku: card.sku,
-    brand: { "@type": "Brand", name: "One Piece Card Game" },
+    brand: { "@type": "Brand", name: brandName },
     category: "Trading Cards",
     offers: {
       "@type": "Offer",

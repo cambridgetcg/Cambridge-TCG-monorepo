@@ -34,6 +34,7 @@ import {
   type CatalogSource,
   type SetsResult,
 } from "@/components/market/catalog";
+import type { GameItem } from "@/lib/wholesale/client";
 
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
@@ -141,6 +142,21 @@ async function loadCards(query: CatalogQuery): Promise<CatalogResult> {
   }
 }
 
+/** Games with live catalog coverage, from the same route's view=games.
+ *  Optional enrichment: a failure hides the switcher rather than
+ *  blocking the browse. */
+async function loadGames(): Promise<GameItem[]> {
+  try {
+    const res = await catalogGET(new Request(`${INTERNAL_BASE}?view=games`));
+    if (!res.ok) return [];
+    const body = await res.json();
+    return (body.games as GameItem[]) ?? [];
+  } catch (err) {
+    console.error("[market] server games load failed", err);
+    return [];
+  }
+}
+
 async function loadSets(game: string): Promise<SetsResult> {
   try {
     const res = await catalogGET(
@@ -163,24 +179,49 @@ async function loadSets(game: string): Promise<SetsResult> {
 }
 
 async function CatalogSection({ query }: { query: CatalogQuery }) {
-  // One parallel pair — no waterfall; the shell above already streamed.
-  const [initialCatalog, initialSets] = await Promise.all([
+  // One parallel trio — no waterfall; the shell above already streamed.
+  const [initialCatalog, initialSets, games] = await Promise.all([
     loadCards(query),
     loadSets(query.game),
+    loadGames(),
   ]);
 
   return (
-    <MarketBrowser
-      // Remount on real server navigations (fresh loads, shared links) so
-      // client state re-seeds from the server-fetched data. Back/forward
-      // never re-renders this server component — MarketBrowser's popstate
-      // listener owns that case.
-      key={[query.game, query.q, query.set ?? "", query.sort, query.page, query.view].join("|")}
-      initial={query}
-      initialCatalog={initialCatalog}
-      initialSets={initialSets}
-      statsProvenance={<Provenance kind="computed" by="cards on this page" />}
-      sourceBadges={catalogSourceBadges()}
-    />
+    <>
+      {/* Game switcher — catalog-driven tabs (the trade-in TRADEIN_GAMES
+          tab pattern). Link navigation, not client state: a game switch
+          is a real server navigation so the set sidebar and first page
+          reload for the new game via the key remount below. */}
+      {games.length > 0 && (
+        <nav aria-label="Game" className="flex flex-wrap gap-2 mb-5">
+          {games.map((g) => (
+            <Link
+              key={g.slug}
+              href={g.slug === DEFAULT_GAME ? "/market" : `/market?game=${encodeURIComponent(g.slug)}`}
+              aria-current={query.game === g.slug ? "page" : undefined}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                query.game === g.slug
+                  ? "bg-ink text-page"
+                  : "bg-surface border border-border-subtle text-ink-muted hover:text-ink"
+              }`}
+            >
+              {g.name}
+            </Link>
+          ))}
+        </nav>
+      )}
+      <MarketBrowser
+        // Remount on real server navigations (fresh loads, shared links) so
+        // client state re-seeds from the server-fetched data. Back/forward
+        // never re-renders this server component — MarketBrowser's popstate
+        // listener owns that case.
+        key={[query.game, query.q, query.set ?? "", query.sort, query.page, query.view].join("|")}
+        initial={query}
+        initialCatalog={initialCatalog}
+        initialSets={initialSets}
+        statsProvenance={<Provenance kind="computed" by="cards on this page" />}
+        sourceBadges={catalogSourceBadges()}
+      />
+    </>
   );
 }

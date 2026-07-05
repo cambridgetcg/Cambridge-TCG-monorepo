@@ -62,6 +62,10 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
 
   const setPages = await Promise.all(
     Array.from(setPrefixes).map((s) =>
+      // game=one-piece is CORRECT here, not a residual hardcode: every
+      // starter in @/lib/play/starter-decks is a One Piece product (the
+      // play module implements OP's rules), so its card_numbers only
+      // resolve within the one-piece catalog.
       fetchPrices({ game: "one-piece", set: s, limit: 300 }).catch(() => ({
         items: [],
         total: 0,

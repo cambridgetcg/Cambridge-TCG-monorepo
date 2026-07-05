@@ -127,7 +127,10 @@ export default async function CatalogPage({
             </p>
           </div>
 
-          {/* Quick-jump buttons */}
+          {/* Quick-jump buttons — game=one-piece is CORRECT on these
+              links, not a residual hardcode: they point at curated One
+              Piece sets (OP01/OP05/OP10). Other games are one tab away
+              via the catalog-driven CatalogFilters above. */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
             {[
               { code: "OP01", label: "Romance Dawn" },
@@ -151,7 +154,7 @@ export default async function CatalogPage({
               href="/catalog?game=one-piece"
               className="inline-flex items-center gap-2 px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
             >
-              Browse All Sets
+              Browse All One Piece Sets
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>

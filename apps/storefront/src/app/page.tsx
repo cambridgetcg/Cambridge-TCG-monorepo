@@ -158,7 +158,10 @@ export default async function Home() {
       </div>
       <GameGrid games={allGames} />
       <PriceGuideStrip />
-      <SetGrid sets={setsWithThumbs} gameSlug="one-piece" />
+      {/* This shelf is One Piece only by construction (fetchSets("one-piece")
+          above) — the heading says so instead of implying every game's
+          latest sets. */}
+      <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Latest One Piece Sets" />
       <StorySection />
       <div className="max-w-7xl mx-auto px-4 pt-8 flex items-center gap-3 text-xs">
         {/* <Provenance> is math-aware internally as of kingdom-078 Phase B(1).

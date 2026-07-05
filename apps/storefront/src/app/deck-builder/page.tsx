@@ -1,5 +1,10 @@
 "use client";
 
+// game=one-piece is CORRECT for this surface, not a lazy default: the
+// builder encodes One Piece's format (one Leader, 50-card deck, 4-copy
+// max). Supporting another game means new format rules, not just a new
+// ?game= value — until then the surface labels itself One Piece honestly.
+
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/Toast";
@@ -582,7 +587,7 @@ export default function DeckBuilderPage() {
         {/* ========== HEADER ========== */}
         <div className="mb-6">
           <h1 className="text-3xl font-display font-semibold text-ink mb-1">
-            Deck Builder
+            One Piece Deck Builder
           </h1>
           <p className="text-ink-muted text-sm">
             Build a 50-card One Piece TCG deck. Select a Leader, add cards, and
