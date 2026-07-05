@@ -53,9 +53,19 @@ interface OfferRow {
   seller_review_count: number | null;
 }
 
+// The caller's OWN resolved P2P commission rate, served by the offers API
+// (the min(membership, trust) combine + per-item cap). Only meaningful
+// when the viewer is the seller of the trade being previewed.
+interface ViewerCommission {
+  rate: number;
+  source: "membership" | "trust" | "default";
+  capGbp: number;
+}
+
 export default function OffersPage() {
   const [tab, setTab] = useState<"incoming" | "outgoing">("incoming");
   const [offers, setOffers] = useState<OfferRow[]>([]);
+  const [viewerCommission, setViewerCommission] = useState<ViewerCommission | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +74,10 @@ export default function OffersPage() {
     setLoading(true);
     fetch(`/api/market/offers?mode=${mode}`)
       .then((r) => r.json())
-      .then((d) => setOffers(d.offers || []))
+      .then((d) => {
+        setOffers(d.offers || []);
+        if (d.viewerCommission) setViewerCommission(d.viewerCommission);
+      })
       .catch(() => setError("Failed to load offers"))
       .finally(() => setLoading(false));
   }
@@ -96,7 +109,8 @@ export default function OffersPage() {
       <Audience kind="consumer" />
       <h1 className="text-2xl font-black text-white mb-2">Offers</h1>
       <p className="text-sm text-neutral-400 mb-6">
-        Negotiate prices on market asks. Sellers have 48 hours to respond before an offer expires.
+        Negotiate prices on market asks. Sellers respond within their declared response window
+        (48 hours by default) — each offer below shows its own expiry.
       </p>
 
       {error && (
@@ -151,6 +165,7 @@ export default function OffersPage() {
               key={o.id}
               offer={o}
               perspective={tab === "incoming" ? "seller" : "buyer"}
+              viewerCommission={viewerCommission}
               busy={busy === o.id}
               onAct={(path, body) => act(o.id, path, body)}
             />
@@ -164,11 +179,13 @@ export default function OffersPage() {
 function OfferCard({
   offer,
   perspective,
+  viewerCommission,
   busy,
   onAct,
 }: {
   offer: OfferRow;
   perspective: "buyer" | "seller";
+  viewerCommission: ViewerCommission | null;
   busy: boolean;
   onAct: (path: string, body?: object) => void;
 }) {
@@ -197,36 +214,69 @@ function OfferCard({
   const [confirming, setConfirming] = useState<null | "accept" | "accept-counter">(null);
 
   // Compute the deltas the buyer/seller is about to commit to. Honest:
-  // commission rate is the platform default (8%); the trust delta is the
-  // standard "completed trade" credit per the methodology page. Actual
-  // tier movement requires a DB lookup the page doesn't currently do —
-  // so we surface what's stable and link to the methodology pages for the
-  // rest.
-  const COMMISSION_RATE = 0.08;
+  // the seller's fee uses THEIR resolved rate (min of membership and
+  // trust, per-item cap) served by the API — never a hardcoded platform
+  // number. The buyer's view can't know the counterparty seller's rate,
+  // so it names its own delta (what the buyer pays) and links the
+  // methodology instead of guessing the seller's fee.
   function consequencesFor(path: "accept" | "accept-counter"): Consequence[] {
     const price =
       path === "accept-counter" && offer.counter_price
         ? parseFloat(offer.counter_price)
         : parseFloat(offer.offer_price);
     const qty = offer.quantity;
-    const gross = price * qty;
-    const commission = Math.round(gross * COMMISSION_RATE * 100) / 100;
-    const sellerNet = gross - commission;
-    const list: Consequence[] = [
-      {
-        label: perspective === "seller" ? "You receive (after 8% commission)" : "Seller receives",
+    const gross = Math.round(price * qty * 100) / 100;
+    const list: Consequence[] = [];
+
+    if (perspective === "seller" && viewerCommission) {
+      // Same formula acceptance applies server-side: min(gross × rate, cap).
+      const fee = Math.min(
+        Math.round(gross * viewerCommission.rate * 100) / 100,
+        viewerCommission.capGbp,
+      );
+      const sellerNet = Math.round((gross - fee) * 100) / 100;
+      const ratePct = `${+(viewerCommission.rate * 100).toFixed(2)}%`;
+      const rateLabel =
+        viewerCommission.source === "membership" ? `${ratePct} membership rate`
+        : viewerCommission.source === "trust" ? `${ratePct} trust rate`
+        : `${ratePct} base rate`;
+      list.push({
+        label: `You receive (after ${rateLabel})`,
         delta: <Money value={sellerNet} />,
         tone: "emerald",
-        methodology: "/methodology/commission-rate",
-        detail: <>Gross <Money value={gross} /> − <Money value={commission} /> commission</>,
-      },
-      {
-        label: "Trust score on completion",
-        delta: "+0.4 (estimated)",
-        tone: "emerald",
-        methodology: "/methodology/trust-score",
-      },
-    ];
+        methodology: "/methodology/offers",
+        detail: (
+          <>
+            Gross <Money value={gross} /> − <Money value={fee} /> commission
+            {fee === viewerCommission.capGbp ? <> (capped at <Money value={viewerCommission.capGbp} />)</> : null}
+          </>
+        ),
+      });
+    } else if (perspective === "seller") {
+      // Rate not loaded (fetch raced or failed) — no number is better
+      // than a wrong one.
+      list.push({
+        label: "You receive the agreed price minus your resolved commission",
+        delta: <Money value={gross} />,
+        methodology: "/methodology/offers",
+        detail: "Your exact rate (5–8%, capped £50) depends on your trust score and membership tier.",
+      });
+    } else {
+      list.push({
+        label: "You pay",
+        delta: <Money value={gross} />,
+        tone: "amber",
+        methodology: "/methodology/offers",
+        detail: "The seller's commission comes out of their side — you pay the agreed price.",
+      });
+    }
+
+    list.push({
+      label: "Trust score on completion",
+      delta: "+0.4 (estimated)",
+      tone: "emerald",
+      methodology: "/methodology/trust-score",
+    });
     if (path === "accept-counter") {
       list.push({
         label: "Payment deadline",

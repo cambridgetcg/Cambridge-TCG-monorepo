@@ -13,12 +13,12 @@
 // Notification dedup keys: <offerId>:<status>. Mirrors the (trade:role)
 // pattern used by the market notifications arc.
 
-import { query } from "@/lib/db";
-import { computeCommissionAmount, DEFAULT_P2P_COMMISSION_RATE } from "@cambridge-tcg/pricing";
+import { query, transaction } from "@/lib/db";
+import { computeCommissionAmount, resolveCommission } from "@cambridge-tcg/pricing";
 import { notify } from "@/lib/notifications/db";
 import { canTrade, getTrustTier } from "@/lib/escrow/trust-engine";
+import { routeTrade } from "@/lib/escrow/service-tiers";
 import { formatPrice } from "@/lib/format";
-import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 import type { MarketTrade } from "./types";
 import type { OfferStatus } from "./offer-timeline";
 import { logOfferTransition } from "./offer-lifecycle-log";
@@ -86,11 +86,10 @@ async function offerTtlMsForSeller(sellerId: string): Promise<number> {
 // Buyer's payment-deadline window after an offer is accepted. The
 // Asynchronous's column applies on this side too: a buyer who has
 // declared a 168h cadence gets that window to pay; the platform's
-// historical 24h default applies for everyone who hasn't.
-//
-// Wave 2 of the All-Aboard plan (kingdom-051). Replaces the two literal
-// NOW-plus-24h writes below with a buyer-aware ISO timestamp computed
-// via the shared `@/lib/users/response-window` helper.
+// historical 24h default applies for everyone who hasn't. The column is
+// read inside the acceptance transaction (same client as the trade
+// INSERT) rather than via @/lib/users/response-window, which queries on
+// the global connection.
 const DEFAULT_PAYMENT_WINDOW_HOURS = 24;
 
 // ── Internal: fetch + lock the offer for a state-mutating call ──
@@ -282,12 +281,221 @@ export async function makeOffer(input: {
   return { ok: true, value: offer };
 }
 
+// ── Acceptance economics (pure) ──
+// The rate is the min(membership, trust) combine from packages/pricing —
+// the same resolver placeOrder's match loop uses — and the per-item cap
+// bounds the absolute fee. Exported for unit tests; no DB access.
+export function acceptedOfferEconomics(input: {
+  agreedPrice: number;
+  quantity: number;
+  sellerTrustScore: number;
+  /** Membership tier's configured P2P rate; null when no tier. */
+  sellerTierRate: number | null;
+}): {
+  value: number;
+  rate: number;
+  source: "membership" | "trust" | "default";
+  commission: number;
+  sellerPayout: number;
+} {
+  const value = Math.round(input.agreedPrice * input.quantity * 100) / 100;
+  const { rate, source } = resolveCommission({
+    trustScore: input.sellerTrustScore,
+    tierRate: input.sellerTierRate,
+    kind: "p2p",
+  });
+  const commission = computeCommissionAmount(value, rate).amount;
+  const sellerPayout = Math.round((value - commission) * 100) / 100;
+  return { value, rate, source, commission, sellerPayout };
+}
+
+// ── Shared acceptance engine ──
+//
+// Both accept paths (seller accepts the buyer's offer, buyer accepts the
+// seller's counter) funnel through here. Everything acceptance must write
+// happens in ONE transaction with rows locked, so escrow routing, the
+// resolved commission, the returns snapshot, and the oversell guard live
+// in exactly one place — mirroring what placeOrder's match loop
+// (lib/market/db.ts) writes for organic matches. The trade rows the two
+// paths produce are indistinguishable downstream: the payout sweep,
+// dispute windows, and returns all read the trade's own columns
+// (payout_hold_days, dispute_window_hours, accepts_returns, ...), which
+// therefore must never be left NULL here.
+//
+// Locking order is offer → ask. Concurrent accepts of the same offer
+// serialize on the offer lock; concurrent accepts of different offers
+// against the same ask serialize on the ask lock, so the remaining-qty
+// check cannot oversell. (A plain query() FOR UPDATE runs autocommit and
+// releases the lock immediately — the lock is only real inside
+// transaction().)
+async function createTradeForAcceptedOffer(input: {
+  offerId: string;
+  requiredStatus: "pending" | "countered";
+  priceField: "offer_price" | "counter_price";
+}): Promise<Result<{
+  trade: MarketTrade;
+  cardLabel: string;
+  agreedPrice: number;
+  paymentWindowHours: number;
+}>> {
+  return transaction(async (q) => {
+    const offerRows = await q(
+      `SELECT * FROM market_offers WHERE id = $1 FOR UPDATE`,
+      [input.offerId],
+    );
+    if (offerRows.rows.length === 0) {
+      return { ok: false as const, reason: "Offer not found.", status: 404 };
+    }
+    const offer = offerRows.rows[0] as MarketOffer;
+    if (offer.status !== input.requiredStatus) {
+      return input.requiredStatus === "countered"
+        ? { ok: false as const, reason: "No active counter to accept.", status: 409 }
+        : { ok: false as const, reason: `Offer is ${offer.status} — can't accept.`, status: 409 };
+    }
+    const agreedPriceStr =
+      input.priceField === "counter_price" ? offer.counter_price : offer.offer_price;
+    if (!agreedPriceStr) {
+      return { ok: false as const, reason: "No active counter to accept.", status: 409 };
+    }
+
+    const askRows = await q(
+      `SELECT id, user_id, sku, card_name, condition, price, quantity,
+              filled_quantity, status, accepts_returns, return_window_days
+         FROM market_orders WHERE id = $1 FOR UPDATE`,
+      [offer.ask_order_id],
+    );
+    const ask = askRows.rows[0];
+    if (!ask || (ask.status !== "open" && ask.status !== "partially_filled")) {
+      return { ok: false as const, reason: "Ask is no longer available.", status: 409 };
+    }
+    if (ask.quantity - ask.filled_quantity < offer.quantity) {
+      return { ok: false as const, reason: "Not enough remaining qty on the ask.", status: 409 };
+    }
+
+    // Both parties' standing in one round trip: trust for escrow routing,
+    // tier rate for the commission combine, flags for the full-escrow
+    // override, and the buyer's declared cadence (migration 0092) for the
+    // payment deadline.
+    const partiesRes = await q(
+      `SELECT u.id, u.trust_score, u.response_window_hours,
+              COALESCE(tp.is_flagged, false) AS is_flagged,
+              t.p2p_commission_rate          AS tier_rate
+         FROM users u
+         LEFT JOIN trust_profiles tp ON tp.user_id = u.id
+         LEFT JOIN tiers          t  ON t.id       = u.tier_id
+        WHERE u.id IN ($1, $2)`,
+      [offer.buyer_id, offer.seller_id],
+    );
+    const partyById = new Map<string, (typeof partiesRes.rows)[number]>(
+      partiesRes.rows.map((r) => [r.id as string, r]),
+    );
+    const buyer = partyById.get(offer.buyer_id);
+    const seller = partyById.get(offer.seller_id);
+    const buyerTrust = Number(buyer?.trust_score ?? 0);
+    const sellerTrust = Number(seller?.trust_score ?? 0);
+
+    const agreedPrice = parseFloat(agreedPriceStr);
+    const economics = acceptedOfferEconomics({
+      agreedPrice,
+      quantity: offer.quantity,
+      sellerTrustScore: sellerTrust,
+      sellerTierRate: seller?.tier_rate != null ? parseFloat(seller.tier_rate) : null,
+    });
+
+    const routing = await routeTrade({
+      tradeValue: economics.value,
+      sellerTrustScore: sellerTrust,
+      buyerTrustScore: buyerTrust,
+      sellerIsFlagged: !!seller?.is_flagged,
+      buyerIsFlagged: !!buyer?.is_flagged,
+      cardName: ask.card_name || undefined,
+      condition: ask.condition,
+    });
+
+    const paymentWindowHours =
+      (buyer?.response_window_hours as number | null | undefined) ?? DEFAULT_PAYMENT_WINDOW_HOURS;
+    const paymentExpiresAt = new Date(
+      Date.now() + paymentWindowHours * 60 * 60 * 1000,
+    ).toISOString();
+
+    // Synthesize a 'bid' order so market_trades's bid_order_id FK is
+    // satisfied. Marked filled immediately — it's a paper trail for
+    // the offer-driven match, not an order on the book.
+    const synthBid = await q(
+      `INSERT INTO market_orders
+         (user_id, side, sku, card_name, condition, price, quantity, status,
+          filled_quantity, allow_offers)
+       VALUES ($1, 'bid', $2, $3, $4, $5, $6, 'filled', $6, false)
+       RETURNING id`,
+      [offer.buyer_id, ask.sku, ask.card_name, ask.condition,
+       agreedPriceStr, offer.quantity],
+    );
+
+    // accepts_returns + return_window_days snapshot from the ask so later
+    // listing edits can't retroactively change a trade's return
+    // eligibility (returns.ts reads the trade row, not the listing).
+    const tradeRow = await q(
+      `INSERT INTO market_trades
+         (bid_order_id, ask_order_id, buyer_id, seller_id, sku, price, quantity,
+          commission_rate, commission_amount, seller_payout,
+          escrow_tier, requires_photos, requires_inspection, seller_ships_to,
+          dispute_window_hours, payout_hold_days, payment_expires_at,
+          accepts_returns, return_window_days)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+               $17::timestamptz,$18,$19)
+       RETURNING *`,
+      [synthBid.rows[0].id, ask.id, offer.buyer_id, offer.seller_id,
+       ask.sku, agreedPriceStr, offer.quantity,
+       economics.rate.toFixed(4), economics.commission.toFixed(2),
+       economics.sellerPayout.toFixed(2),
+       routing.tier, routing.requiresPhotos, routing.requiresInspection,
+       routing.sellerShipsTo, routing.disputeWindowHours, routing.payoutHoldDays,
+       paymentExpiresAt, ask.accepts_returns, ask.return_window_days],
+    );
+    const trade = tradeRow.rows[0] as MarketTrade;
+
+    // Update ask filled_quantity. Cast to order_status — the literal
+    // 'filled'/'partially_filled' would otherwise be inferred as text
+    // and PG rejects the assignment.
+    await q(
+      `UPDATE market_orders
+          SET filled_quantity = filled_quantity + $2,
+              status = (CASE WHEN filled_quantity + $2 >= quantity THEN 'filled'
+                            ELSE 'partially_filled' END)::order_status,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [ask.id, offer.quantity],
+    );
+
+    await q(
+      `UPDATE market_offers
+          SET status='accepted', responded_at=COALESCE(responded_at, NOW()),
+              resolved_at=NOW(), trade_id=$2, updated_at=NOW()
+        WHERE id=$1`,
+      [input.offerId, trade.id],
+    );
+
+    return {
+      ok: true as const,
+      value: {
+        trade,
+        cardLabel: (ask.card_name as string | null) || (ask.sku as string),
+        agreedPrice,
+        paymentWindowHours,
+      },
+    };
+  });
+}
+
 // ── Seller actions: accept / decline / counter ──
 
 export async function acceptOffer(offerId: string, sellerId: string): Promise<Result<{
   offer: MarketOffer;
   trade: MarketTrade;
 }>> {
+  // Fast-fail permission + state checks. seller_id is immutable so the
+  // ownership check holds; the status check is repeated under the lock
+  // inside the acceptance engine.
   const offer = await loadOffer(offerId);
   if (!offer) return { ok: false, reason: "Offer not found.", status: 404 };
   if (offer.seller_id !== sellerId) {
@@ -297,92 +505,21 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
     return { ok: false, reason: `Offer is ${offer.status} — can't accept.`, status: 409 };
   }
 
-  // Create the trade at the offer price by reusing placeOrder's
-  // engine? No — we already have a matching pair of orders (the ask
-  // exists; we synthesize a bid for record-keeping then INSERT trade
-  // directly). Going through placeOrder would re-run the trust gate
-  // unnecessarily (already checked at offer creation) and could
-  // mis-match against a different cheaper ask in the meantime.
-  const askRows = await query(
-    `SELECT id, sku, condition, price, quantity, filled_quantity, user_id, card_name
-       FROM market_orders WHERE id = $1 FOR UPDATE`,
-    [offer.ask_order_id],
-  );
-  if (askRows.rows.length === 0 || askRows.rows[0].user_id !== sellerId) {
-    return { ok: false, reason: "Ask is no longer available.", status: 409 };
-  }
-  const ask = askRows.rows[0];
-  const remaining = ask.quantity - ask.filled_quantity;
-  if (remaining < offer.quantity) {
-    return { ok: false, reason: "Not enough remaining qty on the ask.", status: 409 };
-  }
+  const result = await createTradeForAcceptedOffer({
+    offerId,
+    requiredStatus: "pending",
+    priceField: "offer_price",
+  });
+  if (!result.ok) return result;
+  const { trade, cardLabel, agreedPrice, paymentWindowHours } = result.value;
 
-  // Synthesize a 'bid' order so market_trades's bid_order_id FK is
-  // satisfied. Marked filled immediately — it's a paper trail for
-  // the offer-driven match, not an order on the book.
-  const synthBid = await query(
-    `INSERT INTO market_orders
-       (user_id, side, sku, card_name, condition, price, quantity, status,
-        filled_quantity, allow_offers)
-     VALUES ($1, 'bid', $2, $3, $4, $5, $6, 'filled', $6, false)
-     RETURNING id`,
-    [offer.buyer_id, ask.sku, ask.card_name, ask.condition,
-     offer.offer_price, offer.quantity],
-  );
-
-  // Compute commission off the OFFER price (not the ask price). Offer
-  // acceptance charges the base P2P rate (the trust/membership discount is
-  // not yet applied on this path), and the per-item commission cap (the
-  // fairness fix) bounds the absolute fee. See /methodology/fees.
-  const offerValue = parseFloat(offer.offer_price) * offer.quantity;
-  const commission = computeCommissionAmount(offerValue, DEFAULT_P2P_COMMISSION_RATE).amount;
-  const sellerPayout = offerValue - commission;
-
-  const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
-  const tradeRow = await query(
-    `INSERT INTO market_trades
-       (bid_order_id, ask_order_id, buyer_id, seller_id, sku, price, quantity,
-        commission_amount, seller_payout, escrow_status, payment_expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'awaiting_payment',
-             $10::timestamptz)
-     RETURNING *`,
-    [synthBid.rows[0].id, ask.id, offer.buyer_id, sellerId,
-     ask.sku, offer.offer_price, offer.quantity,
-     commission.toFixed(2), sellerPayout.toFixed(2), paymentExpiresAt],
-  );
-  const trade = tradeRow.rows[0] as MarketTrade;
-
-  // Update ask filled_quantity. Cast to order_status — the literal
-  // 'filled'/'partially_filled' would otherwise be inferred as text
-  // and PG rejects the assignment.
-  await query(
-    `UPDATE market_orders
-        SET filled_quantity = filled_quantity + $2,
-            status = (CASE WHEN filled_quantity + $2 >= quantity THEN 'filled'
-                          ELSE 'partially_filled' END)::order_status,
-            updated_at = NOW()
-      WHERE id = $1`,
-    [ask.id, offer.quantity],
-  );
-
-  // Mark offer accepted + link trade
-  await query(
-    `UPDATE market_offers
-        SET status='accepted', responded_at=NOW(), resolved_at=NOW(),
-            trade_id=$2, updated_at=NOW()
-      WHERE id=$1`,
-    [offerId, trade.id],
-  );
-
-  // Notify the buyer to pay. The market trade's existing 24h
-  // payment-window notify will ALSO fire from placeOrder's match
-  // path — but since we bypassed placeOrder, fire the equivalent
-  // here. (kind=offer.accepted distinguishes from organic match.)
+  // Notify the buyer to pay. The window in the copy is the same one the
+  // trade row enforces (payment_expires_at) — never a fixed hour count.
   await notify({
     userId: offer.buyer_id,
     kind: "offer.accepted",
-    title: `Offer accepted: ${formatPrice(parseFloat(offer.offer_price))} for ${ask.card_name || ask.sku}`,
-    body: "Pay within 24 hours to lock in the trade.",
+    title: `Offer accepted: ${formatPrice(agreedPrice)} for ${cardLabel}`,
+    body: `Pay within ${paymentWindowHours}h to lock in the trade.`,
     linkUrl: "/account/trades",
     referenceType: "market_offer",
     referenceId: `${offerId}:accepted`,
@@ -521,6 +658,8 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
   offer: MarketOffer;
   trade: MarketTrade;
 }>> {
+  // Fast-fail permission + state checks; the state check is repeated
+  // under the lock inside the acceptance engine.
   const offer = await loadOffer(offerId);
   if (!offer) return { ok: false, reason: "Offer not found.", status: 404 };
   if (offer.buyer_id !== buyerId) {
@@ -530,70 +669,18 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
     return { ok: false, reason: "No active counter to accept.", status: 409 };
   }
 
-  const askRows = await query(
-    `SELECT id, sku, condition, price, quantity, filled_quantity, user_id, card_name
-       FROM market_orders WHERE id = $1 FOR UPDATE`,
-    [offer.ask_order_id],
-  );
-  if (askRows.rows.length === 0) {
-    return { ok: false, reason: "Ask is no longer available.", status: 409 };
-  }
-  const ask = askRows.rows[0];
-  if (ask.quantity - ask.filled_quantity < offer.quantity) {
-    return { ok: false, reason: "Ask no longer has enough remaining qty.", status: 409 };
-  }
-
-  const synthBid = await query(
-    `INSERT INTO market_orders
-       (user_id, side, sku, card_name, condition, price, quantity, status,
-        filled_quantity, allow_offers)
-     VALUES ($1, 'bid', $2, $3, $4, $5, $6, 'filled', $6, false)
-     RETURNING id`,
-    [offer.buyer_id, ask.sku, ask.card_name, ask.condition,
-     offer.counter_price, offer.quantity],
-  );
-
-  // Base P2P rate, then the per-item commission cap (the fairness fix)
-  // bounds the absolute fee. See /methodology/fees.
-  const value = parseFloat(offer.counter_price) * offer.quantity;
-  const commission = computeCommissionAmount(value, DEFAULT_P2P_COMMISSION_RATE).amount;
-  const sellerPayout = value - commission;
-
-  const paymentExpiresAt = await paymentExpiresAtForBuyer(offer.buyer_id, DEFAULT_PAYMENT_WINDOW_HOURS);
-  const tradeRow = await query(
-    `INSERT INTO market_trades
-       (bid_order_id, ask_order_id, buyer_id, seller_id, sku, price, quantity,
-        commission_amount, seller_payout, escrow_status, payment_expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'awaiting_payment',
-             $10::timestamptz)
-     RETURNING *`,
-    [synthBid.rows[0].id, ask.id, offer.buyer_id, offer.seller_id,
-     ask.sku, offer.counter_price, offer.quantity,
-     commission.toFixed(2), sellerPayout.toFixed(2), paymentExpiresAt],
-  );
-  const trade = tradeRow.rows[0] as MarketTrade;
-
-  await query(
-    `UPDATE market_orders
-        SET filled_quantity = filled_quantity + $2,
-            status = (CASE WHEN filled_quantity + $2 >= quantity THEN 'filled'
-                          ELSE 'partially_filled' END)::order_status,
-            updated_at = NOW()
-      WHERE id = $1`,
-    [ask.id, offer.quantity],
-  );
-
-  await query(
-    `UPDATE market_offers
-        SET status='accepted', resolved_at=NOW(), trade_id=$2, updated_at=NOW()
-      WHERE id=$1`,
-    [offerId, trade.id],
-  );
+  const result = await createTradeForAcceptedOffer({
+    offerId,
+    requiredStatus: "countered",
+    priceField: "counter_price",
+  });
+  if (!result.ok) return result;
+  const { trade, cardLabel, agreedPrice } = result.value;
 
   await notify({
     userId: offer.seller_id,
     kind: "offer.counter_accepted",
-    title: `Counter accepted: ${formatPrice(parseFloat(offer.counter_price))} for ${ask.card_name || ask.sku}`,
+    title: `Counter accepted: ${formatPrice(agreedPrice)} for ${cardLabel}`,
     body: "The buyer accepted your counter. Trade is now awaiting payment.",
     linkUrl: "/account/trades",
     referenceType: "market_offer",

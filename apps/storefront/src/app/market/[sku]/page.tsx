@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
-import { formatPrice } from "@/lib/format";
-import { Money, EmptyState, Icon, TrustTier, type IconName } from "@/lib/ui";
+import { useParams, usePathname } from "next/navigation";
+import { formatPrice, formatDateTime } from "@/lib/format";
+import { Money, EmptyState, Icon, TrustTier, WhyLink, type IconName } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
 import { useToast } from "@/components/ui/Toast";
 import { useCreditSell } from "@/context/CreditSellContext";
 import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
+import { ListingsPanel, type TrustLimits } from "./ListingsPanel";
+import { tradeLimitWarning } from "./offer-guidance";
 
 // Wardrobe migration (spec §3.4): Gallery semantic tokens, Icon glyphs and a
 // voiced empty state — skin only; fetches, polling, hooks and forms unchanged.
@@ -448,6 +450,9 @@ function BuyRoutingInfo({ view }: { view: UnifiedMarketView }) {
 export default function CardMarketPage() {
   const params = useParams();
   const sku = params.sku as string;
+  const pathname = usePathname();
+  // Sign-in CTAs carry the current path so the login flow can return here.
+  const signInHref = `/login?return=${encodeURIComponent(pathname || `/market/${sku}`)}`;
   const v = useVoice();
 
   const [book, setBook] = useState<UnifiedMarketView | null>(null);
@@ -464,9 +469,22 @@ export default function CardMarketPage() {
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [condition, setCondition] = useState<"NM" | "LP" | "MP" | "HP">("NM");
+  // Listing options (ask side). Returns are a per-listing opt-in; the
+  // window rides onto the trade snapshot at match time.
+  const [acceptsReturns, setAcceptsReturns] = useState(false);
+  const [returnWindowDays, setReturnWindowDays] = useState("14");
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message: string;
+    // Set when the order matched immediately — the success box links to
+    // the trade and names the payment deadline the trade row enforces.
+    matched?: { count: number; paymentExpiresAt: string | null };
+  } | null>(null);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  // Own trading limits (trust engine) — fetched once after sign-in so
+  // per-trade / daily-limit rejections surface BEFORE submit.
+  const [limits, setLimits] = useState<TrustLimits | null>(null);
 
   // Watchlist
   const [watching, setWatching] = useState<boolean | null>(null);
@@ -634,6 +652,24 @@ export default function CardMarketPage() {
       .catch(() => setLoggedIn(false));
   }, []);
 
+  // Trading limits for the pre-submit hint. /api/escrow/trust returns the
+  // caller's own trust profile — trade_limit and daily_limit are what
+  // canTrade() enforces server-side on both order placement and offers.
+  useEffect(() => {
+    if (loggedIn !== true) return;
+    fetch("/api/escrow/trust")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.profile) return;
+        setLimits({
+          tradeLimit: d.profile.trade_limit != null ? parseFloat(d.profile.trade_limit) : null,
+          dailyLimit: d.profile.daily_limit != null ? parseFloat(d.profile.daily_limit) : null,
+          warnings: d.tradeCheck?.warnings || [],
+        });
+      })
+      .catch(() => {});
+  }, [loggedIn]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -648,16 +684,28 @@ export default function CardMarketPage() {
           price: parseFloat(price),
           quantity: parseInt(quantity, 10),
           condition,
+          ...(tab === "sell" && acceptsReturns
+            ? { acceptsReturns: true, returnWindowDays: parseInt(returnWindowDays, 10) }
+            : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to place order");
       }
-      const matchMsg = data.matched
-        ? ` Matched ${data.trades?.length || 0} trade(s) immediately!`
-        : "";
-      setResult({ success: true, message: `Order placed.${matchMsg}` });
+      if (data.matched) {
+        const trades: MarketTrade[] = data.trades || [];
+        setResult({
+          success: true,
+          message: `Order placed — matched ${trades.length} trade${trades.length !== 1 ? "s" : ""} immediately.`,
+          matched: {
+            count: trades.length,
+            paymentExpiresAt: trades[0]?.payment_expires_at ?? null,
+          },
+        });
+      } else {
+        setResult({ success: true, message: "Order placed on the book." });
+      }
       setPrice("");
       setQuantity("1");
       fetchBook();
@@ -852,10 +900,33 @@ export default function CardMarketPage() {
                   </p>
                 </div>
               )}
+              {/* Cold tape: no own trades to compute a fair value from, so
+                  the CTCG spot stands in — labelled, because it is a
+                  different kind of fact (our catalogue price, not a P2P
+                  clearing price). */}
+              {fairValue && fairValue.tradeCount === 0 && book.spot_price != null && (
+                <div className="wardrobe-mat rounded-lg p-3 mb-4 space-y-1.5">
+                  <p className="text-[10px] text-ink-faint uppercase tracking-wide">Fair value (30d)</p>
+                  <p className="text-xs text-ink-muted">
+                    No P2P trades in the last 30 days — nothing to compute a fair value from.
+                  </p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-ink-muted">CTCG spot</span>
+                    <span className="font-mono tabular-nums text-accent"><Money value={book.spot_price} /></span>
+                  </div>
+                  <p
+                    className="text-[10px] uppercase tracking-wider text-ink-faint"
+                    title="Cambridge TCG's own catalogue price, shown as a reference only. It is our retail price — a different source than what peers paid each other."
+                  >
+                    reference · ctcg catalogue, not p2p tape
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Center: Order book */}
+          {/* Center: Order book + per-listing asks */}
+          <div className="space-y-6">
           <div className="wardrobe-mat rounded-lg p-4">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-sm font-bold font-display tracking-tight text-ink">Order Book</h2>
@@ -906,9 +977,295 @@ export default function CardMarketPage() {
             )}
           </div>
 
-          {/* Right: Order form + Sell for Credit */}
+          {/* Per-listing asks: negotiate (offers) + pre-trade contact */}
+          <ListingsPanel
+            sku={sku}
+            loggedIn={loggedIn}
+            bestBid={book.best_bid !== null ? Number(book.best_bid) : null}
+            fairValue={fairValue}
+            spotPrice={book.spot_price}
+            limits={limits}
+          />
+          </div>
+
+          {/* Right: P2P forms first; the house credit box follows */}
           <div className="space-y-4">
-            {/* ========== CAMBRIDGE TCG BUYS THIS CARD ========== */}
+            {/* ========== P2P Order Form ========== */}
+            <div className="wardrobe-mat rounded-lg p-4">
+            <div className="flex mb-4 bg-surface-subtle border border-border-subtle rounded-lg p-1">
+              <button
+                onClick={() => { setTab("buy"); setResult(null); }}
+                className={`flex-1 py-2 text-sm font-bold rounded-md transition ${
+                  tab === "buy"
+                    ? "bg-bid text-page"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                Buy
+              </button>
+              <button
+                onClick={() => { setTab("sell"); setResult(null); }}
+                className={`flex-1 py-2 text-sm font-bold rounded-md transition ${
+                  tab === "sell"
+                    ? "bg-ask text-page"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                Sell
+              </button>
+            </div>
+
+            {/* Reference price */}
+            <div className="mb-4 text-xs text-ink-muted">
+              {tab === "buy" ? "Best ask: " : "Best bid: "}
+              <span className="font-mono tabular-nums">
+                {tab === "buy"
+                  ? (book.best_ask ? formatPrice(Number(book.best_ask)) : "—")
+                  : (book.best_bid ? formatPrice(Number(book.best_bid)) : "—")}
+              </span>
+              {tab === "buy" && book.spot_price != null && (
+                <span className="ml-2 text-accent/80">
+                  (CTCG Spot: <Money value={book.spot_price} className="font-mono tabular-nums" />)
+                </span>
+              )}
+            </div>
+
+            {loggedIn === false ? (
+              <div className="text-center py-8">
+                <p className="text-ink-muted text-sm mb-3">You need to be signed in to trade.</p>
+                <Link
+                  href={signInHref}
+                  className="text-accent hover:underline text-sm font-medium"
+                >
+                  Sign in to trade &mdash; you&rsquo;ll come back here
+                </Link>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs text-ink-faint mb-1">Price (GBP)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm">£</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      required
+                      className="w-full pl-7 pr-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm font-mono tabular-nums focus:outline-none focus:border-accent transition"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-ink-faint mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm font-mono tabular-nums focus:outline-none focus:border-accent transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-ink-faint mb-1">Condition</label>
+                  <select
+                    value={condition}
+                    onChange={(e) => setCondition(e.target.value as typeof condition)}
+                    className="w-full px-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent transition"
+                  >
+                    {CONDITIONS.map((c) => (
+                      <option key={c.code} value={c.code}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Listing options — asks only. The toggle + window are
+                    frozen onto any resulting trade, so a later edit to the
+                    listing can't change a completed trade's eligibility. */}
+                {tab === "sell" && (
+                  <div className="bg-surface-subtle rounded-lg p-3 space-y-2">
+                    <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={acceptsReturns}
+                        onChange={(e) => setAcceptsReturns(e.target.checked)}
+                        className="accent-current"
+                      />
+                      <span className="font-medium">Accept returns</span>
+                      <WhyLink href="/methodology/trade-completion" tooltip="How no-fault returns work" />
+                    </label>
+                    {acceptsReturns && (
+                      <div className="flex items-center gap-2 text-xs text-ink-muted">
+                        <span>Return window</span>
+                        <select
+                          value={returnWindowDays}
+                          onChange={(e) => setReturnWindowDays(e.target.value)}
+                          className="px-2 py-1 bg-surface-elevated border border-border-strong rounded text-ink text-xs"
+                        >
+                          <option value="7">7 days</option>
+                          <option value="14">14 days</option>
+                          <option value="30">30 days</option>
+                        </select>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-ink-faint leading-relaxed">
+                      {acceptsReturns
+                        ? "Buyers can request a no-fault return within the window after the trade completes. You review each request; refunds are issued by Cambridge TCG admins, not automatically."
+                        : "Off: buyers can still open disputes for misdescribed or missing cards, but no change-of-mind returns."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Total preview */}
+                {price && quantity && (
+                  <div className="text-xs text-ink-muted text-right">
+                    Total: <Money value={parseFloat(price) * parseInt(quantity, 10) || 0} className="font-mono tabular-nums" />
+                  </div>
+                )}
+
+                {/* Fill probability — only meaningful for bids */}
+                {tab === "buy" && bidAnalysis && bidAnalysis.fillProbabilityPct !== null && (
+                  <div className={`text-xs rounded-lg px-3 py-2 border ${
+                    bidAnalysis.fillProbabilityPct >= 50 ? "bg-bid/10 border-bid/20 text-bid"
+                    : bidAnalysis.fillProbabilityPct >= 20 ? "bg-accent-wash border-accent/20 text-accent"
+                    : "bg-surface-elevated border-border-strong text-ink-muted"
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span>Historical fill odds</span>
+                      <span className="font-mono tabular-nums font-bold">{bidAnalysis.fillProbabilityPct}%</span>
+                    </div>
+                    {bidAnalysis.expectedDaysToFill !== null && (
+                      <div className="flex items-center justify-between mt-0.5 text-[10px] opacity-80">
+                        <span>Expected time to fill</span>
+                        <span className="font-mono tabular-nums">~{bidAnalysis.expectedDaysToFill}d</span>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-ink-faint mt-1">
+                      % of last 30d trades at or below this price.
+                    </p>
+                  </div>
+                )}
+
+                {/* Pre-submit trust hint — mirrors the canTrade() gate the
+                    server enforces, so a limit rejection is announced here
+                    instead of arriving as a 403 after submit. */}
+                {(() => {
+                  const total = (parseFloat(price) || 0) * (parseInt(quantity, 10) || 0);
+                  const warning = tradeLimitWarning(total, limits);
+                  if (warning) {
+                    return (
+                      <p className="text-xs text-danger bg-danger/10 border border-danger/30 rounded-lg px-3 py-2">
+                        {warning}
+                        <WhyLink href="/methodology/trust-score" tooltip="How trading limits are set" />
+                      </p>
+                    );
+                  }
+                  if (total > 0 && limits && limits.warnings.length > 0) {
+                    return <p className="text-[11px] text-accent">{limits.warnings[0]}</p>;
+                  }
+                  return null;
+                })()}
+
+                <button
+                  type="submit"
+                  disabled={submitting || loggedIn === null}
+                  className={`w-full py-3 rounded-lg font-bold text-sm transition disabled:opacity-50 ${
+                    tab === "buy"
+                      ? "bg-bid text-page hover:opacity-90"
+                      : "bg-ask text-page hover:opacity-90"
+                  }`}
+                >
+                  {submitting
+                    ? "Submitting..."
+                    : tab === "buy"
+                    ? "Place Bid"
+                    : "Place Ask"}
+                </button>
+
+                {result && (
+                  <div
+                    className={`p-3 rounded-lg text-sm ${
+                      result.success
+                        ? "bg-ok/10 text-ok border border-ok/30"
+                        : "bg-danger/10 text-danger border border-danger/30"
+                    }`}
+                  >
+                    <p>{result.message}</p>
+                    {result.matched && (
+                      <p className="text-xs text-ink-muted mt-1.5">
+                        <Link href="/account/trades" className="text-accent hover:underline font-medium">
+                          View your trade{result.matched.count !== 1 ? "s" : ""} &rarr;
+                        </Link>{" "}
+                        {result.matched.paymentExpiresAt ? (
+                          tab === "buy"
+                            ? <>Payment is due by <span className="font-mono tabular-nums">{formatDateTime(result.matched.paymentExpiresAt)}</span> (your payment window) or the trade cancels.</>
+                            : <>The buyer&rsquo;s payment is due by <span className="font-mono tabular-nums">{formatDateTime(result.matched.paymentExpiresAt)}</span> (their payment window); you&rsquo;ll be notified when it lands.</>
+                        ) : (
+                          "Payment is due within the buyer's payment window — the trade page shows the exact deadline."
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </form>
+            )}
+
+            {/* Escrow routing preview */}
+            {loggedIn !== false && price && quantity && (
+              <EscrowRoutingPreview orderValue={parseFloat(price) * parseInt(quantity, 10) || 0} />
+            )}
+
+            {/* Reputation checker (global free trade, 2026-06-10): the
+                verification wall came down; what stands in its place is
+                visibility — who is on the other side of the best ask, and
+                how the room remembers them. */}
+            <div className="mt-4 pt-4 border-t border-border-subtle space-y-2">
+              {book.best_ask_seller?.username && (
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-ink-faint">Best ask from</span>
+                  <Link
+                    href={`/u/${book.best_ask_seller.username}`}
+                    className="text-accent hover:underline font-medium"
+                  >
+                    @{book.best_ask_seller.username}
+                  </Link>
+                  {book.best_ask_seller.tier && (
+                    <TrustTier
+                      name={book.best_ask_seller.tier}
+                      score={book.best_ask_seller.trust_score}
+                    />
+                  )}
+                  <Link
+                    href={`/u/${book.best_ask_seller.username}/trust`}
+                    className="text-ink-muted hover:text-accent hover:underline"
+                  >
+                    <span className="font-mono tabular-nums">{book.best_ask_seller.review_count}</span> review{book.best_ask_seller.review_count !== 1 ? "s" : ""}
+                    {book.best_ask_seller.avg_rating != null && book.best_ask_seller.review_count > 0 && (
+                      <> &middot; <span className="font-mono tabular-nums">{book.best_ask_seller.avg_rating.toFixed(1)}</span>★</>
+                    )}
+                  </Link>
+                </div>
+              )}
+              <p className="text-[11px] text-ink-faint leading-relaxed">
+                Trades are protected by escrow routing and the{" "}
+                <Link href="/methodology/trust-score" className="text-accent hover:underline">
+                  reputation system
+                </Link>
+                {" "}&mdash; check any counterparty before you trade.
+              </p>
+            </div>
+
+          </div>
+
+            {/* ========== Cambridge TCG buys this card ==========
+                The house standing bid, below the P2P surface: peer
+                listings and negotiation lead this column; CTCG's credit
+                bid is the fallback, not the headline. */}
             {book.tradein_credit != null && book.tradein_credit > 0 && (
               <div className="rounded-lg bg-accent-wash border border-border-subtle">
                 <div className="p-5">
@@ -952,7 +1309,7 @@ export default function CardMarketPage() {
 
                           {loggedIn === false ? (
                             <Link
-                              href="/login"
+                              href={signInHref}
                               className="block w-full text-center py-2.5 rounded-lg font-bold text-sm bg-accent text-page hover:bg-accent-strong transition"
                             >
                               Sign in to sell
@@ -1011,207 +1368,6 @@ export default function CardMarketPage() {
                 </div>
               </div>
             )}
-
-            {/* ========== P2P Order Form ========== */}
-            <div className="wardrobe-mat rounded-lg p-4">
-            <div className="flex mb-4 bg-surface-subtle border border-border-subtle rounded-lg p-1">
-              <button
-                onClick={() => { setTab("buy"); setResult(null); }}
-                className={`flex-1 py-2 text-sm font-bold rounded-md transition ${
-                  tab === "buy"
-                    ? "bg-bid text-page"
-                    : "text-ink-muted hover:text-ink"
-                }`}
-              >
-                Buy
-              </button>
-              <button
-                onClick={() => { setTab("sell"); setResult(null); }}
-                className={`flex-1 py-2 text-sm font-bold rounded-md transition ${
-                  tab === "sell"
-                    ? "bg-ask text-page"
-                    : "text-ink-muted hover:text-ink"
-                }`}
-              >
-                Sell
-              </button>
-            </div>
-
-            {/* Reference price */}
-            <div className="mb-4 text-xs text-ink-muted">
-              {tab === "buy" ? "Best ask: " : "Best bid: "}
-              <span className="font-mono tabular-nums">
-                {tab === "buy"
-                  ? (book.best_ask ? formatPrice(Number(book.best_ask)) : "—")
-                  : (book.best_bid ? formatPrice(Number(book.best_bid)) : "—")}
-              </span>
-              {tab === "buy" && book.spot_price != null && (
-                <span className="ml-2 text-accent/80">
-                  (CTCG Spot: <Money value={book.spot_price} className="font-mono tabular-nums" />)
-                </span>
-              )}
-            </div>
-
-            {loggedIn === false ? (
-              <div className="text-center py-8">
-                <p className="text-ink-muted text-sm mb-3">You need to be signed in to trade.</p>
-                <Link
-                  href="/login"
-                  className="text-accent hover:underline text-sm font-medium"
-                >
-                  Sign in to trade
-                </Link>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs text-ink-faint mb-1">Price (GBP)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm">£</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      required
-                      className="w-full pl-7 pr-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm font-mono tabular-nums focus:outline-none focus:border-accent transition"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs text-ink-faint mb-1">Quantity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    required
-                    className="w-full px-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm font-mono tabular-nums focus:outline-none focus:border-accent transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs text-ink-faint mb-1">Condition</label>
-                  <select
-                    value={condition}
-                    onChange={(e) => setCondition(e.target.value as typeof condition)}
-                    className="w-full px-3 py-2.5 bg-surface-elevated border border-border-strong rounded-lg text-ink text-sm focus:outline-none focus:border-accent transition"
-                  >
-                    {CONDITIONS.map((c) => (
-                      <option key={c.code} value={c.code}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Total preview */}
-                {price && quantity && (
-                  <div className="text-xs text-ink-muted text-right">
-                    Total: <Money value={parseFloat(price) * parseInt(quantity, 10) || 0} className="font-mono tabular-nums" />
-                  </div>
-                )}
-
-                {/* Fill probability — only meaningful for bids */}
-                {tab === "buy" && bidAnalysis && bidAnalysis.fillProbabilityPct !== null && (
-                  <div className={`text-xs rounded-lg px-3 py-2 border ${
-                    bidAnalysis.fillProbabilityPct >= 50 ? "bg-bid/10 border-bid/20 text-bid"
-                    : bidAnalysis.fillProbabilityPct >= 20 ? "bg-accent-wash border-accent/20 text-accent"
-                    : "bg-surface-elevated border-border-strong text-ink-muted"
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <span>Historical fill odds</span>
-                      <span className="font-mono tabular-nums font-bold">{bidAnalysis.fillProbabilityPct}%</span>
-                    </div>
-                    {bidAnalysis.expectedDaysToFill !== null && (
-                      <div className="flex items-center justify-between mt-0.5 text-[10px] opacity-80">
-                        <span>Expected time to fill</span>
-                        <span className="font-mono tabular-nums">~{bidAnalysis.expectedDaysToFill}d</span>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-ink-faint mt-1">
-                      % of last 30d trades at or below this price.
-                    </p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={submitting || loggedIn === null}
-                  className={`w-full py-3 rounded-lg font-bold text-sm transition disabled:opacity-50 ${
-                    tab === "buy"
-                      ? "bg-bid text-page hover:opacity-90"
-                      : "bg-ask text-page hover:opacity-90"
-                  }`}
-                >
-                  {submitting
-                    ? "Submitting..."
-                    : tab === "buy"
-                    ? "Place Bid"
-                    : "Place Ask"}
-                </button>
-
-                {result && (
-                  <div
-                    className={`p-3 rounded-lg text-sm ${
-                      result.success
-                        ? "bg-ok/10 text-ok border border-ok/30"
-                        : "bg-danger/10 text-danger border border-danger/30"
-                    }`}
-                  >
-                    {result.message}
-                  </div>
-                )}
-              </form>
-            )}
-
-            {/* Escrow routing preview */}
-            {loggedIn !== false && price && quantity && (
-              <EscrowRoutingPreview orderValue={parseFloat(price) * parseInt(quantity, 10) || 0} />
-            )}
-
-            {/* Reputation checker (global free trade, 2026-06-10): the
-                verification wall came down; what stands in its place is
-                visibility — who is on the other side of the best ask, and
-                how the room remembers them. */}
-            <div className="mt-4 pt-4 border-t border-border-subtle space-y-2">
-              {book.best_ask_seller?.username && (
-                <div className="flex items-center gap-2 flex-wrap text-xs">
-                  <span className="text-ink-faint">Best ask from</span>
-                  <Link
-                    href={`/u/${book.best_ask_seller.username}`}
-                    className="text-accent hover:underline font-medium"
-                  >
-                    @{book.best_ask_seller.username}
-                  </Link>
-                  {book.best_ask_seller.tier && (
-                    <TrustTier
-                      name={book.best_ask_seller.tier}
-                      score={book.best_ask_seller.trust_score}
-                    />
-                  )}
-                  <Link
-                    href={`/u/${book.best_ask_seller.username}/trust`}
-                    className="text-ink-muted hover:text-accent hover:underline"
-                  >
-                    <span className="font-mono tabular-nums">{book.best_ask_seller.review_count}</span> review{book.best_ask_seller.review_count !== 1 ? "s" : ""}
-                    {book.best_ask_seller.avg_rating != null && book.best_ask_seller.review_count > 0 && (
-                      <> &middot; <span className="font-mono tabular-nums">{book.best_ask_seller.avg_rating.toFixed(1)}</span>★</>
-                    )}
-                  </Link>
-                </div>
-              )}
-              <p className="text-[11px] text-ink-faint leading-relaxed">
-                Trades are protected by escrow routing and the{" "}
-                <Link href="/methodology/trust-score" className="text-accent hover:underline">
-                  reputation system
-                </Link>
-                {" "}&mdash; check any counterparty before you trade.
-              </p>
-            </div>
-
-          </div>
           </div>
         </div>
 

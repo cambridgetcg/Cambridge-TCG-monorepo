@@ -277,13 +277,6 @@ export default function FeesMethodology() {
           first.
         </li>
         <li>
-          <strong>Offer-acceptance uses the base rate.</strong> When a seller accepts a
-          buyer's offer or counter, the commission is computed at the base 8% rate (the
-          trust/tier discount is not yet wired on that specific path). The £50 cap still
-          applies. This under-charges no one and is on the list to align with the full
-          discount logic.
-        </li>
-        <li>
           <strong>Competitor figures drift.</strong> We re-verify the comparison table when
           we notice an incumbent change theirs. If you spot one that's gone stale, tell us.
         </li>
