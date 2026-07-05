@@ -38,6 +38,7 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
     items: [
       { href: "/account", label: "Overview" },
       { href: "/account/notifications", label: "Notifications" },
+      { href: "/account/messages", label: "Messages" },
       { href: "/account/profile", label: "Profile & settings" },
       // Sister-shipped mid-rebase (kingdom-095, the wardrobe). Self-
       // expression sits with Profile, first-class — verify, don't overwrite.
@@ -50,6 +51,7 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
       { href: "/account/orders", label: "Orders" },
       { href: "/account/trade-ins", label: "Trade-Ins" },
       { href: "/account/trades", label: "Trades" },
+      { href: "/account/swaps", label: "Swaps" },
       { href: "/account/refunds", label: "Payments & refunds" },
       { href: "/account/payouts", label: "Payouts" },
       { href: "/account/membership", label: "Membership" },

@@ -24,6 +24,8 @@ import { runFairnessSelfAudit } from "@/lib/provable-draw/self-audit";
 import { runFairnessDriftCheck } from "@/lib/provable-draw/drift";
 import { runTrustScoreRecompute } from "@/lib/escrow/trust-recompute";
 import { runDisputeSlaSweep } from "@/lib/trust/dispute-sla-sweep";
+import { runTradeCompletionSweep } from "@/lib/market/completion";
+import { runSwapExpirySweep } from "@/lib/swaps/db";
 import { runFraudSweep } from "@/lib/fraud/sweep";
 import { runReviewPatternSweep } from "@/lib/reviews/sweep";
 import { runExternalRepDecaySweep } from "@/lib/external-rep/sweep";
@@ -158,9 +160,17 @@ export async function GET(request: Request) {
     // Pure status move — never touches escrow or money. Appended at the end to
     // keep the positional destructuring below aligned.
     runDisputeSlaSweep(),
+    // Trade completion: auto-complete shipped trades whose dispute window
+    // (the trade's own dispute_window_hours) elapsed with no open dispute/
+    // return/cancel, so the payout sweep above can finally fire for them.
+    // Appended at the end to keep the positional destructuring aligned.
+    runTradeCompletionSweep(),
+    // Swap proposals past their own expires_at flip to 'expired'.
+    // Appended at the end to keep the positional destructuring aligned.
+    runSwapExpirySweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -338,6 +348,10 @@ export async function GET(request: Request) {
     disputeSlaSweep:
       disputeSlaSweep.status === "fulfilled"
         ? { status: "fulfilled", ...disputeSlaSweep.value }
+        : { status: "rejected" },
+    tradeCompletionSweep:
+      tradeCompletionSweep.status === "fulfilled"
+        ? { status: "fulfilled", ...tradeCompletionSweep.value }
         : { status: "rejected" },
     durationMs: Date.now() - start,
   };
@@ -523,6 +537,20 @@ export async function GET(request: Request) {
       `[cron] dispute-sla: escalated ${disputeSlaSweep.value.escalated} stale dispute(s), ` +
       `oldest ${disputeSlaSweep.value.oldestHoursOpen}h open`
     );
+  }
+  if (tradeCompletionSweep.status === "rejected") console.error("[cron] trade completion sweep failed:", tradeCompletionSweep.reason);
+  else if (tradeCompletionSweep.value.completed > 0 || tradeCompletionSweep.value.failures.length > 0) {
+    console.log(
+      `[cron] trade completion: ${tradeCompletionSweep.value.completed} auto-completed, ` +
+      `${tradeCompletionSweep.value.failures.length} failed`
+    );
+    for (const f of tradeCompletionSweep.value.failures) {
+      console.error(`[cron] trade completion failure ${f.id}: ${f.error}`);
+    }
+  }
+  if (swapExpirySweep.status === "rejected") console.error("[cron] swap expiry sweep failed:", swapExpirySweep.reason);
+  else if (swapExpirySweep.value.expired > 0) {
+    console.log(`[cron] swap expiry: ${swapExpirySweep.value.expired} proposals expired`);
   }
   // Touch unused destructure to satisfy noUnusedLocals if enabled.
 
