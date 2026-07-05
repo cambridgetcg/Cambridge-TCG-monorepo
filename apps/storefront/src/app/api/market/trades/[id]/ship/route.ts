@@ -49,11 +49,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
   }
 
-  // Single tracking string ("Royal Mail AB123..." or just the number) —
-  // tracking_to_ctcg / tracking_to_buyer are plain text columns.
-  const tracking = body.carrier?.trim()
-    ? `${body.carrier.trim()} ${body.trackingNumber.trim()}`
-    : body.trackingNumber.trim();
+  // Carrier lands in its own column (migration 0108) so tracking links
+  // stay derivable via lib/shipping/carriers.ts; the tracking columns
+  // hold the bare number. Rows shipped before 0108 carry the old
+  // "Carrier TRACKING" concatenation in the tracking column instead.
+  const tracking = body.trackingNumber.trim().slice(0, 100);
+  const carrier = body.carrier?.trim().slice(0, 50) || undefined;
   const shipsToCtcg = trade.seller_ships_to === "ctcg";
 
   const updated = await updateEscrowStatus(
@@ -61,9 +62,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     shipsToCtcg ? "shipped_to_ctcg" : "shipped_to_buyer",
     {
       ...(shipsToCtcg ? { trackingToCtcg: tracking } : { trackingToBuyer: tracking }),
+      carrier,
       actorId: session.user.id,
       actorLabel: "user:seller-ship",
-      reason: `Seller confirmed dispatch (${tracking})`,
+      reason: `Seller confirmed dispatch (${carrier ? `${carrier} ` : ""}${tracking})`,
     }
   );
   if (!updated) {

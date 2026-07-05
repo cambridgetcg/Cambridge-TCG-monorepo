@@ -8,8 +8,9 @@ import type { TradeDispute, DisputeMessage, DisputeEvidence } from "@/lib/trust/
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import { TIMELINE_STEPS, getActiveStep } from "@/lib/escrow/timeline";
 import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust/dispute-timeline";
+import { buildTrackingUrl } from "@/lib/shipping/carriers";
 
-import { Audience, MessageButton } from "@/lib/ui";
+import { Audience, Consequences, MessageButton, WhyLink } from "@/lib/ui";
 // ── Escrow tier display ──
 
 interface EscrowRoutingData {
@@ -235,11 +236,19 @@ export default function TradeDetailPage() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
 
-  // Mark-shipped form (seller, while awaiting_shipment)
+  // Mark-shipped form (seller, while awaiting_shipment / admin-marked paid)
   const [shipCarrier, setShipCarrier] = useState("");
   const [shipTracking, setShipTracking] = useState("");
   const [markingShipped, setMarkingShipped] = useState(false);
   const [shipError, setShipError] = useState("");
+
+  // Pay-now (buyer, while awaiting_payment)
+  const [payingNow, setPayingNow] = useState(false);
+  const [payError, setPayError] = useState("");
+
+  // Confirm-received (buyer, once the card has shipped)
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -473,6 +482,45 @@ export default function TradeDetailPage() {
     }
   }
 
+  // Buyer starts payment — same flow as the trades list: POST creates a
+  // Stripe Checkout session, we follow its URL. (This page previously
+  // linked to /account/trades/[id]/pay, which never existed.)
+  async function handlePayNow() {
+    setPayingNow(true);
+    setPayError("");
+    try {
+      const res = await fetch(`/api/market/trades/${tradeId}/pay`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setPayError(data?.error || "Failed to start payment.");
+    } finally {
+      setPayingNow(false);
+    }
+  }
+
+  // Buyer confirms the card arrived — completes the escrow and starts
+  // the seller's payout clock. Server-side rules in lib/market/completion.ts.
+  async function handleConfirmReceived() {
+    setConfirmingReceipt(true);
+    setReceiptError("");
+    try {
+      const res = await fetch(`/api/market/trades/${tradeId}/received`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setReceiptError(data?.error || "Failed to confirm receipt.");
+        return;
+      }
+      if (data?.trade) {
+        setTrade((prev: unknown) => ({ ...(prev as object), ...data.trade, auto_complete_at: null }));
+      }
+    } finally {
+      setConfirmingReceipt(false);
+    }
+  }
+
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-GB", {
       day: "numeric",
@@ -512,6 +560,18 @@ export default function TradeDetailPage() {
   const counterpartyUsername = trade
     ? (viewerIsBuyer ? trade.seller_username : trade.buyer_username)
     : null;
+
+  // Mirrors isBuyerConfirmableState in lib/market/completion.ts (a server
+  // module this client bundle can't import): shipped_to_buyer in any tier,
+  // plus direct-tier 'verified' (the admin-set post-delivery hold state).
+  const receiptConfirmable =
+    !!trade &&
+    (trade.escrow_status === "shipped_to_buyer" ||
+      (trade.escrow_status === "verified" && trade.escrow_tier === "direct"));
+  // The ship route accepts both: the webhook stamps 'awaiting_shipment',
+  // an admin marking payment by hand stamps 'paid'.
+  const sellerCanShip =
+    viewerIsSeller && ["awaiting_shipment", "paid"].includes(trade?.escrow_status);
 
   if (loading) {
     return (
@@ -618,20 +678,24 @@ export default function TradeDetailPage() {
           const isSeller = sessionUserId && trade.seller_id === sessionUserId;
           if (isBuyer) {
             return (
-              <Link
-                href={`/account/trades/${tradeId}/pay`}
-                className="flex items-center justify-between bg-amber-500/15 border-2 border-amber-500/40 rounded-xl p-5 hover:bg-amber-500/20 transition group"
-              >
-                <div>
-                  <p className="text-amber-400 font-bold text-base">Payment required</p>
-                  <p className="text-neutral-400 text-sm mt-0.5">
-                    Complete your bank transfer to proceed with this trade.
-                  </p>
+              <div className="bg-amber-500/15 border-2 border-amber-500/40 rounded-xl p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-amber-400 font-bold text-base">Payment required</p>
+                    <p className="text-neutral-400 text-sm mt-0.5">
+                      Pay by card via Stripe Checkout to move this trade forward.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handlePayNow}
+                    disabled={payingNow}
+                    className="shrink-0 px-4 py-2 rounded-lg font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition disabled:opacity-50"
+                  >
+                    {payingNow ? "..." : "Pay Now →"}
+                  </button>
                 </div>
-                <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">
-                  Pay Now &rarr;
-                </span>
-              </Link>
+                {payError && <p className="text-xs text-red-400 mt-2">{payError}</p>}
+              </div>
             );
           }
           if (isSeller) {
@@ -655,30 +719,57 @@ export default function TradeDetailPage() {
           address; the traders arrange the logistics themselves. The seller
           gets a "Ship to" panel + mark-shipped form while shipment is
           pending; the buyer sees their own address echoed back, plus
-          tracking once the seller has set it. */}
-      {trade?.shipping_address && (viewerIsBuyer || viewerIsSeller) && (
+          tracking once the seller has set it. The mark-shipped form does
+          not require an address on file: admin-marked-paid trades skip
+          Stripe's address collection, and the address may have been agreed
+          over messages instead. */}
+      {trade && (viewerIsBuyer || viewerIsSeller) &&
+        (trade.shipping_address || sellerCanShip || trade.tracking_to_buyer || trade.carrier) && (
         <div className="bg-neutral-900 rounded-xl p-6">
           <h2 className="text-sm font-bold text-white uppercase tracking-wide mb-3">
             {viewerIsSeller ? "Ship to" : "Shipping"}
           </h2>
-          <div className="space-y-0.5">
-            {addressLines(trade.shipping_address).map((line, i) => (
-              <p key={i} className="text-sm font-mono text-neutral-200">{line}</p>
-            ))}
-          </div>
+          {trade.shipping_address ? (
+            <div className="space-y-0.5">
+              {addressLines(trade.shipping_address).map((line, i) => (
+                <p key={i} className="text-sm font-mono text-neutral-200">{line}</p>
+              ))}
+            </div>
+          ) : viewerIsSeller ? (
+            <p className="text-sm text-neutral-400">
+              No shipping address on file for this trade — message the buyer to agree on
+              the delivery address before dispatching.
+            </p>
+          ) : null}
           {(trade.tracking_to_buyer || trade.carrier) && (
             <p className="text-sm mt-3">
               <span className="text-neutral-500">Tracking:</span>{" "}
-              <span className="text-neutral-200 font-mono">
-                {[trade.carrier, trade.tracking_to_buyer].filter(Boolean).join(" — ")}
-              </span>
+              {(() => {
+                // Carrier is its own column since migration 0108; older
+                // shipments carry "Carrier TRACKING" concatenated in the
+                // tracking column, for which no link is derivable.
+                const trackingUrl = buildTrackingUrl(trade.carrier, trade.tracking_to_buyer);
+                const label = [trade.carrier, trade.tracking_to_buyer].filter(Boolean).join(" — ");
+                return trackingUrl ? (
+                  <a
+                    href={trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-400 hover:text-amber-300 font-mono underline decoration-dotted underline-offset-2"
+                  >
+                    {label} ↗
+                  </a>
+                ) : (
+                  <span className="text-neutral-200 font-mono">{label}</span>
+                );
+              })()}
             </p>
           )}
           <p className="text-xs text-neutral-500 mt-3">
             You arrange shipping yourself — including internationally. Use messaging to agree on timing and customs.
           </p>
 
-          {viewerIsSeller && trade.escrow_status === "awaiting_shipment" && (
+          {sellerCanShip && (
             <form onSubmit={handleMarkShipped} className="mt-4 flex gap-2 flex-wrap">
               <input
                 type="text"
@@ -704,6 +795,81 @@ export default function TradeDetailPage() {
               {shipError && <p className="w-full text-xs text-red-400">{shipError}</p>}
             </form>
           )}
+        </div>
+      )}
+
+      {/* Completion loop — the buyer closes the trade by confirming receipt,
+          or the auto-complete sweep closes it when the dispute window lapses
+          with nothing open against it. Both dates and consequences are shown
+          up front so neither party is waiting on an invisible clock. */}
+      {trade && receiptConfirmable && viewerIsBuyer && (
+        <div className="bg-neutral-900 border border-emerald-500/30 rounded-xl p-6 space-y-4">
+          <div>
+            <h2 className="text-sm font-bold text-white uppercase tracking-wide">
+              Card arrived?
+            </h2>
+            <p className="text-sm text-neutral-400 mt-1">
+              Confirm receipt once the card is in your hands and as described.
+              If something is wrong, open a dispute below instead of confirming.
+              <WhyLink href="/methodology/trade-completion" tooltip="How trades complete" />
+            </p>
+          </div>
+          <Consequences
+            items={[
+              {
+                label: "Trade",
+                delta: "completes immediately",
+                tone: "emerald",
+                methodology: "/methodology/trade-completion",
+              },
+              {
+                label: "Seller payout clock",
+                delta:
+                  trade.payout_hold_days != null && trade.payout_hold_days > 0
+                    ? `starts — released after a ${trade.payout_hold_days}-day hold`
+                    : "starts — eligible for release right away",
+                tone: "amber",
+                methodology: "/methodology/payout-hold",
+              },
+              {
+                label: "Dispute window",
+                delta: "closes — open any dispute before confirming",
+                tone: "red",
+              },
+            ]}
+          />
+          <button
+            onClick={handleConfirmReceived}
+            disabled={confirmingReceipt}
+            className="px-4 py-2 rounded-lg font-bold text-sm bg-emerald-500 text-black hover:bg-emerald-400 transition disabled:opacity-50"
+          >
+            {confirmingReceipt ? "..." : "Confirm received"}
+          </button>
+          {receiptError && <p className="text-xs text-red-400">{receiptError}</p>}
+          {trade.auto_complete_at && (
+            <p className="text-xs text-neutral-500">
+              If you do nothing, this trade completes automatically on{" "}
+              <span className="text-neutral-300 font-mono">{formatDate(trade.auto_complete_at)}</span>{" "}
+              provided no dispute, return, or cancellation is open — computed from the
+              dispatch time plus this trade&apos;s dispute window, not from a carrier
+              delivery event.
+            </p>
+          )}
+        </div>
+      )}
+      {trade && receiptConfirmable && viewerIsSeller && (
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <p className="text-sm text-neutral-400">
+            Waiting for the buyer to confirm receipt.
+            {trade.auto_complete_at && (
+              <>
+                {" "}If they don&apos;t, the trade completes automatically on{" "}
+                <span className="text-neutral-300 font-mono">{formatDate(trade.auto_complete_at)}</span>{" "}
+                unless a dispute, return, or cancellation is opened before then.
+              </>
+            )}
+            <WhyLink href="/methodology/trade-completion" tooltip="How trades complete" />
+          </p>
         </div>
       )}
 

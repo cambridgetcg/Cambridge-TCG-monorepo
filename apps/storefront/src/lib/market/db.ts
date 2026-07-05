@@ -7,7 +7,7 @@ import { routeTrade } from "@/lib/escrow/service-tiers";
 import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
-import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
+import { responseWindowHours } from "@/lib/users/response-window";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
@@ -15,7 +15,7 @@ const DEFAULT_ORDER_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // Default payment window for buyers without a declared response_window_hours
 // (migration 0092 — the Asynchronous). 24h matches the historical platform
 // constant; buyers who declare a different cadence have their window apply
-// instead. See `paymentExpiresAtForBuyer` below and `lib/users/response-window.ts`.
+// instead. See `responseWindowHours` in `lib/users/response-window.ts`.
 const DEFAULT_PAYMENT_WINDOW_HOURS = 24;
 
 // ── Lazy expiry sweep ──
@@ -105,11 +105,15 @@ async function sweepExpired(force = false): Promise<void> {
         WHERE t.id = $1`,
       [t.id]
     );
+    // Copy stays window-agnostic: each trade's deadline is its own
+    // payment_expires_at (the buyer's declared cadence or the flow
+    // default), so naming a fixed hour count here would lie for
+    // slow-clock buyers.
     for (const p of participants.rows) {
       sendCancelEmail({
         email: p.email,
         cardName: p.card_name,
-        reason: "Buyer did not pay within the 24-hour payment window.",
+        reason: "Buyer did not pay within the payment window.",
       }).catch((err) => console.error("[market] Cancel email failed:", err));
 
       const isBuyer = p.id === t.buyer_id;
@@ -120,8 +124,8 @@ async function sweepExpired(force = false): Promise<void> {
           ? `Your trade for ${p.card_name} was cancelled — payment window missed`
           : `Trade cancelled — ${p.card_name} buyer did not pay in time`,
         body: isBuyer
-          ? "You did not complete payment within the 24-hour window. The seller's listing is back on the book."
-          : "The 24-hour payment window elapsed. Your listing has been returned to the order book.",
+          ? "You did not complete payment within your payment window. The seller's listing is back on the book."
+          : "The payment window elapsed. Your listing has been returned to the order book.",
         linkUrl: "/account/trades",
         referenceType: "market_trade",
         referenceId: `${t.id}:payment_timeout`,
@@ -148,7 +152,7 @@ async function sweepExpired(force = false): Promise<void> {
         userId: t.buyer_id,
         def: SIGNAL_DEFS.TRADE_PAYMENT_DEFAULT,
         tradeId: t.id,
-        description: "Buyer let the 24h trade payment window elapse",
+        description: "Buyer let the trade payment window elapse",
         dedupeKey: `trade-default:${t.id}:${today}`,
       });
     }).catch((err) => console.error("[market/sweep] default signal failed:", err));
@@ -215,6 +219,10 @@ export async function placeOrder(data: {
   await sweepExpiredBestEffort();
 
   const trades: MarketTrade[] = [];
+  // Effective payment window (hours) per trade id — the buyer's declared
+  // cadence or the flow default. Feeds the "pay within N hours" copy so
+  // emails/notifications never promise a window the sweep won't enforce.
+  const paymentWindowByTrade = new Map<string, number>();
 
   const { order } = await transaction(async (q) => {
     // Insert the order with a default 30-day TTL
@@ -332,7 +340,10 @@ export async function placeOrder(data: {
       // (response_window_hours, migration 0092) gets their window;
       // everyone else gets the platform default of 24h. See
       // `lib/users/response-window.ts` and `docs/methodology/response-windows.md`.
-      const paymentExpiresAt = await paymentExpiresAtForBuyer(buyerId, DEFAULT_PAYMENT_WINDOW_HOURS);
+      // The hours ride along per trade so the match emails/notifications
+      // below can state the window that actually applies.
+      const paymentWindowHours = await responseWindowHours(buyerId, DEFAULT_PAYMENT_WINDOW_HOURS);
+      const paymentExpiresAt = new Date(Date.now() + paymentWindowHours * 60 * 60 * 1000).toISOString();
 
       const tradeResult = await q(
         `INSERT INTO market_trades
@@ -349,7 +360,9 @@ export async function placeOrder(data: {
          routing.sellerShipsTo, routing.disputeWindowHours, routing.payoutHoldDays,
          paymentExpiresAt]
       );
-      trades.push(tradeResult.rows[0] as MarketTrade);
+      const insertedTrade = tradeResult.rows[0] as MarketTrade;
+      trades.push(insertedTrade);
+      paymentWindowByTrade.set(insertedTrade.id, paymentWindowHours);
 
       // Update matched order
       const newMatchFilled = match.filled_quantity + fillQty;
@@ -411,12 +424,14 @@ export async function placeOrder(data: {
         const buyerEmail = emailById.get(t.buyer_id);
         const sellerEmail = emailById.get(t.seller_id);
         const total = parseFloat(t.price) * t.quantity;
+        const windowHours = paymentWindowByTrade.get(t.id) ?? DEFAULT_PAYMENT_WINDOW_HOURS;
         if (buyerEmail) {
           sendBuyerMatchEmail({
             email: buyerEmail,
             cardName,
             price: formatPrice(total),
             expiresAt: t.payment_expires_at || new Date().toISOString(),
+            windowHours,
           }).catch((err) => console.error("[market] Buyer match email failed:", err));
         }
         if (sellerEmail) {
@@ -424,22 +439,24 @@ export async function placeOrder(data: {
             email: sellerEmail,
             cardName,
             price: formatPrice(total),
+            windowHours,
           }).catch((err) => console.error("[market] Seller match email failed:", err));
         }
       }
     }).catch(() => {});
 
     // In-app notifications alongside the emails. Buyer sees an urgent
-    // "pay within 24h" item; seller sees a confirmation. Dedup key
-    // uses the trade id + role so both sides get distinct rows and
+    // "pay within their window" item; seller sees a confirmation. Dedup
+    // key uses the trade id + role so both sides get distinct rows and
     // neither gets a duplicate if placeOrder were somehow retried.
     const matchCardName = data.cardName || data.sku;
     for (const t of trades) {
       const total = parseFloat(t.price) * t.quantity;
+      const windowHours = paymentWindowByTrade.get(t.id) ?? DEFAULT_PAYMENT_WINDOW_HOURS;
       notify({
         userId: t.buyer_id,
         kind: "market.matched_buyer",
-        title: `Matched: ${matchCardName} for ${formatPrice(total)} — pay within 24h`,
+        title: `Matched: ${matchCardName} for ${formatPrice(total)} — pay within ${windowHours}h`,
         body: "Complete payment now or the listing returns to the seller's order book.",
         linkUrl: "/account/trades",
         referenceType: "market_trade",
@@ -733,6 +750,9 @@ export async function getAllTrades(escrowStatus?: string): Promise<MarketTrade[]
 export async function updateEscrowStatus(tradeId: string, status: string, data?: {
   trackingToCtcg?: string;
   trackingToBuyer?: string;
+  /** Carrier for the buyer-bound leg (migration 0108) — its own column
+   *  so tracking links stay derivable via lib/shipping/carriers.ts. */
+  carrier?: string;
   adminNotes?: string;
   /** Identity of the caller for the lifecycle log row. Optional —
    *  cron sweeps and system flows pass actorLabel only; user-driven
@@ -757,6 +777,12 @@ export async function updateEscrowStatus(tradeId: string, status: string, data?:
   if (timestampField[status]) {
     fields.push(`${timestampField[status]} = NOW()`);
   }
+  if (status === "completed") {
+    // Every completion through this path is admin-mediated (trades PATCH,
+    // dispute resolution). The buyer-confirm route and the auto-window
+    // sweep write their own stamps in lib/market/completion.ts.
+    fields.push(`completed_via = COALESCE(completed_via, 'admin')`);
+  }
   if (data?.trackingToCtcg) {
     fields.push(`tracking_to_ctcg = $${idx++}`);
     values.push(data.trackingToCtcg);
@@ -764,6 +790,10 @@ export async function updateEscrowStatus(tradeId: string, status: string, data?:
   if (data?.trackingToBuyer) {
     fields.push(`tracking_to_buyer = $${idx++}`);
     values.push(data.trackingToBuyer);
+  }
+  if (data?.carrier) {
+    fields.push(`carrier = $${idx++}`);
+    values.push(data.carrier);
   }
   if (data?.adminNotes) {
     fields.push(`admin_notes = $${idx++}`);
@@ -810,58 +840,70 @@ export async function updateEscrowStatus(tradeId: string, status: string, data?:
       });
     }
 
-    // Investor-grade portfolio side-effect on completion: the buyer's
-    // portfolio acquires the card at the trade price; the seller's
-    // realizes a P&L row at the proceeds (net of commission). On
-    // refund we DO NOT auto-reverse — investors should review and
-    // manually adjust because the basis math depends on whether they
-    // ever physically received the card. Refunds are rare enough that
-    // a manual touch is fine.
     if (status === "completed") {
-      void import("@/lib/portfolio/realize").then(async ({ recordAcquisition, closePosition }) => {
-        const sellerProceeds = parseFloat(trade.seller_payout);
-        const fees = parseFloat(trade.commission_amount);
-        const tradeValue = parseFloat(trade.price) * trade.quantity;
-        // Card metadata: pull from the ask order (seller's listing)
-        // so we get the rich card_name / set_code snapshot.
-        const meta = await query(
-          `SELECT card_name, image_url, set_code, set_name, rarity, card_number
-             FROM market_orders WHERE id = $1`,
-          [trade.ask_order_id],
-        ).catch(() => ({ rows: [] as Record<string, string | null>[] }));
-        const m = meta.rows[0] ?? {};
-        await recordAcquisition({
-          userId: trade.buyer_id,
-          sku: trade.sku,
-          cardName: m.card_name ?? undefined,
-          imageUrl: m.image_url ?? undefined,
-          setCode: m.set_code ?? undefined,
-          setName: m.set_name ?? undefined,
-          rarity: m.rarity ?? undefined,
-          cardNumber: m.card_number ?? undefined,
-          quantity: trade.quantity,
-          pricePaidGbp: tradeValue,
-          acquisitionSource: "market_trade",
-          acquisitionReferenceId: trade.id,
-        }).catch((err) => console.error("[portfolio/auto-acquire] failed:", err));
-        await closePosition({
-          userId: trade.seller_id,
-          sku: trade.sku,
-          quantity: trade.quantity,
-          proceedsGbp: tradeValue,
-          feesGbp: fees,
-          exitKind: "market_trade",
-          exitReferenceId: trade.id,
-          notes: `Sold via market trade · gross £${tradeValue.toFixed(2)} · fees £${fees.toFixed(2)} · net £${sellerProceeds.toFixed(2)}`,
-        }).catch((err) => console.error("[portfolio/realize] failed:", err));
-      });
+      recordCompletedTradePortfolio(trade);
     }
   }
 
   return trade;
 }
 
-async function notifyTradeStatusChange(trade: MarketTrade): Promise<void> {
+// Investor-grade portfolio side-effect on completion: the buyer's
+// portfolio acquires the card at the trade price; the seller's
+// realizes a P&L row at the proceeds (net of commission). On
+// refund we DO NOT auto-reverse — investors should review and
+// manually adjust because the basis math depends on whether they
+// ever physically received the card. Refunds are rare enough that
+// a manual touch is fine.
+//
+// Fire-and-forget. Shared by every completion path: admin (via
+// updateEscrowStatus above), buyer confirm, and the auto-window sweep
+// (both in lib/market/completion.ts). Both portfolio writes are keyed
+// on the trade id downstream, so a duplicate call is a no-op.
+export function recordCompletedTradePortfolio(trade: MarketTrade): void {
+  void import("@/lib/portfolio/realize").then(async ({ recordAcquisition, closePosition }) => {
+    const sellerProceeds = parseFloat(trade.seller_payout);
+    const fees = parseFloat(trade.commission_amount);
+    const tradeValue = parseFloat(trade.price) * trade.quantity;
+    // Card metadata: pull from the ask order (seller's listing)
+    // so we get the rich card_name / set_code snapshot.
+    const meta = await query(
+      `SELECT card_name, image_url, set_code, set_name, rarity, card_number
+         FROM market_orders WHERE id = $1`,
+      [trade.ask_order_id],
+    ).catch(() => ({ rows: [] as Record<string, string | null>[] }));
+    const m = meta.rows[0] ?? {};
+    await recordAcquisition({
+      userId: trade.buyer_id,
+      sku: trade.sku,
+      cardName: m.card_name ?? undefined,
+      imageUrl: m.image_url ?? undefined,
+      setCode: m.set_code ?? undefined,
+      setName: m.set_name ?? undefined,
+      rarity: m.rarity ?? undefined,
+      cardNumber: m.card_number ?? undefined,
+      quantity: trade.quantity,
+      pricePaidGbp: tradeValue,
+      acquisitionSource: "market_trade",
+      acquisitionReferenceId: trade.id,
+    }).catch((err) => console.error("[portfolio/auto-acquire] failed:", err));
+    await closePosition({
+      userId: trade.seller_id,
+      sku: trade.sku,
+      quantity: trade.quantity,
+      proceedsGbp: tradeValue,
+      feesGbp: fees,
+      exitKind: "market_trade",
+      exitReferenceId: trade.id,
+      notes: `Sold via market trade · gross £${tradeValue.toFixed(2)} · fees £${fees.toFixed(2)} · net £${sellerProceeds.toFixed(2)}`,
+    }).catch((err) => console.error("[portfolio/realize] failed:", err));
+  });
+}
+
+// Exported for lib/market/completion.ts — the buyer-confirm and
+// auto-window paths reuse the same email + in-app matrix so a
+// 'completed' transition reads identically however it happened.
+export async function notifyTradeStatusChange(trade: MarketTrade): Promise<void> {
   // Only send for transitions that the parties care about — skip noisy
   // intermediate states like "received_by_ctcg" that the buyer doesn't need.
   // "paid" is included because the seller explicitly cares that money
