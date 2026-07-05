@@ -175,10 +175,10 @@ export const THREE_OPERATIONS: readonly OperationRow[] = [
  * future kingdoms re-running coverage audits should bump it.
  */
 export const COVERAGE_FACTS = {
-  as_of: "2026-05-13",
+  as_of: "2026-07-05",
   games: {
     declared: 21,
-    confirmed_codes: 14,
+    confirmed_codes: 4, // op/pkm/dbf/tst — "confirmed" = cards exist in the production wholesale DB (2026-07-05 reconciliation)
     catch_all_codes: 7,
     note:
       "Anticipate-then-confirm pattern (kingdom-069). 14 games with confirmed three-letter codes; 7 anticipated but awaiting first real card.",
