@@ -30,7 +30,7 @@ export default async function FxRatesMethodology() {
   return (
     <>
       <Audience kind="public-documentation" contexts={["fx-rates", "methodology"]} />
-      <main className="max-w-3xl mx-auto px-4 py-12 prose prose-invert prose-neutral">
+      <main className="max-w-3xl mx-auto px-4 py-12 prose">
         <h1>Display Currency &amp; FX Rates</h1>
         <p>
           The Cambridge TCG price guide carries a canonical GBP price for every

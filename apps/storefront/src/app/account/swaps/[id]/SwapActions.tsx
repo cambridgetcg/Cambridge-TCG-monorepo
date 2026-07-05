@@ -65,7 +65,7 @@ export default function SwapActions({
       {/* Draft: proposer sends or cancels */}
       {swap.status === "draft" && meRole === "proposer" && (
         <Card>
-          <p className="text-sm text-neutral-300 mb-3">
+          <p className="text-sm text-ink-muted mb-3">
             This draft is only visible to you. Send it to start the other collector&apos;s
             response window.
           </p>
@@ -142,7 +142,7 @@ export default function SwapActions({
       )}
       {swap.status === "proposed" && meRole === "proposer" && (
         <Card>
-          <p className="text-sm text-neutral-300 mb-3">
+          <p className="text-sm text-ink-muted mb-3">
             Waiting on the other collector. You can withdraw the proposal until they respond.
           </p>
           <Button variant="ghost" onClick={() => act("cancel")} disabled={busy !== null}>
@@ -177,17 +177,17 @@ export default function SwapActions({
           )}
 
           <Card variant="subtle">
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-ink-muted">
               Change of heart? After acceptance a swap only cancels when{" "}
-              <strong className="text-neutral-300">both</strong> of you agree.
+              <strong className="text-ink-muted">both</strong> of you agree.
               {cancelRequestedByOther && (
-                <span className="text-amber-400">
+                <span className="text-accent">
                   {" "}The other collector has already asked to cancel — pressing cancel now
                   ends the swap.
                 </span>
               )}
               {cancelRequestedByMe && !cancelRequestedByOther && (
-                <span className="text-amber-400">
+                <span className="text-accent">
                   {" "}You've asked to cancel; waiting for them to agree.
                 </span>
               )}
@@ -234,10 +234,10 @@ function AddressPanel({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Card>
-        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
           Your ship-to address
         </h2>
-        <p className="text-[10px] text-neutral-500 mb-3">
+        <p className="text-[10px] text-ink-faint mb-3">
           Where the other collector posts your cards. Visible only to the two of you.
         </p>
         {!editing && myAddress ? (
@@ -273,13 +273,13 @@ function AddressPanel({
         )}
       </Card>
       <Card>
-        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
           Ship their cards to
         </h2>
         {theirAddress ? (
           <AddressLines address={theirAddress} />
         ) : (
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             They haven&apos;t entered their address yet — shipping starts once both are in.
           </p>
         )}
@@ -298,7 +298,7 @@ function AddressLines({ address }: { address: SwapAddress }) {
     address.country,
   ].filter(Boolean);
   return (
-    <address className="not-italic text-sm text-neutral-200 space-y-0.5">
+    <address className="not-italic text-sm text-ink space-y-0.5">
       {lines.map((l, i) => (
         <p key={i}>{l}</p>
       ))}
@@ -337,14 +337,14 @@ function ShipPanel({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Card>
-        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
           Your shipment
         </h2>
         {myShippedAt ? (
-          <p className="text-sm text-emerald-400">Marked shipped ✓</p>
+          <p className="text-sm text-ok">Marked shipped ✓</p>
         ) : (
           <div className="space-y-2">
-            <p className="text-[10px] text-neutral-500">
+            <p className="text-[10px] text-ink-faint">
               Post your cards, then record carrier + tracking. This is your record and their
               reassurance — the platform doesn&apos;t verify it.
             </p>
@@ -359,19 +359,19 @@ function ShipPanel({
         )}
       </Card>
       <Card>
-        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
           Their shipment → you
         </h2>
         {theirShippedAt ? (
-          <p className="text-sm text-neutral-200">
+          <p className="text-sm text-ink">
             Shipped via {theirCarrier || "—"}{" "}
             {theirTracking && <span className="font-mono text-xs">· {theirTracking}</span>}
           </p>
         ) : (
-          <p className="text-xs text-neutral-500">Not marked shipped yet.</p>
+          <p className="text-xs text-ink-faint">Not marked shipped yet.</p>
         )}
         {myConfirmedAt ? (
-          <p className="text-sm text-emerald-400 mt-2">You confirmed receipt ✓</p>
+          <p className="text-sm text-ok mt-2">You confirmed receipt ✓</p>
         ) : (
           <div className="mt-2">
             <Button size="sm" variant="secondary" onClick={onConfirm} disabled={busyConfirm}>
@@ -380,7 +380,7 @@ function ShipPanel({
           </div>
         )}
         {theirConfirmedAt && (
-          <p className="text-[10px] text-neutral-500 mt-2">They&apos;ve confirmed your cards arrived.</p>
+          <p className="text-[10px] text-ink-faint mt-2">They&apos;ve confirmed your cards arrived.</p>
         )}
       </Card>
     </div>

@@ -26,7 +26,7 @@ export function AcceptDeclineButtons({ slug }: { slug: string }) {
               else router.refresh();
             })
           }
-          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50"
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-ink text-page hover:opacity-90 disabled:opacity-50"
         >
           {pending ? "…" : "Accept"}
         </button>
@@ -40,12 +40,12 @@ export function AcceptDeclineButtons({ slug }: { slug: string }) {
               else router.refresh();
             })
           }
-          className="px-3 py-1.5 rounded-lg text-xs bg-neutral-800 text-neutral-300 hover:bg-neutral-700 disabled:opacity-50"
+          className="px-3 py-1.5 rounded-lg text-xs bg-surface-subtle text-ink-muted hover:bg-surface-subtle disabled:opacity-50"
         >
           Decline
         </button>
       </div>
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
     </div>
   );
 }
@@ -76,11 +76,11 @@ export function RemoveMemberButton({
             else router.refresh();
           });
         }}
-        className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+        className="text-xs text-danger hover:text-danger disabled:opacity-50"
       >
         {pending ? "…" : "Remove"}
       </button>
-      {error && <span className="ml-2 text-xs text-red-400">{error}</span>}
+      {error && <span className="ml-2 text-xs text-danger">{error}</span>}
     </>
   );
 }

@@ -110,20 +110,19 @@ function LoginInner() {
 
   if (sent) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <main className="min-h-screen bg-page flex items-center justify-center">
         <div className="max-w-sm px-4 text-center">
-          <div className="text-4xl mb-4">&#9993;</div>
-          <h1 className="text-2xl font-bold text-white mb-3">Check your email</h1>
-          <p className="text-neutral-400 mb-6">
-            We sent a sign-in link to <span className="text-white font-medium">{email}</span>
+          <h1 className="text-2xl font-display font-semibold text-ink mb-3">Check your email</h1>
+          <p className="text-ink-muted mb-6">
+            We sent a sign-in link to <span className="text-ink font-medium">{email}</span>
           </p>
           {returnTo && (
-            <p className="text-sm text-neutral-400 mb-6">
+            <p className="text-sm text-ink-muted mb-6">
               Signing in will take you back to{" "}
-              <span className="text-white font-medium">{returnTo}</span>.
+              <span className="text-ink font-medium">{returnTo}</span>.
             </p>
           )}
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-ink-faint">
             Check your spam folder if you don&apos;t see it.
           </p>
         </div>
@@ -132,10 +131,10 @@ function LoginInner() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+    <main className="min-h-screen bg-page flex items-center justify-center">
       <div className="w-full max-w-sm px-4">
-        <h1 className="text-2xl font-bold text-white text-center mb-2">Sign In</h1>
-        <p className="text-sm text-neutral-400 text-center mb-8">
+        <h1 className="text-2xl font-display font-semibold text-ink text-center mb-2">Sign In</h1>
+        <p className="text-sm text-ink-muted text-center mb-8">
           Enter your email to receive a magic link
         </p>
 
@@ -147,23 +146,23 @@ function LoginInner() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoFocus
-            className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 mb-4"
+            className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder-ink-faint focus:outline-none focus:ring-2 focus:ring-accent mb-4"
           />
-          {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
+          {error && <p className="text-sm text-danger mb-4">{error}</p>}
           <button
             type="submit"
             disabled={loading || !email.includes("@")}
-            className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Sending..." : "Send Magic Link"}
           </button>
         </form>
 
-        <p className="text-xs text-neutral-500 text-center mt-6">
+        <p className="text-xs text-ink-faint text-center mt-6">
           No account? One will be created automatically.
         </p>
         <div className="text-center mt-4">
-          <Link href="/" className="text-sm text-neutral-400 hover:text-white transition">
+          <Link href="/" className="text-sm text-ink-muted hover:text-ink transition">
             ← Back to shop
           </Link>
         </div>

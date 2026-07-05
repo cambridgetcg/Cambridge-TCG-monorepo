@@ -41,20 +41,20 @@ export default function AddToCart({ card }: AddToCartProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={() => updateQty(card.sku, inCart.quantity - 1)}
-          className="w-12 h-12 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition text-lg"
+          className="w-12 h-12 bg-surface border border-border-subtle hover:bg-surface-elevated text-ink font-bold rounded-lg transition text-lg"
         >
           -
         </button>
         <span className="text-lg font-bold w-8 text-center">{inCart.quantity}</span>
         <button
           onClick={() => updateQty(card.sku, inCart.quantity + 1)}
-          className="w-12 h-12 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition text-lg"
+          className="w-12 h-12 bg-surface border border-border-subtle hover:bg-surface-elevated text-ink font-bold rounded-lg transition text-lg"
         >
           +
         </button>
         <button
           onClick={() => removeItem(card.sku)}
-          className="ml-2 text-sm text-neutral-400 hover:text-red-400 transition"
+          className="ml-2 text-sm text-ink-muted hover:text-danger transition"
         >
           Remove
         </button>
@@ -65,7 +65,7 @@ export default function AddToCart({ card }: AddToCartProps) {
   return (
     <button
       onClick={handleAdd}
-      className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition text-lg"
+      className="px-8 py-4 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition text-lg"
     >
       {added ? "Added \u2713" : `Add to Cart \u2014 \u00A3${card.price.toFixed(2)}`}
     </button>

@@ -15,10 +15,10 @@ const PATTERN_LABEL: Record<string, string> = {
 };
 
 const PATTERN_TONE: Record<string, string> = {
-  stripped: "bg-emerald-950 text-emerald-300 ring-emerald-800",
-  passcode: "bg-blue-950 text-blue-300 ring-blue-800",
-  diverged: "bg-amber-950 text-amber-300 ring-amber-800",
-  "single-lang": "bg-neutral-900 text-neutral-300 ring-neutral-700",
+  stripped: "bg-ok/10 text-ok ring-ok/30",
+  passcode: "bg-info/10 text-info ring-info/30",
+  diverged: "bg-accent-wash text-accent-strong ring-accent/30",
+  "single-lang": "bg-surface-subtle text-ink-muted ring-border-strong",
 };
 
 export default function OraclePoliciesMethodology() {
@@ -159,7 +159,7 @@ export default function OraclePoliciesMethodology() {
                 <td>
                   <code>{code}</code> — {meta.name}
                   {!meta.confirmed && (
-                    <span className="ml-2 text-xs text-neutral-500">
+                    <span className="ml-2 text-xs text-ink-faint">
                       (anticipated)
                     </span>
                   )}

@@ -104,7 +104,7 @@ export default function MyAuctionsPage() {
     return (
       <div className="flex items-center justify-center py-12">
       <Audience kind="consumer" />
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-ink-faint">Loading...</p>
       </div>
     );
   }
@@ -112,56 +112,56 @@ export default function MyAuctionsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">My Auctions</h1>
+        <h1 className="text-2xl font-bold text-ink">My Auctions</h1>
         <Link
           href="/auctions/sell"
-          className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+          className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
         >
           Sell a Card
         </Link>
       </div>
 
       {offers.length > 0 && (
-        <div className="bg-neutral-900 rounded-xl p-4 mb-6 border border-amber-500/20">
-          <h2 className="text-sm font-bold text-white mb-3">
+        <div className="bg-surface rounded-lg p-4 mb-6 border border-accent/30">
+          <h2 className="text-sm font-bold text-ink mb-3">
             Open Offers ({offers.length})
           </h2>
           <div className="space-y-2">
             {offers.map((offer) => (
               <div
                 key={offer.bid_id}
-                className="flex flex-wrap items-center gap-3 p-3 bg-neutral-950 rounded-lg"
+                className="flex flex-wrap items-center gap-3 p-3 bg-page rounded-lg"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-white truncate">
+                    <span className="text-sm font-semibold text-ink truncate">
                       {offer.auction_title}
                     </span>
                     {offer.buy_now_price && (
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs text-ink-faint">
                         (Buy Now <Money value={parseFloat(offer.buy_now_price)} />)
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-neutral-500 mt-0.5">
+                  <div className="text-xs text-ink-faint mt-0.5">
                     {offer.bidder_name || offer.bidder_email} — {new Date(offer.created_at).toLocaleString("en-GB")}
                   </div>
                 </div>
-                <div className="text-lg font-bold text-amber-400">
+                <div className="text-lg font-bold text-accent">
                   <Money value={parseFloat(offer.amount)} />
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => actOnOffer(offer, "accept")}
                     disabled={actingOfferId === offer.bid_id}
-                    className="px-3 py-1.5 bg-emerald-500 text-black text-xs font-bold rounded-lg hover:bg-emerald-400 transition disabled:opacity-50"
+                    className="px-3 py-1.5 bg-ink text-page text-xs font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
                   >
                     Accept
                   </button>
                   <button
                     onClick={() => actOnOffer(offer, "reject")}
                     disabled={actingOfferId === offer.bid_id}
-                    className="px-3 py-1.5 bg-neutral-800 text-neutral-300 text-xs font-bold rounded-lg hover:bg-neutral-700 transition disabled:opacity-50"
+                    className="px-3 py-1.5 bg-surface-subtle text-ink-muted text-xs font-bold rounded-lg hover:bg-surface-subtle transition disabled:opacity-50"
                   >
                     Reject
                   </button>
@@ -173,19 +173,19 @@ export default function MyAuctionsPage() {
       )}
 
       {auctions.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <div className="text-neutral-600 mb-3">
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <div className="text-ink-faint mb-3">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-neutral-400">No auctions yet</h2>
-          <p className="text-neutral-500 text-sm mt-1 mb-4">
+          <h2 className="text-lg font-semibold text-ink-muted">No auctions yet</h2>
+          <p className="text-ink-faint text-sm mt-1 mb-4">
             List your first card and start selling.
           </p>
           <Link
             href="/auctions/sell"
-            className="inline-block px-5 py-2.5 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+            className="inline-block px-5 py-2.5 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
           >
             Sell at Auction
           </Link>
@@ -196,10 +196,10 @@ export default function MyAuctionsPage() {
             const expanded = expandedId === auction.id;
 
             return (
-              <div key={auction.id} className="bg-neutral-900 rounded-xl overflow-hidden">
+              <div key={auction.id} className="bg-surface rounded-lg overflow-hidden">
                 <button
                   onClick={() => setExpandedId(expanded ? null : auction.id)}
-                  className="w-full p-4 text-left hover:bg-neutral-800/50 transition"
+                  className="w-full p-4 text-left hover:bg-surface-subtle transition"
                 >
                   <div className="flex items-start gap-4">
                     {/* Thumbnail */}
@@ -210,27 +210,27 @@ export default function MyAuctionsPage() {
                         className="w-14 h-14 rounded-lg object-cover shrink-0"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-lg bg-neutral-800 shrink-0 flex items-center justify-center">
-                        <span className="text-neutral-600 text-xs">No img</span>
+                      <div className="w-14 h-14 rounded-lg bg-surface-subtle shrink-0 flex items-center justify-center">
+                        <span className="text-ink-faint text-xs">No img</span>
                       </div>
                     )}
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="text-sm font-bold text-white truncate">{auction.title}</h3>
+                        <h3 className="text-sm font-bold text-ink truncate">{auction.title}</h3>
                         <Badge status={auction.status} palette={Palettes.AuctionStatusPalette} labels={Palettes.AuctionStatusLabels} />
                         {auction.approval_status && (
                           <Badge status={auction.approval_status} palette={Palettes.AuctionApprovalPalette} labels={APPROVAL_LABELS} />
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-neutral-500">
+                      <div className="flex items-center gap-4 text-xs text-ink-faint">
                         <span><Money value={parseFloat(auction.current_price)} /></span>
                         <span>{auction.bid_count} bid{auction.bid_count !== 1 ? "s" : ""}</span>
                         <span>{new Date(auction.created_at).toLocaleDateString("en-GB")}</span>
                       </div>
                     </div>
 
-                    <span className={`text-neutral-500 transition ${expanded ? "rotate-180" : ""}`}>
+                    <span className={`text-ink-faint transition ${expanded ? "rotate-180" : ""}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
@@ -239,39 +239,39 @@ export default function MyAuctionsPage() {
                 </button>
 
                 {expanded && (
-                  <div className="px-4 pb-4 border-t border-neutral-800 pt-3 space-y-3">
+                  <div className="px-4 pb-4 border-t border-border-subtle pt-3 space-y-3">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-neutral-500">Type</span>
-                        <p className="text-white capitalize">{auction.auction_type.replace("_", " ")}</p>
+                        <span className="text-ink-faint">Type</span>
+                        <p className="text-ink capitalize">{auction.auction_type.replace("_", " ")}</p>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Starting Price</span>
-                        <p className="text-white"><Money value={parseFloat(auction.starting_price)} /></p>
+                        <span className="text-ink-faint">Starting Price</span>
+                        <p className="text-ink"><Money value={parseFloat(auction.starting_price)} /></p>
                       </div>
                       {auction.buy_now_price && (
                         <div>
-                          <span className="text-neutral-500">Buy Now Price</span>
-                          <p className="text-white"><Money value={parseFloat(auction.buy_now_price)} /></p>
+                          <span className="text-ink-faint">Buy Now Price</span>
+                          <p className="text-ink"><Money value={parseFloat(auction.buy_now_price)} /></p>
                         </div>
                       )}
                       <div>
-                        <span className="text-neutral-500">Ends</span>
-                        <p className="text-white">{new Date(auction.ends_at).toLocaleString("en-GB")}</p>
+                        <span className="text-ink-faint">Ends</span>
+                        <p className="text-ink">{new Date(auction.ends_at).toLocaleString("en-GB")}</p>
                       </div>
                     </div>
 
                     {auction.approval_status === "rejected" && auction.approval_notes && (
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                        <p className="text-xs text-red-400 font-medium mb-1">Rejection Reason</p>
-                        <p className="text-sm text-red-300">{auction.approval_notes}</p>
+                      <div className="bg-danger/10 border border-danger/20 rounded-lg p-3">
+                        <p className="text-xs text-danger font-medium mb-1">Rejection Reason</p>
+                        <p className="text-sm text-danger">{auction.approval_notes}</p>
                       </div>
                     )}
 
                     {auction.status === "live" && (
                       <Link
                         href={`/auctions/${auction.id}`}
-                        className="inline-block text-sm text-amber-400 hover:text-amber-300 transition font-medium"
+                        className="inline-block text-sm text-accent hover:text-accent-strong transition font-medium"
                       >
                         View live auction &rarr;
                       </Link>

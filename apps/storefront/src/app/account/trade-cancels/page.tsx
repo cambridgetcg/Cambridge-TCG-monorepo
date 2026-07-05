@@ -94,32 +94,32 @@ export default function TradeCancelsPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-2">Trade Cancellations</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-display font-semibold text-ink mb-2">Trade Cancellations</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Pre-payment cancel handshake. Either side can request a cancellation; the other approves or
         declines. Faster than waiting for the 24h payment window to time out. Different from disputes —
         which exist for fault claims after payment.
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-300">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-4 text-sm text-danger">
           {error}
         </div>
       )}
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : rows.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-400 text-sm">
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-muted text-sm">
             No cancellation requests. Open one from /account/trades on a trade still
             awaiting payment or shipment.
           </p>
           <Link
             href="/account/trades"
-            className="inline-block mt-3 text-amber-400 text-xs font-semibold hover:text-amber-300"
+            className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong"
           >
             View trades →
           </Link>
@@ -128,7 +128,7 @@ export default function TradeCancelsPage() {
         <>
           {incoming.length > 0 && (
             <section className="mb-6">
-              <h2 className="text-sm font-bold text-amber-400 mb-2 uppercase tracking-wide">
+              <h2 className="text-sm font-bold text-accent mb-2 uppercase tracking-wide">
                 Awaiting your decision ({incoming.length})
               </h2>
               <div className="space-y-3">
@@ -147,7 +147,7 @@ export default function TradeCancelsPage() {
 
           {outgoing.length > 0 && (
             <section>
-              <h2 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wide">
+              <h2 className="text-sm font-bold text-ink-muted mb-2 uppercase tracking-wide">
                 Your requests ({outgoing.length})
               </h2>
               <div className="space-y-3">
@@ -190,14 +190,14 @@ function CancelCard({
   const [showDecline, setShowDecline] = useState(false);
 
   return (
-    <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800">
+    <div className="bg-surface rounded-lg p-4 border border-border-subtle">
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="min-w-0">
-          <p className="text-white font-semibold text-sm truncate">
+          <p className="text-ink font-semibold text-sm truncate">
             {row.card_name || row.sku}
-            <span className="text-neutral-500 font-mono text-xs ml-2">{row.sku}</span>
+            <span className="text-ink-faint font-mono text-xs ml-2">{row.sku}</span>
           </p>
-          <p className="text-xs text-neutral-500 mt-0.5">
+          <p className="text-xs text-ink-faint mt-0.5">
             {row.requester_role === "buyer" ? "Buyer" : "Seller"} requested ·{" "}
             Trade total <Money value={tradeTotal} />
             <span className="mx-1.5">·</span>
@@ -209,18 +209,18 @@ function CancelCard({
         <Badge status={row.status} palette={Palettes.CancelStatusPalette} labels={STATUS_LABELS} />
       </div>
 
-      <div className="bg-neutral-950/40 rounded p-2 mb-2">
-        <span className="text-[10px] uppercase tracking-wide text-neutral-500">Reason</span>
-        <p className="text-xs text-neutral-300 mt-0.5">{reasonLabel}</p>
+      <div className="bg-surface-subtle rounded p-2 mb-2">
+        <span className="text-[10px] uppercase tracking-wide text-ink-faint">Reason</span>
+        <p className="text-xs text-ink-muted mt-0.5">{reasonLabel}</p>
         {row.message && (
-          <p className="text-xs text-neutral-300 italic mt-1">“{row.message}”</p>
+          <p className="text-xs text-ink-muted italic mt-1">“{row.message}”</p>
         )}
       </div>
 
       {row.status === "declined" && row.decline_reason && (
-        <div className="bg-red-500/5 rounded p-2 mb-2 border border-red-500/10">
-          <span className="text-[10px] uppercase tracking-wide text-red-400">Declined</span>
-          <p className="text-xs text-red-300 italic mt-0.5">“{row.decline_reason}”</p>
+        <div className="bg-danger/5 rounded p-2 mb-2 border border-danger/10">
+          <span className="text-[10px] uppercase tracking-wide text-danger">Declined</span>
+          <p className="text-xs text-danger italic mt-0.5">“{row.decline_reason}”</p>
         </div>
       )}
 
@@ -235,17 +235,17 @@ function CancelCard({
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
                     done
-                      ? current ? "bg-amber-500 text-black" : "bg-emerald-500 text-black"
-                      : "bg-neutral-800 text-neutral-600"
+                      ? current ? "bg-ink text-page" : "bg-ok text-page"
+                      : "bg-surface-subtle text-ink-faint"
                   }`}
                 >
                   {done ? "✓" : i + 1}
                 </div>
-                <span className={`text-[10px] capitalize ${done ? "text-white" : "text-neutral-600"}`}>
+                <span className={`text-[10px] capitalize ${done ? "text-ink" : "text-ink-faint"}`}>
                   {step}
                 </span>
                 {i < CANCEL_STEPS.length - 1 && (
-                  <div className={`h-px flex-1 ${done ? "bg-emerald-500/40" : "bg-neutral-800"}`} />
+                  <div className={`h-px flex-1 ${done ? "bg-ok/40" : "bg-surface-subtle"}`} />
                 )}
               </div>
             );
@@ -254,14 +254,14 @@ function CancelCard({
       )}
 
       {closedCopy && (
-        <p className="text-xs text-neutral-500 italic mb-3">{closedCopy}</p>
+        <p className="text-xs text-ink-faint italic mb-3">{closedCopy}</p>
       )}
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
         {row.status === "requested" ? (
-          <span className="text-[10px] text-neutral-500 font-mono">{formatTimeUntil(row.expires_at)} left</span>
+          <span className="text-[10px] text-ink-faint font-mono">{formatTimeUntil(row.expires_at)} left</span>
         ) : (
-          <span className="text-[10px] text-neutral-500">
+          <span className="text-[10px] text-ink-faint">
             {row.resolved_at && `Resolved ${new Date(row.resolved_at).toLocaleDateString("en-GB", {
               day: "numeric", month: "short",
             })}`}
@@ -275,14 +275,14 @@ function CancelCard({
               <button
                 disabled={busy}
                 onClick={() => onAct("approve")}
-                className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
               >
                 {busy ? "..." : "Approve cancel"}
               </button>
               <button
                 disabled={busy}
                 onClick={() => setShowDecline(true)}
-                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
               >
                 Decline
               </button>
@@ -294,7 +294,7 @@ function CancelCard({
             <button
               disabled={busy}
               onClick={() => onAct("withdraw")}
-              className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
             >
               Withdraw request
             </button>
@@ -303,7 +303,7 @@ function CancelCard({
           {isCancelTerminal(row.status) && (
             <Link
               href="/account/trades"
-              className="px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-white transition"
+              className="px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink transition"
             >
               View trade →
             </Link>
@@ -313,18 +313,18 @@ function CancelCard({
 
       {/* Inline decline form */}
       {showDecline && perspective === "other" && row.status === "requested" && (
-        <div className="mt-3 pt-3 border-t border-neutral-800">
+        <div className="mt-3 pt-3 border-t border-border-subtle">
           <textarea
             value={declineText}
             onChange={(e) => setDeclineText(e.target.value)}
             placeholder="Optional reason (visible to the requester)"
             rows={2}
-            className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-xs resize-none mb-2"
+            className="w-full px-2 py-1 bg-surface-subtle border border-border-subtle rounded text-ink text-xs resize-none mb-2"
           />
           <div className="flex justify-end gap-2">
             <button
               onClick={() => { setShowDecline(false); setDeclineText(""); }}
-              className="px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-white transition"
+              className="px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink transition"
             >
               Cancel
             </button>
@@ -335,7 +335,7 @@ function CancelCard({
                 setShowDecline(false);
                 setDeclineText("");
               }}
-              className="px-3 py-1.5 text-xs font-bold bg-red-500 text-white rounded-md hover:bg-red-400 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-bold bg-danger text-page rounded-md hover:bg-danger/85 transition disabled:opacity-50"
             >
               {busy ? "..." : "Decline cancel"}
             </button>

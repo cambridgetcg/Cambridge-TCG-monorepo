@@ -73,7 +73,7 @@ export default function AccountReviewsPage() {
     } finally { setAppealing(null); }
   }
 
-  if (loading || !data) return <div className="text-neutral-500">Loading…</div>;
+  if (loading || !data) return <div className="text-ink-faint">Loading…</div>;
 
   const list = tab === "received" ? data.received : data.given;
   const visibleReceived = data.received.filter((r) => !r.admin_hidden);
@@ -84,23 +84,23 @@ export default function AccountReviewsPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">My Reviews</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-2">My Reviews</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Reviews you&apos;ve received and given.{" "}
         Your average rating feeds 25% of your{" "}
-        <Link href="/account/trust" className="text-amber-400 underline">trust score</Link>.
+        <Link href="/account/trust" className="text-accent underline">trust score</Link>.
       </p>
 
       {data.received.length > 0 && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6 flex items-center gap-4 flex-wrap">
+        <div className="bg-surface border border-border-subtle rounded-lg p-4 mb-6 flex items-center gap-4 flex-wrap">
           <div>
-            <p className="text-3xl font-bold text-amber-400">
-              {avgVisible.toFixed(2)}<span className="text-neutral-600 text-lg">/5</span>
+            <p className="text-3xl font-bold text-accent">
+              {avgVisible.toFixed(2)}<span className="text-ink-faint text-lg">/5</span>
             </p>
-            <p className="text-xs text-neutral-500">{visibleReceived.length} public reviews</p>
+            <p className="text-xs text-ink-faint">{visibleReceived.length} public reviews</p>
           </div>
           {data.received.length !== visibleReceived.length && (
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-ink-faint">
               {data.received.length - visibleReceived.length} hidden — appeals available below
             </p>
           )}
@@ -111,8 +111,8 @@ export default function AccountReviewsPage() {
         <button
           onClick={() => setTab("received")}
           className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-            tab === "received" ? "bg-amber-500 text-black font-bold"
-              : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+            tab === "received" ? "bg-ink text-page font-semibold"
+              : "bg-surface text-ink-muted hover:text-ink hover:bg-surface-subtle"
           }`}
         >
           Received ({data.received.length})
@@ -120,8 +120,8 @@ export default function AccountReviewsPage() {
         <button
           onClick={() => setTab("given")}
           className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-            tab === "given" ? "bg-amber-500 text-black font-bold"
-              : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+            tab === "given" ? "bg-ink text-page font-semibold"
+              : "bg-surface text-ink-muted hover:text-ink hover:bg-surface-subtle"
           }`}
         >
           Given ({data.given.length})
@@ -129,7 +129,7 @@ export default function AccountReviewsPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+        <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
           {tab === "received"
             ? "No reviews yet. Complete a trade to receive your first."
             : "You haven't left any reviews yet."}
@@ -148,56 +148,56 @@ export default function AccountReviewsPage() {
             const appealedAlready = isReceived && recv!.appealed_at;
 
             return (
-              <div key={r.id} className={`bg-neutral-900 rounded-xl p-4 border ${
-                r.admin_hidden ? "border-neutral-800/60 opacity-70" : "border-neutral-800"
+              <div key={r.id} className={`bg-surface rounded-lg p-4 border ${
+                r.admin_hidden ? "border-border-subtle opacity-70" : "border-border-subtle"
               }`}>
                 <div className="flex items-baseline justify-between flex-wrap gap-2 mb-2">
                   <div>
                     <span className={`text-lg font-bold ${
-                      r.rating >= 4 ? "text-emerald-400" : r.rating <= 2 ? "text-red-400" : "text-amber-400"
+                      r.rating >= 4 ? "text-ok" : r.rating <= 2 ? "text-danger" : "text-accent"
                     }`}>
-                      {"★".repeat(r.rating)}<span className="text-neutral-700">{"★".repeat(5 - r.rating)}</span>
+                      {"★".repeat(r.rating)}<span className="text-border-strong">{"★".repeat(5 - r.rating)}</span>
                     </span>
-                    <span className="text-xs text-neutral-500 ml-2 capitalize">as {r.role}</span>
+                    <span className="text-xs text-ink-faint ml-2 capitalize">as {r.role}</span>
                     {isReceived && recv!.effective_weight && parseFloat(recv!.effective_weight) < 1 && (
-                      <span className="text-[10px] text-neutral-600 ml-2">
+                      <span className="text-[10px] text-ink-faint ml-2">
                         · counted as {recv!.effective_weight}× (reviewer trust tier)
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-neutral-500">
+                  <span className="text-xs text-ink-faint">
                     {new Date(r.created_at).toLocaleDateString("en-GB", {
                       day: "numeric", month: "short", year: "numeric",
                     })}
                   </span>
                 </div>
                 {r.comment && (
-                  <p className="text-sm text-neutral-200 mb-3 whitespace-pre-wrap">
+                  <p className="text-sm text-ink mb-3 whitespace-pre-wrap">
                     &ldquo;{r.comment}&rdquo;
                   </p>
                 )}
-                <div className="text-xs text-neutral-500">
+                <div className="text-xs text-ink-faint">
                   {isReceived ? "From" : "About"}:{" "}
                   {counterpartyUsername ? (
-                    <Link href={`/u/${counterpartyUsername}`} className="text-amber-400 hover:text-amber-300 underline">
+                    <Link href={`/u/${counterpartyUsername}`} className="text-accent hover:text-accent-strong underline">
                       {counterparty}
                     </Link>
                   ) : counterparty}
                 </div>
 
                 {isReceived && r.admin_hidden && (
-                  <div className="mt-3 bg-amber-500/5 border border-amber-500/30 rounded p-3 text-xs">
-                    <p className="text-amber-400 font-bold mb-1">This review is hidden from public view</p>
+                  <div className="mt-3 bg-accent-wash border border-accent/30 rounded p-3 text-xs">
+                    <p className="text-accent font-bold mb-1">This review is hidden from public view</p>
                     {appealedAlready ? (
-                      <p className="text-neutral-400">
+                      <p className="text-ink-muted">
                         You&apos;ve filed an appeal — admin will review and update by email.
-                        {recv!.appeal_resolved && <span className="text-neutral-500"> (Appeal closed)</span>}
+                        {recv!.appeal_resolved && <span className="text-ink-faint"> (Appeal closed)</span>}
                       </p>
                     ) : canAppeal ? (
                       <button
                         onClick={() => appeal(r.id)}
                         disabled={appealing === r.id}
-                        className="mt-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded px-3 py-1.5 disabled:opacity-50"
+                        className="mt-1 text-xs bg-accent-wash hover:bg-accent-wash text-accent rounded px-3 py-1.5 disabled:opacity-50"
                       >
                         Appeal this hide
                       </button>

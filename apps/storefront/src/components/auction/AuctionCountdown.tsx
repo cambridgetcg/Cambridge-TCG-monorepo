@@ -29,14 +29,14 @@ export default function AuctionCountdown({ endsAt, serverTime }: AuctionCountdow
   }, [endsAt, offset]);
 
   if (remaining.expired) {
-    return <span className="text-neutral-500 font-mono text-sm">Ended</span>;
+    return <span className="text-ink-faint font-mono text-sm">Ended</span>;
   }
 
   const pad = (n: number) => String(n).padStart(2, "0");
   const isUrgent = remaining.total < 60 * 60 * 1000; // < 1 hour
 
   return (
-    <span className={`font-mono text-sm ${isUrgent ? "text-red-500" : "text-neutral-300"}`}>
+    <span className={`font-mono text-sm ${isUrgent ? "text-warning" : "text-ink-muted"}`}>
       {remaining.days > 0 && `${pad(remaining.days)}:`}
       {pad(remaining.hours)}:{pad(remaining.minutes)}:{pad(remaining.seconds)}
     </span>

@@ -14,13 +14,13 @@ interface Props {
 
 const RARITY_ORDER = ["L", "SEC", "SR", "SP", "R", "UC", "C"];
 const RARITY_COLOR: Record<string, string> = {
-  L: "bg-emerald-500",
-  SEC: "bg-rose-500",
-  SR: "bg-amber-500",
-  SP: "bg-rose-500",
-  R: "bg-purple-500",
-  UC: "bg-blue-500",
-  C: "bg-neutral-500",
+  L: "bg-ok",
+  SEC: "bg-danger",
+  SR: "bg-warning",
+  SP: "bg-danger",
+  R: "bg-[#6a5a8f]",
+  UC: "bg-info",
+  C: "bg-ink-muted",
 };
 const CONDITION_LABEL: Record<string, string> = {
   NM: "Near Mint", LP: "Lightly Played", MP: "Moderately Played",
@@ -63,7 +63,7 @@ function StackedBar({
 }) {
   if (total === 0) return null;
   return (
-    <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900 mb-2">
+    <div className="flex h-4 rounded-full overflow-hidden bg-surface mb-2">
       {rows.map((r) => {
         const pct = (r.value / total) * 100;
         return (
@@ -97,16 +97,16 @@ function Legend({
             className="flex items-center gap-2 text-[11px]"
           >
             <span className={`w-2 h-2 rounded-sm ${colorOf(r.key)} flex-shrink-0`} />
-            <span className="text-neutral-300 flex-1 truncate">{r.label}</span>
-            <span className="text-neutral-500 w-12 text-right">
+            <span className="text-ink-muted flex-1 truncate">{r.label}</span>
+            <span className="text-ink-faint w-12 text-right">
               {r.copies}×
             </span>
             {showValueRow && (
               <>
-                <span className="text-amber-400 font-semibold w-16 text-right">
+                <span className="text-accent font-semibold w-16 text-right">
                   {gbp(r.value)}
                 </span>
-                <span className="text-neutral-600 w-10 text-right">
+                <span className="text-ink-faint w-10 text-right">
                   {pct.toFixed(0)}%
                 </span>
               </>
@@ -165,29 +165,29 @@ export default function PortfolioAnalytics({ cards, summary }: Props) {
   if (cards.length === 0) return null;
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+    <div className="bg-surface border border-border-subtle rounded-lg p-5">
       <h3 className="text-sm font-bold mb-4">Collection Breakdown</h3>
 
       {/* Sets */}
       <section className="mb-5">
         <div className="flex items-baseline justify-between mb-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+          <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold">
             By Set
           </p>
-          <p className="text-[10px] text-neutral-500">{bySet.length} sets</p>
+          <p className="text-[10px] text-ink-faint">{bySet.length} sets</p>
         </div>
         <StackedBar
           rows={bySet.slice(0, 8)}
           total={summary.total_value}
-          colorOf={() => "bg-amber-500"}
+          colorOf={() => "bg-accent"}
         />
         <Legend
           rows={bySet.slice(0, 8)}
           total={summary.total_value}
-          colorOf={() => "bg-amber-500"}
+          colorOf={() => "bg-accent"}
         />
         {bySet.length > 8 && (
-          <p className="text-[10px] text-neutral-600 mt-1">
+          <p className="text-[10px] text-ink-faint mt-1">
             +{bySet.length - 8} more sets
           </p>
         )}
@@ -195,67 +195,67 @@ export default function PortfolioAnalytics({ cards, summary }: Props) {
 
       {/* Rarity */}
       <section className="mb-5">
-        <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
+        <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1.5">
           By Rarity
         </p>
         <StackedBar
           rows={byRarity}
           total={summary.total_value}
-          colorOf={(k) => RARITY_COLOR[k] ?? "bg-neutral-600"}
+          colorOf={(k) => RARITY_COLOR[k] ?? "bg-ink-faint"}
         />
         <Legend
           rows={byRarity}
           total={summary.total_value}
-          colorOf={(k) => RARITY_COLOR[k] ?? "bg-neutral-600"}
+          colorOf={(k) => RARITY_COLOR[k] ?? "bg-ink-faint"}
         />
       </section>
 
       {/* Condition */}
       <section className="mb-5">
-        <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
+        <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1.5">
           By Condition
         </p>
         <Legend
           rows={byCondition}
           total={summary.total_value}
-          colorOf={() => "bg-neutral-500"}
+          colorOf={() => "bg-ink-faint"}
         />
       </section>
 
       {/* Acquisition year */}
       {byAcquisitionYear.length > 0 && byAcquisitionYear[0].key !== "—" && (
         <section className="mb-5">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1.5">
             By Acquisition Year
           </p>
           <Legend
             rows={byAcquisitionYear}
             total={summary.total_value}
-            colorOf={() => "bg-neutral-500"}
+            colorOf={() => "bg-ink-faint"}
           />
         </section>
       )}
 
       {/* Concentration */}
       <section>
-        <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
+        <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1.5">
           Concentration
         </p>
-        <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
+        <div className="bg-page border border-border-subtle rounded-lg p-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-sm text-neutral-300">Top 5 cards</span>
+            <span className="text-sm text-ink-muted">Top 5 cards</span>
             <div className="text-right">
-              <span className="text-lg font-bold text-amber-400">{gbp(top5Value)}</span>
-              <span className="text-xs text-neutral-500 ml-1.5">({top5Pct.toFixed(0)}%)</span>
+              <span className="text-lg font-bold text-accent">{gbp(top5Value)}</span>
+              <span className="text-xs text-ink-faint ml-1.5">({top5Pct.toFixed(0)}%)</span>
             </div>
           </div>
-          <div className="mt-2 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+          <div className="mt-2 h-1.5 rounded-full bg-surface-subtle overflow-hidden">
             <div
-              className="h-full bg-amber-500 transition-all"
+              className="h-full bg-accent transition-all"
               style={{ width: `${Math.min(100, top5Pct)}%` }}
             />
           </div>
-          <p className="text-[10px] text-neutral-600 mt-1.5 leading-relaxed">
+          <p className="text-[10px] text-ink-faint mt-1.5 leading-relaxed">
             {top5Pct >= 80
               ? "Very concentrated — most of your value is in a handful of cards."
               : top5Pct >= 50

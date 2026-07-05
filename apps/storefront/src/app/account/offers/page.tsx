@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatTimeUntil } from "@/lib/format";
-import { Badge, Palettes, Consequences, MessageButton, Money, TrustTier } from "@/lib/ui";
+import { Badge, Palettes, Consequences, MessageButton, Money, Tabs, TrustTier } from "@/lib/ui";
 import type { Consequence } from "@/lib/ui";
 import { Audience } from "@/lib/ui";
 import {
@@ -107,44 +107,34 @@ export default function OffersPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-2">Offers</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-display font-semibold text-ink mb-2">Offers</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Negotiate prices on market asks. Sellers respond within their declared response window
         (48 hours by default) — each offer below shows its own expiry.
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-300">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-4 text-sm text-danger">
           {error}
         </div>
       )}
 
-      <div className="flex gap-1 bg-neutral-900 rounded-lg p-1 mb-6 w-fit">
-        <button
-          onClick={() => setTab("incoming")}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-            tab === "incoming" ? "bg-amber-500 text-black" : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          Incoming
-        </button>
-        <button
-          onClick={() => setTab("outgoing")}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-            tab === "outgoing" ? "bg-amber-500 text-black" : "text-neutral-400 hover:text-white"
-          }`}
-        >
-          Outgoing
-        </button>
-      </div>
+      <Tabs
+        tabs={[
+          { value: "incoming" as const, label: "Incoming" },
+          { value: "outgoing" as const, label: "Outgoing" },
+        ]}
+        selected={tab}
+        onSelect={setTab}
+      />
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : offers.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-400 text-sm">
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-muted text-sm">
             {tab === "incoming"
               ? "No offers on your asks yet. They'll appear here when buyers negotiate."
               : "You haven't made any offers yet."}
@@ -152,7 +142,7 @@ export default function OffersPage() {
           {tab === "outgoing" && (
             <Link
               href="/market"
-              className="inline-block mt-3 text-amber-400 text-xs font-semibold hover:text-amber-300"
+              className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong"
             >
               Browse the market →
             </Link>
@@ -289,21 +279,21 @@ function OfferCard({
   }
 
   return (
-    <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800">
+    <div className="bg-surface rounded-lg p-4 border border-border-subtle">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <div className="min-w-0">
-          <p className="text-white font-semibold text-sm truncate">
+          <p className="text-ink font-semibold text-sm truncate">
             {offer.card_name || offer.sku}
-            <span className="text-neutral-500 font-mono text-xs ml-2">{offer.sku}</span>
+            <span className="text-ink-faint font-mono text-xs ml-2">{offer.sku}</span>
           </p>
-          <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+          <p className="text-xs text-ink-faint mt-0.5 flex items-center gap-1.5 flex-wrap">
             <span>
               {perspective === "seller" ? "From" : "To"}{" "}
               {otherUsername ? (
                 <Link
                   href={`/u/${otherUsername}`}
-                  className="text-amber-400 hover:text-amber-300 hover:underline"
+                  className="text-accent hover:text-accent-strong hover:underline"
                 >
                   @{otherUsername}
                 </Link>
@@ -330,20 +320,20 @@ function OfferCard({
 
       {/* Price summary */}
       <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
-        <div className="bg-neutral-950/40 rounded-lg px-3 py-2">
-          <div className="text-neutral-500 uppercase tracking-wide text-[10px]">Ask</div>
-          <div className="font-mono font-bold text-neutral-300"><Money value={parseFloat(offer.ask_price)} /></div>
+        <div className="bg-surface-subtle rounded-lg px-3 py-2">
+          <div className="text-ink-faint uppercase tracking-wide text-[10px]">Ask</div>
+          <div className="font-mono font-bold text-ink-muted"><Money value={parseFloat(offer.ask_price)} /></div>
         </div>
-        <div className="bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
-          <div className="text-amber-400 uppercase tracking-wide text-[10px]">Offer</div>
-          <div className="font-mono font-bold text-white"><Money value={parseFloat(offer.offer_price)} /></div>
+        <div className="bg-accent-wash rounded-lg px-3 py-2 border border-accent/30">
+          <div className="text-accent uppercase tracking-wide text-[10px]">Offer</div>
+          <div className="font-mono font-bold text-ink"><Money value={parseFloat(offer.offer_price)} /></div>
         </div>
         <div className={`rounded-lg px-3 py-2 ${offer.counter_price
-          ? "bg-blue-500/10 border border-blue-500/20" : "bg-neutral-950/40"}`}>
-          <div className={`uppercase tracking-wide text-[10px] ${offer.counter_price ? "text-blue-400" : "text-neutral-500"}`}>
+          ? "bg-info/10 border border-info/20" : "bg-surface-subtle"}`}>
+          <div className={`uppercase tracking-wide text-[10px] ${offer.counter_price ? "text-info" : "text-ink-faint"}`}>
             Counter
           </div>
-          <div className="font-mono font-bold text-white">
+          <div className="font-mono font-bold text-ink">
             {offer.counter_price ? <Money value={parseFloat(offer.counter_price)} /> : "—"}
           </div>
         </div>
@@ -351,12 +341,12 @@ function OfferCard({
 
       {/* Messages */}
       {offer.message && (
-        <p className="text-xs text-neutral-300 mb-2 italic bg-neutral-950/40 rounded p-2">
+        <p className="text-xs text-ink-muted mb-2 italic bg-surface-subtle rounded p-2">
           “{offer.message}”
         </p>
       )}
       {offer.counter_message && (
-        <p className="text-xs text-blue-300 mb-2 italic bg-blue-500/5 rounded p-2 border border-blue-500/10">
+        <p className="text-xs text-info mb-2 italic bg-info/5 rounded p-2 border border-info/10">
           Seller: “{offer.counter_message}”
         </p>
       )}
@@ -371,17 +361,17 @@ function OfferCard({
               <div
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
                   done
-                    ? current ? "bg-amber-500 text-black" : "bg-emerald-500 text-black"
-                    : "bg-neutral-800 text-neutral-600"
+                    ? current ? "bg-ink text-page" : "bg-ok text-page"
+                    : "bg-surface-subtle text-ink-faint"
                 }`}
               >
                 {done ? "✓" : i + 1}
               </div>
-              <span className={`text-[10px] capitalize ${done ? "text-white" : "text-neutral-600"}`}>
+              <span className={`text-[10px] capitalize ${done ? "text-ink" : "text-ink-faint"}`}>
                 {step}
               </span>
               {i < OFFER_STEPS.length - 1 && (
-                <div className={`h-px flex-1 ${done ? "bg-emerald-500/40" : "bg-neutral-800"}`} />
+                <div className={`h-px flex-1 ${done ? "bg-ok/40" : "bg-surface-subtle"}`} />
               )}
             </div>
           );
@@ -391,11 +381,11 @@ function OfferCard({
       {/* Action row + TTL */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         {offer.status === "pending" || offer.status === "countered" ? (
-          <span className="text-[10px] text-neutral-500 font-mono">
+          <span className="text-[10px] text-ink-faint font-mono">
             {formatTimeUntil(offer.expires_at)} left
           </span>
         ) : (
-          <span className="text-[10px] text-neutral-500">
+          <span className="text-[10px] text-ink-faint">
             {offer.resolved_at && `Resolved ${new Date(offer.resolved_at).toLocaleDateString("en-GB", {
               day: "numeric", month: "short",
             })}`}
@@ -409,21 +399,21 @@ function OfferCard({
               <button
                 disabled={busy}
                 onClick={() => setConfirming("accept")}
-                className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
               >
                 {busy ? "..." : "Accept"}
               </button>
               <button
                 disabled={busy}
                 onClick={() => setShowCounter((s) => !s)}
-                className="px-3 py-1.5 text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded-md hover:bg-blue-500/25 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-medium bg-info/15 text-info border border-info/30 rounded-md hover:bg-info/20 transition disabled:opacity-50"
               >
                 {showCounter ? "Cancel counter" : "Counter"}
               </button>
               <button
                 disabled={busy}
                 onClick={() => onAct("decline")}
-                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
               >
                 Decline
               </button>
@@ -436,14 +426,14 @@ function OfferCard({
               <button
                 disabled={busy}
                 onClick={() => setConfirming("accept-counter")}
-                className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
               >
                 {busy ? "..." : "Accept counter"}
               </button>
               <button
                 disabled={busy}
                 onClick={() => onAct("withdraw")}
-                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
               >
                 Decline counter
               </button>
@@ -455,7 +445,7 @@ function OfferCard({
             <button
               disabled={busy}
               onClick={() => onAct("withdraw")}
-              className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
             >
               Withdraw
             </button>
@@ -465,7 +455,7 @@ function OfferCard({
           {offer.status === "accepted" && offer.trade_id && (
             <Link
               href="/account/trades"
-              className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-black rounded-md hover:bg-amber-400 transition"
+              className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition"
             >
               View trade →
             </Link>
@@ -489,13 +479,13 @@ function OfferCard({
           in time — the Heptapod's primitive made literal on the highest-
           stakes irreversible action the storefront offers. */}
       {confirming && (
-        <div className="mt-3 pt-3 border-t border-neutral-800 space-y-3">
+        <div className="mt-3 pt-3 border-t border-border-subtle space-y-3">
           <Consequences items={consequencesFor(confirming)} />
           <div className="flex gap-2 justify-end">
             <button
               disabled={busy}
               onClick={() => setConfirming(null)}
-              className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
             >
               Cancel
             </button>
@@ -506,7 +496,7 @@ function OfferCard({
                 setConfirming(null);
                 onAct(path);
               }}
-              className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
             >
               {busy
                 ? "..."
@@ -520,9 +510,9 @@ function OfferCard({
 
       {/* Counter form (seller-only, inline) */}
       {showCounter && perspective === "seller" && offer.status === "pending" && (
-        <div className="mt-3 pt-3 border-t border-neutral-800">
+        <div className="mt-3 pt-3 border-t border-border-subtle">
           <div className="flex gap-2 items-center mb-2 flex-wrap">
-            <label className="text-xs text-neutral-500">Counter price (£)</label>
+            <label className="text-xs text-ink-faint">Counter price (£)</label>
             <input
               type="number"
               step="0.01"
@@ -530,7 +520,7 @@ function OfferCard({
               value={counterPrice}
               onChange={(e) => setCounterPrice(e.target.value)}
               placeholder={`Between ${parseFloat(offer.offer_price)} and ${parseFloat(offer.ask_price)}`}
-              className="flex-1 min-w-[160px] px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-sm"
+              className="flex-1 min-w-[160px] px-2 py-1 bg-surface-subtle border border-border-subtle rounded text-ink text-sm"
             />
           </div>
           <textarea
@@ -538,7 +528,7 @@ function OfferCard({
             onChange={(e) => setCounterMessage(e.target.value)}
             placeholder="Optional message to the buyer"
             rows={2}
-            className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-xs resize-none mb-2"
+            className="w-full px-2 py-1 bg-surface-subtle border border-border-subtle rounded text-ink text-xs resize-none mb-2"
           />
           <div className="flex justify-end">
             <button
@@ -552,7 +542,7 @@ function OfferCard({
                 setCounterPrice("");
                 setCounterMessage("");
               }}
-              className="px-3 py-1.5 text-xs font-bold bg-blue-500 text-white rounded-md hover:bg-blue-400 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold bg-surface border border-border-subtle text-ink rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
             >
               {busy ? "..." : "Send counter"}
             </button>
@@ -561,7 +551,7 @@ function OfferCard({
       )}
 
       {myTurn && (
-        <p className="text-[10px] text-amber-400/80 mt-2">
+        <p className="text-[10px] text-accent/80 mt-2">
           {perspective === "seller" ? "Your turn — accept, counter, or decline." : "Your turn — accept the counter or withdraw."}
         </p>
       )}

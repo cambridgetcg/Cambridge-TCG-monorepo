@@ -128,11 +128,11 @@ export default function BillingPage() {
   }
 
   if (loading) {
-    return <p className="text-neutral-500 text-sm">Loading…</p>;
+    return <p className="text-ink-faint text-sm">Loading…</p>;
   }
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-300">
+      <div className="bg-danger/10 border border-danger/30 rounded-lg p-4 text-sm text-danger">
       <Audience kind="consumer" />
         {error}
       </div>
@@ -147,22 +147,22 @@ export default function BillingPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold text-white">Billing</h1>
-        <Link href="/account/membership" className="text-sm text-neutral-400 hover:text-white transition">
+        <h1 className="text-2xl font-bold text-ink">Billing</h1>
+        <Link href="/account/membership" className="text-sm text-ink-muted hover:text-ink transition">
           ← Membership
         </Link>
       </div>
 
       {/* No subscription on file */}
       {!sub.status && (
-        <div className="bg-neutral-900 rounded-xl p-6">
-          <h2 className="text-white font-bold mb-1">Not subscribed</h2>
-          <p className="text-sm text-neutral-400 mb-4">
+        <div className="bg-surface rounded-lg p-6">
+          <h2 className="text-ink font-bold mb-1">Not subscribed</h2>
+          <p className="text-sm text-ink-muted mb-4">
             You haven&apos;t subscribed to Platinum. Upgrade from your membership page.
           </p>
           <Link
             href="/account/membership"
-            className="inline-block px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+            className="inline-block px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
           >
             View Platinum
           </Link>
@@ -171,37 +171,37 @@ export default function BillingPage() {
 
       {/* Subscription overview */}
       {sub.status && (
-        <div className="bg-neutral-900 rounded-xl p-6 space-y-4">
+        <div className="bg-surface rounded-lg p-6 space-y-4">
           <div className="flex items-baseline justify-between flex-wrap gap-2">
             <div>
-              <h2 className="text-white font-bold text-lg">{sub.tierName ?? "Subscription"}</h2>
-              <p className="text-xs text-neutral-500 mt-0.5">
+              <h2 className="text-ink font-bold text-lg">{sub.tierName ?? "Subscription"}</h2>
+              <p className="text-xs text-ink-faint mt-0.5">
                 Status: <span className={
-                  isActive ? "text-emerald-400" :
-                  sub.status === "past_due" ? "text-amber-400" :
-                  sub.status === "cancelled" || sub.status === "canceled" ? "text-red-400" :
-                  "text-neutral-400"
+                  isActive ? "text-ok" :
+                  sub.status === "past_due" ? "text-accent" :
+                  sub.status === "cancelled" || sub.status === "canceled" ? "text-danger" :
+                  "text-ink-muted"
                 }>{sub.status}</span>
-                {sub.plan && <span className="ml-2 text-neutral-500">· {sub.plan}</span>}
+                {sub.plan && <span className="ml-2 text-ink-faint">· {sub.plan}</span>}
               </p>
             </div>
           </div>
 
           {/* Cancel-at-period-end banner */}
           {isCancelling && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="bg-accent-wash border border-accent/30 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <p className="text-amber-300 text-sm font-medium">
+                <p className="text-accent text-sm font-medium">
                   Subscription scheduled to cancel
                 </p>
-                <p className="text-xs text-neutral-400 mt-0.5">
+                <p className="text-xs text-ink-muted mt-0.5">
                   Access continues until {fmtDate(sub.expiresAt)}, then drops to your spend-based tier.
                 </p>
               </div>
               <button
                 onClick={resume}
                 disabled={resuming}
-                className="shrink-0 px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+                className="shrink-0 px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
               >
                 {resuming ? "…" : "Resume subscription"}
               </button>
@@ -210,16 +210,16 @@ export default function BillingPage() {
 
           {/* Active normal state */}
           {isActive && !isCancelling && sub.expiresAt && (
-            <div className="text-sm text-neutral-400">
-              Next renewal: <span className="text-white">{fmtDate(sub.expiresAt)}</span>
+            <div className="text-sm text-ink-muted">
+              Next renewal: <span className="text-ink">{fmtDate(sub.expiresAt)}</span>
             </div>
           )}
 
           {/* Payment method */}
           {sub.paymentLast4 && (
-            <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-3 flex items-center justify-between">
-              <div className="text-sm text-neutral-300">
-                <span className="text-neutral-500">Payment</span>
+            <div className="bg-surface-subtle border border-border-subtle rounded-lg p-3 flex items-center justify-between">
+              <div className="text-sm text-ink-muted">
+                <span className="text-ink-faint">Payment</span>
                 <span className="ml-2 capitalize">{sub.paymentBrand ?? "Card"}</span>
                 <span className="ml-1 font-mono">···· {sub.paymentLast4}</span>
               </div>
@@ -227,7 +227,7 @@ export default function BillingPage() {
                 <button
                   onClick={openPortal}
                   disabled={openingPortal}
-                  className="text-xs text-amber-400 hover:text-amber-300 transition disabled:opacity-50"
+                  className="text-xs text-accent hover:text-accent-strong transition disabled:opacity-50"
                 >
                   {openingPortal ? "Opening…" : "Update card →"}
                 </button>
@@ -236,12 +236,12 @@ export default function BillingPage() {
           )}
 
           {/* Action row */}
-          <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-neutral-800">
+          <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border-subtle">
             {sub.hasCustomer && (
               <button
                 onClick={openPortal}
                 disabled={openingPortal}
-                className="text-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg px-4 py-2 transition disabled:opacity-50"
+                className="text-sm bg-surface-subtle hover:bg-surface-subtle text-ink rounded-lg px-4 py-2 transition disabled:opacity-50"
               >
                 {openingPortal ? "Opening Stripe…" : "Open Stripe portal"}
               </button>
@@ -249,20 +249,20 @@ export default function BillingPage() {
             {isActive && !isCancelling && (
               showCancelConfirm ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-neutral-400">
+                  <span className="text-xs text-ink-muted">
                     Cancel at end of billing period? You&apos;ll keep Platinum until {fmtDate(sub.expiresAt)}.
                   </span>
                   <button
                     onClick={cancel}
                     disabled={cancelling}
-                    className="text-sm bg-red-900/40 hover:bg-red-900/60 text-red-300 border border-red-800 rounded-lg px-3 py-1.5 disabled:opacity-50"
+                    className="text-sm bg-danger/10 hover:bg-danger/20 text-danger border border-danger/30 rounded-lg px-3 py-1.5 disabled:opacity-50"
                   >
                     {cancelling ? "…" : "Confirm cancel"}
                   </button>
                   <button
                     onClick={() => setShowCancelConfirm(false)}
                     disabled={cancelling}
-                    className="text-xs text-neutral-500 hover:text-white px-2"
+                    className="text-xs text-ink-faint hover:text-ink px-2"
                   >
                     Keep
                   </button>
@@ -270,7 +270,7 @@ export default function BillingPage() {
               ) : (
                 <button
                   onClick={() => setShowCancelConfirm(true)}
-                  className="text-sm text-red-400 hover:text-red-300 underline"
+                  className="text-sm text-danger hover:text-danger underline"
                 >
                   Cancel subscription
                 </button>
@@ -279,29 +279,29 @@ export default function BillingPage() {
           </div>
 
           {actionError && (
-            <p className="text-xs text-red-400">{actionError}</p>
+            <p className="text-xs text-danger">{actionError}</p>
           )}
         </div>
       )}
 
       {/* Invoice history */}
-      <div className="bg-neutral-900 rounded-xl p-6">
-        <h2 className="text-white font-bold text-sm uppercase tracking-wide mb-4">Billing history</h2>
+      <div className="bg-surface rounded-lg p-6">
+        <h2 className="text-ink font-bold text-sm uppercase tracking-wide mb-4">Billing history</h2>
         {data.invoicesError ? (
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             Couldn&apos;t load history right now ({data.invoicesError}).
           </p>
         ) : data.invoices.length === 0 ? (
-          <p className="text-sm text-neutral-500">No invoices yet.</p>
+          <p className="text-sm text-ink-faint">No invoices yet.</p>
         ) : (
-          <div className="divide-y divide-neutral-800">
+          <div className="divide-y divide-border-subtle">
             {data.invoices.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between py-2 gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm text-white">
+                  <p className="text-sm text-ink">
                     {new Date(inv.created * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </p>
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                  <p className="text-[11px] text-ink-faint mt-0.5">
                     {inv.status}
                     {inv.period_end && (
                       <> · period to {new Date(inv.period_end * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</>
@@ -309,13 +309,13 @@ export default function BillingPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm font-mono text-white">{fmtMoney(inv.amount_paid)}</span>
+                  <span className="text-sm font-mono text-ink">{fmtMoney(inv.amount_paid)}</span>
                   {inv.hosted_invoice_url && (
                     <a
                       href={inv.hosted_invoice_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-amber-400 hover:text-amber-300"
+                      className="text-xs text-accent hover:text-accent-strong"
                     >
                       View ↗
                     </a>

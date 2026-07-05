@@ -60,23 +60,23 @@ export function FollowList({ mode }: { mode: "followers" | "following" }) {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error) {
-    return <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-300 text-sm">{error}</div>;
+    return <div className="bg-danger/10 border border-danger/30 rounded-lg p-4 text-danger text-sm">{error}</div>;
   }
 
   if (users.length === 0) {
     return (
-      <div className="bg-neutral-900 rounded-xl p-8 text-center">
-        <p className="text-neutral-400 text-sm">
+      <div className="bg-surface rounded-lg p-8 text-center">
+        <p className="text-ink-muted text-sm">
           {mode === "followers" ? "No followers yet." : "You aren't following anyone yet."}
         </p>
         {mode === "following" && (
-          <Link href="/u" className="inline-block mt-3 text-amber-400 text-xs font-semibold hover:text-amber-300">
+          <Link href="/u" className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong">
             Find traders to follow →
           </Link>
         )}
@@ -92,24 +92,24 @@ export function FollowList({ mode }: { mode: "followers" | "following" }) {
         return (
           <div
             key={u.user_id}
-            className="flex items-center gap-3 bg-neutral-900 rounded-xl p-3 border border-neutral-800"
+            className="flex items-center gap-3 bg-surface rounded-lg p-3 border border-border-subtle"
           >
             <Link href={href} className="shrink-0">
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black bg-neutral-800"
+                className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-display font-semibold bg-surface-subtle"
                 style={{
-                  background: u.avatar_url ? `url(${u.avatar_url}) center/cover` : "rgb(38,38,38)",
+                  background: u.avatar_url ? `url(${u.avatar_url}) center/cover` : "var(--color-surface-subtle)",
                 }}
               >
-                {!u.avatar_url && <span className="text-amber-400">{initial}</span>}
+                {!u.avatar_url && <span className="text-accent">{initial}</span>}
               </div>
             </Link>
             <Link href={href} className="flex-1 min-w-0">
-              <p className="text-white text-sm font-semibold truncate flex items-center gap-1.5">
+              <p className="text-ink text-sm font-semibold truncate flex items-center gap-1.5">
                 {u.name ?? u.username ?? "Anonymous"}
                 {u.tier_icon && <span className="text-xs">{u.tier_icon}</span>}
               </p>
-              <p className="text-neutral-500 text-xs truncate">
+              <p className="text-ink-faint text-xs truncate">
                 {u.username && <span>@{u.username}</span>}
                 <span className="ml-2">Trust {u.trust_score}</span>
                 {u.trade_count > 0 && <span className="ml-2">· {u.trade_count} trades</span>}
@@ -121,10 +121,10 @@ export function FollowList({ mode }: { mode: "followers" | "following" }) {
               <button
                 onClick={() => toggleBack(u)}
                 disabled={!!busy[u.user_id]}
-                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   u.follows_back
-                    ? "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                    : "bg-amber-500 text-black hover:bg-amber-400"
+                    ? "bg-surface-subtle text-ink-muted hover:text-ink"
+                    : "bg-ink text-page hover:opacity-90"
                 }`}
               >
                 {busy[u.user_id] ? "..." : u.follows_back ? "Following" : "Follow"}

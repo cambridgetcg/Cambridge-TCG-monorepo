@@ -96,21 +96,21 @@ export default function QuoteStatusPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+      <main className="min-h-screen bg-page flex items-center justify-center">
+        <div className="text-ink-muted">Loading...</div>
       </main>
     );
   }
 
   if (error || !data) {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Not Found</h1>
-          <p className="text-neutral-400 mb-6">{error}</p>
+          <h1 className="text-2xl font-bold text-ink mb-4">Not Found</h1>
+          <p className="text-ink-muted mb-6">{error}</p>
           <Link
             href="/trade-in"
-            className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
           >
             Back to Trade-In
           </Link>
@@ -126,11 +126,11 @@ export default function QuoteStatusPage() {
   });
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <Link
           href="/trade-in"
-          className="text-sm text-neutral-400 hover:text-white transition mb-6 inline-block"
+          className="text-sm text-ink-muted hover:text-ink transition mb-6 inline-block"
         >
           &larr; Back to trade-in
         </Link>
@@ -138,10 +138,10 @@ export default function QuoteStatusPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start justify-between gap-2 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <h1 className="text-2xl md:text-3xl font-bold text-ink">
               Quote {data.reference}
             </h1>
-            <p className="text-sm text-neutral-400 mt-1">
+            <p className="text-sm text-ink-muted mt-1">
               Submitted {submittedDate}
             </p>
           </div>
@@ -150,11 +150,11 @@ export default function QuoteStatusPage() {
 
         {/* Status message */}
         {data.status === "pending" && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 mb-6">
-            <h2 className="text-sm font-bold text-amber-400 mb-1">
+          <div className="bg-accent-wash border border-accent/20 rounded-lg p-5 mb-6">
+            <h2 className="text-sm font-bold text-accent mb-1">
               We&apos;re Reviewing Your Cards
             </h2>
-            <p className="text-sm text-neutral-300">
+            <p className="text-sm text-ink-muted">
               Our team is evaluating your submission. You&apos;ll receive an email
               with our offer, usually within 24 hours.
             </p>
@@ -162,11 +162,11 @@ export default function QuoteStatusPage() {
         )}
 
         {data.status === "accepted" && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 mb-6">
+          <div className="bg-ok/10 border border-ok/20 rounded-lg p-5 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-emerald-400"
+                className="w-5 h-5 text-ok"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -178,33 +178,33 @@ export default function QuoteStatusPage() {
                   d="M5 13l4 4L19 7"
                 />
               </svg>
-              <h2 className="text-sm font-bold text-emerald-400">
+              <h2 className="text-sm font-bold text-ok">
                 Quote Accepted
               </h2>
             </div>
             {data.deliveryMethod === "mail" ? (
               <div className="space-y-3">
-                <p className="text-sm text-neutral-300">
+                <p className="text-sm text-ink-muted">
                   Please send your cards to:
                 </p>
-                <div className="bg-neutral-800 rounded-lg p-3 text-sm text-white">
+                <div className="bg-surface-subtle rounded-lg p-3 text-sm text-ink">
                   <p>Cambridge TCG</p>
                   <p>PO Box 1637</p>
                   <p>CAMBRIDGE</p>
                   <p>CB1 0PD</p>
                 </div>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-ink-faint">
                   Include your reference number{" "}
-                  <strong className="text-amber-400">{data.reference}</strong> on
+                  <strong className="text-accent">{data.reference}</strong> on
                   the package.
                 </p>
               </div>
             ) : (
               <div>
-                <p className="text-sm text-neutral-300">
+                <p className="text-sm text-ink-muted">
                   Bring your cards to our shop and quote your reference:
                 </p>
-                <p className="text-lg font-bold text-amber-400 mt-2">
+                <p className="text-lg font-bold text-accent mt-2">
                   {data.reference}
                 </p>
               </div>
@@ -213,11 +213,11 @@ export default function QuoteStatusPage() {
         )}
 
         {data.status === "declined" && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 mb-6">
-            <h2 className="text-sm font-bold text-red-400 mb-1">
+          <div className="bg-danger/10 border border-danger/20 rounded-lg p-5 mb-6">
+            <h2 className="text-sm font-bold text-danger mb-1">
               Quote Declined
             </h2>
-            <p className="text-sm text-neutral-300">
+            <p className="text-sm text-ink-muted">
               You&apos;ve declined this quote. If you change your mind, you can
               submit a new request.
             </p>
@@ -225,11 +225,11 @@ export default function QuoteStatusPage() {
         )}
 
         {data.status === "expired" && (
-          <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-5 mb-6">
-            <h2 className="text-sm font-bold text-neutral-400 mb-1">
+          <div className="bg-surface-subtle border border-border-subtle rounded-lg p-5 mb-6">
+            <h2 className="text-sm font-bold text-ink-muted mb-1">
               Quote Expired
             </h2>
-            <p className="text-sm text-neutral-300">
+            <p className="text-sm text-ink-muted">
               This quote has expired. Please submit a new request for updated
               pricing.
             </p>
@@ -237,11 +237,11 @@ export default function QuoteStatusPage() {
         )}
 
         {data.status === "cancelled" && (
-          <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-5 mb-6">
-            <h2 className="text-sm font-bold text-neutral-400 mb-1">
+          <div className="bg-surface-subtle border border-border-subtle rounded-lg p-5 mb-6">
+            <h2 className="text-sm font-bold text-ink-muted mb-1">
               Quote Cancelled
             </h2>
-            <p className="text-sm text-neutral-300">
+            <p className="text-sm text-ink-muted">
               This quote has been cancelled. Please contact us if you have any
               questions.
             </p>
@@ -250,36 +250,36 @@ export default function QuoteStatusPage() {
 
         {/* Items */}
         <div className="space-y-4 mb-6">
-          <h3 className="text-sm font-bold text-white">
+          <h3 className="text-sm font-bold text-ink">
             Items ({data.items.length})
           </h3>
           {data.items.map((item, idx) => (
-            <div key={idx} className="bg-neutral-900 rounded-xl p-4">
+            <div key={idx} className="bg-surface border border-border-subtle rounded-lg p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-ink">
                     {item.quantity > 1 && (
-                      <span className="text-amber-400">{item.quantity}x </span>
+                      <span className="text-accent">{item.quantity}x </span>
                     )}
                     {item.description}
                   </p>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {item.game && (
-                      <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
+                      <span className="text-xs bg-surface-subtle text-ink-muted px-2 py-0.5 rounded">
                         {item.game}
                       </span>
                     )}
                     {item.set_name && (
-                      <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
+                      <span className="text-xs bg-surface-subtle text-ink-muted px-2 py-0.5 rounded">
                         {item.set_name}
                       </span>
                     )}
-                    <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-surface-subtle text-ink-muted px-2 py-0.5 rounded">
                       {item.condition}
                     </span>
                   </div>
                   {item.notes && (
-                    <p className="text-xs text-neutral-500 mt-2">
+                    <p className="text-xs text-ink-faint mt-2">
                       {item.notes}
                     </p>
                   )}
@@ -287,7 +287,7 @@ export default function QuoteStatusPage() {
 
                 {data.status === "quoted" &&
                   item.offeredPrice !== undefined && (
-                    <p className="text-lg font-bold text-amber-400 ml-4 shrink-0">
+                    <p className="text-lg font-bold text-accent ml-4 shrink-0">
                       &pound;{(item.offeredPrice * item.quantity).toFixed(2)}
                     </p>
                   )}
@@ -299,7 +299,7 @@ export default function QuoteStatusPage() {
                   {item.imageUrls.map((img, imgIdx) => (
                     <div
                       key={imgIdx}
-                      className="w-16 h-16 rounded-lg overflow-hidden bg-neutral-800"
+                      className="w-16 h-16 rounded-lg overflow-hidden bg-surface-subtle"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -317,18 +317,18 @@ export default function QuoteStatusPage() {
 
         {/* Quoted total + actions */}
         {data.status === "quoted" && data.total !== undefined && (
-          <div className="bg-neutral-900 rounded-xl p-5 mb-6">
+          <div className="bg-surface border border-border-subtle rounded-lg p-5 mb-6">
             <div className="flex justify-between items-center mb-4">
-              <span className="text-white font-bold text-lg">
+              <span className="text-ink font-bold text-lg">
                 Total Offer ({data.paymentMethod === "cash" ? "Cash" : "Store Credit"})
               </span>
-              <span className="text-amber-400 font-bold text-2xl">
+              <span className="text-accent font-bold text-2xl">
                 &pound;{data.total.toFixed(2)}
               </span>
             </div>
 
             {actionError && (
-              <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3 mb-4">
+              <p className="text-sm text-danger bg-danger/10 rounded-lg px-4 py-3 mb-4">
                 {actionError}
               </p>
             )}
@@ -338,7 +338,7 @@ export default function QuoteStatusPage() {
                 type="button"
                 onClick={() => handleAction("accept")}
                 disabled={actionLoading}
-                className="flex-1 py-3 bg-emerald-500 text-black font-bold rounded-lg hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {actionLoading ? "Processing..." : "Accept Offer"}
               </button>
@@ -346,7 +346,7 @@ export default function QuoteStatusPage() {
                 type="button"
                 onClick={() => handleAction("decline")}
                 disabled={actionLoading}
-                className="flex-1 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-surface-subtle text-ink font-medium rounded-lg hover:bg-surface-subtle transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Decline
               </button>
@@ -358,13 +358,13 @@ export default function QuoteStatusPage() {
         <div className="flex flex-col sm:flex-row gap-3 mt-8">
           <Link
             href="/trade-in/custom-quote"
-            className="flex-1 text-center px-4 sm:px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="flex-1 text-center px-4 sm:px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
           >
             Submit Another Quote
           </Link>
           <Link
             href="/trade-in"
-            className="flex-1 text-center px-4 sm:px-6 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition"
+            className="flex-1 text-center px-4 sm:px-6 py-3 bg-surface-subtle text-ink font-medium rounded-lg hover:bg-surface-subtle transition"
           >
             Back to Trade-In
           </Link>

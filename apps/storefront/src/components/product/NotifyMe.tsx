@@ -13,7 +13,7 @@ export default function NotifyMe() {
   return (
     <button
       onClick={handleClick}
-      className="px-8 py-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold rounded-xl transition text-lg"
+      className="px-8 py-4 bg-surface-subtle hover:bg-surface-elevated text-ink-muted font-bold rounded-lg transition text-lg"
     >
       {clicked ? "Coming soon — we'll add email notifications shortly!" : "Notify Me When Available"}
     </button>

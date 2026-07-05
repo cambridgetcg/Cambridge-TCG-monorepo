@@ -142,9 +142,9 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
     })();
   }, [data]);
 
-  if (error) return <Shell><div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center"><p className="text-red-400 font-bold">{error}</p></div></Shell>;
-  if (!data) return <Shell><p className="text-neutral-500">Loading proof…</p></Shell>;
-  if (!data.outcome || !data.revealed_at) return <Shell><p className="text-neutral-500">Draw not yet revealed.</p></Shell>;
+  if (error) return <Shell><div className="bg-danger/10 border border-danger/30 rounded-lg p-6 text-center"><p className="text-danger font-bold">{error}</p></div></Shell>;
+  if (!data) return <Shell><p className="text-ink-faint">Loading proof…</p></Shell>;
+  if (!data.outcome || !data.revealed_at) return <Shell><p className="text-ink-faint">Draw not yet revealed.</p></Shell>;
 
   const committedTs = new Date(data.committed_at).getTime();
   const revealedTs = new Date(data.revealed_at).getTime();
@@ -156,9 +156,9 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
     <Shell>
       <Audience kind="public-documentation" />
       <header className="mb-8">
-        <Link href="/verify" className="text-xs text-neutral-500 hover:text-neutral-300">← All proofs</Link>
+        <Link href="/verify" className="text-xs text-ink-faint hover:text-ink">← All proofs</Link>
         <h1 className="text-2xl font-bold mt-2 mb-1">{kindLabel} Verification</h1>
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-ink-faint">
           The server committed to a hash before rolling. Re-run the math
           in your browser below to confirm the outcome wasn&apos;t cherry-picked.
         </p>
@@ -187,16 +187,16 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
           <Field label="delay"        value={`${orderingDelayMs} ms`} mono />
         </CheckCard>
 
-        <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 lg:col-span-2">
+        <section className="bg-surface border border-border-subtle rounded-lg p-4 lg:col-span-2">
           <h3 className="font-bold text-sm mb-2">3. Every slot reproduces from the seed</h3>
-          <p className="text-xs text-neutral-500 mb-3">
+          <p className="text-xs text-ink-faint mb-3">
             rollFloat(server_seed, client_seed, nonce+i) → pickWeighted(weights, roll). One slot for
             single draws; N slots for packs. Each slot&apos;s nonce offset makes its roll
             independent while still reproducible from the same seed.
           </p>
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-neutral-500 uppercase tracking-wider">
+              <tr className="text-ink-faint uppercase tracking-wider">
                 <th className="text-left py-1 w-12">#</th>
                 <th className="text-left py-1">Claimed</th>
                 <th className="text-left py-1">Recomputed</th>
@@ -206,13 +206,13 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
             </thead>
             <tbody>
               {verdict?.slots.map((s) => (
-                <tr key={s.slotIndex} className="border-t border-neutral-800">
-                  <td className="py-1.5 font-mono text-neutral-500">{s.slotIndex}</td>
-                  <td className="py-1.5 font-mono text-neutral-300 uppercase">{s.claimedPicked}</td>
-                  <td className={`py-1.5 font-mono uppercase ${s.matches ? "text-neutral-300" : "text-red-400"}`}>{s.recomputedPicked}</td>
-                  <td className="py-1.5 font-mono text-neutral-500">{s.recomputedRoll.toFixed(10)}</td>
+                <tr key={s.slotIndex} className="border-t border-border-subtle">
+                  <td className="py-1.5 font-mono text-ink-faint">{s.slotIndex}</td>
+                  <td className="py-1.5 font-mono text-ink-muted uppercase">{s.claimedPicked}</td>
+                  <td className={`py-1.5 font-mono uppercase ${s.matches ? "text-ink-muted" : "text-danger"}`}>{s.recomputedPicked}</td>
+                  <td className="py-1.5 font-mono text-ink-faint">{s.recomputedRoll.toFixed(10)}</td>
                   <td className="py-1.5 text-right">
-                    {s.matches ? <span className="text-emerald-400">✓</span> : <span className="text-red-400">✗</span>}
+                    {s.matches ? <span className="text-ok">✓</span> : <span className="text-danger">✗</span>}
                   </td>
                 </tr>
               ))}
@@ -226,7 +226,7 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
           explanation="Once a digest is published, editing any leaf would change the root. Fetching the leaves for this digest and re-hashing them must match the published root we saw; our leaf must sit at the claimed index."
         >
           {data.merkle_digest_id == null ? (
-            <p className="text-xs text-neutral-500 italic">
+            <p className="text-xs text-ink-faint italic">
               This draw has not yet been included in a digest. The maintenance cron
               publishes roots every tick — check back shortly. Per-draw commit-reveal
               (checks 1-3) is already tamper-evident against external replay.
@@ -241,18 +241,18 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
               <Field label="recomputed leaf"  value={merkle.recomputedLeaf} mono />
             </>
           ) : (
-            <p className="text-xs text-neutral-500">Loading digest…</p>
+            <p className="text-xs text-ink-faint">Loading digest…</p>
           )}
         </CheckCard>
 
-        <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 lg:col-span-2">
+        <section className="bg-surface border border-border-subtle rounded-lg p-4 lg:col-span-2">
           <h3 className="font-bold text-sm mb-2">Weights snapshot at the time of draw</h3>
           <table className="w-full text-xs">
             <tbody>
               {Object.entries(data.weights).map(([k, w]) => (
-                <tr key={k} className="border-t border-neutral-800">
-                  <td className="py-1.5 font-mono text-neutral-400 uppercase">{k}</td>
-                  <td className="py-1.5 text-right font-mono text-neutral-300">
+                <tr key={k} className="border-t border-border-subtle">
+                  <td className="py-1.5 font-mono text-ink-muted uppercase">{k}</td>
+                  <td className="py-1.5 text-right font-mono text-ink-muted">
                     {(w * 100).toFixed(2)}%
                   </td>
                 </tr>
@@ -267,7 +267,7 @@ export default function VerifyDrawPage({ params }: { params: Promise<{ id: strin
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <div className="max-w-4xl mx-auto px-4 py-8">{children}</div>
     </main>
   );
@@ -275,22 +275,22 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function VerdictBanner({ verdict }: { verdict: Verdict | null }) {
   if (!verdict) {
-    return <div className="rounded-xl p-4 bg-neutral-900 border border-neutral-800"><p className="text-sm text-neutral-500">Computing…</p></div>;
+    return <div className="rounded-lg p-4 bg-surface border border-border-subtle"><p className="text-sm text-ink-faint">Computing…</p></div>;
   }
   return (
-    <div className={`rounded-xl p-4 border flex items-center gap-3 ${
+    <div className={`rounded-lg p-4 border flex items-center gap-3 ${
       verdict.allMatch
-        ? "bg-emerald-500/10 border-emerald-500/40"
-        : "bg-red-500/10 border-red-500/40"
+        ? "bg-ok/10 border-ok/40"
+        : "bg-danger/10 border-danger/40"
     }`}>
-      <span className={`text-3xl ${verdict.allMatch ? "text-emerald-400" : "text-red-400"}`}>
+      <span className={`text-3xl ${verdict.allMatch ? "text-ok" : "text-danger"}`}>
         {verdict.allMatch ? "✓" : "✗"}
       </span>
       <div>
         <p className="font-bold">
           {verdict.allMatch ? "Verified — draw is provably fair" : "Verification FAILED — contact support"}
         </p>
-        <p className="text-xs text-neutral-500">Checks ran in your browser using public data only.</p>
+        <p className="text-xs text-ink-faint">Checks ran in your browser using public data only.</p>
       </div>
     </div>
   );
@@ -303,16 +303,16 @@ function CheckCard({ ok, title, explanation, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <section className={`bg-neutral-900 border rounded-xl p-4 ${
-      ok === true ? "border-emerald-500/30" : ok === false ? "border-red-500/40" : "border-neutral-800"
+    <section className={`bg-surface border rounded-lg p-4 ${
+      ok === true ? "border-ok/30" : ok === false ? "border-danger/40" : "border-border-subtle"
     }`}>
       <div className="flex items-baseline gap-2 mb-2">
-        <span className={`text-lg ${ok === true ? "text-emerald-400" : ok === false ? "text-red-400" : "text-neutral-500"}`}>
+        <span className={`text-lg ${ok === true ? "text-ok" : ok === false ? "text-danger" : "text-ink-faint"}`}>
           {ok === true ? "✓" : ok === false ? "✗" : "…"}
         </span>
         <h3 className="font-bold text-sm">{title}</h3>
       </div>
-      <p className="text-xs text-neutral-500 mb-3">{explanation}</p>
+      <p className="text-xs text-ink-faint mb-3">{explanation}</p>
       <div className="space-y-1">{children}</div>
     </section>
   );
@@ -321,8 +321,8 @@ function CheckCard({ ok, title, explanation, children }: {
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="text-xs">
-      <span className="text-neutral-500">{label}: </span>
-      <span className={`text-neutral-200 break-all ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className="text-ink-faint">{label}: </span>
+      <span className={`text-ink-muted break-all ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }

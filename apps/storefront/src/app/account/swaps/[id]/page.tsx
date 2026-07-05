@@ -103,7 +103,7 @@ export default async function SwapDetailPage({
       />
 
       {swap.status === "proposed" && swap.expires_at && (
-        <p className="text-xs text-neutral-400 -mt-3 mb-4">
+        <p className="text-xs text-ink-muted -mt-3 mb-4">
           {meRole === "recipient" ? "You have" : `${counterparty} has`}{" "}
           {formatTimeUntil(swap.expires_at)} to respond (until {formatDateTime(swap.expires_at)}).
           The window defaults to the recipient&apos;s response-window setting.
@@ -111,9 +111,9 @@ export default async function SwapDetailPage({
         </p>
       )}
       {swap.counter_of && (
-        <p className="text-xs text-neutral-400 -mt-1 mb-4">
+        <p className="text-xs text-ink-muted -mt-1 mb-4">
           This is a counter-proposal.{" "}
-          <Link href={`/account/swaps/${swap.counter_of}`} className="text-amber-400 hover:text-amber-300">
+          <Link href={`/account/swaps/${swap.counter_of}`} className="text-accent hover:text-accent-strong">
             View the proposal it supersedes →
           </Link>
         </p>
@@ -128,31 +128,31 @@ export default async function SwapDetailPage({
       <Card className="mb-4">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <div>
-            <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Recorded cash difference</p>
+            <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Recorded cash difference</p>
             {swap.cash_delta_pence === 0 ? (
-              <p className="text-sm text-white font-bold">None — even swap</p>
+              <p className="text-sm text-ink font-bold">None — even swap</p>
             ) : (
-              <p className="text-sm text-white font-bold">
+              <p className="text-sm text-ink font-bold">
                 {myDelta > 0 ? "You pay" : "You receive"} {fmtGBP(Math.abs(myDelta) / 100)}
               </p>
             )}
-            <p className="text-[10px] text-neutral-500 mt-1">
+            <p className="text-[10px] text-ink-faint mt-1">
               Recorded here; paid between you directly — the platform does not hold or move
               this money.
               <WhyLink href="/methodology/swaps" />
             </p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Indicative imbalance at proposal</p>
-            <p className="text-sm text-neutral-300 font-mono">
+            <p className="text-xs text-ink-faint uppercase tracking-wide mb-1">Indicative imbalance at proposal</p>
+            <p className="text-sm text-ink-muted font-mono">
               {fmtGBP((theirTotal.total - myTotal.total) / 100)}{" "}
-              <span className="text-neutral-500">(their side − yours)</span>
+              <span className="text-ink-faint">(their side − yours)</span>
             </p>
             <Provenance kind="snapshot" at={swap.created_at} source="recent trades + CTCG spot" />
           </div>
         </div>
         {swap.note && (
-          <p className="text-sm text-neutral-300 mt-3 border-t border-neutral-800 pt-3 whitespace-pre-wrap">
+          <p className="text-sm text-ink-muted mt-3 border-t border-border-subtle pt-3 whitespace-pre-wrap">
             “{swap.note}”
           </p>
         )}
@@ -168,22 +168,22 @@ export default async function SwapDetailPage({
 
       {/* Timeline */}
       <Card className="mt-4">
-        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-3">
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
           Timeline
         </h2>
         {lifecycle.length === 0 ? (
-          <p className="text-xs text-neutral-500">No events recorded yet.</p>
+          <p className="text-xs text-ink-faint">No events recorded yet.</p>
         ) : (
           <ol className="space-y-2">
             {lifecycle.map((e) => (
               <li key={e.id} className="flex items-baseline gap-3 text-sm">
-                <span className="text-[10px] text-neutral-500 font-mono shrink-0 w-32">
+                <span className="text-[10px] text-ink-faint font-mono shrink-0 w-32">
                   {formatDateTime(e.created_at)}
                 </span>
-                <span className="text-neutral-200">
+                <span className="text-ink">
                   {ACTION_LABELS[e.action] ?? e.action.replace(/_/g, " ")}
                   {e.actor_label && (
-                    <span className="text-neutral-500">
+                    <span className="text-ink-faint">
                       {" "}· {e.actor_label === "system"
                         ? "automatic"
                         : e.actor_id === meId
@@ -191,13 +191,13 @@ export default async function SwapDetailPage({
                           : counterparty}
                     </span>
                   )}
-                  {e.reason && <span className="block text-xs text-neutral-500">“{e.reason}”</span>}
+                  {e.reason && <span className="block text-xs text-ink-faint">“{e.reason}”</span>}
                 </span>
               </li>
             ))}
           </ol>
         )}
-        <p className="text-[10px] text-neutral-600 mt-3">
+        <p className="text-[10px] text-ink-faint mt-3">
           Append-only record (swap_lifecycle_log) — entries are written with each transition
           and never edited.
         </p>
@@ -222,14 +222,14 @@ function ItemsCard({
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-2 mb-2">
-        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">{title}</h2>
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide">{title}</h2>
         <div className="text-right">
-          <span className="text-sm text-white font-bold">{fmtGBP(totalPence / 100)}</span>{" "}
+          <span className="text-sm text-ink font-bold">{fmtGBP(totalPence / 100)}</span>{" "}
           <Provenance kind="snapshot" at={snapshotAt} source="recent trades + CTCG spot" />
         </div>
       </div>
       {unpriced > 0 && (
-        <p className="text-[10px] text-amber-400 mb-2">
+        <p className="text-[10px] text-accent mb-2">
           {unpriced} line(s) had no price data at proposal time — the total understates this side.
         </p>
       )}
@@ -238,17 +238,17 @@ function ItemsCard({
           <li key={i.id} className="flex items-center gap-2">
             {i.snapshot_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={i.snapshot_image_url} alt="" className="w-7 h-9 rounded object-cover border border-neutral-800 shrink-0" />
+              <img src={i.snapshot_image_url} alt="" className="w-7 h-9 rounded object-cover border border-border-subtle shrink-0" />
             ) : (
-              <div className="w-7 h-9 rounded bg-neutral-800 shrink-0" />
+              <div className="w-7 h-9 rounded bg-surface-subtle shrink-0" />
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-white truncate">{i.snapshot_name || i.sku}</p>
-              <p className="text-[10px] text-neutral-500 font-mono truncate">
+              <p className="text-xs text-ink truncate">{i.snapshot_name || i.sku}</p>
+              <p className="text-[10px] text-ink-faint font-mono truncate">
                 {i.sku} · {i.condition} × {i.quantity}
               </p>
             </div>
-            <span className="text-xs text-neutral-300 font-mono shrink-0">
+            <span className="text-xs text-ink-muted font-mono shrink-0">
               {i.snapshot_indicative_price_pence != null
                 ? fmtGBP((i.snapshot_indicative_price_pence * i.quantity) / 100)
                 : "—"}

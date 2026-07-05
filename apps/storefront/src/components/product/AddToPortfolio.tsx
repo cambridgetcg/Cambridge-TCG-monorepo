@@ -72,10 +72,10 @@ export default function AddToPortfolio({
       disabled={status === "loading"}
       className={`text-sm font-medium transition ${
         status === "added"
-          ? "text-emerald-400"
+          ? "text-ok"
           : status === "error"
-            ? "text-red-400"
-            : "text-neutral-400 hover:text-amber-400"
+            ? "text-danger"
+            : "text-ink-muted hover:text-accent"
       } disabled:opacity-50`}
     >
       {status === "idle" && "Track in Portfolio"}

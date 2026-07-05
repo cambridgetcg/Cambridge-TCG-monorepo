@@ -12,11 +12,11 @@
 import Link from "next/link";
 
 const TIER_FOR_SCORE: Array<{ min: number; name: string; tone: string; ring: string }> = [
-  { min: 95, name: "Elite",   tone: "text-fuchsia-400 bg-fuchsia-500/10 border-fuchsia-500/30", ring: "ring-fuchsia-500" },
-  { min: 80, name: "Veteran", tone: "text-amber-400   bg-amber-500/10   border-amber-500/30",   ring: "ring-amber-500" },
-  { min: 50, name: "Trusted", tone: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30", ring: "ring-emerald-500" },
-  { min: 20, name: "Starter", tone: "text-sky-400     bg-sky-500/10     border-sky-500/30",     ring: "ring-sky-500" },
-  { min: 0,  name: "New",     tone: "text-neutral-400 bg-neutral-800     border-neutral-700",   ring: "ring-neutral-600" },
+  { min: 95, name: "Elite",   tone: "text-[#6a5a8f] bg-[#6a5a8f]/15 border-[#6a5a8f]/30", ring: "ring-[#6a5a8f]" },
+  { min: 80, name: "Veteran", tone: "text-accent-strong bg-accent-wash border-accent/30", ring: "ring-accent" },
+  { min: 50, name: "Trusted", tone: "text-ok bg-ok/10 border-ok/30",                      ring: "ring-ok" },
+  { min: 20, name: "Starter", tone: "text-info bg-info/10 border-info/30",                ring: "ring-info" },
+  { min: 0,  name: "New",     tone: "text-ink-muted bg-surface-subtle border-border-subtle", ring: "ring-ink-faint" },
 ];
 
 function tierFor(score: number) {
@@ -36,14 +36,14 @@ export function TrustBadge({ score, username, variant = "compact" }: TrustBadgeP
   const t = tierFor(score);
 
   const content = variant === "compact" ? (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${t.tone}`}>
+    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${t.tone}`}>
       <span>{t.name}</span>
       <span className="font-mono opacity-80">{score}</span>
     </span>
   ) : (
     <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${t.tone}`}>
-      <span className={`w-2 h-2 rounded-full ring-2 ring-offset-1 ring-offset-neutral-950 ${t.ring}`} />
-      <span className="font-bold">{t.name}</span>
+      <span className={`w-2 h-2 rounded-full ring-2 ring-offset-1 ring-offset-page ${t.ring}`} />
+      <span className="font-semibold">{t.name}</span>
       <span className="opacity-80">· {score}</span>
     </span>
   );

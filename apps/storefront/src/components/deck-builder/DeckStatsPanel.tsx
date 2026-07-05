@@ -34,13 +34,13 @@ const TRACKED_RARITIES = ["C", "UC", "R", "SR", "SEC", "SP", "L"] as const;
 type TrackedRarity = (typeof TRACKED_RARITIES)[number];
 
 const RARITY_COLOR: Record<string, string> = {
-  C: "bg-neutral-500",
-  UC: "bg-blue-500",
-  R: "bg-purple-500",
-  SR: "bg-amber-500",
-  SEC: "bg-rose-500",
-  SP: "bg-rose-500",
-  L: "bg-emerald-500",
+  C: "bg-ink-muted",
+  UC: "bg-info",
+  R: "bg-[#6a5a8f]",
+  SR: "bg-warning",
+  SEC: "bg-danger",
+  SP: "bg-danger",
+  L: "bg-ok",
 };
 
 // Normalize a rarity string into one of our tracked buckets or "other".
@@ -79,11 +79,11 @@ const ROLE_FOR_RARITY: Record<string, DeckRole> = {
 };
 
 const ROLE_META: Record<DeckRole, { label: string; description: string; color: string }> = {
-  core:     { label: "Core",     description: "Cheap consistency — your bread and butter (typically C rarity)", color: "bg-neutral-500" },
-  support:  { label: "Support",  description: "Utility + tempo plays (typically UC)",                            color: "bg-blue-500" },
-  midgame:  { label: "Mid-game", description: "Real threats with a board impact (typically R)",                  color: "bg-purple-500" },
-  finisher: { label: "Finisher", description: "Game-deciders (SR / L / SP / SEC)",                                color: "bg-amber-500" },
-  other:    { label: "Other",    description: "Uncategorized rarities (PROMO, alt-art, etc.)",                    color: "bg-neutral-600" },
+  core:     { label: "Core",     description: "Cheap consistency — your bread and butter (typically C rarity)", color: "bg-ink-muted" },
+  support:  { label: "Support",  description: "Utility + tempo plays (typically UC)",                            color: "bg-info" },
+  midgame:  { label: "Mid-game", description: "Real threats with a board impact (typically R)",                  color: "bg-[#6a5a8f]" },
+  finisher: { label: "Finisher", description: "Game-deciders (SR / L / SP / SEC)",                                color: "bg-warning" },
+  other:    { label: "Other",    description: "Uncategorized rarities (PROMO, alt-art, etc.)",                    color: "bg-ink-faint" },
 };
 
 function roleOf(rarity: string | null): DeckRole {
@@ -131,7 +131,7 @@ export default function DeckStatsPanel({
 
   if (entries.length === 0) {
     return (
-      <div className="text-xs text-neutral-500 py-4 text-center">
+      <div className="text-xs text-ink-faint py-4 text-center">
         Add cards to see deck statistics.
       </div>
     );
@@ -142,14 +142,14 @@ export default function DeckStatsPanel({
       {/* Rarity stacked bar */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+          <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold">
             Rarity mix
           </p>
-          <p className="text-[10px] text-neutral-500">
+          <p className="text-[10px] text-ink-faint">
             {stats.uniqueCount} unique · {totalCards}/{maxDeckSize} copies
           </p>
         </div>
-        <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900">
+        <div className="flex h-4 rounded-full overflow-hidden bg-surface-subtle">
           {TRACKED_RARITIES.map((r) => {
             const n = stats.rarityCounts[r];
             if (n === 0) return null;
@@ -165,7 +165,7 @@ export default function DeckStatsPanel({
           })}
           {stats.rarityCounts.other > 0 && (
             <div
-              className="bg-neutral-600 h-full"
+              className="bg-ink-faint h-full"
               style={{ width: `${(stats.rarityCounts.other / Math.max(1, totalCards)) * 100}%` }}
               title={`Other: ${stats.rarityCounts.other}`}
             />
@@ -178,16 +178,16 @@ export default function DeckStatsPanel({
             return (
               <span key={r} className="flex items-center gap-1">
                 <span className={`w-2 h-2 rounded-sm ${RARITY_COLOR[r]}`} />
-                <span className="text-neutral-300">{r}</span>
-                <span className="text-neutral-500">{n}</span>
+                <span className="text-ink-muted">{r}</span>
+                <span className="text-ink-faint">{n}</span>
               </span>
             );
           })}
           {stats.rarityCounts.other > 0 && (
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-neutral-600" />
-              <span className="text-neutral-300">other</span>
-              <span className="text-neutral-500">{stats.rarityCounts.other}</span>
+              <span className="w-2 h-2 rounded-sm bg-ink-faint" />
+              <span className="text-ink-muted">other</span>
+              <span className="text-ink-faint">{stats.rarityCounts.other}</span>
             </span>
           )}
         </div>
@@ -199,14 +199,14 @@ export default function DeckStatsPanel({
           page at /methodology/starter-decks. */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
+          <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold">
             Role coverage
           </p>
-          <p className="text-[10px] text-neutral-600">
+          <p className="text-[10px] text-ink-faint">
             heuristic — by rarity
           </p>
         </div>
-        <div className="flex h-4 rounded-full overflow-hidden bg-neutral-900">
+        <div className="flex h-4 rounded-full overflow-hidden bg-surface-subtle">
           {(["core", "support", "midgame", "finisher", "other"] as DeckRole[]).map((r) => {
             const n = stats.roleCounts[r];
             if (n === 0) return null;
@@ -228,8 +228,8 @@ export default function DeckStatsPanel({
             return (
               <span key={r} className="flex items-center gap-1" title={ROLE_META[r].description}>
                 <span className={`w-2 h-2 rounded-sm ${ROLE_META[r].color}`} />
-                <span className="text-neutral-300">{ROLE_META[r].label}</span>
-                <span className="text-neutral-500">{n}</span>
+                <span className="text-ink-muted">{ROLE_META[r].label}</span>
+                <span className="text-ink-faint">{n}</span>
               </span>
             );
           })}
@@ -239,17 +239,17 @@ export default function DeckStatsPanel({
       {/* Set mix */}
       {stats.setMix.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1.5">
             Set mix
           </p>
           <div className="flex flex-wrap gap-1.5">
             {stats.setMix.map(([code, n]) => (
               <span
                 key={code}
-                className="text-[10px] bg-neutral-900 border border-neutral-800 rounded px-2 py-1"
+                className="text-[10px] bg-surface-subtle border border-border-subtle rounded px-2 py-1"
               >
-                <span className="text-neutral-400 font-mono">{code}</span>
-                <span className="text-neutral-500 ml-1.5">{n}</span>
+                <span className="text-ink-muted font-mono">{code}</span>
+                <span className="text-ink-faint ml-1.5">{n}</span>
               </span>
             ))}
           </div>

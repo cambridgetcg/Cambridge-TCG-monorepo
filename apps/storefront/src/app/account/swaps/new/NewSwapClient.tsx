@@ -259,39 +259,39 @@ export default function NewSwapClient({
         {guidance && (
           <Card variant="subtle">
             <div className="flex items-baseline justify-between gap-2 flex-wrap mb-2">
-              <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">
+              <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide">
                 Price guidance — indicative, not enforced
               </h2>
               {guidanceProvenance}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               <div>
-                <p className="text-neutral-500 text-xs">Your side</p>
-                <p className="text-white font-bold">{fmtGBP(guidance.proposer.totalPence / 100)}</p>
+                <p className="text-ink-faint text-xs">Your side</p>
+                <p className="text-ink font-bold">{fmtGBP(guidance.proposer.totalPence / 100)}</p>
                 {guidance.proposer.unpricedItems > 0 && (
-                  <p className="text-[10px] text-amber-400">
+                  <p className="text-[10px] text-accent">
                     {guidance.proposer.unpricedItems} line(s) unpriced — total understates
                   </p>
                 )}
               </div>
               <div>
-                <p className="text-neutral-500 text-xs">Their side</p>
-                <p className="text-white font-bold">{fmtGBP(guidance.recipient.totalPence / 100)}</p>
+                <p className="text-ink-faint text-xs">Their side</p>
+                <p className="text-ink font-bold">{fmtGBP(guidance.recipient.totalPence / 100)}</p>
                 {guidance.recipient.unpricedItems > 0 && (
-                  <p className="text-[10px] text-amber-400">
+                  <p className="text-[10px] text-accent">
                     {guidance.recipient.unpricedItems} line(s) unpriced — total understates
                   </p>
                 )}
               </div>
               <div>
-                <p className="text-neutral-500 text-xs">Suggested cash difference</p>
+                <p className="text-ink-faint text-xs">Suggested cash difference</p>
                 {imbalance == null ? (
-                  <p className="text-neutral-500">— (not enough price data)</p>
+                  <p className="text-ink-faint">— (not enough price data)</p>
                 ) : imbalance === 0 ? (
-                  <p className="text-emerald-400 font-bold">Even swap</p>
+                  <p className="text-ok font-bold">Even swap</p>
                 ) : (
                   <>
-                    <p className="text-white font-bold">
+                    <p className="text-ink font-bold">
                       {imbalance > 0 ? "You pay" : "They pay"} {fmtGBP(Math.abs(imbalance) / 100)}
                     </p>
                     <button
@@ -300,7 +300,7 @@ export default function NewSwapClient({
                         setCashDirection(imbalance > 0 ? "pay" : "receive");
                         setCashPounds((Math.abs(imbalance) / 100).toFixed(2));
                       }}
-                      className="text-[11px] text-amber-400 hover:text-amber-300 underline decoration-dotted"
+                      className="text-[11px] text-accent hover:text-accent-strong underline decoration-dotted"
                     >
                       Use suggestion
                     </button>
@@ -308,7 +308,7 @@ export default function NewSwapClient({
                 )}
               </div>
             </div>
-            <p className="text-[10px] text-neutral-500 mt-3">
+            <p className="text-[10px] text-ink-faint mt-3">
               Per-card figures come from recent trades on this market where available,
               otherwise the latest daily CTCG spot snapshot. Guidance only — you two set the
               terms.
@@ -477,7 +477,7 @@ function SideBuilder({
 
   return (
     <Card padding="sm">
-      <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2 px-1">
+      <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2 px-1">
         {title}
       </h2>
       <div className="relative">
@@ -488,30 +488,30 @@ function SideBuilder({
           aria-label={`${title} — card search`}
         />
         {(results.length > 0 || searching) && q.trim().length >= 2 && (
-          <div className="absolute z-10 left-0 right-0 mt-1 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-            {searching && <p className="px-3 py-2 text-xs text-neutral-500">Searching…</p>}
+          <div className="absolute z-10 left-0 right-0 mt-1 bg-surface border border-border-subtle rounded-lg shadow-mat max-h-64 overflow-y-auto">
+            {searching && <p className="px-3 py-2 text-xs text-ink-faint">Searching…</p>}
             {results.map((card) => (
               <button
                 key={card.sku}
                 type="button"
                 onClick={() => add(card)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-neutral-800 transition"
+                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-subtle transition"
               >
                 {card.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={card.image_url} alt="" className="w-6 h-8 rounded object-cover shrink-0" />
                 ) : (
-                  <div className="w-6 h-8 rounded bg-neutral-800 shrink-0" />
+                  <div className="w-6 h-8 rounded bg-surface-subtle shrink-0" />
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs text-white truncate">{card.name}</span>
-                  <span className="block text-[10px] text-neutral-500 truncate">
+                  <span className="block text-xs text-ink truncate">{card.name}</span>
+                  <span className="block text-[10px] text-ink-faint truncate">
                     {card.set_name || card.sku}
                     {card.rarity ? ` · ${card.rarity}` : ""}
                   </span>
                 </span>
                 {card.spot_price != null && (
-                  <span className="text-[10px] text-neutral-400 font-mono shrink-0">
+                  <span className="text-[10px] text-ink-muted font-mono shrink-0">
                     {fmtGBP(card.spot_price)}
                   </span>
                 )}
@@ -522,27 +522,27 @@ function SideBuilder({
       </div>
 
       {items.length === 0 ? (
-        <p className="text-xs text-neutral-600 px-1 py-3">No cards yet — search above to add.</p>
+        <p className="text-xs text-ink-faint px-1 py-3">No cards yet — search above to add.</p>
       ) : (
         <ul className="mt-2 space-y-1.5">
           {items.map((item, idx) => {
             const g = guidance?.perSku[item.sku];
             return (
-              <li key={item.sku} className="flex items-center gap-2 bg-neutral-950/60 border border-neutral-800 rounded-lg px-2 py-1.5">
+              <li key={item.sku} className="flex items-center gap-2 bg-surface-subtle border border-border-subtle rounded-lg px-2 py-1.5">
                 {item.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={item.imageUrl} alt="" className="w-6 h-8 rounded object-cover shrink-0" />
                 ) : (
-                  <div className="w-6 h-8 rounded bg-neutral-800 shrink-0" />
+                  <div className="w-6 h-8 rounded bg-surface-subtle shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-white truncate">{item.name}</p>
-                  <p className="text-[10px] text-neutral-500 font-mono truncate">
+                  <p className="text-xs text-ink truncate">{item.name}</p>
+                  <p className="text-[10px] text-ink-faint font-mono truncate">
                     {item.sku}
                     {g?.indicativePence != null && (
                       <>
                         {" "}· ≈{fmtGBP(g.indicativePence / 100)}{" "}
-                        <span className="text-neutral-600">
+                        <span className="text-ink-faint">
                           ({g.source === "recent_trades" ? `${g.sampleSize} recent trades` : "CTCG spot snapshot"})
                         </span>
                       </>
@@ -571,7 +571,7 @@ function SideBuilder({
                 <button
                   type="button"
                   onClick={() => remove(idx)}
-                  className="text-neutral-500 hover:text-red-400 text-xs px-1"
+                  className="text-ink-faint hover:text-danger text-xs px-1"
                   aria-label={`Remove ${item.name}`}
                 >
                   ✕

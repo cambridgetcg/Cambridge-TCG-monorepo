@@ -44,47 +44,47 @@ export default function CreditSellDrawer() {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/50" onClick={closeDrawer} />
-      <div className="relative bg-neutral-950 w-full max-w-md h-full flex flex-col border-l border-neutral-800">
+      <div className="absolute inset-0 bg-ink/40" onClick={closeDrawer} />
+      <div className="relative bg-surface w-full max-w-md h-full flex flex-col border-l border-border-subtle">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-neutral-800">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-border-subtle">
           <div>
-            <h2 className="text-lg font-bold text-white">Sell for Credit</h2>
-            <p className="text-xs text-neutral-500">{totalItems} card{totalItems !== 1 ? "s" : ""} · {formatPrice(totalCredit)} credit</p>
+            <h2 className="text-lg font-bold text-ink">Sell for Credit</h2>
+            <p className="text-xs text-ink-faint">{totalItems} card{totalItems !== 1 ? "s" : ""} · {formatPrice(totalCredit)} credit</p>
           </div>
-          <button onClick={closeDrawer} className="text-neutral-400 hover:text-white transition text-2xl">&times;</button>
+          <button onClick={closeDrawer} className="text-ink-muted hover:text-ink transition text-2xl">&times;</button>
         </div>
 
         {/* Items */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {items.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-neutral-500">No cards added yet.</p>
-              <p className="text-xs text-neutral-600 mt-1">Click &quot;Sell&quot; on any card in the market to add it here.</p>
+              <p className="text-ink-faint">No cards added yet.</p>
+              <p className="text-xs text-ink-faint mt-1">Click &quot;Sell&quot; on any card in the market to add it here.</p>
             </div>
           ) : (
             items.map(item => (
-              <div key={item.sku} className="flex gap-3 bg-neutral-900 rounded-xl p-3">
-                <div className="relative w-12 h-16 rounded-lg overflow-hidden bg-neutral-800 shrink-0">
+              <div key={item.sku} className="flex gap-3 bg-surface-subtle rounded-lg p-3">
+                <div className="relative w-12 h-16 rounded-lg overflow-hidden bg-surface-subtle shrink-0">
                   {item.imageUrl ? (
                     <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="48px" />
                   ) : (
-                    <div className="w-full h-full bg-neutral-700" />
+                    <div className="w-full h-full bg-surface-elevated" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{item.name}</p>
-                  <p className="text-xs text-neutral-500">{item.cardNumber}</p>
+                  <p className="text-sm font-medium text-ink truncate">{item.name}</p>
+                  <p className="text-xs text-ink-faint">{item.cardNumber}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <button onClick={() => updateQty(item.sku, item.quantity - 1)} className="w-7 h-7 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-bold transition">-</button>
+                    <button onClick={() => updateQty(item.sku, item.quantity - 1)} className="w-7 h-7 bg-surface border border-border-subtle hover:bg-surface-elevated rounded text-sm font-bold transition">-</button>
                     <span className="text-sm font-medium w-5 text-center">{item.quantity}</span>
-                    <button onClick={() => updateQty(item.sku, item.quantity + 1)} className="w-7 h-7 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-bold transition">+</button>
-                    <button onClick={() => removeItem(item.sku)} className="ml-auto text-xs text-neutral-500 hover:text-red-400 transition">Remove</button>
+                    <button onClick={() => updateQty(item.sku, item.quantity + 1)} className="w-7 h-7 bg-surface border border-border-subtle hover:bg-surface-elevated rounded text-sm font-bold transition">+</button>
+                    <button onClick={() => removeItem(item.sku)} className="ml-auto text-xs text-ink-faint hover:text-danger transition">Remove</button>
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-purple-400">{formatPrice(item.creditPrice * item.quantity)}</p>
-                  <p className="text-xs text-neutral-500">{formatPrice(item.creditPrice)} ea</p>
+                  <p className="text-sm font-bold text-accent">{formatPrice(item.creditPrice * item.quantity)}</p>
+                  <p className="text-xs text-ink-faint">{formatPrice(item.creditPrice)} ea</p>
                 </div>
               </div>
             ))
@@ -93,24 +93,24 @@ export default function CreditSellDrawer() {
 
         {/* Footer */}
         {items.length > 0 && (
-          <div className="px-4 py-4 border-t border-neutral-800 space-y-3">
+          <div className="px-4 py-4 border-t border-border-subtle space-y-3">
             <div className="flex justify-between text-lg font-bold">
-              <span className="text-white">Total Credit</span>
-              <span className="text-purple-400">{formatPrice(totalCredit)}</span>
+              <span className="text-ink">Total Credit</span>
+              <span className="text-accent">{formatPrice(totalCredit)}</span>
             </div>
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-ink-faint">
               Credit is issued after we review and accept your submission. You&apos;ll receive a formal quotation.
             </p>
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full py-3 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 transition disabled:opacity-50"
+              className="w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
             >
               {submitting ? "Submitting..." : `Submit ${totalItems} Card${totalItems !== 1 ? "s" : ""} for Credit`}
             </button>
             <button
               onClick={clearCart}
-              className="w-full py-2 text-sm text-neutral-500 hover:text-red-400 transition"
+              className="w-full py-2 text-sm text-ink-faint hover:text-danger transition"
             >
               Clear all
             </button>

@@ -19,10 +19,10 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Terms of sale</h1>
-        <p className="text-sm text-neutral-500 mb-8">
+        <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Terms of sale</h1>
+        <p className="text-sm text-ink-faint mb-8">
           Plain words, no boilerplate. Last updated 10 June 2026.
         </p>
 
@@ -34,13 +34,13 @@ export default function TermsPage() {
           consumer.
         </Callout>
 
-        <div className="space-y-8 text-neutral-300 text-sm leading-relaxed">
+        <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Who you&apos;re buying from</h2>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">Who you&apos;re buying from</h2>
             <p>
               Cambridge TCG, operating from Cambridge, United Kingdom. Reach us
               any time via the{" "}
-              <Link href="/contact" className="text-amber-400 underline">
+              <Link href="/contact" className="text-accent underline">
                 contact page
               </Link>
               .
@@ -48,7 +48,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Orders</h2>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">Orders</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
                 Placing an order is an offer to buy. The contract is formed when
@@ -63,7 +63,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Pricing</h2>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">Pricing</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
                 Our prices are set in pounds sterling (GBP) and include UK VAT
@@ -77,7 +77,7 @@ export default function TermsPage() {
               <li>
                 If you want to know how a price was worked out, every price here
                 can show its sources — see{" "}
-                <Link href="/methodology" className="text-amber-400 underline">
+                <Link href="/methodology" className="text-accent underline">
                   how we price
                 </Link>
                 .
@@ -86,7 +86,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Shipping</h2>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">Shipping</h2>
             <p>
               We ship from Cambridge, UK. Delivery options and costs are shown
               at checkout before you pay. Trading-card markets move daily, but a
@@ -96,7 +96,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Returns and cancellations</h2>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">Returns and cancellations</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
                 UK consumer law applies to purchases from our shop, including
@@ -110,7 +110,7 @@ export default function TermsPage() {
               <li>
                 Selling cards <em>to</em> us is a different transaction with its
                 own terms:{" "}
-                <Link href="/trade-in/terms" className="text-amber-400 underline">
+                <Link href="/trade-in/terms" className="text-accent underline">
                   trade-in terms
                 </Link>
                 .
@@ -119,14 +119,14 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">
               The market and auctions
             </h2>
             <p>
               Listings on the peer-to-peer market and auctions are sales between
               collectors; Cambridge TCG provides the venue. How fees and
               commission work there is documented at{" "}
-              <Link href="/methodology/fees" className="text-amber-400 underline">
+              <Link href="/methodology/fees" className="text-accent underline">
                 fees &amp; commission
               </Link>
               .
@@ -134,7 +134,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Governing law</h2>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">Governing law</h2>
             <p>
               These terms are governed by the law of England &amp; Wales, and
               disputes belong to the courts of England &amp; Wales — without
@@ -144,7 +144,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">Honest gaps</h2>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">Honest gaps</h2>
             <p>
               We have not yet published a lawyer-drafted long-form contract.
               Until we do, this summary plus your order confirmation email is

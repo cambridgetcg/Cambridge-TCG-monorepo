@@ -17,18 +17,18 @@ function rarityBadge(rarity: string | null) {
 
   if (isParallel) {
     // Parallel cards labelled as AA (Alt Art)
-    cls = "bg-pink-500/20 text-pink-400";
+    cls = "bg-[#8f5a6a]/15 text-[#8f5a6a] border border-[#8f5a6a]/30";
     label = "AA";
   } else if (r === "SR" || r === "SEC" || r === "SP" || r === "SCR" || r === "L" || r === "SEC/SP")
-    cls = "bg-yellow-500/20 text-yellow-400";
+    cls = "bg-warning/15 text-warning border border-warning/30";
   else if (r === "R" || r === "RR" || r === "SSR")
-    cls = "bg-purple-500/20 text-purple-400";
+    cls = "bg-[#6a5a8f]/15 text-[#6a5a8f] border border-[#6a5a8f]/30";
   else if (r === "UC")
-    cls = "bg-blue-500/20 text-blue-400";
+    cls = "bg-info/15 text-info border border-info/30";
   else if (r === "C")
-    cls = "bg-neutral-700 text-neutral-400";
+    cls = "bg-ink-faint/15 text-ink-muted border border-ink-faint/30";
   else
-    cls = "bg-neutral-700 text-neutral-400";
+    cls = "bg-ink-faint/15 text-ink-muted border border-ink-faint/30";
 
   return (
     <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${cls}`}>
@@ -39,15 +39,15 @@ function rarityBadge(rarity: string | null) {
 
 function wantIndicator(cashWant: number, creditWant: number, mode: "cash" | "credit") {
   if (mode === "credit") {
-    return <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Always buying" />;
+    return <span className="w-2 h-2 rounded-full bg-ok inline-block" title="Always buying" />;
   }
   if (cashWant >= 4) {
-    return <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="High demand" />;
+    return <span className="w-2 h-2 rounded-full bg-ok inline-block" title="High demand" />;
   }
   if (cashWant >= 1) {
-    return <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" title="Limited" />;
+    return <span className="w-2 h-2 rounded-full bg-warning inline-block" title="Limited" />;
   }
-  return <span className="w-2 h-2 rounded-full bg-neutral-600 inline-block" title="Not buying for cash" />;
+  return <span className="w-2 h-2 rounded-full bg-ink-faint inline-block" title="Not buying for cash" />;
 }
 
 type SortKey = "card_number" | "cash_price" | "credit_price";
@@ -150,7 +150,7 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
         <div className="relative flex-1">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -163,7 +163,7 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
             placeholder="Search cards..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+            className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-subtle rounded-lg text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50"
           />
         </div>
 
@@ -171,7 +171,7 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
         <select
           value={setFilter}
           onChange={(e) => setSetFilter(e.target.value)}
-          className="px-3 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+          className="px-3 py-2.5 bg-surface border border-border-subtle rounded-lg text-sm text-ink focus:outline-none focus:border-accent/50"
         >
           <option value="">All sets</option>
           {sets.map(([code, name]) => (
@@ -185,7 +185,7 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="px-3 py-2.5 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+          className="px-3 py-2.5 bg-surface border border-border-subtle rounded-lg text-sm text-ink focus:outline-none focus:border-accent/50"
         >
           <option value="card_number">Card #</option>
           <option value="cash_price">Cash price</option>
@@ -193,13 +193,13 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
         </select>
 
         {/* Payment mode toggle */}
-        <div className="flex bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+        <div className="flex bg-surface border border-border-subtle rounded-lg overflow-hidden">
           <button
             onClick={() => setMode("credit")}
             className={`px-4 py-2.5 text-sm font-medium transition ${
               mode === "credit"
-                ? "bg-amber-500 text-black"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-page"
+                : "text-ink-muted hover:text-ink"
             }`}
           >
             Credit
@@ -208,8 +208,8 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
             onClick={() => setMode("cash")}
             className={`px-4 py-2.5 text-sm font-medium transition ${
               mode === "cash"
-                ? "bg-amber-500 text-black"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-accent text-page"
+                : "text-ink-muted hover:text-ink"
             }`}
           >
             Cash
@@ -218,19 +218,19 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
       </div>
 
       {/* Results count */}
-      <p className="text-sm text-neutral-500 mb-4">
+      <p className="text-sm text-ink-faint mb-4">
         {filtered.length} card{filtered.length !== 1 ? "s" : ""}
       </p>
 
       {filtered.length === 0 ? (
-        <p className="text-neutral-400 py-12 text-center">No cards found.</p>
+        <p className="text-ink-muted py-12 text-center">No cards found.</p>
       ) : (
         <>
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-neutral-800 text-xs text-neutral-500 uppercase">
+                <tr className="border-b border-border-subtle text-xs text-ink-faint uppercase">
                   <th className="text-left py-3 px-2 w-12"></th>
                   <th className="text-left py-3 px-2">Card</th>
                   <th className="text-left py-3 px-2">Set</th>
@@ -249,10 +249,10 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                   return (
                     <tr
                       key={item.sku}
-                      className="border-b border-neutral-800/50 hover:bg-neutral-900/50 transition"
+                      className="border-b border-border-subtle hover:bg-surface-subtle transition"
                     >
                       <td className="py-2 px-2">
-                        <div className="relative w-10 h-14 rounded overflow-hidden bg-neutral-800 shrink-0">
+                        <div className="relative w-10 h-14 rounded overflow-hidden bg-surface-subtle shrink-0">
                           {item.image_url ? (
                             <Image
                               src={item.image_url}
@@ -262,15 +262,15 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                               sizes="40px"
                             />
                           ) : (
-                            <div className="w-full h-full bg-neutral-700" />
+                            <div className="w-full h-full bg-surface-elevated" />
                           )}
                         </div>
                       </td>
                       <td className="py-2 px-2">
-                        <p className="text-sm font-medium text-white">{item.name}</p>
-                        <p className="text-xs text-neutral-500">{item.card_number}</p>
+                        <p className="text-sm font-medium text-ink">{item.name}</p>
+                        <p className="text-xs text-ink-faint">{item.card_number}</p>
                       </td>
-                      <td className="py-2 px-2 text-xs text-neutral-400">
+                      <td className="py-2 px-2 text-xs text-ink-muted">
                         {item.set_name || item.set_code}
                       </td>
                       <td className="py-2 px-2 text-center">
@@ -281,14 +281,14 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                       </td>
                       <td
                         className={`py-2 px-2 text-right text-sm font-medium ${
-                          mode === "cash" ? "text-amber-400" : "text-neutral-400"
+                          mode === "cash" ? "text-bid" : "text-ink-muted"
                         }`}
                       >
                         {item.cash_price > 0 ? formatPrice(item.cash_price) : "—"}
                       </td>
                       <td
                         className={`py-2 px-2 text-right text-sm font-medium ${
-                          mode === "credit" ? "text-amber-400" : "text-neutral-400"
+                          mode === "credit" ? "text-bid" : "text-ink-muted"
                         }`}
                       >
                         {item.credit_price > 0 ? formatPrice(item.credit_price) : "—"}
@@ -298,14 +298,14 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => updateQty(item.sku, inCart - 1)}
-                              className="w-9 h-9 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-bold transition"
+                              className="w-9 h-9 bg-surface border border-border-subtle hover:bg-surface-elevated rounded text-sm font-bold transition"
                             >
                               -
                             </button>
                             <span className="text-sm font-medium w-6 text-center">{inCart}</span>
                             <button
                               onClick={() => updateQty(item.sku, inCart + 1)}
-                              className="w-9 h-9 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-bold transition"
+                              className="w-9 h-9 bg-surface border border-border-subtle hover:bg-surface-elevated rounded text-sm font-bold transition"
                             >
                               +
                             </button>
@@ -316,8 +316,8 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                             disabled={disabled}
                             className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                               disabled
-                                ? "bg-neutral-800 text-neutral-600 cursor-not-allowed"
-                                : "bg-amber-500 text-black hover:bg-amber-400"
+                                ? "bg-surface-subtle text-ink-faint cursor-not-allowed"
+                                : "bg-accent text-page hover:bg-accent-strong"
                             }`}
                           >
                             Add
@@ -340,9 +340,9 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
               return (
                 <div
                   key={item.sku}
-                  className="flex gap-3 bg-neutral-900 rounded-xl p-3"
+                  className="flex gap-3 bg-surface rounded-lg p-3"
                 >
-                  <div className="relative w-16 h-22 rounded-lg overflow-hidden bg-neutral-800 shrink-0">
+                  <div className="relative w-16 h-22 rounded-lg overflow-hidden bg-surface-subtle shrink-0">
                     {item.image_url ? (
                       <Image
                         src={item.image_url}
@@ -352,14 +352,14 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                         sizes="64px"
                       />
                     ) : (
-                      <div className="w-full h-full bg-neutral-700" />
+                      <div className="w-full h-full bg-surface-elevated" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{item.name}</p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-sm font-medium text-ink truncate">{item.name}</p>
+                        <p className="text-xs text-ink-faint">
                           {item.card_number}
                           {item.rarity && (
                             <span className="ml-2">{rarityBadge(item.rarity)}</span>
@@ -370,14 +370,14 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                     </div>
                     <div className="flex gap-4 mt-2">
                       <div>
-                        <p className="text-[10px] text-neutral-500 uppercase">Cash</p>
-                        <p className={`text-sm font-medium ${mode === "cash" ? "text-amber-400" : "text-neutral-400"}`}>
+                        <p className="text-[10px] text-ink-faint uppercase">Cash</p>
+                        <p className={`text-sm font-medium ${mode === "cash" ? "text-bid" : "text-ink-muted"}`}>
                           {item.cash_price > 0 ? formatPrice(item.cash_price) : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-neutral-500 uppercase">Credit</p>
-                        <p className={`text-sm font-medium ${mode === "credit" ? "text-amber-400" : "text-neutral-400"}`}>
+                        <p className="text-[10px] text-ink-faint uppercase">Credit</p>
+                        <p className={`text-sm font-medium ${mode === "credit" ? "text-bid" : "text-ink-muted"}`}>
                           {item.credit_price > 0 ? formatPrice(item.credit_price) : "—"}
                         </p>
                       </div>
@@ -387,14 +387,14 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateQty(item.sku, inCart - 1)}
-                            className="w-9 h-9 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-bold transition"
+                            className="w-9 h-9 bg-surface border border-border-subtle hover:bg-surface-elevated rounded text-sm font-bold transition"
                           >
                             -
                           </button>
                           <span className="text-sm font-medium w-5 text-center">{inCart}</span>
                           <button
                             onClick={() => updateQty(item.sku, inCart + 1)}
-                            className="w-9 h-9 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-bold transition"
+                            className="w-9 h-9 bg-surface border border-border-subtle hover:bg-surface-elevated rounded text-sm font-bold transition"
                           >
                             +
                           </button>
@@ -405,8 +405,8 @@ export default function BuylistTable({ buylist, game }: { buylist: BuylistItem[]
                           disabled={disabled}
                           className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                             disabled
-                              ? "bg-neutral-800 text-neutral-600 cursor-not-allowed"
-                              : "bg-amber-500 text-black hover:bg-amber-400"
+                              ? "bg-surface-subtle text-ink-faint cursor-not-allowed"
+                              : "bg-accent text-page hover:bg-accent-strong"
                           }`}
                         >
                           Add

@@ -280,16 +280,24 @@ export function synthesizeConfigFromCatalog(opts: {
   };
 }
 
-/** Tailwind classes per accent — keyed by the typed accent values. */
+/**
+ * Tailwind classes per accent — keyed by the typed accent values.
+ *
+ * The quiet gallery (docs/plans/the-quiet-gallery.md): the per-game color
+ * paint is part of the discarded art — the card art is the only saturated
+ * color on a page. Every accent now resolves to the same quiet surface;
+ * the typed keys stay so game configs and consumers don't churn.
+ */
+const QUIET_ACCENT = { text: "text-ink", bg: "bg-surface", border: "border-border-strong" };
 export const ACCENT_CLASSES: Record<
   PriceGuideGameConfig["accent"],
   { text: string; bg: string; border: string }
 > = {
-  blue: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30" },
-  yellow: { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/30" },
-  red: { text: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30" },
-  orange: { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/30" },
-  purple: { text: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/30" },
-  emerald: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
-  neutral: { text: "text-neutral-300", bg: "bg-neutral-800", border: "border-neutral-700" },
+  blue: QUIET_ACCENT,
+  yellow: QUIET_ACCENT,
+  red: QUIET_ACCENT,
+  orange: QUIET_ACCENT,
+  purple: QUIET_ACCENT,
+  emerald: QUIET_ACCENT,
+  neutral: QUIET_ACCENT,
 };

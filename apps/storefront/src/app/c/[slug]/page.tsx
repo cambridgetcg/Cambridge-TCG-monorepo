@@ -77,20 +77,20 @@ export default async function CollectivePage({ params }: PageProps) {
   const stewardMember = members.find((m) => m.user_id === collective.steward_user_id);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
       <header className="mb-6">
         <div className="flex items-baseline gap-2 flex-wrap mb-2">
-          <span className="text-[10px] uppercase tracking-wider text-emerald-400">
+          <span className="text-[10px] uppercase tracking-wider text-ok">
             collective · {KIND_LABEL[collective.kind] ?? collective.kind}
           </span>
           {!collective.is_public && (
-            <span className="text-[10px] uppercase tracking-wider text-amber-400">
+            <span className="text-[10px] uppercase tracking-wider text-warning">
               private
             </span>
           )}
         </div>
-        <h1 className="text-3xl font-bold mb-2">{collective.display_name}</h1>
-        <div className="flex items-baseline gap-3 flex-wrap text-sm text-neutral-400">
+        <h1 className="text-3xl font-display font-semibold mb-2">{collective.display_name}</h1>
+        <div className="flex items-baseline gap-3 flex-wrap text-sm text-ink-muted">
           {collective.region && <span>{collective.region}</span>}
           {collective.languages.length > 0 && (
             <span>{collective.languages.join(" · ")}</span>
@@ -104,7 +104,7 @@ export default async function CollectivePage({ params }: PageProps) {
           <div className="mt-3">
             <Link
               href={`/account/collectives/${collective.slug}/manage`}
-              className="inline-block text-xs uppercase tracking-wider text-amber-400 hover:text-amber-300 underline"
+              className="inline-block text-xs uppercase tracking-wider text-accent hover:text-accent-strong underline"
             >
               Manage this collective →
             </Link>
@@ -114,39 +114,39 @@ export default async function CollectivePage({ params }: PageProps) {
 
       {collective.description && (
         <section className="mb-6">
-          <h2 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+          <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
             About
           </h2>
-          <p className="text-neutral-300 leading-relaxed whitespace-pre-wrap">
+          <p className="text-ink-muted leading-relaxed whitespace-pre-wrap">
             {collective.description}
           </p>
         </section>
       )}
 
       {collective.house_rules && (
-        <section className="mb-6 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-          <h2 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+        <section className="mb-6 rounded-lg border border-border-subtle bg-surface-subtle p-4">
+          <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
             House rules
           </h2>
-          <p className="text-neutral-300 text-sm leading-relaxed whitespace-pre-wrap">
+          <p className="text-ink-muted text-sm leading-relaxed whitespace-pre-wrap">
             {collective.house_rules}
           </p>
         </section>
       )}
 
       <section className="mb-6">
-        <h2 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+        <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
           Members ({members.length})
         </h2>
         <ul className="space-y-2 list-none p-0">
           {members.map((m) => (
             <li
               key={m.user_id}
-              className="flex items-center gap-3 rounded-lg bg-neutral-900/50 border border-neutral-800 p-3"
+              className="flex items-center gap-3 rounded-lg bg-surface border border-border-subtle p-3"
             >
               <Link
                 href={m.username ? `/u/${m.username}` : "#"}
-                className="shrink-0 w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold text-neutral-400 overflow-hidden"
+                className="shrink-0 w-9 h-9 rounded-full bg-surface-subtle flex items-center justify-center text-xs font-semibold text-ink-muted overflow-hidden"
               >
                 {m.avatar_url ? (
                   <img
@@ -163,20 +163,20 @@ export default async function CollectivePage({ params }: PageProps) {
                   {m.username ? (
                     <Link
                       href={`/u/${m.username}`}
-                      className="text-white text-sm font-semibold hover:underline"
+                      className="text-ink text-sm font-semibold hover:underline"
                     >
                       {m.name ?? m.username}
                     </Link>
                   ) : (
-                    <span className="text-white text-sm font-semibold">
+                    <span className="text-ink text-sm font-semibold">
                       {m.name ?? "Unnamed member"}
                     </span>
                   )}
-                  <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  <span className="text-[10px] uppercase tracking-wider text-ink-faint">
                     {m.role}
                   </span>
                   {m.visibility === "private" && (
-                    <span className="text-[10px] uppercase tracking-wider text-amber-500">
+                    <span className="text-[10px] uppercase tracking-wider text-warning">
                       private (visible to steward only)
                     </span>
                   )}
@@ -186,21 +186,21 @@ export default async function CollectivePage({ params }: PageProps) {
           ))}
         </ul>
         {stewardMember == null && (
-          <p className="mt-2 text-xs text-neutral-500 italic">
+          <p className="mt-2 text-xs text-ink-faint italic">
             The steward has chosen private visibility; their identity is preserved
             in the substrate but not surfaced on this page.
           </p>
         )}
       </section>
 
-      <footer className="mt-10 pt-6 border-t border-neutral-800">
-        <p className="text-xs text-neutral-500 leading-relaxed">
+      <footer className="mt-10 pt-6 border-t border-border-subtle">
+        <p className="text-xs text-ink-faint leading-relaxed">
           This collective is a member of the commons —{" "}
-          <Link href="/community/welcome" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/community/welcome" className="text-accent hover:text-accent-strong underline">
             door 3 of eleven
           </Link>
           .{" "}
-          <Link href="/methodology/collectives" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/methodology/collectives" className="text-accent hover:text-accent-strong underline">
             How collectives work
           </Link>
           .

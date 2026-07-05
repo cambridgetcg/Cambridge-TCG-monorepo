@@ -182,8 +182,8 @@ export default function SellAuctionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <p className="text-neutral-500">Loading...</p>
+      <div className="min-h-screen bg-page flex items-center justify-center">
+        <p className="text-ink-faint">Loading...</p>
       </div>
     );
   }
@@ -193,25 +193,25 @@ export default function SellAuctionPage() {
   // ── Success: image upload ──
   if (createdAuctionId) {
     return (
-      <div className="min-h-screen bg-neutral-950">
+      <div className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-8">
-          <div className="bg-neutral-900 rounded-xl p-6 mb-6">
+          <div className="bg-surface border border-border-subtle rounded-lg p-6 mb-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <span className="text-emerald-400 text-lg">&#10003;</span>
+              <div className="w-10 h-10 rounded-full bg-ok/15 flex items-center justify-center">
+                <span className="text-ok text-lg">&#10003;</span>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Auction Submitted for Review!</h2>
-                <p className="text-sm text-neutral-400 mt-1">
+                <h2 className="text-lg font-bold text-ink">Auction Submitted for Review!</h2>
+                <p className="text-sm text-ink-muted mt-1">
                   We&apos;ll notify you when it&apos;s approved and goes live.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-neutral-900 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-2">Upload Images</h3>
-            <p className="text-sm text-neutral-400 mb-4">
+          <div className="bg-surface border border-border-subtle rounded-lg p-6">
+            <h3 className="text-lg font-bold text-ink mb-2">Upload Images</h3>
+            <p className="text-sm text-ink-muted mb-4">
               Add photos of your card. Clear, well-lit images help sell faster.
             </p>
 
@@ -246,7 +246,7 @@ export default function SellAuctionPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="w-full py-3 border-2 border-dashed border-neutral-700 rounded-lg text-neutral-400 hover:border-amber-500/50 hover:text-amber-400 transition disabled:opacity-50"
+              className="w-full py-3 border-2 border-dashed border-border-subtle rounded-lg text-ink-muted hover:border-accent/50 hover:text-accent-strong transition disabled:opacity-50"
             >
               {uploading ? "Uploading..." : "Click to upload images"}
             </button>
@@ -255,7 +255,7 @@ export default function SellAuctionPage() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => router.push("/account/auctions")}
-              className="flex-1 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition text-center"
+              className="flex-1 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition text-center"
             >
               Done — View My Auctions
             </button>
@@ -267,39 +267,39 @@ export default function SellAuctionPage() {
 
   // ── Sell form ──
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Hero */}
         <div className="mb-8">
-          <h1 className="text-3xl font-black text-white">Sell Your Cards at Auction</h1>
-          <p className="text-neutral-400 mt-2">
+          <h1 className="text-3xl font-display font-semibold text-ink">Sell Your Cards at Auction</h1>
+          <p className="text-ink-muted mt-2">
             List your trading cards on Cambridge TCG and reach collectors across the UK. We handle
             verification, escrow, and delivery so you can sell with confidence.
           </p>
         </div>
 
         {/* How it works */}
-        <div className="bg-neutral-900 rounded-xl p-5 mb-8 border border-neutral-800">
-          <h2 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3">How It Works</h2>
-          <div className="space-y-2 text-sm text-neutral-300">
+        <div className="bg-surface rounded-lg p-5 mb-8 border border-border-subtle">
+          <h2 className="text-sm font-bold text-accent uppercase tracking-wider mb-3">How It Works</h2>
+          <div className="space-y-2 text-sm text-ink-muted">
             <div className="flex gap-3">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold">1</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">1</span>
               <span>List your card with photos and a starting price</span>
             </div>
             <div className="flex gap-3">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold">2</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">2</span>
               <span>We review and approve your listing</span>
             </div>
             <div className="flex gap-3">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold">3</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">3</span>
               <span>Your auction goes live and buyers bid</span>
             </div>
             <div className="flex gap-3">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold">4</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">4</span>
               <span>Winner pays, you ship to CTCG for verification</span>
             </div>
             <div className="flex gap-3">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold">5</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">5</span>
               <span>We verify, forward to buyer, and you get paid (12% commission<WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />)</span>
             </div>
           </div>
@@ -308,48 +308,48 @@ export default function SellAuctionPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Title */}
           <div>
-            <label className="block text-sm text-neutral-400 mb-2">Title *</label>
+            <label className="block text-sm text-ink-muted mb-2">Title *</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50"
               placeholder="e.g. Charizard Base Set Holo PSA 9"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm text-neutral-400 mb-2">Description</label>
+            <label className="block text-sm text-ink-muted mb-2">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              className="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
               placeholder="Condition, set, grading info, any notable details..."
             />
           </div>
 
           {/* Auction Type */}
           <div>
-            <label className="block text-sm text-neutral-400 mb-2">Listing Type</label>
+            <label className="block text-sm text-ink-muted mb-2">Listing Type</label>
             <div className="grid grid-cols-2 gap-3">
               {TYPE_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
                   onClick={() => setAuctionType(opt.value)}
-                  className={`p-4 rounded-xl border text-left transition ${
+                  className={`p-4 rounded-lg border text-left transition ${
                     auctionType === opt.value
-                      ? "border-amber-500 bg-amber-500/10"
-                      : "border-neutral-800 bg-neutral-900 hover:border-neutral-700"
+                      ? "border-accent bg-accent-wash"
+                      : "border-border-subtle bg-surface hover:border-border-strong"
                   }`}
                 >
-                  <p className={`text-sm font-bold ${auctionType === opt.value ? "text-amber-400" : "text-white"}`}>
+                  <p className={`text-sm font-bold ${auctionType === opt.value ? "text-accent" : "text-ink"}`}>
                     {opt.label}
                   </p>
-                  <p className="text-xs text-neutral-500 mt-1">{opt.desc}</p>
+                  <p className="text-xs text-ink-faint mt-1">{opt.desc}</p>
                 </button>
               ))}
             </div>
@@ -357,10 +357,10 @@ export default function SellAuctionPage() {
 
           {/* English fields */}
           {auctionType === "english" && (
-            <div className="bg-neutral-900 rounded-xl p-4 space-y-4">
+            <div className="bg-surface border border-border-subtle rounded-lg p-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Starting Price *</label>
+                  <label className="block text-sm text-ink-muted mb-2">Starting Price *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -368,25 +368,25 @@ export default function SellAuctionPage() {
                     value={startingPrice}
                     onChange={(e) => setStartingPrice(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="0.99"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-neutral-400 mb-2">Reserve Price</label>
+                  <label className="block text-sm text-ink-muted mb-2">Reserve Price</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={reservePrice}
                     onChange={(e) => setReservePrice(e.target.value)}
-                    className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    className="w-full px-4 py-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                     placeholder="Optional minimum"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-neutral-400 mb-2">Bid Increment</label>
+                <label className="block text-sm text-ink-muted mb-2">Bid Increment</label>
                 <input
                   type="number"
                   step="0.01"
@@ -394,7 +394,7 @@ export default function SellAuctionPage() {
                   value={bidIncrement}
                   onChange={(e) => setBidIncrement(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full px-4 py-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                   placeholder="1.00"
                 />
               </div>
@@ -403,9 +403,9 @@ export default function SellAuctionPage() {
 
           {/* Buy Now fields */}
           {auctionType === "buy_now" && (
-            <div className="bg-neutral-900 rounded-xl p-4 space-y-4">
+            <div className="bg-surface border border-border-subtle rounded-lg p-4 space-y-4">
               <div>
-                <label className="block text-sm text-neutral-400 mb-2">Price *</label>
+                <label className="block text-sm text-ink-muted mb-2">Price *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -413,7 +413,7 @@ export default function SellAuctionPage() {
                   value={buyNowFixedPrice}
                   onChange={(e) => setBuyNowFixedPrice(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full px-4 py-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
                   placeholder="25.00"
                 />
               </div>
@@ -422,16 +422,16 @@ export default function SellAuctionPage() {
                   type="checkbox"
                   checked={allowBestOffer}
                   onChange={(e) => setAllowBestOffer(e.target.checked)}
-                  className="w-4 h-4 rounded bg-neutral-800 border-neutral-700 text-amber-500 focus:ring-amber-500/50"
+                  className="w-4 h-4 rounded bg-surface-subtle border-border-subtle text-accent focus:ring-accent/50"
                 />
-                <span className="text-sm text-neutral-300">Allow Best Offer</span>
+                <span className="text-sm text-ink-muted">Allow Best Offer</span>
               </label>
             </div>
           )}
 
           {/* Duration */}
           <div>
-            <label className="block text-sm text-neutral-400 mb-2">Auction Duration</label>
+            <label className="block text-sm text-ink-muted mb-2">Auction Duration</label>
             <div className="grid grid-cols-4 gap-3">
               {DURATION_OPTIONS.map((opt) => (
                 <button
@@ -440,62 +440,62 @@ export default function SellAuctionPage() {
                   onClick={() => setDurationDays(opt.days)}
                   className={`py-3 rounded-lg border text-sm font-medium transition ${
                     durationDays === opt.days
-                      ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                      : "border-neutral-800 bg-neutral-900 text-neutral-400 hover:border-neutral-700"
+                      ? "border-accent bg-accent-wash text-accent"
+                      : "border-border-subtle bg-surface text-ink-muted hover:border-border-strong"
                   }`}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-neutral-500 mt-2">
+            <p className="text-xs text-ink-faint mt-2">
               Duration starts when your listing is approved and goes live.
             </p>
           </div>
 
           {/* Commission preview */}
           {previewPrice > 0 && (
-            <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800">
-              <h3 className="text-sm font-bold text-neutral-400 mb-3">Commission Preview</h3>
+            <div className="bg-surface rounded-lg p-4 border border-border-subtle">
+              <h3 className="text-sm font-bold text-ink-muted mb-3">Commission Preview</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Sale price</span>
-                  <span className="text-white font-medium">{formatPrice(previewPrice)}</span>
+                  <span className="text-ink-muted">Sale price</span>
+                  <span className="text-ink font-medium">{formatPrice(previewPrice)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">
+                  <span className="text-ink-muted">
                     {commissionPreview.capped
                       ? `Commission (capped at ${formatPrice(commissionPreview.capGbp)})`
                       : "Commission (12%)"}
                     <WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />
                   </span>
-                  <span className="text-red-400">-{formatPrice(commission)}</span>
+                  <span className="text-danger">-{formatPrice(commission)}</span>
                 </div>
                 {commissionPreview.capped && (
-                  <p className="text-xs text-emerald-400/80">
+                  <p className="text-xs text-ok">
                     Per-item cap applied — without it the 12% fee would have been{" "}
                     {formatPrice(commissionPreview.uncapped)}. We never charge more than{" "}
                     {formatPrice(commissionPreview.capGbp)} on a single sale.
                   </p>
                 )}
-                <div className="border-t border-neutral-800 pt-2 flex justify-between">
-                  <span className="text-neutral-300 font-medium">You receive</span>
-                  <span className="text-emerald-400 font-bold">{formatPrice(payout)}</span>
+                <div className="border-t border-border-subtle pt-2 flex justify-between">
+                  <span className="text-ink-muted font-medium">You receive</span>
+                  <span className="text-ok font-bold">{formatPrice(payout)}</span>
                 </div>
               </div>
             </div>
           )}
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-              <p className="text-sm text-red-400">{error}</p>
+            <div className="bg-danger/10 border border-danger/20 rounded-lg p-3">
+              <p className="text-sm text-danger">{error}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+            className="w-full py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition disabled:opacity-50"
           >
             {submitting ? "Submitting..." : "Submit Auction for Review"}
           </button>

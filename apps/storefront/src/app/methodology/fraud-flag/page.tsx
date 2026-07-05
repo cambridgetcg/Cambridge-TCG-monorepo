@@ -10,7 +10,7 @@ export default function FraudFlagMethodology() {
   return (
     <>
       <h1>Fraud flag</h1>
-      <p className="text-sm uppercase tracking-wider text-amber-400">Stub — full content forthcoming.</p>
+      <p className="text-sm uppercase tracking-wider text-accent">Stub — full content forthcoming.</p>
       <p>
         Cambridge TCG runs a fraud-detection sweep against trading patterns. When a pattern
         matches, a <code>fraud_signal</code> is raised against the user's account. The signal

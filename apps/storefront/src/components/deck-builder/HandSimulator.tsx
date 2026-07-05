@@ -144,31 +144,31 @@ export default function HandSimulator({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 px-4"
       onClick={onClose}
     >
       <div
-        className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 max-w-3xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-surface border border-border-subtle rounded-xl p-6 max-w-3xl w-full shadow-mat max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between mb-5">
           <div>
-            <h2 className="text-xl font-bold">Opening Hand Simulator</h2>
-            <p className="text-xs text-neutral-500 mt-0.5">
+            <h2 className="text-xl font-bold text-ink">Opening Hand Simulator</h2>
+            <p className="text-xs text-ink-faint mt-0.5">
               {leader ? `Leader: ${leader.name} · ` : ""}
               {deck.length} cards in deck · draw {handSize}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-500 hover:text-white text-2xl leading-none"
+            className="text-ink-faint hover:text-ink text-2xl leading-none"
           >
             &times;
           </button>
         </div>
 
         {tooSmall && (
-          <div className="mb-4 bg-amber-900/30 border border-amber-700/40 text-amber-300 rounded-lg px-4 py-3 text-sm">
+          <div className="mb-4 bg-warning/10 border border-warning/30 text-warning rounded-lg px-4 py-3 text-sm">
             Add at least {handSize} cards to simulate an opening hand.
           </div>
         )}
@@ -176,19 +176,19 @@ export default function HandSimulator({
         {/* Current hand */}
         <div className="mb-6">
           <div className="flex items-baseline justify-between mb-2">
-            <h3 className="text-sm font-bold">Current hand · draw #{drawCount}</h3>
+            <h3 className="text-sm font-bold text-ink">Current hand · draw #{drawCount}</h3>
             <div className="flex gap-2">
               <button
                 onClick={mulligan}
                 disabled={tooSmall}
-                className="text-xs bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded px-3 py-1.5 transition-colors disabled:opacity-40"
+                className="text-xs bg-surface-subtle hover:bg-surface text-ink-muted border border-border-subtle rounded px-3 py-1.5 transition-colors disabled:opacity-40"
               >
                 Mulligan
               </button>
               <button
                 onClick={redraw}
                 disabled={tooSmall}
-                className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold rounded px-3 py-1.5 transition-colors disabled:opacity-40"
+                className="text-xs bg-ink hover:bg-ink/85 text-page font-semibold rounded px-3 py-1.5 transition-colors disabled:opacity-40"
               >
                 Shuffle &amp; Draw
               </button>
@@ -196,7 +196,7 @@ export default function HandSimulator({
           </div>
           <div className="grid grid-cols-5 gap-2">
             {hand.map((card, i) => (
-              <div key={`${card.sku}-${i}`} className="relative aspect-[5/7] rounded-md overflow-hidden bg-neutral-800 border border-neutral-700">
+              <div key={`${card.sku}-${i}`} className="relative aspect-[5/7] rounded-md overflow-hidden bg-surface-subtle border border-border-subtle">
                 {card.image_url ? (
                   <Image
                     src={card.image_url}
@@ -206,17 +206,17 @@ export default function HandSimulator({
                     className="object-cover"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-[10px] text-neutral-500 text-center p-1">
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] text-ink-faint text-center p-1">
                     {card.name}
                   </div>
                 )}
                 {targetSkus.has(card.sku) && (
-                  <div className="absolute inset-0 ring-2 ring-amber-400 ring-inset rounded-md pointer-events-none" />
+                  <div className="absolute inset-0 ring-2 ring-accent ring-inset rounded-md pointer-events-none" />
                 )}
               </div>
             ))}
             {Array.from({ length: Math.max(0, handSize - hand.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-[5/7] rounded-md bg-neutral-800/40 border border-dashed border-neutral-800" />
+              <div key={`empty-${i}`} className="aspect-[5/7] rounded-md bg-surface-subtle border border-dashed border-border-subtle" />
             ))}
           </div>
         </div>
@@ -225,12 +225,12 @@ export default function HandSimulator({
         {entries.length > 0 && (
           <div className="mb-6">
             <div className="flex items-baseline justify-between mb-2">
-              <h3 className="text-sm font-bold">Target cards for probability</h3>
-              <span className="text-[11px] text-neutral-500">
+              <h3 className="text-sm font-bold text-ink">Target cards for probability</h3>
+              <span className="text-[11px] text-ink-faint">
                 {targetSkus.size === 0 ? "tap cards in your deck list to track" : `${targetSkus.size} selected`}
               </span>
             </div>
-            <div className="max-h-40 overflow-y-auto bg-neutral-950/40 border border-neutral-800 rounded-lg p-2">
+            <div className="max-h-40 overflow-y-auto bg-surface-subtle border border-border-subtle rounded-lg p-2">
               <div className="flex flex-wrap gap-1.5">
                 {uniqueEntries.map((e) => {
                   const sel = targetSkus.has(e.card.sku);
@@ -240,8 +240,8 @@ export default function HandSimulator({
                       onClick={() => toggleTarget(e.card.sku)}
                       className={`text-[11px] rounded px-2 py-1 transition-colors ${
                         sel
-                          ? "bg-amber-500 text-black font-semibold"
-                          : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+                          ? "bg-accent-wash text-accent font-semibold"
+                          : "bg-surface hover:bg-surface-subtle text-ink-muted"
                       }`}
                     >
                       {sel && "✓ "}
@@ -260,7 +260,7 @@ export default function HandSimulator({
           <button
             onClick={runSimulation}
             disabled={tooSmall || targetSkus.size === 0 || simRunning}
-            className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold rounded-lg py-3 transition-colors disabled:opacity-50 text-sm"
+            className="w-full bg-surface-subtle hover:bg-surface border border-border-subtle text-ink font-semibold rounded-lg py-3 transition-colors disabled:opacity-50 text-sm"
           >
             {simRunning
               ? "Running 10,000 sims..."
@@ -270,45 +270,45 @@ export default function HandSimulator({
           </button>
 
           {simResult && (
-            <div className="mt-4 bg-neutral-950/40 border border-neutral-800 rounded-lg p-4 space-y-3">
+            <div className="mt-4 bg-surface-subtle border border-border-subtle rounded-lg p-4 space-y-3">
               <div className="flex items-baseline justify-between">
-                <p className="text-xs uppercase tracking-wider text-neutral-500 font-bold">
+                <p className="text-xs uppercase tracking-wider text-ink-faint font-bold">
                   Probability of opening at least one
                 </p>
-                <p className="text-2xl font-extrabold text-amber-400">
+                <p className="text-2xl font-display font-semibold text-accent">
                   {(simResult.pAtLeastOne * 100).toFixed(1)}%
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1">
+                <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1">
                   Distribution (how many key cards in hand)
                 </p>
                 <div className="grid grid-cols-5 gap-1.5 text-[11px]">
                   {[0, 1, 2, 3, 4].map((k) => {
                     const pct = ((simResult.countDist[k] ?? 0) / simResult.trials) * 100;
                     return (
-                      <div key={k} className="bg-neutral-900 rounded p-1.5 text-center">
-                        <p className="text-neutral-400">{k === 4 ? "4+" : k}</p>
-                        <p className="text-white font-bold">{pct.toFixed(1)}%</p>
+                      <div key={k} className="bg-surface rounded p-1.5 text-center">
+                        <p className="text-ink-muted">{k === 4 ? "4+" : k}</p>
+                        <p className="text-ink font-bold">{pct.toFixed(1)}%</p>
                       </div>
                     );
                   })}
                 </div>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1">
+                <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1">
                   Average rarity in hand
                 </p>
                 <div className="grid grid-cols-5 gap-1.5 text-[11px]">
                   {(["C", "UC", "R", "SR", "SEC"] as const).map((r) => (
-                    <div key={r} className="bg-neutral-900 rounded p-1.5 text-center">
-                      <p className="text-neutral-400">{r}</p>
-                      <p className="text-white font-bold">{simResult.avgRarity[r].toFixed(2)}</p>
+                    <div key={r} className="bg-surface rounded p-1.5 text-center">
+                      <p className="text-ink-muted">{r}</p>
+                      <p className="text-ink font-bold">{simResult.avgRarity[r].toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
               </div>
-              <p className="text-[10px] text-neutral-600 italic">
+              <p className="text-[10px] text-ink-faint italic">
                 Based on {simResult.trials.toLocaleString()} Fisher-Yates shuffles of your current deck.
               </p>
             </div>

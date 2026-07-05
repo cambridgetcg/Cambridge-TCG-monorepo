@@ -119,8 +119,8 @@ const TIMELINE: Array<{ key: string; label: string; tsField: keyof Submission }>
 
 function FulfilmentTimeline({ submission }: { submission: Submission }) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6">
-      <h3 className="text-sm font-bold text-white mb-3">Progress</h3>
+    <div className="bg-surface border border-border-subtle rounded-lg p-4 mb-6">
+      <h3 className="text-sm font-bold text-ink mb-3">Progress</h3>
       <div className="flex items-center gap-2 overflow-x-auto">
         {TIMELINE.map((step, i) => {
           const ts = submission[step.tsField] as string | null;
@@ -128,23 +128,23 @@ function FulfilmentTimeline({ submission }: { submission: Submission }) {
           const isCurrent = done && !TIMELINE.slice(i + 1).some((s) => submission[s.tsField]);
           return (
             <div key={step.key} className="flex items-center gap-2 flex-1 min-w-0">
-              <div className={`flex flex-col items-center gap-1 min-w-0 ${done ? "text-white" : "text-neutral-600"}`}>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ring-2 ${
+              <div className={`flex flex-col items-center gap-1 min-w-0 ${done ? "text-ink" : "text-ink-faint"}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
                   done
-                    ? isCurrent ? "bg-amber-500 text-black ring-amber-500/30" : "bg-emerald-500 text-black ring-emerald-500/20"
-                    : "bg-neutral-800 text-neutral-600 ring-neutral-700"
+                    ? isCurrent ? "bg-ink text-page" : "bg-ok text-page"
+                    : "bg-surface-subtle text-ink-faint border border-border-subtle"
                 }`}>
                   {done ? "✓" : i + 1}
                 </div>
                 <div className="text-[11px] whitespace-nowrap">{step.label}</div>
                 {ts && (
-                  <div className="text-[10px] text-neutral-500 font-mono whitespace-nowrap">
+                  <div className="text-[10px] text-ink-faint font-mono whitespace-nowrap">
                     {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </div>
                 )}
               </div>
               {i < TIMELINE.length - 1 && (
-                <div className={`h-px flex-1 ${done ? "bg-emerald-500/40" : "bg-neutral-800"}`} />
+                <div className={`h-px flex-1 ${done ? "bg-ok/40" : "bg-surface-subtle"}`} />
               )}
             </div>
           );
@@ -169,8 +169,8 @@ function PayoutBadges({ submission }: { submission: Submission }) {
       {hasCredit && (
         <span className={`px-3 py-1.5 rounded-full border ${
           creditIssued
-            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-            : "bg-neutral-800 border-neutral-700 text-neutral-500"
+            ? "bg-ok/10 border-ok/30 text-ok"
+            : "bg-surface-subtle border-border-subtle text-ink-faint"
         }`}>
           Store credit: {creditIssued
             ? `£${submission.creditAmount.toFixed(2)} in your balance`
@@ -180,8 +180,8 @@ function PayoutBadges({ submission }: { submission: Submission }) {
       {hasCash && (
         <span className={`px-3 py-1.5 rounded-full border ${
           cashPaid
-            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-            : "bg-neutral-800 border-neutral-700 text-neutral-500"
+            ? "bg-ok/10 border-ok/30 text-ok"
+            : "bg-surface-subtle border-border-subtle text-ink-faint"
         }`}>
           Cash: {cashPaid
             ? submission.stripeTransferId
@@ -264,19 +264,19 @@ export default function ConfirmPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+      <main className="min-h-screen bg-page flex items-center justify-center">
+        <div className="text-ink-muted">Loading...</div>
       </main>
     );
   }
 
   if (error || !data || !submission) {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Not Found</h1>
-          <p className="text-neutral-400 mb-6">{error}</p>
-          <Link href="/trade-in" className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition">
+          <h1 className="text-2xl font-bold text-ink mb-4">Not Found</h1>
+          <p className="text-ink-muted mb-6">{error}</p>
+          <Link href="/trade-in" className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition">
             Back to Trade-In
           </Link>
         </div>
@@ -305,28 +305,28 @@ export default function ConfirmPage() {
     : null;
 
   const shippingBlock = (
-    <div className="bg-neutral-900 rounded-xl p-4 mb-6">
+    <div className="bg-surface border border-border-subtle rounded-lg p-4 mb-6">
       {submission.deliveryMethod === "mail" ? (
         <>
-          <h3 className="text-sm font-bold text-white mb-3">Shipping Instructions</h3>
-          <p className="text-sm text-neutral-400 mb-2">Please send your cards to:</p>
-          <div className="bg-neutral-800 rounded-lg p-3 text-sm text-white">
+          <h3 className="text-sm font-bold text-ink mb-3">Shipping Instructions</h3>
+          <p className="text-sm text-ink-muted mb-2">Please send your cards to:</p>
+          <div className="bg-surface-subtle rounded-lg p-3 text-sm text-ink">
             <p>Cambridge TCG</p>
             <p>PO Box 1637</p>
             <p>CAMBRIDGE</p>
             <p>CB1 0PD</p>
           </div>
-          <p className="text-xs text-neutral-500 mt-3">
-            Include your reference number <strong className="text-amber-400">{submission.reference}</strong> on the package.
+          <p className="text-xs text-ink-faint mt-3">
+            Include your reference number <strong className="text-accent">{submission.reference}</strong> on the package.
           </p>
         </>
       ) : (
         <>
-          <h3 className="text-sm font-bold text-white mb-3">In-Store Drop-Off</h3>
-          <p className="text-sm text-neutral-400">
+          <h3 className="text-sm font-bold text-ink mb-3">In-Store Drop-Off</h3>
+          <p className="text-sm text-ink-muted">
             Bring your cards to our shop and quote your reference:
           </p>
-          <p className="text-lg font-bold text-amber-400 mt-2">{submission.reference}</p>
+          <p className="text-lg font-bold text-accent mt-2">{submission.reference}</p>
         </>
       )}
     </div>
@@ -335,38 +335,38 @@ export default function ConfirmPage() {
   // ── SUBMITTED ──────────────────────────────────────────────────────
   if (submission.status === "submitted") {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-12">
           <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-16 h-16 bg-info/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Your Trade-In Has Been Received</h1>
-            <p className="text-neutral-400 mt-2">We&apos;re reviewing your submission.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-ink">Your Trade-In Has Been Received</h1>
+            <p className="text-ink-muted mt-2">We&apos;re reviewing your submission.</p>
           </div>
 
-          <div className="bg-neutral-900 rounded-xl p-6 text-center mb-6">
-            <p className="text-sm text-neutral-400 mb-1">Your Reference</p>
-            <p className="text-3xl font-black text-amber-400 tracking-wider">{submission.reference}</p>
+          <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center mb-6">
+            <p className="text-sm text-ink-muted mb-1">Your Reference</p>
+            <p className="text-3xl font-mono font-semibold text-accent tracking-wider">{submission.reference}</p>
             {submittedDate && (
-              <p className="text-sm text-neutral-500 mt-2">Submitted on {submittedDate}</p>
+              <p className="text-sm text-ink-faint mt-2">Submitted on {submittedDate}</p>
             )}
           </div>
 
-          <div className="bg-neutral-900 rounded-xl p-4 mb-6">
-            <h3 className="text-sm font-bold text-white mb-3">
+          <div className="bg-surface border border-border-subtle rounded-lg p-4 mb-6">
+            <h3 className="text-sm font-bold text-ink mb-3">
               Items ({items.reduce((s, i) => s + i.quantity, 0)} cards)
             </h3>
             <div className="space-y-2">
               {items.map((item, idx) => (
                 <div key={idx} className="flex justify-between text-sm">
-                  <span className="text-neutral-300">
+                  <span className="text-ink-muted">
                     {item.quantity}x {item.name}{" "}
-                    <span className="text-neutral-500">({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
+                    <span className="text-ink-faint">({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
                   </span>
-                  <span className="text-neutral-400">
+                  <span className="text-ink-muted">
                     {formatPrice(
                       (submission.paymentMethod === "cash" ? item.cash_price : item.credit_price) * item.quantity
                     )}
@@ -376,8 +376,8 @@ export default function ConfirmPage() {
             </div>
           </div>
 
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
-            <p className="text-sm text-blue-300">
+          <div className="bg-info/10 border border-info/30 rounded-lg p-4 mb-6">
+            <p className="text-sm text-info">
               We&apos;ll send you a formal quotation within 1-2 business days. You can return to this page at any time using your reference number.
             </p>
           </div>
@@ -385,7 +385,7 @@ export default function ConfirmPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
               href="/trade-in"
-              className="flex-1 text-center px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+              className="flex-1 text-center px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
             >
               Trade More Cards
             </Link>
@@ -405,21 +405,21 @@ export default function ConfirmPage() {
       : submission.finalTotal;
 
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-12">
           <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-16 h-16 bg-accent-wash rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Your Quotation is Ready</h1>
-            <p className="text-neutral-400 mt-2">Reference: <span className="text-amber-400 font-bold">{submission.reference}</span></p>
+            <h1 className="text-2xl md:text-3xl font-bold text-ink">Your Quotation is Ready</h1>
+            <p className="text-ink-muted mt-2">Reference: <span className="text-accent font-bold">{submission.reference}</span></p>
           </div>
 
           {/* Per-item breakdown */}
-          <div className="bg-neutral-900 rounded-xl p-4 mb-6">
-            <h3 className="text-sm font-bold text-white mb-3">Item Breakdown</h3>
+          <div className="bg-surface border border-border-subtle rounded-lg p-4 mb-6">
+            <h3 className="text-sm font-bold text-ink mb-3">Item Breakdown</h3>
             <div className="space-y-3">
               {acceptedItems.map((item, idx) => {
                 const originalPrice =
@@ -427,24 +427,24 @@ export default function ConfirmPage() {
                 const finalPrice = item.admin_price ?? originalPrice;
                 const priceChanged = item.admin_price != null && item.admin_price !== originalPrice;
                 return (
-                  <div key={idx} className="border-b border-neutral-800 pb-2 last:border-0 last:pb-0">
+                  <div key={idx} className="border-b border-border-subtle pb-2 last:border-0 last:pb-0">
                     <div className="flex justify-between text-sm">
-                      <span className="text-neutral-300">
+                      <span className="text-ink-muted">
                         {item.quantity}x {item.name}{" "}
-                        <span className="text-neutral-500">({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
+                        <span className="text-ink-faint">({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
                       </span>
                       <span className="text-right">
                         {priceChanged ? (
                           <>
-                            <span className="text-neutral-500 line-through mr-2">
+                            <span className="text-ink-faint line-through mr-2">
                               {formatPrice(originalPrice * item.quantity)}
                             </span>
-                            <span className="text-amber-400 font-medium">
+                            <span className="text-accent font-medium">
                               {formatPrice(finalPrice * item.quantity)}
                             </span>
                           </>
                         ) : (
-                          <span className="text-amber-400 font-medium">
+                          <span className="text-accent font-medium">
                             {formatPrice(finalPrice * item.quantity)}
                           </span>
                         )}
@@ -453,10 +453,10 @@ export default function ConfirmPage() {
                     {(item.admin_condition || item.admin_notes) && (
                       <div className="mt-1 text-xs">
                         {item.admin_condition && (
-                          <span className="text-yellow-400 mr-3">Condition: {item.admin_condition}</span>
+                          <span className="text-warning mr-3">Condition: {item.admin_condition}</span>
                         )}
                         {item.admin_notes && (
-                          <span className="text-neutral-500">{item.admin_notes}</span>
+                          <span className="text-ink-faint">{item.admin_notes}</span>
                         )}
                       </div>
                     )}
@@ -465,16 +465,16 @@ export default function ConfirmPage() {
               })}
 
               {rejectedItems.map((item, idx) => (
-                <div key={`rej-${idx}`} className="border-b border-neutral-800 pb-2 last:border-0 last:pb-0 opacity-50">
+                <div key={`rej-${idx}`} className="border-b border-border-subtle pb-2 last:border-0 last:pb-0 opacity-50">
                   <div className="flex justify-between text-sm line-through">
-                    <span className="text-neutral-500">
+                    <span className="text-ink-faint">
                       {item.quantity}x {item.name}{" "}
                       <span>({item.card_number}{item.game ? ` · ${gameLabel(item.game)}` : ""})</span>
                     </span>
-                    <span className="text-neutral-500">Rejected</span>
+                    <span className="text-ink-faint">Rejected</span>
                   </div>
                   {item.admin_notes && (
-                    <p className="text-xs text-red-400/70 mt-1">{item.admin_notes}</p>
+                    <p className="text-xs text-danger/70 mt-1">{item.admin_notes}</p>
                   )}
                 </div>
               ))}
@@ -482,62 +482,62 @@ export default function ConfirmPage() {
           </div>
 
           {/* Quotation summary */}
-          <div className="bg-neutral-900 border border-amber-500/30 rounded-xl p-6 mb-6">
-            <h3 className="text-lg font-bold text-white mb-4">Your Quotation</h3>
+          <div className="bg-surface border border-accent/30 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-bold text-ink mb-4">Your Quotation</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-neutral-400">Items total</span>
-                <span className="text-white">{formatPrice(itemsTotal)}</span>
+                <span className="text-ink-muted">Items total</span>
+                <span className="text-ink">{formatPrice(itemsTotal)}</span>
               </div>
 
               {submission.mintBonusApplied && submission.mintBonusAmount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-emerald-400">MINT bonus</span>
-                  <span className="text-emerald-400">+ {formatPrice(submission.mintBonusAmount)}</span>
+                  <span className="text-ok">MINT bonus</span>
+                  <span className="text-ok">+ {formatPrice(submission.mintBonusAmount)}</span>
                 </div>
               )}
 
-              <div className="border-t border-neutral-700 my-2" />
+              <div className="border-t border-border-subtle my-2" />
 
               {submission.cashAmount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Cash payout</span>
-                  <span className="text-white">{formatPrice(submission.cashAmount)}</span>
+                  <span className="text-ink-muted">Cash payout</span>
+                  <span className="text-ink">{formatPrice(submission.cashAmount)}</span>
                 </div>
               )}
 
               {submission.creditAmount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Credit payout</span>
-                  <span className="text-white">{formatPrice(submission.creditAmount)}</span>
+                  <span className="text-ink-muted">Credit payout</span>
+                  <span className="text-ink">{formatPrice(submission.creditAmount)}</span>
                 </div>
               )}
 
               {submission.finalTotal > 0 && (
-                <div className="flex justify-between pt-2 border-t border-neutral-700">
-                  <span className="text-white font-bold">Total</span>
-                  <span className="text-amber-400 font-bold text-lg">{formatPrice(submission.finalTotal)}</span>
+                <div className="flex justify-between pt-2 border-t border-border-subtle">
+                  <span className="text-ink font-bold">Total</span>
+                  <span className="text-accent font-bold text-lg">{formatPrice(submission.finalTotal)}</span>
                 </div>
               )}
             </div>
 
             {submission.adminMessage && (
-              <div className="mt-4 bg-neutral-800 rounded-lg p-3">
-                <p className="text-sm text-neutral-300 italic">&ldquo;{submission.adminMessage}&rdquo;</p>
+              <div className="mt-4 bg-surface-subtle rounded-lg p-3">
+                <p className="text-sm text-ink-muted italic">&ldquo;{submission.adminMessage}&rdquo;</p>
               </div>
             )}
 
             {submission.expiresAt && (
               <div className="mt-4 flex items-center gap-2 text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {countdownExpired ? (
-                  <span className="text-red-400">This quotation has expired.</span>
+                  <span className="text-danger">This quotation has expired.</span>
                 ) : (
-                  <span className="text-neutral-400">
-                    Valid for <span className="text-white font-medium">{countdownText}</span>
-                    {expiryDate && <span className="text-neutral-500"> (expires {expiryDate})</span>}
+                  <span className="text-ink-muted">
+                    Valid for <span className="text-ink font-medium">{countdownText}</span>
+                    {expiryDate && <span className="text-ink-faint"> (expires {expiryDate})</span>}
                   </span>
                 )}
               </div>
@@ -548,14 +548,14 @@ export default function ConfirmPage() {
                 <button
                   onClick={() => handleQuoteAction("accept")}
                   disabled={actionLoading}
-                  className="flex-1 px-6 py-3 bg-emerald-500 text-black font-bold rounded-lg hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading ? "Processing..." : "Accept Quotation"}
                 </button>
                 <button
                   onClick={() => setShowDeclineModal(true)}
                   disabled={actionLoading}
-                  className="flex-1 px-6 py-3 bg-neutral-800 text-neutral-300 font-medium rounded-lg hover:bg-neutral-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 bg-surface-subtle text-ink-muted font-medium rounded-lg hover:bg-surface-subtle transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Decline
                 </button>
@@ -566,7 +566,7 @@ export default function ConfirmPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
               href="/trade-in"
-              className="flex-1 text-center px-6 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition"
+              className="flex-1 text-center px-6 py-3 bg-surface-subtle text-ink font-medium rounded-lg hover:bg-surface-subtle transition"
             >
               Back to Trade-In
             </Link>
@@ -574,24 +574,24 @@ export default function ConfirmPage() {
         </div>
 
         {showDeclineModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-            <div className="bg-neutral-900 rounded-xl p-6 max-w-md w-full">
-              <h3 className="text-lg font-bold text-white mb-2">Decline Quotation?</h3>
-              <p className="text-sm text-neutral-400 mb-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
+            <div className="bg-surface border border-border-subtle shadow-mat rounded-xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-bold text-ink mb-2">Decline Quotation?</h3>
+              <p className="text-sm text-ink-muted mb-6">
                 Are you sure you want to decline this quotation? This action cannot be undone. You can submit a new trade-in at any time.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => handleQuoteAction("decline")}
                   disabled={actionLoading}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-500 transition disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-danger text-page font-bold rounded-lg hover:opacity-90 transition disabled:opacity-50"
                 >
                   {actionLoading ? "Processing..." : "Yes, Decline"}
                 </button>
                 <button
                   onClick={() => setShowDeclineModal(false)}
                   disabled={actionLoading}
-                  className="flex-1 px-4 py-2 bg-neutral-800 text-neutral-300 font-medium rounded-lg hover:bg-neutral-700 transition"
+                  className="flex-1 px-4 py-2 bg-surface-subtle text-ink-muted font-medium rounded-lg hover:bg-surface-subtle transition"
                 >
                   Cancel
                 </button>
@@ -611,8 +611,8 @@ export default function ConfirmPage() {
     // Static class strings so Tailwind's JIT can see them — dynamic
     // `bg-${tone}-500/20` would be stripped from the build.
     const STAGE_TONE: Record<string, { bg: string; text: string }> = {
-      emerald: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
-      blue:    { bg: "bg-blue-500/20",    text: "text-blue-400" },
+      emerald: { bg: "bg-ok/15", text: "text-ok" },
+      blue:    { bg: "bg-info/20",    text: "text-info" },
     };
     const stageCopy: Record<string, { heading: string; body: string; tone: "emerald" | "blue" }> = {
       accepted: {
@@ -649,7 +649,7 @@ export default function ConfirmPage() {
     const tone = STAGE_TONE[copy.tone];
 
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-12">
           <div className="text-center mb-10">
             <div className={`w-16 h-16 ${tone.bg} rounded-full flex items-center justify-center mx-auto mb-4`}>
@@ -657,40 +657,40 @@ export default function ConfirmPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">{copy.heading}</h1>
-            <p className="text-neutral-400 mt-2">Reference: <span className="text-amber-400 font-bold">{submission.reference}</span></p>
-            <p className="text-sm text-neutral-500 mt-3 max-w-md mx-auto">{copy.body}</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-ink">{copy.heading}</h1>
+            <p className="text-ink-muted mt-2">Reference: <span className="text-accent font-bold">{submission.reference}</span></p>
+            <p className="text-sm text-ink-faint mt-3 max-w-md mx-auto">{copy.body}</p>
           </div>
 
           <FulfilmentTimeline submission={submission} />
 
           <PayoutBadges submission={submission} />
 
-          <div className="bg-neutral-900 rounded-xl p-5 mb-6">
-            <h3 className="text-sm font-bold text-white mb-3">Payout Summary</h3>
+          <div className="bg-surface border border-border-subtle rounded-lg p-5 mb-6">
+            <h3 className="text-sm font-bold text-ink mb-3">Payout Summary</h3>
             <div className="space-y-1 text-sm">
               {submission.cashAmount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Cash</span>
-                  <span className="text-white">{formatPrice(submission.cashAmount)}</span>
+                  <span className="text-ink-muted">Cash</span>
+                  <span className="text-ink">{formatPrice(submission.cashAmount)}</span>
                 </div>
               )}
               {submission.creditAmount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Store credit</span>
-                  <span className="text-white">{formatPrice(submission.creditAmount)}</span>
+                  <span className="text-ink-muted">Store credit</span>
+                  <span className="text-ink">{formatPrice(submission.creditAmount)}</span>
                 </div>
               )}
               {submission.mintBonusApplied && submission.mintBonusAmount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-emerald-400">MINT bonus</span>
-                  <span className="text-emerald-400">+ {formatPrice(submission.mintBonusAmount)}</span>
+                  <span className="text-ok">MINT bonus</span>
+                  <span className="text-ok">+ {formatPrice(submission.mintBonusAmount)}</span>
                 </div>
               )}
               {submission.finalTotal > 0 && (
-                <div className="flex justify-between pt-2 mt-2 border-t border-neutral-800">
-                  <span className="text-white font-bold">Total</span>
-                  <span className="text-amber-400 font-bold text-lg">{formatPrice(submission.finalTotal)}</span>
+                <div className="flex justify-between pt-2 mt-2 border-t border-border-subtle">
+                  <span className="text-ink font-bold">Total</span>
+                  <span className="text-accent font-bold text-lg">{formatPrice(submission.finalTotal)}</span>
                 </div>
               )}
             </div>
@@ -702,14 +702,14 @@ export default function ConfirmPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
               href="/trade-in"
-              className="flex-1 text-center px-6 py-3 bg-neutral-800 text-white font-medium rounded-lg hover:bg-neutral-700 transition"
+              className="flex-1 text-center px-6 py-3 bg-surface-subtle text-ink font-medium rounded-lg hover:bg-surface-subtle transition"
             >
               Back to Trade-In
             </Link>
             {submission.status === "paid" && submission.creditIssuedAt && submission.creditAmount > 0 && (
               <Link
                 href="/catalog"
-                className="flex-1 text-center px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+                className="flex-1 text-center px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
               >
                 Spend Your Credit
               </Link>
@@ -723,21 +723,21 @@ export default function ConfirmPage() {
   // ── DECLINED ───────────────────────────────────────────────────────
   if (submission.status === "declined") {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-16 h-16 bg-surface-subtle rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Quotation Declined</h1>
-          <p className="text-neutral-400 mb-2">
-            You declined the quotation for <span className="text-amber-400 font-bold">{submission.reference}</span>.
+          <h1 className="text-2xl font-bold text-ink mb-2">Quotation Declined</h1>
+          <p className="text-ink-muted mb-2">
+            You declined the quotation for <span className="text-accent font-bold">{submission.reference}</span>.
           </p>
-          <p className="text-neutral-500 mb-8">You can submit a new trade-in anytime.</p>
+          <p className="text-ink-faint mb-8">You can submit a new trade-in anytime.</p>
           <Link
             href="/trade-in"
-            className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
           >
             Start New Trade-In
           </Link>
@@ -749,21 +749,21 @@ export default function ConfirmPage() {
   // ── EXPIRED ────────────────────────────────────────────────────────
   if (submission.status === "expired") {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Quotation Expired</h1>
-          <p className="text-neutral-400 mb-2">
-            The quotation for <span className="text-amber-400 font-bold">{submission.reference}</span> has expired.
+          <h1 className="text-2xl font-bold text-ink mb-2">Quotation Expired</h1>
+          <p className="text-ink-muted mb-2">
+            The quotation for <span className="text-accent font-bold">{submission.reference}</span> has expired.
           </p>
-          <p className="text-neutral-500 mb-8">Prices may have changed since your original submission. Please submit a new trade-in.</p>
+          <p className="text-ink-faint mb-8">Prices may have changed since your original submission. Please submit a new trade-in.</p>
           <Link
             href="/trade-in"
-            className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
           >
             Submit New Trade-In
           </Link>
@@ -777,21 +777,21 @@ export default function ConfirmPage() {
   // about, etc.). Surfaced so the customer isn't left wondering.
   if (submission.status === "rejected") {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-16 h-16 bg-danger/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Trade-in Not Accepted</h1>
-          <p className="text-neutral-400 mb-2">
-            We weren&apos;t able to accept trade-in <span className="text-amber-400 font-bold">{submission.reference}</span> after grading.
+          <h1 className="text-2xl font-bold text-ink mb-2">Trade-in Not Accepted</h1>
+          <p className="text-ink-muted mb-2">
+            We weren&apos;t able to accept trade-in <span className="text-accent font-bold">{submission.reference}</span> after grading.
           </p>
-          <p className="text-neutral-500 mb-8">Reach out via the contact page if you&apos;d like more detail.</p>
+          <p className="text-ink-faint mb-8">Reach out via the contact page if you&apos;d like more detail.</p>
           <Link
             href="/trade-in"
-            className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
           >
             Submit New Trade-In
           </Link>
@@ -803,15 +803,15 @@ export default function ConfirmPage() {
   // ── CANCELLED ──────────────────────────────────────────────────────
   if (submission.status === "cancelled") {
     return (
-      <main className="min-h-screen bg-neutral-950">
+      <main className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Trade-in Cancelled</h1>
-          <p className="text-neutral-400 mb-8">
-            Trade-in <span className="text-amber-400 font-bold">{submission.reference}</span> has been cancelled.
+          <h1 className="text-2xl font-bold text-ink mb-2">Trade-in Cancelled</h1>
+          <p className="text-ink-muted mb-8">
+            Trade-in <span className="text-accent font-bold">{submission.reference}</span> has been cancelled.
           </p>
           <Link
             href="/trade-in"
-            className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
           >
             Back to Trade-In
           </Link>
@@ -822,14 +822,14 @@ export default function ConfirmPage() {
 
   // ── FALLBACK (unknown status) ──────────────────────────────────────
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-2xl font-bold text-white mb-4">Trade-In Status</h1>
-        <p className="text-neutral-400 mb-2">Reference: <span className="text-amber-400 font-bold">{submission.reference}</span></p>
-        <p className="text-neutral-500 mb-8">Status: {submission.status}</p>
+        <h1 className="text-2xl font-bold text-ink mb-4">Trade-In Status</h1>
+        <p className="text-ink-muted mb-2">Reference: <span className="text-accent font-bold">{submission.reference}</span></p>
+        <p className="text-ink-faint mb-8">Status: {submission.status}</p>
         <Link
           href="/trade-in"
-          className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+          className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
         >
           Back to Trade-In
         </Link>

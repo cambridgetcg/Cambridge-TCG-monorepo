@@ -59,21 +59,21 @@ function isRare(r: string) {
 function rarityBadgeClass(r: string): string {
   const u = r.toUpperCase();
   if (["SEC", "SP", "L"].includes(u))
-    return "bg-gradient-to-r from-amber-400 via-pink-400 to-violet-400 text-black font-black";
-  if (u === "SR") return "bg-amber-500/90 text-black font-bold";
-  if (u === "R") return "bg-purple-500/80 text-white font-bold";
-  if (u === "UC") return "bg-blue-500/60 text-white font-semibold";
-  return "bg-neutral-600/60 text-neutral-300 font-medium";
+    return "bg-accent-wash text-accent-strong border border-accent/30 font-display font-semibold";
+  if (u === "SR") return "bg-ink/90 text-page font-bold";
+  if (u === "R") return "bg-[#6a5a8f]/15 text-ink font-bold";
+  if (u === "UC") return "bg-info/10 text-ink font-semibold";
+  return "bg-surface-subtle text-ink-muted font-medium";
 }
 
 function rarityGlowClass(r: string): string {
   const u = r.toUpperCase();
   if (["SEC", "SP", "L"].includes(u))
-    return "shadow-amber-300/60 shadow-2xl ring-2 ring-amber-300/50 rarity-legendary";
+    return " shadow-mat ring-2 ring-accent/50 rarity-legendary";
   if (u === "SR")
-    return "shadow-amber-400/50 shadow-xl ring-2 ring-amber-400/30 rarity-sr";
+    return " shadow-mat ring-2 ring-accent/30 rarity-sr";
   if (u === "R")
-    return "shadow-purple-500/30 shadow-lg";
+    return " shadow-mat";
   return "";
 }
 
@@ -232,8 +232,8 @@ export default function PacksPage() {
   /* ----- loading --------------------------------------------------- */
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-page flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -242,7 +242,7 @@ export default function PacksPage() {
   /*  RENDER                                                           */
   /* ================================================================ */
   return (
-    <div className={`min-h-screen bg-neutral-950 text-white ${shaking ? "screen-shake" : ""}`}>
+    <div className={`min-h-screen bg-page text-ink ${shaking ? "screen-shake" : ""}`}>
       <style jsx global>{`
         /* --- screen shake --- */
         @keyframes screenShake {
@@ -259,10 +259,10 @@ export default function PacksPage() {
         }
         .screen-shake { animation: screenShake 0.4s ease-in-out; }
 
-        /* --- pack glow pulse --- */
+        /* --- pack breathe (the quiet gallery: no halos — motion, not light) --- */
         @keyframes packPulse {
-          0%, 100% { box-shadow: 0 0 30px 8px rgba(251,191,36,0.3), 0 0 60px 16px rgba(251,191,36,0.15); }
-          50% { box-shadow: 0 0 50px 16px rgba(251,191,36,0.5), 0 0 90px 30px rgba(251,191,36,0.25); }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
         }
         .pack-glow { animation: packPulse 1.5s ease-in-out infinite; }
 
@@ -290,7 +290,7 @@ export default function PacksPage() {
           -webkit-backface-visibility: hidden;
           position: absolute;
           inset: 0;
-          border-radius: 0.75rem;
+          border-radius: 0.5rem;
           overflow: hidden;
         }
         .card-front { transform: rotateY(180deg); }
@@ -303,22 +303,17 @@ export default function PacksPage() {
         }
         .deal-card { animation: dealIn 0.5s ease-out forwards; opacity: 0; }
 
-        /* --- SR pulse --- */
+        /* --- SR breathe --- */
         @keyframes srPulse {
-          0%, 100% { box-shadow: 0 0 15px 4px rgba(251,191,36,0.4); }
-          50% { box-shadow: 0 0 30px 8px rgba(251,191,36,0.6); }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.015); }
         }
         .rarity-sr { animation: srPulse 2s ease-in-out infinite; }
 
-        /* --- legendary rainbow --- */
+        /* --- legendary: bronze border pulse (the rainbow died; the tier didn't) --- */
         @keyframes legendaryGlow {
-          0%   { border-color: #f59e0b; box-shadow: 0 0 20px 6px rgba(245,158,11,0.5); }
-          16%  { border-color: #ef4444; box-shadow: 0 0 20px 6px rgba(239,68,68,0.5); }
-          33%  { border-color: #ec4899; box-shadow: 0 0 20px 6px rgba(236,72,153,0.5); }
-          50%  { border-color: #8b5cf6; box-shadow: 0 0 20px 6px rgba(139,92,246,0.5); }
-          66%  { border-color: #3b82f6; box-shadow: 0 0 20px 6px rgba(59,130,246,0.5); }
-          83%  { border-color: #10b981; box-shadow: 0 0 20px 6px rgba(16,185,129,0.5); }
-          100% { border-color: #f59e0b; box-shadow: 0 0 20px 6px rgba(245,158,11,0.5); }
+          0%, 100% { border-color: var(--color-accent); }
+          50% { border-color: var(--color-accent-strong); }
         }
         @keyframes legendaryBounce {
           0%, 100% { transform: scale(1); }
@@ -338,7 +333,7 @@ export default function PacksPage() {
           content: "";
           position: absolute;
           inset: 0;
-          border-radius: 0.75rem;
+          border-radius: 0.5rem;
           background: linear-gradient(
             105deg,
             transparent 30%,
@@ -371,18 +366,18 @@ export default function PacksPage() {
         <div className="mb-8">
           <Link
             href="/rewards"
-            className="text-sm text-neutral-400 hover:text-white mb-4 inline-block transition-colors"
+            className="text-sm text-ink-muted hover:text-ink mb-4 inline-block transition-colors"
           >
             &larr; Back to Rewards
           </Link>
-          <h1 className="text-3xl font-black mb-2">Virtual Packs</h1>
-          <p className="text-neutral-400">
+          <h1 className="text-3xl font-display font-semibold mb-2">Virtual Packs</h1>
+          <p className="text-ink-muted">
             Spend your Berries to rip virtual booster packs and win cards, credits,
             and bonus rewards.
           </p>
           {points !== null && (
-            <div className="mt-4 inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-3">
-              <span className="text-2xl font-bold text-amber-400">
+            <div className="mt-4 inline-flex items-center gap-2 bg-accent-wash border border-accent/30 rounded-lg px-5 py-3">
+              <span className="text-2xl font-bold text-accent">
                 {points.toLocaleString()} Berries
               </span>
             </div>
@@ -393,20 +388,20 @@ export default function PacksPage() {
         {phase === "select" && (
           <>
             {!loggedIn && (
-              <div className="rounded-xl border border-neutral-700 bg-neutral-900 p-6 text-center mb-8">
-                <p className="text-neutral-400 mb-3">Sign in to open packs</p>
+              <div className="rounded-lg border border-border-subtle bg-surface p-6 text-center mb-8">
+                <p className="text-ink-muted mb-3">Sign in to open packs</p>
                 <Link
                   href="/login"
-                  className="inline-block px-6 py-2 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+                  className="inline-block px-6 py-2 bg-ink text-page font-bold rounded-lg hover:bg-ink/85 transition"
                 >
                   Sign In
                 </Link>
               </div>
             )}
             {packs.length === 0 ? (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-12 text-center">
-                <p className="text-neutral-500 text-lg">No packs available right now.</p>
-                <p className="text-neutral-600 text-sm mt-1">
+              <div className="rounded-lg border border-border-subtle bg-surface-subtle p-12 text-center">
+                <p className="text-ink-faint text-lg">No packs available right now.</p>
+                <p className="text-ink-faint text-sm mt-1">
                   Check back soon for new packs to rip!
                 </p>
               </div>
@@ -419,9 +414,9 @@ export default function PacksPage() {
                       key={pack.id}
                       onClick={() => loggedIn && selectPack(pack)}
                       disabled={!loggedIn}
-                      className="group rounded-xl border border-neutral-800 bg-neutral-900/50 overflow-hidden hover:border-amber-500/50 transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="group rounded-lg border border-border-subtle bg-surface-subtle overflow-hidden hover:border-accent transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <div className="aspect-[3/4] bg-neutral-800 relative overflow-hidden">
+                      <div className="aspect-[3/4] bg-surface-subtle relative overflow-hidden">
                         {pack.image_url ? (
                           <img
                             src={pack.image_url}
@@ -429,9 +424,9 @@ export default function PacksPage() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-900/20 to-neutral-900">
+                          <div className="w-full h-full flex items-center justify-center bg-surface-subtle">
                             <svg
-                              className="w-20 h-20 text-amber-500/30"
+                              className="w-20 h-20 text-accent/30"
                               fill="none"
                               viewBox="0 0 24 24"
                               stroke="currentColor"
@@ -445,34 +440,34 @@ export default function PacksPage() {
                             </svg>
                           </div>
                         )}
-                        <div className="absolute top-3 right-3 bg-amber-500/90 text-black text-xs font-bold px-2.5 py-1 rounded-md">
+                        <div className="absolute top-3 right-3 bg-ink/90 text-page text-xs font-bold px-2.5 py-1 rounded-md">
                           {pack.cost_points.toLocaleString()} Berries
                         </div>
                         {pack.set_code && (
-                          <div className="absolute top-3 left-3 bg-neutral-900/80 text-neutral-300 text-xs font-mono px-2 py-1 rounded-md">
+                          <div className="absolute top-3 left-3 bg-surface text-ink-muted text-xs font-mono px-2 py-1 rounded-md">
                             {pack.set_code}
                           </div>
                         )}
                       </div>
                       <div className="p-5">
-                        <h3 className="text-lg font-bold mb-1 group-hover:text-amber-400 transition-colors">
+                        <h3 className="text-lg font-bold mb-1 group-hover:text-accent transition-colors">
                           {pack.title}
                         </h3>
                         {pack.description && (
-                          <p className="text-neutral-500 text-sm mb-3 line-clamp-2">
+                          <p className="text-ink-faint text-sm mb-3 line-clamp-2">
                             {pack.description}
                           </p>
                         )}
-                        <div className="flex items-center justify-between text-sm text-neutral-400">
+                        <div className="flex items-center justify-between text-sm text-ink-muted">
                           <span>
                             {pack.total_opens.toLocaleString()} opened
                           </span>
-                          <span className="text-neutral-500">
+                          <span className="text-ink-faint">
                             {pack.pool_size} cards in pool
                           </span>
                         </div>
                         {loggedIn && !canAfford && (
-                          <div className="mt-3 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5 text-center">
+                          <div className="mt-3 text-xs text-danger bg-danger/10 border border-danger/20 rounded-lg px-3 py-1.5 text-center">
                             Not enough Berries
                           </div>
                         )}
@@ -491,7 +486,7 @@ export default function PacksPage() {
             {/* -- Confirm phase -- */}
             {phase === "confirm" && (
               <div className="w-full max-w-md text-center">
-                <div className="aspect-[3/4] max-w-xs mx-auto rounded-xl overflow-hidden bg-neutral-800 mb-6">
+                <div className="aspect-[3/4] max-w-xs mx-auto rounded-lg overflow-hidden bg-surface-subtle mb-6">
                   {selectedPack.image_url ? (
                     <img
                       src={selectedPack.image_url}
@@ -499,9 +494,9 @@ export default function PacksPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-900/20 to-neutral-900">
+                    <div className="w-full h-full flex items-center justify-center bg-surface-subtle">
                       <svg
-                        className="w-24 h-24 text-amber-500/30"
+                        className="w-24 h-24 text-accent/30"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -516,24 +511,24 @@ export default function PacksPage() {
                     </div>
                   )}
                 </div>
-                <h2 className="text-2xl font-black mb-1">{selectedPack.title}</h2>
+                <h2 className="text-2xl font-display font-semibold mb-1">{selectedPack.title}</h2>
                 {selectedPack.set_code && (
-                  <p className="text-neutral-500 text-sm font-mono mb-4">
+                  <p className="text-ink-faint text-sm font-mono mb-4">
                     {selectedPack.set_code}
                   </p>
                 )}
-                <p className="text-neutral-400 mb-6">
+                <p className="text-ink-muted mb-6">
                   {selectedPack.cost_points.toLocaleString()} Berries for 5 cards
                 </p>
 
                 {error && (
-                  <div className="mb-4 rounded-lg p-3 text-sm bg-red-500/10 border border-red-500/30 text-red-400">
+                  <div className="mb-4 rounded-lg p-3 text-sm bg-danger/10 border border-danger/30 text-danger">
                     {error}
                   </div>
                 )}
 
                 {points !== null && points < selectedPack.cost_points ? (
-                  <div className="mb-4 rounded-lg p-3 text-sm bg-red-500/10 border border-red-500/30 text-red-400">
+                  <div className="mb-4 rounded-lg p-3 text-sm bg-danger/10 border border-danger/30 text-danger">
                     Not enough Berries ({points.toLocaleString()} /{" "}
                     {selectedPack.cost_points.toLocaleString()})
                   </div>
@@ -545,7 +540,7 @@ export default function PacksPage() {
                       setPhase("select");
                       setSelectedPack(null);
                     }}
-                    className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition"
+                    className="px-6 py-3 bg-surface-subtle hover:bg-surface text-ink font-bold rounded-lg transition"
                   >
                     Back
                   </button>
@@ -554,7 +549,7 @@ export default function PacksPage() {
                     disabled={
                       points === null || points < selectedPack.cost_points
                     }
-                    className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-neutral-700 disabled:text-neutral-500 text-black font-bold rounded-xl transition text-lg"
+                    className="px-8 py-3 bg-ink hover:bg-ink/85 disabled:bg-surface-subtle disabled:text-ink-faint text-page font-bold rounded-lg transition text-lg"
                   >
                     Open Pack ({selectedPack.cost_points.toLocaleString()} Berries)
                   </button>
@@ -565,8 +560,8 @@ export default function PacksPage() {
             {/* -- Waiting phase -- */}
             {phase === "waiting" && (
               <div className="flex flex-col items-center py-20">
-                <div className="w-12 h-12 border-3 border-amber-400 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-amber-300 text-lg font-bold animate-pulse">
+                <div className="w-12 h-12 border-3 border-accent border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-accent text-lg font-bold animate-pulse">
                   Opening...
                 </p>
               </div>
@@ -580,7 +575,7 @@ export default function PacksPage() {
               >
                 <div
                   className={`
-                    aspect-[3/4] w-64 sm:w-72 md:w-80 rounded-xl overflow-hidden bg-neutral-800
+                    aspect-[3/4] w-64 sm:w-72 md:w-80 rounded-lg overflow-hidden bg-surface-subtle
                     ${phase === "glow" || phase === "prompt" ? "pack-glow" : ""}
                     ${phase === "tear" ? "pack-tear" : ""}
                     transition-all
@@ -593,9 +588,9 @@ export default function PacksPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-900/30 to-neutral-900">
+                    <div className="w-full h-full flex items-center justify-center bg-surface-subtle">
                       <svg
-                        className="w-24 h-24 text-amber-500/40"
+                        className="w-24 h-24 text-accent/40"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -613,7 +608,7 @@ export default function PacksPage() {
 
                 {phase === "prompt" && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="prompt-pulse text-2xl sm:text-3xl font-black text-white drop-shadow-[0_0_20px_rgba(251,191,36,0.8)] select-none">
+                    <span className="prompt-pulse text-2xl sm:text-3xl font-display font-semibold text-ink select-none">
                       Click to open!
                     </span>
                   </div>
@@ -644,7 +639,7 @@ export default function PacksPage() {
                           className={`
                             aspect-[3/4] relative
                             ${isFlipped ? rarityGlowClass(card.rarity) : ""}
-                            rounded-xl transition-shadow duration-500
+                            rounded-lg transition-shadow duration-500
                             ${isFlipped && isHighRarity(card.rarity) ? "holo-shimmer" : ""}
                           `}
                         >
@@ -652,19 +647,19 @@ export default function PacksPage() {
                             className={`card-inner ${isFlipped ? "flipped" : ""}`}
                           >
                             {/* BACK */}
-                            <div className="card-back bg-gradient-to-br from-neutral-800 via-neutral-900 to-neutral-950 border-2 border-neutral-700 flex items-center justify-center">
+                            <div className="card-back bg-ink border-2 border-border-subtle flex items-center justify-center">
                               <div className="text-center">
-                                <div className="text-3xl sm:text-4xl font-black text-amber-500/40 tracking-tighter">
+                                <div className="text-3xl sm:text-4xl font-display font-semibold text-accent/40 tracking-tighter">
                                   CTCG
                                 </div>
-                                <div className="mt-1 w-10 h-0.5 bg-amber-500/20 mx-auto rounded-full" />
+                                <div className="mt-1 w-10 h-0.5 bg-accent/40 mx-auto rounded-full" />
                               </div>
                             </div>
 
                             {/* FRONT */}
-                            <div className="card-front bg-neutral-900 border-2 border-neutral-700 flex flex-col">
+                            <div className="card-front bg-surface border-2 border-border-subtle flex flex-col">
                               {/* Card image */}
-                              <div className="flex-1 relative bg-neutral-800 overflow-hidden">
+                              <div className="flex-1 relative bg-surface-subtle overflow-hidden">
                                 {card.image_url ? (
                                   <img
                                     src={card.image_url}
@@ -672,7 +667,7 @@ export default function PacksPage() {
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                                  <div className="w-full h-full flex items-center justify-center text-ink-faint">
                                     <svg
                                       className="w-8 h-8 sm:w-10 sm:h-10"
                                       fill="none"
@@ -691,7 +686,7 @@ export default function PacksPage() {
                               </div>
                               {/* Card info */}
                               <div className="p-1.5 sm:p-2 text-center flex-shrink-0">
-                                <p className="text-[10px] sm:text-xs font-bold text-white truncate leading-tight">
+                                <p className="text-[10px] sm:text-xs font-bold text-ink truncate leading-tight">
                                   {card.card_name}
                                 </p>
                                 <span
@@ -708,19 +703,19 @@ export default function PacksPage() {
                               {isHighRarity(card.rarity) && (
                                 <>
                                   <div
-                                    className="absolute w-1.5 h-1.5 bg-amber-300 rounded-full"
+                                    className="absolute w-1.5 h-1.5 bg-accent rounded-full"
                                     style={{ top: "15%", left: "20%", animation: "sparkle1 1.8s ease-in-out infinite" }}
                                   />
                                   <div
-                                    className="absolute w-1 h-1 bg-pink-300 rounded-full"
+                                    className="absolute w-1 h-1 bg-accent/70 rounded-full"
                                     style={{ top: "25%", right: "18%", animation: "sparkle2 2.2s ease-in-out infinite 0.3s" }}
                                   />
                                   <div
-                                    className="absolute w-1.5 h-1.5 bg-violet-300 rounded-full"
+                                    className="absolute w-1.5 h-1.5 bg-accent/50 rounded-full"
                                     style={{ bottom: "30%", left: "15%", animation: "sparkle3 2s ease-in-out infinite 0.6s" }}
                                   />
                                   <div
-                                    className="absolute w-1 h-1 bg-amber-200 rounded-full"
+                                    className="absolute w-1 h-1 bg-accent rounded-full"
                                     style={{ bottom: "25%", right: "20%", animation: "sparkle4 1.6s ease-in-out infinite 0.9s" }}
                                   />
                                 </>
@@ -736,17 +731,17 @@ export default function PacksPage() {
                 {/* Summary overlay */}
                 {phase === "summary" && (
                   <div className="max-w-2xl mx-auto">
-                    <div className="rounded-xl border border-neutral-800 bg-neutral-900/80 p-6">
-                      <h3 className="text-xl font-black text-center mb-5">
+                    <div className="rounded-lg border border-border-subtle bg-surface p-6">
+                      <h3 className="text-xl font-display font-semibold text-center mb-5">
                         Pack Results
                       </h3>
-                      <div className="divide-y divide-neutral-800/50">
+                      <div className="divide-y divide-border-subtle">
                         {cards.map((card, i) => (
                           <div
                             key={i}
                             className="flex items-center gap-3 py-3"
                           >
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-neutral-800 flex-shrink-0">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-surface-subtle flex-shrink-0">
                               {card.image_url ? (
                                 <img
                                   src={card.image_url}
@@ -754,7 +749,7 @@ export default function PacksPage() {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">
+                                <div className="w-full h-full flex items-center justify-center text-ink-faint text-xs">
                                   ?
                                 </div>
                               )}
@@ -763,7 +758,7 @@ export default function PacksPage() {
                               <p className="font-semibold text-sm truncate">
                                 {card.card_name}
                               </p>
-                              <p className="text-xs text-neutral-500">
+                              <p className="text-xs text-ink-faint">
                                 {card.card_number ? `#${card.card_number}` : ""}{" "}
                                 {card.reward_type === "points"
                                   ? `+${card.reward_value} Berries`
@@ -782,11 +777,11 @@ export default function PacksPage() {
                       </div>
 
                       {/* Total value */}
-                      <div className="mt-4 pt-4 border-t border-neutral-800 flex items-center justify-between">
-                        <span className="text-neutral-400 text-sm font-medium">
+                      <div className="mt-4 pt-4 border-t border-border-subtle flex items-center justify-between">
+                        <span className="text-ink-muted text-sm font-medium">
                           Total Value
                         </span>
-                        <span className="text-amber-400 font-bold text-lg">
+                        <span className="text-accent font-bold text-lg">
                           {(() => {
                             const pointsTotal = cards
                               .filter((c) => c.reward_type === "points")
@@ -817,7 +812,7 @@ export default function PacksPage() {
                       <div className="mt-6 flex gap-3 justify-center">
                         <button
                           onClick={openAnother}
-                          className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition"
+                          className="px-6 py-3 bg-surface-subtle hover:bg-surface text-ink font-bold rounded-lg transition"
                         >
                           Browse Packs
                         </button>
@@ -825,7 +820,7 @@ export default function PacksPage() {
                           points >= selectedPack.cost_points && (
                             <button
                               onClick={reopenSamePack}
-                              className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition text-lg"
+                              className="px-8 py-3 bg-ink hover:bg-ink/85 text-page font-bold rounded-lg transition text-lg"
                             >
                               Open Another
                             </button>
@@ -837,7 +832,7 @@ export default function PacksPage() {
                             href={`/verify/draw/${drawId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-emerald-400 hover:text-emerald-300 underline"
+                            className="text-ok hover:text-ok underline"
                           >
                             ✓ Verify this pack was rolled fairly ↗
                           </a>

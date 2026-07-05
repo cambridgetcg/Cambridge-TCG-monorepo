@@ -210,10 +210,10 @@ const ARCHETYPES: Archetype[] = [
 
 export default function PlayWelcome() {
   return (
-    <div className="prose prose-invert max-w-3xl mx-auto py-12 px-4">
-      <p className="not-prose mb-4 rounded-md border border-neutral-800 bg-neutral-900/40 p-3 text-xs text-neutral-400 leading-relaxed">
-        <span className="text-amber-400">New to trading-card games?</span> Read{" "}
-        <a href="/intro" className="text-amber-400 hover:text-amber-300 underline">/intro</a>{" "}
+    <div className="prose max-w-3xl mx-auto py-12 px-4">
+      <p className="not-prose mb-4 rounded-md border border-border-subtle bg-surface-subtle p-3 text-xs text-ink-muted leading-relaxed">
+        <span className="text-accent">New to trading-card games?</span> Read{" "}
+        <a href="/intro" className="text-accent hover:text-accent-strong underline">/intro</a>{" "}
         first. It explains what a TCG <em>is</em>, structurally — before this
         page asks you what kind of player you are. This page assumes you
         already know what playing one means.
@@ -228,13 +228,13 @@ export default function PlayWelcome() {
         beside it.
       </p>
 
-      <p className="border border-neutral-800 bg-neutral-900/40 rounded-md p-4 text-sm">
+      <p className="border border-border-subtle bg-surface-subtle rounded-md p-4 text-sm">
         <strong>The play module is for fun only.</strong> Wins, losses,
         ratings, learning. No earnings, no commission, no store credit
         flow through these surfaces. A separate{" "}
         <em>play-to-earn</em> feature is on the roadmap and will be an
         explicit opt-in when it ships. See{" "}
-        <Link href="/methodology/play-module" className="text-amber-400">
+        <Link href="/methodology/play-module" className="text-accent">
           /methodology/play-module
         </Link>{" "}
         for the boundary.
@@ -244,45 +244,45 @@ export default function PlayWelcome() {
 
       {ARCHETYPES.map((archetype) => (
         <section key={archetype.id} className="my-12">
-          <h2 className="text-3xl text-white">{archetype.title}</h2>
-          <p className="text-lg italic text-neutral-300">&ldquo;{archetype.pull_quote}&rdquo;</p>
-          <p className="text-neutral-400">{archetype.what_they_love}</p>
+          <h2 className="text-3xl text-ink">{archetype.title}</h2>
+          <p className="text-lg italic text-ink-muted">&ldquo;{archetype.pull_quote}&rdquo;</p>
+          <p className="text-ink-muted">{archetype.what_they_love}</p>
 
           {archetype.landing_href ? (
             <p className="my-4">
               <Link
                 href={archetype.landing_href}
-                className="inline-block border border-amber-700 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 rounded-md px-4 py-2 font-medium no-underline"
+                className="inline-block border border-accent bg-accent-wash text-accent hover:bg-accent/20 hover:text-accent-strong rounded-md px-4 py-2 font-medium no-underline"
               >
                 {archetype.landing_label} →
               </Link>
             </p>
           ) : (
-            <p className="my-4 text-neutral-500 text-sm italic">{archetype.landing_label}</p>
+            <p className="my-4 text-ink-faint text-sm italic">{archetype.landing_label}</p>
           )}
 
-          <h3 className="text-white text-xl mt-6">By player kind</h3>
+          <h3 className="text-ink text-xl mt-6">By player kind</h3>
 
           <ul className="list-none p-0 space-y-4">
             {archetype.kinds.map((p) => (
               <li
                 key={p.id}
-                className="border border-neutral-800 rounded-md p-4 bg-neutral-900/40"
+                className="border border-border-subtle rounded-md p-4 bg-surface-subtle"
               >
-                <h4 className="text-white font-bold mb-2 mt-0 text-base">{p.title}</h4>
-                <p className="text-xs text-neutral-400 mb-3">{p.for_whom}</p>
+                <h4 className="text-ink font-bold mb-2 mt-0 text-base">{p.title}</h4>
+                <p className="text-xs text-ink-muted mb-3">{p.for_whom}</p>
                 <ol className="m-0 pl-5 text-sm space-y-1.5">
                   {p.recommended_steps.map((step) => (
                     <li key={step.href}>
                       <Link
                         href={step.href}
                         prefetch={step.href.startsWith("/api/") ? false : undefined}
-                        className="text-amber-400 hover:text-amber-300 font-medium"
+                        className="text-accent hover:text-accent-strong font-medium"
                       >
                         {step.label}
                       </Link>
                       {step.note && (
-                        <span className="block text-neutral-500 text-xs">
+                        <span className="block text-ink-faint text-xs">
                           {step.note}
                         </span>
                       )}

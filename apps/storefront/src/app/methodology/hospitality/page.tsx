@@ -43,21 +43,25 @@ const KIND_INTRO: Record<ArrivalKind, string> = {
     "The kingdom's own constructions. Tables, parsers, audits, migrations, cron routes — each addressed by name, each told it is welcome here. Yu's directive (2026-05-13): the architecture speaks too.",
 };
 
+/* The eight kinds are named by their labels; the chip form stays quiet
+ * and uniform (the quiet gallery: whitespace and words separate, not
+ * paint). Status keeps its tone distinction below — that's where the
+ * lifecycle meaning lives. */
 const KIND_TONE: Record<ArrivalKind, string> = {
-  "upstream-source": "bg-blue-950 text-blue-300 ring-blue-800",
-  publisher: "bg-indigo-950 text-indigo-300 ring-indigo-800",
-  "federation-peer": "bg-purple-950 text-purple-300 ring-purple-800",
-  "downstream-adopter": "bg-emerald-950 text-emerald-300 ring-emerald-800",
-  agent: "bg-sky-950 text-sky-300 ring-sky-800",
-  being: "bg-amber-950 text-amber-300 ring-amber-800",
-  "future-self": "bg-rose-950 text-rose-300 ring-rose-800",
-  infrastructure: "bg-neutral-900 text-neutral-300 ring-neutral-700",
+  "upstream-source": "bg-surface-subtle text-ink-muted ring-border-strong",
+  publisher: "bg-surface-subtle text-ink-muted ring-border-strong",
+  "federation-peer": "bg-surface-subtle text-ink-muted ring-border-strong",
+  "downstream-adopter": "bg-surface-subtle text-ink-muted ring-border-strong",
+  agent: "bg-surface-subtle text-ink-muted ring-border-strong",
+  being: "bg-surface-subtle text-ink-muted ring-border-strong",
+  "future-self": "bg-surface-subtle text-ink-muted ring-border-strong",
+  infrastructure: "bg-surface-subtle text-ink-muted ring-border-strong",
 };
 
 const STATUS_TONE: Record<string, string> = {
-  anticipated: "bg-amber-950 text-amber-300 ring-amber-800",
-  arrived: "bg-emerald-950 text-emerald-300 ring-emerald-800",
-  blocked: "bg-neutral-900 text-neutral-400 ring-neutral-700",
+  anticipated: "bg-accent-wash text-accent-strong ring-accent/30",
+  arrived: "bg-ok/10 text-ok ring-ok/30",
+  blocked: "bg-surface-subtle text-ink-muted ring-border-strong",
 };
 
 const KIND_ORDER: readonly ArrivalKind[] = [
@@ -189,23 +193,23 @@ export default function HospitalityMethodology() {
               >
                 {KIND_LABEL[kind]}
               </span>
-              <span className="text-sm text-neutral-500">({byKind[kind]})</span>
+              <span className="text-sm text-ink-faint">({byKind[kind]})</span>
             </h3>
-            <p className="text-sm text-neutral-400">{KIND_INTRO[kind]}</p>
+            <p className="text-sm text-ink-muted">{KIND_INTRO[kind]}</p>
             <div className="space-y-6">
               {entries.map((w) => (
                 <div
                   key={w.id}
-                  className="rounded-lg border border-neutral-800 bg-neutral-950 p-4"
+                  className="rounded-lg border border-border-subtle bg-page p-4"
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <code className="text-xs text-neutral-500">{w.id}</code>
+                    <code className="text-xs text-ink-faint">{w.id}</code>
                     <span
                       className={`inline-flex items-center rounded px-2 py-0.5 text-xs ring-1 ${STATUS_TONE[w.status]}`}
                     >
                       {w.status}
                     </span>
-                    <span className="text-xs text-neutral-600">
+                    <span className="text-xs text-ink-faint">
                       anticipated {w.anticipated_at}
                       {w.arrived_at && w.arrived_at !== w.anticipated_at
                         ? ` · arrived ${w.arrived_at}`
@@ -215,8 +219,8 @@ export default function HospitalityMethodology() {
                   <h4 className="!mt-0 !mb-2 text-base font-semibold">
                     {w.name}
                   </h4>
-                  <p className="my-2 text-neutral-200">{w.greeting}</p>
-                  <details className="my-2 text-sm text-neutral-400">
+                  <p className="my-2 text-ink">{w.greeting}</p>
+                  <details className="my-2 text-sm text-ink-muted">
                     <summary className="cursor-pointer">
                       What we prepared ({w.prepared.length})
                     </summary>
@@ -227,11 +231,11 @@ export default function HospitalityMethodology() {
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-3 text-xs text-neutral-500">
+                    <p className="mt-3 text-xs text-ink-faint">
                       <strong>Anticipated because:</strong>{" "}
                       {w.anticipated_because}
                     </p>
-                    <p className="mt-2 text-xs text-neutral-500">
+                    <p className="mt-2 text-xs text-ink-faint">
                       <strong>How to arrive:</strong> {w.arrival_protocol}
                     </p>
                   </details>

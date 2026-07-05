@@ -155,27 +155,27 @@ export default function WishlistPage() {
   });
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind="consumer" />
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
           <div>
-            <Link href="/account" className="text-xs text-neutral-500 hover:text-neutral-300">&larr; Account</Link>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-2">Wishlist</h1>
-            <p className="text-sm text-neutral-400 mt-1">
+            <Link href="/account" className="text-xs text-ink-faint hover:text-ink">&larr; Account</Link>
+            <h1 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight mt-2">Wishlist</h1>
+            <p className="text-sm text-ink-muted mt-1">
               Cards you&apos;re hunting. We&apos;ll email you when one appears at your max price on the P2P market or in-store stock.
             </p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setShowCsv(true)}
-              className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-medium rounded-lg px-4 py-2 text-sm transition-colors"
+              className="bg-surface-subtle hover:bg-surface-subtle border border-border-subtle text-ink font-medium rounded-lg px-4 py-2 text-sm transition-colors"
             >
               Import CSV
             </button>
             <Link
               href="/account/profile"
-              className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-4 py-2 text-sm transition-colors"
+              className="bg-ink hover:opacity-90 text-page font-semibold rounded-lg px-4 py-2 text-sm transition-colors"
             >
               + Add from profile
             </Link>
@@ -183,30 +183,30 @@ export default function WishlistPage() {
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-900/30 border border-red-700/40 text-red-300 rounded-lg px-4 py-3 text-sm">
+          <div className="mb-4 bg-danger/10 border border-danger/30 text-danger rounded-lg px-4 py-3 text-sm">
             {error}
           </div>
         )}
 
         {/* Gift-link share banner */}
         {profile && items.length > 0 && (
-          <div className="mb-4 bg-gradient-to-r from-fuchsia-500/10 via-neutral-900 to-amber-500/10 border border-fuchsia-500/20 rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-3 text-sm">
+          <div className="mb-4 bg-surface border border-border-subtle rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-3 text-sm">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-fuchsia-400 font-bold">
-                🎁 Gift this wishlist
+              <p className="text-[10px] uppercase tracking-wider text-accent font-semibold">
+                Gift this wishlist
               </p>
               {profile.username && profile.is_public ? (
-                <p className="text-neutral-300 mt-0.5 truncate">
+                <p className="text-ink-muted mt-0.5 truncate">
                   Share{" "}
-                  <Link href={`/u/${profile.username}`} className="text-fuchsia-300 underline hover:text-fuchsia-200">
+                  <Link href={`/u/${profile.username}`} className="text-accent underline hover:text-accent-strong">
                     /u/{profile.username}
                   </Link>{" "}
                   — your wishlist is visible at the bottom of your public profile.
                 </p>
               ) : (
-                <p className="text-xs text-neutral-500 mt-0.5">
+                <p className="text-xs text-ink-faint mt-0.5">
                   Pick a username + make your profile public in{" "}
-                  <Link href="/account/profile" className="text-fuchsia-400 hover:text-fuchsia-300 underline">
+                  <Link href="/account/profile" className="text-accent hover:text-accent-strong underline">
                     settings
                   </Link>{" "}
                   to get a shareable URL.
@@ -222,7 +222,7 @@ export default function WishlistPage() {
                     () => {},
                   );
                 }}
-                className="text-xs bg-fuchsia-500 hover:bg-fuchsia-400 text-black font-bold rounded px-3 py-1.5 transition-colors whitespace-nowrap"
+                className="text-xs bg-ink text-page hover:opacity-90 font-semibold rounded px-3 py-1.5 transition-colors whitespace-nowrap"
               >
                 {copied ? "Copied!" : "Copy gift link"}
               </button>
@@ -236,13 +236,12 @@ export default function WishlistPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded-lg border whitespace-nowrap transition-colors ${
                 filter === f
-                  ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white"
+                  ? "bg-accent-wash text-accent-strong border-accent/30 font-medium"
+                  : "bg-surface border-border-subtle text-ink-muted hover:text-ink"
               }`}
             >
-              {f === "matched" && counts.matched > 0 && "⚡ "}
               {f.charAt(0).toUpperCase() + f.slice(1)} · {counts[f]}
             </button>
           ))}
@@ -250,13 +249,13 @@ export default function WishlistPage() {
 
         {loading && (
           <div className="py-12 text-center">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
         )}
 
         {!loading && filtered.length === 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center">
-            <p className="text-neutral-500 text-sm">
+          <div className="bg-surface border border-border-subtle rounded-lg p-8 text-center">
+            <p className="text-ink-faint text-sm">
               {filter === "pending" && "No pending wishes. Add cards from your profile or a product page."}
               {filter === "matched" && "No matches right now — we'll email you as soon as one appears."}
               {filter === "fulfilled" && "No fulfilled wishes yet."}
@@ -274,27 +273,27 @@ export default function WishlistPage() {
               return (
                 <div
                   key={item.id}
-                  className={`relative bg-neutral-900 border rounded-xl overflow-hidden ${
-                    av?.matched ? "border-emerald-500/40" : "border-neutral-800"
+                  className={`relative bg-surface border rounded-lg overflow-hidden ${
+                    av?.matched ? "border-ok/40" : "border-border-subtle"
                   }`}
                 >
                   {av?.matched && (
-                    <div className="absolute top-0 left-0 right-0 bg-emerald-500 text-black text-[10px] font-bold uppercase tracking-wider py-1 text-center z-10">
-                      ⚡ Match — {gbp(av.best_price)} via {av.best_source}
+                    <div className="absolute top-0 left-0 right-0 bg-ok text-page text-[10px] font-bold uppercase tracking-wider py-1 text-center z-10">
+                      Match — {gbp(av.best_price)} via {av.best_source}
                     </div>
                   )}
 
-                  <div className="relative aspect-[5/7] bg-neutral-800">
+                  <div className="relative aspect-[5/7] bg-surface-subtle">
                     {item.image_url ? (
                       <Image src={item.image_url} alt={item.card_name} fill sizes="280px" className="object-cover" />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-neutral-600 text-xs">No image</div>
+                      <div className="absolute inset-0 flex items-center justify-center text-ink-faint text-xs">No image</div>
                     )}
                   </div>
 
                   <div className="p-3 space-y-1">
                     <p className="font-semibold text-sm truncate">{item.card_name}</p>
-                    <p className="text-xs text-neutral-500 truncate">
+                    <p className="text-xs text-ink-faint truncate">
                       {item.sku ?? item.card_number ?? ""}
                       {item.set_code ? ` · ${item.set_code}` : ""}
                       {item.condition_min && item.condition_min !== "NM" ? ` · ≥${item.condition_min}` : ""}
@@ -304,25 +303,25 @@ export default function WishlistPage() {
                     {isEditing ? (
                       <div className="mt-1">
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-neutral-500">Max £</span>
+                          <span className="text-xs text-ink-faint">Max £</span>
                           <input
                             type="number"
                             step="0.01"
                             value={editPrice}
                             onChange={(e) => setEditPrice(e.target.value)}
-                            className="bg-neutral-800 border border-neutral-700 rounded text-xs px-2 py-1 w-16 focus:outline-none focus:border-amber-500"
+                            className="bg-surface-subtle border border-border-subtle rounded text-xs px-2 py-1 w-16 focus:outline-none focus:border-accent"
                             autoFocus
                           />
                           <button
                             onClick={() => saveMaxPrice(item)}
                             disabled={busy === item.id}
-                            className="text-[11px] bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded px-2 py-1"
+                            className="text-[11px] bg-ink hover:opacity-90 text-page font-semibold rounded px-2 py-1"
                           >
                             Save
                           </button>
                           <button
                             onClick={() => { setEditingId(null); setError(null); }}
-                            className="text-[11px] text-neutral-500 hover:text-white"
+                            className="text-[11px] text-ink-faint hover:text-ink"
                           >
                             Cancel
                           </button>
@@ -333,7 +332,7 @@ export default function WishlistPage() {
                             return (
                               <button
                                 onClick={() => item.sku && fetchSuggestion(item.sku)}
-                                className="text-[10px] text-fuchsia-400 hover:text-fuchsia-300 underline mt-1"
+                                className="text-[10px] text-accent hover:text-accent-strong underline mt-1"
                               >
                                 Suggest target from 30-day history
                               </button>
@@ -341,33 +340,33 @@ export default function WishlistPage() {
                           }
                           if (s == null) {
                             return (
-                              <p className="text-[10px] text-neutral-600 mt-1">
+                              <p className="text-[10px] text-ink-faint mt-1">
                                 Not enough price history yet.
                               </p>
                             );
                           }
                           return (
-                            <div className="mt-1 text-[10px] text-neutral-400">
+                            <div className="mt-1 text-[10px] text-ink-muted">
                               Suggested{" "}
                               <button
                                 onClick={() => setEditPrice(s.value.toString())}
-                                className="text-fuchsia-400 hover:text-fuchsia-300 font-semibold underline"
+                                className="text-accent hover:text-accent-strong font-semibold underline"
                               >
                                 £{s.value.toFixed(2)}
                               </button>
-                              <span className="text-neutral-600"> — {s.explanation}</span>
+                              <span className="text-ink-faint"> — {s.explanation}</span>
                             </div>
                           );
                         })()}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 mt-1 text-xs">
-                        <span className="text-neutral-500">Target</span>
-                        <span className="text-white font-semibold">{gbp(max)}</span>
+                        <span className="text-ink-faint">Target</span>
+                        <span className="text-ink font-semibold">{gbp(max)}</span>
                         {item.sku && (
                           <button
                             onClick={() => { setEditingId(item.id); setEditPrice(max != null ? max.toString() : ""); }}
-                            className="text-neutral-500 hover:text-amber-400 text-[10px] ml-1"
+                            className="text-ink-faint hover:text-accent text-[10px] ml-1"
                           >
                             edit
                           </button>
@@ -377,21 +376,21 @@ export default function WishlistPage() {
 
                     {/* Availability breakdown (only render for SKUd items with enrichment) */}
                     {item.sku && av && (
-                      <div className="pt-1 mt-1 border-t border-neutral-800 space-y-0.5 text-[11px]">
-                        <div className="flex justify-between text-neutral-400">
+                      <div className="pt-1 mt-1 border-t border-border-subtle space-y-0.5 text-[11px]">
+                        <div className="flex justify-between text-ink-muted">
                           <span>P2P</span>
                           <span>
                             {av.p2p_price != null
                               ? `${gbp(av.p2p_price)} · ${av.p2p_condition} · ${av.p2p_qty}x`
-                              : <span className="text-neutral-600">no ask</span>}
+                              : <span className="text-ink-faint">no ask</span>}
                           </span>
                         </div>
-                        <div className="flex justify-between text-neutral-400">
+                        <div className="flex justify-between text-ink-muted">
                           <span>Store</span>
                           <span>
                             {av.store_price != null
                               ? `${gbp(av.store_price)} · ${av.store_stock}x`
-                              : <span className="text-neutral-600">no stock</span>}
+                              : <span className="text-ink-faint">no stock</span>}
                           </span>
                         </div>
                       </div>
@@ -402,7 +401,7 @@ export default function WishlistPage() {
                       {item.sku && av?.p2p_order_id && av.p2p_price != null && max != null && av.p2p_price <= max && (
                         <Link
                           href={`/market/${item.sku}`}
-                          className="flex-1 text-center text-[11px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded px-2 py-1.5 transition-colors"
+                          className="flex-1 text-center text-[11px] bg-ink hover:opacity-90 text-page font-semibold rounded px-2 py-1.5 transition-colors"
                         >
                           Buy P2P
                         </Link>
@@ -410,7 +409,7 @@ export default function WishlistPage() {
                       {item.sku && av?.store_price != null && av.store_stock > 0 && max != null && av.store_price <= max && (
                         <Link
                           href={`/product/${item.sku}`}
-                          className="flex-1 text-center text-[11px] bg-amber-500 hover:bg-amber-400 text-black font-bold rounded px-2 py-1.5 transition-colors"
+                          className="flex-1 text-center text-[11px] bg-ink hover:opacity-90 text-page font-semibold rounded px-2 py-1.5 transition-colors"
                         >
                           Buy in store
                         </Link>
@@ -422,14 +421,14 @@ export default function WishlistPage() {
                       <button
                         onClick={() => remove(item.id)}
                         disabled={busy === item.id}
-                        className="flex-1 text-[11px] bg-neutral-800 hover:bg-red-900/40 text-neutral-400 hover:text-red-400 rounded px-2 py-1.5 transition-colors disabled:opacity-40"
+                        className="flex-1 text-[11px] bg-surface-subtle hover:bg-danger/20 text-ink-muted hover:text-danger rounded px-2 py-1.5 transition-colors disabled:opacity-40"
                       >
                         Remove
                       </button>
                     </div>
 
                     {item.last_matched_at && !av?.matched && (
-                      <p className="text-[10px] text-neutral-600 pt-1">
+                      <p className="text-[10px] text-ink-faint pt-1">
                         Last matched {new Date(item.last_matched_at).toLocaleDateString()}
                       </p>
                     )}

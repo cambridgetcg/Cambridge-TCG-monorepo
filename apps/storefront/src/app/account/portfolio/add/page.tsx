@@ -122,7 +122,7 @@ export default function AddToPortfolioPage() {
     return (
       <div className="flex items-center justify-center py-12">
       <Audience kind="consumer" />
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-ink-faint">Loading...</p>
       </div>
     );
   }
@@ -132,29 +132,29 @@ export default function AddToPortfolioPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           href="/account/portfolio"
-          className="text-neutral-500 hover:text-white transition text-sm"
+          className="text-ink-faint hover:text-ink transition text-sm"
         >
           &larr; Portfolio
         </Link>
-        <h1 className="text-2xl font-bold text-white">Add Cards</h1>
+        <h1 className="text-2xl font-bold text-ink">Add Cards</h1>
       </div>
 
       {/* Success message */}
       {success && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mb-6 flex items-center justify-between">
-          <p className="text-emerald-400 text-sm font-medium">
+        <div className="bg-ok/10 border border-ok/30 rounded-lg p-4 mb-6 flex items-center justify-between">
+          <p className="text-ok text-sm font-medium">
             Added &ldquo;{success}&rdquo; to your portfolio!
           </p>
           <div className="flex gap-3">
             <button
               onClick={() => setSuccess(null)}
-              className="text-sm text-emerald-400 hover:text-emerald-300 transition"
+              className="text-sm text-ok hover:text-ok transition"
             >
               Add more
             </button>
             <Link
               href="/account/portfolio"
-              className="text-sm text-neutral-400 hover:text-white transition"
+              className="text-sm text-ink-muted hover:text-ink transition"
             >
               View portfolio
             </Link>
@@ -169,11 +169,11 @@ export default function AddToPortfolioPage() {
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder="Search for cards (e.g. Luffy, Charizard)..."
-          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:border-amber-500/50 transition"
+          className="w-full bg-surface border border-border-subtle rounded-lg px-4 py-3 text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition"
           autoFocus
         />
         {searching && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-faint text-sm">
             Searching...
           </div>
         )}
@@ -185,16 +185,16 @@ export default function AddToPortfolioPage() {
           {results.map((card) => (
             <div
               key={card.sku}
-              className={`bg-neutral-900 rounded-xl overflow-hidden transition cursor-pointer border ${
+              className={`bg-surface rounded-lg overflow-hidden transition cursor-pointer border ${
                 selectedSku === card.sku
-                  ? "border-amber-500/50"
-                  : "border-transparent hover:border-neutral-700"
+                  ? "border-accent/30"
+                  : "border-transparent hover:border-border-strong"
               }`}
               onClick={() => selectCard(card)}
             >
               {/* Card Preview */}
               <div className="flex gap-3 p-3">
-                <div className="relative w-16 h-[90px] bg-neutral-800 rounded shrink-0 overflow-hidden">
+                <div className="relative w-16 h-[90px] bg-surface-subtle rounded shrink-0 overflow-hidden">
                   {card.image_url ? (
                     <Image
                       src={card.image_url}
@@ -204,24 +204,24 @@ export default function AddToPortfolioPage() {
                       sizes="64px"
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-neutral-600 text-[10px]">
+                    <div className="absolute inset-0 flex items-center justify-center text-ink-faint text-[10px]">
                       No Img
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-white truncate">{card.card_name}</h3>
-                  <p className="text-xs text-neutral-500 truncate">
+                  <h3 className="text-sm font-semibold text-ink truncate">{card.card_name}</h3>
+                  <p className="text-xs text-ink-faint truncate">
                     {card.set_name || card.set_code}
                     {card.card_number ? ` #${card.card_number}` : ""}
                   </p>
                   {card.rarity && (
-                    <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-medium uppercase">
+                    <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-accent-wash text-accent font-medium uppercase">
                       {card.rarity}
                     </span>
                   )}
                   {card.price != null && (
-                    <p className="text-sm font-semibold text-amber-400 mt-1">{formatPrice(card.price)}</p>
+                    <p className="text-sm font-semibold text-accent mt-1">{formatPrice(card.price)}</p>
                   )}
                 </div>
               </div>
@@ -229,38 +229,38 @@ export default function AddToPortfolioPage() {
               {/* Add Form (expanded) */}
               {selectedSku === card.sku && (
                 <div
-                  className="px-3 pb-3 pt-1 border-t border-neutral-800 space-y-2"
+                  className="px-3 pb-3 pt-1 border-t border-border-subtle space-y-2"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="text-[10px] text-neutral-500 block mb-0.5">Quantity</label>
+                      <label className="text-[10px] text-ink-faint block mb-0.5">Quantity</label>
                       <input
                         type="number"
                         min={1}
                         value={quantity}
                         onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+                        className="w-full bg-surface-subtle border border-border-subtle rounded px-2 py-1.5 text-sm text-ink"
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[10px] text-neutral-500 block mb-0.5">Cost per card</label>
+                      <label className="text-[10px] text-ink-faint block mb-0.5">Cost per card</label>
                       <input
                         type="text"
                         value={acquisitionPrice}
                         onChange={(e) => setAcquisitionPrice(e.target.value)}
                         placeholder="What you paid (optional)"
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+                        className="w-full bg-surface-subtle border border-border-subtle rounded px-2 py-1.5 text-sm text-ink"
                       />
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="text-[10px] text-neutral-500 block mb-0.5">Condition</label>
+                      <label className="text-[10px] text-ink-faint block mb-0.5">Condition</label>
                       <select
                         value={condition}
                         onChange={(e) => setCondition(e.target.value)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+                        className="w-full bg-surface-subtle border border-border-subtle rounded px-2 py-1.5 text-sm text-ink"
                       >
                         <option value="NM">Near Mint</option>
                         <option value="LP">Lightly Played</option>
@@ -269,29 +269,29 @@ export default function AddToPortfolioPage() {
                       </select>
                     </div>
                     <div className="flex-1">
-                      <label className="text-[10px] text-neutral-500 block mb-0.5">Date acquired</label>
+                      <label className="text-[10px] text-ink-faint block mb-0.5">Date acquired</label>
                       <input
                         type="date"
                         value={acquiredAt}
                         onChange={(e) => setAcquiredAt(e.target.value)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+                        className="w-full bg-surface-subtle border border-border-subtle rounded px-2 py-1.5 text-sm text-ink"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] text-neutral-500 block mb-0.5">Notes (optional)</label>
+                    <label className="text-[10px] text-ink-faint block mb-0.5">Notes (optional)</label>
                     <input
                       type="text"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="e.g. Pulled from booster pack"
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-sm text-white"
+                      className="w-full bg-surface-subtle border border-border-subtle rounded px-2 py-1.5 text-sm text-ink"
                     />
                   </div>
                   <button
                     onClick={() => addCard(card)}
                     disabled={adding}
-                    className="w-full py-2 bg-amber-500 text-black font-semibold rounded-lg text-sm hover:bg-amber-400 transition disabled:opacity-50"
+                    className="w-full py-2 bg-ink text-page font-semibold rounded-lg text-sm hover:opacity-90 transition disabled:opacity-50"
                   >
                     {adding ? "Adding..." : "Add to Portfolio"}
                   </button>
@@ -304,15 +304,15 @@ export default function AddToPortfolioPage() {
 
       {/* Empty search state */}
       {query && !searching && results.length === 0 && (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-400">No cards found for &ldquo;{query}&rdquo;</p>
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-muted">No cards found for &ldquo;{query}&rdquo;</p>
         </div>
       )}
 
       {/* Initial state */}
       {!query && (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-500">Start typing to search for cards to add to your portfolio.</p>
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-faint">Start typing to search for cards to add to your portfolio.</p>
         </div>
       )}
     </div>

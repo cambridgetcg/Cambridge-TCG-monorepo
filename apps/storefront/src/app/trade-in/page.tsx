@@ -123,15 +123,15 @@ export default async function TradeInPage({
   const maxCredit = Math.max(...buylist.map((i) => i.credit_price), 0);
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <Audience kind="consumer" contexts={["seller", "trade-in"]} />
       {/* Hero */}
-      <section className="border-b border-neutral-800">
+      <section className="border-b border-border-subtle">
         <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
-          <h1 className="text-3xl md:text-5xl font-black text-white">
-            Sell Your <span className="text-amber-400">Cards</span>
+          <h1 className="text-3xl font-display font-semibold text-ink">
+            Sell Your Cards
           </h1>
-          <p className="text-neutral-400 mt-3 max-w-xl">
+          <p className="text-ink-muted mt-3 max-w-xl">
             Get cash or store credit for your trading cards. Prices are refreshed daily but are subject to change — card markets are volatile and prices can shift even within the same day. Your final payout is locked once we review your submission and issue a formal quotation.
           </p>
           <div className="mt-3 flex items-center gap-3 text-xs">
@@ -139,60 +139,60 @@ export default async function TradeInPage({
             <WhyLink href="/methodology/pricing" label="how trade-in prices work" />
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-4 mt-6">
-            <div className="bg-neutral-900 rounded-xl px-5 py-3">
-              <p className="text-2xl font-bold text-amber-400">{cardsWanted}</p>
-              <p className="text-xs text-neutral-400">Cards wanted</p>
+            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
+              <p className="text-2xl font-bold text-accent">{cardsWanted}</p>
+              <p className="text-xs text-ink-muted">Cards wanted</p>
             </div>
-            <div className="bg-neutral-900 rounded-xl px-5 py-3">
-              <p className="text-2xl font-bold text-purple-400">100%</p>
-              <p className="text-xs text-neutral-400">Market value in credit</p>
+            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
+              <p className="text-2xl font-bold text-accent">100%</p>
+              <p className="text-xs text-ink-muted">Market value in credit</p>
             </div>
-            <div className="bg-neutral-900 rounded-xl px-5 py-3">
-              <p className="text-2xl font-bold text-emerald-400">Up to 85%</p>
-              <p className="text-xs text-neutral-400">Market value in cash</p>
+            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
+              <p className="text-2xl font-bold text-bid">Up to 85%</p>
+              <p className="text-xs text-ink-muted">Market value in cash</p>
             </div>
-            <div className="bg-neutral-900 rounded-xl px-5 py-3">
-              <p className="text-2xl font-bold text-amber-400">+20%</p>
-              <p className="text-xs text-neutral-400">MINT bonus</p>
+            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
+              <p className="text-2xl font-bold text-accent">+20%</p>
+              <p className="text-xs text-ink-muted">MINT bonus</p>
             </div>
-            <div className="bg-neutral-900 rounded-xl px-5 py-3">
-              <p className="text-2xl font-bold text-amber-400">24h</p>
-              <p className="text-xs text-neutral-400">Price lock</p>
+            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
+              <p className="text-2xl font-bold text-accent">24h</p>
+              <p className="text-xs text-ink-muted">Price lock</p>
             </div>
           </div>
 
           {/* Payout tiers */}
-          <div className="mt-6 bg-neutral-900 border border-neutral-800 rounded-xl p-5 max-w-2xl">
-            <h3 className="text-sm font-bold text-white mb-3">How Payouts Work</h3>
+          <div className="mt-6 bg-surface border border-border-subtle rounded-lg p-5 max-w-2xl">
+            <h3 className="text-sm font-bold text-ink mb-3">How Payouts Work</h3>
             <div className="space-y-2 text-sm">
               <div className="flex items-start gap-3">
-                <span className="shrink-0 w-16 text-right font-bold text-purple-400">Credit</span>
-                <p className="text-neutral-300">Receive <span className="text-white font-semibold">up to 100% of market value</span> in store credit. Use it to buy any card in our shop.</p>
+                <span className="shrink-0 w-16 text-right font-bold text-accent">Credit</span>
+                <p className="text-ink-muted">Receive <span className="text-ink font-semibold">up to 100% of market value</span> in store credit. Use it to buy any card in our shop.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="shrink-0 w-16 text-right font-bold text-emerald-400">Cash</span>
-                <p className="text-neutral-300">Receive <span className="text-white font-semibold">up to 85% of market value</span> via bank transfer.</p>
+                <span className="shrink-0 w-16 text-right font-bold text-bid">Cash</span>
+                <p className="text-ink-muted">Receive <span className="text-ink font-semibold">up to 85% of market value</span> via bank transfer.</p>
               </div>
               <div className="flex items-start gap-3">
-                <span className="shrink-0 w-16 text-right font-bold text-amber-400">MINT</span>
-                <p className="text-neutral-300">Cards in perfect MINT condition may qualify for a <span className="text-white font-semibold">+20% bonus</span> on top of the base payout. MINT bonus is at the discretion of Cambridge TCG based on our evaluation.</p>
+                <span className="shrink-0 w-16 text-right font-bold text-accent">MINT</span>
+                <p className="text-ink-muted">Cards in perfect MINT condition may qualify for a <span className="text-ink font-semibold">+20% bonus</span> on top of the base payout. MINT bonus is at the discretion of Cambridge TCG based on our evaluation.</p>
               </div>
             </div>
-            <p className="text-xs text-neutral-500 mt-3">
+            <p className="text-xs text-ink-faint mt-3">
               MINT bonus is not guaranteed and is subject to the evaluation and decision of Cambridge TCG. Cards must be pack-fresh with zero imperfections to qualify.
             </p>
           </div>
           <div className="flex gap-3 mt-6 text-sm">
             <Link
               href="/trade-in/terms"
-              className="text-amber-400 hover:text-amber-300 underline underline-offset-2 transition"
+              className="text-accent hover:text-accent-strong underline underline-offset-2 transition"
             >
               Trade-in terms
             </Link>
-            <span className="text-neutral-700">|</span>
+            <span className="text-ink-faint">|</span>
             <Link
               href="/trade-in/submit"
-              className="text-neutral-400 hover:text-white transition"
+              className="text-ink-muted hover:text-ink transition"
             >
               Check submission status
             </Link>
@@ -202,44 +202,44 @@ export default async function TradeInPage({
 
       {/* Trade-in options */}
       <section className="max-w-7xl mx-auto px-4 pt-8 grid gap-4 sm:grid-cols-3">
-        <div className="bg-gradient-to-r from-amber-500/10 to-emerald-500/10 border border-amber-500/20 rounded-xl p-5 flex flex-col justify-between">
+        <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
           <div>
-            <h2 className="text-white font-bold">Cards not on the buylist?</h2>
-            <p className="text-neutral-400 text-sm mt-1">
+            <h2 className="text-ink font-bold">Cards not on the buylist?</h2>
+            <p className="text-ink-muted text-sm mt-1">
               Send us photos of individual cards — graded, alt arts, other games.
             </p>
           </div>
           <Link
             href="/trade-in/custom-quote"
-            className="mt-4 inline-block px-5 py-2.5 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition text-center"
+            className="mt-4 inline-block px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition text-center"
           >
             Request Quote
           </Link>
         </div>
-        <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-xl p-5 flex flex-col justify-between">
+        <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
           <div>
-            <h2 className="text-white font-bold">Selling a collection?</h2>
-            <p className="text-neutral-400 text-sm mt-1">
+            <h2 className="text-ink font-bold">Selling a collection?</h2>
+            <p className="text-ink-muted text-sm mt-1">
               Complete sets, binders, mixed lots — one offer for the entire bundle.
             </p>
           </div>
           <Link
             href="/trade-in/bundle"
-            className="mt-4 inline-block px-5 py-2.5 bg-purple-500 text-white text-sm font-bold rounded-lg hover:bg-purple-400 transition text-center"
+            className="mt-4 inline-block px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition text-center"
           >
             Sell a Bundle
           </Link>
         </div>
-        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-xl p-5 flex flex-col justify-between">
+        <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
           <div>
-            <h2 className="text-white font-bold">Got bulk commons &amp; rares?</h2>
-            <p className="text-neutral-400 text-sm mt-1">
+            <h2 className="text-ink font-bold">Got bulk commons &amp; rares?</h2>
+            <p className="text-ink-muted text-sm mt-1">
               We buy C, UC, and R cards at 2p each. No sorting needed — just count and send.
             </p>
           </div>
           <Link
             href="/trade-in/bulk"
-            className="mt-4 inline-block px-5 py-2.5 bg-emerald-500 text-black text-sm font-bold rounded-lg hover:bg-emerald-400 transition text-center"
+            className="mt-4 inline-block px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition text-center"
           >
             Sell Bulk Cards
           </Link>
@@ -256,8 +256,8 @@ export default async function TradeInPage({
               href={g.slug === "one-piece" ? "/trade-in" : `/trade-in?game=${g.slug}`}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
                 game === g.slug
-                  ? "bg-amber-500 text-black"
-                  : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white"
+                  ? "bg-ink text-page"
+                  : "bg-surface border border-border-subtle text-ink-muted hover:text-ink"
               }`}
             >
               {g.label}

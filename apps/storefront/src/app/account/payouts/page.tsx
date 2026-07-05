@@ -77,27 +77,27 @@ const METHOD_LABELS: Record<HistoryRow["method"], string> = {
 const STATUS_COPY: Record<string, { badge: string; className: string; detail: string }> = {
   pending: {
     badge: "Not started",
-    className: "bg-neutral-500/15 text-neutral-300 border-neutral-500/30",
+    className: "bg-ink-faint/15 text-ink-muted border-border-strong",
     detail: "Complete Stripe onboarding to start receiving payouts.",
   },
   incomplete: {
     badge: "Onboarding incomplete",
-    className: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    className: "bg-accent-wash text-accent border-accent/30",
     detail: "Stripe still needs some information from you. Click Continue to finish.",
   },
   verified: {
     badge: "Verified",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-ok/15 text-ok border-ok/30",
     detail: "Your Stripe account is set up and ready to receive payouts.",
   },
   restricted: {
     badge: "Restricted",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-danger/15 text-danger border-danger/30",
     detail: "Stripe has restricted your account. Open the portal to see what's needed.",
   },
   rejected: {
     badge: "Rejected",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-danger/15 text-danger border-danger/30",
     detail: "Stripe rejected your account. Contact support.",
   },
 };
@@ -106,7 +106,7 @@ const STATUS_COPY: Record<string, { badge: string; className: string; detail: st
 // boundary to avoid CSR-bailout during static prerender.
 export default function PayoutsPage() {
   return (
-    <Suspense fallback={<p className="text-neutral-500 text-sm">Loading...</p>}>
+    <Suspense fallback={<p className="text-ink-faint text-sm">Loading...</p>}>
       <Audience kind="consumer" />
       <PayoutsPageInner />
     </Suspense>
@@ -226,55 +226,55 @@ function PayoutsPageInner() {
   }
 
   if (loading) {
-    return <p className="text-neutral-500 text-sm">Loading...</p>;
+    return <p className="text-ink-faint text-sm">Loading...</p>;
   }
 
   const copy = status?.status ? STATUS_COPY[status.status] : null;
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-2">
+      <h1 className="text-2xl font-display font-semibold text-ink mb-2">
         Payouts
         <WhyLink href="/methodology/payout-hold" tooltip="Why is my payout held, and for how long?" />
       </h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <p className="text-sm text-ink-muted mb-6">
         Connect your bank account via Stripe to receive payouts for trades and auctions you sell.
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-6 text-sm text-red-400">
+        <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mb-6 text-sm text-danger">
           {error}
         </div>
       )}
 
       {/* Status card */}
-      <div className="bg-neutral-900 rounded-xl p-5 mb-6">
+      <div className="bg-surface rounded-lg p-5 mb-6">
         {!status?.accountId ? (
           <>
-            <h2 className="text-white font-bold mb-1">Get paid via Stripe</h2>
-            <p className="text-sm text-neutral-400 mb-4">
+            <h2 className="text-ink font-bold mb-1">Get paid via Stripe</h2>
+            <p className="text-sm text-ink-muted mb-4">
               Stripe handles identity verification, bank details, and payouts. Takes a few minutes.
               You only need to do this once.
             </p>
             <div className="mb-4">
-              <label className="block text-xs text-neutral-500 mb-1">Country</label>
+              <label className="block text-xs text-ink-faint mb-1">Country</label>
               <select
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full max-w-xs px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+                className="w-full max-w-xs px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
               >
                 {(countries.length ? countries : ["GB"]).map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <p className="text-[11px] text-neutral-500 mt-1">
+              <p className="text-[11px] text-ink-faint mt-1">
                 Country is fixed once your Stripe account is created. Choose carefully.
               </p>
             </div>
             <button
               onClick={startOnboarding}
               disabled={onboarding}
-              className="px-4 py-2.5 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+              className="px-4 py-2.5 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
             >
               {onboarding ? "Opening Stripe..." : "Connect with Stripe"}
             </button>
@@ -283,7 +283,7 @@ function PayoutsPageInner() {
           <>
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <h2 className="text-white font-bold">Stripe Connect</h2>
+                <h2 className="text-ink font-bold">Stripe Connect</h2>
                 {copy && (
                   <span className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full border ${copy.className}`}>
                     {copy.badge}
@@ -293,23 +293,23 @@ function PayoutsPageInner() {
               <button
                 onClick={refresh}
                 disabled={refreshing}
-                className="text-xs text-neutral-400 hover:text-white transition"
+                className="text-xs text-ink-muted hover:text-ink transition"
               >
                 {refreshing ? "Refreshing..." : "Refresh"}
               </button>
             </div>
-            <p className="text-sm text-neutral-400 mb-4">{copy?.detail}</p>
+            <p className="text-sm text-ink-muted mb-4">{copy?.detail}</p>
             <div className="flex gap-3 flex-wrap">
               {status.status !== "verified" && (
                 <button
                   onClick={startOnboarding}
                   disabled={onboarding}
-                  className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+                  className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
                 >
                   {onboarding ? "Opening..." : status.status === "incomplete" ? "Continue onboarding" : "Open Stripe portal"}
                 </button>
               )}
-              <div className="text-xs text-neutral-500 flex items-center gap-3">
+              <div className="text-xs text-ink-faint flex items-center gap-3">
                 <span>Charges: {status.chargesEnabled ? "on" : "off"}</span>
                 <span>Payouts: {status.payoutsEnabled ? "on" : "off"}</span>
                 {status.updatedAt && (
@@ -323,38 +323,38 @@ function PayoutsPageInner() {
 
       {/* Pending payouts */}
       {pending && (pending.trades.length > 0 || pending.auctions.length > 0 || pending.tradeins.length > 0 || pending.quotes.length > 0) && (
-        <div className="bg-neutral-900 rounded-xl p-5">
+        <div className="bg-surface rounded-lg p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-white font-bold text-sm uppercase tracking-wide">Pending Payouts</h2>
-            <span className="text-amber-400 font-bold">{pending.totalOwedFormatted}</span>
+            <h2 className="text-ink font-bold text-sm uppercase tracking-wide">Pending Payouts</h2>
+            <span className="text-accent font-bold">{pending.totalOwedFormatted}</span>
           </div>
 
           {/* Ready vs holding split. Sellers see at a glance how much
               they could collect now vs. how much is still in the
               hold-period queue, plus when the next holding row clears. */}
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wide text-emerald-400 font-semibold">Ready to release</div>
-              <div className="text-sm font-mono font-bold text-white mt-0.5">{pending.readyTotalFormatted}</div>
+            <div className="bg-ok/10 border border-ok/20 rounded-lg px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-ok font-semibold">Ready to release</div>
+              <div className="text-sm font-mono font-bold text-ink mt-0.5">{pending.readyTotalFormatted}</div>
             </div>
-            <div className="bg-neutral-800/60 border border-neutral-700 rounded-lg px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wide text-neutral-400 font-semibold">In hold window</div>
-              <div className="text-sm font-mono font-bold text-white mt-0.5">{pending.holdingTotalFormatted}</div>
+            <div className="bg-surface-subtle border border-border-subtle rounded-lg px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-ink-muted font-semibold">In hold window</div>
+              <div className="text-sm font-mono font-bold text-ink mt-0.5">{pending.holdingTotalFormatted}</div>
               {pending.nextAvailableAt && (
-                <div className="text-[10px] text-neutral-500 mt-0.5">
+                <div className="text-[10px] text-ink-faint mt-0.5">
                   Next clears <RelativeDate iso={pending.nextAvailableAt} />
                 </div>
               )}
             </div>
           </div>
 
-          <p className="text-xs text-neutral-500 mb-4">
+          <p className="text-xs text-ink-faint mb-4">
             Hold period starts when a trade completes or an auction is paid. Once the timer
             elapses, the cron sweep releases the payout to your Stripe account.
           </p>
           {pending.trades.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs text-neutral-500 mb-2">P2P trades</p>
+              <p className="text-xs text-ink-faint mb-2">P2P trades</p>
               <div className="space-y-1.5">
                 {pending.trades.map((t) => (
                   <PendingTradeRow key={t.id} row={t} />
@@ -364,7 +364,7 @@ function PayoutsPageInner() {
           )}
           {pending.auctions.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs text-neutral-500 mb-2">Auctions</p>
+              <p className="text-xs text-ink-faint mb-2">Auctions</p>
               <div className="space-y-1.5">
                 {pending.auctions.map((a) => (
                   <PendingTradeRow key={a.id} row={a} />
@@ -374,7 +374,7 @@ function PayoutsPageInner() {
           )}
           {pending.tradeins.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs text-neutral-500 mb-2">Trade-ins</p>
+              <p className="text-xs text-ink-faint mb-2">Trade-ins</p>
               <div className="space-y-1.5">
                 {pending.tradeins.map((r) => (
                   <PendingSubmissionRow key={r.reference} row={r} kind="Trade-in" />
@@ -384,7 +384,7 @@ function PayoutsPageInner() {
           )}
           {pending.quotes.length > 0 && (
             <div>
-              <p className="text-xs text-neutral-500 mb-2">Quotes</p>
+              <p className="text-xs text-ink-faint mb-2">Quotes</p>
               <div className="space-y-1.5">
                 {pending.quotes.map((r) => (
                   <PendingSubmissionRow key={r.reference} row={r} kind="Quote" />
@@ -396,18 +396,18 @@ function PayoutsPageInner() {
       )}
 
       {pending && pending.trades.length === 0 && pending.auctions.length === 0 && pending.tradeins.length === 0 && pending.quotes.length === 0 && (
-        <p className="text-sm text-neutral-500">No pending payouts.</p>
+        <p className="text-sm text-ink-faint">No pending payouts.</p>
       )}
 
       {liquidity && liquidity.awardCount > 0 && (
-        <div className="mt-6 bg-neutral-900 rounded-xl p-5 border border-purple-500/20">
+        <div className="mt-6 bg-surface rounded-lg p-5 border border-border-subtle">
           <div className="flex items-baseline justify-between mb-1">
-            <h2 className="text-sm font-bold text-purple-400 uppercase tracking-wide">
+            <h2 className="text-sm font-bold text-ink-muted uppercase tracking-wide">
               Liquidity rewards
             </h2>
-            <span className="text-purple-400 font-mono font-bold">{liquidity.totalFormatted}</span>
+            <span className="text-ink font-mono font-bold">{liquidity.totalFormatted}</span>
           </div>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             {liquidity.awardCount} rewards earned for keeping tight, resting asks. Paid as store credit &middot;
             appears in your account credit balance.
           </p>
@@ -430,7 +430,7 @@ function PayoutsPageInner() {
 function RelativeDate({ iso }: { iso: string }) {
   const t = new Date(iso).getTime();
   const ms = t - Date.now();
-  if (ms <= 0) return <span className="text-emerald-400 font-medium">ready</span>;
+  if (ms <= 0) return <span className="text-ok font-medium">ready</span>;
   const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
   if (days <= 1) return <span>tomorrow</span>;
   return <span>in {days} days</span>;
@@ -445,24 +445,24 @@ function PendingTradeRow({ row }: { row: PendingPayout }) {
   return (
     <div className="flex items-center justify-between text-sm gap-3">
       <div className="min-w-0">
-        <div className="text-neutral-300 truncate">{row.label}</div>
-        <div className="text-[11px] text-neutral-500 mt-0.5">
+        <div className="text-ink-muted truncate">{row.label}</div>
+        <div className="text-[11px] text-ink-faint mt-0.5">
           {row.isReady ? (
-            <span className="text-emerald-400 font-medium">Ready to release</span>
+            <span className="text-ok font-medium">Ready to release</span>
           ) : row.availableAt ? (
             <>
               <span>Available {dateLabel}</span>
               <span className="mx-1.5">·</span>
               <RelativeDate iso={row.availableAt} />
               <span className="mx-1.5">·</span>
-              <span className="text-neutral-600">{row.holdDays}-day hold</span>
+              <span className="text-ink-faint">{row.holdDays}-day hold</span>
             </>
           ) : (
-            <span className="text-neutral-600">Hold timer not started</span>
+            <span className="text-ink-faint">Hold timer not started</span>
           )}
         </div>
       </div>
-      <span className="text-white font-mono shrink-0 ml-3">{row.amountFormatted}</span>
+      <span className="text-ink font-mono shrink-0 ml-3">{row.amountFormatted}</span>
     </div>
   );
 }
@@ -477,12 +477,12 @@ function PendingSubmissionRow({ row, kind }: { row: PendingSubmissionPayout; kin
     : "—";
   return (
     <div className="flex items-center justify-between text-sm gap-3">
-      <span className="text-neutral-300 truncate">
-        {kind} <span className="text-neutral-500">{row.reference}</span>
+      <span className="text-ink-muted truncate">
+        {kind} <span className="text-ink-faint">{row.reference}</span>
       </span>
       <span className="flex items-center gap-2 shrink-0">
-        <span className="text-[10px] text-neutral-500 uppercase tracking-wide">{row.status} · {legHint}</span>
-        <span className="text-white font-mono">{row.amountFormatted}</span>
+        <span className="text-[10px] text-ink-faint uppercase tracking-wide">{row.status} · {legHint}</span>
+        <span className="text-ink font-mono">{row.amountFormatted}</span>
       </span>
     </div>
   );
@@ -511,16 +511,16 @@ function EarningsHistorySection({
 }) {
   if (loading) {
     return (
-      <div className="mt-6 bg-neutral-900 rounded-xl p-5">
-        <p className="text-sm text-neutral-500">Loading earnings history…</p>
+      <div className="mt-6 bg-surface rounded-lg p-5">
+        <p className="text-sm text-ink-faint">Loading earnings history…</p>
       </div>
     );
   }
   if (!history || history.rows.length === 0) {
     return (
-      <div className="mt-6 bg-neutral-900 rounded-xl p-5">
-        <h2 className="text-white font-bold text-sm uppercase tracking-wide mb-1">Earnings history</h2>
-        <p className="text-sm text-neutral-500">
+      <div className="mt-6 bg-surface rounded-lg p-5">
+        <h2 className="text-ink font-bold text-sm uppercase tracking-wide mb-1">Earnings history</h2>
+        <p className="text-sm text-ink-faint">
           No completed payouts yet. Once a trade, auction, or trade-in pays out, it will appear here.
         </p>
       </div>
@@ -530,12 +530,12 @@ function EarningsHistorySection({
   const year = new Date().getUTCFullYear();
 
   return (
-    <div className="mt-6 bg-neutral-900 rounded-xl p-5">
+    <div className="mt-6 bg-surface rounded-lg p-5">
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
-        <h2 className="text-white font-bold text-sm uppercase tracking-wide">Earnings history</h2>
+        <h2 className="text-ink font-bold text-sm uppercase tracking-wide">Earnings history</h2>
         <div className="flex items-baseline gap-4 text-xs">
-          <span className="text-neutral-500">{year} YTD <span className="text-amber-400 font-bold ml-1">{history.totals.ytdFormatted}</span></span>
-          <span className="text-neutral-500">All-time <span className="text-white font-bold ml-1">{history.totals.allTimeFormatted}</span></span>
+          <span className="text-ink-faint">{year} YTD <span className="text-accent font-bold ml-1">{history.totals.ytdFormatted}</span></span>
+          <span className="text-ink-faint">All-time <span className="text-ink font-bold ml-1">{history.totals.allTimeFormatted}</span></span>
         </div>
       </div>
 
@@ -548,8 +548,8 @@ function EarningsHistorySection({
               onClick={() => onFilterChange(f.key)}
               className={`text-xs px-2.5 py-1 rounded-full transition ${
                 active
-                  ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-800 text-neutral-400 hover:text-white"
+                  ? "bg-ink text-page font-semibold"
+                  : "bg-surface-subtle text-ink-muted hover:text-ink"
               }`}
             >
               {f.label}
@@ -559,36 +559,36 @@ function EarningsHistorySection({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-neutral-500">No matches in this filter.</p>
+        <p className="text-xs text-ink-faint">No matches in this filter.</p>
       ) : (
-        <div className="divide-y divide-neutral-800">
+        <div className="divide-y divide-border-subtle">
           {rows.map((r) => (
             <div key={`${r.source}-${r.id}`} className="flex items-center justify-between py-2 gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-white truncate">{r.label}</span>
-                  <span className="text-[10px] text-neutral-500 uppercase tracking-wide">{SOURCE_LABELS[r.source]}</span>
+                  <span className="text-sm text-ink truncate">{r.label}</span>
+                  <span className="text-[10px] text-ink-faint uppercase tracking-wide">{SOURCE_LABELS[r.source]}</span>
                 </div>
-                <div className="text-[11px] text-neutral-500 mt-0.5">
+                <div className="text-[11px] text-ink-faint mt-0.5">
                   {new Date(r.paidAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   <span className="mx-1.5">·</span>
                   {METHOD_LABELS[r.method]}
                   {r.reference && (
                     <>
                       <span className="mx-1.5">·</span>
-                      <code className="text-neutral-500">{r.reference.slice(0, 16)}{r.reference.length > 16 ? "…" : ""}</code>
+                      <code className="text-ink-faint">{r.reference.slice(0, 16)}{r.reference.length > 16 ? "…" : ""}</code>
                     </>
                   )}
                 </div>
               </div>
-              <span className="text-sm font-mono text-white shrink-0">{r.amountFormatted}</span>
+              <span className="text-sm font-mono text-ink shrink-0">{r.amountFormatted}</span>
             </div>
           ))}
         </div>
       )}
 
       {history.truncated && (
-        <p className="text-[11px] text-neutral-600 mt-3">
+        <p className="text-[11px] text-ink-faint mt-3">
           Showing most recent {history.rows.length} of {history.totalRows} payouts.
         </p>
       )}

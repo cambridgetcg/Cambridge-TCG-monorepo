@@ -93,13 +93,13 @@ export default function SwapsPage() {
             const myDelta = iAmProposer ? s.cash_delta_pence : -s.cash_delta_pence;
             return (
               <Link key={s.id} href={`/account/swaps/${s.id}`} className="block group">
-                <Card className="group-hover:border-amber-500/40 transition">
+                <Card className="group-hover:border-accent/40 transition">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="min-w-0">
-                      <p className="text-sm text-white font-bold">
+                      <p className="text-sm text-ink font-bold">
                         {tab === "incoming" ? `From ${counterparty}` : `To ${counterparty}`}
                       </p>
-                      <p className="text-xs text-neutral-400 mt-1">
+                      <p className="text-xs text-ink-muted mt-1">
                         You send {give ?? 0} {pluralize(give ?? 0, "card line")} · you receive{" "}
                         {get ?? 0} {pluralize(get ?? 0, "card line")}
                         {myDelta !== 0 && (
@@ -110,12 +110,12 @@ export default function SwapsPage() {
                         )}
                       </p>
                       {s.note && (
-                        <p className="text-xs text-neutral-500 mt-1 truncate">“{s.note}”</p>
+                        <p className="text-xs text-ink-faint mt-1 truncate">“{s.note}”</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
                       <Badge status={s.status} palette={SwapStatusPalette} labels={SwapStatusLabels} />
-                      <p className="text-[10px] text-neutral-500 mt-1.5">
+                      <p className="text-[10px] text-ink-faint mt-1.5">
                         {s.status === "proposed" && s.expires_at
                           ? `responds within ${formatTimeUntil(s.expires_at)}`
                           : formatRelativeTime(s.updated_at)}

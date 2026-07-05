@@ -15,7 +15,7 @@ export default function OrderDetails() {
     <div className="text-center mt-8">
       <Link
         href="/catalog?game=one-piece"
-        className="inline-block px-6 py-3 bg-emerald-500 text-black font-bold rounded-lg hover:bg-emerald-400 transition"
+        className="inline-block px-6 py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"
       >
         Continue Shopping
       </Link>

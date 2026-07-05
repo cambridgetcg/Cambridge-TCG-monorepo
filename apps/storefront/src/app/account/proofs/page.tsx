@@ -25,11 +25,11 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 const KIND_TONE: Record<string, string> = {
-  bounty_pull: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  pack_open:   "bg-sky-500/15 text-sky-400 border-sky-500/30",
-  spin_wheel:  "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/30",
-  mystery_box: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-  raffle_draw: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  bounty_pull: "bg-warning/15 text-warning border-warning/30",
+  pack_open:   "bg-info/15 text-info border-info/30",
+  spin_wheel:  "bg-[#3e7d8f]/15 text-[#3e7d8f] border-[#3e7d8f]/30",
+  mystery_box: "bg-[#6a5a8f]/15 text-[#6a5a8f] border-[#6a5a8f]/30",
+  raffle_draw: "bg-ok/15 text-ok border-ok/30",
 };
 
 export default function MyProofsPage() {
@@ -50,12 +50,12 @@ export default function MyProofsPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">My Proofs</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-2">My Proofs</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Every provably-fair draw you&apos;ve been part of. Each row links to the
         public verifier — math runs in your browser; our server can&apos;t fake
         the answer.{" "}
-        <Link href="/verify/how-it-works" className="text-amber-400 hover:text-amber-300 underline">
+        <Link href="/verify/how-it-works" className="text-accent hover:text-accent-strong underline">
           How it works
         </Link>
       </p>
@@ -76,9 +76,9 @@ export default function MyProofsPage() {
       )}
 
       {loading ? (
-        <p className="text-neutral-500">Loading…</p>
+        <p className="text-ink-faint">Loading…</p>
       ) : filtered.length === 0 ? (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+        <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
           No provably-fair draws yet. Opening a Bounty Pull or pack will add a proof here.
         </div>
       ) : (
@@ -97,7 +97,7 @@ function FilterBtn({ label, active, onClick }: { label: string; active: boolean;
     <button
       onClick={onClick}
       className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-        active ? "bg-amber-500 text-black" : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+        active ? "bg-ink text-page" : "bg-surface text-ink-muted hover:text-ink hover:bg-surface-subtle"
       }`}
     >
       {label}
@@ -108,30 +108,30 @@ function FilterBtn({ label, active, onClick }: { label: string; active: boolean;
 function ProofRow({ entry }: { entry: Entry }) {
   const ts = entry.revealed_at ?? entry.committed_at;
   return (
-    <div className="bg-neutral-900 rounded-xl px-3 py-2.5 flex items-center gap-3 flex-wrap">
-      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${KIND_TONE[entry.kind] ?? "bg-neutral-800 text-neutral-300 border-neutral-700"}`}>
+    <div className="bg-surface rounded-lg px-3 py-2.5 flex items-center gap-3 flex-wrap">
+      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${KIND_TONE[entry.kind] ?? "bg-surface-subtle text-ink-muted border-border-subtle"}`}>
         {KIND_LABEL[entry.kind] ?? entry.kind}
       </span>
 
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm truncate">
-          {entry.subject_label ?? <span className="text-neutral-500 font-normal">—</span>}
+          {entry.subject_label ?? <span className="text-ink-faint font-normal">—</span>}
         </p>
-        <p className="text-xs text-neutral-500 flex items-center gap-2 flex-wrap">
+        <p className="text-xs text-ink-faint flex items-center gap-2 flex-wrap">
           {entry.outcome_label && <span className="font-mono uppercase">{entry.outcome_label}</span>}
           {entry.merkle_digest_id != null && (
-            <span className="text-emerald-500/80 text-[10px]">anchored in #{entry.merkle_digest_id}</span>
+            <span className="text-ok/80 text-[10px]">anchored in #{entry.merkle_digest_id}</span>
           )}
         </p>
       </div>
 
-      <span className="text-[11px] text-neutral-600">
+      <span className="text-[11px] text-ink-faint">
         {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
       </span>
 
       <Link
         href={entry.verify_path}
-        className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded px-2 py-1 transition"
+        className="text-xs bg-ok/10 hover:bg-ok/20 border border-ok/30 text-ok rounded px-2 py-1 transition"
       >
         Verify ↗
       </Link>

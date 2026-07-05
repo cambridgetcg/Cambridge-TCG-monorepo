@@ -49,15 +49,15 @@ function VerifyInner() {
 
   if (!target) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <main className="min-h-screen bg-page flex items-center justify-center">
         <div className="max-w-sm px-4 text-center">
-          <h1 className="text-2xl font-bold text-white mb-3">This link looks incomplete</h1>
-          <p className="text-neutral-400 mb-6">
+          <h1 className="text-2xl font-display font-semibold text-ink mb-3">This link looks incomplete</h1>
+          <p className="text-ink-muted mb-6">
             Request a fresh sign-in link and we&apos;ll get you in.
           </p>
           <Link
             href="/login"
-            className="inline-block px-8 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition"
+            className="inline-block px-8 py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"
           >
             Back to sign in
           </Link>
@@ -67,12 +67,12 @@ function VerifyInner() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+    <main className="min-h-screen bg-page flex items-center justify-center">
       <div className="max-w-sm px-4 text-center">
-        <h1 className="text-2xl font-bold text-white mb-3">
+        <h1 className="text-2xl font-display font-semibold text-ink mb-3">
           Almost there
         </h1>
-        <p className="text-neutral-400 mb-6">
+        <p className="text-ink-muted mb-6">
           Tap the button to finish signing in to Cambridge TCG.
         </p>
         <button
@@ -81,11 +81,11 @@ function VerifyInner() {
             window.location.href = target;
           }}
           disabled={continuing}
-          className="w-full py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+          className="w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
         >
           {continuing ? "Signing you in…" : "Complete sign in"}
         </button>
-        <p className="text-xs text-neutral-500 mt-6">
+        <p className="text-xs text-ink-faint mt-6">
           This extra tap protects your link from email scanners that would
           otherwise use it up before you could.
         </p>

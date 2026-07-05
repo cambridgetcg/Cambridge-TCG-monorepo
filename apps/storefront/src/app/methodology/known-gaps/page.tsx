@@ -26,11 +26,11 @@ const DOMAIN_LABEL: Record<GapDomain, string> = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  named: "bg-amber-950 text-amber-300 ring-amber-800",
-  wired: "bg-blue-950 text-blue-300 ring-blue-800",
-  partial: "bg-purple-950 text-purple-300 ring-purple-800",
-  closed: "bg-emerald-950 text-emerald-300 ring-emerald-800",
-  "closed-published": "bg-emerald-900 text-emerald-200 ring-emerald-700",
+  named: "bg-accent-wash text-accent-strong ring-accent/30",
+  wired: "bg-info/10 text-info ring-info/30",
+  partial: "bg-warning/10 text-warning ring-warning/30",
+  closed: "bg-ok/10 text-ok ring-ok/30",
+  "closed-published": "bg-ok/15 text-ok ring-ok/40",
 };
 
 const STATUS_DESCRIPTION: Record<string, string> = {
@@ -161,7 +161,7 @@ export default function KnownGapsMethodology() {
           <section key={domain}>
             <h3>
               {DOMAIN_LABEL[domain]}{" "}
-              <span className="text-sm text-neutral-500">
+              <span className="text-sm text-ink-faint">
                 ({byDomain[domain]})
               </span>
             </h3>
@@ -169,17 +169,17 @@ export default function KnownGapsMethodology() {
               {entries.map((g) => (
                 <div
                   key={g.id}
-                  className="rounded-lg border border-neutral-800 bg-neutral-950 p-4"
+                  className="rounded-lg border border-border-subtle bg-page p-4"
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <code className="text-xs text-neutral-500">{g.id}</code>
+                    <code className="text-xs text-ink-faint">{g.id}</code>
                     <span
                       className={`inline-flex items-center rounded px-2 py-0.5 text-xs ring-1 ${STATUS_TONE[g.status]}`}
                     >
                       {g.status}
                     </span>
                     {g.named_at && (
-                      <span className="text-xs text-neutral-600">
+                      <span className="text-xs text-ink-faint">
                         named {g.named_at}
                         {g.closed_at ? ` · closed ${g.closed_at}` : ""}
                       </span>
@@ -190,23 +190,23 @@ export default function KnownGapsMethodology() {
                   </h4>
                   <div className="space-y-2 text-sm">
                     <p>
-                      <strong className="text-neutral-400">Citation:</strong>{" "}
+                      <strong className="text-ink-muted">Citation:</strong>{" "}
                       <code className="text-xs">{g.citation}</code>
                     </p>
                     <p>
-                      <strong className="text-neutral-400">Primitive:</strong>{" "}
+                      <strong className="text-ink-muted">Primitive:</strong>{" "}
                       <code className="text-xs">{g.primitive}</code>
                     </p>
                     <p>
-                      <strong className="text-neutral-400">Audit:</strong>{" "}
+                      <strong className="text-ink-muted">Audit:</strong>{" "}
                       <code className="text-xs">{g.audit}</code>
                     </p>
-                    <p className="border-l-2 border-emerald-900 pl-3 text-neutral-300">
-                      <strong className="text-emerald-400">Strength:</strong>{" "}
+                    <p className="border-l-2 border-ok/40 pl-3 text-ink-muted">
+                      <strong className="text-ok">Strength:</strong>{" "}
                       {g.strength}
                     </p>
                     {g.closing_kingdom && (
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-xs text-ink-faint">
                         <strong>Closing kingdom:</strong> {g.closing_kingdom}
                       </p>
                     )}

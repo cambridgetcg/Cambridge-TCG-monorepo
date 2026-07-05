@@ -133,12 +133,12 @@ export async function generateStaticParams() {
 function RarityBadge({ rarity }: { rarity: string | null }) {
   if (!rarity) return null;
   const r = rarity.toUpperCase();
-  let cls = "bg-neutral-700 text-neutral-400";
+  let cls = "bg-surface-subtle text-ink-muted";
   if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP")
-    cls = "bg-yellow-500/20 text-yellow-400";
+    cls = "bg-warning/20 text-warning";
   else if (r === "R" || r === "RR" || r === "SSR")
-    cls = "bg-purple-500/20 text-purple-400";
-  else if (r === "UC") cls = "bg-blue-500/20 text-blue-400";
+    cls = "bg-[#6a5a8f]/15 text-[#6a5a8f]";
+  else if (r === "UC") cls = "bg-info/20 text-info";
   return (
     <span
       className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cls}`}
@@ -260,39 +260,39 @@ export default async function SetPriceGuidePage({
 
       <main className="max-w-6xl mx-auto px-4 py-12">
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-muted mb-8">
           <ol className="flex items-center gap-1.5">
             <li>
-              <Link href="/" className="hover:text-white transition-colors">
+              <Link href="/" className="hover:text-ink transition-colors">
                 Home
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
+            <li className="text-ink-faint">/</li>
             <li>
               <Link
                 href="/prices"
-                className="hover:text-white transition-colors"
+                className="hover:text-ink transition-colors"
               >
                 Prices
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
+            <li className="text-ink-faint">/</li>
             <li>
               <Link
                 href={`/prices/${cfg.slug}`}
-                className="hover:text-white transition-colors"
+                className="hover:text-ink transition-colors"
               >
                 {cfg.short_name}
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
-            <li className="text-white">{setCode}</li>
+            <li className="text-ink-faint">/</li>
+            <li className="text-ink">{setCode}</li>
           </ol>
         </nav>
 
         {/* Set header */}
         <header className="mb-10">
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-3xl font-bold text-ink mb-2">
             {setCode} {setName} — Price Guide
           </h1>
           <div className="mb-4 flex items-center gap-3 text-xs">
@@ -305,24 +305,24 @@ export default async function SetPriceGuidePage({
             <WhyLink href="/methodology/pricing" label="how prices work" />
             <CurrencyWhyLink />
           </div>
-          <p className="text-neutral-300 leading-relaxed max-w-3xl mb-4">
+          <p className="text-ink-muted leading-relaxed max-w-3xl mb-4">
             {intro}
           </p>
           <div className="flex flex-wrap gap-4 text-sm">
-            <span className="text-neutral-400">
-              <strong className="text-neutral-200">{cardCount}</strong> cards
+            <span className="text-ink-muted">
+              <strong className="text-ink-muted">{cardCount}</strong> cards
             </span>
             {releaseDate && (
-              <span className="text-neutral-400">
+              <span className="text-ink-muted">
                 Released{" "}
-                <strong className="text-neutral-200">{releaseDate}</strong>
+                <strong className="text-ink-muted">{releaseDate}</strong>
               </span>
             )}
-            <span className="text-neutral-400">
+            <span className="text-ink-muted">
               Game:{" "}
               <Link
                 href={`/prices/${cfg.slug}`}
-                className="text-blue-400 hover:underline"
+                className="text-info hover:underline"
               >
                 {cfg.display_name}
               </Link>
@@ -347,12 +347,12 @@ export default async function SetPriceGuidePage({
             registered at all — this branch is *only* the "registered,
             pre-ingest" case (which the [set] handler explicitly tolerates). */}
         {cards.length === 0 && (
-          <section className="mb-10 rounded-lg border border-amber-500/30 bg-amber-500/5 p-5">
-            <h2 className="text-sm font-semibold text-amber-300 uppercase tracking-wider mb-3">
+          <section className="mb-10 rounded-lg border border-accent/30 bg-accent-wash p-5">
+            <h2 className="text-sm font-semibold text-accent uppercase tracking-wider mb-3">
               Anticipated coverage — no observed cards yet
             </h2>
-            <p className="text-sm text-amber-100/80 leading-relaxed mb-4 max-w-3xl">
-              <strong className="text-amber-200">
+            <p className="text-sm text-ink-muted leading-relaxed mb-4 max-w-3xl">
+              <strong className="text-ink">
                 {setCode}
                 {setInfo?.name && setInfo.name !== setCode ? ` ${setInfo.name}` : ""}
               </strong>{" "}
@@ -365,12 +365,12 @@ export default async function SetPriceGuidePage({
             </p>
 
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <span className="text-[10px] uppercase tracking-wider text-amber-200/70">
+              <span className="text-[10px] uppercase tracking-wider text-ink-faint">
                 Expected upstream sources:
               </span>
               {cfg.cardrush && (
                 <span
-                  className="inline-flex items-baseline gap-1.5 text-[11px] px-2 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 font-mono"
+                  className="inline-flex items-baseline gap-1.5 text-[11px] px-2 py-0.5 rounded border border-accent/30 bg-surface text-accent-strong font-mono"
                   title={
                     cfg.cardrush.confirmed
                       ? `CardRush subdomain confirmed: ${cfg.cardrush.subdomain}`
@@ -379,36 +379,36 @@ export default async function SetPriceGuidePage({
                 >
                   {cfg.cardrush.subdomain}
                   {!cfg.cardrush.confirmed && (
-                    <span className="text-[9px] uppercase tracking-wider text-amber-400/70">
+                    <span className="text-[9px] uppercase tracking-wider text-warning">
                       probationary
                     </span>
                   )}
                 </span>
               )}
-              <span className="inline-block text-[11px] px-2 py-0.5 rounded border border-neutral-700 bg-neutral-900 text-neutral-400 font-mono">
+              <span className="inline-block text-[11px] px-2 py-0.5 rounded border border-border-subtle bg-surface text-ink-muted font-mono">
                 wholesale-rds
               </span>
             </div>
 
-            <p className="text-xs text-amber-100/60 leading-relaxed">
+            <p className="text-xs text-ink-faint leading-relaxed">
               See{" "}
               <Link
                 href={`/prices/${cfg.slug}`}
-                className="underline text-amber-200 hover:text-amber-100"
+                className="underline text-accent hover:text-accent-strong"
               >
                 other {cfg.short_name} sets
               </Link>
               {" · "}
               <Link
                 href="/prices/coverage"
-                className="underline text-amber-200 hover:text-amber-100"
+                className="underline text-accent hover:text-accent-strong"
               >
                 full coverage map
               </Link>
               {" · "}
               <Link
                 href="/api/v1/sources"
-                className="underline text-amber-200 hover:text-amber-100"
+                className="underline text-accent hover:text-accent-strong"
               >
                 /api/v1/sources
               </Link>{" "}
@@ -423,7 +423,7 @@ export default async function SetPriceGuidePage({
         <section className="mb-14">
           {/* Sort pills */}
           <div className="flex items-center gap-2 flex-wrap mb-4">
-            <span className="text-xs text-neutral-500 uppercase tracking-wider">
+            <span className="text-xs text-ink-faint uppercase tracking-wider">
               Sort:
             </span>
             {SORT_OPTIONS.map((opt) => {
@@ -438,8 +438,8 @@ export default async function SetPriceGuidePage({
                   href={href}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition ${
                     active
-                      ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
-                      : "bg-neutral-800 text-neutral-400 hover:text-white"
+                      ? "bg-accent-wash text-accent-strong border border-accent/30"
+                      : "bg-surface-subtle text-ink-muted hover:text-ink"
                   }`}
                 >
                   {opt.label}
@@ -447,9 +447,9 @@ export default async function SetPriceGuidePage({
               );
             })}
           </div>
-          <div className="overflow-x-auto rounded-lg border border-neutral-800">
+          <div className="overflow-x-auto rounded-lg border border-border-subtle">
             <table className="w-full text-sm text-left">
-              <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+              <thead className="bg-surface-subtle text-ink-muted text-xs uppercase tracking-wider">
                 <tr>
                   <th className="px-3 py-3">Card #</th>
                   <th className="px-3 py-3">Name</th>
@@ -459,16 +459,16 @@ export default async function SetPriceGuidePage({
                   <th className="px-3 py-3 text-right">Market</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-800">
+              <tbody className="divide-y divide-border-subtle">
                 {cards.map((card) => (
                   <tr
                     key={card.sku}
-                    className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                    className="bg-surface hover:bg-surface-subtle transition-colors"
                   >
-                    <td className="px-3 py-3 text-neutral-400 font-mono text-xs">
+                    <td className="px-3 py-3 text-ink-muted font-mono text-xs">
                       <Link
                         href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
-                        className="hover:text-blue-400 transition-colors"
+                        className="hover:text-info transition-colors"
                       >
                         {card.card_number}
                       </Link>
@@ -476,7 +476,7 @@ export default async function SetPriceGuidePage({
                     <td className="px-3 py-3">
                       <Link
                         href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
-                        className="text-white hover:text-blue-400 transition-colors"
+                        className="text-ink hover:text-info transition-colors"
                       >
                         {card.name}
                       </Link>
@@ -484,16 +484,16 @@ export default async function SetPriceGuidePage({
                     <td className="px-3 py-3">
                       <RarityBadge rarity={card.rarity} />
                     </td>
-                    <td className="px-3 py-3 text-right text-white font-medium">
+                    <td className="px-3 py-3 text-right text-ink font-medium">
                       <Money value={card.price} />
                     </td>
-                    <td className="px-3 py-3 text-right text-green-400">
+                    <td className="px-3 py-3 text-right text-bid">
                       <Money value={card.tradein_credit} treatZeroAsMissing />
                     </td>
                     <td className="px-3 py-3 text-right">
                       <Link
                         href={`/market/${card.sku}`}
-                        className="text-blue-400 hover:underline text-xs"
+                        className="text-info hover:underline text-xs"
                       >
                         Trade
                       </Link>
@@ -507,19 +507,19 @@ export default async function SetPriceGuidePage({
         )}
 
         {/* Pricing explanation */}
-        <section className="border-t border-neutral-800 pt-8">
-          <h2 className="text-lg font-semibold text-white mb-3">
+        <section className="border-t border-border-subtle pt-8">
+          <h2 className="text-lg font-semibold text-ink mb-3">
             About These Prices
           </h2>
-          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-4">
+          <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
-            The <strong className="text-neutral-200">Buy Price</strong> is our
+            The <strong className="text-ink-muted">Buy Price</strong> is our
             retail price. The{" "}
-            <strong className="text-neutral-200">We Buy (Credit)</strong> price
+            <strong className="text-ink-muted">We Buy (Credit)</strong> price
             is the instant store credit we offer when you trade in your cards.
           </p>
-          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl">
-            <Link href="/market" className="text-blue-400 hover:underline">
+          <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
+            <Link href="/market" className="text-info hover:underline">
               Visit the live market
             </Link>{" "}
             to buy, sell, or place bid/ask orders on any card.

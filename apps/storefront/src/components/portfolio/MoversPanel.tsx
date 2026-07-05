@@ -44,9 +44,9 @@ export default function MoversPanel({ cards, trends, window = 7 }: Props) {
   // history for this user's SKUs.
   if (scored.length === 0) {
     return (
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+      <div className="bg-surface border border-border-subtle rounded-lg p-4">
         <p className="text-sm font-bold mb-1">Movers — last {window} days</p>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-ink-faint">
           No price history yet. Check back after the next daily price tick.
         </p>
       </div>
@@ -54,10 +54,10 @@ export default function MoversPanel({ cards, trends, window = 7 }: Props) {
   }
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+    <div className="bg-surface border border-border-subtle rounded-lg p-4">
       <div className="flex items-baseline justify-between mb-3">
         <h3 className="text-sm font-bold">Movers</h3>
-        <p className="text-[11px] text-neutral-500">last {window} days · {scored.length} tracked</p>
+        <p className="text-[11px] text-ink-faint">last {window} days · {scored.length} tracked</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <MoversList title="Gainers" items={gainers} tone="emerald" />
@@ -74,13 +74,13 @@ function MoversList({
   items: Array<{ card: ValuatedCard; pct: number }>;
   tone: "emerald" | "red";
 }) {
-  const tonePctCls = tone === "emerald" ? "text-emerald-400" : "text-red-400";
+  const tonePctCls = tone === "emerald" ? "text-bid" : "text-ask";
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-2">{title}</p>
+      <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-2">{title}</p>
       <div className="space-y-1.5">
         {items.length === 0 && (
-          <p className="text-[11px] text-neutral-600 italic">Nothing on this side yet.</p>
+          <p className="text-[11px] text-ink-faint italic">Nothing on this side yet.</p>
         )}
         {items.map(({ card, pct }) => {
           const positive = pct >= 0;
@@ -90,14 +90,14 @@ function MoversList({
               key={card.sku + card.condition}
               className="flex items-center gap-2 text-xs"
             >
-              <div className="relative w-8 h-11 flex-shrink-0 rounded overflow-hidden bg-neutral-800">
+              <div className="relative w-8 h-11 flex-shrink-0 rounded overflow-hidden bg-surface-subtle">
                 {card.image_url && (
                   <Image src={card.image_url} alt={card.card_name ?? card.sku} fill sizes="32px" className="object-cover" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-neutral-300 truncate">{card.card_name ?? card.sku}</p>
-                <p className="text-[10px] text-neutral-500 truncate">
+                <p className="text-ink-muted truncate">{card.card_name ?? card.sku}</p>
+                <p className="text-[10px] text-ink-faint truncate">
                   {card.card_number ?? card.sku} · £{card.current_value.toFixed(2)} pos
                 </p>
               </div>

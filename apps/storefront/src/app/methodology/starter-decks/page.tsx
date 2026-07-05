@@ -31,7 +31,7 @@ export default function StarterDecksMethodology() {
   return (
     <>
       <Audience kind="public-documentation" contexts={["starter-decks", "methodology"]} />
-      <main className="max-w-3xl mx-auto px-4 py-12 prose prose-invert prose-neutral">
+      <main className="max-w-3xl mx-auto px-4 py-12 prose">
         <h1>Starter Deck Methodology</h1>
 
         <p>
@@ -285,14 +285,14 @@ export default function StarterDecksMethodology() {
           <li><Link href="/methodology/play-module">/methodology/play-module</Link> — the play module&apos;s fun-first stance</li>
         </ul>
 
-        <p style={{ fontSize: "0.85em", color: "#888", marginTop: "3em" }}>
+        <p className="text-sm text-ink-faint mt-12">
           <em>
             Six starters, six colors, pure fun. The first deck you play
             should be a deck that wants you to play it back.
           </em>
         </p>
 
-        <footer style={{ fontSize: "0.75em", color: "#666", marginTop: "2em", paddingTop: "1em", borderTop: "1px solid #333" }}>
+        <footer className="text-xs text-ink-faint mt-8 pt-4 border-t border-border-subtle">
           Tier-1 catalog: {STARTER_DECKS.length} decks, declared total{" "}
           {STARTER_DECKS.reduce((sum, d) => sum + totalMainDeckCards(d), 0)}{" "}
           main-deck cards across the six.

@@ -245,10 +245,10 @@ const ENDPOINTS: Endpoint[] = [
 function StatusBadge({ s }: { s: Status }) {
   const cls =
     s === "shipped"
-      ? "bg-emerald-500/15 text-emerald-400 border-emerald-700"
+      ? "bg-ok/10 text-ok border-ok/30"
       : s === "partial"
-        ? "bg-amber-500/15 text-amber-400 border-amber-700"
-        : "bg-neutral-700/30 text-neutral-400 border-neutral-700";
+        ? "bg-warning/10 text-warning border-warning/30"
+        : "bg-surface-subtle text-ink-muted border-border-subtle";
   return (
     <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${cls}`}>
       {s}
@@ -262,7 +262,7 @@ export default function OpenDataIndex() {
   const planned = ENDPOINTS.filter((e) => e.status === "planned").length;
 
   return (
-    <div className="prose prose-invert max-w-3xl mx-auto py-12 px-4">
+    <div className="prose max-w-3xl mx-auto py-12 px-4">
       <h1>Open data</h1>
 
       <p className="text-lg">
@@ -277,7 +277,7 @@ export default function OpenDataIndex() {
         This page lists the substrate that&apos;s queryable without one.
       </p>
 
-      <p className="text-sm text-neutral-400">
+      <p className="text-sm text-ink-muted">
         <strong>{shipped} shipped</strong> · {partial} partial ·{" "}
         {planned} planned. Counts as of page render; the surface grows. Status
         is substrate-honest — planned endpoints are named so the next builder
@@ -326,25 +326,25 @@ export default function OpenDataIndex() {
 
       <ul className="list-none p-0 space-y-4">
         {ENDPOINTS.map((e) => (
-          <li key={e.path} className="border border-neutral-800 rounded-md p-4">
+          <li key={e.path} className="border border-border-subtle rounded-md p-4">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <code className="font-mono text-amber-400 font-bold">{e.path}</code>
+              <code className="font-mono text-accent font-semibold">{e.path}</code>
               <StatusBadge s={e.status} />
               {e.auth && e.auth !== "none" && (
-                <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                <span className="text-[10px] uppercase tracking-wider text-ink-faint">
                   auth: {e.auth}
                 </span>
               )}
             </div>
-            <div className="text-white font-medium mt-2">{e.title}</div>
-            <div className="text-sm text-neutral-400 mt-1">{e.blurb}</div>
+            <div className="text-ink font-medium mt-2">{e.title}</div>
+            <div className="text-sm text-ink-muted mt-1">{e.blurb}</div>
             {e.shape && (
-              <div className="text-xs text-neutral-500 mt-2 font-mono">
+              <div className="text-xs text-ink-faint mt-2 font-mono">
                 Shape: {e.shape}
               </div>
             )}
             {e.rateLimit && (
-              <div className="text-xs text-neutral-500 mt-1">
+              <div className="text-xs text-ink-faint mt-1">
                 Rate limit: {e.rateLimit}
               </div>
             )}
@@ -445,7 +445,7 @@ export default function OpenDataIndex() {
 
       <hr />
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         <em>
           Source-of-truth for this page: <code>docs/connections/the-open-substrate.md</code>.
           Doctrinal frame: <code>docs/principles/substrate-honesty.md</code> +{" "}

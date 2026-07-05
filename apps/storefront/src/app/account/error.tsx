@@ -14,7 +14,7 @@ export default function AccountError({ error, reset }: { error: Error & { digest
         <>
           <p>Something went wrong loading your account data. Try again, or contact support if it persists.</p>
           {error.digest && (
-            <p className="mt-2 text-[11px] text-neutral-500">
+            <p className="mt-2 text-[11px] text-ink-faint">
               Reference: <code className="font-mono select-all">{error.digest}</code>
             </p>
           )}
@@ -23,7 +23,7 @@ export default function AccountError({ error, reset }: { error: Error & { digest
       action={
         <button
           onClick={() => reset()}
-          className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-black rounded-md hover:bg-amber-400 transition"
+          className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition"
         >
           Try again
         </button>

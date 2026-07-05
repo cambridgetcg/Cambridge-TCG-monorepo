@@ -27,10 +27,10 @@ interface Response {
 }
 
 const SEVERITY_TONE: Record<string, string> = {
-  critical: "bg-red-500/10 text-red-400 border-red-500/30",
-  high:     "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  medium:   "bg-sky-500/10 text-sky-400 border-sky-500/30",
-  low:      "bg-neutral-800 text-neutral-400 border-neutral-700",
+  critical: "bg-danger/10 text-danger border-danger/30",
+  high:     "bg-accent-wash text-accent border-accent/30",
+  medium:   "bg-info/10 text-info border-info/30",
+  low:      "bg-surface-subtle text-ink-muted border-border-subtle",
 };
 
 // Plain-English guidance per signal_type — what triggered it, what to
@@ -69,7 +69,7 @@ export default function AccountStandingPage() {
     fetch("/api/account/standing").then((r) => r.json()).then(setData);
   }, []);
 
-  if (!data) return <div className="p-8 text-neutral-500">Loading…</div>;
+  if (!data) return <div className="p-8 text-ink-faint">Loading…</div>;
 
   const { standing, flags } = data;
   const goodStanding = !standing.is_suspended && flags.length === 0;
@@ -77,27 +77,27 @@ export default function AccountStandingPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">
+      <h1 className="text-2xl font-bold text-ink mb-2">
         Account Standing
         <WhyLink href="/methodology/fraud-flag" tooltip="How does the platform flag accounts?" />
       </h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <p className="text-sm text-ink-muted mb-6">
         Your active flags, suspension status, and how to clear them. See your{" "}
-        <Link href="/account/trust" className="text-amber-400 underline">trust score</Link>{" "}
+        <Link href="/account/trust" className="text-accent underline">trust score</Link>{" "}
         for the full breakdown.
       </p>
 
       {/* Headline status */}
-      <div className={`rounded-xl p-5 mb-6 border ${
-        standing.is_suspended ? "border-red-500/40 bg-red-500/5"
-          : flags.length > 0 ? "border-amber-500/40 bg-amber-500/5"
-          : "border-emerald-500/40 bg-emerald-500/5"
+      <div className={`rounded-lg p-5 mb-6 border ${
+        standing.is_suspended ? "border-danger/40 bg-danger/5"
+          : flags.length > 0 ? "border-accent/30 bg-accent-wash"
+          : "border-ok/40 bg-ok/5"
       }`}>
         <div className="flex items-center gap-3">
           <span className={`text-3xl ${
-            standing.is_suspended ? "text-red-400"
-              : flags.length > 0 ? "text-amber-400"
-              : "text-emerald-400"
+            standing.is_suspended ? "text-danger"
+              : flags.length > 0 ? "text-accent"
+              : "text-ok"
           }`}>
             {standing.is_suspended ? "✗" : flags.length > 0 ? "!" : "✓"}
           </span>
@@ -110,10 +110,10 @@ export default function AccountStandingPage() {
                   : "Good standing — no active flags"}
             </p>
             {standing.is_suspended && standing.suspended_reason && (
-              <p className="text-xs text-neutral-400 mt-0.5">{standing.suspended_reason}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{standing.suspended_reason}</p>
             )}
             {standing.is_suspended && standing.suspended_at && (
-              <p className="text-xs text-neutral-500 mt-0.5">
+              <p className="text-xs text-ink-faint mt-0.5">
                 Suspended {new Date(standing.suspended_at).toLocaleDateString("en-GB", {
                   day: "numeric", month: "long", year: "numeric",
                 })}
@@ -126,7 +126,7 @@ export default function AccountStandingPage() {
       {/* Active flags */}
       {flags.length > 0 && (
         <section>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-500 mb-3">
+          <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">
             Active flags
           </h2>
           <div className="space-y-3">
@@ -136,7 +136,7 @@ export default function AccountStandingPage() {
                 advice: f.description,
               };
               return (
-                <div key={f.id} className={`rounded-xl border p-4 ${SEVERITY_TONE[f.severity] ?? "border-neutral-800 bg-neutral-900"}`}>
+                <div key={f.id} className={`rounded-lg border p-4 ${SEVERITY_TONE[f.severity] ?? "border-border-subtle bg-surface"}`}>
                   <div className="flex items-baseline justify-between flex-wrap gap-2">
                     <h3 className="font-bold text-base">{guide.headline}</h3>
                     <span className="text-[10px] uppercase tracking-wider opacity-70">
@@ -155,12 +155,12 @@ export default function AccountStandingPage() {
             })}
           </div>
 
-          <div className="mt-6 p-4 bg-neutral-900 border border-neutral-800 rounded-xl text-sm text-neutral-400">
+          <div className="mt-6 p-4 bg-surface border border-border-subtle rounded-lg text-sm text-ink-muted">
             <p>
-              <strong className="text-neutral-200">Need help?</strong>{" "}
+              <strong className="text-ink">Need help?</strong>{" "}
               Most flags clear automatically as your activity normalises. For
               a manual review, reach out at{" "}
-              <a href="mailto:support@cambridgetcg.com" className="text-amber-400 underline">
+              <a href="mailto:support@cambridgetcg.com" className="text-accent underline">
                 support@cambridgetcg.com
               </a>{" "}
               with your account email — include any context that explains the flagged behaviour.
@@ -170,9 +170,9 @@ export default function AccountStandingPage() {
       )}
 
       {goodStanding && (
-        <div className="text-center text-sm text-neutral-500 mt-8">
+        <div className="text-center text-sm text-ink-faint mt-8">
           Your trust score is{" "}
-          <Link href="/account/trust" className="text-emerald-400 underline">
+          <Link href="/account/trust" className="text-ok underline">
             {standing.trust_score}
           </Link>
           . Keep trading well — every completed trade and positive review lifts it.

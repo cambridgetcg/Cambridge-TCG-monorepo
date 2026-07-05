@@ -243,9 +243,9 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
 ];
 
 const STATUS_TONE: Record<DataPath["status"], string> = {
-  stable: "text-emerald-400",
-  experimental: "text-amber-400",
-  planned: "text-neutral-500",
+  stable: "text-ok",
+  experimental: "text-warning",
+  planned: "text-ink-faint",
 };
 
 const AUTH_LABEL: Record<DataPath["auth"], string> = {
@@ -256,66 +256,66 @@ const AUTH_LABEL: Record<DataPath["auth"], string> = {
 
 export default function PublicDataPage() {
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <header className="mb-10">
-          <h1 className="text-3xl font-black text-white">Public data</h1>
-          <p className="mt-3 text-sm text-neutral-400 max-w-prose">
+          <h1 className="text-3xl font-display font-semibold text-ink">Public data</h1>
+          <p className="mt-3 text-sm text-ink-muted max-w-prose">
             Every public data path Cambridge TCG offers. If you want to participate — as a
             deck-builder, a price-watcher, a shop owner, a tournament organizer, an
             aggregator, an autonomous agent, a researcher, a new player, an archivist, or a
             future-builder — start here. Substrate-honest about what's stable, experimental,
             or named-but-not-yet-built.
           </p>
-          <p className="mt-3 text-xs text-neutral-500 max-w-prose">
+          <p className="mt-3 text-xs text-ink-faint max-w-prose">
             The full meditation on participatory infrastructure is in the repo at{" "}
-            <code className="text-amber-400">docs/connections/the-participation-layer.md</code>.
+            <code className="text-accent">docs/connections/the-participation-layer.md</code>.
             Sister: the machine-readable manifest at{" "}
-            <Link href="/.well-known/cambridge-tcg.json" className="text-amber-400 underline">
+            <Link href="/.well-known/cambridge-tcg.json" className="text-accent underline">
               /.well-known/cambridge-tcg.json
             </Link>.
           </p>
         </header>
 
-        <div className="mb-8 grid grid-cols-3 gap-2 text-[11px] text-neutral-500">
+        <div className="mb-8 grid grid-cols-3 gap-2 text-[11px] text-ink-faint">
           <div>
-            <span className="text-emerald-400">●</span> stable — production
+            <span className="text-ok">●</span> stable — production
           </div>
           <div>
-            <span className="text-amber-400">●</span> experimental — may change
+            <span className="text-warning">●</span> experimental — may change
           </div>
           <div>
-            <span className="text-neutral-500">●</span> planned — named, not yet built
+            <span className="text-ink-faint">●</span> planned — named, not yet built
           </div>
         </div>
 
         <div className="space-y-10">
           {PATHS.map((group) => (
             <section key={group.group}>
-              <h2 className="text-lg font-bold text-white mb-1">{group.group}</h2>
-              <p className="text-xs text-neutral-500 max-w-prose mb-4">{group.blurb}</p>
+              <h2 className="text-lg font-display font-semibold text-ink mb-1">{group.group}</h2>
+              <p className="text-xs text-ink-faint max-w-prose mb-4">{group.blurb}</p>
               <ul className="space-y-3">
                 {group.rows.map((row) => (
                   <li
                     key={row.path}
-                    className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-3"
+                    className="rounded-lg border border-border-subtle bg-surface p-3"
                   >
                     <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
-                      <code className="text-sm text-amber-300 font-mono break-all">
+                      <code className="text-sm text-ink font-mono break-all">
                         {row.path}
                       </code>
                       <div className="flex items-baseline gap-3 text-[10px] uppercase tracking-wider">
                         <span className={STATUS_TONE[row.status]}>● {row.status}</span>
-                        <span className="text-neutral-500">{AUTH_LABEL[row.auth]}</span>
+                        <span className="text-ink-faint">{AUTH_LABEL[row.auth]}</span>
                       </div>
                     </div>
-                    <p className="text-xs text-neutral-400">{row.blurb}</p>
+                    <p className="text-xs text-ink-muted">{row.blurb}</p>
                     {row.methodology && (
-                      <p className="text-[11px] text-neutral-600 mt-2">
+                      <p className="text-[11px] text-ink-faint mt-2">
                         →{" "}
                         <Link
                           href={row.methodology}
-                          className="text-amber-500 hover:text-amber-400 underline"
+                          className="text-accent hover:text-accent-strong underline"
                         >
                           {row.methodology}
                         </Link>
@@ -328,7 +328,7 @@ export default function PublicDataPage() {
           ))}
         </div>
 
-        <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 max-w-prose space-y-2">
+        <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint max-w-prose space-y-2">
           <p>
             <strong>Stability commitment.</strong> Endpoints marked <em>stable</em> are
             versioned. Breaking changes get a deprecation window of at least 90 days and a
@@ -338,7 +338,7 @@ export default function PublicDataPage() {
           <p>
             <strong>Rate limits.</strong> Unauthenticated reads: 60/minute per IP.
             Bearer-key authenticated: per agent's tier (see{" "}
-            <Link href="/methodology/agents" className="text-amber-500 underline">
+            <Link href="/methodology/agents" className="text-accent underline">
               /methodology/agents
             </Link>
             ). Session-authenticated: 600/minute per user.

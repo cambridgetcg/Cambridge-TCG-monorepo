@@ -101,95 +101,95 @@ export default function MyLotsPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-6">My Lots</h1>
+      <h1 className="text-2xl font-display font-semibold text-ink mb-6">My Lots</h1>
 
       {/* Builder */}
-      <section className="bg-neutral-900 rounded-xl p-5 mb-8">
-        <h2 className="text-sm font-bold text-white mb-3 uppercase tracking-wide">Build a lot</h2>
+      <section className="bg-surface rounded-lg p-5 mb-8">
+        <h2 className="text-sm font-bold text-ink mb-3 uppercase tracking-wide">Build a lot</h2>
         <form onSubmit={submit} className="space-y-3">
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">Title</label>
+            <label className="block text-xs text-ink-faint mb-1">Title</label>
             <input
               type="text" required value={title} onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. OP01 Red Luffy Deck (60 cards)"
-              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+              className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-neutral-500 mb-1">Price (£)</label>
+              <label className="block text-xs text-ink-faint mb-1">Price (£)</label>
               <input
                 type="number" required step="0.01" min="0.01" value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-neutral-500 mb-1">Image URL (optional)</label>
+              <label className="block text-xs text-ink-faint mb-1">Image URL (optional)</label>
               <input
                 type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">Description (optional)</label>
+            <label className="block text-xs text-ink-faint mb-1">Description (optional)</label>
             <textarea
               value={description} onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm resize-none"
+              className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm resize-none"
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">Cards</label>
+            <label className="block text-xs text-ink-faint mb-1">Cards</label>
             <div className="space-y-2">
               {items.map((it, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <input
                     type="text" placeholder="SKU (e.g. OP-OP01-001-JP-V11D5)" required
                     value={it.sku} onChange={(e) => updateItem(i, { sku: e.target.value })}
-                    className="flex-1 px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-white text-xs font-mono"
+                    className="flex-1 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs font-mono"
                   />
                   <input
                     type="text" placeholder="Name (optional)"
                     value={it.cardName} onChange={(e) => updateItem(i, { cardName: e.target.value })}
-                    className="flex-1 px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-white text-xs"
+                    className="flex-1 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs"
                   />
                   <input
                     type="number" min="1" required value={it.quantity}
                     onChange={(e) => updateItem(i, { quantity: parseInt(e.target.value, 10) || 1 })}
-                    className="w-16 px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-white text-xs"
+                    className="w-16 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs"
                   />
                   {items.length > 1 && (
-                    <button type="button" onClick={() => removeItem(i)} className="text-xs text-red-400 hover:text-red-300">×</button>
+                    <button type="button" onClick={() => removeItem(i)} className="text-xs text-danger hover:text-danger">×</button>
                   )}
                 </div>
               ))}
-              <button type="button" onClick={addItem} className="text-xs text-amber-400 hover:underline">+ Add card</button>
+              <button type="button" onClick={addItem} className="text-xs text-accent hover:underline">+ Add card</button>
             </div>
           </div>
-          {submitError && <p className="text-xs text-red-400">{submitError}</p>}
+          {submitError && <p className="text-xs text-danger">{submitError}</p>}
           <button
             type="submit" disabled={submitting}
-            className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 disabled:opacity-50"
+            className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? "Listing..." : "List lot"}
           </button>
         </form>
       </section>
 
-      <h2 className="text-sm font-bold text-neutral-300 uppercase tracking-wide mb-3">Your lots</h2>
+      <h2 className="text-sm font-bold text-ink-muted uppercase tracking-wide mb-3">Your lots</h2>
       {loading ? (
-        <p className="text-sm text-neutral-500">Loading...</p>
+        <p className="text-sm text-ink-faint">Loading...</p>
       ) : myLots.length === 0 ? (
-        <p className="text-sm text-neutral-500">No lots yet.</p>
+        <p className="text-sm text-ink-faint">No lots yet.</p>
       ) : (
-        <div className="bg-neutral-900 rounded-xl overflow-hidden">
+        <div className="bg-surface rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-neutral-500 text-xs uppercase border-b border-neutral-800">
+              <tr className="text-ink-faint text-xs uppercase border-b border-border-subtle">
                 <th className="text-left p-3">Title</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-right p-3">Price</th>
@@ -200,27 +200,27 @@ export default function MyLotsPage() {
             </thead>
             <tbody>
               {myLots.map((l) => (
-                <tr key={l.id} className="border-b border-neutral-800/50">
+                <tr key={l.id} className="border-b border-border-subtle">
                   <td className="p-3">
-                    <Link href={`/market/lots/${l.id}`} className="text-white hover:text-amber-400 transition">
+                    <Link href={`/market/lots/${l.id}`} className="text-ink hover:text-accent transition">
                       {l.title}
                     </Link>
                   </td>
                   <td className="p-3">
                     <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${
-                      l.status === "active" ? "bg-emerald-500/15 text-emerald-400"
-                      : l.status === "sold" ? "bg-blue-500/15 text-blue-400"
-                      : "bg-neutral-800 text-neutral-400"
+                      l.status === "active" ? "bg-ok/15 text-ok"
+                      : l.status === "sold" ? "bg-info/15 text-info"
+                      : "bg-surface-subtle text-ink-muted"
                     }`}>{l.status}</span>
                   </td>
-                  <td className="p-3 text-right font-mono text-amber-400"><Money value={parseFloat(l.price)} /></td>
-                  <td className="p-3 text-right text-neutral-400 text-xs">{l.item_count} cards · {l.total_quantity} units</td>
-                  <td className="p-3 text-right text-xs text-neutral-500">
+                  <td className="p-3 text-right font-mono text-accent"><Money value={parseFloat(l.price)} /></td>
+                  <td className="p-3 text-right text-ink-muted text-xs">{l.item_count} cards · {l.total_quantity} units</td>
+                  <td className="p-3 text-right text-xs text-ink-faint">
                     {new Date(l.created_at).toLocaleDateString("en-GB")}
                   </td>
                   <td className="p-3 text-right">
                     {l.status === "active" && (
-                      <button onClick={() => cancel(l.id)} className="text-xs text-red-400 hover:text-red-300">Cancel</button>
+                      <button onClick={() => cancel(l.id)} className="text-xs text-danger hover:text-danger">Cancel</button>
                     )}
                   </td>
                 </tr>

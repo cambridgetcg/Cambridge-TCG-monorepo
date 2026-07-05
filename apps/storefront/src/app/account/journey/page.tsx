@@ -26,21 +26,21 @@ const GROUP_TABS = [
 ] as const;
 
 const TONE: Record<string, string> = {
-  emerald: "border-emerald-500/30 bg-emerald-500/5",
-  amber:   "border-amber-500/30 bg-amber-500/5",
-  red:     "border-red-500/30 bg-red-500/5",
-  sky:     "border-sky-500/30 bg-sky-500/5",
-  fuchsia: "border-fuchsia-500/30 bg-fuchsia-500/5",
-  default: "border-neutral-800 bg-neutral-900",
+  emerald: "border-ok/30 bg-ok/5",
+  amber:   "border-warning/30 bg-warning/5",
+  red:     "border-danger/30 bg-danger/5",
+  sky:     "border-info/30 bg-info/5",
+  fuchsia: "border-[#6a5a8f]/30 bg-[#6a5a8f]/5",
+  default: "border-border-subtle bg-surface",
 };
 
 const TONE_DOT: Record<string, string> = {
-  emerald: "bg-emerald-400",
-  amber:   "bg-amber-400",
-  red:     "bg-red-400",
-  sky:     "bg-sky-400",
-  fuchsia: "bg-fuchsia-400",
-  default: "bg-neutral-600",
+  emerald: "bg-ok",
+  amber:   "bg-warning",
+  red:     "bg-danger",
+  sky:     "bg-info",
+  fuchsia: "bg-[#6a5a8f]",
+  default: "bg-ink-faint",
 };
 
 export default function AccountJourneyPage() {
@@ -62,8 +62,8 @@ export default function AccountJourneyPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">Activity</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-2">Activity</h1>
+      <p className="text-sm text-ink-muted mb-6">
         A unified timeline of everything you&apos;ve done on the platform —
         every trade, pull, review, prize ship, and payment event.
         Each row links back to its source.
@@ -74,9 +74,9 @@ export default function AccountJourneyPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`shrink-0 text-xs px-3 py-1.5 rounded-lg transition-colors ${
-              tab === t.key ? "bg-amber-500 text-black font-bold"
-                : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+            className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+              tab === t.key ? "bg-accent-wash text-accent-strong border-accent/30 font-medium"
+                : "bg-surface text-ink-muted border-border-subtle hover:text-ink hover:bg-surface-subtle"
             }`}
           >
             {t.label}
@@ -85,15 +85,15 @@ export default function AccountJourneyPage() {
       </div>
 
       {loading ? (
-        <p className="text-neutral-500">Loading…</p>
+        <p className="text-ink-faint">Loading…</p>
       ) : events.length === 0 ? (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+        <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
           {tab === "all"
             ? "No activity recorded yet. Place a trade or open a pull to get started."
             : `No ${GROUP_TABS.find(t => t.key === tab)?.label.toLowerCase()} activity yet.`}
         </div>
       ) : (
-        <ol className="relative border-l border-neutral-800 ml-3 space-y-2">
+        <ol className="relative border-l border-border-subtle ml-3 space-y-2">
           {events.map((e, i) => {
             const tone = TONE[e.tone] ?? TONE.default;
             const dot = TONE_DOT[e.tone] ?? TONE_DOT.default;
@@ -102,16 +102,16 @@ export default function AccountJourneyPage() {
             return (
               <li key={`${e.kind}-${i}`} className="ml-4 relative">
                 <span className={`absolute -left-[22px] top-3 w-2 h-2 rounded-full ${dot}`} />
-                <div className={`rounded-xl border p-3 ${tone}`}>
+                <div className={`rounded-lg border p-3 ${tone}`}>
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                    <p className="text-sm text-neutral-200">{e.summary}</p>
-                    <span className="text-[11px] text-neutral-500 whitespace-nowrap">
+                    <p className="text-sm text-ink">{e.summary}</p>
+                    <span className="text-[11px] text-ink-faint whitespace-nowrap">
                       {day} · {time}
                     </span>
                   </div>
-                  <p className="text-[10px] text-neutral-500 mt-1 font-mono">{e.kind}</p>
+                  <p className="text-[10px] text-ink-faint mt-1 font-mono">{e.kind}</p>
                   {e.link && (
-                    <Link href={e.link} className="text-[11px] text-amber-400 hover:text-amber-300 underline mt-1 inline-block">
+                    <Link href={e.link} className="text-[11px] text-accent hover:text-accent-strong underline mt-1 inline-block">
                       View →
                     </Link>
                   )}

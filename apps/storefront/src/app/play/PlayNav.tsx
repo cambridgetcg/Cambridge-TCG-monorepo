@@ -39,10 +39,10 @@ export default function PlayNav() {
   return (
     <nav
       aria-label="Play module navigation"
-      className="border-b border-neutral-900 bg-neutral-950/80 sticky top-0 z-40 backdrop-blur-sm"
+      className="border-b border-border-subtle bg-page/80 sticky top-0 z-40 backdrop-blur-sm"
     >
       <div className="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center gap-1 text-sm">
-        <span className="text-[10px] uppercase tracking-widest text-neutral-600 mr-3">
+        <span className="text-[10px] uppercase tracking-widest text-ink-faint mr-3">
           play module
         </span>
         {NAV_LINKS.map((link) => {
@@ -55,15 +55,15 @@ export default function PlayNav() {
               title={link.note}
               className={
                 active
-                  ? "px-2.5 py-1 rounded text-amber-400 bg-amber-500/10 border border-amber-700/50 font-medium"
-                  : "px-2.5 py-1 rounded text-neutral-400 hover:text-amber-400 hover:bg-neutral-900 transition-colors border border-transparent"
+                  ? "px-2.5 py-1 rounded text-accent bg-accent-wash border border-accent/50 font-medium"
+                  : "px-2.5 py-1 rounded text-ink-muted hover:text-accent-strong hover:bg-surface transition-colors border border-transparent"
               }
             >
               {link.label}
             </Link>
           );
         })}
-        <span className="ml-auto text-[10px] text-neutral-600 hidden sm:inline">
+        <span className="ml-auto text-[10px] text-ink-faint hidden sm:inline">
           fun-first · play-to-earn is opt-in
         </span>
       </div>

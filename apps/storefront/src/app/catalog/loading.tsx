@@ -9,7 +9,7 @@
  */
 
 function Block({ className = "" }: { className?: string }) {
-  return <div className={`rounded bg-neutral-800/60 animate-pulse ${className}`} />;
+  return <div className={`rounded bg-surface-subtle animate-pulse ${className}`} />;
 }
 
 export default function CatalogLoading() {
@@ -50,8 +50,8 @@ export default function CatalogLoading() {
           <Block className="h-4 w-40 mb-2" />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-8">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="bg-neutral-900 rounded-xl overflow-hidden">
-                <div className="aspect-[3/4] bg-neutral-800 animate-pulse" />
+              <div key={i} className="bg-surface border border-border-subtle rounded-lg overflow-hidden">
+                <div className="aspect-[3/4] bg-surface-subtle animate-pulse" />
                 <div className="p-2 space-y-1.5">
                   <Block className="h-3 w-3/4" />
                   <Block className="h-2.5 w-1/2" />

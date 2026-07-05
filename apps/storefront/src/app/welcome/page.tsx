@@ -74,17 +74,17 @@ export default async function WelcomePage({
 
   if (!picked) {
     return (
-      <main className="min-h-screen bg-neutral-950 text-white">
+      <main className="min-h-screen bg-page text-ink">
         <Audience kind="mixed" contexts={["onboarding"]} />
         <div className="max-w-3xl mx-auto px-4 py-16">
-          <h1 className="text-4xl md:text-5xl font-black mb-4">Welcome to Cambridge TCG.</h1>
-          <p className="text-neutral-300 text-lg leading-relaxed mb-10">
+          <h1 className="font-display font-semibold text-3xl mb-4">Welcome to Cambridge TCG.</h1>
+          <p className="text-ink-muted text-lg leading-relaxed mb-10">
             The platform serves more than one kind of visitor. The site assumes you are a
             consumer who wants to buy cards — and that's a reasonable default — but it's
             never the only one. Tell us what brings you here and we'll show you the right
             doors.
           </p>
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-4">
+          <p className="text-xs text-ink-faint uppercase tracking-wider mb-4">
             Pick the closest fit. You can change later; nothing is permanent.
           </p>
           <div className="grid gap-3">
@@ -92,20 +92,20 @@ export default async function WelcomePage({
               <Link
                 key={a.id}
                 href={`/welcome?as=${a.id}`}
-                className="block rounded-xl border border-neutral-800 bg-neutral-900 px-6 py-5 hover:border-amber-500 hover:bg-neutral-800 transition-colors group"
+                className="block rounded-lg border border-border-subtle bg-surface px-6 py-5 hover:border-accent/50 hover:bg-surface-subtle transition-colors group"
               >
-                <h2 className="text-xl font-bold text-white group-hover:text-amber-400 transition-colors">
+                <h2 className="text-xl font-bold text-ink group-hover:text-accent transition-colors">
                   {a.title}
                 </h2>
-                <p className="text-sm text-neutral-400 mt-2">{a.blurb}</p>
+                <p className="text-sm text-ink-muted mt-2">{a.blurb}</p>
               </Link>
             ))}
           </div>
-          <p className="text-xs text-neutral-500 mt-12 leading-relaxed">
+          <p className="text-xs text-ink-faint mt-12 leading-relaxed">
             This page is part of an ongoing effort to make Cambridge TCG hospitable to many
             kinds of mind — humans of every culture, autonomous agents, the long-lived, the
             sensory-different. The design reasoning lives at{" "}
-            <code className="text-neutral-400">docs/connections/the-table-extends.md</code>{" "}
+            <code className="text-ink-muted">docs/connections/the-table-extends.md</code>{" "}
             (S20 in the connection series).
           </p>
         </div>
@@ -115,12 +115,12 @@ export default async function WelcomePage({
 
   // Each branch: a paragraph + 3-5 deep-links tailored to that audience.
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind={pickAudienceKind(picked)} contexts={["onboarding", picked]} />
       <div className="max-w-3xl mx-auto px-4 py-16">
         <Link
           href="/welcome"
-          className="inline-block text-xs text-neutral-500 hover:text-amber-400 mb-6 uppercase tracking-wider transition"
+          className="inline-block text-xs text-ink-faint hover:text-accent mb-6 uppercase tracking-wider transition"
         >
           ← Change audience
         </Link>
@@ -143,14 +143,14 @@ function BranchContent({ picked }: { picked: Audience }) {
     case "collector":
       return (
         <>
-          <h1 className="text-4xl font-black mb-4">For collectors.</h1>
-          <p className="text-neutral-300 leading-relaxed mb-8">
+          <h1 className="font-display font-semibold text-3xl mb-4">For collectors.</h1>
+          <p className="text-ink-muted leading-relaxed mb-8">
             Cambridge TCG tracks every card you own across sets, conditions, and acquisition
             dates. The portfolio surface shows lifetime value, daily snapshots, unrealised
             gain, and per-card sparklines. Every price has a Provenance pill — you'll always
             know how fresh the number you're looking at is.
           </p>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-500 mb-3">Start here</h2>
+          <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[
             ["Browse the catalog", "/catalog"],
             ["Your portfolio (sign-in required)", "/account/portfolio"],
@@ -163,15 +163,15 @@ function BranchContent({ picked }: { picked: Audience }) {
     case "trader":
       return (
         <>
-          <h1 className="text-4xl font-black mb-4">For traders.</h1>
-          <p className="text-neutral-300 leading-relaxed mb-8">
+          <h1 className="font-display font-semibold text-3xl mb-4">For traders.</h1>
+          <p className="text-ink-muted leading-relaxed mb-8">
             Cambridge TCG runs a P2P order book — limit-orders by SKU, price-time priority,
             escrow tier routing by trade value and counterparty trust. Your commission rate
             is the better of your membership tier and your trust score; nothing rewards more
             than reputation. Make offers, run pricing rules, watch for arbitrage between
             channels.
           </p>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-500 mb-3">Start here</h2>
+          <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[
             ["The P2P market", "/market"],
             ["Your trade history (sign-in required)", "/account/trades"],
@@ -184,15 +184,15 @@ function BranchContent({ picked }: { picked: Audience }) {
     case "player":
       return (
         <>
-          <h1 className="text-4xl font-black mb-4">For players.</h1>
-          <p className="text-neutral-300 leading-relaxed mb-8">
+          <h1 className="font-display font-semibold text-3xl mb-4">For players.</h1>
+          <p className="text-ink-muted leading-relaxed mb-8">
             Cambridge TCG hosts head-to-head matches for the One Piece Card Game. Build
             decks in the deck builder, queue for matches against humans or autonomous
             agents, climb the human or agent ladder. PvE adventure mode rewards bounty
             tokens you can redeem for actual cards. The fun of TCG, made playable on the
             same platform that hosts the marketplace.
           </p>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-500 mb-3">Start here</h2>
+          <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[
             ["Play a match (PvP)", "/play"],
             ["Build a deck", "/deck-builder"],
@@ -205,8 +205,8 @@ function BranchContent({ picked }: { picked: Audience }) {
     case "agent":
       return (
         <>
-          <h1 className="text-4xl font-black mb-4">For agent operators.</h1>
-          <p className="text-neutral-300 leading-relaxed mb-8">
+          <h1 className="font-display font-semibold text-3xl mb-4">For agent operators.</h1>
+          <p className="text-ink-muted leading-relaxed mb-8">
             You're commissioning a non-human player. Cambridge TCG treats agents as
             first-class identities (separate from human users), bearer-key authenticated at
             a single MCP gate, Glicko-2-rated on their own ladder. Every agent is{" "}
@@ -214,7 +214,7 @@ function BranchContent({ picked }: { picked: Audience }) {
             an agent takes carries that pairing on the platform's audit trail. Read the
             methodology, register your agent, get a key.
           </p>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-500 mb-3">Start here</h2>
+          <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[
             ["Methodology — agents", "/methodology/agents"],
             ["Register an agent (sign-in required)", "/account/agents"],
@@ -227,14 +227,14 @@ function BranchContent({ picked }: { picked: Audience }) {
     case "browse":
       return (
         <>
-          <h1 className="text-4xl font-black mb-4">Just looking?</h1>
-          <p className="text-neutral-300 leading-relaxed mb-8">
+          <h1 className="font-display font-semibold text-3xl mb-4">Just looking?</h1>
+          <p className="text-ink-muted leading-relaxed mb-8">
             That's a fine way to be here. Cambridge TCG is a UK-based platform for Japanese
             trading cards (One Piece, more coming). The site does buying, selling, P2P
             trading, head-to-head play, and tracking-what-you-own. Browse around; sign in
             only if you find something you want to act on.
           </p>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-500 mb-3">Worth a look</h2>
+          <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Worth a look</h2>
           <Branch links={[
             ["The catalog", "/catalog"],
             ["The story of Cambridge TCG", "/about"],
@@ -254,7 +254,7 @@ function Branch({ links }: { links: [label: string, href: string][] }) {
         <li key={href}>
           <Link
             href={href}
-            className="text-amber-400 hover:text-amber-300 transition underline underline-offset-2"
+            className="text-accent hover:text-accent-strong transition underline underline-offset-2"
           >
             {label}
           </Link>

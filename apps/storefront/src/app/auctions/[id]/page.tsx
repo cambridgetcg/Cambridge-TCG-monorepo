@@ -78,16 +78,16 @@ export default function AuctionDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950">
+      <div className="min-h-screen bg-page">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             <div className="lg:col-span-3 space-y-6">
-              <div className="aspect-square bg-neutral-900 rounded-xl animate-pulse" />
-              <div className="h-8 bg-neutral-900 rounded w-3/4 animate-pulse" />
-              <div className="h-32 bg-neutral-900 rounded animate-pulse" />
+              <div className="aspect-square bg-surface border border-border-subtle rounded-lg animate-pulse" />
+              <div className="h-8 bg-surface rounded w-3/4 animate-pulse" />
+              <div className="h-32 bg-surface rounded animate-pulse" />
             </div>
             <div className="lg:col-span-2">
-              <div className="h-80 bg-neutral-900 rounded-xl animate-pulse" />
+              <div className="h-80 bg-surface border border-border-subtle rounded-lg animate-pulse" />
             </div>
           </div>
         </div>
@@ -97,12 +97,12 @@ export default function AuctionDetailPage() {
 
   if (error || !auction) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="min-h-screen bg-page flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-2xl font-bold text-ink mb-2">
             {error || "Auction not found"}
           </h1>
-          <a href="/auctions" className="text-amber-500 hover:text-amber-400 transition text-sm">
+          <a href="/auctions" className="text-accent hover:text-accent-strong transition text-sm">
             Back to auctions
           </a>
         </div>
@@ -113,13 +113,13 @@ export default function AuctionDetailPage() {
   const reserveStatus = isReserveMet(auction);
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-6">
-          <a href="/auctions" className="hover:text-white transition">Auctions</a>
+        <nav className="flex items-center gap-2 text-sm text-ink-faint mb-6">
+          <a href="/auctions" className="hover:text-ink transition">Auctions</a>
           <span>/</span>
-          <span className="text-neutral-300 truncate">{auction.title}</span>
+          <span className="text-ink-muted truncate">{auction.title}</span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -131,37 +131,37 @@ export default function AuctionDetailPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <AuctionStatusBadge status={auction.status} />
-                <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-900/60 text-amber-300">
+                <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-accent-wash text-accent-strong">
                   {TYPE_LABELS[auction.auction_type] || auction.auction_type}
                 </span>
                 {reserveStatus !== null && (
                   <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${
                     reserveStatus
-                      ? "bg-emerald-900/60 text-emerald-300"
-                      : "bg-amber-900/60 text-amber-300"
+                      ? "bg-ok/15 text-ok"
+                      : "bg-accent-wash text-accent-strong"
                   }`}>
                     {reserveStatus ? "Reserve met" : "Reserve not yet met"}
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl font-bold text-white">{auction.title}</h1>
+              <h1 className="text-2xl font-display font-semibold text-ink">{auction.title}</h1>
             </div>
 
             {/* Description */}
             {auction.description && (
-              <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
-                <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+              <div className="bg-surface rounded-lg border border-border-subtle p-5">
+                <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-3">
                   Description
                 </h2>
-                <div className="text-neutral-300 text-sm leading-relaxed whitespace-pre-wrap">
+                <div className="text-ink-muted text-sm leading-relaxed whitespace-pre-wrap">
                   {auction.description}
                 </div>
               </div>
             )}
 
             {/* Bid History */}
-            <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
-              <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+            <div className="bg-surface rounded-lg border border-border-subtle p-5">
+              <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-3">
                 Bid History
               </h2>
               <BidHistory bids={auction.bids} />

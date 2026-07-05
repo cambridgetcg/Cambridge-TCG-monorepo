@@ -59,14 +59,14 @@ export default function CustomerPrizesPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-6">Prizes won</h1>
+      <h1 className="text-2xl font-display font-semibold text-ink mb-6">Prizes won</h1>
 
       {loading ? (
-        <p className="text-sm text-neutral-500">Loading...</p>
+        <p className="text-sm text-ink-faint">Loading...</p>
       ) : prizes.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-400 text-sm">No physical prizes yet.</p>
-          <p className="text-xs text-neutral-500 mt-2">
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-muted text-sm">No physical prizes yet.</p>
+          <p className="text-xs text-ink-faint mt-2">
             Win raffles, open mystery boxes, or pull rare cards from packs to see them here.
           </p>
         </div>
@@ -74,23 +74,23 @@ export default function CustomerPrizesPage() {
         <div className="space-y-3">
           {prizes.map((p) => {
             const status = p.shipped_at
-              ? { label: "Shipped", color: "text-emerald-400" }
+              ? { label: "Shipped", color: "text-ok" }
               : p.shipping_collected_at
-                ? { label: "Awaiting dispatch", color: "text-blue-400" }
-                : { label: "Awaiting your address", color: "text-amber-400" };
+                ? { label: "Awaiting dispatch", color: "text-info" }
+                : { label: "Awaiting your address", color: "text-accent" };
             return (
-              <div key={`${p.kind}:${p.id}`} className="bg-neutral-900 rounded-xl p-4">
+              <div key={`${p.kind}:${p.id}`} className="bg-surface rounded-lg p-4">
                 <div className="flex items-start gap-3 mb-3">
                   {p.image_url ? (
                     <img src={p.image_url} alt="" className="w-16 h-22 rounded-lg object-cover shrink-0" />
                   ) : (
-                    <div className="w-16 h-22 bg-neutral-800 rounded-lg shrink-0" />
+                    <div className="w-16 h-22 bg-surface-subtle rounded-lg shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-500 capitalize">{p.kind.replace("_", " ")}</p>
-                    <p className="text-base font-bold text-white truncate">{p.label}</p>
+                    <p className="text-sm text-ink-faint capitalize">{p.kind.replace("_", " ")}</p>
+                    <p className="text-base font-bold text-ink truncate">{p.label}</p>
                     {p.prize_description && (
-                      <p className="text-xs text-neutral-400 mt-1 truncate">{p.prize_description}</p>
+                      <p className="text-xs text-ink-muted mt-1 truncate">{p.prize_description}</p>
                     )}
                     <p className={`text-xs mt-1 font-medium ${status.color}`}>{status.label}</p>
                   </div>
@@ -104,15 +104,15 @@ export default function CustomerPrizesPage() {
                         onChange={(e) => setDraftAddress(e.target.value)}
                         placeholder="Full shipping address (line 1, city, postcode, country)"
                         rows={3}
-                        className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm resize-none"
+                        className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm resize-none"
                       />
                       <div className="flex gap-2">
                         <button onClick={() => submitAddress(p)} disabled={submitting}
-                          className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-black rounded-md hover:bg-amber-400 transition disabled:opacity-50">
+                          className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50">
                           {submitting ? "Saving..." : "Save address"}
                         </button>
                         <button onClick={() => { setEditingId(null); setDraftAddress(""); }}
-                          className="px-3 py-1.5 text-xs text-neutral-400 hover:text-white">
+                          className="px-3 py-1.5 text-xs text-ink-muted hover:text-ink">
                           Cancel
                         </button>
                       </div>
@@ -120,7 +120,7 @@ export default function CustomerPrizesPage() {
                   ) : (
                     <button
                       onClick={() => { setEditingId(`${p.kind}:${p.id}`); setDraftAddress(""); }}
-                      className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-black rounded-md hover:bg-amber-400 transition"
+                      className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition"
                     >
                       Add shipping address
                     </button>
@@ -141,17 +141,17 @@ function PrizeShippingBlock({ prize: p }: { prize: Prize }) {
   const trackUrl = buildTrackingUrl(p.carrier, p.tracking_number);
   const carrierLabel = getCarrierTracker(p.carrier)?.label ?? p.carrier;
   return (
-    <div className="text-xs text-neutral-400 space-y-3">
+    <div className="text-xs text-ink-muted space-y-3">
       <Timeline prize={p} />
 
-      <div className="border-t border-neutral-800 pt-3">
-        <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">Ship to</p>
-        <p className="whitespace-pre-wrap text-neutral-300">{p.shipping_address}</p>
+      <div className="border-t border-border-subtle pt-3">
+        <p className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Ship to</p>
+        <p className="whitespace-pre-wrap text-ink-muted">{p.shipping_address}</p>
       </div>
 
       {p.tracking_number && (
-        <div className="border-t border-neutral-800 pt-3">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+        <div className="border-t border-border-subtle pt-3">
+          <p className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">
             {carrierLabel ? `${carrierLabel} tracking` : "Tracking"}
           </p>
           {trackUrl ? (
@@ -159,12 +159,12 @@ function PrizeShippingBlock({ prize: p }: { prize: Prize }) {
               href={trackUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-amber-400 hover:text-amber-300 underline font-mono text-sm"
+              className="text-accent hover:text-accent-strong underline font-mono text-sm"
             >
               {p.tracking_number} ↗
             </a>
           ) : (
-            <span className="font-mono text-neutral-300 text-sm">{p.tracking_number}</span>
+            <span className="font-mono text-ink-muted text-sm">{p.tracking_number}</span>
           )}
         </div>
       )}
@@ -204,15 +204,15 @@ function Timeline({ prize: p }: { prize: Prize }) {
       {steps.map((s, i) => (
         <div key={s.key} className="flex items-center gap-2">
           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-            s.done ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-              : "bg-neutral-800 text-neutral-600 border border-neutral-700"
+            s.done ? "bg-ok/20 text-ok border border-ok/40"
+              : "bg-surface-subtle text-ink-faint border border-border-subtle"
           }`}>
             {s.done ? "✓" : i + 1}
           </div>
           <div>
-            <p className={`text-xs ${s.done ? "text-neutral-200" : "text-neutral-500"}`}>{s.label}</p>
+            <p className={`text-xs ${s.done ? "text-ink" : "text-ink-faint"}`}>{s.label}</p>
             {s.ts && (
-              <p className="text-[10px] text-neutral-500">
+              <p className="text-[10px] text-ink-faint">
                 {new Date(s.ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
               </p>
             )}

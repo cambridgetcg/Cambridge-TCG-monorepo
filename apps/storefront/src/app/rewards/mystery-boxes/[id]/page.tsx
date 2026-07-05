@@ -6,18 +6,11 @@ import { useParams } from "next/navigation";
 import type { MysteryBox, MysteryBoxReward } from "@/lib/rewards/types";
 import { Badge, Palettes } from "@/lib/ui";
 
-const RARITY_GLOW: Record<string, string> = {
-  common: "shadow-neutral-500/30",
-  uncommon: "shadow-blue-500/40",
-  rare: "shadow-purple-500/50",
-  legendary: "shadow-amber-500/60",
-};
-
 const RARITY_BORDER: Record<string, string> = {
-  common: "border-neutral-500",
-  uncommon: "border-blue-500",
-  rare: "border-purple-500",
-  legendary: "border-amber-400",
+  common: "border-border-strong",
+  uncommon: "border-info",
+  rare: "border-[#6a5a8f]/40",
+  legendary: "border-accent",
 };
 
 type RevealState = "idle" | "opening" | "revealed";
@@ -91,18 +84,18 @@ export default function MysteryBoxDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-page flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!box) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-page flex items-center justify-center text-ink">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Mystery Box not found</h1>
-          <Link href="/rewards" className="text-purple-400 hover:underline">
+          <Link href="/rewards" className="text-accent hover:underline">
             Back to Rewards
           </Link>
         </div>
@@ -115,21 +108,21 @@ export default function MysteryBoxDetailPage() {
   const rewards = (box.rewards ?? []).sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div className="min-h-screen bg-page text-ink">
       <div className="max-w-4xl mx-auto px-4 py-10">
-        <Link href="/rewards" className="text-sm text-neutral-400 hover:text-white mb-6 inline-block">
+        <Link href="/rewards" className="text-sm text-ink-muted hover:text-ink mb-6 inline-block">
           &larr; Back to Rewards
         </Link>
 
         <div className="grid md:grid-cols-2 gap-8 mb-10">
           {/* Left: Image + Open action */}
           <div>
-            <div className="aspect-square rounded-xl bg-neutral-800 overflow-hidden relative">
+            <div className="aspect-square rounded-lg bg-surface-subtle overflow-hidden relative">
               {box.image_url ? (
                 <img src={box.image_url} alt={box.title} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/30 to-neutral-900">
-                  <svg className="w-24 h-24 text-purple-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <div className="w-full h-full flex items-center justify-center bg-surface-subtle">
+                  <svg className="w-24 h-24 text-ink-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                 </div>
@@ -139,8 +132,8 @@ export default function MysteryBoxDetailPage() {
               {revealState === "opening" && (
                 <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-purple-300 text-lg font-bold animate-pulse">Opening...</p>
+                    <div className="w-16 h-16 border-4 border-white/40 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white text-lg font-bold animate-pulse">Opening...</p>
                   </div>
                 </div>
               )}
@@ -149,7 +142,7 @@ export default function MysteryBoxDetailPage() {
               {revealState === "revealed" && wonReward && (
                 <div className="absolute inset-0 bg-black/90 flex items-center justify-center">
                   <div
-                    className={`text-center p-8 rounded-2xl border-2 shadow-2xl ${RARITY_BORDER[wonReward.rarity] ?? "border-neutral-500"} ${RARITY_GLOW[wonReward.rarity] ?? ""} bg-neutral-900/90`}
+                    className={`text-center p-8 rounded-lg border-2 shadow-mat ${RARITY_BORDER[wonReward.rarity] ?? "border-border-strong"} bg-surface`}
                   >
                     {wonReward.image_url && (
                       <img
@@ -161,9 +154,9 @@ export default function MysteryBoxDetailPage() {
                     <div className="mb-2">
                       <Badge status={wonReward.rarity} palette={Palettes.MysteryBoxRarityPalette} size="md" />
                     </div>
-                    <h3 className="text-xl font-black mb-1">{wonReward.name}</h3>
+                    <h3 className="text-xl font-display font-semibold mb-1">{wonReward.name}</h3>
                     {wonReward.description && (
-                      <p className="text-neutral-400 text-sm mb-3">{wonReward.description}</p>
+                      <p className="text-ink-muted text-sm mb-3">{wonReward.description}</p>
                     )}
                     <button
                       onClick={() => {
@@ -171,7 +164,7 @@ export default function MysteryBoxDetailPage() {
                         setWonReward(null);
                         setDrawId(null);
                       }}
-                      className="mt-2 px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white text-sm font-bold rounded-lg transition"
+                      className="mt-2 px-4 py-2 bg-ink hover:bg-ink/85 text-page text-sm font-bold rounded-lg transition"
                     >
                       Close
                     </button>
@@ -180,7 +173,7 @@ export default function MysteryBoxDetailPage() {
                         href={`/verify/draw/${drawId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block mt-2 text-xs text-emerald-400 hover:text-emerald-300 underline"
+                        className="block mt-2 text-xs text-ok hover:text-ok underline"
                       >
                         ✓ Verify this box was fair ↗
                       </a>
@@ -197,29 +190,29 @@ export default function MysteryBoxDetailPage() {
                   <button
                     onClick={handleOpen}
                     disabled={!canOpen || revealState !== "idle"}
-                    className="w-full py-3 bg-purple-500 hover:bg-purple-400 disabled:bg-neutral-700 disabled:text-neutral-500 text-white font-bold rounded-xl transition text-lg"
+                    className="w-full py-3 bg-ink hover:bg-ink/85 disabled:bg-surface-subtle disabled:text-ink-faint text-page font-bold rounded-lg transition text-lg"
                   >
                     {revealState === "opening"
                       ? "Opening..."
                       : `Open Box (${box.cost_points.toLocaleString()} Berries)`}
                   </button>
                   {opensLeft <= 0 && (
-                    <p className="text-neutral-500 text-sm mt-2 text-center">
+                    <p className="text-ink-faint text-sm mt-2 text-center">
                       You have used all your opens for this box.
                     </p>
                   )}
                   {points < box.cost_points && opensLeft > 0 && (
-                    <p className="text-red-400 text-sm mt-2 text-center">
+                    <p className="text-danger text-sm mt-2 text-center">
                       Not enough Berries ({points.toLocaleString()} / {box.cost_points.toLocaleString()})
                     </p>
                   )}
                 </>
               ) : (
-                <div className="rounded-xl border border-neutral-700 bg-neutral-900 p-6 text-center">
-                  <p className="text-neutral-400 mb-3">Sign in to open this box</p>
+                <div className="rounded-lg border border-border-subtle bg-surface p-6 text-center">
+                  <p className="text-ink-muted mb-3">Sign in to open this box</p>
                   <Link
                     href="/login"
-                    className="inline-block px-6 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 transition"
+                    className="inline-block px-6 py-2 bg-ink text-page font-bold rounded-lg hover:bg-ink/85 transition"
                   >
                     Sign In
                   </Link>
@@ -231,8 +224,8 @@ export default function MysteryBoxDetailPage() {
               <div
                 className={`mt-4 rounded-lg p-3 text-sm ${
                   message.type === "success"
-                    ? "bg-green-500/10 border border-green-500/30 text-green-400"
-                    : "bg-red-500/10 border border-red-500/30 text-red-400"
+                    ? "bg-ok/10 border border-ok/30 text-ok"
+                    : "bg-danger/10 border border-danger/30 text-danger"
                 }`}
               >
                 {message.text}
@@ -242,40 +235,40 @@ export default function MysteryBoxDetailPage() {
 
           {/* Right: Details */}
           <div>
-            <h1 className="text-3xl font-black mb-2">{box.title}</h1>
+            <h1 className="text-3xl font-display font-semibold mb-2">{box.title}</h1>
             {box.description && (
-              <p className="text-neutral-400 mb-6">{box.description}</p>
+              <p className="text-ink-muted mb-6">{box.description}</p>
             )}
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3 text-center">
-                <p className="text-2xl font-bold text-purple-400">{box.cost_points.toLocaleString()}</p>
-                <p className="text-xs text-neutral-500">Berries to open</p>
+              <div className="rounded-lg bg-surface border border-border-subtle p-3 text-center">
+                <p className="text-2xl font-bold text-accent">{box.cost_points.toLocaleString()}</p>
+                <p className="text-xs text-ink-faint">Berries to open</p>
               </div>
-              <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3 text-center">
+              <div className="rounded-lg bg-surface border border-border-subtle p-3 text-center">
                 <p className="text-2xl font-bold">{box.total_opens.toLocaleString()}</p>
-                <p className="text-xs text-neutral-500">total opens</p>
+                <p className="text-xs text-ink-faint">total opens</p>
               </div>
               {loggedIn && box.user_opens != null && (
-                <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-3 text-center">
-                  <p className="text-2xl font-bold text-purple-400/80">
+                <div className="rounded-lg bg-surface border border-border-subtle p-3 text-center">
+                  <p className="text-2xl font-bold text-ink-muted">
                     {box.user_opens} / {box.max_opens_per_user}
                   </p>
-                  <p className="text-xs text-neutral-500">your opens</p>
+                  <p className="text-xs text-ink-faint">your opens</p>
                 </div>
               )}
             </div>
 
             {/* Reward table */}
             {rewards.length > 0 && (
-              <div className="rounded-xl border border-neutral-800 overflow-hidden">
-                <div className="bg-neutral-900 px-4 py-3 border-b border-neutral-800">
-                  <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-400">
+              <div className="rounded-lg border border-border-subtle overflow-hidden">
+                <div className="bg-surface px-4 py-3 border-b border-border-subtle">
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-ink-muted">
                     Possible Rewards
                   </h3>
                 </div>
-                <div className="divide-y divide-neutral-800/50">
+                <div className="divide-y divide-border-subtle">
                   {rewards.map((reward) => (
                     <div key={reward.id} className="px-4 py-3 flex items-center gap-3">
                       {reward.image_url ? (
@@ -285,16 +278,16 @@ export default function MysteryBoxDetailPage() {
                           className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-neutral-800 flex-shrink-0" />
+                        <div className="w-10 h-10 rounded-lg bg-surface-subtle flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm truncate">{reward.name}</p>
-                        <p className="text-xs text-neutral-500 capitalize">{reward.reward_type}</p>
+                        <p className="text-xs text-ink-faint capitalize">{reward.reward_type}</p>
                       </div>
                       <span className="flex-shrink-0">
                         <Badge status={reward.rarity} palette={Palettes.MysteryBoxRarityPalette} />
                       </span>
-                      <span className="text-sm text-neutral-400 flex-shrink-0 w-14 text-right">
+                      <span className="text-sm text-ink-muted flex-shrink-0 w-14 text-right">
                         {(parseFloat(reward.probability) * 100).toFixed(1)}%
                       </span>
                     </div>

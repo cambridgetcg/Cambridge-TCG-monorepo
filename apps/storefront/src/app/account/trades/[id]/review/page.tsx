@@ -18,7 +18,7 @@ function ClickableStars({
   return (
     <div>
       <Audience kind="consumer" />
-      <label className="block text-sm text-neutral-400 mb-1">{label}</label>
+      <label className="block text-sm text-ink-muted mb-1">{label}</label>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((i) => (
           <button
@@ -28,7 +28,7 @@ function ClickableStars({
             onMouseLeave={() => setHover(0)}
             onClick={() => onChange(i)}
             className={`text-2xl transition ${
-              i <= (hover || value) ? "text-amber-400" : "text-neutral-700"
+              i <= (hover || value) ? "text-accent" : "text-border-strong"
             } hover:scale-110`}
           >
             ★
@@ -126,7 +126,7 @@ export default function ReviewTradePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-ink-faint">Loading...</p>
       </div>
     );
   }
@@ -134,7 +134,7 @@ export default function ReviewTradePage() {
   if (loggedIn === false) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-neutral-500">Please log in to leave a review.</p>
+        <p className="text-ink-faint">Please log in to leave a review.</p>
       </div>
     );
   }
@@ -142,7 +142,7 @@ export default function ReviewTradePage() {
   if (error) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-red-400">{error}</p>
+        <p className="text-danger">{error}</p>
       </div>
     );
   }
@@ -150,13 +150,13 @@ export default function ReviewTradePage() {
   if (submitted) {
     return (
       <div className="max-w-lg mx-auto py-12 text-center">
-        <div className="bg-neutral-900 rounded-xl p-8">
-          <div className="text-4xl mb-4 text-emerald-400">&#10003;</div>
-          <h2 className="text-xl font-bold text-white mb-2">Review Submitted</h2>
-          <p className="text-neutral-400 mb-6">Thank you for your feedback. Your review helps build trust in the community.</p>
+        <div className="bg-surface rounded-lg p-8">
+          <div className="text-4xl mb-4 text-ok">&#10003;</div>
+          <h2 className="text-xl font-bold text-ink mb-2">Review Submitted</h2>
+          <p className="text-ink-muted mb-6">Thank you for your feedback. Your review helps build trust in the community.</p>
           <Link
             href="/account/trades"
-            className="inline-block px-6 py-2.5 rounded-lg bg-amber-500 text-black font-semibold text-sm hover:bg-amber-400 transition"
+            className="inline-block px-6 py-2.5 rounded-lg bg-ink text-page font-semibold text-sm hover:opacity-90 transition"
           >
             Back to Trades
           </Link>
@@ -167,23 +167,23 @@ export default function ReviewTradePage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-6">Leave a Review</h1>
+      <h1 className="text-2xl font-bold text-ink mb-6">Leave a Review</h1>
 
       {/* Trade Summary */}
       {trade && (
-        <div className="bg-neutral-900 rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-medium text-neutral-400 mb-2">Trade Summary</h3>
+        <div className="bg-surface rounded-lg p-5 mb-6">
+          <h3 className="text-sm font-medium text-ink-muted mb-2">Trade Summary</h3>
           <div className="space-y-1">
             {trade.card_name && (
-              <p className="text-white font-medium">{trade.card_name}</p>
+              <p className="text-ink font-medium">{trade.card_name}</p>
             )}
             {(trade.price || trade.amount) && (
-              <p className="text-sm text-neutral-400">
+              <p className="text-sm text-ink-muted">
                 Price: <Money value={parseFloat(trade.price || trade.amount)} />
               </p>
             )}
             {(trade.counterparty_name || trade.other_user_name) && (
-              <p className="text-sm text-neutral-400">
+              <p className="text-sm text-ink-muted">
                 With: {trade.counterparty_name || trade.other_user_name}
               </p>
             )}
@@ -195,8 +195,8 @@ export default function ReviewTradePage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <ClickableStars value={rating} onChange={setRating} label="Overall Rating *" />
 
-        <div className="border-t border-neutral-800 pt-4">
-          <p className="text-xs text-neutral-500 mb-4">Sub-ratings (optional)</p>
+        <div className="border-t border-border-subtle pt-4">
+          <p className="text-xs text-ink-faint mb-4">Sub-ratings (optional)</p>
           <div className="space-y-4">
             <ClickableStars value={cardAccuracy} onChange={setCardAccuracy} label="Card Accuracy" />
             <ClickableStars value={shippingSpeed} onChange={setShippingSpeed} label="Shipping Speed" />
@@ -205,22 +205,22 @@ export default function ReviewTradePage() {
         </div>
 
         <div>
-          <label className="block text-sm text-neutral-400 mb-1">Comment</label>
+          <label className="block text-sm text-ink-muted mb-1">Comment</label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={4}
-            className="w-full bg-neutral-900 text-white rounded-lg px-3 py-2 text-sm border border-neutral-700 focus:border-amber-500 focus:outline-none resize-none"
+            className="w-full bg-surface text-ink rounded-lg px-3 py-2 text-sm border border-border-subtle focus:border-accent focus:outline-none resize-none"
             placeholder="Share your experience with this trade..."
           />
         </div>
 
-        {submitError && <p className="text-red-400 text-sm">{submitError}</p>}
+        {submitError && <p className="text-danger text-sm">{submitError}</p>}
 
         <button
           type="submit"
           disabled={submitting || rating === 0}
-          className="w-full py-3 rounded-lg bg-amber-500 text-black font-semibold text-sm hover:bg-amber-400 transition disabled:opacity-50"
+          className="w-full py-3 rounded-lg bg-ink text-page font-semibold text-sm hover:opacity-90 transition disabled:opacity-50"
         >
           {submitting ? "Submitting..." : "Submit Review"}
         </button>

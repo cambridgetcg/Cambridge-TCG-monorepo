@@ -94,15 +94,15 @@ export default function SearchesPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-2">Saved Searches</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-display font-semibold text-ink mb-2">Saved Searches</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Criteria-based stock alerts. The platform scans new market listings every minute and
         notifies you when an ask matches your filter. Different from Watchlist (per-SKU price
         alerts) and Wishlist (per-card max-price).
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-300">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-4 text-sm text-danger">
           {error}
         </div>
       )}
@@ -110,7 +110,7 @@ export default function SearchesPage() {
       <div className="flex justify-end mb-4">
         <button
           onClick={() => setShowNew((s) => !s)}
-          className="px-4 py-2 text-xs font-bold bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition"
+          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition"
         >
           {showNew ? "Cancel" : "+ New saved search"}
         </button>
@@ -120,11 +120,11 @@ export default function SearchesPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : searches.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-400 text-sm">
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-muted text-sm">
             No saved searches yet. Create one above to start getting matched-listing notifications.
           </p>
         </div>
@@ -165,29 +165,29 @@ function SearchCard({
   const summary = formatQuery(search.query);
 
   return (
-    <div className="bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden">
+    <div className="bg-surface rounded-lg border border-border-subtle overflow-hidden">
       <div className="p-4">
         <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
           <div className="min-w-0">
-            <p className="text-white font-semibold text-sm truncate">{search.name}</p>
-            <p className="text-xs text-neutral-500 mt-0.5">{summary}</p>
+            <p className="text-ink font-semibold text-sm truncate">{search.name}</p>
+            <p className="text-xs text-ink-faint mt-0.5">{summary}</p>
           </div>
           <Badge status={search.status} palette={Palettes.SavedSearchStatusPalette} labels={STATUS_LABELS} />
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-neutral-500 mt-2 flex-wrap">
+        <div className="flex items-center gap-4 text-xs text-ink-faint mt-2 flex-wrap">
           <span>
-            <span className="text-neutral-300 font-mono">{search.match_count}</span> match{search.match_count === 1 ? "" : "es"}
+            <span className="text-ink-muted font-mono">{search.match_count}</span> match{search.match_count === 1 ? "" : "es"}
           </span>
           <span>
-            Last match <span className="text-neutral-300">{timeAgo(search.last_match_at)}</span>
+            Last match <span className="text-ink-muted">{timeAgo(search.last_match_at)}</span>
           </span>
           <span>
-            Last scan <span className="text-neutral-300">{timeAgo(search.last_scanned_at)}</span>
+            Last scan <span className="text-ink-muted">{timeAgo(search.last_scanned_at)}</span>
           </span>
           <span>
             Expires{" "}
-            <span className="text-neutral-300">
+            <span className="text-ink-muted">
               {new Date(search.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
             </span>
           </span>
@@ -197,7 +197,7 @@ function SearchCard({
           <button
             onClick={onExpand}
             disabled={search.match_count === 0}
-            className="px-3 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 disabled:text-neutral-600 transition"
+            className="px-3 py-1.5 text-xs font-medium text-accent hover:text-accent-strong disabled:text-ink-faint transition"
           >
             {expanded ? "Hide matches ▲" : `View matches ▼`}
           </button>
@@ -206,7 +206,7 @@ function SearchCard({
             <button
               disabled={busy}
               onClick={() => onAct("pause")}
-              className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
             >
               Pause
             </button>
@@ -215,7 +215,7 @@ function SearchCard({
             <button
               disabled={busy}
               onClick={() => onAct("resume")}
-              className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
             >
               Resume
             </button>
@@ -224,7 +224,7 @@ function SearchCard({
             <button
               disabled={busy}
               onClick={() => onAct("extend")}
-              className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
             >
               Extend 90d
             </button>
@@ -233,7 +233,7 @@ function SearchCard({
             <button
               disabled={busy}
               onClick={() => onAct("", "DELETE")}
-              className="px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium text-danger hover:text-danger transition disabled:opacity-50"
             >
               Archive
             </button>
@@ -242,20 +242,20 @@ function SearchCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-neutral-800 p-4 bg-neutral-950/40">
+        <div className="border-t border-border-subtle p-4 bg-surface-subtle">
           {matches.length === 0 ? (
-            <p className="text-xs text-neutral-500">No matches yet. We'll notify you when one hits the book.</p>
+            <p className="text-xs text-ink-faint">No matches yet. We'll notify you when one hits the book.</p>
           ) : (
             <div className="space-y-1.5">
               {matches.map((m) => (
                 <Link
                   key={m.id}
                   href={`/market/${encodeURIComponent(m.sku)}`}
-                  className="flex items-center justify-between text-xs hover:bg-neutral-800/50 rounded p-2 transition"
+                  className="flex items-center justify-between text-xs hover:bg-surface-subtle rounded p-2 transition"
                 >
                   <div className="min-w-0">
-                    <p className="text-neutral-200 truncate">{m.card_name || m.sku}</p>
-                    <p className="text-[10px] text-neutral-500">
+                    <p className="text-ink truncate">{m.card_name || m.sku}</p>
+                    <p className="text-[10px] text-ink-faint">
                       {timeAgo(m.matched_at)}
                       {m.seller_username && (
                         <> · @{m.seller_username}</>
@@ -263,7 +263,7 @@ function SearchCard({
                       <> · {m.current_status}</>
                     </p>
                   </div>
-                  <span className="font-mono text-amber-400 shrink-0 ml-3">
+                  <span className="font-mono text-accent shrink-0 ml-3">
                     <Money value={parseFloat(m.matched_price)} />
                   </span>
                 </Link>
@@ -330,37 +330,37 @@ function NewSearchForm({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <div className="bg-neutral-900 rounded-xl border border-amber-500/30 p-5 mb-4">
-      <h2 className="text-sm font-bold text-amber-400 uppercase tracking-wide mb-3">New saved search</h2>
+    <div className="bg-surface rounded-lg border border-accent/30 p-5 mb-4">
+      <h2 className="text-sm font-bold text-accent uppercase tracking-wide mb-3">New saved search</h2>
 
-      <label className="block text-xs text-neutral-500 mb-1">Name (visible only to you)</label>
+      <label className="block text-xs text-ink-faint mb-1">Name (visible only to you)</label>
       <input
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Cheap Charizards"
-        className="w-full px-3 py-2 mb-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+        className="w-full px-3 py-2 mb-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
       />
 
-      <label className="block text-xs text-neutral-500 mb-1">Card name or SKU contains</label>
+      <label className="block text-xs text-ink-faint mb-1">Card name or SKU contains</label>
       <input
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="charizard"
-        className="w-full px-3 py-2 mb-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+        className="w-full px-3 py-2 mb-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
       />
 
-      <label className="block text-xs text-neutral-500 mb-1">Set codes (comma-separated)</label>
+      <label className="block text-xs text-ink-faint mb-1">Set codes (comma-separated)</label>
       <input
         type="text"
         value={setCodes}
         onChange={(e) => setSetCodes(e.target.value)}
         placeholder="OP01, OP02"
-        className="w-full px-3 py-2 mb-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm font-mono uppercase"
+        className="w-full px-3 py-2 mb-3 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm font-mono uppercase"
       />
 
-      <label className="block text-xs text-neutral-500 mb-2">Conditions</label>
+      <label className="block text-xs text-ink-faint mb-2">Conditions</label>
       <div className="flex gap-1 mb-3 flex-wrap">
         {["NM", "M", "LP", "MP", "HP", "DMG"].map((c) => (
           <button
@@ -368,8 +368,8 @@ function NewSearchForm({ onCreated }: { onCreated: () => void }) {
             onClick={() => toggleCondition(c)}
             className={`text-xs px-2.5 py-1 rounded-full transition ${
               conditions.includes(c)
-                ? "bg-amber-500 text-black font-bold"
-                : "bg-neutral-800 text-neutral-400 hover:text-white"
+                ? "bg-ink text-page font-semibold"
+                : "bg-surface-subtle text-ink-muted hover:text-ink"
             }`}
           >
             {c}
@@ -379,34 +379,34 @@ function NewSearchForm({ onCreated }: { onCreated: () => void }) {
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">Min price (£)</label>
+          <label className="block text-xs text-ink-faint mb-1">Min price (£)</label>
           <input
             type="number"
             step="0.01"
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+            className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">Max price (£)</label>
+          <label className="block text-xs text-ink-faint mb-1">Max price (£)</label>
           <input
             type="number"
             step="0.01"
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+            className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
           />
         </div>
       </div>
 
-      {err && <p className="text-xs text-red-400 mb-3">{err}</p>}
+      {err && <p className="text-xs text-danger mb-3">{err}</p>}
 
       <div className="flex justify-end gap-2">
         <button
           disabled={submitting || !name.trim()}
           onClick={submit}
-          className="px-4 py-2 text-xs font-bold bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition disabled:opacity-50"
         >
           {submitting ? "Saving..." : "Save search"}
         </button>

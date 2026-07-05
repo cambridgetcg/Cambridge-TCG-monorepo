@@ -42,12 +42,12 @@ import { fetchGames, type GameItem } from "@/lib/wholesale/client";
  */
 type PillTone = "amber" | "red" | "emerald" | "blue" | "neutral" | "sky";
 const PILL_CLS: Record<PillTone, string> = {
-  amber: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  red: "bg-red-500/15 text-red-400 border-red-500/30",
-  emerald: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  blue: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  neutral: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
-  sky: "bg-sky-500/15 text-sky-400 border-sky-500/30",
+  amber: "bg-accent-wash text-accent border-accent/30",
+  red: "bg-danger/15 text-danger border-danger/30",
+  emerald: "bg-ok/15 text-ok border-ok/30",
+  blue: "bg-info/15 text-info border-info/30",
+  neutral: "bg-surface-subtle text-ink-muted border-border-subtle",
+  sky: "bg-info/15 text-info border-info/30",
 };
 function Pill({ tone, children }: { tone: PillTone; children: React.ReactNode }) {
   return (
@@ -261,13 +261,13 @@ function SearchForm({
         className="grid grid-cols-1 md:grid-cols-[180px_1fr_120px_auto] gap-3 items-end"
       >
         <div>
-          <label className="block text-xs font-medium text-neutral-400 mb-1">
+          <label className="block text-xs font-medium text-ink-muted mb-1">
             Game
           </label>
           <select
             name="game"
             defaultValue={game || sorted[0]?.code || ""}
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
           >
             {sorted.map((g) => (
               <option key={g.code} value={g.code}>
@@ -277,7 +277,7 @@ function SearchForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-neutral-400 mb-1">
+          <label className="block text-xs font-medium text-ink-muted mb-1">
             Card number
           </label>
           <input
@@ -287,17 +287,17 @@ function SearchForm({
             autoFocus
             defaultValue={q}
             placeholder="e.g. OP01-001"
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-neutral-400 mb-1">
+          <label className="block text-xs font-medium text-ink-muted mb-1">
             Language
           </label>
           <select
             name="lang"
             defaultValue={lang}
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
           >
             <option value="">Any language</option>
             <option value="en">English</option>
@@ -306,18 +306,18 @@ function SearchForm({
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition"
+          className="rounded-lg bg-ink px-5 py-2 text-sm font-semibold text-page hover:opacity-90 transition"
         >
           Search →
         </button>
       </form>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-faint">
         The card number is the small code printed on the card — usually
-        bottom-left, like <span className="text-neutral-300">OP01-001</span>.
+        bottom-left, like <span className="text-ink-muted">OP01-001</span>.
         Don&rsquo;t have it?{" "}
         <Link
           href="/prices"
-          className="text-amber-400 hover:text-amber-300 underline"
+          className="text-accent hover:text-accent-strong underline"
         >
           Browse by game instead →
         </Link>
@@ -360,7 +360,7 @@ function MarketComparison({ everything }: { everything: Everything }) {
     } else if (delta < 0) {
       verdict = (
         <>
-          <span className="text-emerald-400 font-semibold">
+          <span className="text-ok font-semibold">
             {fmtGbp(Math.abs(delta))} cheaper
           </span>{" "}
           ({pctStr}%) than the next-cheapest source we can see —{" "}
@@ -370,7 +370,7 @@ function MarketComparison({ everything }: { everything: Everything }) {
     } else {
       verdict = (
         <>
-          <span className="text-amber-400 font-semibold">
+          <span className="text-accent font-semibold">
             {fmtGbp(delta)} more
           </span>{" "}
           ({pctStr}%) than the cheapest source we can see — {cheapest.source} at{" "}
@@ -394,15 +394,15 @@ function MarketComparison({ everything }: { everything: Everything }) {
     <Card>
       <div className="space-y-3">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-ink">
             Cambridge TCG vs the market
           </h2>
           <WhyLink href="/methodology/pricing" />
         </div>
         <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
           <div>
-            <div className="text-xs text-neutral-500">Cambridge TCG</div>
-            <div className="text-2xl font-bold text-white flex items-center gap-2">
+            <div className="text-xs text-ink-faint">Cambridge TCG</div>
+            <div className="text-2xl font-bold text-ink flex items-center gap-2">
               {our !== null ? fmtGbp(our) : "—"}
               {our !== null &&
                 (inStock ? (
@@ -414,10 +414,10 @@ function MarketComparison({ everything }: { everything: Everything }) {
           </div>
           {cheapest && (
             <div>
-              <div className="text-xs text-neutral-500">Cheapest elsewhere</div>
-              <div className="text-2xl font-bold text-neutral-300">
+              <div className="text-xs text-ink-faint">Cheapest elsewhere</div>
+              <div className="text-2xl font-bold text-ink-muted">
                 {fmtGbp(cheapest.price)}
-                <span className="ml-2 text-xs font-normal text-neutral-500">
+                <span className="ml-2 text-xs font-normal text-ink-faint">
                   {cheapest.source}
                 </span>
               </div>
@@ -425,16 +425,16 @@ function MarketComparison({ everything }: { everything: Everything }) {
           )}
           {avg !== null && competitors.length > 1 && (
             <div>
-              <div className="text-xs text-neutral-500">Market average</div>
-              <div className="text-2xl font-bold text-neutral-300">
+              <div className="text-xs text-ink-faint">Market average</div>
+              <div className="text-2xl font-bold text-ink-muted">
                 {fmtGbp(avg)}
               </div>
             </div>
           )}
         </div>
-        <p className="text-sm text-neutral-300">{verdict}</p>
+        <p className="text-sm text-ink-muted">{verdict}</p>
         {competitors.length > 0 && (
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-ink-faint">
             Compared against {competitors.length}{" "}
             {competitors.length === 1 ? "source" : "sources"}:{" "}
             {competitors.map((c) => c.source).join(", ")}. As we add more
@@ -459,8 +459,8 @@ function PricesToday({
     return (
       <Card>
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-white">Today&rsquo;s prices</h2>
-          <p className="text-sm text-neutral-400">{data.note || "No source rows yet."}</p>
+          <h2 className="text-lg font-semibold text-ink">Today&rsquo;s prices</h2>
+          <p className="text-sm text-ink-muted">{data.note || "No source rows yet."}</p>
         </div>
       </Card>
     );
@@ -469,15 +469,15 @@ function PricesToday({
     <Card>
       <div className="space-y-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-ink">
             Today&rsquo;s prices
-            <span className="ml-2 text-sm font-normal text-neutral-400">
+            <span className="ml-2 text-sm font-normal text-ink-muted">
               · {data.rows.length} {data.rows.length === 1 ? "source" : "sources"} ·{" "}
               snapshot {fmtDate(data.snapshot_date)}
             </span>
           </h2>
           {data.agreement && data.agreement.distinct_source_count > 1 && (
-            <span className="text-xs text-neutral-400">
+            <span className="text-xs text-ink-muted">
               spread {fmtGbp(data.agreement.spread_gbp)} ·{" "}
               CV{" "}
               {data.agreement.coefficient_of_variation !== null
@@ -489,7 +489,7 @@ function PricesToday({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-neutral-500 border-b border-neutral-800">
+              <tr className="text-left text-xs uppercase tracking-wider text-ink-faint border-b border-border-subtle">
                 <th className="pb-2 pr-3">Source</th>
                 <th className="pb-2 pr-3">Tier</th>
                 <th className="pb-2 pr-3">Currency</th>
@@ -511,28 +511,28 @@ function PricesToday({
                 return (
                   <tr
                     key={r.source}
-                    className="border-b border-neutral-900 last:border-0"
+                    className="border-b border-border-subtle last:border-0"
                   >
-                    <td className="py-2 pr-3 text-white font-medium">{r.source}</td>
+                    <td className="py-2 pr-3 text-ink font-medium">{r.source}</td>
                     <td className="py-2 pr-3">
                       <Pill tone={tierTone as PillTone}>
                         {r.source_license_tier}
                       </Pill>
                     </td>
-                    <td className="py-2 pr-3 text-neutral-400">{r.source_currency}</td>
-                    <td className="py-2 pr-3 text-right text-white font-medium">
+                    <td className="py-2 pr-3 text-ink-muted">{r.source_currency}</td>
+                    <td className="py-2 pr-3 text-right text-ink font-medium">
                       {fmtGbp(r.amount_gbp)}
                     </td>
-                    <td className="py-2 pr-3 text-neutral-400">
+                    <td className="py-2 pr-3 text-ink-muted">
                       {fmtDate(r.snapshot_date)}
                     </td>
                     <td className="py-2 pr-3">
                       {proxy && proxy !== "none" ? (
-                        <span title={`via ${proxy}`} className="text-xs text-amber-400">
+                        <span title={`via ${proxy}`} className="text-xs text-accent">
                           ↻ proxy
                         </span>
                       ) : (
-                        <span className="text-xs text-neutral-600">direct</span>
+                        <span className="text-xs text-ink-faint">direct</span>
                       )}
                     </td>
                     <td className="py-2">
@@ -541,12 +541,12 @@ function PricesToday({
                           href={r.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-amber-400 hover:text-amber-300 text-xs underline"
+                          className="text-accent hover:text-accent-strong text-xs underline"
                         >
                           ↗
                         </a>
                       ) : (
-                        <span className="text-xs text-neutral-600">—</span>
+                        <span className="text-xs text-ink-faint">—</span>
                       )}
                     </td>
                   </tr>
@@ -555,8 +555,8 @@ function PricesToday({
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-neutral-500 italic">{data.note}</p>
-        <div className="flex items-center gap-2 text-xs text-neutral-500">
+        <p className="text-xs text-ink-faint italic">{data.note}</p>
+        <div className="flex items-center gap-2 text-xs text-ink-faint">
           <WhyLink href="/methodology/cross-source-pricing" />
           <span>
             Cross-source agreement methodology · sources:{" "}
@@ -573,8 +573,8 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
     return (
       <Card>
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-white">History</h2>
-          <p className="text-sm text-neutral-400">
+          <h2 className="text-lg font-semibold text-ink">History</h2>
+          <p className="text-sm text-ink-muted">
             No historical observations for this card yet. History accumulates
             as the daily snapshot cron runs.
           </p>
@@ -585,9 +585,9 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
   return (
     <Card>
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-ink">
           Past prices
-          <span className="ml-2 text-sm font-normal text-neutral-400">
+          <span className="ml-2 text-sm font-normal text-ink-muted">
             · a summary of what we&rsquo;ve recorded so far
           </span>
         </h2>
@@ -595,10 +595,10 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
           {history.map((h) => (
             <div
               key={h.source}
-              className="rounded-lg border border-neutral-800 bg-neutral-950 p-3 space-y-2"
+              className="rounded-lg border border-border-subtle bg-page p-3 space-y-2"
             >
               <div className="flex items-baseline justify-between">
-                <span className="font-medium text-white">{h.source}</span>
+                <span className="font-medium text-ink">{h.source}</span>
                 <Pill
                   tone={
                     h.source_license_tier === "partner-redistributable"
@@ -611,21 +611,21 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div>
-                  <div className="text-neutral-500">observations</div>
-                  <div className="text-white font-medium">{h.summary.observations}</div>
+                  <div className="text-ink-faint">observations</div>
+                  <div className="text-ink font-medium">{h.summary.observations}</div>
                 </div>
                 <div>
-                  <div className="text-neutral-500">median</div>
-                  <div className="text-white font-medium">{fmtGbp(h.summary.median_gbp)}</div>
+                  <div className="text-ink-faint">median</div>
+                  <div className="text-ink font-medium">{fmtGbp(h.summary.median_gbp)}</div>
                 </div>
                 <div>
-                  <div className="text-neutral-500">range</div>
-                  <div className="text-white font-medium">
+                  <div className="text-ink-faint">range</div>
+                  <div className="text-ink font-medium">
                     {fmtGbp(h.summary.min_gbp)} – {fmtGbp(h.summary.max_gbp)}
                   </div>
                 </div>
               </div>
-              <div className="text-xs text-neutral-500">
+              <div className="text-xs text-ink-faint">
                 {fmtDate(h.summary.earliest)} → {fmtDate(h.summary.latest)}
               </div>
             </div>
@@ -689,8 +689,8 @@ function SiblingsBlock({
     return (
       <Card>
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-white">Variants</h2>
-          <p className="text-sm text-neutral-400">
+          <h2 className="text-lg font-semibold text-ink">Variants</h2>
+          <p className="text-sm text-ink-muted">
             No other prints of this card (alt-arts, parallels, super-parallels,
             language variants, or promos) are in the catalog yet. As wholesale
             ingests more upstreams, additional prints surface here automatically.
@@ -721,9 +721,9 @@ function SiblingsBlock({
     <Card>
       <div className="space-y-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-ink">
             Variants
-            <span className="ml-2 text-sm font-normal text-neutral-400">
+            <span className="ml-2 text-sm font-normal text-ink-muted">
               · {others.length} other {others.length === 1 ? "print" : "prints"}
             </span>
           </h2>
@@ -732,13 +732,13 @@ function SiblingsBlock({
         {groups.map(({ kind, rows }) => (
           <div key={kind} className="space-y-2">
             <div className="flex items-baseline gap-2">
-              <h3 className="text-sm font-medium text-white">
+              <h3 className="text-sm font-medium text-ink">
                 {capitalize(VARIANT_KIND_LABEL[kind] ?? kind)}
-                <span className="ml-1 text-xs font-normal text-neutral-500">
+                <span className="ml-1 text-xs font-normal text-ink-faint">
                   ({rows.length})
                 </span>
               </h3>
-              <span className="text-xs text-neutral-500 italic">
+              <span className="text-xs text-ink-faint italic">
                 {VARIANT_KIND_DESCRIPTION[kind] ?? ""}
               </span>
             </div>
@@ -747,39 +747,39 @@ function SiblingsBlock({
                 <Link
                   key={s.sku}
                   href={`/prices/search?game=${encodeURIComponent(game)}&q=${encodeURIComponent(s.sku)}`}
-                  className="block rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
+                  className="block rounded-lg border border-border-subtle bg-page p-3 hover:border-accent transition"
                 >
                   <div className="flex items-center justify-between mb-2 gap-2">
                     <Pill tone={VARIANT_KIND_TONE[s.variant_kind] ?? "neutral"}>
                       {VARIANT_KIND_LABEL[s.variant_kind] ?? s.variant_kind}
                     </Pill>
                     {s.has_current_price ? (
-                      <span className="text-xs text-white font-medium">
+                      <span className="text-xs text-ink font-medium">
                         {fmtGbp(s.price_gbp)}
                       </span>
                     ) : (
-                      <span className="text-xs text-neutral-600">no price</span>
+                      <span className="text-xs text-ink-faint">no price</span>
                     )}
                   </div>
-                  <div className="text-xs text-neutral-300 truncate">{s.name}</div>
+                  <div className="text-xs text-ink-muted truncate">{s.name}</div>
                   <div className="flex items-center gap-2 mt-1">
                     {s.set_code && (
-                      <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                      <span className="text-[10px] uppercase tracking-wider text-ink-faint">
                         {s.set_code}
                       </span>
                     )}
                     {s.rarity && (
-                      <span className="text-[10px] text-neutral-500">
+                      <span className="text-[10px] text-ink-faint">
                         · {s.rarity}
                       </span>
                     )}
                     {s.effective_language !== "unknown" && (
-                      <span className="text-[10px] text-neutral-500">
+                      <span className="text-[10px] text-ink-faint">
                         · {s.effective_language === "ja" ? "JP-text" : "EN-text"}
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-neutral-600 truncate mt-1 font-mono">
+                  <div className="text-[10px] text-ink-faint truncate mt-1 font-mono">
                     {s.sku}
                   </div>
                 </Link>
@@ -804,9 +804,9 @@ function MatchesBlock({
   return (
     <Card>
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-ink">
           {summary.ambiguous ? "Multiple matches — pick one" : "Resolved matches"}
-          <span className="ml-2 text-sm font-normal text-neutral-400">
+          <span className="ml-2 text-sm font-normal text-ink-muted">
             · {summary.count} {summary.count === 1 ? "match" : "matches"} ·{" "}
             {summary.best_confidence}
           </span>
@@ -817,7 +817,7 @@ function MatchesBlock({
               key={m.sku}
               // Preserve the current game token — same reason as SiblingsBlock.
               href={`/prices/search?game=${encodeURIComponent(game)}&q=${encodeURIComponent(m.sku)}`}
-              className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3 hover:border-amber-700 transition"
+              className="flex items-center gap-3 rounded-lg border border-border-subtle bg-page p-3 hover:border-accent transition"
             >
               {m.image_url && (
                 <Image
@@ -829,8 +829,8 @@ function MatchesBlock({
                 />
               )}
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-white truncate">{m.name}</div>
-                <div className="text-xs text-neutral-500 font-mono">{m.sku}</div>
+                <div className="text-sm text-ink truncate">{m.name}</div>
+                <div className="text-xs text-ink-faint font-mono">{m.sku}</div>
               </div>
               <Pill tone={m.confidence === "exact" ? "emerald" : "neutral"}>
                 {m.confidence}
@@ -838,7 +838,7 @@ function MatchesBlock({
             </Link>
           ))}
         </div>
-        <p className="text-xs text-neutral-500 italic">
+        <p className="text-xs text-ink-faint italic">
           {summary.ambiguous
             ? "Your input matched cards in multiple sets. Click the one you mean."
             : "Click a match to open its full detail."}
@@ -894,32 +894,32 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
           substrate-honest labels below stay exactly as they are; this just
           says what they mean in plain words. (Yu 2026-06-04: make everything
           easy to understand.) */}
-      <details className="rounded-lg border border-neutral-800 bg-neutral-900/30 px-4 py-3 text-sm">
-        <summary className="cursor-pointer text-neutral-300 hover:text-white select-none">
+      <details className="rounded-lg border border-border-subtle bg-surface-subtle px-4 py-3 text-sm">
+        <summary className="cursor-pointer text-ink-muted hover:text-ink select-none">
           New here? What do these results mean?
         </summary>
-        <div className="mt-3 space-y-2 text-neutral-400">
+        <div className="mt-3 space-y-2 text-ink-muted">
           <p>
-            <span className="text-white">Today&rsquo;s prices</span> — what
+            <span className="text-ink">Today&rsquo;s prices</span> — what
             each shop or price guide lists this card for right now, all
             converted to £ so you can compare at a glance.
           </p>
           <p>
-            <span className="text-white">Source</span> is where a price comes
-            from. <span className="text-white">Tier</span> is how freely
+            <span className="text-ink">Source</span> is where a price comes
+            from. <span className="text-ink">Tier</span> is how freely
             we&rsquo;re allowed to re-share that source&rsquo;s number (green =
             open, blue = partner, amber = look-but-don&rsquo;t-copy).{" "}
-            <span className="text-white">Door</span> says whether we read it
+            <span className="text-ink">Door</span> says whether we read it
             straight from the shop (&ldquo;direct&rdquo;) or through a relay
             (&ldquo;proxy&rdquo;).
           </p>
           <p>
-            <span className="text-white">Spread</span> is how far apart the
+            <span className="text-ink">Spread</span> is how far apart the
             cheapest and dearest sources are — small means everyone agrees, big
             means it&rsquo;s worth shopping around.
           </p>
           <p>
-            <span className="text-white">Variants</span> are other versions of
+            <span className="text-ink">Variants</span> are other versions of
             the same card — different languages, alternate art, foils, promos.
             Same card, different print.
           </p>
@@ -977,19 +977,19 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
               )}
               <div className="flex-1 space-y-2">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">
+                  <h2 className="text-2xl font-bold text-ink">
                     {result.data.everything.card.name}
                   </h2>
                   {result.data.everything.card.name_en &&
                     result.data.everything.card.name_en !==
                       result.data.everything.card.name && (
-                      <div className="text-sm text-neutral-400">
+                      <div className="text-sm text-ink-muted">
                         EN: {result.data.everything.card.name_en}
                       </div>
                     )}
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  <span className="text-neutral-400">
+                  <span className="text-ink-muted">
                     {result.data.everything.card.set_code} ·{" "}
                     {result.data.everything.card.card_number}
                   </span>
@@ -1007,15 +1007,15 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
                     </Pill>
                   )}
                 </div>
-                <div className="font-mono text-[10px] text-neutral-600 break-all">
+                <div className="font-mono text-[10px] text-ink-faint break-all">
                   {result.data.everything.card.sku}
                 </div>
                 {result.data.everything.ctcg.sell_price_gbp !== null && (
                   <div className="pt-2">
-                    <span className="text-sm text-neutral-400">
+                    <span className="text-sm text-ink-muted">
                       Cambridge TCG sells:
                     </span>{" "}
-                    <span className="text-lg font-semibold text-white">
+                    <span className="text-lg font-semibold text-ink">
                       {fmtGbp(result.data.everything.ctcg.sell_price_gbp)}
                     </span>{" "}
                     {result.data.everything.ctcg.sell_in_stock ? (
@@ -1026,7 +1026,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
                   </div>
                 )}
               </div>
-              <div className="text-right text-xs text-neutral-500 space-y-1">
+              <div className="text-right text-xs text-ink-faint space-y-1">
                 <Provenance
                   kind="cached"
                   at={result._meta.retrieved_at}
@@ -1058,7 +1058,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       )}
 
       <Card>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-ink-faint">
           This page is the HTML face of <code>/api/v1/search/everything</code>.
           Partners and agents: hit the JSON endpoint directly for the same
           data inside a stable envelope (CC0 baseline; per-source license

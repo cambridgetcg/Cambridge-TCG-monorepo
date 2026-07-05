@@ -66,7 +66,7 @@ export default async function B2BCheckoutPage() {
 
       <Link
         href="/account/b2b/cart"
-        className="inline-block text-sm text-neutral-400 hover:text-amber-400"
+        className="inline-block text-sm text-ink-muted hover:text-accent"
       >
         ← Back to cart
       </Link>
@@ -80,14 +80,14 @@ export default async function B2BCheckoutPage() {
                 key={l.sku}
                 className={
                   "flex items-baseline justify-between gap-3 " +
-                  (l.missing ? "text-red-400" : "")
+                  (l.missing ? "text-danger" : "")
                 }
               >
                 <span className="truncate">
                   {l.displayName}
-                  <span className="text-neutral-500"> × {l.quantity}</span>
+                  <span className="text-ink-faint"> × {l.quantity}</span>
                   {l.outOfStock && !l.missing && (
-                    <span className="ml-2 text-xs text-amber-500">stock-short</span>
+                    <span className="ml-2 text-xs text-accent">stock-short</span>
                   )}
                   {l.missing && <span className="ml-2 text-xs">unavailable</span>}
                 </span>
@@ -97,9 +97,9 @@ export default async function B2BCheckoutPage() {
               </li>
             ))}
           </ul>
-          <div className="flex items-baseline justify-between gap-3 border-t border-neutral-800 pt-3">
-            <span className="text-sm uppercase tracking-wider text-neutral-500">Total</span>
-            <span className="text-2xl font-bold text-white">{formatPrice(total)}</span>
+          <div className="flex items-baseline justify-between gap-3 border-t border-border-subtle pt-3">
+            <span className="text-sm uppercase tracking-wider text-ink-faint">Total</span>
+            <span className="text-2xl font-bold text-ink">{formatPrice(total)}</span>
           </div>
         </div>
       </Card>
@@ -107,7 +107,7 @@ export default async function B2BCheckoutPage() {
       <Card>
         <PayButton disabled={blocked} />
         {blocked && (
-          <p className="mt-3 text-sm text-red-400">
+          <p className="mt-3 text-sm text-danger">
             One or more cards are no longer in the catalog. Return to the cart and remove
             them before checking out.
           </p>
