@@ -337,6 +337,22 @@ function PayoutsPageInner() {
             <span className="text-accent font-bold">{pending.totalOwedFormatted}</span>
           </div>
 
+          {/* Cause → effect: money is owed but there's nowhere to send it.
+              The pending amount and the Connect card used to sit apart with
+              no line drawn between them (walker: "a seller wonders where
+              their money is"). */}
+          {!status?.accountId && (
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-4">
+              <p className="text-sm text-ink">
+                {pending.totalOwedFormatted} is waiting — connect Stripe above to receive it.
+              </p>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Nothing pays out until a Stripe account is set up. Your pending trades are
+                unaffected; they just can&apos;t be paid yet.
+              </p>
+            </div>
+          )}
+
           {/* Ready vs holding split. Sellers see at a glance how much
               they could collect now vs. how much is still in the
               hold-period queue, plus when the next holding row clears. */}

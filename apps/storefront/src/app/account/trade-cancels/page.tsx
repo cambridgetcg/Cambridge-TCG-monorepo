@@ -83,11 +83,16 @@ export default function TradeCancelsPage() {
     }
   }
 
-  const { incoming, outgoing } = useMemo(() => {
-    if (!meId) return { incoming: [], outgoing: [] };
+  // "Awaiting your decision" must count only requests still open and aimed
+  // at this user — not resolved ones (walker: the count stayed at 1 after a
+  // decision because the section counted every incoming row regardless of
+  // status). Everything else — resolved incoming + all my own requests —
+  // is history.
+  const { awaiting, history } = useMemo(() => {
+    if (!meId) return { awaiting: [] as CancelRow[], history: [] as CancelRow[] };
     return {
-      incoming: rows.filter((r) => r.requester_id !== meId),
-      outgoing: rows.filter((r) => r.requester_id === meId),
+      awaiting: rows.filter((r) => r.requester_id !== meId && r.status === "requested"),
+      history: rows.filter((r) => !(r.requester_id !== meId && r.status === "requested")),
     };
   }, [rows, meId]);
 
@@ -126,13 +131,13 @@ export default function TradeCancelsPage() {
         </div>
       ) : (
         <>
-          {incoming.length > 0 && (
+          {awaiting.length > 0 && (
             <section className="mb-6">
               <h2 className="text-sm font-bold text-accent mb-2 uppercase tracking-wide">
-                Awaiting your decision ({incoming.length})
+                Awaiting your decision ({awaiting.length})
               </h2>
               <div className="space-y-3">
-                {incoming.map((r) => (
+                {awaiting.map((r) => (
                   <CancelCard
                     key={r.id}
                     row={r}
@@ -145,17 +150,17 @@ export default function TradeCancelsPage() {
             </section>
           )}
 
-          {outgoing.length > 0 && (
+          {history.length > 0 && (
             <section>
               <h2 className="text-sm font-bold text-ink-muted mb-2 uppercase tracking-wide">
-                Your requests ({outgoing.length})
+                Requests &amp; history ({history.length})
               </h2>
               <div className="space-y-3">
-                {outgoing.map((r) => (
+                {history.map((r) => (
                   <CancelCard
                     key={r.id}
                     row={r}
-                    perspective="self"
+                    perspective={r.requester_id === meId ? "self" : "other"}
                     busy={busy === r.id}
                     onAct={(p, body) => act(r.id, p, body)}
                   />
@@ -195,7 +200,12 @@ function CancelCard({
         <div className="min-w-0">
           <p className="text-ink font-semibold text-sm truncate">
             {row.card_name || row.sku}
-            <span className="text-ink-faint font-mono text-xs ml-2">{row.sku}</span>
+            {/* The API coalesces card_name→sku, so only show the SKU chip
+                when there's a real name to sit beside (else it rendered the
+                SKU twice: "OP-…-JPOP-…-JP"). */}
+            {row.card_name && row.card_name !== row.sku && (
+              <span className="text-ink-faint font-mono text-xs ml-2">{row.sku}</span>
+            )}
           </p>
           <p className="text-xs text-ink-faint mt-0.5">
             {row.requester_role === "buyer" ? "Buyer" : "Seller"} requested ·{" "}

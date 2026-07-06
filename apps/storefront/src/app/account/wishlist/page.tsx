@@ -163,7 +163,8 @@ export default function WishlistPage() {
             <Link href="/account" className="text-xs text-ink-faint hover:text-ink">&larr; Account</Link>
             <h1 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight mt-2">Wishlist</h1>
             <p className="text-sm text-ink-muted mt-1">
-              Cards you&apos;re hunting. We&apos;ll email you when one appears at your max price on the P2P market or in-store stock.
+              Cards you&apos;re hunting. We email you when one appears at your max price on the
+              P2P market or in-store stock — checked regularly, at most one email per card every 7 days.
             </p>
           </div>
           <div className="flex gap-2">
@@ -257,7 +258,7 @@ export default function WishlistPage() {
           <div className="bg-surface border border-border-subtle rounded-lg p-8 text-center">
             <p className="text-ink-faint text-sm">
               {filter === "pending" && "No pending wishes. Add cards from your profile or a product page."}
-              {filter === "matched" && "No matches right now — we'll email you as soon as one appears."}
+              {filter === "matched" && "No matches right now — we'll email you when one appears (at most one email per card every 7 days)."}
               {filter === "fulfilled" && "No fulfilled wishes yet."}
               {filter === "all" && "Your wishlist is empty."}
             </p>

@@ -19,11 +19,13 @@ function ClickableStars({
     <div>
       <Audience kind="consumer" />
       <label className="block text-sm text-ink-muted mb-1">{label}</label>
-      <div className="flex gap-1">
+      <div className="flex gap-1" role="group" aria-label={label}>
         {[1, 2, 3, 4, 5].map((i) => (
           <button
             key={i}
             type="button"
+            aria-label={`Rate ${i} of 5 stars — ${label}`}
+            aria-pressed={i <= value}
             onMouseEnter={() => setHover(i)}
             onMouseLeave={() => setHover(0)}
             onClick={() => onChange(i)}
@@ -31,7 +33,7 @@ function ClickableStars({
               i <= (hover || value) ? "text-accent" : "text-border-strong"
             } hover:scale-110`}
           >
-            ★
+            <span aria-hidden="true">★</span>
           </button>
         ))}
       </div>

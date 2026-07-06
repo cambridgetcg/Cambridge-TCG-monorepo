@@ -40,7 +40,7 @@ const formatDate = formatDateTime;
 // Payment-window countdown for awaiting_payment trades. Rendered as a
 // small pill the user can't miss — goes amber < 6h, red < 1h, neutral
 // grey once the window has already expired (sweep hasn't yet run).
-function PaymentCountdown({ expiresAt }: { expiresAt: string }) {
+function PaymentCountdown({ expiresAt, sellerView = false }: { expiresAt: string; sellerView?: boolean }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -58,9 +58,11 @@ function PaymentCountdown({ expiresAt }: { expiresAt: string }) {
   const tone = msLeft < 3_600_000 ? "text-danger"
     : msLeft < 6 * 3_600_000 ? "text-accent"
     : "text-ink-muted";
+  // Seller-side: the deadline is the buyer's, not the seller's. Phrasing it
+  // as "Pay within…" made a seller think THEY owed the money (walker).
   return (
     <span className={`text-[10px] font-mono ${tone}`}>
-      Pay within {label}
+      {sellerView ? `Buyer has ${label} to pay` : `Pay within ${label}`}
     </span>
   );
 }
@@ -170,10 +172,24 @@ function TradePhotoUploader({ trade }: { trade: TradeWithRole }) {
   );
 }
 
+// Minimal shape of a pending cancel request as returned by
+// GET /api/market/trade-cancels — enough to surface the decision on the
+// action banner and route the user to where it lives.
+interface PendingCancel {
+  id: string;
+  trade_id: string;
+  requester_id: string;
+  status: string;
+  card_name: string | null;
+  sku: string;
+}
+
 export default function TradesPage() {
   const [tab, setTab] = useState<"orders" | "history">("orders");
   const [orders, setOrders] = useState<MarketOrder[]>([]);
   const [trades, setTrades] = useState<TradeWithRole[]>([]);
+  const [cancels, setCancels] = useState<PendingCancel[]>([]);
+  const [meId, setMeId] = useState<string | null>(null);
   const [paying, setPaying] = useState<string | null>(null);
   const [disputeFor, setDisputeFor] = useState<TradeWithRole | null>(null);
   const [disputeReason, setDisputeReason] = useState("");
@@ -198,6 +214,18 @@ export default function TradesPage() {
       .then((data) => setTrades(data.trades || []))
       .catch(() => {})
       .finally(() => setLoadingTrades(false));
+
+    // Pending cancel handshakes touching this user's trades — surfaced in
+    // the action banner so the 12h decision isn't buried behind More tools.
+    fetch("/api/market/trade-cancels")
+      .then((r) => r.json())
+      .then((data) => setCancels((data.requests || []).filter((c: PendingCancel) => c.status === "requested")))
+      .catch(() => {});
+
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((d) => { if (d?.user?.id) setMeId(d.user.id); })
+      .catch(() => {});
   }, []);
 
   function handleCancel(orderId: string) {
@@ -229,23 +257,138 @@ export default function TradesPage() {
       (t.escrow_status === "paid" || t.escrow_status === "awaiting_shipment")
   );
 
+  // Buyer legs still owing payment — the moment the walkers missed because
+  // it lived under the "Trade History" tab, not the default one.
+  const paymentNeeded = trades.filter(
+    (t) =>
+      t.current_user_role === "buyer" &&
+      t.escrow_status === "awaiting_payment" &&
+      (!t.payment_expires_at || new Date(t.payment_expires_at) > new Date())
+  );
+
+  // Seller legs ready to ship where NO photos are required (photo trades
+  // are handled by the uploader block above — don't double-list them).
+  const shipNeeded = trades.filter(
+    (t) =>
+      t.current_user_role === "seller" &&
+      !t.requires_photos &&
+      (t.escrow_status === "paid" || t.escrow_status === "awaiting_shipment")
+  );
+
+  // Cancel handshakes awaiting THIS user's decision (they're the other
+  // party) vs. their own outstanding requests.
+  const cancelDecisions = meId ? cancels.filter((c) => c.requester_id !== meId) : [];
+
+  const hasActions =
+    photosNeeded.length > 0 ||
+    paymentNeeded.length > 0 ||
+    shipNeeded.length > 0 ||
+    cancelDecisions.length > 0;
+
   return (
     <div>
       <Audience kind="consumer" />
       <h1 className="text-2xl font-display font-semibold text-ink mb-6">Trades</h1>
 
-      {photosNeeded.length > 0 && (
+      {/* Action needed — hoisted above the tabs for BOTH roles so nothing
+          time-boxed (payment window, ship reminder, cancel decision) hides
+          behind a tab a user never opens. */}
+      {hasActions && (
         <div className="mb-6">
           <h2 className="text-sm font-bold text-accent mb-2 uppercase tracking-wide">
-            Action needed: photos
+            Action needed
           </h2>
-          {photosNeeded.map((t) => (
-            <TradePhotoUploader key={t.id} trade={t} />
+
+          {paymentNeeded.map((t) => (
+            <div
+              key={`pay-${t.id}`}
+              className="bg-surface border border-accent/30 rounded-lg p-4 mb-3 flex items-center justify-between gap-3 flex-wrap"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-ink truncate">
+                  Pay for {t.card_name || t.sku}
+                </p>
+                {t.payment_expires_at && (
+                  <PaymentCountdown expiresAt={t.payment_expires_at} />
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={async () => {
+                    setPaying(t.id);
+                    try {
+                      const res = await fetch(`/api/market/trades/${t.id}/pay`, { method: "POST" });
+                      const data = await res.json().catch(() => null);
+                      if (res.ok && data?.url) window.location.href = data.url;
+                    } finally {
+                      setPaying(null);
+                    }
+                  }}
+                  disabled={paying === t.id}
+                  className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {paying === t.id ? "..." : "Pay now"}
+                </button>
+                <Link
+                  href={`/account/trades/${t.id}`}
+                  className="text-xs font-medium text-accent hover:text-accent-strong"
+                >
+                  Details →
+                </Link>
+              </div>
+            </div>
           ))}
+
+          {shipNeeded.map((t) => (
+            <div
+              key={`ship-${t.id}`}
+              className="bg-surface border border-accent/30 rounded-lg p-4 mb-3 flex items-center justify-between gap-3 flex-wrap"
+            >
+              <p className="text-sm font-bold text-ink truncate min-w-0">
+                Ship {t.card_name || t.sku} to the buyer
+              </p>
+              <Link
+                href={`/account/trades/${t.id}`}
+                className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition"
+              >
+                Add tracking →
+              </Link>
+            </div>
+          ))}
+
+          {cancelDecisions.map((c) => (
+            <div
+              key={`cancel-${c.id}`}
+              className="bg-surface border border-accent/30 rounded-lg p-4 mb-3 flex items-center justify-between gap-3 flex-wrap"
+            >
+              <p className="text-sm font-bold text-ink truncate min-w-0">
+                A cancellation needs your decision on {c.card_name || c.sku}
+              </p>
+              <Link
+                href="/account/trade-cancels"
+                className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition"
+              >
+                Review request →
+              </Link>
+            </div>
+          ))}
+
+          {photosNeeded.length > 0 && (
+            <>
+              <h3 className="text-xs font-semibold text-ink-muted mb-2 mt-1 uppercase tracking-wide">
+                Upload photos before shipping
+              </h3>
+              {photosNeeded.map((t) => (
+                <TradePhotoUploader key={t.id} trade={t} />
+              ))}
+            </>
+          )}
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Tabs — renamed to what they actually hold. "Open Orders" reads as
+          your resting listings & bids; "Trades" is every matched trade,
+          in-flight or done (an awaiting-payment trade is not "history"). */}
       <div className="flex gap-1 bg-surface rounded-lg p-1 mb-6 w-fit">
         <button
           onClick={() => setTab("orders")}
@@ -255,7 +398,7 @@ export default function TradesPage() {
               : "text-ink-muted hover:text-ink"
           }`}
         >
-          Open Orders
+          My listings &amp; bids
         </button>
         <button
           onClick={() => setTab("history")}
@@ -265,7 +408,7 @@ export default function TradesPage() {
               : "text-ink-muted hover:text-ink"
           }`}
         >
-          Trade History
+          Trades
         </button>
       </div>
 
@@ -280,7 +423,7 @@ export default function TradesPage() {
             </div>
           ) : orders.length === 0 ? (
             <div className="p-8 text-center text-ink-faint text-sm">
-              No open orders.
+              No open listings or bids. Post an ask or bid from any card page to see it here.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -358,7 +501,7 @@ export default function TradesPage() {
             </div>
           ) : trades.length === 0 ? (
             <div className="p-8 text-center text-ink-faint text-sm">
-              No trade history yet.
+              No trades yet. When one of your bids or asks matches, the trade appears here.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -456,7 +599,7 @@ export default function TradesPage() {
                             {trade.escrow_status === "awaiting_payment" && !isBuyer && trade.payment_expires_at && (
                               <>
                                 <span className="text-[10px] text-ink-faint">Awaiting buyer payment</span>
-                                <PaymentCountdown expiresAt={trade.payment_expires_at} />
+                                <PaymentCountdown expiresAt={trade.payment_expires_at} sellerView />
                               </>
                             )}
                             {/* Dispute is meaningful when money has changed hands but the trade
@@ -591,10 +734,11 @@ export default function TradesPage() {
 
       <ConfirmModal
         open={confirmOpen}
-        title="Cancel Order"
-        message="Cancel this market order? This cannot be undone."
-        confirmLabel="Cancel Order"
-        variant="warning"
+        title="Cancel this listing?"
+        message="This removes the listing from the order book. It can't be undone — but relisting is free."
+        confirmLabel="Cancel listing"
+        cancelLabel="Keep listing"
+        variant="danger"
         onConfirm={() => { pendingAction?.(); setConfirmOpen(false); setPendingAction(null); }}
         onCancel={() => { setConfirmOpen(false); setPendingAction(null); }}
       />

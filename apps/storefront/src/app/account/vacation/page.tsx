@@ -149,12 +149,18 @@ function ActiveBanner({
   if (!current) return null;
 
   const isActive = current.status === "active";
-  const tone = isActive ? "amber" : "blue";
+  // Quiet-gallery semantic tokens only — the previous `bg-${tone}-500/10`
+  // string interpolation both broke the house palette rule and produced
+  // classes Tailwind never generated (so the banner rendered unstyled).
+  const surface = isActive
+    ? "bg-warning/10 border-warning/30"
+    : "bg-info/10 border-info/30";
+  const heading = isActive ? "text-warning" : "text-info";
 
   return (
-    <div className={`bg-${tone}-500/10 border border-${tone}-500/30 rounded-lg p-5 mb-6`}>
+    <div className={`${surface} border rounded-lg p-5 mb-6`}>
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <h2 className={`text-sm font-bold uppercase tracking-wide text-${tone}-400`}>
+        <h2 className={`text-sm font-bold uppercase tracking-wide ${heading}`}>
           {isActive ? "On vacation now" : "Vacation scheduled"}
         </h2>
         <span className="text-xs text-ink-muted">

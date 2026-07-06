@@ -143,7 +143,15 @@ export default function WatchlistPage() {
           </div>
         )
       ) : (
-        alerts.length === 0 ? (
+        <>
+          {/* Honest delivery expectation — how and how often an alert
+              actually reaches you (walker: nothing said email-only, swept,
+              once-a-day). */}
+          <p className="text-xs text-ink-faint mb-3">
+            We email you when the ask crosses your threshold — checked every few minutes,
+            at most once a day per alert.
+          </p>
+          {alerts.length === 0 ? (
           <div className="bg-surface rounded-lg p-8 text-center">
             <p className="text-ink-muted text-sm">No price alerts set.</p>
             <p className="text-xs text-ink-faint mt-2">
@@ -156,7 +164,7 @@ export default function WatchlistPage() {
               <thead>
                 <tr className="text-ink-faint text-xs uppercase border-b border-border-subtle">
                   <th className="text-left p-3">Card</th>
-                  <th className="text-left p-3">Condition</th>
+                  <th className="text-left p-3">Fires when</th>
                   <th className="text-right p-3">Threshold</th>
                   <th className="text-right p-3">Last Fired</th>
                   <th className="p-3" />
@@ -192,7 +200,8 @@ export default function WatchlistPage() {
               </tbody>
             </table>
           </div>
-        )
+        )}
+        </>
       )}
     </div>
   );

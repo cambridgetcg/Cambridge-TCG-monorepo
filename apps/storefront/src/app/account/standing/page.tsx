@@ -64,10 +64,54 @@ const FLAG_GUIDANCE: Record<string, { headline: string; advice: string }> = {
 
 export default function AccountStandingPage() {
   const [data, setData] = useState<Response | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    setError(null);
+    setData(null);
+    fetch("/api/account/standing")
+      .then((r) => {
+        if (!r.ok) throw new Error(`status ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        // Guard the shape — a malformed payload must degrade to an error
+        // state, never a page that reads `flags.length` on undefined (or
+        // spins on "Loading…" forever, as the walkers saw).
+        if (!d || !d.standing || !Array.isArray(d.flags)) {
+          throw new Error("bad shape");
+        }
+        setData(d as Response);
+      })
+      .catch(() => setError("We couldn't load your standing right now."));
+  }
 
   useEffect(() => {
-    fetch("/api/account/standing").then((r) => r.json()).then(setData);
+    load();
+    // A hard ceiling so the page can never spin silently: if nothing has
+    // resolved in 15s, degrade to the retryable error state.
+    const timer = setTimeout(() => {
+      setData((cur) => {
+        if (cur === null) setError("This is taking longer than expected.");
+        return cur;
+      });
+    }, 15_000);
+    return () => clearTimeout(timer);
   }, []);
+
+  if (error) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-ink-muted text-sm mb-3">{error}</p>
+        <button
+          onClick={load}
+          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (!data) return <div className="p-8 text-ink-faint">Loading…</div>;
 

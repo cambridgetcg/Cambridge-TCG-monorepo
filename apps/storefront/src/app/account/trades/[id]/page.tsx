@@ -11,17 +11,8 @@ import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
 
 import { Audience, Consequences, MessageButton, WhyLink } from "@/lib/ui";
+import { buildTradeTermBullets, tierHeadline, type TradeRole } from "@/lib/escrow/trade-terms";
 // ── Escrow tier display ──
-
-interface EscrowRoutingData {
-  routing: {
-    tier: EscrowTier;
-    label: string;
-    description: string;
-    estimatedDays: string;
-  };
-  summary: string[];
-}
 
 const TIER_BADGE: Record<EscrowTier, { bg: string; text: string; border: string; label: string }> = {
   direct: {
@@ -137,40 +128,180 @@ function DisputeTimeline({ dispute }: { dispute: TradeDispute }) {
   );
 }
 
-function EscrowBadgeSection({ tradeId, escrowStatus }: { tradeId: string; escrowStatus?: string }) {
-  const [data, setData] = useState<EscrowRoutingData | null>(null);
+// Escrow terms rendered from the trade's OWN stored snapshot (escrow_tier,
+// dispute_window_hours, payout_hold_days, requires_photos, seller_ships_to,
+// accepts_returns) and branched by the viewer's role. Replaces the prior
+// fetch of /api/escrow/routing, which re-derived the tier from the seller's
+// CURRENT trust and therefore mislabelled this trade's terms (a full-escrow
+// 168h/5-day trade was shown as "Direct Ship, 48h, 7-day"). Nothing here is
+// recomputed — the snapshot is the truth for this trade.
+const TIER_LABEL: Record<EscrowTier, string> = {
+  direct: "Direct Ship",
+  verified: "Photo-verified",
+  full_escrow: "Full Escrow",
+};
 
-  useEffect(() => {
-    fetch(`/api/escrow/routing?tradeId=${tradeId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setData(d); })
-      .catch(() => {});
-  }, [tradeId]);
-
-  if (!data) return null;
-
-  const badge = TIER_BADGE[data.routing.tier];
+function EscrowTermsSection({ trade, role }: { trade: any; role: TradeRole }) {
+  const tier = (trade.escrow_tier ?? "full_escrow") as EscrowTier;
+  const badge = TIER_BADGE[tier] ?? TIER_BADGE.full_escrow;
+  const bullets = buildTradeTermBullets(trade, role);
 
   return (
     <div className={`rounded-lg border ${badge.border} ${badge.bg} p-4 space-y-3`}>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${badge.border} ${badge.text}`}>
-          {data.routing.label}
+          {TIER_LABEL[tier]}
         </span>
-        <span className="text-sm text-ink-muted">{badge.label}</span>
-        <span className="ml-auto text-xs text-ink-faint">{data.routing.estimatedDays}</span>
+        <span className="text-sm text-ink-muted">{tierHeadline(trade, role)}</span>
       </div>
 
-      <EscrowTimeline tier={data.routing.tier} escrowStatus={escrowStatus} />
+      <EscrowTimeline tier={tier} escrowStatus={trade.escrow_status ?? trade.status} />
 
       <ul className="space-y-1 pt-1 border-t border-border-subtle">
-        {data.summary.map((point, i) => (
+        {bullets.map((point, i) => (
           <li key={i} className="text-xs text-ink-muted flex items-start gap-1.5">
             <span className={`mt-0.5 ${badge.text}`}>&bull;</span>
             <span>{point}</span>
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// Seller's card-photo step. The direct/verified/full-escrow tiers that set
+// requires_photos promise the buyer "photos before shipping"; this is the
+// UI that keeps that promise, and the mark-shipped control is gated on it.
+// Uses a real <input> inside a <label> (keyboard reachable) and surfaces the
+// server's own message — never a raw "Unexpected end of JSON input".
+interface TradePhoto {
+  id: string;
+  url: string;
+  approved: boolean | null;
+  created_at: string;
+}
+
+function TradePhotoStep({
+  tradeId,
+  onCountChange,
+}: {
+  tradeId: string;
+  onCountChange: (n: number) => void;
+}) {
+  const [photos, setPhotos] = useState<TradePhoto[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/market/trades/${tradeId}/photos`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) { setPhotos(d.photos || []); onCountChange((d.photos || []).length); } })
+      .catch(() => {});
+    // onCountChange identity is stable enough for this one-shot load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradeId]);
+
+  // Read a fetch response's error message defensively: JSON body → its
+  // `error`, otherwise a friendly line (never the raw parse exception).
+  async function readError(res: Response, fallback: string): Promise<string> {
+    try {
+      const data = await res.json();
+      return data?.error || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  async function handleFiles(files: FileList) {
+    setUploading(true);
+    setError(null);
+    try {
+      for (const file of Array.from(files)) {
+        const presign = await fetch(`/api/market/trades/${tradeId}/photos/upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentType: file.type }),
+        });
+        if (!presign.ok) {
+          throw new Error(await readError(presign, "Photo upload isn't available right now — try again shortly."));
+        }
+        const { uploadUrl, imageUrl, s3Key } = await presign.json();
+
+        const put = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!put.ok) throw new Error("Couldn't upload the image to storage — try again shortly.");
+
+        const reg = await fetch(`/api/market/trades/${tradeId}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: imageUrl, s3Key }),
+        });
+        if (!reg.ok) {
+          throw new Error(await readError(reg, "Uploaded, but saving the record failed — try again."));
+        }
+        const { photo } = await reg.json();
+        setPhotos((prev) => {
+          const next = [...prev, photo];
+          onCountChange(next.length);
+          return next;
+        });
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Upload failed — try again shortly.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border-subtle">
+      <p className="text-xs font-semibold text-ink uppercase tracking-wide mb-1">
+        Card photos <span className="text-ink-faint font-normal normal-case">— required before you ship</span>
+      </p>
+      <p className="text-xs text-ink-muted mb-3">
+        Upload clear photos of the card (front and back help). The buyer sees these, and
+        the ship button unlocks once at least one is uploaded.
+      </p>
+
+      {photos.length > 0 && (
+        <div className="flex gap-2 flex-wrap mb-3">
+          {photos.map((p) => (
+            <div key={p.id} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt="Trade card photo" className="w-16 h-16 rounded object-cover border border-border-subtle" />
+              <span
+                className={`absolute bottom-0 right-0 text-[9px] px-1 rounded-tl ${
+                  p.approved === true ? "bg-ok text-page"
+                    : p.approved === false ? "bg-danger text-page"
+                    : "bg-warning text-page"
+                }`}
+              >
+                {p.approved === true ? "OK" : p.approved === false ? "X" : "?"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <label className="inline-flex">
+        <span className={`px-3 py-1.5 text-xs font-semibold rounded-md cursor-pointer transition ${
+          uploading ? "bg-surface-subtle text-ink-muted cursor-not-allowed" : "bg-ink text-page hover:opacity-90"
+        }`}>
+          {uploading ? "Uploading..." : photos.length > 0 ? "Add another photo" : "Upload photos"}
+        </span>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={uploading}
+          onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }}
+          className="sr-only"
+        />
+      </label>
+      {error && <p className="text-xs text-danger mt-2">{error}</p>}
     </div>
   );
 }
@@ -241,6 +372,18 @@ export default function TradeDetailPage() {
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState("");
 
+  // Seller card-photo gate: the mark-shipped control stays locked until at
+  // least one photo exists when the trade requires them.
+  const [photoCount, setPhotoCount] = useState(0);
+
+  // Pending cancel handshake on this trade (either party). Drives the
+  // Approve/Decline/Withdraw banner so the 12h decision isn't buried on a
+  // separate page (walker: the notification pointed at a page with no
+  // request on it).
+  const [pendingCancel, setPendingCancel] = useState<any>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+
   useEffect(() => {
     fetch("/api/auth/session")
       .then((r) => r.json())
@@ -251,6 +394,20 @@ export default function TradeDetailPage() {
       .catch(() => setLoggedIn(false));
   }, []);
 
+  async function loadPendingCancel() {
+    try {
+      const res = await fetch("/api/market/trade-cancels");
+      if (!res.ok) return;
+      const data = await res.json();
+      const match = (data.requests || []).find(
+        (c: any) => c.trade_id === tradeId && c.status === "requested",
+      );
+      setPendingCancel(match ?? null);
+    } catch {
+      /* non-fatal — the banner simply won't show */
+    }
+  }
+
   useEffect(() => {
     if (loggedIn === null) return;
     if (loggedIn === false) {
@@ -260,12 +417,26 @@ export default function TradeDetailPage() {
 
     async function fetchData() {
       try {
-        // Try to fetch trade data
+        // Trade data — a non-OK response is surfaced (401/403/404/5xx),
+        // never swallowed into a blank page. The old code only set `trade`
+        // on res.ok and showed nothing otherwise (the walker's blank main).
         const tradeRes = await fetch(`/api/market/trades/${tradeId}`);
         if (tradeRes.ok) {
           const tradeData = await tradeRes.json();
           setTrade(tradeData.trade || tradeData);
+        } else if (tradeRes.status === 401) {
+          setLoggedIn(false);
+          return;
+        } else if (tradeRes.status === 403) {
+          setError("This trade isn't yours to view.");
+        } else if (tradeRes.status === 404) {
+          setError("We couldn't find this trade. It may have been removed.");
+        } else {
+          setError("We couldn't load this trade right now. Try again shortly.");
         }
+
+        // Any pending cancel handshake on this trade.
+        void loadPendingCancel();
 
         // Fetch dispute for this trade
         const disputeRes = await fetch(`/api/trust/disputes?trade_id=${tradeId}`);
@@ -512,6 +683,33 @@ export default function TradeDetailPage() {
     }
   }
 
+  // Approve / decline (the other party) or withdraw (the requester) a
+  // pending cancel handshake, right here on the trade it concerns.
+  async function handleCancelDecision(action: "approve" | "decline" | "withdraw") {
+    if (!pendingCancel) return;
+    setCancelBusy(true);
+    setCancelError("");
+    try {
+      const res = await fetch(`/api/market/trade-cancels/${pendingCancel.id}/${action}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setCancelError(data?.error || "Action failed.");
+        return;
+      }
+      setPendingCancel(null);
+      // Re-pull the trade so a now-cancelled escrow reflects immediately.
+      const tradeRes = await fetch(`/api/market/trades/${tradeId}`);
+      if (tradeRes.ok) {
+        const td = await tradeRes.json();
+        setTrade(td.trade || td);
+      }
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-GB", {
       day: "numeric",
@@ -564,6 +762,21 @@ export default function TradeDetailPage() {
   const sellerCanShip =
     viewerIsSeller && ["awaiting_shipment", "paid"].includes(trade?.escrow_status);
 
+  // A dispute is only meaningful once money is in escrow and before the
+  // trade is closed. Outside this set the Raise-Dispute form is hidden —
+  // a completed trade shows the completed banner instead (walker: the form
+  // still rendered after the confirm panel said the window had closed).
+  const isDisputable =
+    !!trade &&
+    [
+      "paid",
+      "awaiting_shipment",
+      "shipped_to_ctcg",
+      "received_by_ctcg",
+      "verified",
+      "shipped_to_buyer",
+    ].includes(trade.escrow_status);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -601,8 +814,66 @@ export default function TradeDetailPage() {
         </div>
       )}
 
-      {/* Escrow routing & workflow */}
-      <EscrowBadgeSection tradeId={tradeId} escrowStatus={trade?.escrow_status || trade?.status} />
+      {/* Escrow terms & workflow — rendered from the trade's stored snapshot,
+          branched by the viewer's role. */}
+      {trade && (
+        <EscrowTermsSection
+          trade={trade}
+          role={(trade.current_user_role ?? (viewerIsBuyer ? "buyer" : "seller")) as TradeRole}
+        />
+      )}
+
+      {/* Pending cancel handshake — Approve/Decline for the other party,
+          Withdraw for the requester, on the trade it concerns. */}
+      {pendingCancel && trade && trade.escrow_status !== "cancelled" && (
+        <div className="bg-accent-wash border-2 border-accent/30 rounded-lg p-5">
+          <p className="text-accent font-bold text-sm">
+            {pendingCancel.requester_id === sessionUserId
+              ? "You asked to cancel this trade"
+              : `The ${pendingCancel.requester_role === "buyer" ? "buyer" : "seller"} asked to cancel this trade`}
+          </p>
+          <p className="text-ink-muted text-sm mt-0.5">
+            {pendingCancel.requester_id === sessionUserId
+              ? "Waiting for the other party to approve. You can withdraw the request while it's open."
+              : "Approve to cancel and put the listing back on the book, or decline to keep the trade going."}
+          </p>
+          <div className="flex gap-2 flex-wrap mt-3">
+            {pendingCancel.requester_id === sessionUserId ? (
+              <button
+                onClick={() => handleCancelDecision("withdraw")}
+                disabled={cancelBusy}
+                className="px-4 py-2 rounded-lg font-semibold text-sm border border-border-strong text-ink hover:bg-surface-subtle transition disabled:opacity-50"
+              >
+                {cancelBusy ? "..." : "Withdraw request"}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleCancelDecision("approve")}
+                  disabled={cancelBusy}
+                  className="px-4 py-2 rounded-lg font-semibold text-sm bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {cancelBusy ? "..." : "Approve cancellation"}
+                </button>
+                <button
+                  onClick={() => handleCancelDecision("decline")}
+                  disabled={cancelBusy}
+                  className="px-4 py-2 rounded-lg font-semibold text-sm bg-danger text-page hover:bg-danger/85 transition disabled:opacity-50"
+                >
+                  Decline
+                </button>
+              </>
+            )}
+            <Link
+              href="/account/trade-cancels"
+              className="px-4 py-2 rounded-lg font-medium text-sm text-ink-muted hover:text-ink transition"
+            >
+              See the full request →
+            </Link>
+          </div>
+          {cancelError && <p className="text-xs text-danger mt-2">{cancelError}</p>}
+        </div>
+      )}
 
       {/* Trade info */}
       {trade && (
@@ -757,34 +1028,50 @@ export default function TradeDetailPage() {
             </p>
           )}
           <p className="text-xs text-ink-faint mt-3">
-            You arrange shipping yourself — including internationally. Use messaging to agree on timing and customs.
+            {viewerIsSeller
+              ? "You arrange the courier — including internationally. Use messaging to agree timing and customs."
+              : "The seller arranges shipping and posts tracking here. Use messaging to agree timing and customs."}
           </p>
 
           {sellerCanShip && (
-            <form onSubmit={handleMarkShipped} className="mt-4 flex gap-2 flex-wrap">
-              <input
-                type="text"
-                value={shipCarrier}
-                onChange={(e) => setShipCarrier(e.target.value)}
-                placeholder="Carrier (optional)"
-                className="w-36 px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
-              />
-              <input
-                type="text"
-                value={shipTracking}
-                onChange={(e) => setShipTracking(e.target.value)}
-                placeholder="Tracking number"
-                className="flex-1 min-w-[160px] px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
-              />
-              <button
-                type="submit"
-                disabled={markingShipped || !shipTracking.trim()}
-                className="px-4 py-2 rounded-lg font-semibold text-sm bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
-              >
-                {markingShipped ? "..." : "Mark as shipped"}
-              </button>
-              {shipError && <p className="w-full text-xs text-danger">{shipError}</p>}
-            </form>
+            <>
+              {/* Photo gate — the trade promised the buyer photos before
+                  shipping, so the ship control below stays locked until at
+                  least one photo exists. */}
+              {trade.requires_photos && (
+                <TradePhotoStep tradeId={tradeId} onCountChange={setPhotoCount} />
+              )}
+
+              <form onSubmit={handleMarkShipped} className="mt-4 flex gap-2 flex-wrap">
+                <input
+                  type="text"
+                  value={shipCarrier}
+                  onChange={(e) => setShipCarrier(e.target.value)}
+                  placeholder="Carrier (optional)"
+                  className="w-36 px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
+                />
+                <input
+                  type="text"
+                  value={shipTracking}
+                  onChange={(e) => setShipTracking(e.target.value)}
+                  placeholder="Tracking number"
+                  className="flex-1 min-w-[160px] px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50 transition"
+                />
+                <button
+                  type="submit"
+                  disabled={markingShipped || !shipTracking.trim() || (trade.requires_photos && photoCount === 0)}
+                  className="px-4 py-2 rounded-lg font-semibold text-sm bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {markingShipped ? "..." : "Mark as shipped"}
+                </button>
+                {trade.requires_photos && photoCount === 0 && (
+                  <p className="w-full text-xs text-ink-faint">
+                    Upload at least one card photo above before marking this as shipped.
+                  </p>
+                )}
+                {shipError && <p className="w-full text-xs text-danger">{shipError}</p>}
+              </form>
+            </>
           )}
         </div>
       )}
@@ -860,6 +1147,42 @@ export default function TradeDetailPage() {
               </>
             )}
             <WhyLink href="/methodology/trade-completion" tooltip="How trades complete" />
+          </p>
+        </div>
+      )}
+
+      {/* Completed banner — replaces the dispute form once escrow is done.
+          The seller gets the payout ETA (stored hold days); the buyer gets a
+          plain done state. The Raise-Dispute form no longer renders here (the
+          window has closed), matching the confirm panel's promise. */}
+      {trade && trade.escrow_status === "completed" && !dispute && (
+        <div className="bg-surface border border-ok/30 rounded-lg p-6">
+          <div className="flex items-center gap-2">
+            <span className="text-ok text-lg">&#10003;</span>
+            <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Trade completed</h2>
+          </div>
+          <p className="text-sm text-ink-muted mt-2">
+            {viewerIsSeller ? (
+              trade.payout_hold_days != null && trade.payout_hold_days > 0 ? (
+                <>
+                  Your payout of{" "}
+                  <span className="font-mono text-ink">&pound;{Number(trade.seller_payout ?? trade.price).toFixed(2)}</span>{" "}
+                  is released {trade.payout_hold_days} day{trade.payout_hold_days === 1 ? "" : "s"} after
+                  completion. Track it on{" "}
+                  <Link href="/account/payouts" className="text-accent underline underline-offset-2">Payouts</Link>.
+                </>
+              ) : (
+                <>
+                  Your payout of{" "}
+                  <span className="font-mono text-ink">&pound;{Number(trade.seller_payout ?? trade.price).toFixed(2)}</span>{" "}
+                  is eligible for release. Track it on{" "}
+                  <Link href="/account/payouts" className="text-accent underline underline-offset-2">Payouts</Link>.
+                </>
+              )
+            ) : (
+              <>This trade is complete. Thanks for confirming — leave a review below to build the seller&apos;s reputation.</>
+            )}
+            <WhyLink href="/methodology/payout-hold" tooltip="How the payout hold works" />
           </p>
         </div>
       )}
@@ -1102,8 +1425,9 @@ export default function TradeDetailPage() {
             )}
           </div>
         </div>
-      ) : (
-        /* Raise dispute form */
+      ) : isDisputable ? (
+        /* Raise dispute form — only while money is in escrow and the trade
+           is still open. */
         <div className="bg-surface rounded-lg p-6">
           <h2 className="text-sm font-bold text-ink uppercase tracking-wide mb-4">Raise Dispute</h2>
           <p className="text-ink-muted text-sm mb-4">
@@ -1153,7 +1477,7 @@ export default function TradeDetailPage() {
             </button>
           </form>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

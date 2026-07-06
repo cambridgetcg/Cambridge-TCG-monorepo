@@ -272,7 +272,8 @@ export default function TrustProfilePage() {
   const [linkSubmitting, setLinkSubmitting] = useState(false);
   const [linkError, setLinkError] = useState("");
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
     fetch("/api/auth/session")
       .then((r) => r.json())
       .then((data) => {
@@ -298,6 +299,16 @@ export default function TrustProfilePage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    load();
+    // Safety ceiling: a hung request must never leave the page spinning on
+    // "Loading..." forever — after 15s we drop to the "couldn't load" state
+    // (which now offers a retry) instead.
+    const timer = setTimeout(() => setLoading(false), 15_000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   async function handleLinkAccount(e: React.FormEvent) {
@@ -342,8 +353,14 @@ export default function TrustProfilePage() {
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-ink-faint">Could not load trust profile.</p>
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <p className="text-ink-faint">Could not load your trust profile.</p>
+        <button
+          onClick={load}
+          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition"
+        >
+          Try again
+        </button>
       </div>
     );
   }

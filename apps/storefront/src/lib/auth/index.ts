@@ -30,6 +30,12 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/login",
     verifyRequest: "/login/check-email",
+    // Branded auth-error page. Without this, an expired/used magic link
+    // lands on Auth.js's default page whose "Sign in" button href is
+    // malformed (/api/auth/error?error=Verification/signin) and dead-ends
+    // on a bare "Error Error" screen. /login/error names the cause and
+    // offers a working "request a new link".
+    error: "/login/error",
   },
   session: {
     strategy: "database",
@@ -42,6 +48,22 @@ export const authConfig: NextAuthConfig = {
         // Role comes from the adapter's toAdapterUser which reads
         // the role column from the users table.
         session.user.role = (user as unknown as { role: string }).role ?? "user";
+        // Handle disclosure (walker: session payload reported username:null
+        // forever, so no surface could tell a collector the public name they
+        // were already trading under). The adapter's getSessionAndUser SELECT
+        // doesn't carry username, so read it here — one indexed PK lookup,
+        // failing soft to null so a naming read never breaks a session.
+        const carried = (user as unknown as { username?: string | null }).username;
+        if (carried != null) {
+          session.user.username = carried;
+        } else {
+          try {
+            const r = await query(`SELECT username FROM users WHERE id = $1`, [user.id]);
+            session.user.username = (r.rows[0]?.username as string | null) ?? null;
+          } catch {
+            session.user.username = null;
+          }
+        }
       }
       return session;
     },

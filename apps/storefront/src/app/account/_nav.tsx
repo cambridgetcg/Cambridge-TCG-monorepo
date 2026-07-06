@@ -51,6 +51,11 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
       { href: "/account/orders", label: "Orders" },
       { href: "/account/trade-ins", label: "Trade-Ins" },
       { href: "/account/trades", label: "Trades" },
+      // Incoming price negotiations. Previously reachable only from a
+      // single ephemeral notification (walker: a seller who missed it had
+      // no path back to a 48h-expiring offer). The badge counts pending +
+      // countered offers awaiting the seller's response.
+      { href: "/account/offers", label: "Offers" },
       { href: "/account/swaps", label: "Swaps" },
       { href: "/account/refunds", label: "Payments & refunds" },
       { href: "/account/payouts", label: "Payouts" },
@@ -102,7 +107,17 @@ function isActive(pathname: string, href: string): boolean {
   return (pathname === href || pathname.startsWith(href + "/")) && href.length === bestLen;
 }
 
-export function AccountNav() {
+/** A small count pill for a nav item — the pending-offers badge, e.g. */
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-page text-[10px] font-semibold leading-none">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+export function AccountNav({ badges }: { badges?: Record<string, number> }) {
   const pathname = usePathname();
 
   return (
@@ -120,6 +135,7 @@ export function AccountNav() {
             }`}
           >
             {item.label}
+            <NavBadge count={badges?.[item.href] ?? 0} />
           </Link>
         ))}
       </nav>
@@ -137,13 +153,14 @@ export function AccountNav() {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={`block px-4 py-2 rounded-lg text-sm font-medium transition ${
+                      className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition ${
                         isActive(pathname, item.href)
                           ? "bg-accent-wash text-accent-strong"
                           : "text-ink-muted hover:text-ink hover:bg-surface-subtle"
                       }`}
                     >
                       {item.label}
+                      <NavBadge count={badges?.[item.href] ?? 0} />
                     </Link>
                   </li>
                 ))}

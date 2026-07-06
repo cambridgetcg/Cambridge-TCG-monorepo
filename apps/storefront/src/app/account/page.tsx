@@ -42,6 +42,7 @@ import {
   audienceMetadata,
 } from "@/lib/ui";
 import { formatDate, pluralize } from "@/lib/format";
+import HandleWelcomeNote from "./_HandleWelcomeNote";
 
 export const metadata: Metadata = {
   title: "My Account — Cambridge TCG",
@@ -283,7 +284,7 @@ export default async function AccountOverviewPage() {
   // collapses this to the same underlying invocation — no extra roundtrip.
   const user = (await getSessionUser())!;
 
-  const [standing, attention, recentOrders, tradeIns, membership] = await Promise.all([
+  const [standing, attention, recentOrders, tradeIns, membership, handle] = await Promise.all([
     loadStanding(user.id),
     loadAttention(user.id, user.email),
     loadRecentOrders(user.email),
@@ -291,6 +292,12 @@ export default async function AccountOverviewPage() {
     // Same source as /account/membership (via /api/membership). null on
     // failure — distinct from "no tier", which is a real profile state.
     safe<MemberProfile | null>(() => getMemberProfile(user.id), null),
+    // The public collector handle. A failed read hides the disclosure
+    // line rather than claiming a name we couldn't fetch.
+    safe<string | null>(async () => {
+      const r = await query(`SELECT username FROM users WHERE id = $1`, [user.id]);
+      return (r.rows[0] as { username?: string | null } | undefined)?.username ?? null;
+    }, null),
   ]);
 
   const goodStanding = standing !== null && !standing.isSuspended && standing.flagCount === 0;
@@ -299,9 +306,27 @@ export default async function AccountOverviewPage() {
     <div className="space-y-8">
       <Audience kind="consumer" />
 
+      {/* ── 0. First-run handle greeting (one-time, client-dismissed) ── */}
+      {handle && <HandleWelcomeNote handle={handle} />}
+
       {/* ── 1. Who you are ──────────────────────────────────────────── */}
       <div>
         <PageHeader title="My Account" description={user.email} />
+
+        {/* Handle disclosure — the public name every listing/offer/review
+            is attributed to. Persistent (the welcome note above is one-time). */}
+        {handle && (
+          <p className="text-sm text-ink-muted -mt-2 mb-1">
+            Trading as{" "}
+            <span className="font-semibold text-ink">@{handle}</span> —{" "}
+            <Link
+              href="/account/profile"
+              className="text-accent underline underline-offset-2 hover:text-accent-strong transition"
+            >
+              change it in Profile &amp; settings
+            </Link>
+          </p>
+        )}
 
         {/* ── 2. Standing strip — one line, green or amber ──────────────
             Omitted entirely when the read failed: "Good standing" is a

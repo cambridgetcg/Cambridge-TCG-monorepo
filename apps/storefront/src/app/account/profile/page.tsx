@@ -51,37 +51,62 @@ export default function EditProfilePage() {
 
   // Validation
   const [usernameError, setUsernameError] = useState("");
+  // A non-fatal load error (404 no-profile-yet or a 5xx) must NOT collapse
+  // to "sign in" — only a genuine missing session does that (walker: a
+  // signed-in new user was told to sign in because ?user=me 404'd).
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const usernameRegex = /^[a-z0-9_]{1,30}$/;
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/auth/session").then((r) => r.json()),
-      fetch("/api/social/profile?user=me").then((r) => {
-        if (r.status === 401) throw new Error("unauth");
-        return r.json();
-      }),
-      // GET /api/portfolio is the portfolio's listing endpoint — it returns
-      // { cards, summary }; the showcase picker only needs the card rows.
-      // (An /api/portfolio/cards route never existed, so this fetch used to
-      // fail silently and the picker never appeared.)
-      fetch("/api/portfolio")
-        .then((r) => (r.ok ? r.json() : { cards: [] }))
-        .catch(() => ({ cards: [] })),
-      fetch("/api/account/preferences")
-        .then((r) => r.json())
-        .catch(() => ({ pronouns: null, preferred_address: null })),
-    ])
-      .then(([session, data, portfolio, prefs]) => {
+    (async () => {
+      try {
+        const session = await fetch("/api/auth/session").then((r) => r.json());
+        // The session — not the profile endpoint — is the auth authority.
         if (!session?.user?.email) {
           setAuthed(false);
           return;
         }
-        const p = data.profile as PublicProfile;
+
+        // Fetch the social profile, distinguishing the three outcomes the
+        // old code flattened: 200 (profile), 401 (really signed out), and
+        // 404 (signed in but no social-profile row yet → editable skeleton).
+        const profRes = await fetch("/api/social/profile?user=me");
+        let data: {
+          profile?: PublicProfile | null;
+          showcase?: ShowcaseCard[];
+          wishlist?: WishlistItem[];
+        } = {};
+        if (profRes.ok) {
+          data = await profRes.json();
+        } else if (profRes.status === 401) {
+          setAuthed(false);
+          return;
+        } else if (profRes.status === 404) {
+          // Brand-new account — no profile row yet. Prefill from the session
+          // handle and let the user save it into existence.
+          data = { profile: null };
+        } else {
+          setLoadError("We couldn't load your saved profile just now — you can still edit and save below.");
+          data = { profile: null };
+        }
+
+        const [portfolio, prefs] = await Promise.all([
+          // GET /api/portfolio returns { cards, summary }; the showcase
+          // picker only needs the card rows.
+          fetch("/api/portfolio")
+            .then((r) => (r.ok ? r.json() : { cards: [] }))
+            .catch(() => ({ cards: [] })),
+          fetch("/api/account/preferences")
+            .then((r) => r.json())
+            .catch(() => ({ pronouns: null, preferred_address: null })),
+        ]);
+
+        const p = data.profile ?? null;
         setProfile(p);
-        setUsername(p.username ?? "");
-        setBio(p.bio ?? "");
-        setIsPublic(p.is_public);
+        setUsername(p?.username ?? session.user.username ?? "");
+        setBio(p?.bio ?? "");
+        setIsPublic(p?.is_public ?? true);
         setShowcase(data.showcase ?? []);
         setWishlist(data.wishlist ?? []);
         setPortfolioCards(portfolio.cards ?? []);
@@ -91,9 +116,14 @@ export default function EditProfilePage() {
           prefs?.response_window_hours != null ? String(prefs.response_window_hours) : "",
         );
         setSabbathUntil(prefs?.sabbath_until ?? null);
-      })
-      .catch(() => setAuthed(false))
-      .finally(() => setLoading(false));
+      } catch {
+        // A network-level failure is not the same as "signed out". Keep the
+        // form reachable and say what happened.
+        setLoadError("We couldn't reach your profile settings just now. Try again shortly.");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   async function savePreferences() {
@@ -265,6 +295,12 @@ export default function EditProfilePage() {
   return (
     <div>
       <h1 className="text-2xl font-display font-semibold text-ink mb-6">Edit Profile</h1>
+
+      {loadError && (
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-5 text-sm text-ink-muted">
+          {loadError}
+        </div>
+      )}
 
       {/* Username */}
       <div className="mb-5">
