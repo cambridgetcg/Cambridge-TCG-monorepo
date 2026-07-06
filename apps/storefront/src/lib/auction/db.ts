@@ -1,6 +1,6 @@
 import { query, transaction } from "@/lib/db";
-import { computeCommissionAmount } from "@cambridge-tcg/pricing";
 import type { Auction, AuctionImage, AuctionSummary, AuctionDetail, Bid, CreateAuctionInput, BidResult } from "./types";
+import { isSelfBid, trustGateToBidResult, resolveAuctionPayout } from "./types";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
 import { formatPrice } from "@/lib/format";
@@ -58,7 +58,7 @@ export async function listAuctions(filters: {
 
   const orderBy = filters.status === "ended" ? "a.ends_at DESC" : "a.ends_at ASC";
   const result = await query(
-    `SELECT a.id, a.title, a.auction_type, a.status, a.current_price, a.starting_price,
+    `SELECT a.id, a.title, a.sku, a.condition, a.auction_type, a.status, a.current_price, a.starting_price,
             a.buy_now_price, a.bid_count, a.starts_at, a.ends_at,
             a.seller_user_id, a.seller_payout, a.seller_paid_at,
             a.payout_method, a.payout_reference,
@@ -120,14 +120,16 @@ export async function createAuction(data: CreateAuctionInput): Promise<Auction> 
     : data.starting_price;
 
   const result = await query(
-    `INSERT INTO auctions (title, description, auction_type, starting_price, reserve_price,
+    `INSERT INTO auctions (title, description, sku, condition, auction_type, starting_price, reserve_price,
       buy_now_price, bid_increment, dutch_start_price, dutch_end_price, dutch_price_drop,
       dutch_drop_interval_seconds, starts_at, ends_at, current_price, allow_best_offer)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING *`,
     [
       data.title,
       data.description || null,
+      data.sku ?? null,
+      data.condition ?? null,
       data.auction_type,
       data.starting_price.toFixed(2),
       data.reserve_price?.toFixed(2) ?? null,
@@ -204,15 +206,18 @@ export async function deleteAuction(id: string): Promise<boolean> {
 
 export async function placeBid(auctionId: string, userId: string, amount: number, isBestOffer = false): Promise<BidResult> {
   // Trust gate — refuse bids from suspended users + over-tier-limit
-  // amounts. Same enforcement as market orders. Returns the canTrade
-  // reason as a clean error string (BidResult shape, no exception).
-  // Skip the gate for best-offer (private proposals don't lock funds).
-  if (!isBestOffer) {
+  // amounts. Same enforcement as market orders, now applied to BOTH
+  // regular bids AND best offers: an over-cap user must not be able to
+  // dodge the per-trade cap by routing the same amount through a private
+  // offer (acceptOffer re-checks on the seller's side too). Returns the
+  // canTrade reason as a clean BidResult (no exception). Runs OUTSIDE the
+  // transaction below — canTrade issues root-pool queries and a root query
+  // inside a held transaction self-deadlocks at max:1.
+  {
     const { canTrade } = await import("@/lib/escrow/trust-engine");
     const gate = await canTrade(userId, amount);
-    if (!gate.allowed) {
-      return { success: false, error: gate.reason ?? "Order rejected by trust gate." };
-    }
+    const rejected = trustGateToBidResult(gate);
+    if (rejected) return rejected;
   }
 
   // Run the scheduled→live lazy transition BEFORE validating (the GET/list
@@ -237,6 +242,14 @@ export async function placeBid(auctionId: string, userId: string, amount: number
 
     if (new Date(auction.ends_at) <= new Date()) {
       return { success: false, error: "Auction has ended." } as BidResult;
+    }
+
+    // Shill-bid guard — the seller must not bid on (or offer against) their
+    // own auction. Placed before the best-offer / regular-bid split so it
+    // covers both paths, inside the FOR UPDATE tx after the row loads.
+    // Mirrors the market self-match exclusion (o.user_id != taker).
+    if (isSelfBid(auction.seller_user_id, userId)) {
+      return { success: false, error: "You can't bid on your own auction." } as BidResult;
     }
 
     if (isBestOffer) {
@@ -533,6 +546,8 @@ export async function listAllAuctions(): Promise<AuctionSummary[]> {
 export async function createSellerAuction(userId: string, data: {
   title: string;
   description?: string;
+  sku?: string;
+  condition?: string;
   auction_type: string;
   starting_price: number;
   reserve_price?: number;
@@ -557,14 +572,16 @@ export async function createSellerAuction(userId: string, data: {
   const initialStatus   = autoApprove ? "scheduled"      : "draft";
 
   const result = await query(
-    `INSERT INTO auctions (title, description, auction_type, starting_price, reserve_price,
+    `INSERT INTO auctions (title, description, sku, condition, auction_type, starting_price, reserve_price,
       buy_now_price, bid_increment, starts_at, ends_at, current_price, allow_best_offer,
       seller_user_id, is_consignment, approval_status, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false,$13,$14)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,false,$15,$16)
      RETURNING *`,
     [
       data.title,
       data.description || null,
+      data.sku ?? null,
+      data.condition ?? null,
       data.auction_type,
       data.starting_price.toFixed(2),
       data.reserve_price?.toFixed(2) ?? null,
@@ -709,7 +726,7 @@ export async function rejectAuction(auctionId: string, notes: string): Promise<A
 
 export async function getUserAuctions(userId: string): Promise<AuctionSummary[]> {
   const result = await query(
-    `SELECT a.id, a.title, a.auction_type, a.status, a.current_price, a.starting_price,
+    `SELECT a.id, a.title, a.sku, a.condition, a.auction_type, a.status, a.current_price, a.starting_price,
             a.buy_now_price, a.bid_count, a.starts_at, a.ends_at,
             a.approval_status, a.seller_commission_rate, a.seller_payout,
             (SELECT url FROM auction_images WHERE auction_id = a.id ORDER BY display_order LIMIT 1) as image_url
@@ -771,6 +788,27 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
   winningPrice?: string;
   auctionTitle?: string;
 }> {
+  // Trust gate on the OFFERER, run BEFORE the transaction. A best-offer win
+  // must not dodge the per-trade cap the direct-bid path enforces (placeBid
+  // now gates offers at placement too; this is the seller-acceptance half).
+  // canTrade issues root-pool queries — running it inside the FOR UPDATE tx
+  // below would acquire a second connection while this one is held (the
+  // max:1 self-deadlock the market path documents), so we pre-read the
+  // offer's bidder + amount here and gate outside the tx.
+  const pre = await query(
+    `SELECT b.user_id, b.amount
+       FROM auction_bids b
+      WHERE b.id = $1 AND b.auction_id = $2 AND b.is_best_offer = true AND b.status = 'active'`,
+    [bidId, auctionId],
+  );
+  if (pre.rows.length > 0) {
+    const { canTrade } = await import("@/lib/escrow/trust-engine");
+    const gate = await canTrade(pre.rows[0].user_id, parseFloat(pre.rows[0].amount));
+    if (!gate.allowed) {
+      return { ok: false, error: gate.reason ?? "Offer rejected by trust gate." };
+    }
+  }
+
   return transaction(async (q) => {
     const auctionRes = await q(
       `SELECT * FROM auctions WHERE id = $1 FOR UPDATE`,
@@ -785,8 +823,12 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
       return { ok: false, error: "Auction is not live." };
     }
 
+    // response_window_hours (migration 0092) is pulled in the same JOIN so
+    // the payment deadline resolves WITHOUT a root-pool query inside this
+    // held transaction (the max:1 self-deadlock the market path documents).
     const bidRes = await q(
-      `SELECT b.*, u.email FROM auction_bids b JOIN users u ON b.user_id = u.id
+      `SELECT b.*, u.email, u.response_window_hours
+         FROM auction_bids b JOIN users u ON b.user_id = u.id
         WHERE b.id = $1 AND b.auction_id = $2 AND b.is_best_offer = true AND b.status = 'active'`,
       [bidId, auctionId]
     );
@@ -795,12 +837,24 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
     }
     const bid = bidRes.rows[0];
 
+    // Stamp the winner's payment deadline so the unpaid-cancel sweep
+    // (WHERE payment_expires_at <= NOW()) can act on an unpaid offer win —
+    // parity with the buy-now fill and end-of-auction winner paths, which
+    // both stamp it. Without this an accepted offer could sit unpaid
+    // forever. Winner-aware: their declared cadence overrides the 48h
+    // auction default.
+    const windowHours =
+      (bid.response_window_hours as number | null | undefined) ??
+      DEFAULT_AUCTION_PAYMENT_WINDOW_HOURS;
+    const paymentExpiresAt = new Date(Date.now() + windowHours * 60 * 60 * 1000).toISOString();
+
     // End the auction at the offer price; mark this bid winning, others rejected
     await q(
       `UPDATE auctions SET status = 'ended', actual_end_at = NOW(),
-         winner_user_id = $1, current_price = $2, updated_at = NOW()
-        WHERE id = $3`,
-      [bid.user_id, bid.amount, auctionId]
+         winner_user_id = $1, current_price = $2, payment_expires_at = $3,
+         updated_at = NOW()
+        WHERE id = $4`,
+      [bid.user_id, bid.amount, paymentExpiresAt, auctionId]
     );
     await q(
       `UPDATE auction_bids SET status = 'winning' WHERE id = $1`,
@@ -846,15 +900,17 @@ export async function calculateSellerPayout(auctionId: string): Promise<{ payout
   );
   if (result.rows.length === 0) return null;
   const auction = result.rows[0];
+  // salePrice reads a.current_price at CALL time. Called from the auction
+  // 'paid' webhook branch, that is the FINAL winning price — not the
+  // starting price the admin-approve path read before any bids landed.
   const salePrice = parseFloat(auction.current_price);
   const storedRate = parseFloat(auction.seller_commission_rate || "0.12");
   const tierRate = auction.tier_rate ? parseFloat(auction.tier_rate) : null;
-  const rate = tierRate !== null && tierRate < storedRate ? tierRate : storedRate;
   // Per-item commission cap (the fairness fix): the absolute cap in
   // @cambridge-tcg/pricing bounds the auction fee after the tier discount.
-  // See /methodology/fees.
-  const commission = computeCommissionAmount(salePrice, rate).amount;
-  const payout = salePrice - commission;
+  // See /methodology/fees. Math extracted to resolveAuctionPayout (pure,
+  // unit-tested) — the numbers are unchanged.
+  const { rate, commission, payout } = resolveAuctionPayout({ salePrice, storedRate, tierRate });
 
   await query(
     `UPDATE auctions SET seller_payout = $1, seller_commission_rate = $2, updated_at = NOW() WHERE id = $3`,

@@ -1,11 +1,36 @@
+import { computeCommissionAmount } from "@cambridge-tcg/pricing";
+import type { TradeShippingAddress } from "@/lib/market/types";
+
 export type AuctionType = "english" | "dutch" | "buy_now";
 export type AuctionStatus = "draft" | "scheduled" | "live" | "ended" | "paid" | "cancelled";
 export type BidStatus = "active" | "outbid" | "winning" | "rejected";
+
+// The winner's shipping address is the SAME jsonb shape the market
+// collects at pay time (migration 0105 / 0114). Reuse the market type so
+// the flatten block and the seller-paid email render identically across
+// both settlement engines rather than forking a parallel definition.
+export type AuctionShippingAddress = TradeShippingAddress;
+
+// Card conditions accepted on an auction listing. Auctions allow DMG
+// (damaged) in addition to the market order set (NM/LP/MP/HP) because a
+// graded/played single is a legitimate thing to auction as-is.
+export const AUCTION_CONDITIONS = ["NM", "LP", "MP", "HP", "DMG"] as const;
+export type AuctionCondition = (typeof AUCTION_CONDITIONS)[number];
+
+export function isAuctionCondition(v: unknown): v is AuctionCondition {
+  return typeof v === "string" && (AUCTION_CONDITIONS as readonly string[]).includes(v);
+}
 
 export interface Auction {
   id: string;
   title: string;
   description: string | null;
+  // Card identity (migration 0113). Nullable — pre-identity demo rows and
+  // legacy title-only auctions carry null. `sku` is the canonical catalog
+  // SKU (resolved server-side from card_set_cards, never client-trusted);
+  // `condition` is one of AUCTION_CONDITIONS.
+  sku: string | null;
+  condition: string | null;
   auction_type: AuctionType;
   status: AuctionStatus;
   starting_price: string;
@@ -47,6 +72,10 @@ export interface Auction {
   buyer_received_at: string | null;
   carrier_to_ctcg: string | null;
   carrier_to_buyer: string | null;
+  // Winner's shipping address, collected by Stripe Checkout at pay time
+  // (migration 0114). NULL until the winner pays. Participant-only: the
+  // public GET redacts this for anyone who isn't the seller or winner.
+  shipping_address: AuctionShippingAddress | null;
   created_at: string;
   updated_at: string;
 }
@@ -83,6 +112,8 @@ export interface AuctionDetail extends Auction {
 export interface AuctionSummary {
   id: string;
   title: string;
+  sku?: string | null;
+  condition?: string | null;
   auction_type: AuctionType;
   status: AuctionStatus;
   current_price: string;
@@ -97,6 +128,10 @@ export interface AuctionSummary {
 export interface CreateAuctionInput {
   title: string;
   description?: string;
+  // Card identity — resolved to a canonical catalog SKU + a valid
+  // AuctionCondition by the route handler before it reaches the DB.
+  sku?: string;
+  condition?: string;
   auction_type: AuctionType;
   starting_price: number;
   reserve_price?: number;
@@ -122,4 +157,59 @@ export interface BidResult {
   bid?: Bid;
   error?: string;
   auction?: Auction;
+}
+
+// ── Pure settlement predicates (no DB — unit-testable) ──
+// These live here (types.ts imports no @/lib/db) so the settlement tests
+// exercise the REAL code path placeBid / calculateSellerPayout use,
+// instead of a copy that could drift.
+
+/**
+ * Shill-bid guard. True when the bidder is the auction's own seller — a
+ * self-bid drives the price undetectably in a trust-language market and
+ * must be refused on BOTH the regular-bid and best-offer paths. Mirrors
+ * the market's self-match exclusion (o.user_id != taker in market/db.ts).
+ */
+export function isSelfBid(
+  sellerUserId: string | null | undefined,
+  bidderUserId: string,
+): boolean {
+  return !!sellerUserId && sellerUserId === bidderUserId;
+}
+
+/**
+ * Map a trust-engine `canTrade` result to a BidResult error, or null when
+ * the gate allows the action. Used by placeBid for BOTH regular bids and
+ * best offers so an over-cap user can't dodge the cap via an offer.
+ */
+export function trustGateToBidResult(
+  gate: { allowed: boolean; reason?: string | null },
+): BidResult | null {
+  if (gate.allowed) return null;
+  return { success: false, error: gate.reason ?? "Order rejected by trust gate." };
+}
+
+/**
+ * Pure seller-payout math at settlement. Extracted verbatim from
+ * calculateSellerPayout so it can be asserted without a DB round-trip —
+ * the money math itself is unchanged (錢就再講): commission comes from
+ * @cambridge-tcg/pricing's per-item-capped computeCommissionAmount, and
+ * the effective rate is the tier floor min(stored, current-tier).
+ *
+ * `salePrice` at settlement is the FINAL winning price (auctions.current_
+ * price after the auction ends), NOT the starting price the admin-approve
+ * path used to read.
+ */
+export function resolveAuctionPayout(input: {
+  salePrice: number;
+  storedRate: number;
+  tierRate: number | null;
+}): { rate: number; commission: number; payout: number } {
+  const { salePrice, storedRate, tierRate } = input;
+  // Stored rate is the floor; a tier upgrade between listing and payout
+  // retroactively lowers it. Downgrades never raise it.
+  const rate = tierRate !== null && tierRate < storedRate ? tierRate : storedRate;
+  const commission = computeCommissionAmount(salePrice, rate).amount;
+  const payout = salePrice - commission;
+  return { rate, commission, payout };
 }

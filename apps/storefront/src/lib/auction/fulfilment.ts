@@ -168,31 +168,38 @@ export async function buyerConfirmReceived(
   // buyer, realize for the seller (if seller-listed; CTCG-owned
   // auctions have null seller_user_id and skip realize).
   void import("@/lib/portfolio/realize").then(async ({ recordAcquisition, closePosition }) => {
+    // The old query SELECTed a.set_code — a column that never existed on
+    // auctions — so it threw, the .catch swallowed it, and the portfolio
+    // acquire/realize side-effect silently no-op'd for EVERY completed
+    // auction. Read a.sku (migration 0113) and resolve the card's real
+    // identity from the catalog (resolveCardIdentity, the same read
+    // /market/[sku] uses) instead of the ad-hoc set_code column.
     const auctionRow = await query(
-      `SELECT a.id, a.title, a.current_price, a.seller_payout, a.seller_user_id,
-              a.set_code, ai.url AS image_url
+      `SELECT a.id, a.title, a.sku, a.current_price, a.seller_payout, a.seller_user_id
          FROM auctions a
-         LEFT JOIN auction_images ai ON ai.auction_id = a.id AND ai.display_order = 0
         WHERE a.id = $1`,
       [auctionId],
     ).catch(() => ({ rows: [] as Record<string, string | null>[] }));
     const ar = auctionRow.rows[0];
     if (!ar) return;
+    // No catalog SKU (legacy title-only auction) → we can't produce a
+    // catalog-linked portfolio position. Skip rather than mint a fake
+    // `auction:<id>` SKU that no card page could ever join to.
+    if (!ar.sku) return;
+
+    const { getCardIdentity } = await import("@/lib/market/catalog-card");
+    const identity = await getCardIdentity(ar.sku).catch(() => null);
+
     const winningPrice = ar.current_price ? parseFloat(ar.current_price) : 0;
     const sellerPayout = ar.seller_payout ? parseFloat(ar.seller_payout) : winningPrice;
     const fees = winningPrice - sellerPayout;
-    // Auctions don't carry a SKU column on the row, only a title.
-    // Use the auction id as the SKU stand-in so the position is
-    // queryable; investors with multiple copies of the same physical
-    // card from different auctions get distinct portfolio rows
-    // (acceptable — graded singles are typically unique anyway).
-    const sku = `auction:${auctionId}`;
+    const sku = ar.sku;
     await recordAcquisition({
       userId,
       sku,
-      cardName: ar.title ?? undefined,
-      setCode: ar.set_code ?? undefined,
-      imageUrl: ar.image_url ?? undefined,
+      cardName: identity?.card_name ?? ar.title ?? undefined,
+      setCode: identity?.set_code ?? undefined,
+      imageUrl: identity?.image_url ?? undefined,
       quantity: 1,
       pricePaidGbp: winningPrice,
       acquisitionSource: "auction",

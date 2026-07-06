@@ -750,23 +750,44 @@ export async function POST(request: Request) {
     if (session.metadata?.type === "auction_payment" && session.metadata?.auction_id) {
       try {
         const auctionId = session.metadata.auction_id;
+        // Winner's shipping address, collected by Checkout at pay time
+        // (shipping_address_collection on the auction pay session). The
+        // current API version surfaces it under collected_information.
+        // shipping_details; flatten to the jsonb shape of migration 0114
+        // (mirrors the market_trade branch above) so the seller's ship
+        // panel and the seller-paid email can render it.
+        const shipping = session.collected_information?.shipping_details;
+        const shippingAddress = shipping?.address
+          ? {
+              name: shipping.name || undefined,
+              line1: shipping.address.line1 || undefined,
+              line2: shipping.address.line2 || undefined,
+              city: shipping.address.city || undefined,
+              state: shipping.address.state || undefined,
+              postal_code: shipping.address.postal_code || undefined,
+              country: shipping.address.country || undefined,
+            }
+          : null;
         // RETURNING to confirm the UPDATE matched (status='ended' guard
         // means a re-delivered webhook for an already-paid auction is a
-        // no-op — the lifecycle log fires only when we actually flipped).
+        // no-op — everything below fires only when we actually flipped).
         const flipped = await query(
           `UPDATE auctions
               SET status = 'paid',
                   escrow_status = 'awaiting_shipment',
                   stripe_session_id = $2,
                   stripe_payment_intent = $3,
+                  shipping_address = COALESCE($4::jsonb, shipping_address),
                   paid_at = NOW(),
                   updated_at = NOW()
             WHERE id = $1 AND status = 'ended'
-            RETURNING id, winner_user_id, current_price, title`,
+            RETURNING id, winner_user_id, seller_user_id, is_consignment,
+                      current_price, title`,
           [
             auctionId,
             session.id,
             typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null,
+            shippingAddress ? JSON.stringify(shippingAddress) : null,
           ]
         );
         console.log(`[webhook] Auction ${auctionId} marked as paid`);
@@ -788,6 +809,88 @@ export async function POST(request: Request) {
             void import("@/lib/escrow/trust-engine").then(({ calculateTrustScore }) =>
               calculateTrustScore(a.winner_user_id).catch(() => { /* ignore */ }),
             );
+          }
+
+          // Compute seller_payout NOW, on the FINAL winning price, so the
+          // (already-wired) payout sweep can fire — it requires seller_
+          // payout IS NOT NULL and previously only the admin approve action
+          // ever computed it (and did so on the starting price, no bids
+          // yet). calculateSellerPayout reads current_price at call time and
+          // stores the result. Only for seller-listed auctions (CTCG-owned
+          // auctions have null seller_user_id — nothing to pay).
+          if (a.seller_user_id) {
+            const [{ calculateSellerPayout }, { sendAuctionSellerPaidEmail }, { formatPrice }, { notify }] =
+              await Promise.all([
+                import("@/lib/auction/db"),
+                import("@/lib/auction/email"),
+                import("@/lib/format"),
+                import("@/lib/notifications/db"),
+              ]);
+            const payoutRes = await calculateSellerPayout(auctionId).catch((e) => {
+              console.error("[webhook] auction seller_payout compute failed:", e);
+              return null;
+            });
+
+            // Emails + usernames for the seller-paid notice and in-app rows.
+            const info = await query(
+              `SELECT su.email AS seller_email,
+                      wu.username AS winner_username
+                 FROM auctions a
+                 LEFT JOIN users su ON su.id = a.seller_user_id
+                 LEFT JOIN users wu ON wu.id = a.winner_user_id
+                WHERE a.id = $1`,
+              [auctionId]
+            );
+            const r = info.rows[0] ?? {};
+            const winningPrice = parseFloat(a.current_price ?? "0");
+            const payoutLabel = payoutRes ? formatPrice(payoutRes.payout) : formatPrice(winningPrice);
+            const shipsTo: "buyer" | "ctcg" = a.is_consignment ? "ctcg" : "buyer";
+
+            // Seller-facing "buyer paid — ship it" email (renders the
+            // winner's address on the direct route). Best-effort — the flip
+            // + payout are already committed; email must not fail the hook.
+            if (r.seller_email) {
+              sendAuctionSellerPaidEmail({
+                email: r.seller_email,
+                auctionTitle: a.title,
+                auctionId: a.id,
+                winningPrice: formatPrice(winningPrice),
+                payout: payoutLabel,
+                shipsTo,
+                shippingAddress,
+                buyerUsername: r.winner_username ?? null,
+              }).catch((e) => console.error("[webhook] Auction seller paid email failed:", e));
+            }
+
+            // In-app parity for BOTH parties. Dedup keys scope to the
+            // auction so webhook replays don't double-notify (notify() is
+            // idempotent on kind + referenceType + referenceId). The
+            // seller's copy is the shipping prompt; the winner's is a
+            // receipt + what-happens-next.
+            await notify({
+              userId: a.seller_user_id,
+              kind: "auction.paid_seller",
+              title: `Winner paid for ${a.title} — time to ship`,
+              body: shipsTo === "ctcg"
+                ? `Ship to Cambridge TCG for verification. Payout ${payoutLabel} releases after the trade completes.`
+                : `Ship directly to the winner. Payout ${payoutLabel} releases after delivery.`,
+              linkUrl: `/auctions/${a.id}`,
+              referenceType: "auction",
+              referenceId: `${auctionId}:paid_seller`,
+            }).catch((e) => console.error("[webhook] Auction seller notify failed:", e));
+            if (a.winner_user_id) {
+              await notify({
+                userId: a.winner_user_id,
+                kind: "auction.paid_buyer",
+                title: `Payment confirmed for ${a.title}`,
+                body: shipsTo === "ctcg"
+                  ? "The seller will ship to Cambridge TCG for verification."
+                  : "The seller will ship directly to you.",
+                linkUrl: `/auctions/${a.id}`,
+                referenceType: "auction",
+                referenceId: `${auctionId}:paid_buyer`,
+              }).catch((e) => console.error("[webhook] Auction winner notify failed:", e));
+            }
           }
         }
       } catch (err) {

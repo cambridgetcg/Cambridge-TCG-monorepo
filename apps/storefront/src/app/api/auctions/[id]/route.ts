@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
 import { getAuction, updateAuction, deleteAuction } from "@/lib/auction/db";
 
@@ -10,6 +11,19 @@ export async function GET(
   const auction = await getAuction(id);
   if (!auction) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Card identity (sku/condition) is public — like a market listing. But
+  // the winner's shipping_address (migration 0114) is participant-only:
+  // this GET is unauthenticated and public, so redact the address for
+  // anyone who isn't the seller, the winner, or an admin. Otherwise a
+  // public auction page would leak a home address.
+  const session = await auth();
+  const uid = session?.user?.id ?? null;
+  const isParticipant =
+    !!uid && (uid === auction.seller_user_id || uid === auction.winner_user_id);
+  if (!isParticipant && !(await isAdmin().catch(() => false))) {
+    return NextResponse.json({ ...auction, shipping_address: null });
   }
   return NextResponse.json(auction);
 }
