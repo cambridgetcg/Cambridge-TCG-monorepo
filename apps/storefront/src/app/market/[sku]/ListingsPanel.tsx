@@ -64,6 +64,7 @@ export function ListingsPanel({
   fairValue,
   spotPrice,
   limits,
+  onBuy,
 }: {
   sku: string;
   loggedIn: boolean | null;
@@ -71,6 +72,9 @@ export function ListingsPanel({
   fairValue: FairValueInput | null;
   spotPrice: number | null;
   limits: TrustLimits | null;
+  // Prefills the card's buy form with this ask's terms and scrolls to it
+  // (P1a) — the row Buy affordance the panel advertises now actually acts.
+  onBuy?: (opts: { price: number; quantity?: number; condition?: "NM" | "LP" | "MP" | "HP" }) => void;
 }) {
   const [asks, setAsks] = useState<AskListing[] | null>(null);
   const [openComposer, setOpenComposer] = useState<string | null>(null);
@@ -144,6 +148,24 @@ export function ListingsPanel({
                     label="Message"
                     size="sm"
                   />
+                )}
+                {onBuy && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onBuy({
+                        price: parseFloat(ask.price),
+                        quantity: 1,
+                        condition: (["NM", "LP", "MP", "HP"].includes(ask.condition)
+                          ? ask.condition
+                          : "NM") as "NM" | "LP" | "MP" | "HP",
+                      })
+                    }
+                    className="min-h-[44px] sm:min-h-0 px-3 py-1.5 text-xs font-bold rounded-md bg-bid text-page hover:opacity-90 transition"
+                    title={`Prefill the buy form at ${formatPrice(parseFloat(ask.price))}`}
+                  >
+                    Buy
+                  </button>
                 )}
                 {ask.allow_offers ? (
                   <button

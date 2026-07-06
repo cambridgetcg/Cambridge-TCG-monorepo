@@ -15,8 +15,13 @@
 import DevBannerDismiss from "./DevBannerDismiss";
 
 // Single source of truth — edit copy here.
+//
+// Collectors-first (2026-07-06): the old copy was shop language ("stock
+// counts", "placing new orders") that read as a trading freeze on a market
+// whose whole pitch is "post an ask — it can fill the moment you post". The
+// house sells nothing now; every listing is a collector's. Honest + calm.
 export const BANNER_COPY =
-  "Site under active development. Stock counts may not be accurate yet — please hold off on placing new orders for now. If you have already placed an order, it will be processed and sorted as normal. Thank you for your patience.";
+  "Cambridge TCG is a peer-to-peer collectors' market, still in active development. You trade directly with other collectors; reference prices are open data — a guide, not an offer. Tell us if anything looks off.";
 
 // Must match the cookie name used in DevBannerDismiss.
 export const BANNER_COOKIE = "banner-dev-notice";

@@ -80,6 +80,17 @@ export default async function SwapDetailPage({
     (e) => e.action === "cancel_requested" && e.actor_id === meId,
   );
 
+  // Forward link for a superseded proposal → the counter that replaced it.
+  // The 'countered' transition is logged against THIS swap with the
+  // counter's id in metadata.superseded_by (createSwap). The counter links
+  // back; this closes the loop so the old page isn't a dead end.
+  const supersededBy =
+    swap.status === "countered"
+      ? (lifecycle.find((e) => e.action === "countered")?.metadata?.superseded_by as
+          | string
+          | undefined)
+      : undefined;
+
   return (
     <div>
       <Audience kind="consumer" />
@@ -115,6 +126,14 @@ export default async function SwapDetailPage({
           This is a counter-proposal.{" "}
           <Link href={`/account/swaps/${swap.counter_of}`} className="text-accent hover:text-accent-strong">
             View the proposal it supersedes →
+          </Link>
+        </p>
+      )}
+      {supersededBy && (
+        <p className="text-xs text-ink-muted -mt-1 mb-4">
+          You countered this proposal — it&apos;s no longer live.{" "}
+          <Link href={`/account/swaps/${supersededBy}`} className="text-accent hover:text-accent-strong">
+            View the counter-proposal →
           </Link>
         </p>
       )}
@@ -198,8 +217,11 @@ export default async function SwapDetailPage({
           </ol>
         )}
         <p className="text-[10px] text-ink-faint mt-3">
-          Append-only record (swap_lifecycle_log) — entries are written with each transition
-          and never edited.
+          Append-only record — entries are written with each transition and never edited.
+          <WhyLink
+            href="/methodology/swaps"
+            tooltip="Backed by the append-only swap_lifecycle_log table — written on each transition, never edited"
+          />
         </p>
       </Card>
     </div>
@@ -230,7 +252,8 @@ function ItemsCard({
       </div>
       {unpriced > 0 && (
         <p className="text-[10px] text-accent mb-2">
-          {unpriced} line(s) had no price data at proposal time — the total understates this side.
+          {unpriced === 1 ? "1 card had" : `${unpriced} cards had`} no price data at proposal time —
+          the total understates this side.
         </p>
       )}
       <ul className="space-y-1.5">

@@ -39,6 +39,7 @@ import {
   validateListing,
   type Condition,
   type DraftCard,
+  type ListingDraft,
   type ListingErrors,
 } from "./listing-draft";
 
@@ -98,6 +99,10 @@ export default function ListingWizard({
   const [returnWindowDays, setReturnWindowDays] = useState<number>(DEFAULT_RETURN_WINDOW_DAYS);
 
   const [restored, setRestored] = useState(false);
+  // A saved draft for card A vs a ?sku=B deep link: rather than silently
+  // letting the stale draft win (the walker posted the wrong card this
+  // way), we ask. Null unless the two disagree.
+  const [conflict, setConflict] = useState<{ draft: ListingDraft; sku: string } | null>(null);
   const [errors, setErrors] = useState<ListingErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -133,38 +138,59 @@ export default function ListingWizard({
     [game],
   );
 
-  // Mount: restore a saved draft (login round-trip), else honor ?sku=.
+  const restoreDraft = useCallback((draft: ListingDraft) => {
+    setPicked(draft.card);
+    setCondition(draft.condition);
+    setPrice(draft.price);
+    setQuantity(draft.quantity);
+    setAcceptsReturns(draft.acceptsReturns);
+    setReturnWindowDays(draft.returnWindowDays);
+    setRestored(true);
+    setStep("details");
+  }, []);
+
+  const loadSku = useCallback(
+    async (sku: string) => {
+      setSearchInput(sku);
+      setSearch({ status: "loading", results: [], source: null });
+      const r = await runSearch(sku, 5);
+      if ("error" in r) {
+        if (r.error !== "__aborted__") setSearch({ status: "error", results: [], source: null, message: r.error });
+        return;
+      }
+      const exact = r.cards.find((c) => c.sku.toLowerCase() === sku.toLowerCase());
+      if (exact) {
+        setPicked(draftCardFromCatalog(exact, r.source));
+        setStep("details");
+      } else {
+        setSearch({ status: "ok", results: r.cards, source: r.source });
+      }
+    },
+    [runSearch],
+  );
+
+  // Mount: reconcile a saved draft (login round-trip) with a ?sku= deep
+  // link. A parameterless visit silently restores the draft (unchanged);
+  // a ?sku= that names a DIFFERENT card asks rather than letting the stale
+  // draft quietly post the wrong card.
   useEffect(() => {
     const draft = parseListingDraft(localStorage.getItem(LISTING_DRAFT_KEY));
-    if (draft && draft.game === game) {
-      setPicked(draft.card);
-      setCondition(draft.condition);
-      setPrice(draft.price);
-      setQuantity(draft.quantity);
-      setAcceptsReturns(draft.acceptsReturns);
-      setReturnWindowDays(draft.returnWindowDays);
-      setRestored(true);
-      setStep("details");
+    const draftForGame = draft && draft.game === game ? draft : null;
+
+    if (initialSku) {
+      if (draftForGame && draftForGame.card.sku.toLowerCase() !== initialSku.toLowerCase()) {
+        setConflict({ draft: draftForGame, sku: initialSku });
+        return;
+      }
+      if (draftForGame) {
+        restoreDraft(draftForGame); // same card — resume where they left off
+        return;
+      }
+      void loadSku(initialSku);
       return;
     }
-    if (initialSku) {
-      setSearchInput(initialSku);
-      void (async () => {
-        setSearch({ status: "loading", results: [], source: null });
-        const r = await runSearch(initialSku, 5);
-        if ("error" in r) {
-          if (r.error !== "__aborted__") setSearch({ status: "error", results: [], source: null, message: r.error });
-          return;
-        }
-        const exact = r.cards.find((c) => c.sku.toLowerCase() === initialSku.toLowerCase());
-        if (exact) {
-          setPicked(draftCardFromCatalog(exact, r.source));
-          setStep("details");
-        } else {
-          setSearch({ status: "ok", results: r.cards, source: r.source });
-        }
-      })();
-    }
+
+    if (draftForGame) restoreDraft(draftForGame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -288,6 +314,42 @@ export default function ListingWizard({
   }
 
   /* ---------------------------------------------------------------- */
+
+  if (conflict) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Callout tone="note" title="You have a saved draft for a different card">
+          You were building a listing for <strong>{conflict.draft.card.name}</strong>{" "}
+          (<span className="font-mono">{conflict.draft.card.card_number}</span>), but this link is
+          for <span className="font-mono">{conflict.sku}</span>. Which one do you want to list?
+        </Callout>
+        <div className="flex flex-col sm:flex-row gap-2 mt-4">
+          <button
+            onClick={() => {
+              const d = conflict.draft;
+              setConflict(null);
+              restoreDraft(d);
+            }}
+            className="flex-1 px-4 py-2.5 bg-accent text-page font-bold rounded-lg hover:bg-accent-strong transition text-sm"
+          >
+            Resume draft for {conflict.draft.card.name}
+          </button>
+          <button
+            onClick={() => {
+              const s = conflict.sku;
+              localStorage.removeItem(LISTING_DRAFT_KEY);
+              setRestored(false);
+              setConflict(null);
+              void loadSku(s);
+            }}
+            className="flex-1 px-4 py-2.5 bg-surface border border-border-subtle text-ink font-medium rounded-lg hover:bg-surface-subtle transition text-sm"
+          >
+            Start listing {conflict.sku}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -694,6 +756,20 @@ function PostedPanel({
           )}
         </div>
       </div>
+
+      {/* Getting paid needs Stripe — the walker posted a listing and never
+          learned this until they went hunting for their money. Name it here,
+          once, at the moment a payout becomes possible. */}
+      <p className="text-xs text-ink-muted mb-5 flex items-start gap-1.5">
+        <Icon name="info" size={12} className="text-accent mt-0.5 shrink-0" />
+        <span>
+          To receive money when a sale settles, connect Stripe once in{" "}
+          <Link href="/account/payouts" className="text-accent hover:underline font-medium">
+            Payouts
+          </Link>
+          . It takes a few minutes and you only need to do it once.
+        </span>
+      </p>
 
       <div className="flex flex-col sm:flex-row gap-2">
         <Link

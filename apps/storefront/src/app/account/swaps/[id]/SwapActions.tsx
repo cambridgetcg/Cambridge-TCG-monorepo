@@ -32,19 +32,33 @@ export default function SwapActions({
   async function act(path: string, body?: object) {
     setBusy(path);
     setError(null);
+    // Fetch timeout + a catch: a stalled request used to leave the button
+    // stuck on "Saving…" forever with no error (the walker watched an
+    // address save hang indefinitely). Now it fails loudly and stays
+    // retryable — the form values aren't cleared on error.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
     try {
       const res = await fetch(`/api/swaps/${swap.id}/${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(data.error || "Action failed.");
+        setError((data && data.error) || "That didn't go through. Please try again.");
         return;
       }
       router.refresh();
+    } catch (err) {
+      setError(
+        (err as Error).name === "AbortError"
+          ? "This is taking too long — the network or server may be busy. Your details are still here; try again."
+          : "Network problem — nothing was saved. Please try again.",
+      );
     } finally {
+      clearTimeout(timer);
       setBusy(null);
     }
   }
@@ -231,6 +245,16 @@ function AddressPanel({
   const set = (key: keyof SwapAddress) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
+  // Skip a no-op save: re-submitting an unchanged address wrote a second
+  // identical "Ship-to address entered" timeline entry (walker). Compare
+  // the normalised fields and just close the editor when nothing changed.
+  const ADDR_FIELDS: (keyof SwapAddress)[] = [
+    "name", "line1", "line2", "city", "state", "postal_code", "country",
+  ];
+  const norm = (a: SwapAddress | null) =>
+    ADDR_FIELDS.map((k) => (a?.[k] ?? "").trim()).join("");
+  const unchanged = myAddress != null && norm(form) === norm(myAddress);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Card>
@@ -262,12 +286,13 @@ function AddressPanel({
             <Button
               size="sm"
               onClick={() => {
-                onSave(form);
+                // Only write when something actually changed.
+                if (!unchanged) onSave(form);
                 setEditing(false);
               }}
               disabled={busy || !form.name || !form.line1}
             >
-              {busy ? "Saving…" : "Save address"}
+              {busy ? "Saving…" : unchanged ? "Done" : "Save address"}
             </Button>
           </div>
         )}

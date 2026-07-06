@@ -18,6 +18,7 @@
  */
 
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { Icon, Provenance } from "@/lib/ui";
 import { GET as catalogGET } from "@/app/api/market/catalog/route";
@@ -54,6 +55,11 @@ export default async function MarketPage({
   // Shared with MarketBrowser's popstate handler — the URL must mean the
   // same query on the server pass and on client back/forward.
   const query: CatalogQuery = parseBrowseParams(sp);
+
+  // Text-mode readers (no-JS, screen readers, low bandwidth, agents) get
+  // the real table server-rendered synchronously — the streaming skeleton
+  // that a JS browser swaps out would otherwise be all they ever see.
+  const textMode = (await cookies()).get("text-mode")?.value === "1";
 
   const listHref =
     query.game !== DEFAULT_GAME
@@ -102,10 +108,16 @@ export default async function MarketPage({
           </div>
         </div>
 
-        {/* ========== BROWSER (first page server-rendered, streams in) ========== */}
-        <Suspense fallback={<CatalogSkeleton view={query.view} />}>
+        {/* ========== BROWSER (first page server-rendered, streams in) ==========
+            In text-mode the Suspense boundary is skipped so the table is in
+            the SSR HTML, not a shimmer a no-JS reader can never resolve. */}
+        {textMode ? (
           <CatalogSection query={query} />
-        </Suspense>
+        ) : (
+          <Suspense fallback={<CatalogSkeleton view={query.view} />}>
+            <CatalogSection query={query} />
+          </Suspense>
+        )}
       </div>
     </div>
   );

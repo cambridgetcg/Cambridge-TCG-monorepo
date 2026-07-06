@@ -156,6 +156,13 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
   font-size: 1rem;
 }
 
+/* Decorative skeleton shimmer has no meaning in a text reading layout —
+ * the toggle promises "low bandwidth, screen reader friendly", so stop the
+ * pulse animating (it kept shimmering under text-mode before). */
+body.text-mode .animate-pulse {
+  animation: none !important;
+}
+
 /*
  * Reduced motion — Wave 1.5 of the All-Aboard plan (kingdom-051).
  *
@@ -188,4 +195,26 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
     transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Global keyboard-focus ring.
+ *
+ * The house style promises "focus = 2px accent outline, visible always,
+ * never removed", but only skip-links and a handful of controls carried
+ * it — the shared Button primitive and every market row action relied on
+ * the browser default. This makes the promise real for every focusable
+ * element. `--color-accent` is redeclared per [data-theme] (themes.css),
+ * so the ring adapts across gallery / midnight / terminal / high-contrast;
+ * text-mode's `box-shadow: none` override leaves `outline` untouched, so
+ * the ring survives there too (with a black override below for contrast).
+ */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* In the black-on-white reading layout, a black ring is the most legible. */
+body.text-mode :focus-visible {
+  outline-color: black !important;
 }

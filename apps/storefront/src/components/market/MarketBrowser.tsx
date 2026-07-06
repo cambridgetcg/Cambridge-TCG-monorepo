@@ -61,6 +61,11 @@ export default function MarketBrowser({
   const [loading, setLoading] = useState(false);
 
   const sets: SetInfo[] = initialSets.ok ? initialSets.sets : [];
+  // A set registered with zero cards isn't browsable — its pill reads
+  // "SV2A 0" right next to a "no cards in this game yet" empty state, two
+  // statements that quietly disagree. Hide the empty sets so the filter
+  // never contradicts the catalogue it filters.
+  const visibleSets = sets.filter((s) => s.card_count > 0);
 
   // The SSR pass already fetched `initial` — don't refetch it on mount.
   const lastFetchedKey = useRef(queryKey(initial));
@@ -251,7 +256,7 @@ export default function MarketBrowser({
               <SetButton active={query.set === null} onClick={() => apply({ set: null, page: 1 }, "push")}>
                 All Cards
               </SetButton>
-              {sets.map((s) => (
+              {visibleSets.map((s) => (
                 <SetButton key={s.code} active={query.set === s.code} onClick={() => apply({ set: s.code, page: 1 }, "push")}>
                   <span className="truncate">
                     <span className="text-ink-faint font-mono text-xs mr-1.5">{s.code}</span>
@@ -267,13 +272,13 @@ export default function MarketBrowser({
         {/* ---- Main content ---- */}
         <div className="flex-1 min-w-0">
           {/* Set scroller (mobile) */}
-          {initialSets.ok && sets.length > 0 && (
+          {initialSets.ok && visibleSets.length > 0 && (
             <div className="lg:hidden mb-4 -mx-4 px-4">
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 <SetPill active={query.set === null} onClick={() => apply({ set: null, page: 1 }, "push")}>
                   All
                 </SetPill>
-                {sets.map((s) => (
+                {visibleSets.map((s) => (
                   <SetPill key={s.code} active={query.set === s.code} onClick={() => apply({ set: s.code, page: 1 }, "push")}>
                     {s.code} — {s.name}
                   </SetPill>
@@ -421,10 +426,13 @@ function CatalogTable({
         <thead>
           <tr className="bg-surface-elevated border-b border-border-subtle text-ink-muted text-xs uppercase tracking-wider">
             <th className="px-3 py-2.5 text-left">Card</th>
-            <th className="px-3 py-2.5 text-left">Set</th>
+            {/* Set + Activity fold away below sm: eight columns of
+                whitespace-nowrap sideways-scroll on a phone; the card page
+                (a whole-row tap) carries both details. */}
+            <th className="px-3 py-2.5 text-left hidden sm:table-cell">Set</th>
             <th className="px-3 py-2.5 text-right text-ask">Best Ask</th>
             <th className="px-3 py-2.5 text-right text-bid">Best Bid</th>
-            <th className="px-3 py-2.5 text-center">Activity</th>
+            <th className="px-3 py-2.5 text-center hidden sm:table-cell">Activity</th>
             <th className="px-3 py-2.5 text-right">
               Spot <span className="normal-case text-ink-faint">(ref)</span>
               <WhyLink href="/methodology/market" tooltip="Spot is the shop's retail reference price, not a trade price" />
@@ -456,7 +464,7 @@ function CatalogTable({
                     </span>
                   </span>
                 </td>
-                <td className="px-3 py-2 text-ink-muted font-mono text-xs whitespace-nowrap" title={card.set_name}>
+                <td className="px-3 py-2 text-ink-muted font-mono text-xs whitespace-nowrap hidden sm:table-cell" title={card.set_name}>
                   {card.set_code}
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -480,7 +488,7 @@ function CatalogTable({
                     <span className="text-ink-faint text-xs">—</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-center whitespace-nowrap">
+                <td className="px-3 py-2 text-center whitespace-nowrap hidden sm:table-cell">
                   {card.p2p_sellers > 0 || collectorBids > 0 ? (
                     <span className="text-xs font-mono tabular-nums">
                       {card.p2p_sellers > 0 && (
@@ -500,7 +508,7 @@ function CatalogTable({
                   <Link
                     href={`/market/${card.sku}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="inline-block px-3 py-1 text-xs font-bold bg-accent text-page rounded hover:bg-accent-strong transition"
+                    className="inline-flex items-center justify-center min-h-[44px] sm:min-h-0 px-3 py-1 text-xs font-bold bg-accent text-page rounded hover:bg-accent-strong transition"
                   >
                     View
                   </Link>
@@ -660,10 +668,10 @@ export function CatalogSkeleton({ view }: { view: ViewMode }) {
         <thead>
           <tr className="bg-surface-elevated border-b border-border-subtle text-ink-muted text-xs uppercase tracking-wider">
             <th className="px-3 py-2.5 text-left">Card</th>
-            <th className="px-3 py-2.5 text-left">Set</th>
+            <th className="px-3 py-2.5 text-left hidden sm:table-cell">Set</th>
             <th className="px-3 py-2.5 text-right">Best Ask</th>
             <th className="px-3 py-2.5 text-right">Best Bid</th>
-            <th className="px-3 py-2.5 text-center">Activity</th>
+            <th className="px-3 py-2.5 text-center hidden sm:table-cell">Activity</th>
             <th className="px-3 py-2.5 text-right">Spot</th>
             <th className="px-3 py-2.5" />
           </tr>
@@ -671,11 +679,13 @@ export function CatalogSkeleton({ view }: { view: ViewMode }) {
         <tbody>
           {Array.from({ length: 12 }).map((_, i) => (
             <tr key={i} className="animate-pulse">
-              {Array.from({ length: 7 }).map((_, j) => (
-                <td key={j} className="px-3 py-3">
-                  <div className="h-4 bg-surface-subtle rounded w-full" />
-                </td>
-              ))}
+              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+              <td className="px-3 py-3 hidden sm:table-cell"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+              <td className="px-3 py-3 hidden sm:table-cell"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
             </tr>
           ))}
         </tbody>

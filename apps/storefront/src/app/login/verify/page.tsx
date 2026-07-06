@@ -1,53 +1,61 @@
-"use client";
-
-// Scanner-proof magic-link interstitial.
+// Scanner-proof magic-link interstitial — now server-rendered.
 //
 // Email security scanners (Google Workspace link prefetch, Outlook
 // SafeLinks) GET every link in an email — and a magic link is single-use,
 // so the scanner's GET consumed the token and the human's real click got
-// "link no longer valid". This page absorbs the scanner: the email now
-// links HERE (a harmless GET that consumes nothing), and only the human's
-// button tap proceeds to the real next-auth callback.
+// "link no longer valid". This page absorbs the scanner: the email links
+// HERE (a harmless GET that consumes nothing), and only a deliberate
+// human action proceeds to the real next-auth callback.
+//
+// Why a <form> and not an <a>: a bare link would let a scanner's GET reach
+// the callback and burn the token — the very thing this page exists to
+// prevent. A form submit is a deliberate action a scanner does not perform,
+// AND it works with zero JavaScript. That fixes the walker finding that the
+// old client-only page rendered no visible content in SSR: a no-JS reader
+// (or a JS-failed click on the emailed link) now sees a real "Complete sign
+// in" button that works.
 //
 // The `u` param carries the full callback URL. We validate it is
 // same-origin and points at the email callback path — never a free
 // redirect. The post-sign-in destination (callbackUrl, e.g. a ?return=
 // path from /login) rides *inside* `u` as one of the callback URL's own
-// query params, so passing `u` through untouched preserves it across
-// this hop — including in a different browser than the one that
-// requested the link, where no callback-url cookie exists.
+// query params, preserved here across the hop.
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { headers } from "next/headers";
 
-function safeCallbackUrl(raw: string | null): string | null {
+/** Parse + validate `u` server-side. Returns the callback path and the
+ *  query params to replay as hidden form inputs, or null when the link is
+ *  incomplete / off-origin / not a callback URL. */
+async function parseCallback(
+  raw: string | null,
+): Promise<{ action: string; params: [string, string][] } | null> {
   if (!raw) return null;
+  const h = await headers();
+  const host = h.get("host") ?? "";
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const base = host ? `${proto}://${host}` : "http://localhost";
   try {
-    const url = new URL(raw, window.location.origin);
-    if (url.origin !== window.location.origin) return null;
+    const url = new URL(raw, base);
+    // Same-origin: the parsed host must match the request host (a relative
+    // `u` inherits it; an absolute off-origin `u` is rejected).
+    if (host && url.host !== host) return null;
     if (!url.pathname.startsWith("/api/auth/callback/email")) return null;
-    return url.toString();
+    return { action: url.pathname, params: [...url.searchParams.entries()] };
   } catch {
     return null;
   }
 }
 
-function VerifyInner() {
-  const params = useSearchParams();
-  const [continuing, setContinuing] = useState(false);
-  // Validation needs window.location.origin, so it runs after mount.
-  // Evaluating during SSR (where it could only ever say "invalid")
-  // hydration-mismatched against the client on every valid link;
-  // `undefined` = not yet evaluated, render nothing until then.
-  const [target, setTarget] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    setTarget(safeCallbackUrl(params.get("u")));
-  }, [params]);
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ u?: string }>;
+}) {
+  const { u } = await searchParams;
+  const callback = await parseCallback(u ?? null);
 
-  if (target === undefined) return null;
-
-  if (!target) {
+  if (!callback) {
     return (
       <main className="min-h-screen bg-page flex items-center justify-center">
         <div className="max-w-sm px-4 text-center">
@@ -75,29 +83,25 @@ function VerifyInner() {
         <p className="text-ink-muted mb-6">
           Tap the button to finish signing in to Cambridge TCG.
         </p>
-        <button
-          onClick={() => {
-            setContinuing(true);
-            window.location.href = target;
-          }}
-          disabled={continuing}
-          className="w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
-        >
-          {continuing ? "Signing you in…" : "Complete sign in"}
-        </button>
+        {/* GET so the single-use callback behaves exactly as a link click,
+            but only on a real submit — no JS required, and a scanner's
+            passive GET of this page never fires it. */}
+        <form method="GET" action={callback.action}>
+          {callback.params.map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v} />
+          ))}
+          <button
+            type="submit"
+            className="w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"
+          >
+            Complete sign in
+          </button>
+        </form>
         <p className="text-xs text-ink-faint mt-6">
           This extra tap protects your link from email scanners that would
           otherwise use it up before you could.
         </p>
       </div>
     </main>
-  );
-}
-
-export default function VerifyPage() {
-  return (
-    <Suspense fallback={null}>
-      <VerifyInner />
-    </Suspense>
   );
 }

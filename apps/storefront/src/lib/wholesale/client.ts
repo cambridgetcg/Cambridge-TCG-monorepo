@@ -31,7 +31,7 @@ const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 // source that actually served it, so surfaces can label the provenance
 // instead of passing a database read off as a live API.
 
-import { dbFetchGames, dbFetchPrices, dbFetchSets } from './db-source';
+import { dbFetchCard, dbFetchGames, dbFetchPrices, dbFetchSets } from './db-source';
 
 /**
  * Which substrate served a catalog response.
@@ -252,19 +252,32 @@ export async function fetchPrices(params?: {
 }
 
 export async function fetchCard(sku: string, channel = 'cambridgetcg'): Promise<PriceItem | null> {
-  let res: Response;
+  // HTTP first (unless flipped to direct reads), then the wholesale
+  // Postgres ground route — the same fallback fetchPrices uses. Without
+  // it the retired API's 401/timeout left the card page nameless and
+  // price-less while /market (which reads through the DB) showed both;
+  // now both surfaces resolve from one substrate. A 404 is an honest
+  // "no such card" and short-circuits; other failures fall through.
+  if (!dbDirectOnly()) {
+    try {
+      const res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
+        headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
+        next: { revalidate: 300 },
+      });
+      if (res.status === 404) return null;
+      if (res.ok) return res.json();
+      console.error('[wholesale] card error', res.status);
+    } catch (err) {
+      console.error('[wholesale] card fetch error', err);
+    }
+  }
+
   try {
-    res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
-      headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
-      next: { revalidate: 300 },
-    });
+    return await dbFetchCard(sku, channel);
   } catch (err) {
-    console.error('[wholesale] card fetch error', err);
+    console.error('[wholesale] card db-source error', err);
     return null;
   }
-  if (res.status === 404) return null;
-  if (!res.ok) return null;
-  return res.json();
 }
 
 // Uncached variant for revenue-critical checks (price/stock at checkout).

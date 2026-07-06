@@ -88,6 +88,7 @@ function MessagesInner({ meId }: { meId: string }) {
     id: string; username: string | null; name: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inboxError, setInboxError] = useState(false);
   const [sendingPending, setSendingPending] = useState(false);
   const [composeText, setComposeText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -98,20 +99,32 @@ function MessagesInner({ meId }: { meId: string }) {
   messagesRef.current = messages;
   const lastMessageIdRef = useRef<string | null>(null);
 
-  const loadInbox = useCallback(async () => {
+  const loadInbox = useCallback(async (opts?: { initial?: boolean }) => {
+    // Timeout so a stalled first load can't spin the skeleton forever — the
+    // walker watched this page render nothing (no list, no error, no retry)
+    // after a hung conversations fetch. Poll refreshes stay silent and
+    // recover on the next tick; only the INITIAL load surfaces an error.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
     try {
-      const res = await fetch("/api/messages/conversations");
+      const res = await fetch("/api/messages/conversations", { signal: controller.signal });
       const data = await res.json();
-      if (res.ok && data.conversations) setConversations(data.conversations);
+      if (res.ok && data.conversations) {
+        setConversations(data.conversations);
+        setInboxError(false);
+      } else if (opts?.initial) {
+        setInboxError(true);
+      }
     } catch {
-      // Poll path — transient network errors resolve on the next tick.
+      if (opts?.initial) setInboxError(true);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadInbox();
+    loadInbox({ initial: true });
   }, [loadInbox]);
 
   const markRead = useCallback((convId: string) => {
@@ -124,21 +137,34 @@ function MessagesInner({ meId }: { meId: string }) {
   // Load active conversation thread (newest page) + mark read.
   const loadThread = useCallback(async (convId: string) => {
     setError(null);
-    const res = await fetch(
-      `/api/messages/conversations/${convId}?limit=${THREAD_PAGE_LIMIT}`,
-    );
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Failed to load thread");
-      return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const res = await fetch(
+        `/api/messages/conversations/${convId}?limit=${THREAD_PAGE_LIMIT}`,
+        { signal: controller.signal },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to load thread");
+        return;
+      }
+      setMessages(data.messages || []);
+      setHasEarlier(Boolean(data.hasEarlier));
+      const c = data.conversation as Conversation;
+      setOtherUser({
+        id: c.other_user_id, username: c.other_username, name: c.other_name,
+      });
+      markRead(convId);
+    } catch (err) {
+      setError(
+        (err as Error).name === "AbortError"
+          ? "This thread is taking too long to load — try again."
+          : "Couldn't load this conversation. Try again.",
+      );
+    } finally {
+      clearTimeout(timer);
     }
-    setMessages(data.messages || []);
-    setHasEarlier(Boolean(data.hasEarlier));
-    const c = data.conversation as Conversation;
-    setOtherUser({
-      id: c.other_user_id, username: c.other_username, name: c.other_name,
-    });
-    markRead(convId);
   }, [markRead]);
 
   // Merge-poll the open thread: fetch the newest few, append what's
@@ -295,7 +321,24 @@ function MessagesInner({ meId }: { meId: string }) {
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 bg-page border border-border-subtle rounded-lg overflow-hidden h-[600px]">
           {/* Inbox list */}
           <aside className="border-r border-border-subtle overflow-y-auto bg-surface">
-            {conversations.length === 0 ? (
+            {inboxError && conversations.length === 0 ? (
+              <div className="p-4 text-xs">
+                <p className="text-danger mb-2">
+                  Couldn&apos;t load your conversations — the network or server may be busy.
+                  Your messages are safe.
+                </p>
+                <button
+                  onClick={() => {
+                    setLoading(true);
+                    setInboxError(false);
+                    void loadInbox({ initial: true });
+                  }}
+                  className="px-3 py-1.5 bg-accent text-page font-bold rounded-md hover:bg-accent-strong transition"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : conversations.length === 0 ? (
               <p className="p-4 text-xs text-ink-faint">
                 No conversations yet. Start one from a profile or trade.
               </p>

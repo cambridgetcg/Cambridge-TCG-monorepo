@@ -61,7 +61,7 @@ export default async function Footer() {
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
           <p className="text-ink font-medium mb-1">Sell</p>
           <Link href="/market/list" className="hover:text-ink transition">List a Card</Link>
-          <Link href="/methodology/swaps" className="hover:text-ink transition">Swaps</Link>
+          <Link href="/account/swaps" className="hover:text-ink transition">Swaps</Link>
           <Link href="/methodology/commission-rate" className="hover:text-ink transition">Fees &amp; Commission</Link>
           <Link href="/methodology/market" className="hover:text-ink transition">How the Market Works</Link>
         </div>

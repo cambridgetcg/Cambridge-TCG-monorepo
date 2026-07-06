@@ -270,7 +270,10 @@ export default function NewSwapClient({
                 <p className="text-ink font-bold">{fmtGBP(guidance.proposer.totalPence / 100)}</p>
                 {guidance.proposer.unpricedItems > 0 && (
                   <p className="text-[10px] text-accent">
-                    {guidance.proposer.unpricedItems} line(s) unpriced — total understates
+                    {guidance.proposer.unpricedItems === 1
+                      ? "1 card has no price data"
+                      : `${guidance.proposer.unpricedItems} cards have no price data`}{" "}
+                    — total understates
                   </p>
                 )}
               </div>
@@ -279,7 +282,10 @@ export default function NewSwapClient({
                 <p className="text-ink font-bold">{fmtGBP(guidance.recipient.totalPence / 100)}</p>
                 {guidance.recipient.unpricedItems > 0 && (
                   <p className="text-[10px] text-accent">
-                    {guidance.recipient.unpricedItems} line(s) unpriced — total understates
+                    {guidance.recipient.unpricedItems === 1
+                      ? "1 card has no price data"
+                      : `${guidance.recipient.unpricedItems} cards have no price data`}{" "}
+                    — total understates
                   </p>
                 )}
               </div>

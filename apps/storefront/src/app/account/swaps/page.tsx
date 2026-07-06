@@ -117,7 +117,11 @@ export default function SwapsPage() {
                       <Badge status={s.status} palette={SwapStatusPalette} labels={SwapStatusLabels} />
                       <p className="text-[10px] text-ink-faint mt-1.5">
                         {s.status === "proposed" && s.expires_at
-                          ? `responds within ${formatTimeUntil(s.expires_at)}`
+                          ? tab === "incoming"
+                            // The ball is in MY court on an incoming proposal —
+                            // second person, so it doesn't read as their clock.
+                            ? `you have ${formatTimeUntil(s.expires_at)} to respond`
+                            : `they respond within ${formatTimeUntil(s.expires_at)}`
                           : formatRelativeTime(s.updated_at)}
                       </p>
                     </div>

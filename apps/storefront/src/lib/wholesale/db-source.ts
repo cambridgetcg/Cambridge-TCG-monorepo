@@ -386,6 +386,67 @@ export async function dbFetchPrices(params?: {
   };
 }
 
+/**
+ * Single-card ground-route read — the per-SKU sibling of dbFetchPrices.
+ *
+ * fetchCard's HTTP path 401s locally and times out in production (the
+ * wholesale API is retired), leaving the card page with a nameless SKU
+ * and no reference price while the /market table — which reads through
+ * dbFetchPrices — shows both. This read closes that gap: the card page's
+ * reference price now resolves from the same substrate the table uses, so
+ * the two surfaces stop disagreeing. Returns null when the SKU is unknown
+ * (a genuine miss); THROWS on database failure so callers can tell a
+ * missing card from a downed source.
+ */
+export async function dbFetchCard(
+  sku: string,
+  channel = "cambridgetcg",
+): Promise<PriceItem | null> {
+  const { rows } = await q<CardRow>(
+    `SELECT sku, card_number, price, cardrush_jpy, gbp_jpy_rate, stock,
+            pending_stock, image_url, name, name_en, set_code, set_name,
+            rarity, category, last_synced_at
+       FROM cards
+      WHERE sku = $1
+      LIMIT 1`,
+    [sku],
+  );
+  const r = rows[0];
+  if (!r) return null;
+
+  const priceGbp = r.price === null ? null : Number(r.price);
+  const item: PriceItem = {
+    sku: r.sku,
+    card_number: r.card_number,
+    price_gbp: priceGbp as unknown as number,
+    stock: r.stock,
+    pending_stock: r.pending_stock,
+    image_url: r.image_url,
+    name: r.name_en || r.name,
+    name_en: r.name_en,
+    set_code: r.set_code,
+    set_name: r.set_name,
+    rarity: r.rarity,
+    category: r.category,
+    updated_at: r.last_synced_at ? new Date(r.last_synced_at).toISOString() : null,
+  };
+
+  if (channel !== "wholesale") {
+    const config = await channelConfigFor(channel);
+    item.channel_price = channelPriceForRow(
+      {
+        cardrush_jpy: r.cardrush_jpy,
+        gbp_jpy_rate: r.gbp_jpy_rate,
+        category: r.category,
+        price_gbp: priceGbp,
+      },
+      config,
+    ) as unknown as number;
+  }
+
+  return item;
+}
+
 // dbFetchChannelPriceMap — the one-query trade-in-credit price map that
 // fed the catalog route's we-buy enrichment — was removed on 2026-07-06
 // with the rest of the house desk (docs/decisions/2026-07-06-collectors-

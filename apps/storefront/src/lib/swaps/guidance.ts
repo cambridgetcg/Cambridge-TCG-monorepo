@@ -14,6 +14,7 @@
 // All results carry source + as-of so the UI can label provenance.
 
 import { query } from "@/lib/db";
+import { resolveReferencePrice } from "@/lib/market/reference-price";
 import {
   median,
   totalSide,
@@ -96,6 +97,38 @@ export async function guidanceForSkus(skus: string[]): Promise<Map<string, SkuGu
         asOf: new Date(String(row.captured_on)).toISOString(),
         sampleSize: 0,
       });
+    }
+  }
+
+  // Source 3: the live CTCG catalogue spot — the SAME reference the card
+  // picker and /market table already show. The picker shows £3.90 while
+  // guidance said "unpriced" purely because card_price_history hasn't been
+  // captured yet (it's empty in dev, sparse in early prod); the reference
+  // price lives in the wholesale catalogue, and resolveReferencePrice is
+  // the one helper the three market surfaces share. A handful of skus per
+  // swap, resolved in parallel; failures fall through to unpriced.
+  const stillUncovered = unique.filter((sku) => {
+    const g = map.get(sku);
+    return !g || g.indicativePence == null;
+  });
+  if (stillUncovered.length > 0) {
+    const now = new Date().toISOString();
+    const refs = await Promise.all(
+      stillUncovered.map(async (sku) => ({
+        sku,
+        ref: await resolveReferencePrice(sku).catch(() => null),
+      })),
+    );
+    for (const { sku, ref } of refs) {
+      if (ref != null && ref > 0) {
+        map.set(sku, {
+          sku,
+          indicativePence: Math.round(ref * 100),
+          source: "ctcg_spot_snapshot",
+          asOf: now,
+          sampleSize: 0,
+        });
+      }
     }
   }
 

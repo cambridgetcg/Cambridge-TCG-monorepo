@@ -83,18 +83,31 @@ function MessagesIndicator() {
 }
 
 // The switch on the wall — one quiet glyph that flips the lights.
-// Effective-dark themes (midnight, terminal) show the sun and target
-// gallery; light themes (gallery, high-contrast) and system-follow show
-// the moon and target midnight. A plain <a> to the wardrobe's cookie
-// writer (back-redirect idiom), so it works without JS; the full
-// wardrobe stays at /appearance.
-function themeToggle(theme: ThemeChoice, pathname: string) {
-  const isDark = theme === "midnight" || theme === "terminal";
+//
+// Safety (walker: a high-contrast user who tapped the moon silently lost
+// their accessibility theme; a system-follow user saw a mislabeled toggle
+// that discarded follow-OS):
+//   - high-contrast: HIDE the quick toggle. A light/dark flip would drop
+//     the accessibility bundle; those users change theme deliberately at
+//     /appearance instead.
+//   - system: flip against the RESOLVED scheme (read from the OS via
+//     matchMedia in the component), so the label is honest; the way back
+//     to system lives at /appearance.
+//   - concrete light/dark themes: unchanged.
+//
+// A plain <a> to the wardrobe's cookie writer (back-redirect idiom), so it
+// works without JS; the full wardrobe stays at /appearance.
+function themeToggle(theme: ThemeChoice, effectiveDark: boolean, pathname: string) {
+  if (theme === "high-contrast") {
+    return { hidden: true as const, target: "", label: "", href: "", isDark: false };
+  }
+  const target = effectiveDark ? "gallery" : "midnight";
   return {
-    target: isDark ? "gallery" : "midnight",
-    label: isDark ? "Lights on" : "Lights off",
-    href: `/api/appearance?theme=${isDark ? "gallery" : "midnight"}&back=${encodeURIComponent(pathname || "/")}`,
-    isDark,
+    hidden: false as const,
+    target,
+    label: effectiveDark ? "Lights on" : "Lights off",
+    href: `/api/appearance?theme=${target}&back=${encodeURIComponent(pathname || "/")}`,
+    isDark: effectiveDark,
   };
 }
 
@@ -136,12 +149,25 @@ function ThemeGlyph({ isDark, className }: { isDark: boolean; className: string 
   );
 }
 
-export default function Nav({ theme }: { theme: ThemeChoice }) {
-  const [loggedIn, setLoggedIn] = useState(false);
+export default function Nav({
+  theme,
+  initialLoggedIn = false,
+}: {
+  theme: ThemeChoice;
+  initialLoggedIn?: boolean;
+}) {
+  // Seeded from the server so SSR (and no-JS/text-mode readers) render the
+  // correct Sign In vs Account chrome with no wrong-state flash.
+  const [loggedIn, setLoggedIn] = useState(initialLoggedIn);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // For system-follow, the resolved light/dark scheme is only knowable on
+  // the client (OS preference). Default light for SSR; corrected on mount.
+  const [systemDark, setSystemDark] = useState(false);
   const pathname = usePathname();
-  const toggle = themeToggle(theme, pathname);
+  const effectiveDark =
+    theme === "system" ? systemDark : theme === "midnight" || theme === "terminal";
+  const toggle = themeToggle(theme, effectiveDark, pathname);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -149,6 +175,15 @@ export default function Nav({ theme }: { theme: ThemeChoice }) {
       .then((data) => setLoggedIn(!!data?.user?.email))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setSystemDark(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [theme]);
 
   // Close mobile menu on navigation
   useEffect(() => {
@@ -198,15 +233,19 @@ export default function Nav({ theme }: { theme: ThemeChoice }) {
               />
             </svg>
           </Link>
-          {/* The lights switch — no JS needed; all themes at /appearance */}
-          <a
-            href={toggle.href}
-            aria-label={toggle.label}
-            title={`${toggle.label} — all themes at /appearance`}
-            className="text-ink-muted hover:text-ink transition py-2"
-          >
-            <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
-          </a>
+          {/* The lights switch — no JS needed; all themes at /appearance.
+              Hidden on high-contrast so the accessibility theme can't be
+              flipped away by a mis-tap. */}
+          {!toggle.hidden && (
+            <a
+              href={toggle.href}
+              aria-label={toggle.label}
+              title={`${toggle.label} — all themes at /appearance`}
+              className="text-ink-muted hover:text-ink transition py-2"
+            >
+              <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
+            </a>
+          )}
           <Link
             href={loggedIn ? "/account" : "/login"}
             className="text-sm text-ink-muted hover:text-ink transition py-2"
@@ -359,15 +398,23 @@ export default function Nav({ theme }: { theme: ThemeChoice }) {
               {loggedIn ? "My Account" : "Sign In"}
             </Link>
             {/* The lights switch, labelled for the drawer; the full
-                wardrobe one step away. Plain <a> — works without JS. */}
+                wardrobe one step away. Plain <a> — works without JS. On
+                high-contrast the flip is hidden (see themeToggle), leaving
+                just the door to /appearance. */}
             <div className="flex items-center justify-between border-t border-border-subtle">
-              <a
-                href={toggle.href}
-                className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink"
-              >
-                <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
-                {toggle.label}
-              </a>
+              {!toggle.hidden ? (
+                <a
+                  href={toggle.href}
+                  className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink"
+                >
+                  <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
+                  {toggle.label}
+                </a>
+              ) : (
+                <span className="px-3 py-3 text-sm font-medium text-ink-faint">
+                  High-contrast theme
+                </span>
+              )}
               <Link
                 href="/appearance"
                 className="px-3 py-3 text-xs text-accent hover:text-accent-strong"
