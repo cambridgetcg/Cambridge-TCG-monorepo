@@ -25,9 +25,9 @@ interface CatalogCard {
   rarity: string | null;
   image_url: string | null;
   // Yu 2026-05-14: the play module is fun-only. Catalog responses may
-  // still carry spot_price + tradein_credit; we deliberately don't
-  // surface them anywhere on this surface. The deck builder lives in
-  // the game-economy, not the real-economy.
+  // still carry a reference price; we deliberately don't surface it
+  // anywhere on this surface. The deck builder lives in the
+  // game-economy, not the real-economy.
 }
 
 interface SetInfo {

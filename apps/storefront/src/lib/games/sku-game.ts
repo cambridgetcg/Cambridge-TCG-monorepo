@@ -3,8 +3,8 @@
  *
  * One truth for SKU → game. Promoted out of `@/lib/tradein/games` (which
  * re-exports for compat) so every surface that infers a game from a SKU —
- * trade-in submit, sell-for-credit, product pages, portfolio search —
- * reads the same map instead of re-deriving it wrongly.
+ * market pages, product pages, portfolio search — reads the same map
+ * instead of re-deriving it wrongly.
  *
  * Two SKU regimes coexist in production:
  *   - Legacy prefix-typed uppercase SKUs (the wholesale catalog today):

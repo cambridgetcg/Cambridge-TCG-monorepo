@@ -35,7 +35,6 @@ function card(over: Partial<CatalogCard>): CatalogCard {
     p2p_sellers: 0,
     p2p_buyers: 0,
     has_p2p: false,
-    tradein_credit: null,
     ...over,
   };
 }
@@ -87,18 +86,19 @@ describe("parseCatalogError", () => {
 });
 
 describe("derivePageStats", () => {
-  it("excludes the shop's standing credit bid from collector demand", () => {
+  // Collectors-first (2026-07-06): the house holds no position, so the
+  // counts are pure — every bid unit in the API response is a collector's
+  // and nothing is subtracted.
+  it("counts every bid as collector demand — there is no house bid to exclude", () => {
     const stats = derivePageStats([
-      // Shop credit bid only — p2p_buyers includes the +1 for CTCG.
-      card({ p2p_buyers: 1, tradein_credit: 5 }),
-      // One real collector bid on top of the shop's.
-      card({ p2p_buyers: 3, tradein_credit: 5 }),
+      card({ p2p_buyers: 1 }),
+      card({ p2p_buyers: 3 }),
       // Asks only.
       card({ p2p_sellers: 2 }),
     ]);
-    expect(stats.openBidUnits).toBe(2); // 0 + 2 + 0
+    expect(stats.openBidUnits).toBe(4); // 1 + 3 + 0 — nothing stripped
     expect(stats.openAskUnits).toBe(2);
-    expect(stats.cardsWithActivity).toBe(2); // shop-only card doesn't count
+    expect(stats.cardsWithActivity).toBe(3);
   });
 
   it("is zero-safe on an empty page", () => {

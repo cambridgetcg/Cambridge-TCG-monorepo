@@ -5,8 +5,6 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, EmptyState, ErrorAlert, Icon, Money, Palettes, WhyLink } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
-import { useToast } from "@/components/ui/Toast";
-import { useCreditSell } from "@/context/CreditSellContext";
 import {
   buildBrowseUrl,
   buildCatalogSearch,
@@ -56,14 +54,11 @@ export default function MarketBrowser({
   sourceBadges,
 }: MarketBrowserProps) {
   const v = useVoice();
-  const { toast } = useToast();
-  const { addItem, totalItems, totalCredit, openDrawer } = useCreditSell();
 
   const [query, setQuery] = useState<CatalogQuery>(initial);
   const [searchInput, setSearchInput] = useState(initial.q);
   const [catalog, setCatalog] = useState<CatalogResult>(initialCatalog);
   const [loading, setLoading] = useState(false);
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   const sets: SetInfo[] = initialSets.ok ? initialSets.sets : [];
 
@@ -151,34 +146,6 @@ export default function MarketBrowser({
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [fetchCatalog]);
-
-  /** Session check deferred to first quick-sell click — most visits never sell. */
-  async function quickSell(card: CatalogCard, e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!card.tradein_credit) return;
-    let ok = loggedIn;
-    if (ok === null) {
-      ok = await fetch("/api/auth/session")
-        .then((r) => r.json())
-        .then((d) => !!d?.user?.email)
-        .catch(() => false);
-      setLoggedIn(ok);
-    }
-    if (!ok) {
-      window.location.href = "/login";
-      return;
-    }
-    addItem({
-      sku: card.sku,
-      name: card.name,
-      cardNumber: card.card_number,
-      setCode: card.set_code,
-      imageUrl: card.image_url,
-      creditPrice: card.tradein_credit,
-    });
-    toast("Added to sell cart", "success");
-  }
 
   const cards = catalog.ok ? catalog.cards : [];
   const total = catalog.ok ? catalog.total : 0;
@@ -374,9 +341,9 @@ export default function MarketBrowser({
 
           {!loading && catalog.ok && cards.length > 0 && (
             query.view === "table" ? (
-              <CatalogTable cards={cards} game={query.game} onQuickSell={quickSell} />
+              <CatalogTable cards={cards} game={query.game} />
             ) : (
-              <CatalogGrid cards={cards} game={query.game} onQuickSell={quickSell} />
+              <CatalogGrid cards={cards} game={query.game} />
             )
           )}
 
@@ -414,48 +381,25 @@ export default function MarketBrowser({
             </div>
           )}
 
-          {/* ---- House buylist — one compact, secondary card ---- */}
+          {/* Collectors first (2026-07-06): the house buylist card and the
+              floating sell-cart bar retired with the we-buy desk. Selling
+              happens on the book — list an ask, or answer a collector's bid. */}
           <section className="mt-10 wardrobe-mat rounded-lg p-4 flex items-start gap-3">
-            <Icon name="credit" size={18} className="text-accent shrink-0 mt-0.5" />
+            <Icon name="card" size={18} className="text-accent shrink-0 mt-0.5" />
             <div className="text-sm">
               <h2 className="font-display font-bold text-ink mb-1">
-                Prefer store credit? The shop buys every card.
+                Selling? List to other collectors.
               </h2>
               <p className="text-xs text-ink-muted leading-relaxed max-w-2xl">
-                Cards the shop is buying show a quiet <span className="text-accent">sell</span> link next to their
-                bid — it adds them to a sell cart you post in one go. Submissions are reviewed on receipt before
-                credit is issued; the final amount can change if a card&rsquo;s condition doesn&rsquo;t match.
-                <WhyLink href="/methodology/store-credit" tooltip="How store credit works" label="How credit works" />
+                The shop no longer buys cards for store credit — this market is collectors trading with
+                collectors. Post an ask with the <span className="text-accent">list yours</span> link on any card,
+                or match a standing collector bid; escrow and reputation protect both sides.
+                <WhyLink href="/methodology/market" tooltip="How the collectors' market works" label="How the market works" />
               </p>
             </div>
           </section>
         </div>
       </div>
-
-      {/* ---- Floating credit sell-cart bar ---- */}
-      {totalItems > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-accent/30">
-          <div className="bg-surface/95 backdrop-blur">
-            <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 sm:gap-4 min-w-0 overflow-hidden">
-                <span className="text-sm font-bold text-ink shrink-0">
-                  <span className="font-mono tabular-nums">{totalItems}</span> card{totalItems !== 1 ? "s" : ""} to sell
-                </span>
-                <span className="text-xs sm:text-sm text-ink-muted truncate">
-                  <span className="text-accent font-medium font-mono tabular-nums"><Money value={totalCredit} /></span>
-                  <span className="ml-1 text-ink-faint">credit</span>
-                </span>
-              </div>
-              <button
-                onClick={openDrawer}
-                className="px-4 sm:px-5 py-2.5 bg-accent text-page text-sm font-bold rounded-lg hover:bg-accent-strong transition shrink-0"
-              >
-                Review Sell Cart
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -467,11 +411,9 @@ export default function MarketBrowser({
 function CatalogTable({
   cards,
   game,
-  onQuickSell,
 }: {
   cards: CatalogCard[];
   game: string;
-  onQuickSell: (card: CatalogCard, e: React.MouseEvent) => void;
 }) {
   return (
     <div className="wardrobe-mat overflow-x-auto rounded-lg">
@@ -492,7 +434,8 @@ function CatalogTable({
         </thead>
         <tbody className="divide-y divide-border-subtle">
           {cards.map((card) => {
-            const collectorBids = Math.max(0, card.p2p_buyers - (card.tradein_credit ? 1 : 0));
+            // Pure collector counts — no house bid to subtract anymore.
+            const collectorBids = card.p2p_buyers;
             return (
               <tr
                 key={card.sku}
@@ -536,15 +479,6 @@ function CatalogTable({
                   ) : (
                     <span className="text-ink-faint text-xs">—</span>
                   )}
-                  {card.tradein_credit != null && card.tradein_credit > 0 && (
-                    <button
-                      onClick={(e) => onQuickSell(card, e)}
-                      className="block ml-auto text-[10px] text-ink-faint hover:text-accent underline decoration-dotted underline-offset-2 transition"
-                      title="Sell to the shop for store credit (reviewed on receipt)"
-                    >
-                      sell · <Money value={card.tradein_credit} /> credit
-                    </button>
-                  )}
                 </td>
                 <td className="px-3 py-2 text-center whitespace-nowrap">
                   {card.p2p_sellers > 0 || collectorBids > 0 ? (
@@ -587,16 +521,15 @@ function CatalogTable({
 function CatalogGrid({
   cards,
   game,
-  onQuickSell,
 }: {
   cards: CatalogCard[];
   game: string;
-  onQuickSell: (card: CatalogCard, e: React.MouseEvent) => void;
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
       {cards.map((card) => {
-        const collectorBids = Math.max(0, card.p2p_buyers - (card.tradein_credit ? 1 : 0));
+        // Pure collector counts — no house bid to subtract anymore.
+        const collectorBids = card.p2p_buyers;
         return (
           <Link key={card.sku} href={`/market/${card.sku}`} className="wardrobe-mat rounded-lg p-3 hover:bg-surface-subtle transition group">
             {card.image_url ? (
@@ -651,16 +584,6 @@ function CatalogGrid({
                 </>
               )}
             </p>
-
-            {card.tradein_credit != null && card.tradein_credit > 0 && (
-              <button
-                onClick={(e) => onQuickSell(card, e)}
-                className="mt-1 text-[10px] text-ink-faint hover:text-accent underline decoration-dotted underline-offset-2 transition"
-                title="Sell to the shop for store credit (reviewed on receipt)"
-              >
-                sell · <Money value={card.tradein_credit} /> credit
-              </button>
-            )}
           </Link>
         );
       })}

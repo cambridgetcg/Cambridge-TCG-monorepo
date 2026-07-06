@@ -5,7 +5,6 @@ import {
   fetchSetsDetailed,
   type WholesaleSource,
 } from "@/lib/wholesale/client";
-import { dbFetchChannelPriceMap } from "@/lib/wholesale/db-source";
 import { retailPrice } from "@/lib/pricing";
 import { query } from "@/lib/db";
 
@@ -112,43 +111,15 @@ export async function GET(request: Request) {
     }
   }
 
-  // Fetch trade-in credit prices (CTCG standing bids)
-  let tradeinMap = new Map<string, number>();
-  if (source === "wholesale-db") {
-    // The main list came from the direct DB read, so the credit list can
-    // too — one query instead of the ~23-request HTTP pagination loop.
-    // Optional enrichment either way: a failure here degrades to "no
-    // standing bids", same as the HTTP path's per-page catch.
-    try {
-      tradeinMap = await dbFetchChannelPriceMap({ game, set, channel: "tradein-credit" });
-    } catch (err) {
-      console.error("[catalog] tradein-credit db read failed", err);
-    }
-  } else {
-    // HTTP mode: must paginate — the API caps at 500 per request.
-    let tradeinOffset = 0;
-    let tradeinTotal = Infinity;
-    while (tradeinOffset < tradeinTotal) {
-      const tradeinPage = await fetchPrices({
-        game, set, limit: 500, offset: tradeinOffset, channel: "tradein-credit",
-      }).catch(() => ({ items: [], total: 0 }));
-      for (const item of tradeinPage.items) {
-        if (item.channel_price && item.channel_price > 0) {
-          tradeinMap.set(item.sku, item.channel_price);
-        }
-      }
-      tradeinTotal = tradeinPage.total;
-      tradeinOffset += 500;
-      if (tradeinPage.items.length < 500) break;
-    }
-  }
-
+  // Collectors-first (2026-07-06): the tradein-credit channel enrichment
+  // (the house's standing we-buy bids) is gone — one less price channel
+  // to compute. Every bid/ask below is a collector's; spot_price survives
+  // as a labelled reference (open data), never as an offer.
   const cards = data.items.map(item => {
     const spot = retailPrice(item.price_gbp, item.channel_price);
     const p2p = p2pData.get(item.sku);
     const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
     const marketPrice = bestAsk && bestAsk < spot ? bestAsk : spot;
-    const tradeinCredit = tradeinMap.get(item.sku) || null;
 
     return {
       sku: item.sku,
@@ -158,22 +129,17 @@ export async function GET(request: Request) {
       set_name: item.set_name,
       rarity: item.rarity,
       image_url: item.image_url,
-      // Prices
+      // Prices — spot_price is the catalogue reference (labelled "(ref)"
+      // in the UI), not something anyone sells at.
       spot_price: spot,
       market_price: marketPrice,
       stock: item.stock,
-      // CTCG trade-in bid (store credit — always willing to buy)
-      tradein_credit: tradeinCredit,
-      // Bids (P2P + CTCG credit bid)
-      best_bid: (() => {
-        const p2pBid = p2p?.best_bid ? parseFloat(p2p.best_bid) : null;
-        if (p2pBid && tradeinCredit) return Math.max(p2pBid, tradeinCredit);
-        return p2pBid || tradeinCredit;
-      })(),
+      // Pure collector book
+      best_bid: p2p?.best_bid ? parseFloat(p2p.best_bid) : null,
       best_ask: bestAsk,
       p2p_sellers: p2p?.ask_count || 0,
-      p2p_buyers: (p2p?.bid_count || 0) + (tradeinCredit ? 1 : 0), // +1 for CTCG
-      has_p2p: (p2p?.bid_count || 0) > 0 || (p2p?.ask_count || 0) > 0 || !!tradeinCredit,
+      p2p_buyers: p2p?.bid_count || 0,
+      has_p2p: (p2p?.bid_count || 0) > 0 || (p2p?.ask_count || 0) > 0,
     };
   });
 

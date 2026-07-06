@@ -15,6 +15,9 @@ export interface CatalogCard {
   set_name: string;
   rarity: string | null;
   image_url: string | null;
+  // Labelled reference price (open data) — the catalogue number, never
+  // an offer. Collectors-first (2026-07-06): the trade-in credit channel
+  // that used to ride alongside it is gone with the we-buy desk.
   spot_price: number;
   market_price: number;
   stock: number;
@@ -23,7 +26,6 @@ export interface CatalogCard {
   p2p_sellers: number;
   p2p_buyers: number;
   has_p2p: boolean;
-  tradein_credit: number | null;
 }
 
 export interface SetInfo {
@@ -168,8 +170,7 @@ export interface PageStats {
   cardsWithActivity: number;
   /** Open ask units (quantity remaining) across this page. */
   openAskUnits: number;
-  /** Open collector bid units across this page — the shop's standing
-   *  credit bid is excluded so the number describes peer demand only. */
+  /** Open collector bid units across this page. */
   openBidUnits: number;
 }
 
@@ -177,17 +178,19 @@ export interface PageStats {
  * Stats for the strip above the catalog. Page-scoped by construction
  * (the API only returns one page) — the UI labels them as computed from
  * the cards on this page, never as market-wide totals.
+ *
+ * Collectors-first (2026-07-06): counts are pure. The catalog API no
+ * longer folds a house credit bid into p2p_buyers, so there is nothing
+ * to subtract — every bid is a collector's.
  */
 export function derivePageStats(cards: CatalogCard[]): PageStats {
   let cardsWithActivity = 0;
   let openAskUnits = 0;
   let openBidUnits = 0;
   for (const c of cards) {
-    // p2p_buyers counts the shop's standing credit bid as +1; strip it.
-    const collectorBids = Math.max(0, c.p2p_buyers - (c.tradein_credit ? 1 : 0));
-    if (c.p2p_sellers > 0 || collectorBids > 0) cardsWithActivity++;
+    if (c.p2p_sellers > 0 || c.p2p_buyers > 0) cardsWithActivity++;
     openAskUnits += c.p2p_sellers;
-    openBidUnits += collectorBids;
+    openBidUnits += c.p2p_buyers;
   }
   return { cardsWithActivity, openAskUnits, openBidUnits };
 }

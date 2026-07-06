@@ -1,20 +1,35 @@
 // Liquidity mining: reward sellers who post honest asks and leave them
-// resting. The marketplace pays them small store-credit bonuses — credit
-// is non-withdrawable, so the cost is capped at the value of future
-// CTCG purchases the seller makes.
+// resting. The marketplace paid them small store-credit bonuses — credit
+// was non-withdrawable, so the cost was capped at the value of future
+// CTCG purchases the seller made.
 //
-// Rules (tunable below):
+// ── PAUSED 2026-07-06 (collectors-first) ────────────────────────────────
+//
+// The rewards were paid in store credit, and store credit no longer has a
+// spending door: the retail shop closed with the house's exit from the
+// market (docs/decisions/2026-07-06-collectors-first.md). Minting credit
+// nobody can spend would be a false promise, so the sweep exits early
+// below and its cron call was removed from /api/cron/maintenance.
+//
+// The machinery and its history stay readable on purpose: liquidity_rewards
+// rows and the store_credit_ledger entries they reference are history, and
+// history is history. A future incentive can be designed when money is
+// designed ("錢就再講") — if it is, revisit the rules here rather than
+// starting from nothing.
+//
+// Rules as they stood (tunable below):
 //   - Seller has completed ≥ MIN_SELLER_TRADES (prevents farm accounts).
 //   - Ask has been open ≥ MIN_REST_HOURS uninterrupted.
 //   - Ask price is within MAX_VWAP_DEVIATION of the sku's 30d VWAP (tight,
 //     not aspirational — spammy high asks don't qualify).
 //   - One reward per (order, UTC day) via unique index on liquidity_rewards.
 //   - Per user, at most MAX_ORDERS_PER_USER_PER_DAY rewards per run.
-//
-// Runs from the minute cron; the UTC-day key on liquidity_rewards means
-// re-running within the same day is idempotent.
 
 import { query, transaction } from "@/lib/db";
+
+/** Lifecycle-honest pause switch. Set to null only alongside a decision
+ *  doc that gives the reward a real spending door again. */
+const PAUSED_SINCE: string | null = "2026-07-06"; // collectors-first: credit has no spending door
 
 const MIN_SELLER_TRADES = 10;
 const MIN_REST_HOURS = 6;
@@ -27,9 +42,25 @@ export interface LiquidityMiningResult {
   awards: number;
   amountGbp: number;
   throttled: boolean;
+  /** Set while the programme is paused — names the date and the reason. */
+  paused?: string;
 }
 
 export async function runLiquidityMining(): Promise<LiquidityMiningResult> {
+  // Paused (see header): rewards paid store credit, which no longer has a
+  // spending door. Exit before touching the DB — honestly, and loudly
+  // enough that any stray caller's logs say why nothing was awarded. The
+  // live implementation stays below the guard so the rules remain readable
+  // next to the pause note.
+  if (PAUSED_SINCE !== null) {
+    return {
+      awards: 0,
+      amountGbp: 0,
+      throttled: false,
+      paused: `paused ${PAUSED_SINCE} — rewards paid store credit, which no longer has a spending door (collectors-first)`,
+    };
+  }
+
   // Single query: find qualifying (order, seller) pairs that haven't been
   // rewarded today. VWAP is computed inline per sku from the last 30d of
   // non-cancelled trades — small N per sku, acceptable cost.

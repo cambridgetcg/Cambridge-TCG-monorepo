@@ -56,13 +56,11 @@
 //     freezes it at moment-of-assembly so the player can see what the
 //     deck "cost" them at build time.
 //
-//   - apps/storefront/src/lib/tradein/db.ts — the *opposite direction*.
-//     Deck-building gathers cards into meaning; trade-in disperses cards
-//     into credit. The `tradein_credit` field we snapshot in the entry
-//     is the literal value of breaking the deck. Storing it makes the
-//     trade-off visible: every day the deck is held is an ongoing choice
-//     against liquidation. The user can always see what they're saying
-//     no to.
+//   - (retired 2026-07-06, collectors-first) — snapshots used to carry a
+//     trade-in-credit value: the literal price of breaking the deck at
+//     the house desk. The desk is gone; a deck's liquidation value now
+//     lives where it always really did — on the collectors' market. Old
+//     snapshot JSON may still carry the field; readers ignore it.
 //
 //   - apps/storefront/src/app/decks/[slug]/page.tsx — the *community
 //     surface*. When `is_public` flips true, the deck steps out of the
@@ -89,7 +87,6 @@ export interface DeckCardSnapshot {
   rarity: string | null;
   image_url: string | null;
   spot_price: number;
-  tradein_credit: number | null;
 }
 
 export interface DeckEntry {

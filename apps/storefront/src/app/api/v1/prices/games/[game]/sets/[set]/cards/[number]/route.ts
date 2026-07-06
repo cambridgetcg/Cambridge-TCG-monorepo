@@ -50,7 +50,6 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
         rarity: state.card.rarity,
         image_url: state.card.image_url,
         price_gbp: state.card.price_gbp,
-        tradein_credit_gbp: state.card.tradein_credit_gbp,
         stock: state.card.stock,
         updated_at: state.card.updated_at,
       },

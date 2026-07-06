@@ -386,44 +386,11 @@ export async function dbFetchPrices(params?: {
   };
 }
 
-// ── One-query channel price map ─────────────────────────────────────────
-
-/**
- * All channel prices for a filter in ONE query — the DB-mode replacement
- * for the catalog route's 500-per-page HTTP pagination loop over the
- * tradein-credit price list. Returns sku → channel_price for every card
- * whose computed price is positive (the only entries the catalog uses).
- */
-export async function dbFetchChannelPriceMap(params: {
-  game?: string;
-  set?: string;
-  channel: string;
-}): Promise<Map<string, number>> {
-  const filter = await buildCardFilter({ game: params.game, set: params.set });
-  if (filter === null) return new Map();
-
-  const config = await channelConfigFor(params.channel);
-  const { rows } = await q<Pick<CardRow, "sku" | "cardrush_jpy" | "gbp_jpy_rate" | "category" | "price">>(
-    `SELECT sku, cardrush_jpy, gbp_jpy_rate, category, price
-       FROM cards WHERE ${filter.where}`,
-    filter.args,
-  );
-
-  const map = new Map<string, number>();
-  for (const r of rows) {
-    const cp = channelPriceForRow(
-      {
-        cardrush_jpy: r.cardrush_jpy,
-        gbp_jpy_rate: r.gbp_jpy_rate,
-        category: r.category,
-        price_gbp: r.price === null ? null : Number(r.price),
-      },
-      config,
-    );
-    if (cp && cp > 0) map.set(r.sku, cp);
-  }
-  return map;
-}
+// dbFetchChannelPriceMap — the one-query trade-in-credit price map that
+// fed the catalog route's we-buy enrichment — was removed on 2026-07-06
+// with the rest of the house desk (docs/decisions/2026-07-06-collectors-
+// first.md). The house computes no price channel of its own for the
+// market anymore; channelPriceForRow stays for the per-item paths above.
 
 // ── fetchGames / fetchSets shapes ───────────────────────────────────────
 

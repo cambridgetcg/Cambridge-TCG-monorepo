@@ -1,22 +1,18 @@
-// Unified market view: CTCG as two-sided market maker
+// Unified market view: the collectors' order book, assembled with open
+// reference data.
 //
-// CTCG provides liquidity on BOTH sides:
-//   ASK side: catalog retail price (buy from CTCG)
-//   BID side: trade-in credit price (sell to CTCG for store credit)
+// Collectors-first (docs/decisions/2026-07-06-collectors-first.md): the
+// platform holds NO position in this book. The house maker that used to
+// live here — a synthetic CTCG ask from catalog stock, a standing
+// trade-in-credit bid, and a demand-pressure spread engine that tightened
+// both — was removed on 2026-07-06. Every row in `bids`/`asks` is now a
+// collector's order; the platform facilitates, records, and publishes,
+// but does not buy, sell, or quote.
 //
-// Store credit is the absorption mechanism — it can only be spent at CTCG,
-// creating a flywheel: sell cards → get credit → buy cards → sell cards
-//
-// Dynamic spread:
-//   When buyer demand (watches + active alerts) exceeds current P2P supply
-//   by a wide margin, CTCG's synthetic ask/bid tighten toward the market
-//   so the house actively competes for both sides of imbalanced flow.
-//   Tightening is capped at ±3% and always surfaced with an "active maker"
-//   flag in the response so UIs can label the adjusted rows.
-//
-//   Settlement remains static (catalog retail, trade-in credit) — the
-//   tightened prices are an indicative market-making signal. A future pass
-//   will honor the displayed bid when the user locks it at submission time.
+// The catalogue price survives strictly as `reference_price`: a labelled
+// piece of open data (the price our synced catalogue carries), never an
+// offer. UIs must render it as a reference, not as something anyone can
+// click to trade against.
 
 import { fetchCard } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
@@ -24,58 +20,6 @@ import { getTrustTier } from "@/lib/escrow/trust-engine";
 import { getCardOrderBook } from "./db";
 import { query } from "@/lib/db";
 import type { CardOrderBook, MarketTrade, OrderBookEntry } from "./types";
-
-export interface HouseOrderEntry extends OrderBookEntry {
-  is_house?: boolean;
-  is_credit?: boolean; // true = paid in store credit, not cash
-  label?: string;
-  is_dynamic?: boolean;    // true if the price was tightened from baseline
-  baseline_price?: string; // the un-tightened reference when is_dynamic
-}
-
-// Tunables for the dynamic spread. Tightening never exceeds these caps;
-// the visible baseline column is kept for audit + UI labelling.
-const MAX_TIGHTEN_PCT = 0.03;   // 3% is the hard ceiling on each side
-const DEMAND_BASELINE = 3;      // below this score, no tightening at all
-const ALERT_WEIGHT = 2;         // active alerts count double vs. passive watches
-
-interface DemandPressure {
-  watchCount: number;
-  alertCount: number;
-  askDepth: number;
-  bidDepth: number;
-  // 0 → no pressure, 1 → maximum; symmetric output, clients pick direction
-  pressure: number;
-}
-
-async function computeDemandPressure(sku: string): Promise<DemandPressure> {
-  const r = await query(
-    `SELECT
-       (SELECT COUNT(*)::int FROM market_watches WHERE sku = $1) AS watch_count,
-       (SELECT COUNT(*)::int FROM price_alerts
-         WHERE sku = $1 AND direction = 'below' AND active = true) AS alert_count,
-       (SELECT COALESCE(SUM(quantity - filled_quantity), 0)::int FROM market_orders
-         WHERE sku = $1 AND side = 'ask' AND status IN ('open','partially_filled')) AS ask_depth,
-       (SELECT COALESCE(SUM(quantity - filled_quantity), 0)::int FROM market_orders
-         WHERE sku = $1 AND side = 'bid' AND status IN ('open','partially_filled')) AS bid_depth`,
-    [sku]
-  );
-  const row = r.rows[0] || {};
-  const watchCount = row.watch_count ?? 0;
-  const alertCount = row.alert_count ?? 0;
-  const askDepth = row.ask_depth ?? 0;
-  const bidDepth = row.bid_depth ?? 0;
-
-  // Pressure = excess demand over baseline, discounted by ask supply.
-  // Returns 0 if watch/alert signal is under baseline OR if supply is deep
-  // enough to meet it. Saturates at 1 for screaming mismatches.
-  const demand = watchCount + alertCount * ALERT_WEIGHT;
-  const excess = Math.max(0, demand - DEMAND_BASELINE);
-  const supplyDamp = 1 / (1 + askDepth);   // 0 asks → 1, 10 asks → 0.09
-  const raw = excess * 0.05 * supplyDamp;
-  const pressure = Math.min(1, raw);
-  return { watchCount, alertCount, askDepth, bidDepth, pressure };
-}
 
 // The reputation checker at the point of trade (global free trade,
 // 2026-06-10): identity verification is gone; what replaces it is the
@@ -96,10 +40,10 @@ export interface BestAskSeller {
 // trust profile yet.
 export type TapeTrade = MarketTrade & { seller_tier?: string | null };
 
-// Best non-house ask + the seller behind it. Single cheap query — the
-// order book aggregates by price (no user ids), so this resolves the
-// lowest-priced open ask order to its seller and joins users +
-// trust_profiles for the reputation read. Returns null when no P2P asks.
+// Best ask + the seller behind it. Single cheap query — the order book
+// aggregates by price (no user ids), so this resolves the lowest-priced
+// open ask order to its seller and joins users + trust_profiles for the
+// reputation read. Returns null when there are no asks.
 async function fetchBestAskSeller(sku: string): Promise<BestAskSeller | null> {
   const r = await query(
     `SELECT mo.user_id, u.username,
@@ -152,63 +96,40 @@ export interface UnifiedMarketView {
   image_url: string | null;
   rarity: string | null;
 
-  // CTCG spot price (always-available liquidity — sell side)
-  spot_price: number | null;
-  spot_stock: number;
+  // Labelled reference price (open data): the number our synced catalogue
+  // carries for this SKU. A different kind of fact from the collector
+  // book below — it is nobody's offer, and nothing on the platform sells
+  // (or buys) at it.
+  reference_price: number | null;
 
-  // CTCG trade-in (always-available liquidity — buy side)
-  tradein_credit: number | null;  // Store credit offer
-  tradein_cash: number | null;    // Cash offer (lower)
-
-  // Merged order book (CTCG injected on BOTH sides)
-  bids: HouseOrderEntry[];
-  asks: HouseOrderEntry[];
+  // Pure collector order book — no house rows on either side.
+  bids: OrderBookEntry[];
+  asks: OrderBookEntry[];
   recent_trades: TapeTrade[];
 
-  // Reputation checker: the seller behind the best ask (null when the
-  // best ask is the house — CTCG doesn't need a trust chip).
+  // Reputation checker: the seller behind the best ask.
   best_ask_seller: BestAskSeller | null;
 
-  // Derived
+  // Derived from the collector book only.
   best_bid: number | null;
   best_ask: number | null;
   market_price: number | null;
   spread: number | null;
+  // % the best collector ask sits below the reference price (positive
+  // values only; null when either side is missing).
   p2p_discount: number | null;
-  ctcg_spread: number | null;    // retail - tradein credit = CTCG margin
-
-  // Demand pressure — surfaced on the panel and used to tighten house
-  // prices. Always present (0 when no signal). Clients can use this to
-  // render "🔥 High demand" pills or similar.
-  demand_pressure: {
-    watchCount: number;
-    alertCount: number;
-    askDepth: number;
-    bidDepth: number;
-    pressure: number;      // 0..1 — higher = more buy-side pressure
-    tightenPct: number;    // the actual tightening applied (≤ MAX_TIGHTEN_PCT)
-  };
 }
 
 export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketView> {
-  // Derive set_code from SKU (e.g. "OP-OP01-025-JP-V11D5" → "OP01", "EB-EB01-006-JP-VZSK" → "EB01")
   // Every leg below has a catch — the unified view should always render
   // something. A failure in any one source falls back to a sensible empty
   // value rather than 500'ing the whole page (the page is the user's
   // primary view; degrading is much better than failing).
-  const [card, orderBook, tradeinCreditItem, tradeinCashItem, pressure, p2pAskSeller] = await Promise.all([
+  const [card, orderBook, p2pAskSeller] = await Promise.all([
     fetchCard(sku).catch(() => null),
     getCardOrderBook(sku).catch((err): CardOrderBook => {
       console.error("[market/unified] getCardOrderBook failed:", err);
       return { sku, card_name: null, image_url: null, bids: [], asks: [], recent_trades: [], best_bid: null, best_ask: null };
-    }),
-    // Per-SKU lookup works on trade-in channels for every game — no game
-    // param needed, SKUs are globally unique.
-    fetchCard(sku, "tradein-credit").catch(() => null),
-    fetchCard(sku, "tradein-cash").catch(() => null),
-    computeDemandPressure(sku).catch((err): DemandPressure => {
-      console.error("[market/unified] computeDemandPressure failed:", err);
-      return { watchCount: 0, alertCount: 0, askDepth: 0, bidDepth: 0, pressure: 0 };
     }),
     fetchBestAskSeller(sku).catch((err): BestAskSeller | null => {
       console.error("[market/unified] fetchBestAskSeller failed:", err);
@@ -231,81 +152,19 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
     seller_tier: tapeTiers.get(t.seller_id) ?? null,
   }));
 
-  // Actual tightening percentage used for THIS view. Capped at MAX_TIGHTEN_PCT.
-  const tightenPct = Math.min(pressure.pressure, 1) * MAX_TIGHTEN_PCT;
+  const referencePrice = card ? retailPrice(card.price_gbp, card.channel_price) : null;
 
-  // Find this specific SKU in the trade-in results
-  const tradeinCredit = tradeinCreditItem?.channel_price ?? null;
-  const tradeinCash = tradeinCashItem?.channel_price ?? null;
-  const spotPrice = card ? retailPrice(card.price_gbp, card.channel_price) : null;
-  const spotStock = card?.stock ?? 0;
-
-  // ── Build ASKS (sell side) ──
-  // Inject CTCG retail price as house ask; tighten DOWN when buy-pressure is high.
-  const asks: HouseOrderEntry[] = [...orderBook.asks];
-  if (spotPrice && spotStock > 0) {
-    const tightenedAsk = spotPrice * (1 - tightenPct);
-    const houseAsk: HouseOrderEntry = {
-      price: tightenedAsk.toFixed(2),
-      total_quantity: spotStock,
-      order_count: 1,
-      is_house: true,
-      label: "CTCG Store",
-      ...(tightenPct > 0 ? {
-        is_dynamic: true,
-        baseline_price: spotPrice.toFixed(2),
-      } : {}),
-    };
-    let inserted = false;
-    for (let i = 0; i < asks.length; i++) {
-      if (tightenedAsk <= parseFloat(asks[i].price)) {
-        asks.splice(i, 0, houseAsk);
-        inserted = true;
-        break;
-      }
-    }
-    if (!inserted) asks.push(houseAsk);
-  }
-
-  // ── Build BIDS (buy side) ──
-  // Inject CTCG trade-in credit as house bid; tighten UP when buy-pressure is
-  // high (raise our bid to capture supply). Same tighten factor for symmetry.
-  const bids: HouseOrderEntry[] = [...orderBook.bids];
-  if (tradeinCredit && tradeinCredit > 0) {
-    const tightenedBid = tradeinCredit * (1 + tightenPct);
-    const houseBid: HouseOrderEntry = {
-      price: tightenedBid.toFixed(2),
-      total_quantity: 999, // Always willing to buy
-      order_count: 1,
-      is_house: true,
-      is_credit: true,
-      label: "CTCG Credit",
-      ...(tightenPct > 0 ? {
-        is_dynamic: true,
-        baseline_price: tradeinCredit.toFixed(2),
-      } : {}),
-    };
-    let inserted = false;
-    for (let i = 0; i < bids.length; i++) {
-      if (tightenedBid >= parseFloat(bids[i].price)) {
-        bids.splice(i, 0, houseBid);
-        inserted = true;
-        break;
-      }
-    }
-    if (!inserted) bids.push(houseBid);
-  }
+  const bids: OrderBookEntry[] = orderBook.bids;
+  const asks: OrderBookEntry[] = orderBook.asks;
 
   const bestBid = bids.length > 0 ? parseFloat(bids[0].price) : null;
   const bestAsk = asks.length > 0 ? parseFloat(asks[0].price) : null;
   const spread = bestBid !== null && bestAsk !== null ? bestAsk - bestBid : null;
 
   let p2pDiscount: number | null = null;
-  if (spotPrice && bestAsk && bestAsk < spotPrice) {
-    p2pDiscount = Math.round(((spotPrice - bestAsk) / spotPrice) * 100);
+  if (referencePrice && bestAsk && bestAsk < referencePrice) {
+    p2pDiscount = Math.round(((referencePrice - bestAsk) / referencePrice) * 100);
   }
-
-  const ctcgSpread = spotPrice && tradeinCredit ? spotPrice - tradeinCredit : null;
 
   return {
     sku,
@@ -315,29 +174,15 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
     set_name: card?.set_name || null,
     image_url: card?.image_url || orderBook.image_url,
     rarity: card?.rarity || null,
-    spot_price: spotPrice,
-    spot_stock: spotStock,
-    tradein_credit: tradeinCredit,
-    tradein_cash: tradeinCash,
+    reference_price: referencePrice,
     bids,
     asks,
     recent_trades: recentTrades,
-    // Null when the house holds the top of the book — the chip is for
-    // P2P counterparties, not CTCG itself.
-    best_ask_seller: asks[0]?.is_house ? null : p2pAskSeller,
+    best_ask_seller: p2pAskSeller,
     best_bid: bestBid,
     best_ask: bestAsk,
     market_price: bestAsk,
     spread,
     p2p_discount: p2pDiscount,
-    ctcg_spread: ctcgSpread,
-    demand_pressure: {
-      watchCount: pressure.watchCount,
-      alertCount: pressure.alertCount,
-      askDepth: pressure.askDepth,
-      bidDepth: pressure.bidDepth,
-      pressure: pressure.pressure,
-      tightenPct,
-    },
   };
 }

@@ -54,7 +54,6 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
         set_code: c.set_code,
         rarity: c.rarity,
         price_gbp: c.price_gbp,
-        tradein_credit_gbp: c.tradein_credit_gbp,
         stock: c.stock,
         path:
           c.set_code !== null

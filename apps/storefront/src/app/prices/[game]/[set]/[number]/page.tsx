@@ -249,31 +249,21 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               />
             </div>
 
-            {/* Headline price */}
+            {/* Headline price. Collectors-first (2026-07-06): the "Buy from
+                us" / "We buy (credit)" pair retired with the shop — the
+                number that remains is the catalogue reference, open data
+                and nobody's offer. Trading happens on the market. */}
             <div className="rounded-lg border border-border-subtle bg-surface p-5 mb-4">
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <div className="text-xs text-ink-faint uppercase tracking-wider mb-1">
-                    Buy from us
+                    Reference price
                   </div>
                   <div className="text-2xl font-bold text-ink">
                     <Money value={card.price_gbp} />
                   </div>
                   <div className="text-[10px] text-ink-faint mt-1">
-                    {card.stock > 0
-                      ? `${card.stock} in UK stock`
-                      : "currently out of stock"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-ink-faint uppercase tracking-wider mb-1">
-                    We buy (credit)
-                  </div>
-                  <div className="text-2xl font-bold text-bid">
-                    <Money value={card.tradein_credit_gbp} />
-                  </div>
-                  <div className="text-[10px] text-ink-faint mt-1">
-                    instant store credit
+                    catalogue reference — not an offer
                   </div>
                 </div>
                 <div>
@@ -292,7 +282,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                 href={`/product/${card.sku}`}
                 className="inline-block rounded-lg bg-ink hover:opacity-90 text-page font-semibold text-sm px-4 py-2 transition-colors"
               >
-                View in store →
+                View card page →
               </Link>
               <Link
                 href={`/market/${card.sku}`}

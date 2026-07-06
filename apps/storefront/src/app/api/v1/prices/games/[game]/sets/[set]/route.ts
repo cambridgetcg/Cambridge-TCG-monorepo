@@ -45,7 +45,6 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
         card_number: c.card_number,
         rarity: c.rarity,
         price_gbp: c.price_gbp,
-        tradein_credit_gbp: c.tradein_credit_gbp,
         stock: c.stock,
         path: `/prices/${state.config.slug}/${state.set.code.toLowerCase()}/${c.card_number.toLowerCase()}`,
         api_path: `/api/v1/prices/games/${state.config.slug}/sets/${state.set.code.toLowerCase()}/cards/${c.card_number.toLowerCase()}`,

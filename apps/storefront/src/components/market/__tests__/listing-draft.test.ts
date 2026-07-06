@@ -26,7 +26,6 @@ const card: CatalogCard = {
   p2p_sellers: 2,
   p2p_buyers: 3,
   has_p2p: true,
-  tradein_credit: 8.0,
 };
 
 function makeDraft(): ListingDraft {

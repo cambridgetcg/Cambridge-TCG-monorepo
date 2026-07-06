@@ -82,7 +82,9 @@ export default async function GameMoversPage({ params }: PageProps) {
   const cfg = getPriceGuideConfig(game);
   if (!cfg) notFound();
 
-  const [moversData, data, tradeinData, rates, currency] = await Promise.all([
+  // Collectors-first (2026-07-06): the tradein-credit channel fetch and
+  // its "We Buy" column are gone — the house buys nothing.
+  const [moversData, data, rates, currency] = await Promise.all([
     fetchMovers({
       game: cfg.slug,
       window: "7d",
@@ -94,24 +96,11 @@ export default async function GameMoversPage({ params }: PageProps) {
       sort: "price_desc",
       limit: 50,
     }).catch(() => ({ items: [], total: 0 } as { items: PriceItem[]; total: number })),
-    fetchPrices({
-      game: cfg.slug,
-      sort: "price_desc",
-      limit: 50,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] } as { items: PriceItem[] })),
     fetchRates(),
     getDisplayCurrency(),
   ]);
 
   const hasMovers = moversData.movers.length > 0;
-
-  const tradeinMap = new Map<string, number>();
-  for (const item of tradeinData.items) {
-    if (item.channel_price && item.channel_price > 0) {
-      tradeinMap.set(item.sku, item.channel_price);
-    }
-  }
 
   const cards = data.items.map((item) => ({
     sku: item.sku,
@@ -121,7 +110,6 @@ export default async function GameMoversPage({ params }: PageProps) {
     set_name: item.set_name,
     rarity: item.rarity,
     price: retailPrice(item.price_gbp, item.channel_price),
-    tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
 
   const accent = ACCENT_CLASSES[cfg.accent];
@@ -338,7 +326,6 @@ export default async function GameMoversPage({ params }: PageProps) {
                       <th className="px-3 py-3">Set</th>
                       <th className="px-3 py-3">Rarity</th>
                       <th className="px-3 py-3 text-right">Buy Price</th>
-                      <th className="px-3 py-3 text-right">We Buy</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-subtle">
@@ -385,12 +372,6 @@ export default async function GameMoversPage({ params }: PageProps) {
                           </td>
                           <td className="px-3 py-3 text-right text-ink font-medium">
                             <Money value={card.price} />
-                          </td>
-                          <td className="px-3 py-3 text-right text-bid">
-                            <Money
-                              value={card.tradein_credit}
-                              treatZeroAsMissing
-                            />
                           </td>
                         </tr>
                       );
