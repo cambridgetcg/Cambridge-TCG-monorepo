@@ -59,6 +59,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Trade",
         items: [
           { label: "Live market", href: "/market", description: "Peer-to-peer trading between collectors" },
+          { label: "Ways to buy a card", href: "/guides/buying", description: "Every channel — our P2P market, Cardmarket, CardRush via a Japan proxy, grading" },
           { label: "List a card", href: "/market/list", description: "Name your price — list a card in a minute" },
           { label: "Swaps", href: "/methodology/swaps", description: "Card-for-card, no money in the middle" },
           { label: "My swaps", href: "/account/swaps", authed_only: true },
@@ -308,6 +309,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         items: [
           { label: "Start here", href: "/start", description: "New? Plain words, no jargon" },
           { label: "Guides", href: "/guides" },
+          { label: "Buying guide", href: "/guides/buying" },
           { label: "How to play", href: "/guides/how-to-play" },
           { label: "Verification", href: "/verify" },
           { label: "Site map", href: "/map" },

@@ -18,6 +18,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import AddToPortfolio from "@/components/product/AddToPortfolio";
+import ExternalBuyLinks from "@/components/product/ExternalBuyLinks";
 import Script from "next/script";
 import CardGrid from "@/components/catalog/CardGrid";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
@@ -260,6 +261,12 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
               .
             </p>
           )}
+
+          {/* Find this card elsewhere — routes outward to the other channels
+              (CardRush/Cardmarket/eBay). Sits below the market CTA so the
+              collectors' market stays the primary door; the guide at
+              /guides/buying explains each channel's cost, wait and fees. */}
+          <ExternalBuyLinks card={card} gameSlug={gameSlug} />
         </div>
       </div>
 
