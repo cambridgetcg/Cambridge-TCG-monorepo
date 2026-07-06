@@ -3,6 +3,9 @@
 import Link from "next/link";
 import type { GameItem } from "@/lib/wholesale/client";
 
+// Collectors-first: the in-stock toggle died with the shop — the
+// platform holds no stock, so there is nothing of ours to be "in".
+// Game tabs + sort remain: pure browsing value.
 interface CatalogFiltersProps {
   games: GameItem[];
   current: {
@@ -10,19 +13,13 @@ interface CatalogFiltersProps {
     set?: string;
     q?: string;
     sort?: string;
-    in_stock?: string;
   };
   rarities?: string[];
-  effectiveInStock?: boolean;
-  hasSet?: boolean;
 }
 
 export default function CatalogFilters({
   games,
   current,
-  rarities,
-  effectiveInStock,
-  hasSet,
 }: CatalogFiltersProps) {
   function buildHref(overrides: Record<string, string | undefined>) {
     const params = new URLSearchParams();
@@ -32,12 +29,6 @@ export default function CatalogFilters({
     }
     return `/catalog?${params.toString()}`;
   }
-
-  // Toggle in_stock: if currently filtering in-stock, switch to show all (in_stock=false);
-  // if currently showing all, switch to in-stock (in_stock=true)
-  const toggleInStockHref = effectiveInStock
-    ? buildHref({ in_stock: "false" })
-    : buildHref({ in_stock: "true" });
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,7 +59,7 @@ export default function CatalogFilters({
         ))}
       </div>
 
-      {/* Sort + filters row (only show when viewing cards) */}
+      {/* Sort row (only show when viewing cards) */}
       {current.game && (
         <div className="flex items-center gap-3 flex-wrap">
           {/* Sort pills */}
@@ -94,19 +85,6 @@ export default function CatalogFilters({
               </Link>
             );
           })}
-
-          {/* In-stock / All cards toggle */}
-          <span className="text-xs text-ink-faint ml-2">|</span>
-          <Link
-            href={toggleInStockHref}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-              !effectiveInStock
-                ? "bg-accent-wash text-accent ring-1 ring-accent/40"
-                : "bg-surface-subtle text-ink-muted hover:text-ink"
-            }`}
-          >
-            {effectiveInStock ? "Show All Cards" : "In Stock Only"}
-          </Link>
         </div>
       )}
     </div>

@@ -501,7 +501,8 @@ export async function POST(request: Request) {
       }
 
       // Debit applied store credit. The amount is in metadata (set by
-      // /api/checkout) so we don't have to round-trip. Atomic via a
+      // the retail checkout endpoint, retired 2026-07-06 — this webhook
+      // keeps honoring sessions it minted) so we don't round-trip. Atomic via a
       // single UPDATE that refuses to go negative; if balance changed
       // mid-flight (concurrent debits, manual adjustments), the user
       // sees a partial debit and a ledger entry reflects what was

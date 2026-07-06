@@ -23,7 +23,10 @@ export default async function OrderConfirmationPage({
     redirect("/");
   }
 
-  if (session.payment_status !== "paid") redirect("/checkout");
+  // Unpaid session — nothing to confirm. The retail till this page
+  // used to bounce back to is retired (collectors-first, 2026-07-06);
+  // home is the honest landing.
+  if (session.payment_status !== "paid") redirect("/");
 
   // Defensive backup: also record the order here. The webhook is the
   // primary writer (and the only path that commits stock + sends email

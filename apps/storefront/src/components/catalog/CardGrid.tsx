@@ -1,8 +1,17 @@
+/**
+ * CardGrid — the catalog's browsing tile.
+ *
+ * Collectors-first (docs/decisions/2026-07-06-collectors-first.md):
+ * the platform holds no stock and sells nothing, so the quick-add
+ * button and house stock badges died with the shop. Each tile is a
+ * doorway to the card's reference page; the price shown is the
+ * labelled reference price, not an offer.
+ */
+
 import Link from "next/link";
 import Image from "next/image";
 import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
-import { formatRetailPrice, retailPrice } from "@/lib/pricing";
-import QuickAddButton from "./QuickAddButton";
+import { formatRetailPrice } from "@/lib/pricing";
 
 function rarityBadge(rarity: string | null) {
   if (!rarity) return null;
@@ -42,46 +51,15 @@ export default function CardGrid({ cards }: { cards: PriceItem[] }) {
                 src={card.image_url}
                 alt={cardAltText(card)}
                 fill
-                className={`object-cover group-hover:scale-105 transition-all duration-200 ${card.stock === 0 ? "opacity-50 grayscale" : ""}`}
+                className="object-cover group-hover:scale-105 transition-all duration-200"
                 sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
               />
             ) : (
-              <div className={`w-full h-full bg-surface-subtle ${card.stock === 0 ? "opacity-50" : ""}`} />
+              <div className="w-full h-full bg-surface-subtle" />
             )}
 
             {/* Rarity badge */}
             {rarityBadge(card.rarity)}
-
-            {/* Out of stock overlay */}
-            {card.stock === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-ink/40">
-                <span className="px-3 py-1 bg-surface text-ink-muted text-xs font-bold rounded-full">
-                  Out of Stock
-                </span>
-              </div>
-            )}
-
-            {/* Low stock badge */}
-            {card.stock > 0 && card.stock <= 5 && (
-              <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-warning/15 text-warning border border-warning/30 text-[10px] font-bold rounded-full">
-                Only {card.stock} left
-              </span>
-            )}
-
-            {/* Quick-add button (hover) */}
-            {card.stock > 0 && (
-              <QuickAddButton
-                card={{
-                  sku: card.sku,
-                  name: card.name_en || card.name || card.card_number,
-                  price: retailPrice(card.price_gbp, card.channel_price),
-                  image_url: card.image_url,
-                  set_code: card.set_code,
-                  card_number: card.card_number,
-                }}
-                stock={card.stock}
-              />
-            )}
           </div>
 
           <div className="p-2">
@@ -89,7 +67,7 @@ export default function CardGrid({ cards }: { cards: PriceItem[] }) {
               {card.name_en || card.name || card.card_number}
             </p>
             <p className="text-[10px] text-ink-faint truncate">{card.card_number}</p>
-            <p className="text-sm font-bold text-ask mt-0.5">{formatRetailPrice(card.price_gbp, card.channel_price)}</p>
+            <p className="text-sm font-mono tabular-nums font-bold text-ink mt-0.5">{formatRetailPrice(card.price_gbp, card.channel_price)}</p>
           </div>
         </Link>
       ))}

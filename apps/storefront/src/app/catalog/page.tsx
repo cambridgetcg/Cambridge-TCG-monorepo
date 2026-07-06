@@ -1,3 +1,14 @@
+/**
+ * /catalog — the browse surface.
+ *
+ * Collectors-first (docs/decisions/2026-07-06-collectors-first.md):
+ * this stopped being a shop. It keeps the browsing value — every card,
+ * every set, searchable, with labelled reference prices — and points
+ * at the collectors' market and the price guide, which is where value
+ * actually changes hands. Cart affordances and house-stock filters
+ * died with the shop.
+ */
+
 import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
 import type { PriceItem, SetItem } from "@/lib/wholesale/client";
 import CardGrid from "@/components/catalog/CardGrid";
@@ -13,7 +24,6 @@ interface CatalogParams {
   q?: string;
   page?: string;
   sort?: string;
-  in_stock?: string;
 }
 
 export default async function CatalogPage({
@@ -25,32 +35,18 @@ export default async function CatalogPage({
   const page = Math.max(1, parseInt(params.page || "1") || 1);
   const PER_PAGE = 48;
 
-  // In-stock default logic:
-  // - Default: always show in-stock cards unless explicitly toggled off
-  // - "false" param = show all cards (user manually clicked "Show All")
-  const hasGame = !!params.game;
-  const hasSet = !!params.set;
-  let effectiveInStock: boolean | undefined;
-
-  if (params.in_stock === "false") {
-    effectiveInStock = undefined; // show all
-  } else {
-    effectiveInStock = true; // default: in-stock only
-  }
-
   // Fetch data in parallel.
   // The prices catch tracks failure separately from genuine emptiness —
-  // a wholesale outage rendering as "0 cards" would lie about the shop
-  // being empty. Error states are errors; empty states are empty.
+  // a wholesale outage rendering as "0 cards" would lie about the
+  // catalog being empty. Error states are errors; empty states are empty.
   let pricesFailed = false;
   const [prices, allGames, sets] = await Promise.all([
-    (hasGame || params.q)
+    (params.game || params.q)
       ? fetchPrices({
           game: params.game,
           set: params.set,
           q: params.q,
           sort: params.sort,
-          in_stock: effectiveInStock,
           limit: PER_PAGE,
           offset: (page - 1) * PER_PAGE,
         }).catch((): { count: number; total: number; channel: string; items: PriceItem[] } => {
@@ -76,11 +72,6 @@ export default async function CatalogPage({
     ),
   ].sort();
 
-  // Determine if in-stock filter is actively filtering (either explicit or default)
-  const isFilteringInStock = effectiveInStock === true;
-  // Was the in-stock filter applied by default (not explicitly set by user)?
-  const isDefaultInStock = isFilteringInStock && !params.in_stock && hasGame && !hasSet;
-
   // Show landing view when no game is selected and no search query
   const showLanding = !params.game && !params.q;
 
@@ -88,18 +79,18 @@ export default async function CatalogPage({
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Audience kind="consumer" contexts={["catalog", "browse"]} />
 
-      {/* Identity line — names which commerce room this is. The catalog
-          and the market are easy to confuse on first visit; one quiet
-          sentence each, cross-linked, keeps both doors legible. */}
+      {/* Identity line — names which room this is. The catalog and the
+          market are easy to confuse on first visit; one quiet sentence
+          each, cross-linked, keeps both doors legible. */}
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
         <p className="text-ink-muted">
-          The shop — buy cards from Cambridge TCG stock.
+          The catalog — browse every card, with reference prices.
         </p>
         <Link
           href="/market"
           className="text-ink-faint hover:text-accent-strong transition"
         >
-          Trading with other collectors? →
+          Buying or selling? The collectors&apos; market &rarr;
         </Link>
       </div>
 
@@ -108,8 +99,6 @@ export default async function CatalogPage({
         games={allGames}
         current={params}
         rarities={rarities}
-        effectiveInStock={isFilteringInStock}
-        hasSet={hasSet}
       />
 
       {/* Search bar */}
@@ -123,7 +112,7 @@ export default async function CatalogPage({
               3,000+ Japanese One Piece Cards.
             </h1>
             <p className="text-lg text-ink-muted">
-              Sourced direct from CardRush. Near Mint. Fast UK shipping.
+              Every card catalogued with a daily reference price — trade them with collectors on the market.
             </p>
           </div>
 
@@ -191,25 +180,9 @@ export default async function CatalogPage({
               </div>
             )}
 
-            {/* In-stock filter banner */}
-            {isFilteringInStock && (
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-ok/10 border border-ok/20 rounded-lg text-sm">
-                <span className="text-ok">
-                  Showing in-stock cards only
-                </span>
-                <span className="text-ink-faint">·</span>
-                <Link
-                  href={buildShowAllHref(params)}
-                  className="text-ink-muted hover:text-ink transition underline underline-offset-2"
-                >
-                  Show all
-                </Link>
-              </div>
-            )}
-
             {/* Error ≠ empty: when the price feed didn't answer, say so
                 instead of rendering an empty grid that reads as an empty
-                shop. */}
+                catalog. */}
             {pricesFailed ? (
               <div className="mt-6">
                 <ErrorAlert
@@ -260,16 +233,6 @@ function freshestUpdatedAt(items: PriceItem[]): string | null {
     if (it.updated_at && (max === null || it.updated_at > max)) max = it.updated_at;
   }
   return max;
-}
-
-function buildShowAllHref(params: CatalogParams): string {
-  const sp = new URLSearchParams();
-  if (params.game) sp.set("game", params.game);
-  if (params.set) sp.set("set", params.set);
-  if (params.q) sp.set("q", params.q);
-  if (params.sort) sp.set("sort", params.sort);
-  sp.set("in_stock", "false");
-  return `/catalog?${sp.toString()}`;
 }
 
 function CatalogSearch({

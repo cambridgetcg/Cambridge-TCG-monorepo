@@ -1,274 +1,92 @@
-import { fetchPrices, type PriceItem } from "@/lib/wholesale/client";
-import { TRADEIN_GAMES, isTradeinGame } from "@/lib/tradein/games";
-import BuylistTable from "@/components/tradein/BuylistTable";
-import SellCartBar from "@/components/tradein/SellCartBar";
-import { Provenance, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
-import Link from "next/link";
+/**
+ * /trade-in — the we-buy desk, kept as one honest page.
+ *
+ * Collectors-first (docs/decisions/2026-07-06-collectors-first.md):
+ * the trade-in desk closed on 2026-07-06 having received zero
+ * submissions and owing zero credit — nothing stranded. The buylist,
+ * quote funnel, bundle/bulk/custom-quote forms all collapsed into
+ * this page. It says plainly what trade-in was, that the platform no
+ * longer buys, and where collectors actually sell now. The old
+ * sub-routes redirect here so no bookmark meets a 404.
+ */
 
-export const metadata = {
-  title: "Trade In Your Cards — Cambridge TCG",
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Audience, audienceMetadata } from "@/lib/ui";
+
+export const metadata: Metadata = {
+  title: "Trade-in has closed — sell to collectors instead — Cambridge TCG",
   description:
-    "Sell your One Piece, Pokémon, and Dragon Ball cards for cash or store credit. Competitive prices, fast payouts. Near Mint cards accepted.",
-  other: audienceMetadata("consumer", ["seller", "trade-in"]),
+    "Cambridge TCG no longer buys cards. Sell to collectors on the peer-to-peer market: list an ask, take a buy offer, or propose a swap.",
+  other: audienceMetadata("consumer", ["seller"]),
 };
 
-export interface BuylistItem {
-  sku: string;
-  game: string;
-  card_number: string;
-  name: string;
-  set_code: string | null;
-  set_name: string | null;
-  rarity: string | null;
-  category: string | null;
-  image_url: string | null;
-  cash_price: number;
-  credit_price: number;
-  stock: number;
-  cash_want: number;
-  credit_want: number;
-}
-
-// Fetch all pages from the wholesale API (it caps at 500 per request).
-// First page reveals the total; the rest fan out in parallel — pokemon's
-// ~7k rows would otherwise be 15 sequential round-trips on a cold cache.
-async function fetchAllPrices(params: Parameters<typeof fetchPrices>[0]) {
-  const pageSize = 500;
-  const first = await fetchPrices({ ...params, limit: pageSize, offset: 0 });
-  const remainingPages = Math.max(0, Math.ceil(first.total / pageSize) - 1);
-  const rest = await Promise.all(
-    Array.from({ length: remainingPages }, (_, i) =>
-      fetchPrices({ ...params, limit: pageSize, offset: (i + 1) * pageSize })
-    )
-  );
-  return [first, ...rest].flatMap((r) => r.items);
-}
-
-export default async function TradeInPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ game?: string }>;
-}) {
-  const params = await searchParams;
-  const game = params.game && isTradeinGame(params.game) ? params.game : "one-piece";
-
-  // Fetch from ALL three channels, paginated to get every card
-  const [catalogItems, creditItems, cashItems] = await Promise.all([
-    fetchAllPrices({ game, channel: "cambridgetcg" }),
-    fetchAllPrices({ game, channel: "tradein-credit" }),
-    fetchAllPrices({ game, channel: "tradein-cash" }),
-  ]);
-
-  // Build lookups by SKU
-  const creditMap = new Map<string, PriceItem>();
-  for (const item of creditItems) creditMap.set(item.sku, item);
-
-  const cashMap = new Map<string, PriceItem>();
-  for (const item of cashItems) cashMap.set(item.sku, item);
-
-  // Use the MAIN CATALOG as source of truth — every card appears
-  // Overlay trade-in prices from credit/cash channels
-  const buylist: BuylistItem[] = catalogItems
-    .map((card) => {
-      const credit = creditMap.get(card.sku);
-      const cash = cashMap.get(card.sku);
-      const creditPrice = credit?.channel_price ?? 0;
-      const cashPrice = cash?.channel_price ?? 0;
-      const stock = card.stock ?? 0;
-
-      // Cash want tiers based on stock
-      let cashWant: number;
-      if (stock === 0) cashWant = 4;
-      else if (stock <= 2) cashWant = 2;
-      else cashWant = 0;
-
-      // Credit: always unlimited
-      const creditWant = 999;
-
-      return {
-        sku: card.sku,
-        game,
-        card_number: card.card_number,
-        name: card.name_en || card.name || card.card_number,
-        set_code: card.set_code,
-        set_name: card.set_name,
-        rarity: card.rarity,
-        category: card.category,
-        image_url: card.image_url,
-        cash_price: cashPrice,
-        credit_price: creditPrice,
-        stock,
-        cash_want: cashWant,
-        credit_want: creditWant,
-      };
-    })
-    .filter((item) => item.credit_price > 0 || item.cash_price > 0)
-    .filter((item) => {
-      // Buylist carries premium rarities, parallels, and sealed product —
-      // not plain commons/uncommons/rares. Exact match only, so suffix
-      // parallels (R/P, UC☆) survive. "U" is Pokémon's uncommon. Sealed
-      // items have null rarity and must not fall through to the exclusion.
-      // Pokémon encodes premium parallels (Master Ball mirrors, spec
-      // variants) as rarity "-", so "-"/empty is excluded only for One
-      // Piece, matching its pre-existing buylist behavior.
-      if (item.category === "sealed") return true;
-      const r = (item.rarity ?? "").toUpperCase().trim();
-      if (new Set(["C", "UC", "U", "R"]).has(r)) return false;
-      if ((r === "-" || r === "") && game === "one-piece") return false;
-      return true;
-    });
-
-  // Stats for hero
-  const cardsWanted = buylist.filter((i) => i.credit_price > 0).length;
-  const maxCredit = Math.max(...buylist.map((i) => i.credit_price), 0);
-
+export default function TradeInPage() {
   return (
     <main className="min-h-screen bg-page">
-      <Audience kind="consumer" contexts={["seller", "trade-in"]} />
-      {/* Hero */}
-      <section className="border-b border-border-subtle">
-        <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
-          <h1 className="text-3xl font-display font-semibold text-ink">
-            Sell Your Cards
-          </h1>
-          <p className="text-ink-muted mt-3 max-w-xl">
-            Get cash or store credit for your trading cards. Prices are refreshed daily but are subject to change — card markets are volatile and prices can shift even within the same day. Your final payout is locked once we review your submission and issue a formal quotation.
-          </p>
-          <div className="mt-3 flex items-center gap-3 text-xs">
-            <Provenance kind="synced" source="wholesale" cadence="daily" />
-            <WhyLink href="/methodology/pricing" label="how trade-in prices work" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-4 mt-6">
-            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
-              <p className="text-2xl font-bold text-accent">{cardsWanted}</p>
-              <p className="text-xs text-ink-muted">Cards wanted</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
-              <p className="text-2xl font-bold text-accent">100%</p>
-              <p className="text-xs text-ink-muted">Market value in credit</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
-              <p className="text-2xl font-bold text-bid">Up to 85%</p>
-              <p className="text-xs text-ink-muted">Market value in cash</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
-              <p className="text-2xl font-bold text-accent">+20%</p>
-              <p className="text-xs text-ink-muted">MINT bonus</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg px-5 py-3">
-              <p className="text-2xl font-bold text-accent">24h</p>
-              <p className="text-xs text-ink-muted">Price lock</p>
-            </div>
-          </div>
+      <Audience kind="consumer" contexts={["seller"]} />
+      <div className="max-w-2xl mx-auto px-4 py-20">
+        <h1 className="text-3xl font-display font-semibold text-ink">
+          The trade-in desk has closed
+        </h1>
+        <p className="text-ink-muted mt-4">
+          Trade-in was Cambridge TCG buying cards from you — for store credit or
+          cash, against a daily buylist. On 6 July 2026 the platform stopped
+          buying and selling altogether and became a pure collectors&apos; market.
+          No trade-in was ever left unpaid and no store credit was stranded;
+          the desk closed owing nothing.
+        </p>
+        <p className="text-ink-muted mt-3">
+          Selling works better now: instead of one buyer (us) quoting you a
+          buylist price, you name your price to every collector on the market —
+          with the same escrow protection buyers get.
+        </p>
 
-          {/* Payout tiers */}
-          <div className="mt-6 bg-surface border border-border-subtle rounded-lg p-5 max-w-2xl">
-            <h3 className="text-sm font-bold text-ink mb-3">How Payouts Work</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-start gap-3">
-                <span className="shrink-0 w-16 text-right font-bold text-accent">Credit</span>
-                <p className="text-ink-muted">Receive <span className="text-ink font-semibold">up to 100% of market value</span> in store credit. Use it to buy any card in our shop.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="shrink-0 w-16 text-right font-bold text-bid">Cash</span>
-                <p className="text-ink-muted">Receive <span className="text-ink font-semibold">up to 85% of market value</span> via bank transfer.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="shrink-0 w-16 text-right font-bold text-accent">MINT</span>
-                <p className="text-ink-muted">Cards in perfect MINT condition may qualify for a <span className="text-ink font-semibold">+20% bonus</span> on top of the base payout. MINT bonus is at the discretion of Cambridge TCG based on our evaluation.</p>
-              </div>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
+            <div>
+              <h2 className="text-ink font-bold">List cards for sale</h2>
+              <p className="text-ink-muted text-sm mt-1">
+                Set your ask and let collectors come to you. You can also take a
+                standing buy offer for an instant sale.
+              </p>
             </div>
-            <p className="text-xs text-ink-faint mt-3">
-              MINT bonus is not guaranteed and is subject to the evaluation and decision of Cambridge TCG. Cards must be pack-fresh with zero imperfections to qualify.
-            </p>
-          </div>
-          <div className="flex gap-3 mt-6 text-sm">
             <Link
-              href="/trade-in/terms"
-              className="text-accent hover:text-accent-strong underline underline-offset-2 transition"
+              href="/market/list"
+              className="mt-4 inline-block px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition text-center"
             >
-              Trade-in terms
+              List on the market
             </Link>
-            <span className="text-ink-faint">|</span>
+          </div>
+          <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
+            <div>
+              <h2 className="text-ink font-bold">Swap instead of sell</h2>
+              <p className="text-ink-muted text-sm mt-1">
+                Trade cards directly with another collector — no money needs to
+                move at all.
+              </p>
+            </div>
             <Link
-              href="/trade-in/submit"
-              className="text-ink-muted hover:text-ink transition"
+              href="/account/swaps/new"
+              className="mt-4 inline-block px-5 py-2.5 border border-border-subtle text-ink text-sm font-medium rounded-lg hover:border-border-strong transition text-center"
             >
-              Check submission status
+              Propose a swap
             </Link>
           </div>
         </div>
-      </section>
 
-      {/* Trade-in options */}
-      <section className="max-w-7xl mx-auto px-4 pt-8 grid gap-4 sm:grid-cols-3">
-        <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
-          <div>
-            <h2 className="text-ink font-bold">Cards not on the buylist?</h2>
-            <p className="text-ink-muted text-sm mt-1">
-              Send us photos of individual cards — graded, alt arts, other games.
-            </p>
-          </div>
-          <Link
-            href="/trade-in/custom-quote"
-            className="mt-4 inline-block px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition text-center"
-          >
-            Request Quote
-          </Link>
-        </div>
-        <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
-          <div>
-            <h2 className="text-ink font-bold">Selling a collection?</h2>
-            <p className="text-ink-muted text-sm mt-1">
-              Complete sets, binders, mixed lots — one offer for the entire bundle.
-            </p>
-          </div>
-          <Link
-            href="/trade-in/bundle"
-            className="mt-4 inline-block px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition text-center"
-          >
-            Sell a Bundle
-          </Link>
-        </div>
-        <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col justify-between">
-          <div>
-            <h2 className="text-ink font-bold">Got bulk commons &amp; rares?</h2>
-            <p className="text-ink-muted text-sm mt-1">
-              We buy C, UC, and R cards at 2p each. No sorting needed — just count and send.
-            </p>
-          </div>
-          <Link
-            href="/trade-in/bulk"
-            className="mt-4 inline-block px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition text-center"
-          >
-            Sell Bulk Cards
-          </Link>
-        </div>
-      </section>
-
-      {/* Buylist */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
-        {/* Game tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {TRADEIN_GAMES.map((g) => (
-            <Link
-              key={g.slug}
-              href={g.slug === "one-piece" ? "/trade-in" : `/trade-in?game=${g.slug}`}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                game === g.slug
-                  ? "bg-ink text-page"
-                  : "bg-surface border border-border-subtle text-ink-muted hover:text-ink"
-              }`}
-            >
-              {g.label}
-            </Link>
-          ))}
-        </div>
-        <BuylistTable buylist={buylist} game={game} />
-      </section>
-
-      {/* Floating sell cart bar */}
-      <SellCartBar />
+        <p className="text-sm text-ink-faint mt-8">
+          Not sure what your cards are worth? The{" "}
+          <Link href="/prices" className="text-accent hover:text-accent-strong transition">
+            price guide
+          </Link>{" "}
+          publishes reference prices as open data, and every card&apos;s page on the{" "}
+          <Link href="/market" className="text-accent hover:text-accent-strong transition">
+            market
+          </Link>{" "}
+          shows what collectors are actually paying.
+        </p>
+      </div>
     </main>
   );
 }
