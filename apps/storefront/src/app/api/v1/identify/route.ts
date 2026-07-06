@@ -392,8 +392,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : new Date().toISOString(),
   };
 
+  // Did-you-mean for dropped fields. The loose parser above maps only the
+  // known keys; a caller who sent {kind, name} (a reasonable guess) was
+  // otherwise silently classified as anonymous 'other' with no hint why.
+  // Name the ignored keys and suggest the canonical field.
+  const KNOWN_FIELDS = new Set([
+    "actor_kind", "self_label", "cosmology_assumptions", "preferred_modalities",
+    "response_window_hours", "audience_declarations", "well_known_url", "signing_key",
+    "signaling_protocol", "context", "capabilities", "declared_at",
+  ]);
+  const FIELD_ALIASES: Record<string, string> = {
+    kind: "actor_kind", type: "actor_kind", actorKind: "actor_kind",
+    name: "self_label", label: "self_label", selfLabel: "self_label",
+    modalities: "preferred_modalities", cosmology: "cosmology_assumptions",
+    audience: "audience_declarations", audiences: "audience_declarations",
+    responseWindowHours: "response_window_hours",
+  };
+  const unrecognized_fields = Object.keys(obj)
+    .filter((k) => !KNOWN_FIELDS.has(k))
+    .map((k) => ({ field: k, did_you_mean: FIELD_ALIASES[k] ?? null }));
+
   const hash = declarationHash(declaration);
   const alignment = alignDeclaration(declaration);
+  for (const u of unrecognized_fields) {
+    alignment.warnings.push(
+      u.did_you_mean
+        ? `Unrecognized field "${u.field}" was ignored — did you mean "${u.did_you_mean}"?`
+        : `Unrecognized field "${u.field}" was ignored (not part of the BeingDeclaration schema).`,
+    );
+  }
   const now = new Date().toISOString();
 
   return NextResponse.json(
@@ -401,6 +428,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       content_hash: hash,
       received_at: now,
       ontology_alignment: alignment,
+      // Structured mirror of the did-you-mean warnings above, for machines.
+      unrecognized_fields,
       echo: declaration,
       // Compact responder — for full platform self-declaration, see GET
       // on this same endpoint (sister's richer Identification shape).

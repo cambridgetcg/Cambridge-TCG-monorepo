@@ -38,9 +38,30 @@ import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
 import { releaseExpiredReservations } from "@/lib/stock/reservations";
 import { requireCronAuth } from "@/lib/cron-auth";
 
+// Documented development-only cron secret. Locally CRON_SECRET is usually
+// unset, so requireCronAuth fails closed with 503 and the ENTIRE sweep —
+// price alerts, offer/return/cancel expiry, saved-search scans, trade
+// completion — becomes untestable end-to-end (the walkers couldn't fire a
+// single alert). Default value; override with CRON_DEV_SECRET. Trigger with
+// `?dev=<value>` or the `x-cron-dev` header. NEVER honoured in production,
+// and never when a real CRON_SECRET is configured.
+const CRON_DEV_SECRET_DEFAULT = "local-dev";
+
 export async function GET(request: Request) {
   const denied = requireCronAuth(request);
-  if (denied) return denied;
+  if (denied) {
+    const isDevUnsecured =
+      process.env.NODE_ENV !== "production" && !process.env.CRON_SECRET?.trim();
+    const devSecret = (process.env.CRON_DEV_SECRET || CRON_DEV_SECRET_DEFAULT).trim();
+    const provided =
+      new URL(request.url).searchParams.get("dev") ?? request.headers.get("x-cron-dev");
+    if (!(isDevUnsecured && provided === devSecret)) {
+      return denied;
+    }
+    console.warn(
+      "[cron] maintenance authorised via DEV secret (development only, CRON_SECRET unset).",
+    );
+  }
 
   const start = Date.now();
   // Run pipelines independently — a failure in one shouldn't block the

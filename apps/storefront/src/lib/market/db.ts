@@ -7,7 +7,6 @@ import { routeTrade } from "@/lib/escrow/service-tiers";
 import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
-import { responseWindowHours } from "@/lib/users/response-window";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
@@ -17,6 +16,94 @@ const DEFAULT_ORDER_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // constant; buyers who declare a different cadence have their window apply
 // instead. See `responseWindowHours` in `lib/users/response-window.ts`.
 const DEFAULT_PAYMENT_WINDOW_HOURS = 24;
+
+// ── Catalog resolution ──
+// The listing API used to trust whatever `sku` string the client sent,
+// so a seller typing the card NUMBER printed on the card ("OP01-001")
+// created a phantom listing (card_name null) that no browse surface could
+// find, and client-sent card names could disagree with the catalog. This
+// resolves a raw identifier against card_set_cards (unique idx on sku) and
+// returns the catalog's OWN card metadata, so identity is server-owned.
+
+export interface CatalogCard {
+  sku: string;
+  card_number: string;
+  card_name: string;
+  set_code: string;
+  set_name: string;
+  rarity: string | null;
+  image_url: string | null;
+}
+
+export type CatalogResolution =
+  | { ok: true; card: CatalogCard }
+  | { ok: false; reason: string; suggestions: string[] };
+
+const CATALOG_SELECT = `
+  SELECT c.sku, c.card_number, c.card_name, c.set_code,
+         s.set_name, c.rarity, c.image_url
+    FROM card_set_cards c
+    JOIN card_sets s ON s.set_code = c.set_code`;
+
+/**
+ * Resolve a raw identifier (canonical SKU or the bare card number printed
+ * on the card) to a single catalog card. Unambiguous → { ok: true }.
+ * Not found / ambiguous → { ok: false } carrying the nearest canonical
+ * SKUs so the caller can teach a 400.
+ */
+export async function resolveCatalogCard(raw: string): Promise<CatalogResolution> {
+  const input = (raw ?? "").trim();
+  if (!input) return { ok: false, reason: "Card SKU required.", suggestions: [] };
+
+  // 1) Exact canonical SKU (e.g. OP-OP01-001-JP).
+  const bySku = await query(`${CATALOG_SELECT} WHERE c.sku = $1 LIMIT 1`, [input]);
+  if (bySku.rows.length === 1) return { ok: true, card: bySku.rows[0] as CatalogCard };
+
+  // 2) Bare card number printed on the card (e.g. OP01-001). Accept when
+  //    it maps to exactly one SKU; otherwise ask the caller to pick.
+  const byNumber = await query(
+    `${CATALOG_SELECT} WHERE UPPER(c.card_number) = UPPER($1) ORDER BY c.sku`,
+    [input],
+  );
+  if (byNumber.rows.length === 1) return { ok: true, card: byNumber.rows[0] as CatalogCard };
+  if (byNumber.rows.length > 1) {
+    return {
+      ok: false,
+      reason: `Card number "${input}" has ${byNumber.rows.length} printings on the platform — list by the exact SKU instead.`,
+      suggestions: byNumber.rows.map((r) => r.sku as string),
+    };
+  }
+
+  // 3) Unknown identifier — surface the nearest canonical SKUs.
+  const near = await query(
+    `SELECT c.sku FROM card_set_cards c
+      WHERE c.sku ILIKE $1 OR UPPER(c.card_number) LIKE UPPER($2) OR c.card_name ILIKE $1
+      ORDER BY c.sku LIMIT 6`,
+    [`%${input}%`, `${input}%`],
+  );
+  return {
+    ok: false,
+    reason: `No catalog card matches "${input}". Use a canonical SKU (like OP-OP01-001-JP) or the exact card number printed on the card (like OP01-001).`,
+    suggestions: near.rows.map((r) => r.sku as string),
+  };
+}
+
+/**
+ * Count a user's existing OPEN asks that would duplicate a proposed one
+ * (same sku, condition, price). Used to warn — not block — on a probable
+ * accidental re-list. Returns 0 for bids (duplicate bids are normal depth).
+ */
+export async function countDuplicateOpenAsks(
+  userId: string, sku: string, condition: string, price: number,
+): Promise<number> {
+  const r = await query(
+    `SELECT COUNT(*)::int AS n FROM market_orders
+      WHERE user_id = $1 AND side = 'ask' AND sku = $2 AND condition = $3
+        AND price = $4 AND status IN ('open', 'partially_filled')`,
+    [userId, sku, condition, price.toFixed(2)],
+  );
+  return r.rows[0]?.n ?? 0;
+}
 
 // ── Lazy expiry sweep ──
 // Cheap idempotent maintenance fired from any market read. Marks orders past
@@ -249,6 +336,7 @@ export async function placeOrder(data: {
     const matchResult = await q(
       `SELECT o.*,
               u.trust_score                          AS maker_trust,
+              u.response_window_hours                AS maker_response_window,
               COALESCE(tp.is_flagged, false)         AS maker_flagged,
               t.p2p_commission_rate                  AS maker_p2p_rate
          FROM market_orders o
@@ -266,6 +354,7 @@ export async function placeOrder(data: {
     // Taker's trust + tier (one lookup, reused per match)
     const takerInfoRow = await q(
       `SELECT u.trust_score,
+              u.response_window_hours        AS response_window,
               COALESCE(tp.is_flagged, false) AS is_flagged,
               t.p2p_commission_rate          AS p2p_rate
          FROM users u
@@ -279,6 +368,14 @@ export async function placeOrder(data: {
     const takerTierP2pRate = takerInfoRow.rows[0]?.p2p_rate
       ? parseFloat(takerInfoRow.rows[0].p2p_rate)
       : null;
+    // Taker's declared cadence (migration 0092), pulled here so the
+    // per-trade payment window can be resolved WITHOUT a root-pool
+    // query() inside this transaction (that would acquire a second
+    // pooled connection while this one is held — the max:1 self-deadlock).
+    const takerResponseWindow = takerInfoRow.rows[0]?.response_window as
+      | number
+      | null
+      | undefined;
 
     for (const match of matchResult.rows) {
       if (remainingQty <= 0) break;
@@ -340,9 +437,15 @@ export async function placeOrder(data: {
       // (response_window_hours, migration 0092) gets their window;
       // everyone else gets the platform default of 24h. See
       // `lib/users/response-window.ts` and `docs/methodology/response-windows.md`.
-      // The hours ride along per trade so the match emails/notifications
-      // below can state the window that actually applies.
-      const paymentWindowHours = await responseWindowHours(buyerId, DEFAULT_PAYMENT_WINDOW_HOURS);
+      // The value was resolved in the match/taker lookups above — the
+      // buyer is either the taker (declared window pulled with the taker's
+      // trust) or a matched maker (pulled per row) — so NO query runs
+      // inside this transaction. The hours ride along per trade so the
+      // match emails/notifications below can state the actual window.
+      const buyerResponseWindow = buyerId === data.userId
+        ? takerResponseWindow
+        : (match.maker_response_window as number | null | undefined);
+      const paymentWindowHours = buyerResponseWindow ?? DEFAULT_PAYMENT_WINDOW_HOURS;
       const paymentExpiresAt = new Date(Date.now() + paymentWindowHours * 60 * 60 * 1000).toISOString();
 
       const tradeResult = await q(

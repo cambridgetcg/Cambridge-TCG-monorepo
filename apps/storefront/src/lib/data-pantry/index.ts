@@ -32,6 +32,7 @@ export {
   errorBody,
   errorResponse,
   invalidSkuError,
+  methodNotAllowed,
   type ErrorBody,
   type ErrorCode,
 } from "./errors";

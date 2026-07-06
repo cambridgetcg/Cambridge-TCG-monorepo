@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { getTrustTier } from "@/lib/escrow/trust-engine";
 
@@ -17,6 +18,13 @@ export async function GET(request: Request) {
   if (!sku) {
     return NextResponse.json({ error: "sku required." }, { status: 400 });
   }
+
+  // Owner flag: a signed-in viewer's own asks are marked so the surface
+  // can label them "yours" and never offer a Buy/Make-offer affordance on
+  // a listing the viewer owns (you can't offer on your own ask). Public
+  // reads (no session) simply get is_own: false everywhere.
+  const session = await auth();
+  const viewerId = session?.user?.id ?? null;
 
   const r = await query(
     `SELECT o.id, o.price, o.quantity, o.filled_quantity, o.condition,
@@ -45,6 +53,7 @@ export async function GET(request: Request) {
       accepts_returns: !!row.accepts_returns,
       return_window_days: row.return_window_days as number,
       created_at: row.created_at as string,
+      is_own: viewerId != null && row.seller_id === viewerId,
       seller: {
         id: row.seller_id as string,
         username: (row.seller_username as string | null) ?? null,

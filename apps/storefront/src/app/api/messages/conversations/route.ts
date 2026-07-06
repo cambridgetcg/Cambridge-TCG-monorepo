@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   if (!body.otherUserId) {
     return NextResponse.json({ error: "otherUserId required." }, { status: 400 });
   }
-  const ref = await validateReference(session.user.id, body.referenceType, body.referenceId);
+  const ref = await validateReference(session.user.id, body.referenceType, body.referenceId, body.otherUserId);
   if (!ref.ok) {
     return NextResponse.json({ error: ref.reason }, { status: ref.status });
   }

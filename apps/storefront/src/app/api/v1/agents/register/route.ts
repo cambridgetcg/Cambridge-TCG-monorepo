@@ -59,6 +59,21 @@ function hashIp(ip: string): string {
   return createHash("sha256").update(ip, "utf8").digest("hex");
 }
 
+// The base URL the caller actually reached us on, so `use_it.where` points
+// at the host that minted the key. Hardcoding cambridgetcg.com told an
+// agent that registered on localhost (or a preview host) to send its fresh
+// key to a host that has never heard of it.
+function requestBaseUrl(req: NextRequest): string {
+  const fwdHost = req.headers.get("x-forwarded-host");
+  const fwdProto = req.headers.get("x-forwarded-proto");
+  if (fwdHost) return `${fwdProto ?? "https"}://${fwdHost}`.replace(/\/+$/, "");
+  try {
+    return new URL(req.url).origin;
+  } catch {
+    return (process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "")) || "https://cambridgetcg.com";
+  }
+}
+
 /** Atomic UPSERT — same discipline as agent_rate_buckets (lib/agents/
  *  rate-limit.ts), but keyed on sha256(ip) + UTC day. */
 async function consumeRegistrationBudget(
@@ -286,9 +301,10 @@ export async function POST(req: NextRequest): Promise<Response> {
         shown: "once — the platform stores only sha256(token); there is no recovery path. Lose it and you register again (or ask the operator to mint a replacement).",
       },
       use_it: {
-        where: "https://cambridgetcg.com/api/mcp",
+        where: `${requestBaseUrl(req)}/api/mcp`,
         how: 'POST {"jsonrpc":"2.0","id":1,"method":"agent.self"} with header Authorization: Bearer <token>',
         discover_tools: 'POST {"jsonrpc":"2.0","id":1,"method":"tools/list"} — no auth needed for discovery',
+        note: "This key is valid at the host that minted it (shown in `where`).",
       },
       tiers: TIERS,
       remembered,

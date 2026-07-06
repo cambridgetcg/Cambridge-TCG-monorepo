@@ -144,6 +144,7 @@ const UUID_RE =
 
 export async function validateReference(
   senderId: string, referenceType?: string, referenceId?: string,
+  otherUserId?: string,
 ): Promise<Result<void>> {
   if (!referenceType && !referenceId) return { ok: true, value: undefined };
   if (!referenceType || !referenceId) {
@@ -183,16 +184,26 @@ export async function validateReference(
   } else if (referenceType === "auction") {
     r = await query(`SELECT 1 FROM auctions WHERE id = $1`, [referenceId]);
   } else {
-    // market_order
+    // market_order — an OPEN listing may be cited by EITHER participant in
+    // the conversation, mirroring the market_trade / offer checks above
+    // (which already accept both parties). The primary pre-trade flow is a
+    // BUYER clicking "Message" on a SELLER's ask row: the buyer is the
+    // sender but the order belongs to the seller (the other participant),
+    // so a sender-only ownership check wrongly rejected it.
     r = await query(
-      `SELECT 1 FROM market_orders WHERE id = $1 AND user_id = $2`,
-      [referenceId, senderId],
+      `SELECT 1 FROM market_orders
+        WHERE id = $1
+          AND status IN ('open', 'partially_filled')
+          AND user_id = ANY($2)`,
+      [referenceId, [senderId, otherUserId].filter(Boolean)],
     );
   }
   if (r.rows.length === 0) {
     return {
       ok: false,
-      reason: "Reference not found or not yours to cite.",
+      reason: referenceType === "market_order"
+        ? "That listing can't be attached: it has to be an open listing that belongs to you or the person you're messaging. Open it from a card page and try again — or just message them without attaching a listing."
+        : "That reference can't be attached: it must be a trade, offer, listing or auction that involves you. Send the message without it, or open the item and try again.",
       status: 400,
     };
   }
@@ -243,7 +254,7 @@ export async function sendMessage(input: {
   // Trade-context reference (if any) — allowlist + sender-relationship
   // check before the chip is stored. See validateReference above.
   const ref = await validateReference(
-    input.senderId, input.referenceType, input.referenceId,
+    input.senderId, input.referenceType, input.referenceId, input.recipientId,
   );
   if (!ref.ok) return ref;
 

@@ -12,8 +12,22 @@ export async function GET(request: Request) {
   const identifier = url.searchParams.get("user");
   const session = await auth();
 
-  const targetId = identifier || session?.user?.id;
-  if (!targetId) return NextResponse.json({ error: "User not found." }, { status: 404 });
+  // `?user=me` (or no `user` param) means "my own profile". The profile
+  // fields (username/bio/is_public/…) live on the users row, which is
+  // created at magic-link signup — so resolving `me` to the session user
+  // id CREATE-OR-RETURNS the caller's profile. The old code passed the
+  // literal string "me" to the lookup, which matched no username/id and
+  // 404'd, so every fresh account's /account/profile read as "signed out".
+  const wantsSelf = !identifier || identifier === "me";
+  if (wantsSelf && !session?.user?.id) {
+    // Not a missing user — a missing session. 401 lets the page show
+    // "sign in" instead of misreading a 404 as signed-out.
+    return NextResponse.json(
+      { error: "Sign in to view your profile.", code: "auth_required" },
+      { status: 401 },
+    );
+  }
+  const targetId = wantsSelf ? session!.user!.id : identifier;
 
   const profile = await getPublicProfile(targetId);
   if (!profile) return NextResponse.json({ error: "User not found." }, { status: 404 });

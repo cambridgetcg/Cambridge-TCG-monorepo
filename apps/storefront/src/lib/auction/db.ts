@@ -215,6 +215,14 @@ export async function placeBid(auctionId: string, userId: string, amount: number
     }
   }
 
+  // Run the scheduled→live lazy transition BEFORE validating (the GET/list
+  // paths already do this). Activation otherwise only happened on a read,
+  // so a bid arriving straight from a push/API path onto a just-started
+  // auction was rejected "Auction is not active." even though starts_at had
+  // passed. Kept OUTSIDE the transaction below — it queries the root pool,
+  // and a root query inside a held transaction self-deadlocks at max:1.
+  await transitionScheduledToLive();
+
   const txResult = await transaction(async (q) => {
     const auctionResult = await q(
       `SELECT * FROM auctions WHERE id = $1 AND status = 'live' FOR UPDATE`,

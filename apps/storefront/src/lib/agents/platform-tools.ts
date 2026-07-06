@@ -25,33 +25,50 @@ export async function catalogSearch(_actor: unknown, params: { q?: string; limit
   if (q.length < 2) throw new ToolError("query must be at least 2 characters");
   const limit = Math.min(Math.max(1, params.limit ?? 20), 100);
 
-  // The storefront's main card source for typeahead is the wholesale
-  // catalog reached via the Falcon (S5). For the agent surface we keep
-  // it simple and read the local card-cache shape — what the storefront
-  // already has cached for non-typeahead reads. Falls back gracefully if
-  // a table isn't available in dev.
+  // Serve from the LOCAL catalog (card_set_cards) — the same table the
+  // /market surfaces read. The previous implementation queried a `cards`
+  // table that doesn't exist in dev (and relied on the wholesale layer,
+  // which 401s locally), so every search silently returned
+  // {results:[], unavailable:true} even for cards plainly in the catalog
+  // ("Luffy"). This works whenever the storefront DB does; on the rare
+  // failure it degrades HONESTLY — a named reason + a fallback pointer,
+  // never a bare empty result an agent would misread as "no such card".
   try {
     const r = await query(
-      `SELECT sku, name, card_number, image_url, rarity
-         FROM cards
-        WHERE name ILIKE $1 OR sku ILIKE $1 OR card_number ILIKE $1
-        ORDER BY name ASC
+      `SELECT c.sku, c.card_name AS name, c.card_number, c.image_url,
+              c.rarity, s.set_name, s.game
+         FROM card_set_cards c
+         JOIN card_sets s ON s.set_code = c.set_code
+        WHERE c.card_name ILIKE $1 OR c.sku ILIKE $1 OR c.card_number ILIKE $1
+        ORDER BY c.card_name ASC
         LIMIT $2`,
       [`%${q}%`, limit],
     );
     return {
       query: q,
+      source: "card_set_cards (local catalog, live)",
       results: r.rows.map((row: Record<string, unknown>) => ({
         sku: row.sku,
         name: row.name,
         card_number: row.card_number,
         image_url: row.image_url,
         rarity: row.rarity,
+        set_name: row.set_name,
+        game: row.game,
       })),
     };
   } catch (err) {
     console.error("[agents] catalog.search failed:", err);
-    return { query: q, results: [], unavailable: true };
+    // Honest degradation: distinguish "source down" from "no matches" so
+    // an agent doesn't conclude the catalog is empty.
+    return {
+      query: q,
+      results: [],
+      unavailable: true,
+      reason:
+        "The local card catalog (card_set_cards) is temporarily unreachable — this is a source outage, not an empty catalog.",
+      fallback: "Retry shortly, or GET /api/v1/search/cards?q=<query>.",
+    };
   }
 }
 

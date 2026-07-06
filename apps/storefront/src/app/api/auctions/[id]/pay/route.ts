@@ -3,9 +3,22 @@ import { auth } from "@/lib/auth";
 import { getAuction } from "@/lib/auction/db";
 import { getStripe } from "@/lib/stripe";
 
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/+$/, "");
+// Absolute base for Stripe success/cancel URLs. Prefer the configured
+// site URL (always set in production); otherwise fall back to the
+// request's OWN origin rather than a hardcoded localhost:3000, which
+// bounced a local tester (dev serves on :3001) to a dead port after pay.
+function resolveSiteUrl(req: Request): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  try {
+    return new URL(req.url).origin;
+  } catch {
+    return "http://localhost:3000";
+  }
+}
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const SITE_URL = resolveSiteUrl(req);
   const stripe = getStripe();
   const session = await auth();
   if (!session?.user?.id) {

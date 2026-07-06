@@ -208,7 +208,8 @@ export async function makeOffer(input: {
   );
   const offer = inserted.rows[0] as MarketOffer;
 
-  // Notify the seller. Buyer name resolved for the title.
+  // Buyer label + window label for the notification copy (resolved up
+  // front; cheap).
   const buyerRow = await query(
     `SELECT username, name FROM users WHERE id = $1`,
     [input.buyerId],
@@ -220,21 +221,9 @@ export async function makeOffer(input: {
     : ttlHours % 24 === 0
       ? `${ttlHours / 24} day${ttlHours === 24 ? "" : "s"}`
       : `${ttlHours}h`;
-  await notify({
-    userId: ask.user_id,
-    kind: "offer.received",
-    title: `${buyerLabel} offered ${formatPrice(input.offerPrice)} on ${ask.card_name || ask.sku}`,
-    body: input.message
-      ? input.message.slice(0, 160)
-      : `Your ask was ${formatPrice(parseFloat(ask.price))}. You have ${windowLabel} to respond.`,
-    linkUrl: "/account/offers",
-    referenceType: "market_offer",
-    referenceId: `${offer.id}:received`,
-  });
 
-  // Lifecycle row — anchors the audit chain. The lowball-abuse
-  // detector below reads from this log so the row needs to land
-  // before the rule engine fires.
+  // Lifecycle row — anchors the audit chain. The lowball-abuse detector
+  // and the rule engine both read this log, so it lands first.
   void logOfferTransition({
     offerId: offer.id,
     action: "created",
@@ -257,13 +246,12 @@ export async function makeOffer(input: {
     console.error("[offers] lowball detection failed:", err),
   );
 
-  // Pricing rules hook. Evaluates the seller's active rules against
-  // this fresh offer; if any match the listing-filter and find the
-  // offer below threshold, auto-declines or auto-counters by calling
-  // back through declineOffer / counterOffer. The buyer's bell shows
-  // the resulting offer.declined or offer.countered notification —
-  // not a separate kind. Lazy-imported to keep the offers ↔ rules
-  // dependency edge one-way at module-load time.
+  // Pricing rules hook — evaluated INLINE and BEFORE we notify the seller
+  // or return, so an auto-decline / auto-counter is reflected in both the
+  // seller's bell and the POST response. If any rule matches, it calls
+  // back through declineOffer / counterOffer (which notify the BUYER with
+  // offer.declined / offer.countered). Lazy-imported to keep the offers ↔
+  // rules dependency edge one-way at module-load time.
   try {
     const { applyRulesToOffer } = await import("./pricing-rules");
     await applyRulesToOffer({
@@ -278,7 +266,43 @@ export async function makeOffer(input: {
     console.error("[offers] rule evaluation failed:", err);
   }
 
-  return { ok: true, value: offer };
+  // Re-read: a rule may have synchronously auto-declined or auto-countered
+  // the offer above, so the row's status is now the authoritative one to
+  // return (the walkers saw a stale 'pending' echoed for an offer their
+  // own rule had already killed).
+  const finalOffer = (await loadOffer(offer.id)) ?? offer;
+
+  // Seller notification — AFTER rule evaluation, gated on the real status:
+  //   - still pending → the genuine "you have Nh to respond" prompt.
+  //   - auto-resolved → the prompt would lie (there is nothing to respond
+  //     to), so annotate that the rule handled it instead.
+  if (finalOffer.status === "pending") {
+    await notify({
+      userId: ask.user_id,
+      kind: "offer.received",
+      title: `${buyerLabel} offered ${formatPrice(input.offerPrice)} on ${ask.card_name || ask.sku}`,
+      body: input.message
+        ? input.message.slice(0, 160)
+        : `Your ask was ${formatPrice(parseFloat(ask.price))}. You have ${windowLabel} to respond.`,
+      linkUrl: "/account/offers",
+      referenceType: "market_offer",
+      referenceId: `${offer.id}:received`,
+    });
+  } else if (finalOffer.status === "declined" || finalOffer.status === "countered") {
+    await notify({
+      userId: ask.user_id,
+      kind: "offer.auto_handled",
+      title: `Your pricing rule handled an offer on ${ask.card_name || ask.sku}`,
+      body: finalOffer.status === "declined"
+        ? `${buyerLabel}'s ${formatPrice(input.offerPrice)} offer was auto-declined by your pricing rule — no action needed.`
+        : `${buyerLabel}'s ${formatPrice(input.offerPrice)} offer was auto-countered by your pricing rule at ${finalOffer.counter_price ? formatPrice(parseFloat(finalOffer.counter_price)) : "your rule's price"}.`,
+      linkUrl: "/account/offers",
+      referenceType: "market_offer",
+      referenceId: `${offer.id}:auto_handled`,
+    });
+  }
+
+  return { ok: true, value: finalOffer };
 }
 
 // ── Acceptance economics (pure) ──
@@ -378,28 +402,14 @@ async function createTradeForAcceptedOffer(input: {
       return { ok: false as const, reason: "Not enough remaining qty on the ask.", status: 409 };
     }
 
-    // Re-gate the BUYER at accept-time — the offer may have sat for the
-    // seller's whole response window, and the buyer's standing
-    // (suspension, per-trade/daily limits) may have moved since makeOffer
-    // gated it. Mirrors acceptSwap's accept-time re-gate. Only the buyer
-    // takes on a payment obligation here, so only the buyer is re-gated;
-    // gate.reason (suspension reason, exact limits) is participant-only,
-    // so the seller sees a generic refusal while the buyer (accepting a
-    // counter) sees their own account's reason.
-    const buyerGate = await canTrade(
-      offer.buyer_id,
-      parseFloat(agreedPriceStr) * offer.quantity,
-    );
-    if (!buyerGate.allowed) {
-      return {
-        ok: false as const,
-        reason:
-          input.priceField === "counter_price"
-            ? `Can't accept: your account doesn't currently pass the trade gate. ${buyerGate.reason ?? ""}`.trim()
-            : "Can't accept: the buyer's account can't take on a trade of this size right now.",
-        status: 403,
-      };
-    }
+    // NOTE: the buyer's accept-time trust re-gate runs in the CALLER
+    // (acceptOffer / acceptCounter), BEFORE this transaction opens. It
+    // must not run here: canTrade → calculateTrustScore issue root-pool
+    // queries, and a root-pool query() awaited inside transaction()
+    // acquires a SECOND pooled connection while this one is held — a
+    // self-deadlock at max:1 that also strangles the whole process (the
+    // fill deadlock the persona walkers proved). Everything below uses
+    // the transaction handle `q` exclusively.
 
     // Both parties' standing in one round trip: trust for escrow routing,
     // tier rate for the commission combine, flags for the full-escrow
@@ -538,7 +548,30 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
     return { ok: false, reason: "Not your offer to accept.", status: 403 };
   }
   if (offer.status !== "pending") {
-    return { ok: false, reason: `Offer is ${offer.status} — can't accept.`, status: 409 };
+    return {
+      ok: false,
+      reason: offer.status === "countered"
+        ? "You've already countered this offer — wait for the buyer to accept your counter, or decline it. Only a pending offer can be accepted."
+        : `This offer is ${offer.status}, so it can't be accepted. Only a pending offer can be accepted (a pending offer supports: accept, decline, counter).`,
+      status: 409,
+    };
+  }
+
+  // Re-gate the BUYER at accept-time — the offer may have sat for the
+  // seller's whole response window, and the buyer's standing (suspension,
+  // per-trade/daily limits) may have moved since makeOffer gated it.
+  // Hoisted OUT of the acceptance transaction on purpose: canTrade →
+  // calculateTrustScore issue root-pool queries that would self-deadlock
+  // if awaited inside transaction() at max:1. gate.reason (suspension
+  // reason, exact limits) is participant-only, so the seller sees a
+  // generic refusal.
+  const buyerGate = await canTrade(offer.buyer_id, parseFloat(offer.offer_price) * offer.quantity);
+  if (!buyerGate.allowed) {
+    return {
+      ok: false,
+      reason: "Can't accept: the buyer's account can't take on a trade of this size right now.",
+      status: 403,
+    };
   }
 
   const result = await createTradeForAcceptedOffer({
@@ -704,7 +737,23 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
     return { ok: false, reason: "Not your offer to accept.", status: 403 };
   }
   if (offer.status !== "countered" || !offer.counter_price) {
-    return { ok: false, reason: "No active counter to accept.", status: 409 };
+    return {
+      ok: false,
+      reason: `There's no active counter to accept on this offer (it's ${offer.status}). A counter only exists after the seller counters your offer — then you can accept the counter or withdraw.`,
+      status: 409,
+    };
+  }
+
+  // Re-gate at accept-time (see acceptOffer). The buyer is the caller
+  // here, so they see their own account's reason. Hoisted out of the
+  // acceptance transaction to avoid the max:1 nested-pool deadlock.
+  const buyerGate = await canTrade(buyerId, parseFloat(offer.counter_price) * offer.quantity);
+  if (!buyerGate.allowed) {
+    return {
+      ok: false,
+      reason: `Can't accept: your account doesn't currently pass the trade gate. ${buyerGate.reason ?? ""}`.trim(),
+      status: 403,
+    };
   }
 
   const result = await createTradeForAcceptedOffer({

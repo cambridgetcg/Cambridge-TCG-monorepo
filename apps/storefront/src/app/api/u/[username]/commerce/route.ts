@@ -40,8 +40,13 @@ export async function GET(
           WHERE seller_user_id = $1 AND status IN ('paid','ended')) AS auctions_sold,
        (SELECT COALESCE(SUM(seller_payout::numeric), 0) FROM market_trades
           WHERE seller_id = $1 AND seller_paid_at IS NOT NULL)
-       + (SELECT COALESCE(SUM(seller_payout::numeric), 0) FROM auctions
-          WHERE seller_user_id = $1 AND seller_paid_at IS NOT NULL) AS total_volume,
+       -- Count auction settlements the moment the buyer has paid (status
+       -- 'paid'), not only after the seller-payout stamp lands — that
+       -- stamp lags, so gating on it read a real GBP 70.50 sale as zero.
+       -- Use the realized payout when known, else the settlement price
+       -- (current_price) so a settled auction is never invisible.
+       + (SELECT COALESCE(SUM(COALESCE(seller_payout, current_price)::numeric), 0) FROM auctions
+          WHERE seller_user_id = $1 AND status = 'paid') AS total_volume,
        (SELECT COUNT(*) FROM trade_disputes d
           JOIN market_trades t ON t.id = d.trade_id
          WHERE t.seller_id = $1) AS disputes_against_seller`,

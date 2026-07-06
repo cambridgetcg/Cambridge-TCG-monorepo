@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { placeOrder, getUserOrders, cancelOrder, TrustGateError } from "@/lib/market/db";
+import {
+  placeOrder, getUserOrders, cancelOrder, TrustGateError,
+  resolveCatalogCard, countDuplicateOpenAsks,
+} from "@/lib/market/db";
 import { transaction } from "@/lib/db";
+import { formatPrice } from "@/lib/format";
+
+// The complete set of fields the listing API understands. An unrecognised
+// key (a snake_case slip like `accepts_returns`, or a typo) becomes a
+// teaching 400 that names these, rather than a silent drop — the walkers
+// lost real data to silently-ignored fields. Card identity (name/set/
+// image) is resolved server-side from the catalog, so those client keys
+// are accepted for backwards-compatibility but never trusted.
+const SUPPORTED_ORDER_FIELDS = new Set([
+  "side", "sku", "cardName", "setCode", "setName", "imageUrl",
+  "condition", "price", "quantity", "notes", "acceptsReturns", "returnWindowDays",
+]);
 
 // Bounds for the per-listing return window (days). Migration 0111 gives
 // market_orders the column with the same default the trade-side snapshot
@@ -32,23 +47,63 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });
+    }
 
-    if (!["bid", "ask"].includes(body.side)) {
-      return NextResponse.json({ error: "Side must be bid or ask." }, { status: 400 });
+    // Unknown-field guard — one 400 that names the supported fields.
+    const unknownFields = Object.keys(body).filter((k) => !SUPPORTED_ORDER_FIELDS.has(k));
+    if (unknownFields.length > 0) {
+      return NextResponse.json({
+        error: `Unknown field${unknownFields.length > 1 ? "s" : ""}: ${unknownFields.join(", ")}. Supported fields: ${[...SUPPORTED_ORDER_FIELDS].join(", ")}.`,
+        unknown_fields: unknownFields,
+        supported_fields: [...SUPPORTED_ORDER_FIELDS],
+      }, { status: 400 });
     }
-    if (!body.sku?.trim()) {
-      return NextResponse.json({ error: "Card SKU required." }, { status: 400 });
+
+    // Validate the core fields ALL AT ONCE (one round trip, not three) and
+    // enumerate allowed values so the caller can fix everything in one go.
+    const side = body.side;
+    const condition = (typeof body.condition === "string" && body.condition) || "NM";
+    const price = body.price;
+    const quantity = body.quantity;
+    const fieldErrors: string[] = [];
+    if (side !== "bid" && side !== "ask") {
+      fieldErrors.push("side must be 'bid' or 'ask'.");
     }
-    if (!body.price || body.price <= 0) {
-      return NextResponse.json({ error: "Price must be positive." }, { status: 400 });
+    if (typeof body.sku !== "string" || !body.sku.trim()) {
+      fieldErrors.push("sku is required — a canonical SKU (OP-OP01-001-JP) or the card number printed on the card (OP01-001).");
     }
-    if (!body.quantity || body.quantity <= 0) {
-      return NextResponse.json({ error: "Quantity must be at least 1." }, { status: 400 });
+    if (typeof price !== "number" || !(price > 0)) {
+      fieldErrors.push("price must be a positive number.");
     }
-    if (!["NM", "LP", "MP", "HP"].includes(body.condition || "NM")) {
-      return NextResponse.json({ error: "Invalid condition." }, { status: 400 });
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity <= 0) {
+      fieldErrors.push("quantity must be a positive whole number.");
     }
+    if (!["NM", "LP", "MP", "HP"].includes(condition)) {
+      fieldErrors.push("condition must be one of: NM, LP, MP, HP.");
+    }
+    if (fieldErrors.length > 0) {
+      return NextResponse.json({
+        error: "Some fields need fixing.",
+        errors: fieldErrors,
+        allowed: { side: ["bid", "ask"], condition: ["NM", "LP", "MP", "HP"] },
+      }, { status: 400 });
+    }
+
+    // Resolve the card against the catalog: a canonical SKU or the bare
+    // card number both map to one card, and identity (name/set/image)
+    // comes from the catalog — never from client-sent strings. An unknown
+    // identifier is a 400 carrying the nearest canonical SKUs.
+    const resolved = await resolveCatalogCard(body.sku as string);
+    if (!resolved.ok) {
+      return NextResponse.json(
+        { error: resolved.reason, suggestions: resolved.suggestions },
+        { status: 400 },
+      );
+    }
+    const card = resolved.card;
 
     // Listing options (asks only). accepts_returns is the seller's
     // per-listing opt-in (migration 0070); return_window_days is how long
@@ -75,18 +130,33 @@ export async function POST(request: Request) {
       returnWindowDays = days;
     }
 
+    // Duplicate-ask warning (advisory, never blocking): a seller re-listing
+    // the same card at the same price + condition almost always meant to
+    // add quantity, not spawn a second listing. Bids aren't warned — depth
+    // on a price level is normal.
+    let duplicateWarning: string | undefined;
+    if (side === "ask") {
+      const dupes = await countDuplicateOpenAsks(session.user.id, card.sku, condition, price as number);
+      if (dupes > 0) {
+        duplicateWarning = `You already have ${dupes} open ask${dupes > 1 ? "s" : ""} for ${card.card_name} at ${formatPrice(price as number)} (${condition}). This adds another — cancel it if you meant to raise the quantity instead.`;
+      }
+    }
+
     const result = await placeOrder({
       userId: session.user.id,
-      side: body.side,
-      sku: body.sku.trim(),
-      cardName: body.cardName?.trim(),
-      setCode: body.setCode?.trim(),
-      setName: body.setName?.trim(),
-      imageUrl: body.imageUrl,
-      condition: body.condition || "NM",
-      price: body.price,
-      quantity: body.quantity,
-      notes: body.notes?.trim(),
+      side: side as "bid" | "ask",
+      // Catalog-owned identity — the client's card strings are ignored so a
+      // listing can never disagree with the catalog or be invisible on
+      // browse surfaces.
+      sku: card.sku,
+      cardName: card.card_name,
+      setCode: card.set_code,
+      setName: card.set_name,
+      imageUrl: card.image_url ?? undefined,
+      condition,
+      price: price as number,
+      quantity: quantity as number,
+      notes: typeof body.notes === "string" ? body.notes.trim() : undefined,
     });
 
     // Persist listing options + snapshot them onto any trades the match
@@ -121,10 +191,19 @@ export async function POST(request: Request) {
       });
     }
 
+    // Return the POST-UPDATE order: when the seller opted into returns, the
+    // freshly-inserted row above predates the accepts_returns UPDATE, so
+    // echoing result.order verbatim would report the stale `false` the
+    // walkers saw. Merge the persisted values.
+    const orderOut = acceptsReturns !== undefined
+      ? { ...result.order, accepts_returns: acceptsReturns, return_window_days: returnWindowDays }
+      : result.order;
+
     return NextResponse.json({
-      order: result.order,
+      order: orderOut,
       trades: result.trades,
       matched: result.trades.length,
+      ...(duplicateWarning ? { warning: duplicateWarning } : {}),
     });
   } catch (err) {
     if (err instanceof TrustGateError) {
