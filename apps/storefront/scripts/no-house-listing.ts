@@ -73,8 +73,25 @@ const RULES: Rule[] = [
 
 // Files that legitimately reference these tokens (the audit itself, the
 // methodology that explains the removal, the spec). Excluded from the scan.
+//
+// HISTORY EXEMPTIONS (added at closure, 2026-07-06): the shop-era ledger
+// rows keep their honest labels forever — past payouts really were
+// "Trade-in (cash)"; renaming them would falsify history. These files
+// READ or LABEL historical rows and mint no new merchant activity. A new
+// file that writes tradein_* rows would NOT be exempt — it would appear
+// here as a fresh finding, which is the guard working. Tombstone comments
+// on retired 410 routes are exempt for the same reason: they document the
+// removal, they don't perform the behavior.
 const ALLOW = [
   "scripts/no-house-listing.ts",
+  // history-serving surfaces (labels for past rows)
+  "src/app/account/payouts/page.tsx",
+  "src/app/account/membership/page.tsx",
+  "src/lib/payouts/aggregation.ts",
+  "src/lib/membership/types.ts",
+  "src/lib/tradein/db.ts",
+  // retired-door tombstone (the route answers 410; its comment names what died)
+  "src/app/api/market/sell-for-credit/route.ts",
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
