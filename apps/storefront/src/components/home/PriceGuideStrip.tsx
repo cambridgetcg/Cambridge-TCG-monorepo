@@ -45,8 +45,9 @@ export default function PriceGuideStrip() {
             UK Price Guides
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Free, daily-updated card prices across {sorted.length} TCGs. Each
-            page lists every set, every card, retail and trade-in values.
+            Free, daily-updated reference prices across {sorted.length} TCGs.
+            Each page lists every set, every card — and the source behind
+            every number.
           </p>
         </div>
         <Link

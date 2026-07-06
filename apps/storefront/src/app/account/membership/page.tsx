@@ -186,7 +186,7 @@ export default function MembershipPage() {
               </h2>
             </div>
             <p className="text-ink-muted mb-2">
-              5% off every order, lower selling fees, and early access to restocks.
+              Lower selling fees on the market and at auction.
             </p>
             <p className="text-xs text-ink-faint mb-6">
               No catch — nothing free is taken away, and you reach Pro free at £300/yr
@@ -261,7 +261,7 @@ export default function MembershipPage() {
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#6e6a80]/15 text-[#6e6a80] border border-[#6e6a80]/30">Platinum</span>
               <h2 className="text-xl font-display font-semibold text-ink">Upgrade to Platinum</h2>
             </div>
-            <p className="text-ink-muted mb-6">Zero fees. Maximum rewards. 12% off everything.</p>
+            <p className="text-ink-muted mb-6">Zero commission on the market and at auction. Maximum rewards.</p>
 
             {/* Pricing cards */}
             <div className="grid gap-4 sm:grid-cols-2 max-w-md mb-6">
@@ -301,13 +301,12 @@ export default function MembershipPage() {
               </div>
             </div>
 
-            {/* Platinum perks checklist */}
+            {/* Platinum perks checklist — the shop-era perks (store
+                discount, cashback) retired 2026-07-06 with the shop. */}
             <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 "0% P2P commission",
                 "0% auction fees",
-                "12% off all purchases",
-                "8% cashback",
                 "3x Berries",
                 "Priority everything",
               ].map(perk => (
@@ -374,8 +373,8 @@ export default function MembershipPage() {
           <PerkCard
             label="Cashback"
             value={`${profile.perks.cashback_percent}%`}
-            description="cashback on purchases"
-            highlight={profile.perks.cashback_percent > 0}
+            description="cashback (shop era — retired 2026-07-06)"
+            highlight={false}
           />
           <PerkCard
             label="Berries"
@@ -398,8 +397,8 @@ export default function MembershipPage() {
           <PerkCard
             label="Store Discount"
             value={`${profile.perks.store_discount_percent}%`}
-            description={profile.perks.store_discount_percent > 0 ? "off all purchases" : "store discount"}
-            highlight={profile.perks.store_discount_percent > 0}
+            description="store discount (shop era — retired 2026-07-06)"
+            highlight={false}
           />
           {profile.perks.auction_priority_approval && (
             <PerkCard
@@ -472,12 +471,20 @@ export default function MembershipPage() {
           )}
         </div>
 
-        {/* Store Credit */}
+        {/* Store Credit — history stays; the earning/spending doors closed
+            with the shop on 2026-07-06 (zero balances were outstanding). */}
         <div className="bg-surface rounded-lg border border-border-subtle p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h3 className="text-base font-semibold text-ink">Store Credit</h3>
+            <h3 className="text-base font-semibold text-ink">
+              Store Credit{" "}
+              <span className="text-[10px] font-medium uppercase tracking-wide text-ink-faint border border-border-subtle rounded px-1.5 py-0.5 align-middle">legacy</span>
+            </h3>
             <span className="text-2xl font-bold text-ok"><Money value={profile.store_credit_balance} /></span>
           </div>
+          <p className="text-xs text-ink-faint mb-4">
+            Shop-era history. The shop closed 2026-07-06 with no balances outstanding —{" "}
+            <WhyLink href="/methodology/store-credit" tooltip="The shop era and how it closed" label="the record" />
+          </p>
 
           {visibleCredits.length > 0 ? (
             <div className="space-y-2">

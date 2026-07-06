@@ -5,18 +5,23 @@ import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
 
 /**
  * FeaturedCards — the gallery's actual art. Hairline mounts around real
- * card images; number + price in mono beneath. No rings, no zoom — the
- * card is enough (quiet gallery, prefers-reduced-motion friendly).
+ * card images; number + reference price in mono beneath. No rings, no
+ * zoom — the card is enough (quiet gallery, prefers-reduced-motion
+ * friendly). Collectors first (2026-07-06): each card links to its
+ * market page; the price shown is the labelled reference, not an offer.
  */
 export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <h2 className="font-display text-2xl font-semibold tracking-tight text-ink mb-8">
-        Featured Cards
-      </h2>
+      <div className="flex items-baseline justify-between mb-8">
+        <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
+          Featured Cards
+        </h2>
+        <span className="text-xs text-ink-faint">reference prices</span>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {cards.map(card => (
-          <Link key={card.sku} href={`/product/${card.sku}`}
+          <Link key={card.sku} href={`/market/${card.sku}`}
             className="group wardrobe-mat rounded-lg overflow-hidden hover:bg-surface-subtle transition-colors">
             <div className="relative aspect-[3/4] bg-surface-subtle">
               {card.image_url && (

@@ -67,6 +67,14 @@ const SOURCE_LABELS: Record<HistoryRow["source"], string> = {
   quote_credit: "Quote (credit)",
 };
 
+// The we-buy desk closed 2026-07-06 (collectors-first decision). All
+// trade-in and quote payout sources are history — rows keep their
+// labels, they just wear a small "legacy" mark so nobody reads them as
+// a live door.
+function isLegacySource(source: HistoryRow["source"]): boolean {
+  return source.startsWith("tradein_") || source.startsWith("quote_");
+}
+
 const METHOD_LABELS: Record<HistoryRow["method"], string> = {
   stripe: "Stripe",
   bank: "Bank",
@@ -521,7 +529,7 @@ function EarningsHistorySection({
       <div className="mt-6 bg-surface rounded-lg p-5">
         <h2 className="text-ink font-bold text-sm uppercase tracking-wide mb-1">Earnings history</h2>
         <p className="text-sm text-ink-faint">
-          No completed payouts yet. Once a trade, auction, or trade-in pays out, it will appear here.
+          No completed payouts yet. Once a trade or auction pays out, it will appear here.
         </p>
       </div>
     );
@@ -568,6 +576,11 @@ function EarningsHistorySection({
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-ink truncate">{r.label}</span>
                   <span className="text-[10px] text-ink-faint uppercase tracking-wide">{SOURCE_LABELS[r.source]}</span>
+                  {isLegacySource(r.source) && (
+                    <span className="text-[9px] text-ink-faint uppercase tracking-wide border border-border-subtle rounded px-1 py-px">
+                      legacy
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] text-ink-faint mt-0.5">
                   {new Date(r.paidAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}

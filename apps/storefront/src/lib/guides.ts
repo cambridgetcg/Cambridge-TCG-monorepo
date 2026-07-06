@@ -312,7 +312,7 @@ export const GUIDES: Guide[] = [
       {
         title: "The price chain may include cardrush JP retail",
         description:
-          "GBP prices are Cambridge TCG's own retail offers (CC0). But the " +
+          "GBP prices are Cambridge TCG's published reference prices — open data, not offers (the platform holds no market position). But the " +
           "underlying price observation pipeline at our wholesale layer reads " +
           "from CardRush JP (license: internal-only). The bulk export only " +
           "carries derived GBP — not raw JPY — so you're fine. But if you " +
@@ -415,7 +415,7 @@ export const GUIDES: Guide[] = [
         title: "Anonymous JPY history is not available",
         description:
           "The storefront universal-mirror gives GBP prices (Cambridge TCG's " +
-          "retail offer, CC0). If you want the raw CardRush JPY observation " +
+          "reference price — labelled, CC0, never an offer). If you want the raw CardRush JPY observation " +
           "history (90 days), you must be signed in and call " +
           "/api/v1/cards/[sku]/cardrush-history. That endpoint declares " +
           "`_meta.source_license: ['internal-only']` — non-bulk, non-redistributable.",

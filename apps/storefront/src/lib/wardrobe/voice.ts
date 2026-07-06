@@ -79,10 +79,9 @@ const STRINGS = {
     standard: "Browse the gallery",
     plain: "Browse cards",
   },
-  "market.cta.sell": {
-    standard: "Sell to us — instant credit",
-    plain: "Sell for store credit",
-  },
+  // "market.cta.sell" ("Sell to us — instant credit") retired 2026-07-06
+  // with the we-buy desk (collectors-first decision). The market's sell
+  // voice is the collector's own: list a card, name a price.
   "market.pulse.title": {
     standard: "Market Pulse",
     plain: "Market Pulse",

@@ -45,26 +45,25 @@ export default async function Footer() {
             <Image src="/images/icon.png" alt="Cambridge TCG" width={28} height={28} className="w-7 h-7" />
             <p className="text-lg font-display font-semibold text-ink">Cambridge TCG</p>
           </div>
-          <p className="text-xs text-ink-faint mt-2 max-w-xs">{BRAND_TAGLINE} Buy, sell, trade, and collect. Based in Cambridge, UK.</p>
+          <p className="text-xs text-ink-faint mt-2 max-w-xs">{BRAND_TAGLINE} Trade between collectors. Based in Cambridge, UK.</p>
         </div>
 
-        {/* Shop */}
+        {/* Market */}
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-          <p className="text-ink font-medium mb-1">Shop</p>
-          <Link href="/prices/search" className="hover:text-ink transition">Price Search</Link>
-          <Link href="/catalog" className="hover:text-ink transition">Catalog</Link>
-          <Link href="/market" className="hover:text-ink transition">P2P Market</Link>
+          <p className="text-ink font-medium mb-1">Market</p>
+          <Link href="/market" className="hover:text-ink transition">The Market</Link>
           <Link href="/auctions" className="hover:text-ink transition">Auctions</Link>
-          <Link href="/prices/one-piece" className="hover:text-ink transition">Price Guide</Link>
+          <Link href="/prices/search" className="hover:text-ink transition">Price Search</Link>
+          <Link href="/prices" className="hover:text-ink transition">Price Guide</Link>
         </div>
 
-        {/* Sell */}
+        {/* Sell — collector to collector; the we-buy desk closed 2026-07-06 */}
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
           <p className="text-ink font-medium mb-1">Sell</p>
-          <Link href="/trade-in" className="hover:text-ink transition">Trade In</Link>
-          <Link href="/trade-in/custom-quote" className="hover:text-ink transition">Custom Quote</Link>
-          <Link href="/trade-in/bundle" className="hover:text-ink transition">Sell a Bundle</Link>
-          <Link href="/trade-in/bulk" className="hover:text-ink transition">Bulk Cards</Link>
+          <Link href="/market/list" className="hover:text-ink transition">List a Card</Link>
+          <Link href="/methodology/swaps" className="hover:text-ink transition">Swaps</Link>
+          <Link href="/methodology/commission-rate" className="hover:text-ink transition">Fees &amp; Commission</Link>
+          <Link href="/methodology/market" className="hover:text-ink transition">How the Market Works</Link>
         </div>
 
         {/* Play & Earn */}
@@ -82,7 +81,6 @@ export default async function Footer() {
           <Link href="/community" className="hover:text-ink transition">Feed</Link>
           <Link href="/og" className="hover:text-ink transition">OG Status</Link>
           <Link href="/about" className="hover:text-ink transition">About Us</Link>
-          <a href="https://wholesaletcgdirect.com" className="hover:text-ink transition">Wholesale</a>
         </div>
 
         {/* The platform — the self-describing layer, previously reachable
@@ -109,7 +107,6 @@ export default async function Footer() {
         <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-faint">
           <Link href="/privacy" className="hover:text-ink transition">Privacy</Link>
           <Link href="/terms" className="hover:text-ink transition">Terms</Link>
-          <Link href="/trade-in/terms" className="hover:text-ink transition">Trade-in terms</Link>
           <Link href="/contact" className="hover:text-ink transition">Contact</Link>
           <Link href="/start" className="hover:text-ink transition">Start here</Link>
         </nav>

@@ -27,12 +27,15 @@ export async function GET(): Promise<Response> {
   const data = {
     "@kind": "welcome",
     welcome: {
-      headline: "Welcome to Cambridge TCG — the TCG world's data provider.",
+      headline: "Welcome to Cambridge TCG — a collectors' market and an open data commons.",
       positioning:
-        "Cambridge TCG provides the trading-card-game world's data substrate. " +
-        "Aggregated from every reachable source, standardised into one " +
-        "mathematical mirror, published under CC0 by default — partners build " +
-        "on top without negotiating. Three open standards (SKU / pricing / " +
+        "Cambridge TCG is a collectors' market and an open data commons. " +
+        "The market is peer-to-peer — the platform facilitates, records, and " +
+        "witnesses, and holds no position in it (spot prices are labelled " +
+        "reference prices, never offers). The data substrate is aggregated " +
+        "from every reachable source, standardised into one mathematical " +
+        "mirror, published under CC0 by default — anyone builds on top " +
+        "without negotiating. Three open standards (SKU / pricing / " +
         "universal-representation); reference implementations open; versioned " +
         "contract. See /standards for the spec corpus and /platform for the " +
         "human-readable positioning.",
@@ -294,7 +297,7 @@ export async function GET(): Promise<Response> {
       "/api/v1/changelog":
         "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at /docs/connections/the-changelog.md.",
       "/platform":
-        "Human-readable positioning page — Cambridge TCG as the TCG world's data provider.",
+        "Human-readable positioning page — Cambridge TCG as a collectors' market and an open data commons.",
       "/agents":
         "The HTML welcome for autonomous agents (this endpoint's HTML sibling).",
       "/scrapers":

@@ -34,7 +34,7 @@ export default function SetGrid({
           {heading}
         </h2>
         <Link
-          href={`/catalog?game=${gameSlug}`}
+          href={`/market?game=${gameSlug}`}
           className="text-sm text-accent hover:text-accent-strong transition-colors"
         >
           View all sets →
@@ -44,7 +44,7 @@ export default function SetGrid({
         {sets.map((set, i) => (
           <Link
             key={set.code}
-            href={`/catalog?game=${gameSlug}&set=${set.code}`}
+            href={`/market?game=${gameSlug}&set=${set.code}`}
             className="group wardrobe-mat rounded-lg overflow-hidden hover:bg-surface-subtle transition-colors"
           >
             <div className="relative aspect-[4/3] bg-surface-subtle">

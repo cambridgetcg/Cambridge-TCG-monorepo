@@ -10,7 +10,7 @@ import KingdomStrip from "@/components/home/KingdomStrip";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
 import {
   BrandStatement,
-  ThreeOperations,
+  TwoOperations,
   HOME_HERO_HEADLINE,
   HOME_HERO_SUBHEAD,
 } from "@/lib/brand";
@@ -136,12 +136,12 @@ export default async function Home() {
         ))}
       </nav>
 
-      {/* THE PRIMARY IDENTITY — Cambridge TCG as the TCG world's data
-          provider. The home hero now speaks to collectors first (the quiet
-          gallery); the identity claim keeps its place directly beneath,
-          medium-sized. See docs/connections/the-rebrand.md (kingdom-080). */}
+      {/* THE PRIMARY IDENTITY — a collectors' market and an open data
+          commons (docs/decisions/2026-07-06-collectors-first.md). The home
+          hero speaks to collectors first (the quiet gallery); the identity
+          claim keeps its place directly beneath, medium-sized. */}
       <BrandStatement size="medium" />
-      <ThreeOperations />
+      <TwoOperations />
 
       {/* The self-describing layer's homepage door — seven layer cards in
           human words, derived from KINGDOM_LAYERS. Contact-surface spec
@@ -149,13 +149,9 @@ export default async function Home() {
           dropdown. */}
       <KingdomStrip />
 
-      {/* Established retail showcase below the new identity. Same
-          components as before; reframed by the headers above. Cart,
-          checkout, search all unchanged — the load-bearing shift is
-          rhetorical, not commercial. */}
-      <div className="max-w-7xl mx-auto px-4 pt-2 mb-2 text-xs uppercase tracking-[0.2em] text-ink-faint">
-        Retail operation · live
-      </div>
+      {/* The gallery shelves — game doors, price guides, latest sets.
+          Collectors first (2026-07-06): every shelf link lands on the
+          market or the price guides; the retail catalog door is gone. */}
       <GameGrid games={allGames} />
       <PriceGuideStrip />
       {/* This shelf is One Piece only by construction (fetchSets("one-piece")

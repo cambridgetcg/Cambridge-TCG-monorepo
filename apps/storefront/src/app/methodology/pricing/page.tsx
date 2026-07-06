@@ -12,12 +12,18 @@ export default function PricingMethodology() {
       <Audience kind="public-documentation" contexts={["pricing", "methodology"]} />
       <h1>Pricing</h1>
       <p>
-        Cambridge TCG sets a price for every card we stock and every channel we sell on.
-        The same card has up to <strong>seven different customer-facing prices</strong> at any
-        moment — one for our own storefront, one for Shopify, one for eBay, one for
-        Cardmarket, one for trade-in cash, one for trade-in store credit — plus an internal{" "}
-        <strong>wholesale base</strong> that the others derive from. This page explains
-        exactly how each number is computed.
+        Cambridge TCG computes a <strong>reference price</strong> for every card in the
+        catalog. It is <strong>open data, not an offer</strong> — the platform stopped
+        selling (and buying) cards on <strong>2026-07-06</strong>{" "}
+        (<code>docs/decisions/2026-07-06-collectors-first.md</code>), so no number on this
+        page is a price you can transact with us at. Wherever a card page shows{" "}
+        <em>spot</em>, it is this reference, labelled as such; the prices you can actually
+        trade at are the collectors&rsquo; own bids and asks on the{" "}
+        <a href="/market">market</a>.
+      </p>
+      <p>
+        This page explains exactly how the reference number is computed, and — because
+        history is history — documents the shop-era channels the same engine once priced.
       </p>
 
       <blockquote>
@@ -56,7 +62,10 @@ export default function PricingMethodology() {
       <h2>The channel multipliers</h2>
       <p>
         Each channel has six numbers that say how to translate the wholesale base into that
-        channel's customer-facing price.
+        channel's price. Since 2026-07-06 only one channel is customer-facing — the{" "}
+        <strong>cambridgetcg.com reference price</strong> — and it faces you as a labelled
+        reference, not an offer. The remaining channels are documented for the historical
+        record and for reproducing old numbers.
       </p>
       <table>
         <thead>
@@ -115,7 +124,7 @@ price    = round(preRound / roundTo) × roundTo`}
         £0.10 yields £5.10, not £5.20.
       </p>
 
-      <h2>The eight channels</h2>
+      <h2>The channels (one live reference; the rest historical)</h2>
       <table>
         <thead>
           <tr>
@@ -139,14 +148,18 @@ price    = round(preRound / roundTo) × roundTo`}
       </table>
 
       <p>
-        The <strong>trade-in channels</strong> invert the margin: we pay 55% of the wholesale
-        base for cash, 77% for store credit. They have no flat fee, no VAT (we are the buyer,
-        not the seller), and no retail uplift.
+        The <strong>trade-in channels</strong> (historical) inverted the margin: the shop
+        paid 55% of the wholesale base for cash, 77% for store credit, with no flat fee, no
+        VAT, and no retail uplift. The we-buy desk closed 2026-07-06 — zero trade-ins were
+        ever submitted — so these rows price nothing now; they are kept so old numbers stay
+        reproducible.
       </p>
       <p>
-        The <strong>retail channels</strong> (cambridgetcg, Shopify, eBay, Cardmarket) all
-        charge VAT. The retail multiplier differs: eBay's is highest because eBay's seller
-        fees are higher and we recover them via the price.
+        The <strong>retail channels</strong> (historical: Shopify, eBay, Cardmarket; and the
+        shop-era cambridgetcg price) all charged VAT. The retail multiplier differed per
+        channel: eBay's was highest because eBay's seller fees were higher and the shop
+        recovered them via the price. The cambridgetcg formula survives as the{" "}
+        <strong>reference price</strong> — same computation, no longer an offer.
       </p>
 
       <h2>Worked example</h2>
@@ -163,10 +176,11 @@ cambridgetcg.com:
         </code>
       </pre>
       <p>
-        The same listing on eBay produces £5.60; on trade-in cash, we pay £1.78 to take it
-        off your hands; on trade-in store credit, £2.50. These exact numbers are locked as
-        regression tests in <code>packages/pricing/src/__tests__/pricing.test.ts</code>{" "}
-        — if the formula drifts, the tests fire and this page is updated in the same PR.
+        The same listing priced £5.60 on eBay, £1.78 on trade-in cash, and £2.50 on trade-in
+        credit in the shop era. These exact numbers are locked as regression tests in{" "}
+        <code>packages/pricing/src/__tests__/pricing.test.ts</code> — if the formula drifts,
+        the tests fire and this page is updated in the same PR. The £5.10 above is what you
+        see today as the card&rsquo;s labelled reference price.
       </p>
 
       <h2>Freshness</h2>

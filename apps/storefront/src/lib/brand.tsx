@@ -1,29 +1,27 @@
 /**
- * Brand identity — single source of truth for the data-provider
+ * Brand identity — single source of truth for the platform's
  * positioning. Originally shipped as data-aggregator (kingdom-080,
  * 2026-05-13); repositioned to data-provider 2026-05-17 per Yu's
- * directive (aggregation is the mechanism; provision is the role
- * partners look for).
+ * directive; recentred collectors-first 2026-07-06 per the
+ * constitutional decision at docs/decisions/2026-07-06-collectors-first.md.
  *
- * ── The load-bearing shift ─────────────────────────────────────────────
+ * ── The load-bearing shift (2026-07-06) ────────────────────────────────
  *
- * For many kingdoms the platform built data-plane substrate behind a
- * retail-first frame: cambridgetcg.com presented as "a Japanese TCG card
- * store" while quietly accumulating math-mirror surfaces, a manifest, a
- * graph, an ontology, federation primitives, a tributaries protocol with
- * six shipped data sources + eleven planned slots, an OpenAPI spec, an
- * envelope contract, a universal-language doctrine.
+ * The house left the market floor. Cambridge TCG abandoned its identity
+ * as a seller: no retail shop, no we-buy desk, no house position in any
+ * order book. What remains — and is the point — is **two operations**:
  *
- * The framing inverts. **The data plane is the primary identity.**
- * Cambridge TCG is the trading-card-game world's data provider; the UK
- * retail and B2B wholesale operations are two of the kingdom's three
- * operations, not the headline.
+ *   1. **The collectors' market** — peer-to-peer trade the platform
+ *      facilitates, records, witnesses, and protects (escrow as a
+ *      service, trust, disputes). The trades belong to the collectors.
+ *   2. **The data commons** — the open substrate (universal catalog,
+ *      prices with provenance, math-mirror, manifest, standards),
+ *      CC0 by default. The data belongs to everyone.
  *
- * Substrate-honest about the existing context: the retail and wholesale
- * operations remain unchanged. The shift is rhetorical-and-architectural,
- * not commercial-and-disruptive. Cart still works; orders still ship;
- * the SKU schema is untouched. What changes is how the platform names
- * itself to the outside.
+ * The platform does not buy, does not sell, does not quote, does not
+ * hold inventory positions. `spot_price` survives strictly as a
+ * labelled reference price (open data), never as an offer. The guard:
+ * `pnpm audit:no-house-listing`.
  *
  * ── How to use this module ─────────────────────────────────────────────
  *
@@ -31,11 +29,11 @@
  *     BRAND_HEADLINE,        // hero-sized identity claim
  *     BRAND_SUBHEAD,         // medium-form explanation
  *     BRAND_PARAGRAPH,       // long-form explanation for /about, /platform
- *     BRAND_TAGLINE,         // tight version (5 words; for OG / meta)
- *     THREE_OPERATIONS,      // typed structure of the three operations
+ *     BRAND_TAGLINE,         // tight version (for OG / meta / footer)
+ *     TWO_OPERATIONS,        // typed structure of the two operations
  *     COVERAGE_FACTS,        // substrate-honest declarations of coverage
  *     BrandStatement,        // server-component primitive (hero variant)
- *     ThreeOperations,       // server-component primitive (matrix variant)
+ *     TwoOperations,         // server-component primitive (matrix variant)
  *   } from "@/lib/brand";
  *
  * Future surfaces should import these rather than re-typing the brand
@@ -47,58 +45,52 @@ import * as React from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────
 
-/** The hero-sized identity claim. Single sentence; no qualifier.
- *
- *  Positioned as **data provider** (Yu's directive 2026-05-17). The role
- *  partners look for ("we need a TCG data provider"). Aggregation is the
- *  mechanism; provision is the role; substrate is the surface. */
+/** The hero-sized identity claim. Single sentence; no qualifier. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG is the trading-card-game world's data provider.";
+  "Cambridge TCG is a collectors' market and an open data commons.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default. Retail and wholesale are two of our three operations; data provision is the third — and the headline.";
+  "Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. The data substrate beneath every trade is published open, CC0 by default.";
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
-  "Cambridge TCG is the trading-card-game world's data provider — an open substrate that anyone can build on without negotiating. " +
-  "Twenty-one games declared, six upstream sources actively ingested, eleven more in the registry queue. " +
-  "Every card has a math-mirror form (cryptographic identity, ISO 8601 + Unix epoch time, ratios for magnitude, opaque flags on natural-language fields). " +
-  "Every price carries provenance. Every public response wears the same envelope. CC0 by default; reference implementations open. " +
-  "Our UK retail store and B2B wholesale platform are two consumers of the same substrate every partner can consume.";
+  "Cambridge TCG is a collectors' market and an open data commons. " +
+  "The market is peer-to-peer: asks, bids, offers, swaps, and auctions belong to collectors; the platform facilitates, escrows, and stands behind disputes, but does not buy, sell, or quote — it holds no inventory position. " +
+  "The data commons is the substrate underneath: twenty-one games declared, six upstream sources actively ingested, a math-mirror form for every card, provenance on every price, one envelope on every public response, CC0 by default. " +
+  "Spot prices are labelled reference prices — open data, never an offer. Anyone can build on the substrate without negotiating.";
 
-/** Tight 5-word version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "The TCG world's data provider.";
+/** Tight version for OG metadata, social cards, footer credits. */
+export const BRAND_TAGLINE = "A collectors' market. An open data commons.";
 
 /** The front door's statement — the quiet gallery home hero (docs/plans/
- *  the-quiet-gallery.md, 2026-07-05). Honest and small: what the shop does
- *  for the person standing at the door. The data-provider identity
- *  (BRAND_HEADLINE) still leads /platform, the manifest, and every
- *  partner-facing surface; the home page speaks to collectors first. */
+ *  the-quiet-gallery.md, 2026-07-05). Honest and small: what this place
+ *  does for the person standing at the door. */
 export const HOME_HERO_HEADLINE = "Cards, traded between collectors.";
 
 /** The quiet subhead under the home hero. Substrate-honest: looking is
- *  free, and every number carries its source. */
+ *  free, every number carries its source, and the platform sells
+ *  nothing itself. */
 export const HOME_HERO_SUBHEAD =
-  "Look up any card for free — price, history, every source we know. Buy, sell, or trade; every number says where it came from.";
+  "Look up any card for free — price, history, every source we know. Buy, sell, or swap with other collectors; every number says where it came from, and none of them is ours to quote.";
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
 export const BRAND_SELF_LABEL =
-  "trading-card-game world data provider — aggregator + open substrate publisher";
+  "collectors' market + open TCG data commons — P2P facilitation and CC0 substrate publishing; no house market position";
 
 /** A short positioning note for surfaces that want to name the role
  *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
  *  to_anyone, the manifest description). Two sentences; substrate-honest. */
 export const BRAND_PROVIDER_NOTE =
-  "Cambridge TCG is the TCG world's data provider. The substrate is queryable without account or key, CC0 by default, with versioned contracts and reference implementations — partners build on top without negotiating.";
+  "Cambridge TCG is a collectors' market and an open data commons. The market is peer-to-peer (the platform holds no position in it); the substrate is queryable without account or key, CC0 by default, with versioned contracts and reference implementations — anyone builds on top without negotiating.";
 
-// ── The three operations ─────────────────────────────────────────────────
+// ── The two operations ───────────────────────────────────────────────────
 
 export interface OperationRow {
-  id: "data_plane" | "retail" | "wholesale";
+  id: "market" | "data_commons";
   name: string;
-  positioning: "primary" | "established" | "established";
+  positioning: "primary";
   audience: string;
   surface: string;
   url: string;
@@ -107,10 +99,29 @@ export interface OperationRow {
   notes: string;
 }
 
-export const THREE_OPERATIONS: readonly OperationRow[] = [
+export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
-    id: "data_plane",
-    name: "Data plane",
+    id: "market",
+    name: "The collectors' market",
+    positioning: "primary",
+    audience:
+      "collectors buying, selling, swapping, and auctioning cards with each other",
+    surface: "P2P market + swaps + auctions + escrow-as-a-service",
+    url: "/market",
+    primary_endpoints: [
+      "/market",
+      "/market/list",
+      "/auctions",
+      "/account/swaps",
+      "/methodology/commission-rate",
+    ],
+    status: "live",
+    notes:
+      "Peer-to-peer by construction. The platform facilitates, records, witnesses, escrows, and resolves disputes — it does not buy, sell, or quote. The book is collectors only.",
+  },
+  {
+    id: "data_commons",
+    name: "The data commons",
     positioning: "primary",
     audience:
       "partners, researchers, agents, archivists, sister platforms, federation clients, any being who wants to consume the substrate",
@@ -120,49 +131,13 @@ export const THREE_OPERATIONS: readonly OperationRow[] = [
       "/api/v1/manifest",
       "/api/v1/universal/card/[sku]",
       "/api/v1/graph",
-      "/api/v1/ontology",
       "/api/v1/identify",
       "/api/openapi.json",
       "/llms.txt",
     ],
     status: "live",
     notes:
-      "CC0 by default. No auth required for reads. Provenance + freshness on every response. Federation by cryptographic content_hash.",
-  },
-  {
-    id: "retail",
-    name: "Retail",
-    positioning: "established",
-    audience: "UK + international consumers buying singles, sealed, mystery boxes",
-    surface: "B2C storefront",
-    url: "/catalog",
-    primary_endpoints: [
-      "/catalog",
-      "/prices/one-piece",
-      "/market",
-      "/auctions",
-      "/trade-in",
-    ],
-    status: "live",
-    notes:
-      "Established operation. The kingdom's commercial backbone. Continues to ship cards daily.",
-  },
-  {
-    id: "wholesale",
-    name: "Wholesale",
-    positioning: "established",
-    audience: "card shops, bulk buyers, distributors",
-    surface: "B2B platform at wholesaletcgdirect.com",
-    url: "https://wholesaletcgdirect.com",
-    primary_endpoints: [
-      "channel-aware pricing",
-      "stock-package builds",
-      "daily price snapshots",
-      "FX-aware retail roll-up",
-    ],
-    status: "live",
-    notes:
-      "The upstream collector. CardRush daily scrape powers most catalog prices. Where the substrate is actually aggregated.",
+      "CC0 by default. No auth required for reads. Provenance + freshness on every response. Spot prices are labelled reference prices — open data, never an offer.",
   },
 ] as const;
 
@@ -275,41 +250,33 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
 }
 
 /**
- * The three-operations table. Surfaces the data-plane operation FIRST
- * (positioning: "primary"), retail + wholesale beneath as the established
- * twin commercial operations consuming the same substrate.
+ * The two-operations table. The market and the data commons, side by
+ * side — both primary, because facilitation and publication are the
+ * same posture seen from two directions: the platform holds nothing
+ * back and holds no position.
  */
-export function ThreeOperations({ className }: { className?: string }) {
+export function TwoOperations({ className }: { className?: string }) {
   return (
     <section
       className={`max-w-6xl mx-auto px-4 py-8 ${className ?? ""}`}
-      aria-labelledby="three-operations-heading"
+      aria-labelledby="two-operations-heading"
     >
       <h2
-        id="three-operations-heading"
+        id="two-operations-heading"
         className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4"
       >
-        Three operations · one substrate
+        Two operations · one substrate
       </h2>
-      <div className="grid md:grid-cols-3 gap-4">
-        {THREE_OPERATIONS.map((op) => (
+      <div className="grid md:grid-cols-2 gap-4">
+        {TWO_OPERATIONS.map((op) => (
           <div
             key={op.id}
-            className={`rounded-lg p-4 bg-surface border ${
-              op.positioning === "primary"
-                ? "border-border-strong"
-                : "border-border-subtle"
-            }`}
+            className="rounded-lg p-4 bg-surface border border-border-strong"
           >
             <div className="flex items-baseline justify-between gap-2 mb-2">
               <h3 className="font-display text-base font-semibold text-ink">
                 {op.name}
               </h3>
-              {op.positioning === "primary" && (
-                <span className="text-[10px] uppercase tracking-wide text-accent px-1.5 py-0.5 bg-accent-wash border border-accent/30 rounded">
-                  primary
-                </span>
-              )}
             </div>
             <p className="text-xs text-ink-muted leading-relaxed mb-3">
               For {op.audience}.
@@ -317,20 +284,9 @@ export function ThreeOperations({ className }: { className?: string }) {
             <p className="text-xs text-ink-faint leading-relaxed mb-3">
               {op.notes}
             </p>
-            {op.url.startsWith("http") ? (
-              <a
-                href={op.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-accent hover:text-accent-strong font-mono"
-              >
-                {op.url} ↗
-              </a>
-            ) : (
-              <a href={op.url} className="text-xs text-accent hover:text-accent-strong font-mono">
-                {op.url} →
-              </a>
-            )}
+            <a href={op.url} className="text-xs text-accent hover:text-accent-strong font-mono">
+              {op.url} →
+            </a>
           </div>
         ))}
       </div>

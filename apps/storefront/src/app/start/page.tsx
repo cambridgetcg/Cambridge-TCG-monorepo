@@ -9,13 +9,13 @@ export const metadata = {
 const THINGS_YOU_CAN_DO = [
   {
     label: "Buy a card",
-    href: "/catalog",
-    note: "Browse our shop, or buy straight from other collectors.",
+    href: "/market",
+    note: "Buy straight from other collectors on the market.",
   },
   {
     label: "Sell or trade your cards",
     href: "/market",
-    note: "List on the market, run an auction, or trade in for credit.",
+    note: "List on the market, run an auction, or swap card-for-card.",
   },
   {
     label: "Learn to play",
@@ -80,9 +80,18 @@ export default function StartPage() {
             </span>
           </p>
           <p>
-            <strong className="text-ink">Buying from our shop:</strong> a small
-            margin (about 8%) over what the card costs us, plus UK VAT where the
-            law requires it. That is how we keep the lights on — nothing hidden.
+            <strong className="text-ink">Buying a card:</strong> you pay the
+            price the seller listed — nothing added on top. The seller pays a
+            small commission (
+            <Link href="/methodology/commission-rate" className="text-accent underline">
+              how commission works
+            </Link>
+            ).
+          </p>
+          <p className="text-sm text-ink-faint">
+            We used to run a shop of our own; that ended on 6 July 2026, with
+            nothing owed to anyone. These days every card here is sold by a
+            collector like you — we just keep the market fair.
           </p>
           <p>
             <strong className="text-ink">No surprise fees.</strong> Every price
@@ -102,7 +111,7 @@ export default function StartPage() {
         <h2 className="text-xl font-display font-semibold mt-12 mb-4">Built for everyone</h2>
         <p className="text-ink-muted leading-relaxed">
           This page is plain HTML — it works with a screen reader, on a slow
-          connection, and for an AI agent shopping on your behalf. Everything here
+          connection, and for an AI agent trading on your behalf. Everything here
           is also available as plain data at{" "}
           <Link href="/manifest" className="text-accent underline">
             /manifest
@@ -112,10 +121,10 @@ export default function StartPage() {
 
         <div className="mt-12 flex flex-wrap gap-3">
           <Link
-            href="/catalog"
+            href="/market"
             className="px-6 py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"
           >
-            Browse cards
+            Browse the market
           </Link>
           <Link
             href="/play"

@@ -2,9 +2,9 @@
  * @module @/lib/nav/menu-config
  *
  * Typed source-of-truth for the storefront primary navigation
- * (kingdom-091).
+ * (kingdom-091; recentred collectors-first for kingdom-101, 2026-07-06).
  *
- * Seven L1 mega-menus, each with 3 L2 columns. Mirrors the typed-corpus
+ * Six L1 mega-menus, each with 3 L2 columns. Mirrors the typed-corpus
  * discipline used in `packages/sku/src/games.ts`, `packages/sku/src/rarities.ts`,
  * and `packages/data-ingest/src/welcomes.ts`. The `pnpm audit:nav-coverage`
  * script reads this file and verifies route coverage against the actual
@@ -14,10 +14,13 @@
  * `coming`. `live` items are the default; mark `beta` or `coming` when
  * the surface exists but is partial / placeholder.
  *
- * **Doctrine alignment** — this config is the spine that closes the
- * discovery gap named in `docs/navigation-system-audit.md` Part 2.
- * Methodology and the data-plane discovery surfaces — both previously
- * nav-orphaned — get first-class L2 entries under `Discover ▾`.
+ * **Collectors first (2026-07-06)** — the house left the market floor
+ * (docs/decisions/2026-07-06-collectors-first.md). The nav recentres on
+ * Market (primary), Prices & Data, Play, Community. The retail "Cards"
+ * catalog entries repoint to the market and the price guides; the Cart
+ * and Sell-to-us doors are gone; "List a card" and "Swaps" surface
+ * prominently. Discover ▾ and About ▾ keep the self-describing and
+ * doctrine surfaces reachable.
  */
 
 export type MenuItemBadge = "live" | "beta" | "coming";
@@ -47,62 +50,20 @@ export type MegaMenu = {
 };
 
 export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
-  // ── Cards ───────────────────────────────────────────────────────────
-  {
-    l1: "Cards",
-    l1_href: "/catalog",
-    columns: [
-      {
-        heading: "Browse",
-        items: [
-          { label: "Search prices", href: "/prices/search", description: "Card number → price, history, sources, variants — in one view", badge: "beta" },
-          { label: "All cards", href: "/catalog", description: "The full catalogue across all games" },
-          { label: "By game", href: "/prices", description: "Pick a game to browse its sets" },
-          { label: "Glossary", href: "/glossary" },
-          { label: "Open data", href: "/data", description: "Bulk catalog dumps (CC0)" },
-        ],
-      },
-      {
-        heading: "Prices",
-        items: [
-          { label: "Price guide", href: "/prices", description: "Per-game UK price guides" },
-          // Movers is per-game (/prices/<game>/movers); the nav sends
-          // people to the game-agnostic landing rather than silently
-          // assuming One Piece for a tri-game catalog.
-          { label: "Movers", href: "/prices", description: "Pick a game for its biggest 7-day price changes" },
-          { label: "Coverage map", href: "/prices/coverage", description: "Per-source coverage rollup" },
-          { label: "How prices work", href: "/methodology/pricing" },
-          { label: "Cross-source pricing", href: "/methodology/cross-source-pricing" },
-          { label: "FX rates", href: "/methodology/fx-rates" },
-        ],
-      },
-      {
-        heading: "Decks",
-        items: [
-          { label: "Public decks", href: "/decks" },
-          { label: "Deck builder", href: "/deck-builder", badge: "beta" },
-          { label: "Deck check", href: "/play/deck-check" },
-          { label: "How to play", href: "/guides/how-to-play" },
-          { label: "Play module & sealed product", href: "/methodology/play-module" },
-        ],
-      },
-    ],
-    footer: { label: "See the full map →", href: "/map" },
-  },
-
-  // ── Market ──────────────────────────────────────────────────────────
+  // ── Market — the primary door ───────────────────────────────────────
   {
     l1: "Market",
     l1_href: "/market",
     columns: [
       {
-        heading: "Buy",
+        heading: "Trade",
         items: [
-          { label: "Live market", href: "/market", description: "Real-time peer-to-peer trading" },
-          { label: "Search prices", href: "/prices/search", description: "Card number → everything in one view", badge: "beta" },
+          { label: "Live market", href: "/market", description: "Peer-to-peer trading between collectors" },
+          { label: "List a card", href: "/market/list", description: "Name your price — list a card in a minute" },
+          { label: "Swaps", href: "/methodology/swaps", description: "Card-for-card, no money in the middle" },
+          { label: "My swaps", href: "/account/swaps", authed_only: true },
           { label: "Market lots", href: "/market/lots" },
           { label: "Market pulse", href: "/market/pulse", description: "Volume + spread heatmap" },
-          { label: "Price guide", href: "/prices" },
           { label: "Price offers", href: "/account/offers", authed_only: true },
         ],
       },
@@ -114,19 +75,69 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Sell at auction", href: "/auctions/sell", authed_only: true },
           { label: "My auctions", href: "/account/auctions", authed_only: true },
           { label: "Auctions won", href: "/account/auctions/won", authed_only: true },
+          { label: "My lots", href: "/account/lots", authed_only: true },
         ],
       },
       {
-        heading: "Tools",
+        heading: "Sell & operate",
         items: [
           { label: "Market methodology", href: "/methodology/market" },
           { label: "Trust & escrow", href: "/methodology/trust-score" },
+          { label: "Payout policy", href: "/methodology/payout-hold" },
+          { label: "Trader dashboard", href: "/account/trader", authed_only: true },
+          { label: "Payouts", href: "/account/payouts", authed_only: true },
+          { label: "Pricing rules", href: "/account/pricing-rules", authed_only: true },
+          { label: "Vacation mode", href: "/account/vacation", authed_only: true },
+          { label: "Returns", href: "/account/returns", authed_only: true },
+          { label: "Cancellations", href: "/account/trade-cancels", authed_only: true },
           { label: "Watchlist", href: "/account/watchlist", authed_only: true },
           { label: "Saved searches", href: "/account/searches", authed_only: true },
         ],
       },
     ],
     footer: { label: "Verify a recent transaction →", href: "/verify" },
+  },
+
+  // ── Prices & Data — the open data commons ───────────────────────────
+  {
+    l1: "Prices & Data",
+    l1_href: "/prices",
+    columns: [
+      {
+        heading: "Find a card",
+        items: [
+          { label: "Search prices", href: "/prices/search", description: "Card number → price, history, sources, variants — in one view", badge: "beta" },
+          { label: "Browse the market", href: "/market", description: "Every card's live book, collector to collector" },
+          { label: "By game", href: "/prices", description: "Pick a game to browse its sets" },
+          { label: "Glossary", href: "/glossary" },
+        ],
+      },
+      {
+        heading: "Prices",
+        items: [
+          { label: "Price guide", href: "/prices", description: "Per-game UK reference prices — labelled, sourced, free" },
+          // Movers is per-game (/prices/<game>/movers); the nav sends
+          // people to the game-agnostic landing rather than silently
+          // assuming One Piece for a tri-game catalog.
+          { label: "Movers", href: "/prices", description: "Pick a game for its biggest 7-day price changes" },
+          { label: "Coverage map", href: "/prices/coverage", description: "Per-source coverage rollup" },
+          { label: "How prices work", href: "/methodology/pricing" },
+          { label: "Cross-source pricing", href: "/methodology/cross-source-pricing" },
+          { label: "FX rates", href: "/methodology/fx-rates" },
+        ],
+      },
+      {
+        heading: "Open data",
+        items: [
+          { label: "Open data", href: "/data", description: "Bulk catalog dumps, free to use (CC0)" },
+          { label: "API docs", href: "/api" },
+          { label: "OpenAPI spec", href: "/api/openapi.json" },
+          { label: "Standards", href: "/standards" },
+          { label: "For agents", href: "/agents" },
+        ],
+      },
+    ],
+    footer: { label: "See the full map →", href: "/map" },
   },
 
   // ── Play ────────────────────────────────────────────────────────────
@@ -169,47 +180,46 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
     footer: { label: "Provable fairness on every random outcome →", href: "/verify" },
   },
 
-  // ── Sell ────────────────────────────────────────────────────────────
+  // ── Community ───────────────────────────────────────────────────────
   {
-    l1: "Sell",
-    l1_href: "/trade-in",
+    l1: "Community",
+    l1_href: "/community",
     columns: [
       {
-        heading: "Trade in",
+        heading: "Engage",
         items: [
-          { label: "Trade-in hub", href: "/trade-in" },
-          { label: "Bulk quote", href: "/trade-in/bulk" },
-          { label: "Bundle quote", href: "/trade-in/bundle" },
-          { label: "Custom quote", href: "/trade-in/custom-quote" },
-          { label: "Submit cards", href: "/trade-in/submit" },
-          { label: "Trade-in terms", href: "/trade-in/terms" },
+          { label: "Start here", href: "/start", description: "New? Plain words, no jargon" },
+          { label: "Community hub", href: "/community" },
+          { label: "New here?", href: "/community/welcome" },
+          { label: "Membership", href: "/membership", description: "Tiers, benefits, and what they include" },
+          { label: "Following", href: "/account/following", authed_only: true },
+          { label: "Followers", href: "/account/followers", authed_only: true },
+          { label: "Collectives", href: "/account/collectives", authed_only: true },
         ],
       },
       {
-        heading: "Auction & lots",
+        heading: "Rewards",
         items: [
-          { label: "Open auctions", href: "/auctions", description: "See current public auctions" },
-          { label: "Fees & commission", href: "/methodology/commission-rate" },
-          { label: "Sell at auction", href: "/auctions/sell", authed_only: true },
-          { label: "My lots", href: "/account/lots", authed_only: true },
-          { label: "Returns", href: "/account/returns", authed_only: true },
-          { label: "Cancellations", href: "/account/trade-cancels", authed_only: true },
+          { label: "Rewards hub", href: "/rewards" },
+          { label: "Reward packs", href: "/rewards/packs" },
+          { label: "Spin wheel", href: "/rewards/spin" },
+          { label: "My prizes", href: "/account/rewards", authed_only: true },
+          { label: "Reward methodology", href: "/methodology/membership-tier" },
         ],
       },
       {
-        heading: "Operate",
+        heading: "Recognise",
         items: [
-          { label: "Trader methodology", href: "/methodology/trader-dashboard", description: "How the trader dashboard computes" },
-          { label: "Payout policy", href: "/methodology/payout-hold" },
-          { label: "Store credit", href: "/methodology/store-credit" },
-          { label: "Trader dashboard", href: "/account/trader", authed_only: true },
-          { label: "Pricing rules", href: "/account/pricing-rules", authed_only: true },
-          { label: "Vacation mode", href: "/account/vacation", authed_only: true },
-          { label: "Payouts", href: "/account/payouts", authed_only: true },
+          { label: "Bounty program", href: "/bounty" },
+          { label: "Leaderboards", href: "/leaderboards" },
+          { label: "Agent leaderboard", href: "/leaderboards/agents" },
+          { label: "Trust scores", href: "/methodology/trust-score" },
+          { label: "Memorial accounts", href: "/methodology/memorial" },
+          { label: "Sabbath mode", href: "/methodology/sabbath" },
         ],
       },
     ],
-    footer: { label: "Trade-in & seller methodology →", href: "/methodology" },
+    footer: { label: "Welcoming statement — every kind of being →", href: "/welcome-all" },
   },
 
   // ── Discover ▾ — closes the discovery gap ───────────────────────────
@@ -265,48 +275,6 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       },
     ],
     footer: { label: "Every page, one click apart →", href: "/map" },
-  },
-
-  // ── Community ───────────────────────────────────────────────────────
-  {
-    l1: "Community",
-    l1_href: "/community",
-    columns: [
-      {
-        heading: "Engage",
-        items: [
-          { label: "Start here", href: "/start", description: "New? Plain words, no jargon" },
-          { label: "Community hub", href: "/community" },
-          { label: "New here?", href: "/community/welcome" },
-          { label: "Membership", href: "/membership", description: "Tiers, benefits, and what they include" },
-          { label: "Following", href: "/account/following", authed_only: true },
-          { label: "Followers", href: "/account/followers", authed_only: true },
-          { label: "Collectives", href: "/account/collectives", authed_only: true },
-        ],
-      },
-      {
-        heading: "Rewards",
-        items: [
-          { label: "Rewards hub", href: "/rewards" },
-          { label: "Reward packs", href: "/rewards/packs" },
-          { label: "Spin wheel", href: "/rewards/spin" },
-          { label: "My prizes", href: "/account/rewards", authed_only: true },
-          { label: "Reward methodology", href: "/methodology/membership-tier" },
-        ],
-      },
-      {
-        heading: "Recognise",
-        items: [
-          { label: "Bounty program", href: "/bounty" },
-          { label: "Leaderboards", href: "/leaderboards" },
-          { label: "Agent leaderboard", href: "/leaderboards/agents" },
-          { label: "Trust scores", href: "/methodology/trust-score" },
-          { label: "Memorial accounts", href: "/methodology/memorial" },
-          { label: "Sabbath mode", href: "/methodology/sabbath" },
-        ],
-      },
-    ],
-    footer: { label: "Welcoming statement — every kind of being →", href: "/welcome-all" },
   },
 
   // ── About ───────────────────────────────────────────────────────────

@@ -13,10 +13,11 @@ export default function StorySection() {
         Our Story
       </p>
       <p className="font-display italic text-xl sm:text-2xl text-ink leading-relaxed">
-        Cambridge TCG was built by collectors, for collectors. We source
-        direct from Japan — every card authenticated, every price fair, every
-        order packed with care. The treasure isn&apos;t just the card.
-        It&apos;s knowing you found it.
+        Cambridge TCG was built by collectors, for collectors. The cards
+        trade hand to hand between the people who love them — every trade
+        witnessed, every price sourced, nothing sold from behind the
+        counter. The treasure isn&apos;t just the card. It&apos;s knowing
+        you found it.
       </p>
       <a
         href="/about"

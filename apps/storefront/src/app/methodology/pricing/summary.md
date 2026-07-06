@@ -1,5 +1,5 @@
 # Pricing — TLDR
 
-How the kingdom converts a Japanese yen listing into the seven retail prices a customer might see. JPY → GBP at a captured FX rate, plus margin, VAT, channel multipliers, and rounding. The same SKU produces different numbers on different channels (Cambridge TCG retail, Shopify, eBay, etc.) — the surface tells you which.
+How the kingdom computes each card's **reference price** — open data, never an offer (the platform stopped selling and buying on 2026-07-06). JPY → GBP at a captured FX rate, plus margin, VAT, and rounding. The shop-era channels (Shopify, eBay, trade-in cash/credit) are documented historically so old numbers stay reproducible; the prices you can trade at are collectors' own bids and asks on the market.
 
 Full page: [/methodology/pricing](/methodology/pricing).

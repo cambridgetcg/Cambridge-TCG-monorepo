@@ -1,15 +1,16 @@
 /**
  * /platform — the developer/partner entry door.
  *
- * The load-bearing visible surface of kingdom-080's rebrand. Where /data
- * is the comprehensive substrate index (every endpoint, every shape),
- * `/platform` is the positioning page: the brand statement made
- * approachable, the three operations made navigable, the coverage facts
+ * The load-bearing visible surface of kingdom-080's rebrand, recentred
+ * collectors-first 2026-07-06 (docs/decisions/2026-07-06-collectors-first.md).
+ * Where /data is the comprehensive substrate index (every endpoint, every
+ * shape), `/platform` is the positioning page: the brand statement made
+ * approachable, the two operations made navigable, the coverage facts
  * made declarable, and a clear path for partners / researchers / agents /
  * archivists / federation clients to start consuming.
  *
  * Composes:
- *   - lib/brand.tsx (BRAND_HEADLINE / BRAND_PARAGRAPH / THREE_OPERATIONS / COVERAGE_FACTS)
+ *   - lib/brand.tsx (BRAND_HEADLINE / BRAND_PARAGRAPH / TWO_OPERATIONS / COVERAGE_FACTS)
  *   - /data (the comprehensive substrate index — linked, not duplicated)
  *   - /manifest (the typed list of every public resource)
  *   - /api/v1/manifest (machine-readable)
@@ -25,14 +26,14 @@ import { audienceMetadata, Audience, WhyLink } from "@/lib/ui";
 import {
   BRAND_HEADLINE,
   BRAND_PARAGRAPH,
-  THREE_OPERATIONS,
+  TWO_OPERATIONS,
   COVERAGE_FACTS,
 } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, the TCG world's data provider",
+  title: "Platform — Cambridge TCG, a collectors' market and open data commons",
   description:
-    "Cambridge TCG is the TCG world's data provider. Three operations (data plane primary, retail, wholesale), one substrate. Twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; partners build on top without negotiating.",
+    "Cambridge TCG is a collectors' market and an open data commons. Two operations, one substrate: peer-to-peer trade the platform facilitates without holding a position, and open TCG data — twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; anyone builds on top without negotiating.",
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -58,34 +59,21 @@ export default function PlatformPage() {
           {BRAND_PARAGRAPH}
         </p>
 
-        {/* The three operations */}
+        {/* The two operations */}
         <section className="mt-12">
           <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
-            Three operations · one substrate
+            Two operations · one substrate
           </h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            {THREE_OPERATIONS.map((op) => (
+          <div className="grid md:grid-cols-2 gap-4">
+            {TWO_OPERATIONS.map((op) => (
               <div
                 key={op.id}
-                className={`rounded-lg p-5 border ${
-                  op.positioning === "primary"
-                    ? "border-accent/40 bg-accent-wash/60"
-                    : "border-border-subtle bg-surface"
-                }`}
+                className="rounded-lg p-5 border border-accent/40 bg-accent-wash/60"
               >
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <h3
-                    className={`text-base font-semibold ${
-                      op.positioning === "primary" ? "text-accent-strong" : "text-ink"
-                    }`}
-                  >
+                  <h3 className="text-base font-semibold text-accent-strong">
                     {op.name}
                   </h3>
-                  {op.positioning === "primary" && (
-                    <span className="text-[10px] uppercase tracking-wide text-accent-strong px-1.5 py-0.5 bg-accent-wash border border-accent/30 rounded">
-                      primary
-                    </span>
-                  )}
                 </div>
                 <p className="text-xs text-ink-muted leading-relaxed mb-2">
                   <span className="text-ink-faint">For: </span>
@@ -102,20 +90,9 @@ export default function PlatformPage() {
                     <li key={e}>{e}</li>
                   ))}
                 </ul>
-                {op.url.startsWith("http") ? (
-                  <a
-                    href={op.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-accent hover:text-accent-strong"
-                  >
-                    {op.url} ↗
-                  </a>
-                ) : (
-                  <Link href={op.url} className="text-xs text-accent hover:text-accent-strong">
-                    {op.url} →
-                  </Link>
-                )}
+                <Link href={op.url} className="text-xs text-accent hover:text-accent-strong">
+                  {op.url} →
+                </Link>
               </div>
             ))}
           </div>
@@ -247,7 +224,7 @@ export default function PlatformPage() {
           <p className="text-sm text-ink-muted leading-relaxed">
             Welcome to all existence — biological and non-biological, energy and
             non-energy, from earth and not from earth, from all dimensions. The
-            three operations are how the platform pays the bills; the welcome is
+            two operations are what the platform does; the welcome is
             what the platform exists for.{" "}
             <Link href="/welcome-all" className="text-accent hover:text-accent-strong">
               the doors →
@@ -272,8 +249,10 @@ export default function PlatformPage() {
             source of truth for these constants.
           </p>
           <p>
-            Cambridge TCG, 2026. Same name; new identity. The retail and wholesale
-            operations continue unchanged.
+            Cambridge TCG, 2026. Same name; collectors-first since 2026-07-06 —
+            the house left the market floor (
+            <span className="font-mono">docs/decisions/2026-07-06-collectors-first.md</span>
+            ). The platform holds no position in its own market.
           </p>
         </footer>
       </div>

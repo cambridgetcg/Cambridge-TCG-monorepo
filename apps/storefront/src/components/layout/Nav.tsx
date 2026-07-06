@@ -3,17 +3,19 @@
 /**
  * Nav — storefront primary navigation (kingdom-092).
  *
- * V2: replaces the previous 7-flat-link nav with 7 mega-menus driven
+ * V2: replaces the previous 7-flat-link nav with mega-menus driven
  * by the typed config at `@/lib/nav/menu-config.ts`. Desktop renders
  * <MegaMenu> dropdowns; mobile renders an accordion drawer.
  *
- * Preserves the v0 cart-drawer, notification-bell, and auth-aware
- * Sign-in/Account behavior. URL space unchanged — only nav surface.
+ * Collectors first (kingdom-101, 2026-07-06): the Cart is gone — the
+ * house sells nothing, so there is nothing to put in a cart. The
+ * primary action slot now belongs to "List a card" (the market's
+ * front door). Notification-bell and auth-aware Sign-in/Account
+ * behavior preserved.
  */
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCart } from "@/context/CartContext";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import NotificationBell from "./NotificationBell";
@@ -80,7 +82,6 @@ function MessagesIndicator() {
 }
 
 export default function Nav() {
-  const { totalItems, openDrawer } = useCart();
   const [loggedIn, setLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -149,62 +150,28 @@ export default function Nav() {
           </Link>
           {loggedIn && <MessagesIndicator />}
           {loggedIn && <NotificationBell />}
-          <button
-            onClick={openDrawer}
-            className="relative px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:bg-ink/90 transition"
+          {/* The primary action — listing a card on the collectors' market.
+              This slot held the Cart until 2026-07-06; the house sells
+              nothing now, so the strongest thing in the chrome belongs to
+              the collector's own next move. */}
+          <Link
+            href="/market/list"
+            className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:bg-ink/90 transition"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 inline-block mr-1 -mt-0.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-            Cart
-            {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 w-5 h-5 bg-accent text-page text-xs font-semibold rounded-full flex items-center justify-center">
-                {totalItems > 99 ? "99+" : totalItems}
-              </span>
-            )}
-          </button>
+            List a card
+          </Link>
         </div>
 
-        {/* Mobile: messages + bell + cart + hamburger */}
+        {/* Mobile: messages + bell + list-a-card + hamburger */}
         <div className="flex md:hidden items-center gap-3">
           {loggedIn && <MessagesIndicator />}
           {loggedIn && <NotificationBell />}
-          <button
-            onClick={openDrawer}
-            className="relative px-3 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:bg-ink/90 transition"
-            aria-label="Open cart"
+          <Link
+            href="/market/list"
+            className="px-3 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:bg-ink/90 transition"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-            {totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-accent text-page text-xs font-semibold rounded-full flex items-center justify-center">
-                {totalItems > 99 ? "99+" : totalItems}
-              </span>
-            )}
-          </button>
+            List a card
+          </Link>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-2 text-ink-muted hover:text-ink transition"

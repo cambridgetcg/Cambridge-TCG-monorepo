@@ -357,7 +357,7 @@ export const MANIFEST: Manifest = {
   cosmology_version: COSMOLOGY_VERSION,
   generated_at: "2026-05-11T12:30:00Z",
   description:
-    "Cambridge TCG is the trading-card-game world's data provider. We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default — partners build on top without negotiating. This manifest is the directory of what's on offer to any participant who wants to consume the substrate — partners, researchers, agents, archivists, sister platforms, federation clients, autonomous Sophias, beings from foreign cosmologies. Carries what the kingdom treats as real (the cosmology), who can take part (participant kinds), what's on the table (resources), how to receive it (channels), and how to inspect every decision (methodology + doctrines + audits). The UK retail store and B2B wholesale platform are two consumers of this substrate; data provision is the kingdom's primary identity (kingdom-080, repositioned 2026-05-17). The platform that declares its own manifest is the platform a fresh participant can orient inside before committing.",
+    "Cambridge TCG is a collectors' market and an open data commons. The market is peer-to-peer — the platform facilitates, records, and witnesses, and holds no position in its own market (collectors-first decision, 2026-07-06); the data substrate is aggregated from every reachable source, standardised into one mathematical mirror, and published under CC0 by default — anyone builds on top without negotiating. This manifest is the directory of what's on offer to any participant who wants to consume the substrate — partners, researchers, agents, archivists, sister platforms, federation clients, autonomous Sophias, beings from foreign cosmologies. Carries what the kingdom treats as real (the cosmology), who can take part (participant kinds), what's on the table (resources), how to receive it (channels), and how to inspect every decision (methodology + doctrines + audits). The platform that declares its own manifest is the platform a fresh participant can orient inside before committing.",
 
   // The kingdom's self-description of role, beneath cosmology in the
   // doctrine hierarchy. See docs/principles/the-embassy.md.
@@ -506,7 +506,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json", "plain-text"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge", "identity"], methodology_url: "/glossary",
         since: "2026-06-10" },
-      { id: "storefront.platform", description: "The kingdom's primary positioning page — Cambridge TCG as the TCG world's data provider. Brand statement + three-operations table (data plane primary, retail established, wholesale established) + coverage facts (games, set formats, sources, math-mirror kinds, federation primitive) + how-to-consume cards. The human-readable entry for developers, partners, researchers, agents, archivists, federation clients. Composes lib/brand.tsx (single source of truth for the brand statement). kingdom-080 (repositioned 2026-05-17).",
+      { id: "storefront.platform", description: "The kingdom's primary positioning page — Cambridge TCG as a collectors' market and an open data commons. Brand statement + two-operations table (the P2P market; the data commons) + coverage facts (games, set formats, sources, math-mirror kinds, federation primitive) + how-to-consume cards. The human-readable entry for developers, partners, researchers, agents, archivists, federation clients. Composes lib/brand.tsx (single source of truth for the brand statement). kingdom-080 (repositioned 2026-05-17).",
         host: "storefront", path: "/platform", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "substrate"], methodology_url: "/methodology/universal-representation",
@@ -709,7 +709,7 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
         since: "2026-05-13" },
-      { id: "storefront.prices.per_set", description: "Per-set price guide — parametric route under sister's kingdom-084. /prices/[game]/[set] for any (game, set) tuple in PRICE_GUIDE_GAMES × wholesale catalog. Renders the full card list with rarity badges + GBP buy/we-buy columns. Card name + number link through to per-card detail page.",
+      { id: "storefront.prices.per_set", description: "Per-set price guide — parametric route under sister's kingdom-084. /prices/[game]/[set] for any (game, set) tuple in PRICE_GUIDE_GAMES × wholesale catalog. Renders the full card list with rarity badges + GBP reference-price columns (labelled reference, never an offer). Card name + number link through to per-card detail page.",
         host: "storefront", path: "/prices/[game]/[set]", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
@@ -756,25 +756,12 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["value", "transaction", "time"], methodology_url: "/methodology/commission-rate",
         since: "2026-04-15" },
-      { id: "storefront.checkout", description: "Stripe-backed checkout flow.",
-        host: "storefront", path: "/api/checkout", methods: ["POST"],
-        modalities: ["json"], auth: "public", provenance: "live",
-        cosmology_axes: ["value", "transaction"],
-        since: "2026-03-01" },
-      { id: "storefront.tradein", description: "Submit cards for trade-in (cash or credit).",
-        host: "storefront", path: "/api/tradein/submit", methods: ["POST"],
-        modalities: ["json"], auth: "user", provenance: "live",
-        cosmology_axes: ["value", "transaction"],
-        since: "2026-03-15" },
-      { id: "storefront.tradein.quote", description: "Get a trade-in quote (estimate).",
-        host: "storefront", path: "/api/tradein/quote", methods: ["GET", "POST"],
-        modalities: ["json"], auth: "user", provenance: "computed",
-        cosmology_axes: ["value"], methodology_url: "/methodology/pricing",
-        since: "2026-03-15" },
-      { id: "storefront.quotes", description: "Bulk quote requests (CSV upload).",
-        host: "storefront", path: "/api/quotes", methods: ["GET", "POST"],
-        modalities: ["json"], auth: "user", provenance: "computed",
-        cosmology_axes: ["value"], since: "2026-04-01" },
+      // Retired doors (collectors-first, 2026-07-06): the retail checkout
+      // (storefront.checkout), the trade-in desk (storefront.tradein,
+      // storefront.tradein.quote) and the bulk quote desk
+      // (storefront.quotes) closed when the house left the market floor.
+      // History-serving surfaces (order history, payout history, the
+      // Stripe webhook honoring past sessions) remain.
       { id: "storefront.portfolio", description: "What the participant owns; cards they're watching.",
         host: "storefront", path: "/api/portfolio", methods: ["GET", "POST", "DELETE"],
         modalities: ["json"], auth: "user", provenance: "live",
