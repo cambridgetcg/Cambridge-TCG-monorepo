@@ -38,7 +38,7 @@ export default function AuctionCard({ auction, serverTime }: AuctionCardProps) {
           )}
           <div className="absolute top-2 left-2 flex gap-1.5">
             <AuctionStatusBadge status={auction.status} />
-            <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-black/60 text-white">
+            <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-ink/70 text-page backdrop-blur-sm">
               {TYPE_LABELS[auction.auction_type] || auction.auction_type}
             </span>
           </div>

@@ -1,11 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { SELLER_COMMISSION_RATE } from "@/lib/auction/types";
 import { computeCommissionAmount } from "@cambridge-tcg/pricing";
 import { formatPrice } from "@/lib/format";
 import { WhyLink } from "@/lib/ui";
+import {
+  buildCatalogSearch,
+  parseCatalogError,
+  DEFAULT_GAME,
+  type CatalogCard,
+  type CatalogSource,
+} from "@/components/market/catalog";
+import { CONDITIONS, type Condition } from "@/components/market/listing-draft";
 
 type AuctionType = "english" | "buy_now";
 
@@ -14,6 +22,13 @@ interface UploadedImage {
   url: string;
   s3Key: string;
   order: number;
+}
+
+interface SearchState {
+  status: "idle" | "loading" | "ok" | "error";
+  results: CatalogCard[];
+  source: CatalogSource | null;
+  message?: string;
 }
 
 const TYPE_OPTIONS: { value: AuctionType; label: string; desc: string }[] = [
@@ -34,6 +49,20 @@ export default function SellAuctionPage() {
 
   const [loading, setLoading] = useState(true);
   const [authed, setAuthed] = useState(false);
+
+  // Card identity (P0) — the catalogue card-picker replaces the free-text
+  // title as the source of truth, so the auction resolves an exact printing
+  // + condition (sku) and can carry a reference price / appear on its own
+  // card's market page. Reuses the market catalog search verbatim.
+  const [picked, setPicked] = useState<CatalogCard | null>(null);
+  const [condition, setCondition] = useState<Condition>("NM");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchNonce, setSearchNonce] = useState(0); // bumped by "Try again"
+  const [search, setSearch] = useState<SearchState>({ status: "idle", results: [], source: null });
+  // The title auto-fills from the picked card; once the seller edits it we
+  // stop overwriting it on re-pick.
+  const [titleEdited, setTitleEdited] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -79,6 +108,68 @@ export default function SellAuctionPage() {
       });
   }, [router]);
 
+  // ── Catalogue search (reused from the market listing wizard) ──
+  const runSearch = useCallback(
+    async (q: string, limit = 12): Promise<{ cards: CatalogCard[]; source: CatalogSource } | { error: string }> => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        const res = await fetch(
+          `/api/market/catalog?${buildCatalogSearch({ game: DEFAULT_GAME, q, set: null, sort: "name_asc", page: 1, view: "table" }, limit)}`,
+          { signal: controller.signal },
+        );
+        const body = await res.json().catch(() => null);
+        if (!res.ok) return { error: parseCatalogError(body).message };
+        return {
+          cards: (body?.cards ?? []) as CatalogCard[],
+          source: (body?.source as CatalogSource) ?? "unavailable",
+        };
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return { error: "__aborted__" };
+        return { error: "Network problem while searching — try again." };
+      }
+    },
+    [],
+  );
+
+  // Debounced search-as-you-type — only while no card is picked.
+  useEffect(() => {
+    if (picked) return;
+    const q = searchInput.trim();
+    if (q.length < 2) {
+      setSearch({ status: "idle", results: [], source: null });
+      return;
+    }
+    const t = setTimeout(async () => {
+      setSearch((s) => ({ ...s, status: "loading" }));
+      const r = await runSearch(q);
+      if ("error" in r) {
+        if (r.error !== "__aborted__") setSearch({ status: "error", results: [], source: null, message: r.error });
+        return;
+      }
+      setSearch({ status: "ok", results: r.cards, source: r.source });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput, picked, runSearch, searchNonce]);
+
+  function pickCard(card: CatalogCard) {
+    setPicked(card);
+    // Auto-fill the title from the card name unless the seller already
+    // typed their own — they can still edit it after.
+    if (!titleEdited || !title.trim()) {
+      setTitle(card.name);
+      setTitleEdited(false);
+    }
+    setError("");
+  }
+
+  function changeCard() {
+    setPicked(null);
+    setSearchInput("");
+    setSearch({ status: "idle", results: [], source: null });
+  }
+
   // Commission preview price
   const previewPrice =
     auctionType === "buy_now"
@@ -93,6 +184,14 @@ export default function SellAuctionPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    // Card identity is required — an auction with no sku has no reference
+    // price and can never appear on its own card's market page.
+    if (!picked) {
+      setError("Pick the card you're selling from the catalogue first.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -102,11 +201,15 @@ export default function SellAuctionPage() {
       const endsAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
 
       const body: Record<string, unknown> = {
-        title,
+        title: title.trim() || picked.name,
         description: description || undefined,
         auction_type: auctionType,
         starts_at: startsAt,
         ends_at: endsAt,
+        // Card identity resolved from the catalogue picker — the create API
+        // (Area A) persists these to auctions.sku / .condition.
+        sku: picked.sku,
+        condition,
       };
 
       if (auctionType === "english") {
@@ -318,8 +421,8 @@ export default function SellAuctionPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-display font-semibold text-ink">Sell Your Cards at Auction</h1>
           <p className="text-ink-muted mt-2">
-            List your trading cards on Cambridge TCG and reach collectors across the UK. We handle
-            verification, escrow, and delivery so you can sell with confidence.
+            List your trading cards on Cambridge TCG and reach collectors across the UK. Payment runs
+            through secure checkout; you ship directly to the winner once they&rsquo;ve paid.
           </p>
         </div>
 
@@ -329,39 +432,160 @@ export default function SellAuctionPage() {
           <div className="space-y-2 text-sm text-ink-muted">
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">1</span>
-              <span>List your card with photos and a starting price</span>
+              <span>Pick the exact card from the catalogue, then set your price and photos</span>
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">2</span>
-              <span>We review and approve your listing</span>
+              <span>New listings are reviewed before going live — instant if your account is set for it</span>
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">3</span>
-              <span>Your auction goes live and buyers bid</span>
+              <span>Your auction goes live and collectors bid</span>
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">4</span>
-              <span>Winner pays, you ship to CTCG for verification</span>
+              <span>The winner pays through secure checkout</span>
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">5</span>
-              <span>We verify, forward to buyer, and you get paid (Auction rail: 12%, capped at £50/item<WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />)</span>
+              <span>You ship directly to the winner (their address appears once payment clears); you&rsquo;re paid after they confirm receipt (Auction rail: 12%, capped at £50/item<WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />)</span>
             </div>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title */}
+          {/* Card identity — the catalogue card-picker (P0) */}
           <div>
-            <label className="block text-sm text-ink-muted mb-2">Title *</label>
+            <label className="block text-sm text-ink-muted mb-2">Which card are you selling? *</label>
+
+            {!picked ? (
+              <div>
+                <div className="relative">
+                  <input
+                    type="search"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Card name, number, or SKU…"
+                    aria-label="Search for the card to sell"
+                    className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  />
+                </div>
+
+                {search.status === "idle" && (
+                  <p className="text-xs text-ink-faint mt-2">
+                    Type at least two characters — the set and card art help you confirm the exact printing.
+                  </p>
+                )}
+
+                {search.status === "loading" && (
+                  <div className="space-y-2 mt-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-[64px] bg-surface border border-border-subtle rounded-lg animate-pulse" />
+                    ))}
+                  </div>
+                )}
+
+                {search.status === "error" && (
+                  <div className="mt-3 bg-danger/10 border border-danger/20 rounded-lg p-3">
+                    <p className="text-sm text-danger">{search.message}</p>
+                    <button
+                      type="button"
+                      onClick={() => setSearchNonce((n) => n + 1)}
+                      className="mt-2 text-xs text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+
+                {search.status === "ok" && search.results.length === 0 && (
+                  <p className="text-sm text-ink-muted mt-3">
+                    No cards match. Try the exact card number (e.g. OP01-001) or a shorter part of the name.
+                  </p>
+                )}
+
+                {search.status === "ok" && search.results.length > 0 && (
+                  <ul className="space-y-2 mt-3">
+                    {search.results.map((card) => (
+                      <li key={card.sku}>
+                        <button
+                          type="button"
+                          onClick={() => pickCard(card)}
+                          className="w-full bg-surface border border-border-subtle rounded-lg p-3 flex items-center gap-3 text-left hover:border-border-strong transition"
+                        >
+                          {card.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={card.image_url} alt="" className="w-10 h-14 object-cover rounded border border-border-subtle shrink-0" />
+                          ) : (
+                            <span className="w-10 h-14 bg-surface-subtle border border-border-subtle rounded flex items-center justify-center shrink-0 text-[8px] text-ink-faint">N/A</span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-ink truncate">{card.name}</span>
+                            <span className="block text-xs text-ink-faint font-mono truncate">
+                              {card.card_number} · {card.set_name}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <div className="bg-surface border border-border-subtle rounded-lg p-4 flex items-center gap-4">
+                {picked.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={picked.image_url} alt="" className="w-14 h-20 object-cover rounded border border-border-subtle shrink-0" />
+                ) : (
+                  <span className="w-14 h-20 bg-surface-subtle border border-border-subtle rounded flex items-center justify-center shrink-0 text-[10px] text-ink-faint">N/A</span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-ink truncate">{picked.name}</p>
+                  <p className="text-xs text-ink-faint font-mono truncate">
+                    {picked.card_number} · {picked.set_name} ({picked.set_code})
+                  </p>
+                  <button
+                    type="button"
+                    onClick={changeCard}
+                    className="mt-2 text-xs text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
+                  >
+                    Not this card? Search again
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Condition — only once a card is picked */}
+          {picked && (
+            <div>
+              <label className="block text-sm text-ink-muted mb-2">Condition *</label>
+              <select
+                value={condition}
+                onChange={(e) => setCondition(e.target.value as Condition)}
+                className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-accent/50"
+              >
+                {CONDITIONS.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Title — auto-filled from the card, editable */}
+          <div>
+            <label className="block text-sm text-ink-muted mb-2">Listing title *</label>
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); setTitleEdited(true); }}
               required
               className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50"
-              placeholder="e.g. Charizard Base Set Holo PSA 9"
+              placeholder="Auto-filled from the card — add grading or notable details"
             />
+            <p className="text-xs text-ink-faint mt-1.5">
+              Auto-filled from the card you picked. Edit to add grading (e.g. PSA 9) or other notable details.
+            </p>
           </div>
 
           {/* Description */}
@@ -539,10 +763,10 @@ export default function SellAuctionPage() {
 
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition disabled:opacity-50"
+            disabled={submitting || !picked}
+            className="w-full py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? "Submitting..." : "Submit Auction for Review"}
+            {submitting ? "Submitting..." : !picked ? "Pick a card to continue" : "Submit Auction"}
           </button>
         </form>
       </div>

@@ -16,6 +16,15 @@ import {
   getCurrentActor,
   isFulfilmentTerminal,
 } from "@/lib/auction/fulfilment-timeline";
+import { addressLines } from "./shipping-address";
+
+// The winner's shipping address rides on the auction row as `shipping_address`
+// (migration 0114, participant-only). It isn't on the shared Auction type
+// (Area A owns that), so read it through a narrow accessor rather than
+// widening the type here.
+function shippingAddressOf(auction: Auction): unknown {
+  return (auction as { shipping_address?: unknown }).shipping_address ?? null;
+}
 
 interface Props {
   auction: Auction;
@@ -72,17 +81,33 @@ export default function PostWinPanel({ auction, sessionUserId, onRefresh }: Prop
 
 function WinnerAwaitingPayment({ auction }: { auction: Auction }) {
   const [paying, setPaying] = useState(false);
+  // The pay route returns a structured { error } on failure (missing Stripe
+  // key → honest 503, etc.). Surface it instead of silently resetting the
+  // button while the forfeit clock runs.
+  const [error, setError] = useState<string | null>(null);
   async function pay() {
     setPaying(true);
+    setError(null);
     try {
       const res = await fetch(`/api/auctions/${auction.id}/pay`, { method: "POST" });
       if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(
+          (data && typeof data.error === "string" && data.error) ||
+            "Payment couldn't be started right now. Please try again in a moment.",
+        );
         setPaying(false);
         return;
       }
       const { url } = await res.json();
-      if (url) window.location.href = url;
+      if (url) {
+        window.location.href = url;
+      } else {
+        setError("Payment couldn't be started right now. Please try again in a moment.");
+        setPaying(false);
+      }
     } catch {
+      setError("Network error — check your connection and try again.");
       setPaying(false);
     }
   }
@@ -106,7 +131,39 @@ function WinnerAwaitingPayment({ auction }: { auction: Auction }) {
       >
         {paying ? "Opening Stripe…" : "Pay now"}
       </button>
+      {error && (
+        <div className="bg-danger/10 border border-danger/20 rounded-lg px-3 py-2">
+          <p className="text-xs text-danger">{error}</p>
+        </div>
+      )}
     </>
+  );
+}
+
+// Seller's ship-to block — where to send the card. Direct-ship auctions
+// (every customer auction is is_consignment=false) need the winner's
+// address; the panel used to ask only for a tracking number with nowhere
+// to send. Participant-only: PostWinPanel renders this solely inside the
+// seller branch, and the server strips shipping_address from the auction
+// seed for non-sellers.
+function ShipToBlock({ auction }: { auction: Auction }) {
+  const lines = addressLines(shippingAddressOf(auction));
+  return (
+    <div className="bg-page border border-border-subtle rounded-lg p-3">
+      <p className="text-[10px] uppercase tracking-wider text-ink-faint font-bold mb-1.5">Ship to</p>
+      {lines.length > 0 ? (
+        <div className="space-y-0.5">
+          {lines.map((line, i) => (
+            <p key={i} className="text-sm font-mono text-ink leading-snug">{line}</p>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-ink-muted">
+          The winner&rsquo;s address isn&rsquo;t on file yet — it&rsquo;s collected at payment.
+          If it&rsquo;s still missing after they pay, contact support before dispatching.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -211,9 +268,10 @@ function SellerInProgress({
           <p className="text-sm text-ink-muted">
             {auction.is_consignment
               ? "Buyer has paid. Ship the card to Cambridge TCG for inspection."
-              : "Buyer has paid. Ship the card directly to the buyer."}
+              : "Buyer has paid. Ship the card directly to the winner at the address below, then add tracking."}
           </p>
         </div>
+        {!auction.is_consignment && <ShipToBlock auction={auction} />}
         <div className="space-y-2">
           <div className="flex gap-2">
             <select

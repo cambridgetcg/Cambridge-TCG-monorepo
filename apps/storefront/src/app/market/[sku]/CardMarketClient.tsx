@@ -22,6 +22,70 @@ export interface CardIdentitySeed extends CatalogIdentity {
   reference_price: number | null;
 }
 
+// A live auction for this exact card, resolved server-side from
+// auctions.sku. Additive read only — the auction engine is untouched.
+export interface AlsoAtAuction {
+  id: string;
+  title: string;
+  auction_type: string;
+  current_price: string;
+  ends_at: string | null;
+  image_url: string | null;
+}
+
+const AUCTION_TYPE_LABELS: Record<string, string> = {
+  english: "English",
+  dutch: "Dutch",
+  buy_now: "Buy Now",
+};
+
+function auctionEndsLabel(endsAt: string | null): string | null {
+  if (!endsAt) return null;
+  const ms = new Date(endsAt).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return "ending";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `ends in ${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `ends in ${hours}h`;
+  return `ends in ${Math.floor(hours / 24)}d`;
+}
+
+/** Quiet strip linking to any live auction(s) for this card. */
+function AlsoAtAuctionStrip({ auctions }: { auctions: AlsoAtAuction[] }) {
+  if (auctions.length === 0) return null;
+  return (
+    <div className="wardrobe-mat rounded-lg p-3 mb-4">
+      <p className="text-[10px] text-ink-faint uppercase tracking-wide mb-2">
+        Also at auction
+      </p>
+      <ul className="space-y-2">
+        {auctions.map((a) => {
+          const ends = auctionEndsLabel(a.ends_at);
+          return (
+            <li key={a.id}>
+              <Link
+                href={`/auctions/${a.id}`}
+                className="flex items-center gap-2 group"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs text-ink truncate group-hover:text-accent transition">
+                    {AUCTION_TYPE_LABELS[a.auction_type] || a.auction_type}
+                    {ends && <span className="text-ink-faint"> · {ends}</span>}
+                  </span>
+                </span>
+                <span className="text-xs font-mono tabular-nums text-bid shrink-0">
+                  <Money value={Number(a.current_price)} />
+                </span>
+                <span className="text-ink-faint text-xs shrink-0" aria-hidden>→</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 // Wardrobe migration (spec §3.4): Gallery semantic tokens, Icon glyphs and a
 // voiced empty state — skin only; fetches, polling, hooks and forms unchanged.
 
@@ -371,9 +435,11 @@ function BuyRoutingInfo({
 export default function CardMarketClient({
   sku,
   identity,
+  alsoAtAuction = [],
 }: {
   sku: string;
   identity: CardIdentitySeed;
+  alsoAtAuction?: AlsoAtAuction[];
 }) {
   const pathname = usePathname();
   // Sign-in CTAs carry the current path so the login flow can return here.
@@ -840,6 +906,7 @@ export default function CardMarketClient({
 
             {/* Reference price panel below card image */}
             <div className="mt-4">
+              <AlsoAtAuctionStrip auctions={alsoAtAuction} />
               <ReferencePricePanel view={book} />
               {analytics && <PriceHistoryTile analytics={analytics} />}
               {fairValue && fairValue.tradeCount > 0 && (

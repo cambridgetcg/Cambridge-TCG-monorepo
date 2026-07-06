@@ -19,7 +19,40 @@ import {
   type CatalogIdentity,
 } from "@/lib/market/catalog-card";
 import { resolveReferencePrice } from "@/lib/market/reference-price";
-import CardMarketClient from "./CardMarketClient";
+import { query } from "@/lib/db";
+import CardMarketClient, { type AlsoAtAuction } from "./CardMarketClient";
+
+/**
+ * Live auctions for this exact card (auctions.sku, migration 0113) — a
+ * small additive read so a card that's up for auction stops being an island
+ * and surfaces on its own market page. Live-only; ordered soonest-ending.
+ * A source hiccup degrades to an empty strip, never a broken card page.
+ */
+async function findLiveAuctionsForSku(sku: string): Promise<AlsoAtAuction[]> {
+  try {
+    const r = await query(
+      `SELECT a.id, a.title, a.auction_type, a.current_price, a.ends_at,
+              (SELECT url FROM auction_images
+                WHERE auction_id = a.id
+                ORDER BY display_order LIMIT 1) AS image_url
+         FROM auctions a
+        WHERE a.sku = $1 AND a.status = 'live'
+        ORDER BY a.ends_at ASC
+        LIMIT 4`,
+      [sku],
+    );
+    return r.rows.map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      auction_type: String(row.auction_type),
+      current_price: String(row.current_price),
+      ends_at: row.ends_at ? new Date(row.ends_at).toISOString() : null,
+      image_url: row.image_url ? String(row.image_url) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 // The order book is live (the client polls it every 10s) and identity is
 // resolved per-request from the catalogue, so this page is inherently
@@ -80,12 +113,16 @@ export default async function CardPage({
   // Reference price from the shared resolver (wholesale substrate, same as
   // the /market table). Enrichment only — a null here is a source outage,
   // rendered as a labelled note, never a card without identity.
-  const referencePrice = await resolveReferencePrice(card.sku).catch(() => null);
+  const [referencePrice, alsoAtAuction] = await Promise.all([
+    resolveReferencePrice(card.sku).catch(() => null),
+    findLiveAuctionsForSku(card.sku),
+  ]);
 
   return (
     <CardMarketClient
       sku={card.sku}
       identity={{ ...card, reference_price: referencePrice }}
+      alsoAtAuction={alsoAtAuction}
     />
   );
 }
