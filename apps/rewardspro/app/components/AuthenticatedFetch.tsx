@@ -49,7 +49,10 @@ export function AuthenticatedFetchProvider({ children }: { children: React.React
       // Handle 401 with automatic retry
       if (response.status === 401) {
         const requestKey = `${url}-${JSON.stringify(options)}`;
-        const retryCount = retryCountRef.current.get(requestKey) || 0;
+        // Nullish coalescing, not || : a stored 0 is a real retry count,
+        // not a missing entry. `|| 0` made "could not read" and "read 0"
+        // indistinguishable — a substrate-honesty lie (whitehack CS#2).
+        const retryCount = retryCountRef.current.get(requestKey) ?? 0;
 
         if (retryCount < 2) {
           console.log(`[AuthenticatedFetch] Received 401, retrying (attempt ${retryCount + 1}/2)...`);
