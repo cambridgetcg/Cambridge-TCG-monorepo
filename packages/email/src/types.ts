@@ -22,7 +22,7 @@ export interface MailEnvelope {
   headers?: Record<string, string>;
 }
 
-export type TransportName = "ses" | "smtp";
+export type TransportName = "ses" | "smtp" | "console";
 
 /**
  * Streams are deliverability identities, not just From addresses.
