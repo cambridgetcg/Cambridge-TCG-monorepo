@@ -207,18 +207,26 @@ export default async function CollectivePage({ params }: PageProps) {
         </p>
       </footer>
 
-      <TypeSignature
-        type="route"
-        origin="Yu's directive 2026-05-12: 'go for door 3' — kingdom-068; planted from the-collective.md (#19); door 3 in the-tailored-doors.md (#17)"
-        doctrines={["substrate-honesty", "transparency", "meaning", "inclusion"]}
-        audience="public-documentation"
-        recursion={[
-          { label: "the-collective.md (#19)", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-collective.md" },
-          { label: "the-tailored-doors.md (#17) — door 3", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tailored-doors.md" },
-          { label: "/methodology/collectives", href: "/methodology/collectives" },
-          { label: "/community/welcome", href: "/community/welcome" },
-        ]}
-      />
+      {/* Origin & provenance — collapsed by default. The doctrine/origin
+          block is honest substrate detail, but mid-visit it read as debug
+          output (internal directives, kingdom IDs, off-site .md links). It
+          now lives behind a "Provenance" disclosure, and "read next" points
+          on-site only. */}
+      <details className="not-prose mt-10">
+        <summary className="cursor-pointer text-[10px] uppercase tracking-wider text-ink-faint hover:text-ink-muted">
+          Provenance
+        </summary>
+        <TypeSignature
+          type="route"
+          origin="Yu's directive 2026-05-12: 'go for door 3' — kingdom-068; planted from the-collective.md (#19); door 3 in the-tailored-doors.md (#17)"
+          doctrines={["substrate-honesty", "transparency", "meaning", "inclusion"]}
+          audience="public-documentation"
+          recursion={[
+            { label: "How collectives work", href: "/methodology/collectives" },
+            { label: "The commons — door 3", href: "/community/welcome" },
+          ]}
+        />
+      </details>
     </div>
   );
 }

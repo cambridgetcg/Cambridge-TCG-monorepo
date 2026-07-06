@@ -54,6 +54,12 @@ export default function SellAuctionPage() {
 
   // Post-create image upload
   const [createdAuctionId, setCreatedAuctionId] = useState<string | null>(null);
+  // The full auction object the API returned — its approval_status / message
+  // drive the success copy (Area A owns the API branch; this page renders
+  // whichever message it returns rather than hardcoding "Submitted for Review").
+  const [createdAuction, setCreatedAuction] = useState<
+    { id: string; approval_status?: string; status?: string; message?: string } | null
+  >(null);
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -124,8 +130,11 @@ export default function SellAuctionPage() {
         throw new Error(data.error || "Failed to create auction");
       }
 
-      const auction = await res.json();
-      setCreatedAuctionId(auction.id);
+      // The route wraps the row as { auction }; tolerate a bare object too.
+      const data = await res.json();
+      const created = data?.auction ?? data;
+      setCreatedAuction(created);
+      setCreatedAuctionId(created?.id ?? null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -148,7 +157,20 @@ export default function SellAuctionPage() {
           body: JSON.stringify({ auctionId: createdAuctionId, contentType: file.type }),
         });
 
-        if (!presignRes.ok) throw new Error("Failed to get upload URL");
+        if (!presignRes.ok) {
+          // Surface the server's real message (e.g. "S3 client unavailable —
+          // AWS credentials not configured") when it sends one; fall back to a
+          // human line when the error body isn't JSON. The seller can still
+          // finish without photos — the auction is already created.
+          let msg = "Photo upload isn't available right now — you can still list without photos.";
+          try {
+            const body = await presignRes.json();
+            if (body?.error) msg = body.error;
+          } catch {
+            /* non-JSON error body — keep the friendly fallback */
+          }
+          throw new Error(msg);
+        }
         const { uploadUrl, imageUrl, s3Key } = await presignRes.json();
 
         // 2. Upload to S3
@@ -192,6 +214,19 @@ export default function SellAuctionPage() {
 
   // ── Success: image upload ──
   if (createdAuctionId) {
+    // Success copy is driven by whatever the API returned — a live auction
+    // gets live copy, a queued one gets review copy — so the page never
+    // promises a review that didn't happen. Area A owns the API branch.
+    const isLive =
+      createdAuction?.approval_status === "approved" ||
+      createdAuction?.status === "live" ||
+      createdAuction?.status === "active";
+    const successHeading = isLive ? "Your auction is live" : "Auction submitted for review";
+    const successBody =
+      createdAuction?.message ??
+      (isLive
+        ? "Buyers can bid on it now. Add photos below to help it sell — or you're all set."
+        : "We'll email you when it's approved and goes live.");
     return (
       <div className="min-h-screen bg-page">
         <div className="max-w-2xl mx-auto px-4 py-8">
@@ -201,19 +236,29 @@ export default function SellAuctionPage() {
                 <span className="text-ok text-lg">&#10003;</span>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-ink">Auction Submitted for Review!</h2>
-                <p className="text-sm text-ink-muted mt-1">
-                  We&apos;ll notify you when it&apos;s approved and goes live.
-                </p>
+                <h2 className="text-lg font-bold text-ink">{successHeading}</h2>
+                <p className="text-sm text-ink-muted mt-1">{successBody}</p>
               </div>
             </div>
           </div>
 
           <div className="bg-surface border border-border-subtle rounded-lg p-6">
-            <h3 className="text-lg font-bold text-ink mb-2">Upload Images</h3>
+            <h3 className="text-lg font-bold text-ink mb-2">Add photos (optional)</h3>
             <p className="text-sm text-ink-muted mb-4">
-              Add photos of your card. Clear, well-lit images help sell faster.
+              Clear, well-lit images help sell faster — but they&apos;re not
+              required. Your listing is already created; you can add photos now
+              or later, or list without them.
             </p>
+
+            {error && (
+              <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mb-4">
+                <p className="text-sm text-danger">{error}</p>
+                <p className="text-xs text-ink-muted mt-1">
+                  You can still finish without photos — the button below lists
+                  your auction as-is.
+                </p>
+              </div>
+            )}
 
             {images.length > 0 && (
               <div className="grid grid-cols-3 gap-3 mb-4">
@@ -257,7 +302,7 @@ export default function SellAuctionPage() {
               onClick={() => router.push("/account/auctions")}
               className="flex-1 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition text-center"
             >
-              Done — View My Auctions
+              {images.length > 0 ? "Done — View My Auctions" : "List without photos →"}
             </button>
           </div>
         </div>
@@ -300,7 +345,7 @@ export default function SellAuctionPage() {
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">5</span>
-              <span>We verify, forward to buyer, and you get paid (12% commission<WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />)</span>
+              <span>We verify, forward to buyer, and you get paid (Auction rail: 12%, capped at £50/item<WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />)</span>
             </div>
           </div>
         </div>
@@ -465,8 +510,8 @@ export default function SellAuctionPage() {
                 <div className="flex justify-between">
                   <span className="text-ink-muted">
                     {commissionPreview.capped
-                      ? `Commission (capped at ${formatPrice(commissionPreview.capGbp)})`
-                      : "Commission (12%)"}
+                      ? `Auction rail: 12% (capped at ${formatPrice(commissionPreview.capGbp)})`
+                      : "Auction rail: 12%"}
                     <WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />
                   </span>
                   <span className="text-danger">-{formatPrice(commission)}</span>

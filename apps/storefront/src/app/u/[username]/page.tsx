@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
 import { MessageButton, TrustTier, UserMention, WhyLink } from "@/lib/ui";
 import type {
@@ -38,6 +38,7 @@ export default function UserProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [notFoundState, setNotFoundState] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [commerce, setCommerce] = useState<{
@@ -84,8 +85,18 @@ export default function UserProfilePage() {
       .catch(() => {});
 
     fetch(`/api/social/profile?user=${encodeURIComponent(username)}`)
-      .then((r) => r.json())
+      .then((r) => {
+        // A's API returns a real 404 for unknown handles. Honour it with a
+        // real notFound() instead of rendering a soft-404 "Profile not
+        // found." shell at HTTP 200.
+        if (r.status === 404) {
+          setNotFoundState(true);
+          return null;
+        }
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
         if (data.private) {
           setIsPrivate(true);
         } else {
@@ -124,6 +135,8 @@ export default function UserProfilePage() {
       </div>
     );
   }
+
+  if (notFoundState) notFound();
 
   if (isPrivate) {
     return (
@@ -166,8 +179,14 @@ export default function UserProfilePage() {
             >
               {!profile.avatar_url && <span>{initial}</span>}
             </div>
-            {/* Trust score */}
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-surface border border-border-strong flex items-center justify-center text-xs font-mono font-semibold text-ink">
+            {/* Trust score — distinct from membership tier (labelled below).
+                title + aria-label so the bare number isn't mistaken for a
+                rank or a count. */}
+            <div
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-surface border border-border-strong flex items-center justify-center text-xs font-mono font-semibold text-ink"
+              title={`Trust score: ${profile.trust_score}`}
+              aria-label={`Trust score ${profile.trust_score}`}
+            >
               {profile.trust_score}
             </div>
           </div>
@@ -177,15 +196,20 @@ export default function UserProfilePage() {
               <h1 className="text-2xl font-display font-semibold text-ink truncate">
                 <UserMention user={profile} form="third-person" fallback={profile.username ?? "user"} />
               </h1>
+              {/* Membership tier — a commercial standing (patronage), NOT the
+                  trust score (reputation) or the trust tier band. Labelled
+                  explicitly so the three vocabularies don't read as one soup,
+                  and linked to its own methodology, never trust-score. */}
               {profile.tier_name && (
                 <span
-                  className="inline-flex items-center pb-px text-xs font-semibold text-ink-muted"
+                  className="inline-flex items-center gap-1 pb-px text-xs font-semibold text-ink-muted"
                   style={{ borderBottom: `2px solid ${tierColor}` }}
                 >
+                  <span className="font-normal text-ink-faint">Membership:</span>
                   {profile.tier_name}
+                  <WhyLink href="/methodology/membership-tier" tooltip="How do membership tiers work?" />
                 </span>
               )}
-              <WhyLink href="/methodology/trust-score" tooltip="How is the trust score computed?" />
               <UserMention user={profile} form="pronouns-only" />
             </div>
             <p className="text-ink-faint text-sm mt-0.5">@{profile.username}</p>
@@ -259,7 +283,11 @@ export default function UserProfilePage() {
           <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-ink uppercase tracking-wide">Seller Reputation</h2>
-              <TrustTier name={commerce.trustTier.name} score={commerce.trustScore} showScore={false} />
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] uppercase tracking-wider text-ink-faint">Trust</span>
+                <TrustTier name={commerce.trustTier.name} score={commerce.trustScore} showScore={false} />
+                <WhyLink href="/methodology/trust-score" tooltip="How is the trust score computed?" />
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
@@ -288,8 +316,8 @@ export default function UserProfilePage() {
                 Member since {new Date(commerce.memberSince).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
               </p>
               <p className="text-[11px] text-ink-faint">
-                Current commission rate: <span className="font-mono text-ok">{(commerce.commissionRate * 100).toFixed(0)}%</span>
-                <WhyLink href="/methodology/commission-rate" tooltip="How is the commission rate decided?" />
+                P2P rail commission: <span className="font-mono text-ok">{(commerce.commissionRate * 100).toFixed(0)}%</span>
+                <WhyLink href="/methodology/fees" tooltip="How is the commission rate decided?" />
                 {commerce.commissionRate < 0.08 && (
                   <span className="text-accent ml-1">&middot; earned by reputation</span>
                 )}

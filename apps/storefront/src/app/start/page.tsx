@@ -70,23 +70,33 @@ export default function StartPage() {
         <div className="space-y-3 text-ink-muted leading-relaxed">
           <p>
             <strong className="text-ok">
-              Trading with other people: 0% commission (<Link href="/methodology/fees" className="text-accent underline">how fees work</Link>).
+              Swapping card-for-card: 0% commission
             </strong>{" "}
-            We do not take a cut when you trade card-for-card or sell to another
-            collector.
-            <span className="text-ink-faint">
-              {" "}
-              (Marketplaces like TCGplayer and eBay usually take around 10–13%.)
-            </span>
+            (
+            <Link href="/methodology/fees" className="text-accent underline">
+              how fees work
+            </Link>
+            ). When you trade one card straight for another — no money — we
+            don&apos;t take a cut.
           </p>
           <p>
             <strong className="text-ink">Buying a card:</strong> you pay the
-            price the seller listed — nothing added on top. The seller pays a
-            small commission (
-            <Link href="/methodology/commission-rate" className="text-accent underline">
-              how commission works
+            price the seller listed — <strong>nothing added on top</strong>.
+          </p>
+          <p>
+            <strong className="text-ink">Selling a card:</strong> listing is
+            always free — you only pay commission if it actually sells. On the
+            market the seller pays <strong>5–8%</strong> (lower the more trust
+            you&apos;ve earned); at auction it&apos;s <strong>12%</strong> —
+            both capped at £50 per item.{" "}
+            <Link href="/methodology/fees" className="text-accent underline">
+              See every rail.
             </Link>
-            ).
+            <span className="text-ink-faint">
+              {" "}
+              (Marketplaces like TCGplayer and eBay usually take around 10–13%,
+              often with no cap.)
+            </span>
           </p>
           <p className="text-sm text-ink-faint">
             We used to run a shop of our own; that ended on 6 July 2026, with

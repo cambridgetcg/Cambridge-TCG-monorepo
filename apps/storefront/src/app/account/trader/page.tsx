@@ -21,6 +21,7 @@ import type { Metadata } from "next";
 import { auth } from "@/lib/auth";
 import { loadTraderDashboard, type TraderDashboard } from "@/lib/market/trader-dashboard";
 import { Provenance, WhyLink, Audience, audienceMetadata, MoneyDisplay } from "@/lib/ui";
+import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = {
   title: "Trader dashboard — Cambridge TCG",
@@ -364,21 +365,21 @@ export default async function TraderDashboardPage() {
       <TrustSection d={d} />
       <ListingsSection d={d} />
 
-      <footer className="text-xs text-ink-faint border-t border-border-subtle pt-4">
+      <footer className="text-xs text-ink-faint border-t border-border-subtle pt-4 space-y-1">
+        {/* Human-readable provenance only. The exact tables, source file,
+            and formulas this dashboard composes from live behind the "how
+            this is composed" affordance (/methodology/trader-dashboard) so
+            the collector-facing surface reads as a cockpit, not debug output. */}
         <p>
-          Composed from <code>market_trades</code>,{" "}
-          <code>market_orders</code>, <code>market_lots</code>,{" "}
-          <code>market_offers</code>, <code>market_returns</code>,{" "}
-          <code>trust_profiles</code>, <code>trust_score_history</code> at{" "}
-          <code>{d._provenance.queried_at}</code>. The pending-payout
-          window uses a 14-day cap as a substrate-honest approximation of
-          the trust-tier-dependent hold; see{" "}
+          Composed live from your own market activity at{" "}
+          {formatDateTime(d._provenance.queried_at)}.{" "}
+          <WhyLink href="/methodology/trader-dashboard" label="how this is composed" />
+        </p>
+        <p>
+          The pending-payout window uses a 14-day cap as a substrate-honest
+          approximation of the trust-tier-dependent hold; see{" "}
           <Link href="/methodology/payout-hold">/methodology/payout-hold</Link>{" "}
-          for the canonical formula. Source:{" "}
-          <code>apps/storefront/src/lib/market/trader-dashboard.ts</code>.
-          Story-as-wire:{" "}
-          <code>docs/connections/the-trader-mirror.md</code> (S31). Kingdom:{" "}
-          <code>kingdom-058</code>.
+          for the canonical formula.
         </p>
       </footer>
     </div>

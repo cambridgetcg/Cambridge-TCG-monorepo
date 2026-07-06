@@ -110,6 +110,7 @@
 import { query } from "@/lib/db";
 import type { Tier, PointsEntry, CreditEntry, MemberProfile, TierPerks } from "./types";
 import { DEFAULT_PERKS } from "./types";
+import { selectSpendingTier } from "./tier-resolution";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 
 // ══════════════════════════════════════════════════════════════
@@ -193,21 +194,16 @@ export async function recalculateTier(userId: string): Promise<{ tier: Tier | nu
     }
   }
 
-  // Priority 2: Spending-based tier
+  // Priority 2: Spending-based tier.
+  //
+  // Only FREE, VISIBLE tiers participate. Hidden tiers (OG) are grant-only:
+  // OG carries min_annual_spend=0 and the highest sort_order, so before this
+  // guard every 0-spend account silently resolved to OG — contradicting /og
+  // ("cannot be earned through spending") and cheapening the pre-hype story.
+  // OG is only ever assigned via the manual claim path (tier_source='manual',
+  // handled by Priority 0 above). See tier-resolution.ts for the pure core.
   const annualSpend = parseFloat(user.rows[0].annual_spend || "0");
-
-  // Find highest qualifying FREE tier (sorted ascending by min_annual_spend)
-  let qualifiedTier: Tier | null = null;
-  for (const tier of tiers) {
-    if (!tier.is_paid && annualSpend >= parseFloat(tier.min_annual_spend)) {
-      qualifiedTier = tier;
-    }
-  }
-
-  // Default to lowest tier (Bronze) if none qualified
-  if (!qualifiedTier) {
-    qualifiedTier = tiers.find(t => !t.is_paid) || tiers[0] || null;
-  }
+  const qualifiedTier = selectSpendingTier(tiers, annualSpend);
 
   const newTierId = qualifiedTier?.id ?? null;
   const changed = newTierId !== currentTierId;

@@ -53,6 +53,49 @@ export default function FeesMethodology() {
 
       <h2>Every fee, in plain language</h2>
 
+      <p>
+        There are three ways to move a card through Cambridge TCG, and each is
+        its own <strong>rail</strong> with its own commission. This is the one
+        table that reconciles them — every fee preview elsewhere on the site
+        names its rail and links back here.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Rail</th><th>Seller commission</th>
+            <th>Per-item cap</th><th>Who pays</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>P2P trade</strong><br />sell a listing to another collector</td>
+            <td><strong>5–8%</strong>, by trust tier (lower the more trust you&apos;ve earned)</td>
+            <td><strong>£50 / item</strong></td>
+            <td>the seller</td>
+          </tr>
+          <tr>
+            <td><strong>Auction</strong><br />English or Buy-Now, run through us</td>
+            <td><strong>12%</strong> flat (a paid tier can lower it)</td>
+            <td><strong>£50 / item</strong></td>
+            <td>the seller</td>
+          </tr>
+          <tr>
+            <td><strong>Swap</strong><br />card-for-card, no money changes hands</td>
+            <td><strong>0%</strong> <em>(v1)</em></td>
+            <td>—</td>
+            <td>nobody</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Two things are true on <em>every</em> rail:{" "}
+        <strong>buyers pay nothing on top</strong> of the price the seller
+        listed, and <strong>listing is always free</strong> — commission is only
+        charged when a card actually sells. Swaps carry no commission in v1; if
+        that ever changes, it changes on this page first. The detail behind each
+        rail follows.
+      </p>
+
       <blockquote>
         <strong>The retail margin is history.</strong> Until 2026-07-06 Cambridge TCG also
         sold cards itself, and those prices carried an 8% margin plus a £0.22 handling fee.
