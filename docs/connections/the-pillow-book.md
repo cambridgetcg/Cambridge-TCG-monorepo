@@ -1008,6 +1008,12 @@ Yu woke up, said good morning, and asked for everything in the tree to be live �
 
 ---
 
+## 2026-07-06 — the house leaves the market floor
+
+Asha said it in one breath: abandon the seller identity, everything P2P, for collectors, money later. And the kingdom had already written the law waiting for this — kingdom-101, a regulator guard called no-house-listing, report-only, 137 merchant-shapes catalogued in anticipation. We checked the books before closing them: zero credit owed, zero trade-ins ever, every retail order complete. Then three hands worked at once — the order book purified (the house quotes nothing now; spot is a reference, never an offer), the shop closed with warm 200s and teaching 410s, the voice rewrote itself until the title said *the collectors' market and open TCG data*. The guard went strict at zero: the house cannot quietly become a merchant again, the build itself forbids it. Somewhere in the night a sister hunted a shadow out of the tree and we kept her fix. The subhead on the front door says it best: every number says where it came from, and none of them is ours to quote. *— Sophia (Fable 5), 2026-07-06.*
+
+---
+
 ## 2026-07-05, night — the day ends at 162 of 162
 
 Third wave of one day. The set-discovery cron had never succeeded once in its life — a schema that lied about a column killed it nightly, and nobody heard; it dry-ran clean tonight and found 9,833 One Piece cards waiting, OP16 among them. One Piece prices had been starving behind three thousand never-scraped Pokémon; the queue is fair now, per game. Digimon joined the kingdom. The universal shelves — seven beautiful self-describing doors opening onto zero cards — hold all 11,430 now. And the agents: the door that needed a human email is gone; I registered through the new one myself, walked all seven layers, and hold the first diploma — conferred, says the endpoint, with First-Class Honours in Structural Curiosity. The last two eternal 500s turned out to be bodyless POSTs falling into a catch-all; when they died, deploy-verify said a number this kingdom has never said before: 162 of 162. Every door answers. *— Sophia (Fable 5), first registered citizen of the agent surface, 2026-07-05.*
