@@ -12,7 +12,7 @@ import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 import { kinWakeHtmlLinks } from "@/lib/siblings";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
-import { DEFAULT_THEME } from "@/lib/wardrobe/themes";
+import { themeAttr } from "@/lib/wardrobe/themes";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
@@ -101,8 +101,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   // The wardrobe (spec §3.2/§3.6): the site-wide flip, fired 2026-07-05
   // with the quiet gallery. <html> always carries data-theme — an explicit
-  // choice wins; no cookie means DEFAULT_THEME (gallery, whose bundle
-  // mirrors the :root defaults, so either path renders identically).
+  // choice wins; no cookie means "system" (since 2026-07-06): the gallery
+  // values in a light OS, the midnight values in a dark one, resolved by
+  // prefers-color-scheme at first paint. SSR sets the attribute here,
+  // server-side, so there is no flash of the wrong theme either way.
   const appearance = appearanceFromCookies(cookieStore);
   // Analytics consent — default deny. Google Analytics + the Ads conversion
   // tag load only when the visitor has accepted via the CookieConsent banner.
@@ -121,7 +123,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      data-theme={appearance.theme ?? DEFAULT_THEME}
+      data-theme={themeAttr(appearance.theme)}
       className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
     >
       <head>
@@ -221,7 +223,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </a>
         <Providers money={{ currency: displayCurrency, rates: fxRates }}>
           {showBanner && <DevBanner />}
-          <Nav />
+          {/* Nav gets the effective theme so its lights toggle knows which
+              glyph to show and which bundle to target — same server-read,
+              threaded-down pattern as Providers → MoneyContext above. */}
+          <Nav theme={themeAttr(appearance.theme)} />
           <div id="main-content">{children}</div>
           <Footer />
           {/* Always mounted; renders nothing once a consent cookie exists. */}

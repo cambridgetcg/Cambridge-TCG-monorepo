@@ -6,9 +6,12 @@
  * function over an already-awaited cookie store, so layouts and pages
  * read once per request and thread the result down.
  *
- * `theme` is null when the visitor has never chosen — migrated surfaces
- * then default to DEFAULT_THEME on their own wrapper (spec §3.3) while
- * `:root` stays terminal until the flip (§3.6).
+ * `theme` is null when the visitor has never chosen an explicit bundle —
+ * including when they chose "follow system", which clears the cookie
+ * (/api/appearance, ?theme=system|default). Renderers pass null through
+ * themeAttr() and emit `data-theme="system"`: gallery values in a light
+ * OS, midnight values in a dark one (themes.css). A stale cookie holding
+ * a non-bundle value (e.g. "system") fails isThemeId and lands here too.
  */
 
 import type { cookies } from "next/headers";

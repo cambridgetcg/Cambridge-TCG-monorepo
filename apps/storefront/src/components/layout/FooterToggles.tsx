@@ -1,14 +1,20 @@
 "use client";
 
 /**
- * FooterToggles — the math-language and text-mode switches.
+ * FooterToggles — the math-language and text-mode switches, plus the
+ * door to the wardrobe.
  *
  * Client component so the `back` param carries the page the visitor is
  * actually on. The previous server-rendered anchors hardcoded `back=/`,
  * ejecting the visitor to the homepage whenever they switched rendering
  * mode from a deep page (contact-surface spec §3.1, chrome wiring).
+ *
+ * The theme affordance here is deliberately just a link to /appearance —
+ * the Nav carries the lights toggle; the footer names the room where all
+ * the choices live. One switch on the wall, one door to the wardrobe.
  */
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 interface FooterTogglesProps {
@@ -45,6 +51,13 @@ export default function FooterToggles({ mathLang, textMode }: FooterTogglesProps
       >
         {textMode ? "Visual layout" : "Text-only layout"}
       </a>
+      <Link
+        href="/appearance"
+        className="hover:text-ink transition underline underline-offset-2"
+        aria-label="Choose a theme and tone — light, dark, follow system, and more"
+      >
+        Appearance
+      </Link>
     </div>
   );
 }

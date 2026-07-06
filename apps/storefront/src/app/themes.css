@@ -16,8 +16,9 @@
  * gallery values since the site-wide flip (spec §3.6, fired 2026-07-05
  * with the quiet gallery — docs/plans/the-quiet-gallery.md). The old
  * terminal-dark look survives verbatim in the terminal bundle below.
- * The gallery bundle mirrors :root exactly, so cookie-gallery and
- * no-cookie render identically.
+ * The gallery bundle mirrors :root exactly. Since 2026-07-06 a no-cookie
+ * visitor wears [data-theme="system"]: those same :root/gallery values in
+ * a light OS, the midnight values in a dark one (prefers-color-scheme).
  *
  * Raw utilities (`bg-neutral-900`) do not respond to themes by design —
  * migration to semantic tokens is the unit of adoption.
@@ -106,7 +107,15 @@
   color-scheme: light;
 }
 
-/* ── Midnight — members' skin: blue-black ground, moonlight gilt ─────── */
+/* ── Midnight — the dark mode: blue-black ground, moonlight gilt ─────── */
+/* Free for everyone since 2026-07-06 (dark mode is table stakes, not a
+ * perk; the member lock came off in themes.ts).
+ *
+ * ⚠ SYNC CONTRACT — this block is duplicated VERBATIM inside
+ * `@media (prefers-color-scheme: dark) { [data-theme="system"] { … } }`
+ * further down, because CSS cannot share one declaration block across a
+ * media-query boundary. Any edit here MUST be mirrored there.
+ * Guard: src/app/themes.sync.test.ts fails on drift. */
 [data-theme="midnight"] {
   --color-page: #0b0f1a;
   --color-surface: #121829;
@@ -161,15 +170,71 @@
   color-scheme: light;
 }
 
+/* ── System — the fifth choice: follow the visitor's OS ──────────────── */
+/* Worn by <html> when no theme cookie exists (or the visitor chose
+ * "follow system"): the quiet gallery by day, midnight after dark,
+ * decided by prefers-color-scheme at first paint — the preference never
+ * reaches the server.
+ *
+ * The base block deliberately declares NO tokens: in a light scheme it
+ * inherits the :root defaults, which ARE the gallery values (globals.css
+ * + the @theme block above). Only color-scheme is declared, so UA chrome
+ * (form controls, scrollbars) adapts to either scheme. */
+[data-theme="system"] {
+  color-scheme: light dark;
+}
+
+/* ⚠ SYNC CONTRACT — the block below is a VERBATIM copy of
+ * [data-theme="midnight"] above. CSS cannot share one declaration block
+ * across a media-query boundary, so the duplication is structural, not
+ * accidental. Any edit to the midnight bundle MUST be mirrored here.
+ * Guard: src/app/themes.sync.test.ts fails on drift. */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --color-page: #0b0f1a;
+    --color-surface: #121829;
+    --color-surface-subtle: #0e1422;
+    --color-surface-elevated: #1a2138;
+    --color-border-subtle: #1f2941;
+    --color-border-strong: #2e3b5e;
+    --color-accent: #d9b36c;        /* moonlight gilt */
+    --color-accent-strong: #e6c788;
+    --color-accent-wash: rgb(217 179 108 / 0.12);
+    --color-secondary: #5bbf8f;
+    --color-danger: #e07a6b;
+    --color-warning: #d9b36c;
+    --color-info: #7fb4c9;
+    --color-ok: #5bbf8f;
+    --color-ink: #e9e4d6;
+    --color-ink-muted: #9ba3b8;
+    --color-ink-faint: #5f687e;
+    --color-bid: #5bbf8f;
+    --color-ask: #e07a6b;
+    --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+    --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+    --font-body: var(--font-schibsted), system-ui, sans-serif;
+    --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: dark;
+  }
+}
+
 /* ── Materials ───────────────────────────────────────────────────────── */
 
 /* The ground — page background; gallery adds a whisper of paper grain.
- * (CSS-only SVG turbulence; sits under content, never over it.) */
+ * (CSS-only SVG turbulence; sits under content, never over it.)
+ * System joins gallery here: its light half IS the gallery. The dark
+ * override below keeps its dark half faithful to midnight (no grain). */
 .wardrobe-ground {
   background-color: var(--color-page);
 }
-[data-theme="gallery"] .wardrobe-ground {
+[data-theme="gallery"] .wardrobe-ground,
+[data-theme="system"] .wardrobe-ground {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.13 0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] .wardrobe-ground {
+    background-image: none;
+  }
 }
 
 /* The mat — a framed card image: hairline + warm shadow + white mount. */
@@ -186,7 +251,8 @@
   to { opacity: 1; transform: none; }
 }
 [data-theme="gallery"] .wardrobe-rise,
-[data-theme="midnight"] .wardrobe-rise {
+[data-theme="midnight"] .wardrobe-rise,
+[data-theme="system"] .wardrobe-rise {
   animation: wardrobe-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 [data-theme] .wardrobe-rise:nth-child(2) { animation-delay: 60ms; }

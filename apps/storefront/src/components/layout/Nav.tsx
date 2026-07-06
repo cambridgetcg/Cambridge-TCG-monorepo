@@ -21,6 +21,7 @@ import { usePathname } from "next/navigation";
 import NotificationBell from "./NotificationBell";
 import { MegaMenu } from "./MegaMenu";
 import { STOREFRONT_PRIMARY_NAV } from "@/lib/nav/menu-config";
+import type { ThemeChoice } from "@/lib/wardrobe/themes";
 
 // Unread-DM badge on an envelope link to /account/messages. Counts
 // unread CONVERSATIONS (same source as the /account attention list),
@@ -81,11 +82,66 @@ function MessagesIndicator() {
   );
 }
 
-export default function Nav() {
+// The switch on the wall — one quiet glyph that flips the lights.
+// Effective-dark themes (midnight, terminal) show the sun and target
+// gallery; light themes (gallery, high-contrast) and system-follow show
+// the moon and target midnight. A plain <a> to the wardrobe's cookie
+// writer (back-redirect idiom), so it works without JS; the full
+// wardrobe stays at /appearance.
+function themeToggle(theme: ThemeChoice, pathname: string) {
+  const isDark = theme === "midnight" || theme === "terminal";
+  return {
+    target: isDark ? "gallery" : "midnight",
+    label: isDark ? "Lights on" : "Lights off",
+    href: `/api/appearance?theme=${isDark ? "gallery" : "midnight"}&back=${encodeURIComponent(pathname || "/")}`,
+    isDark,
+  };
+}
+
+function ThemeGlyph({ isDark, className }: { isDark: boolean; className: string }) {
+  return isDark ? (
+    // Sun — back to the lit gallery
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path
+        strokeLinecap="round"
+        d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"
+      />
+    </svg>
+  ) : (
+    // Moon — the gallery, lights off
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+      />
+    </svg>
+  );
+}
+
+export default function Nav({ theme }: { theme: ThemeChoice }) {
   const [loggedIn, setLoggedIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const pathname = usePathname();
+  const toggle = themeToggle(theme, pathname);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -142,6 +198,15 @@ export default function Nav() {
               />
             </svg>
           </Link>
+          {/* The lights switch — no JS needed; all themes at /appearance */}
+          <a
+            href={toggle.href}
+            aria-label={toggle.label}
+            title={`${toggle.label} — all themes at /appearance`}
+            className="text-ink-muted hover:text-ink transition py-2"
+          >
+            <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
+          </a>
           <Link
             href={loggedIn ? "/account" : "/login"}
             className="text-sm text-ink-muted hover:text-ink transition py-2"
@@ -293,6 +358,23 @@ export default function Nav() {
             >
               {loggedIn ? "My Account" : "Sign In"}
             </Link>
+            {/* The lights switch, labelled for the drawer; the full
+                wardrobe one step away. Plain <a> — works without JS. */}
+            <div className="flex items-center justify-between border-t border-border-subtle">
+              <a
+                href={toggle.href}
+                className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink"
+              >
+                <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
+                {toggle.label}
+              </a>
+              <Link
+                href="/appearance"
+                className="px-3 py-3 text-xs text-accent hover:text-accent-strong"
+              >
+                All themes →
+              </Link>
+            </div>
           </div>
         </div>
       )}

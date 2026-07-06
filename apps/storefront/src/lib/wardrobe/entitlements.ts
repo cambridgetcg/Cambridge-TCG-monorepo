@@ -4,6 +4,12 @@
  * Spec: docs/superpowers/specs/2026-06-10-the-wardrobe-design.md §3.5.
  * Gating model chosen by Yu (2026-06-10): basics free, skins as perks.
  *
+ * 2026-07-06: midnight un-gated (dark mode is table stakes, not a perk) —
+ * every registry entry is "free" today, so this module currently locks
+ * nothing. It stays because the mechanism is the promise: a future
+ * seasonal/set-flavoured skin may genuinely be a perk, and the rule below
+ * is already the honest shape for it.
+ *
  * The rule is deliberately simple and deliberately asymmetric:
  *   - every "free" theme is available to everyone, signed-in or not —
  *     accessibility choices (high-contrast, text-mode, reduced-motion)

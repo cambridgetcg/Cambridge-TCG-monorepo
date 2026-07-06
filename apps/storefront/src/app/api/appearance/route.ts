@@ -2,16 +2,20 @@
  * Appearance setter — the wardrobe's only cookie writer.
  *
  * GET `/api/appearance?theme=gallery&back=/market` sets the theme cookie
- * and returns to the page the visitor was on. `?theme=default` clears it.
+ * and returns to the page the visitor was on. `?theme=system` (alias:
+ * `?theme=default`) clears the cookie — no cookie IS the system-follow
+ * state, one truth in one place: <html> then wears data-theme="system"
+ * (gallery in a light OS, midnight in a dark one; themes.css).
  * `?tone=plain` / `?tone=standard` set the voice register; `?tone=default`
  * clears it. Both params may arrive together.
  *
  * Idiom copied from /api/text-mode (kingdom-051 Phase 10): no body, no
  * client JS, same-site cookie, back-redirect. A display preference is the
- * visitor's alone — but *member* themes are perks (spec §3.5), so the
- * entitlement check runs here, server-side, against the session's tier.
- * A locked id degrades silently to no-change: no error theatre over a
- * cosmetic, the settings page is where locks are explained.
+ * visitor's alone. All four themes are free since 2026-07-06 (midnight's
+ * member lock came off — dark mode is table stakes); the entitlement
+ * check below stays as the mechanism for any future locked skin. A locked
+ * id degrades silently to no-change: no error theatre over a cosmetic,
+ * the settings page is where locks are explained.
  *
  * Spec: docs/superpowers/specs/2026-06-10-the-wardrobe-design.md.
  */
@@ -19,7 +23,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getMemberProfile } from "@/lib/membership/db";
-import { isThemeId, THEME_COOKIE, TONE_COOKIE, THEMES } from "@/lib/wardrobe/themes";
+import { isThemeId, SYSTEM_THEME, THEME_COOKIE, TONE_COOKIE, THEMES } from "@/lib/wardrobe/themes";
 import { canWear } from "@/lib/wardrobe/entitlements";
 import { isToneId } from "@/lib/wardrobe/voice";
 
@@ -38,7 +42,9 @@ export async function GET(req: Request) {
 
   const res = NextResponse.redirect(new URL(back, url.origin));
 
-  if (themeRaw === "default") {
+  if (themeRaw === "default" || themeRaw === SYSTEM_THEME) {
+    // System-follow is the absence of a choice — deleting the cookie is
+    // the whole write. "system" never lands in the cookie itself.
     res.cookies.delete(THEME_COOKIE);
   } else if (isThemeId(themeRaw)) {
     const theme = THEMES.find((t) => t.id === themeRaw)!;
