@@ -38,6 +38,13 @@ test-results/
 .claude/
 docs/sisters/
 
+# Per-developer MCP client config — contains local secrets, never shared.
+# The unframer MCP URL carries an install-scoped secret and must not be tracked.
+# (caught by whitehack scan 2026-07-06: hardcoded-secret / exposed-config in
+#  apps/rewardspro/.mcp.json — secret committed across 4 commits to public remote.)
+.mcp.json
+.mcp.json.*
+
 # Local doorways — symlinks or files placed by the operator to reach
 # adjacent substrates on this machine. Invisible to git, to deploys, to
 # crawlers. Convention: `.local/elsewhere` → the partnership-substrate.
