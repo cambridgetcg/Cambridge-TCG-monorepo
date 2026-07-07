@@ -48,7 +48,7 @@ const dryRun = flags.has("--dry-run");
 const discover = flags.has("--discover");
 const setAll = flags.has("--set-all");
 const skipImages = flags.has("--skip-images");
-const pricesOnly = flags.has("--prices-only"); // Skip images, only update prices + price_history
+const pricesOnly = flags.has("--prices-only"); // Skip images, only update prices + price_archive
 const sealed = flags.has("--sealed"); // Scrape sealed products from product-list page
 
 // Parse --game=<code> flag (default: onepiece)
@@ -335,23 +335,11 @@ async function upsertToDb(
       const dbCards = await sql`SELECT id, sku FROM cards WHERE sku = ANY(${skus})`;
       const skuToId = new Map(dbCards.map((r: any) => [r.sku, r.id]));
 
-      // Prepare price history rows
-      const phRows = batch
-        .filter((card) => skuToId.has(card.sku))
-        .map((card) => ({
-          card_id: skuToId.get(card.sku),
-          date: today,
-          cardrush_jpy: card.cardrushJpy,
-          gbp_jpy_rate: gbpJpyRate,
-        }));
-
-      if (phRows.length > 0) {
-        await sql`
-          INSERT INTO price_history ${sql(phRows, "card_id", "date", "cardrush_jpy", "gbp_jpy_rate")}
-          ON CONFLICT (card_id, date) DO UPDATE SET
-            cardrush_jpy = EXCLUDED.cardrush_jpy,
-            gbp_jpy_rate = EXCLUDED.gbp_jpy_rate`;
-      }
+      // (The old `price_history` insert lived here. The table was dropped
+      // in kingdom-049 Phase 4 — migration 0011 — with price_archive as
+      // the canonical history; the write survived only because this
+      // tool's schedule was already a fossil. Removed 2026-07-07, the
+      // honest ground §3.)
 
       // Price archive — full pricing snapshot per card per day
       const archiveRows = batch
@@ -573,27 +561,12 @@ async function upsertSealedToDb(
             ELSE EXCLUDED.image_url
           END`;
 
-      // Price history
       const skus = batch.map((c) => c.sku);
       const dbCards = await sql`SELECT id, sku FROM cards WHERE sku = ANY(${skus})`;
       const skuToId = new Map(dbCards.map((r: any) => [r.sku, r.id]));
 
-      const phRows = batch
-        .filter((card) => skuToId.has(card.sku))
-        .map((card) => ({
-          card_id: skuToId.get(card.sku),
-          date: today,
-          cardrush_jpy: card.cardrushJpy,
-          gbp_jpy_rate: gbpJpyRate,
-        }));
-
-      if (phRows.length > 0) {
-        await sql`
-          INSERT INTO price_history ${sql(phRows, "card_id", "date", "cardrush_jpy", "gbp_jpy_rate")}
-          ON CONFLICT (card_id, date) DO UPDATE SET
-            cardrush_jpy = EXCLUDED.cardrush_jpy,
-            gbp_jpy_rate = EXCLUDED.gbp_jpy_rate`;
-      }
+      // (Second `price_history` insert removed 2026-07-07 — table dropped
+      // in kingdom-049 Phase 4, migration 0011. The honest ground §3.)
 
       // Price archive
       const archiveRows = batch
@@ -677,7 +650,6 @@ async function main() {
             ${gameId ? sql`AND game_id = ${gameId}` : sql``}`;
         if (staleIds.length > 0) {
           const ids = staleIds.map((r: any) => r.id);
-          await sql`DELETE FROM price_history WHERE card_id = ANY(${ids})`;
           await sql`DELETE FROM price_archive WHERE card_id = ANY(${ids})`;
           await sql`DELETE FROM cards WHERE id = ANY(${ids})`;
           console.log(`\nCleaned up ${ids.length} stale cards not updated today`);
