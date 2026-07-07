@@ -173,7 +173,8 @@ body.text-mode .wardrobe-speedlines {
  * textures need their own kill. The manga layer reads as bare
  * black-on-white text, as promised. */
 body.text-mode .wardrobe-speedlines::before,
-body.text-mode .wardrobe-aura::before {
+body.text-mode .wardrobe-aura::before,
+body.text-mode .wardrobe-weather::before {
   content: none !important;
 }
 body.text-mode .wardrobe-tone-whisper,
