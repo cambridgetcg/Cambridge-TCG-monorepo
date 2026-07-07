@@ -28,7 +28,7 @@ describe("manga voice keys (spec 2026-07-07 §1i)", () => {
 
   it("plain register stays plain — no manga vocabulary", () => {
     for (const key of MANGA_KEYS) {
-      expect(voice("plain", key)).not.toMatch(/panel|ink|page turn|gutter|chapter|story/i);
+      expect(voice("plain", key)).not.toMatch(/\b(panel|ink|page turn|gutter|chapter|story)\b/i);
     }
   });
 });

@@ -126,7 +126,7 @@ const STRINGS = {
   },
   "market.card.history.empty": {
     standard: "No history here yet — the ink is fresh.",
-    plain: "No prior trades recorded.",
+    plain: "No trade history yet.",
   },
   "trades.paid.title": {
     standard: "Payment sent — the escrow desk takes the next panel.",
@@ -142,7 +142,7 @@ const STRINGS = {
   },
   "login.checkEmail": {
     standard: "A letter is crossing the gutter to you.",
-    plain: "Check your email to sign in.",
+    plain: "Check your email for the sign-in link.",
   },
 } as const satisfies Record<string, VoiceEntry>;
 
