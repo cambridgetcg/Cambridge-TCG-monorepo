@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { SetItem, PriceItem } from "@/lib/wholesale/client";
+import { PlateHeader } from "@/lib/ui";
 
 interface SetWithThumb extends SetItem {
   thumb: PriceItem | null;
@@ -29,17 +30,19 @@ export default function SetGrid({
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <div className="flex items-baseline justify-between mb-8">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-          {heading}
-        </h2>
-        <Link
-          href={`/market?game=${gameSlug}`}
-          className="text-sm text-accent hover:text-accent-strong transition-colors"
-        >
-          View all sets →
-        </Link>
-      </div>
+      <PlateHeader
+        title={heading}
+        plate={3}
+        rule
+        action={
+          <Link
+            href={`/market?game=${gameSlug}`}
+            className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
+          >
+            View all sets →
+          </Link>
+        }
+      />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {sets.map((set, i) => (
           <Link

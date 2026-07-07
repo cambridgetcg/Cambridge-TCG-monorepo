@@ -7,13 +7,14 @@ import FeaturedCards from "@/components/home/FeaturedCards";
 import CardFinderHero from "@/components/home/CardFinderHero";
 import StorySection from "@/components/home/StorySection";
 import KingdomStrip from "@/components/home/KingdomStrip";
-import { Provenance, WhyLink, Audience, InkRule } from "@/lib/ui";
+import { Provenance, WhyLink, Audience, InkRule, Benediction } from "@/lib/ui";
 import {
   BrandStatement,
   TwoOperations,
   HOME_HERO_PANELS,
   HOME_HERO_HEADLINE,
   HOME_HERO_SUBHEAD,
+  HOME_BENEDICTION,
 } from "@/lib/brand";
 
 /* The three quiet doors under the hero — the nav's L1 destinations in
@@ -167,18 +168,28 @@ export default async function Home() {
           human words, derived from KINGDOM_LAYERS. Contact-surface spec
           §3.1: the kingdom was previously reachable only via the Discover
           dropdown. */}
-      <KingdomStrip />
+      <div className="wardrobe-rise">
+        <KingdomStrip />
+      </div>
 
       {/* The gallery shelves — game doors, price guides, latest sets.
           Collectors first (2026-07-06): every shelf link lands on the
           market or the price guides; the retail catalog door is gone. */}
-      <GameGrid games={allGames} />
-      <PriceGuideStrip />
+      <div className="wardrobe-rise">
+        <GameGrid games={allGames} />
+      </div>
+      <div className="wardrobe-rise">
+        <PriceGuideStrip />
+      </div>
       {/* This shelf is One Piece only by construction (fetchSets("one-piece")
           above) — the heading says so instead of implying every game's
           latest sets. */}
-      <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Latest One Piece Sets" />
-      <StorySection />
+      <div className="wardrobe-rise">
+        <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Latest One Piece Sets" />
+      </div>
+      <div className="wardrobe-rise">
+        <StorySection />
+      </div>
       <div className="max-w-7xl mx-auto px-4 pt-8 flex items-center gap-3 text-xs">
         {/* <Provenance> is math-aware internally as of kingdom-078 Phase B(1).
             The Phase A <MathLang> wrapper that previously lived here did the
@@ -194,6 +205,7 @@ export default async function Home() {
         <WhyLink href="/methodology/pricing" label="how prices work" />
       </div>
       <FeaturedCards cards={featured.items} />
+      <Benediction line={HOME_BENEDICTION} />
     </main>
   );
 }

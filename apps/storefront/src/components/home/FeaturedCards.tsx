@@ -2,6 +2,7 @@ import { formatRetailPrice } from "@/lib/pricing";
 import Link from "next/link";
 import Image from "next/image";
 import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
+import { PlateHeader } from "@/lib/ui";
 
 /**
  * FeaturedCards — the gallery's actual art. Hairline mounts around real
@@ -13,16 +14,16 @@ import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
 export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <div className="flex items-baseline justify-between mb-8">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-          Featured Cards
-        </h2>
-        <span className="text-xs text-ink-faint">reference prices</span>
-      </div>
+      <PlateHeader
+        title="Featured Cards"
+        plate={4}
+        rule
+        action={<span className="font-mono text-xs text-ink-faint">reference prices</span>}
+      />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {cards.map(card => (
           <Link key={card.sku} href={`/market/${card.sku}`}
-            className="group wardrobe-mat rounded-lg overflow-hidden hover:bg-surface-subtle transition-colors">
+            className="group wardrobe-panel overflow-hidden hover:bg-surface-subtle transition-colors">
             <div className="relative aspect-[3/4] bg-surface-subtle">
               {card.image_url && (
                 <Image

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 import { summarizeGameCoverage } from "@/lib/prices/game-context";
+import { PlateHeader } from "@/lib/ui";
 
 /**
  * Per-game price guide strip — links to /prices/[game] for every
@@ -39,24 +40,24 @@ export default function PriceGuideStrip() {
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-12">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-            UK Price Guides
-          </h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Free, daily-updated reference prices across {sorted.length} TCGs.
-            Each page lists every set, every card — and the source behind
-            every number.
-          </p>
-        </div>
-        <Link
-          href="/prices"
-          className="text-sm text-accent hover:text-accent-strong transition-colors"
-        >
-          All price guides →
-        </Link>
-      </div>
+      <PlateHeader
+        title="UK Price Guides"
+        plate={2}
+        rule
+        action={
+          <Link
+            href="/prices"
+            className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
+          >
+            All price guides →
+          </Link>
+        }
+      />
+      <p className="-mt-3 mb-6 text-sm text-ink-muted">
+        Free, daily-updated reference prices across {sorted.length} TCGs.
+        Each page lists every set, every card — and the source behind
+        every number.
+      </p>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {sorted.map((g) => {
           const summary = summarizeGameCoverage(g.slug);

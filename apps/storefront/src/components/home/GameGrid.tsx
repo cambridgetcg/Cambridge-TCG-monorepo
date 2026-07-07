@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { GameItem } from "@/lib/wholesale/client";
+import { PlateHeader } from "@/lib/ui";
 
 /**
  * GameGrid — the doors into each game's market.
@@ -12,9 +13,7 @@ import type { GameItem } from "@/lib/wholesale/client";
 export default function GameGrid({ games }: { games: GameItem[] }) {
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <h2 className="font-display text-2xl font-semibold tracking-tight text-ink mb-8">
-        Browse by Game
-      </h2>
+      <PlateHeader title="Browse by Game" plate={1} rule />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {games.map((g) => (
           <Link
