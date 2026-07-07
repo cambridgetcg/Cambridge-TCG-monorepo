@@ -57,7 +57,7 @@ describe("manga materials (spec 2026-07-07 §1)", () => {
         `\\[data-theme="(gallery|midnight|system)"\\][^{]*\\.${cls}[^{]*\\{[^}]*animation`,
       );
       expect(themes, `.${cls} animation is not theme-gated`).toMatch(gated);
-      const bare = new RegExp(`(^|\\n)\\s*\\.${cls}[^,{]*\\{[^}]*animation-name`, "m");
+      const bare = new RegExp(`(^|\\n)\\s*\\.${cls}[^,{]*\\{[^}]*animation(-name)?\\s*:`, "m");
       expect(themes, `.${cls} binds animation outside a theme gate`).not.toMatch(bare);
     }
   });
@@ -78,5 +78,7 @@ describe("manga materials (spec 2026-07-07 §1)", () => {
     }
     expect(globals).toMatch(/body\.text-mode[^{]*\.wardrobe-speedlines::before/);
     expect(globals).toMatch(/body\.text-mode[^{]*\.wardrobe-aura::before/);
+    const toneKill = /body\.text-mode[^{]*\.wardrobe-tone-fade[^{]*\{[^}]*mask-image:\s*none/;
+    expect(globals, "text-mode does not kill the tone-fade mask").toMatch(toneKill);
   });
 });

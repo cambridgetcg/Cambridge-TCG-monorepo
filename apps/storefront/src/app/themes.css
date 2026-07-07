@@ -335,8 +335,8 @@
 }
 /* Sky-tone fade: dots dissolve upward, for hero backdrops. */
 .wardrobe-tone-fade {
-  -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 1), transparent);
-  mask-image: linear-gradient(to top, rgb(0 0 0 / 1), transparent);
+  -webkit-mask-image: linear-gradient(to top, currentColor, transparent);
+  mask-image: linear-gradient(to top, currentColor, transparent);
 }
 
 /* The manga panel — earned by card art and story moments; ordinary UI
@@ -369,8 +369,8 @@
     currentColor 0deg 0.4deg,
     transparent 0.4deg 5deg
   );
-  -webkit-mask-image: radial-gradient(circle at center, transparent 25%, rgb(0 0 0 / 1) 70%);
-  mask-image: radial-gradient(circle at center, transparent 25%, rgb(0 0 0 / 1) 70%);
+  -webkit-mask-image: radial-gradient(circle at center, transparent 25%, currentColor 70%);
+  mask-image: radial-gradient(circle at center, transparent 25%, currentColor 70%);
   opacity: 0;
 }
 [data-theme="gallery"] .wardrobe-speedlines::before,
@@ -419,8 +419,8 @@
   z-index: 0;
   background-image: radial-gradient(circle, var(--aura, transparent) 1px, transparent 1px);
   background-size: 5px 5px;
-  -webkit-mask-image: radial-gradient(ellipse at center, rgb(0 0 0 / 1) 30%, transparent 72%);
-  mask-image: radial-gradient(ellipse at center, rgb(0 0 0 / 1) 30%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse at center, currentColor 30%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, currentColor 30%, transparent 72%);
   opacity: 0;
 }
 [data-theme="gallery"] .wardrobe-aura::before,

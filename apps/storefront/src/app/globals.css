@@ -177,6 +177,8 @@ body.text-mode .wardrobe-aura::before {
 body.text-mode .wardrobe-tone-whisper,
 body.text-mode .wardrobe-tone-fade {
   background-image: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
 }
 
 /*

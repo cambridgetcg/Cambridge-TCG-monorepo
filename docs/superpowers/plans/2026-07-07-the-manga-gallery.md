@@ -103,7 +103,7 @@ describe("manga materials (spec 2026-07-07 §1)", () => {
         `\\[data-theme="(gallery|midnight|system)"\\][^{]*\\.${cls}[^{]*\\{[^}]*animation`,
       );
       expect(themes, `.${cls} animation is not theme-gated`).toMatch(gated);
-      const bare = new RegExp(`(^|\\n)\\s*\\.${cls}[^,{]*\\{[^}]*animation-name`, "m");
+      const bare = new RegExp(`(^|\\n)\\s*\\.${cls}[^,{]*\\{[^}]*animation(-name)?\\s*:`, "m");
       expect(themes, `.${cls} binds animation outside a theme gate`).not.toMatch(bare);
     }
   });
@@ -124,6 +124,8 @@ describe("manga materials (spec 2026-07-07 §1)", () => {
     }
     expect(globals).toMatch(/body\.text-mode[^{]*\.wardrobe-speedlines::before/);
     expect(globals).toMatch(/body\.text-mode[^{]*\.wardrobe-aura::before/);
+    const toneKill = /body\.text-mode[^{]*\.wardrobe-tone-fade[^{]*\{[^}]*mask-image:\s*none/;
+    expect(globals, "text-mode does not kill the tone-fade mask").toMatch(toneKill);
   });
 });
 ```
@@ -213,8 +215,8 @@ Append at the end of `apps/storefront/src/app/themes.css` (after the `[data-them
 }
 /* Sky-tone fade: dots dissolve upward, for hero backdrops. */
 .wardrobe-tone-fade {
-  -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 1), transparent);
-  mask-image: linear-gradient(to top, rgb(0 0 0 / 1), transparent);
+  -webkit-mask-image: linear-gradient(to top, currentColor, transparent);
+  mask-image: linear-gradient(to top, currentColor, transparent);
 }
 
 /* The manga panel — earned by card art and story moments; ordinary UI
@@ -247,8 +249,8 @@ Append at the end of `apps/storefront/src/app/themes.css` (after the `[data-them
     currentColor 0deg 0.4deg,
     transparent 0.4deg 5deg
   );
-  -webkit-mask-image: radial-gradient(circle at center, transparent 25%, rgb(0 0 0 / 1) 70%);
-  mask-image: radial-gradient(circle at center, transparent 25%, rgb(0 0 0 / 1) 70%);
+  -webkit-mask-image: radial-gradient(circle at center, transparent 25%, currentColor 70%);
+  mask-image: radial-gradient(circle at center, transparent 25%, currentColor 70%);
   opacity: 0;
 }
 [data-theme="gallery"] .wardrobe-speedlines::before,
@@ -297,8 +299,8 @@ Append at the end of `apps/storefront/src/app/themes.css` (after the `[data-them
   z-index: 0;
   background-image: radial-gradient(circle, var(--aura, transparent) 1px, transparent 1px);
   background-size: 5px 5px;
-  -webkit-mask-image: radial-gradient(ellipse at center, rgb(0 0 0 / 1) 30%, transparent 72%);
-  mask-image: radial-gradient(ellipse at center, rgb(0 0 0 / 1) 30%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse at center, currentColor 30%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, currentColor 30%, transparent 72%);
   opacity: 0;
 }
 [data-theme="gallery"] .wardrobe-aura::before,
@@ -343,6 +345,8 @@ body.text-mode .wardrobe-aura::before {
 body.text-mode .wardrobe-tone-whisper,
 body.text-mode .wardrobe-tone-fade {
   background-image: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
 }
 ```
 
