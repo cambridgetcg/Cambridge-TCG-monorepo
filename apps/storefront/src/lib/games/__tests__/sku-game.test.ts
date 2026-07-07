@@ -57,8 +57,31 @@ describe("gameFromSku — one truth for SKU → game", () => {
 
 describe("the Atlas derivation contract (spec 2026-07-07 the-atlas §3)", () => {
   it("pins the literal SkuGameSlug union to the Atlas's confirmed slugs", () => {
+    // The pin is a LITERAL list typed by the union — when a fourth game
+    // flips confirmed in the Atlas, this fails until both the union and
+    // this list grow, which is the ceremony. (First draft compared two
+    // expressions of the same derivation — a tautology; review batch
+    // 2026-07-07.)
+    const pinned: readonly import("../sku-game").SkuGameSlug[] = [
+      "one-piece",
+      "pokemon",
+      "dragon-ball",
+    ];
     const atlasSlugs = CONFIRMED_GAME_SLUGS.filter((s) => s !== GAMES.tst.slug);
-    expect(SKU_GAMES.map((g) => g.slug).sort()).toEqual([...atlasSlugs].sort());
+    expect([...atlasSlugs].sort()).toEqual([...pinned].sort());
+    expect(SKU_GAMES.map((g) => g.slug).sort()).toEqual([...pinned].sort());
+  });
+
+  it("pins the short display labels — tabs never inherit a product name", () => {
+    expect(Object.fromEntries(SKU_GAMES.map((g) => [g.slug, g.label]))).toEqual({
+      "one-piece": "One Piece",
+      pokemon: "Pokémon",
+      "dragon-ball": "Dragon Ball",
+    });
+  });
+
+  it("keeps the internal tst code underivable", () => {
+    expect(gameFromSku("tst-any-001-en")).toBeNull();
   });
 
   it("resolves canonical SKUs of newly registered games Atlas-wide", () => {

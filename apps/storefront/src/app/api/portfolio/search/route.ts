@@ -39,7 +39,14 @@ export async function GET(request: Request) {
   // catalog's founding game. Before this, the default silently locked
   // portfolio/wishlist search to one-piece for every caller.
   const requestedGame = (url.searchParams.get("game") || "").trim();
-  const game = gameFromSku(q.trim()) ?? (requestedGame || "one-piece");
+  // A SKU never contains whitespace and both regimes have >=3 hyphen
+  // segments — don't let natural-language queries ("alt-art Luffy",
+  // "gen-1 Charizard") hijack the game via their first token now that
+  // gameFromSku resolves every registered code (review batch 2026-07-07).
+  const trimmed = q.trim();
+  const skuShaped =
+    trimmed.length > 0 && !/\s/.test(trimmed) && trimmed.split("-").length >= 3;
+  const game = (skuShaped ? gameFromSku(trimmed) : null) ?? (requestedGame || "one-piece");
 
   if (!q.trim() || q.length < 2) {
     return NextResponse.json({ results: [] });

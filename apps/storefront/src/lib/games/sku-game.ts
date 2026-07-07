@@ -33,7 +33,7 @@ import {
 export const SKU_GAMES = CONFIRMED_GAME_CODES.filter((c) => c !== "tst").map(
   (code) => ({
     slug: GAMES[code].slug as SkuGameSlug,
-    label: GAMES[code].name.replace(/ TCG$| Card Game$/, ""),
+    label: GAMES[code].label ?? GAMES[code].name,
     brand: GAMES[code].brand,
   }),
 );
@@ -65,7 +65,10 @@ export const PREFIX_TO_GAME: Record<string, SkuGameSlug> = Object.fromEntries(
 // subsets (weather, tradein, price-guide copy) stay deliberately
 // narrower and simply no-op on slugs they don't dress.
 const CODE_TO_GAME: Record<string, string> = Object.fromEntries(
-  GAME_CODES.map((code: GameCode) => [code, GAMES[code].slug]),
+  GAME_CODES.filter((c) => c !== "tst").map((code: GameCode) => [
+    code,
+    GAMES[code].slug,
+  ]),
 );
 
 /**

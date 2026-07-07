@@ -464,3 +464,21 @@ describe("OracleResolution shape", () => {
     }
   });
 });
+
+// ── The Atlas registrants (2026-07-07) — kinds pinned by behavior ──────
+describe("Atlas registrants: gcg stripped, una diverged", () => {
+  it("gcg cross-language siblings share an oracle (ja/en/zh)", () => {
+    for (const lang of ["ja", "en", "zh"]) {
+      const r = resolveOracle(`gcg-st01-001-${lang}`);
+      expect(r.oracle_id).toBe("gcg-st01-001");
+      expect(r.source).toBe("derived-stripped");
+      expect(r.policy.kind).toBe("stripped");
+    }
+  });
+
+  it("una stays diverged — regional set renumbering yields no oracle", () => {
+    const r = resolveOracle("una-ua02bt-jjk1001-ja");
+    expect(r.oracle_id).toBeNull();
+    expect(r.policy.kind).toBe("diverged");
+  });
+});

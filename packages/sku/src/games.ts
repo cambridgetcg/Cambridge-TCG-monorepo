@@ -72,6 +72,11 @@ export interface GameMeta {
   slug: string;
   /** Official brand name — JSON-LD `brand`, SEO surfaces. */
   brand: string;
+  /** Short display label for UI tabs/badges ("Dragon Ball", not the
+   *  full product name). Optional — absent means `name` is already
+   *  short enough. Review batch 2026-07-07: regex-trimming `name`
+   *  regressed dbf's tab to its 31-char full name. */
+  label?: string;
   /** FROZEN legacy uppercase SKU prefixes (the pre-canonical wholesale
    *  regime). Only the founding trio ever had them; new games enter
    *  canonical-only, so on-card prefixes of later games (e.g. gundam's
@@ -98,9 +103,9 @@ export const GAMES: Record<GameCode, GameMeta> = {
   // ── Confirmed — cards exist in the production wholesale DB ─────────
   // (that is the whole definition of `confirmed`; reconciled 2026-07-05:
   //  op 3,438 / pkm 6,370 / dbf 1,622 cards verified in prod)
-  op:  { code: "op",  name: "One Piece TCG",         publisher: "Bandai",    languages: ["ja", "en", "zh", "ko"], slug: "one-piece", brand: "One Piece Card Game", legacyPrefixes: ["OP", "EB", "ST", "P", "PRB", "DON"], setCodeHint: "op<NN> (e.g. op01, op08)", confirmed: true },
-  pkm: { code: "pkm", name: "Pokémon TCG",           publisher: "TPCi",      languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt"], slug: "pokemon", brand: "Pokémon Trading Card Game", legacyPrefixes: ["PK"], setCodeHint: "publisher abbreviation (e.g. svobf, sv01, base)", confirmed: true },
-  dbf: { code: "dbf", name: "Dragon Ball Super Fusion World", publisher: "Bandai", languages: ["en", "ja"], slug: "dragon-ball", brand: "Dragon Ball Super Card Game Fusion World", legacyPrefixes: ["FB", "SB"], setCodeHint: "fb<NN> (e.g. fb01)", confirmed: true },
+  op:  { code: "op",  name: "One Piece TCG",         publisher: "Bandai",    languages: ["ja", "en", "zh", "ko"], slug: "one-piece", brand: "One Piece Card Game", legacyPrefixes: ["OP", "EB", "ST", "P", "PRB", "DON"], setCodeHint: "op<NN> (e.g. op01, op08)", label: "One Piece", confirmed: true },
+  pkm: { code: "pkm", name: "Pokémon TCG",           publisher: "TPCi",      languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt"], slug: "pokemon", brand: "Pokémon Trading Card Game", legacyPrefixes: ["PK"], setCodeHint: "publisher abbreviation (e.g. svobf, sv01, base)", label: "Pokémon", confirmed: true },
+  dbf: { code: "dbf", name: "Dragon Ball Super Fusion World", publisher: "Bandai", languages: ["en", "ja"], slug: "dragon-ball", brand: "Dragon Ball Super Card Game Fusion World", legacyPrefixes: ["FB", "SB"], setCodeHint: "fb<NN> (e.g. fb01)", label: "Dragon Ball", confirmed: true },
   // ── Registered, zero production cards (2026-07-05 reconciliation) ──
   // These nine previously claimed confirmed:true while the prod wholesale
   // DB held no cards for any of them — the registry lied about the
@@ -131,8 +136,8 @@ export const GAMES: Record<GameCode, GameMeta> = {
   // NEITHER has a cardrush subdomain (all candidates NXDOMAIN) — Wave 3
   // sources: gundam-gcg.com official DB + yuyu-tei/dorasuta (gcg);
   // yuyu-tei/dorasuta/merucarduniari (una).
-  gcg: { code: "gcg", name: "GUNDAM CARD GAME",      publisher: "Bandai",    languages: ["ja", "en", "zh"], slug: "gundam", brand: "GUNDAM CARD GAME", setCodeHint: "st<NN>/gd<NN>/eb<NN> + no-digit special families (t-, rp-, exbp-, exrp-)", confirmed: false },
-  una: { code: "una", name: "UNION ARENA",           publisher: "Bandai",    languages: ["ja", "en", "zh"], slug: "union-arena", brand: "UNION ARENA", setCodeHint: "on-card SETCODE/TITLE-wave-seq; JP ua<NN>bt|st|nc, ex<NN>bt; NA ue<NN>bt, uex<NN>bt (regional renumbering)", confirmed: false },
+  gcg: { code: "gcg", name: "GUNDAM CARD GAME",      publisher: "Bandai",    languages: ["ja", "en", "zh"], /* zh = Simplified (grammar carries no script subtag) */ slug: "gundam", brand: "GUNDAM CARD GAME", setCodeHint: "st<NN>/gd<NN>/eb<NN> + no-digit special families (t-, rp-, exbp-, exrp-)", label: "Gundam", confirmed: false },
+  una: { code: "una", name: "UNION ARENA",           publisher: "Bandai",    languages: ["ja", "en", "zh"], /* zh = Traditional (HK/TW program; no script subtag in grammar) */ slug: "union-arena", brand: "UNION ARENA", setCodeHint: "on-card SETCODE/TITLE-wave-seq; JP ua<NN>bt|st|nc, ex<NN>bt; NA ue<NN>bt, uex<NN>bt (regional renumbering)", label: "Union Arena", confirmed: false },
   // ── Internal ───────────────────────────────────────────────────────
   // tst is exempt from the production-DB definition: it exists so tests
   // can exercise the confirmed path without a real game.
