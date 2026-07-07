@@ -217,19 +217,20 @@ manga materials region, after the `.wardrobe-aura` opacity gates):
  * The weather NEVER moves — it is ground, not gesture (motion doctrine
  * budget untouched). Base opacity 0: terminal and high-contrast never
  * see it; text-mode kills it by name in globals.css. */
+/* Stacking (amended by the 2026-07-07 review batch): isolated negative-z
+ * pseudo instead of the aura's `> *` lift — themes.css is unlayered, so a
+ * `> *` z-index rule would silently override Tailwind positioning
+ * utilities on direct children of room-scale mounts. */
 .wardrobe-weather {
   position: relative;
-}
-.wardrobe-weather > * {
-  position: relative;
-  z-index: 1;
+  isolation: isolate;
 }
 .wardrobe-weather::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
   border-radius: inherit;
   opacity: 0;
 }
@@ -237,8 +238,8 @@ manga materials region, after the `.wardrobe-aura` opacity gates):
 /* the sea — three-ring seigaiha scallops, 56×28 tile, staggered rows */
 .wardrobe-weather--one-piece::before {
   background-color: var(--color-ink);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M-14 14 A14 14 0 0 1 14 14 M-9.5 14 A9.5 9.5 0 0 1 9.5 14 M-5 14 A5 5 0 0 1 5 14'/%3E%3Cpath d='M14 14 A14 14 0 0 1 42 14 M18.5 14 A9.5 9.5 0 0 1 37.5 14 M23 14 A5 5 0 0 1 33 14'/%3E%3Cpath d='M42 14 A14 14 0 0 1 70 14 M46.5 14 A9.5 9.5 0 0 1 65.5 14 M51 14 A5 5 0 0 1 61 14'/%3E%3Cpath d='M0 28 A14 14 0 0 1 28 28 M4.5 28 A9.5 9.5 0 0 1 23.5 28 M9 28 A5 5 0 0 1 19 28'/%3E%3Cpath d='M28 28 A14 14 0 0 1 56 28 M32.5 28 A9.5 9.5 0 0 1 51.5 28 M37 28 A5 5 0 0 1 47 28'/%3E%3C/g%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M-14 14 A14 14 0 0 1 14 14 M-9.5 14 A9.5 9.5 0 0 1 9.5 14 M-5 14 A5 5 0 0 1 5 14'/%3E%3Cpath d='M14 14 A14 14 0 0 1 42 14 M18.5 14 A9.5 9.5 0 0 1 37.5 14 M23 14 A5 5 0 0 1 33 14'/%3E%3Cpath d='M42 14 A14 14 0 0 1 70 14 M46.5 14 A9.5 9.5 0 0 1 65.5 14 M51 14 A5 5 0 0 1 61 14'/%3E%3Cpath d='M0 28 A14 14 0 0 1 28 28 M4.5 28 A9.5 9.5 0 0 1 23.5 28 M9 28 A5 5 0 0 1 19 28'/%3E%3Cpath d='M28 28 A14 14 0 0 1 56 28 M32.5 28 A9.5 9.5 0 0 1 51.5 28 M37 28 A5 5 0 0 1 47 28'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M-14 14 A14 14 0 0 1 14 14 M-9.5 14 A9.5 9.5 0 0 1 9.5 14 M-5 14 A5 5 0 0 1 5 14'/%3E%3Cpath d='M14 14 A14 14 0 0 1 42 14 M18.5 14 A9.5 9.5 0 0 1 37.5 14 M23 14 A5 5 0 0 1 33 14'/%3E%3Cpath d='M42 14 A14 14 0 0 1 70 14 M46.5 14 A9.5 9.5 0 0 1 65.5 14 M51 14 A5 5 0 0 1 61 14'/%3E%3Cpath d='M0 28 A14 14 0 0 1 28 28 M4.5 28 A9.5 9.5 0 0 1 23.5 28 M9 28 A5 5 0 0 1 19 28'/%3E%3Cpath d='M28 28 A14 14 0 0 1 56 28 M32.5 28 A9.5 9.5 0 0 1 51.5 28 M37 28 A5 5 0 0 1 47 28'/%3E%3Cpath d='M-14 42 A14 14 0 0 1 14 42 M14 42 A14 14 0 0 1 42 42 M42 42 A14 14 0 0 1 70 42'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M-14 14 A14 14 0 0 1 14 14 M-9.5 14 A9.5 9.5 0 0 1 9.5 14 M-5 14 A5 5 0 0 1 5 14'/%3E%3Cpath d='M14 14 A14 14 0 0 1 42 14 M18.5 14 A9.5 9.5 0 0 1 37.5 14 M23 14 A5 5 0 0 1 33 14'/%3E%3Cpath d='M42 14 A14 14 0 0 1 70 14 M46.5 14 A9.5 9.5 0 0 1 65.5 14 M51 14 A5 5 0 0 1 61 14'/%3E%3Cpath d='M0 28 A14 14 0 0 1 28 28 M4.5 28 A9.5 9.5 0 0 1 23.5 28 M9 28 A5 5 0 0 1 19 28'/%3E%3Cpath d='M28 28 A14 14 0 0 1 56 28 M32.5 28 A9.5 9.5 0 0 1 51.5 28 M37 28 A5 5 0 0 1 47 28'/%3E%3Cpath d='M-14 42 A14 14 0 0 1 14 42 M14 42 A14 14 0 0 1 42 42 M42 42 A14 14 0 0 1 70 42'/%3E%3C/g%3E%3C/svg%3E");
   -webkit-mask-repeat: repeat;
   mask-repeat: repeat;
   -webkit-mask-size: 56px 28px;
@@ -248,8 +249,10 @@ manga materials region, after the `.wardrobe-aura` opacity gates):
 /* the rising air — still rays from the ground; NOT speedlines (those
  * are a 300ms celebration; this never moves). Fades skyward. */
 .wardrobe-weather--dragon-ball::before {
+  /* -90.25deg (review batch): clips the horizon wedges symmetrically —
+   * a plain -90deg leaves a stray horizontal line at the bottom-left. */
   background-image: repeating-conic-gradient(
-    from -90deg at 50% 100%,
+    from -90.25deg at 50% 100%,
     var(--color-ink) 0deg 0.5deg,
     transparent 0.5deg 9deg
   );
