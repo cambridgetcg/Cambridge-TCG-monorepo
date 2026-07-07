@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { InkRule } from "@/lib/ui/InkRule";
 
 // ?return= arrives from the account layout / proxy when an
 // unauthenticated visitor hits a gated page. Only a same-origin relative
@@ -134,6 +135,7 @@ function LoginInner() {
     <main className="min-h-screen bg-page flex items-center justify-center">
       <div className="w-full max-w-sm px-4">
         <h1 className="text-2xl font-display font-semibold text-ink text-center mb-2">Sign In</h1>
+        <InkRule className="mb-4 max-w-[8rem] mx-auto" />
         <p className="text-sm text-ink-muted text-center mb-8">
           Enter your email to receive a magic link
         </p>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { cookies } from "next/headers";
-import { WELCOME_STATEMENT } from "@/lib/ui";
+import { WELCOME_STATEMENT, Benediction } from "@/lib/ui";
 import { BRAND_TAGLINE } from "@/lib/brand";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
 import FooterToggles from "./FooterToggles";
@@ -99,6 +99,11 @@ export default async function Footer() {
           <Link href="/data" className="hover:text-ink transition">Open Data</Link>
         </div>
       </div>
+
+      <Benediction
+        line="Every card is a panel in somebody's story."
+        className="py-6"
+      />
 
       <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-border-subtle text-xs text-ink-faint flex flex-wrap items-center justify-between gap-3">
         <span>© {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.</span>

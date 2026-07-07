@@ -140,6 +140,15 @@ export default function MyListPage() {
 - **Type**: headings + wordmark in `font-display` (Fraunces, weight 500–600, never 900;
   3xl is the ceiling outside the home hero); body inherits Schibsted Grotesk via
   `--font-body`; SKUs, card numbers, and prices in tables use `font-mono` (Spline Mono).
+- **Two voices** (the manga gallery, spec 2026-07-07): Spline Mono is the *apparatus*
+  voice — SKUs, plate numbers, provenance, deadlines, counts. Fraunces italic is the
+  *narrator* — subtitles, benedictions, empty-state titles, doctrine captions. Emphasis
+  is typographic, never loud.
+- **Motion doctrine**: at most ONE hero-scale animation per page (home: the breathing
+  gutter; celebrations: the speed-line settle). Entrance rises (`wardrobe-rise`) and
+  hover transitions are free. Loops only for the hero breath and threshold-bob. New
+  materials: `wardrobe-draw` / `-tone-*` / `-panel` / `-speedlines` / `-aura` / `-bob`
+  (themes.css) — all theme-gated, all in the text-mode kill list, all clamp-safe.
 - **Form**: `rounded-lg` standard (`rounded-xl` only modals + hero card); elevation via
   `shadow-mat` or the `.wardrobe-mat` helper only; focus = 2px accent outline, visible
   always, never removed; whitespace separates — hairlines, not boxes-in-boxes.

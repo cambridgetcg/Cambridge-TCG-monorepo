@@ -51,7 +51,7 @@ export const THEMES: readonly WardrobeTheme[] = [
   {
     id: "gallery",
     label: "Gallery",
-    gloss: "The quiet room — warm paper, ink type, one bronze accent; the cards are the art.",
+    gloss: "The manga page — ink on warm paper, screentone light; the cards are the panels.",
     entitlement: "free",
     swatches: ["#faf8f4", "#ffffff", "#201d18", "#96762f"],
     scheme: "light",
