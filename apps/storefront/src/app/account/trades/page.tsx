@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/format";
 import { Badge, Palettes, Money, MessageButton } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { MarketOrder, MarketTrade, EscrowStatus } from "@/lib/market/types";
 import { DISPUTE_REASONS } from "@/lib/trust/types";
+import PaidReturnBanner from "./PaidReturnBanner";
 
 import { Audience } from "@/lib/ui";
 type TradeWithRole = MarketTrade & {
@@ -288,6 +289,9 @@ export default function TradesPage() {
   return (
     <div>
       <Audience kind="consumer" />
+      <Suspense fallback={null}>
+        <PaidReturnBanner />
+      </Suspense>
       <h1 className="text-2xl font-display font-semibold text-ink mb-6">Trades</h1>
 
       {/* Action needed — hoisted above the tabs for BOTH roles so nothing
