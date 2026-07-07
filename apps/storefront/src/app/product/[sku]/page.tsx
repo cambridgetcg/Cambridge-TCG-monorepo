@@ -21,7 +21,8 @@ import AddToPortfolio from "@/components/product/AddToPortfolio";
 import ExternalBuyLinks from "@/components/product/ExternalBuyLinks";
 import Script from "next/script";
 import CardGrid from "@/components/catalog/CardGrid";
-import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import { Provenance, WhyLink, Audience, Palettes } from "@/lib/ui";
+import { TONE_COLOR } from "@/lib/ui/Badge";
 import { gameFromSku, gameBrand } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
 
@@ -140,16 +141,21 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
         {/* Card image */}
-        <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-surface">
-          {card.image_url && (
-            <Image
-              src={card.image_url}
-              alt={cardAltText(card)}
-              fill
-              className="object-contain"
-              priority
-            />
-          )}
+        <div
+          className="wardrobe-aura"
+          style={{ "--aura": TONE_COLOR[Palettes.RarityPalette[card.rarity ?? ""] ?? "neutral"] } as React.CSSProperties}
+        >
+          <div className="relative aspect-[3/4] wardrobe-panel overflow-hidden">
+            {card.image_url && (
+              <Image
+                src={card.image_url}
+                alt={cardAltText(card)}
+                fill
+                className="object-contain"
+                priority
+              />
+            )}
+          </div>
         </div>
 
         {/* Card details */}
