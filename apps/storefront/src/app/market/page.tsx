@@ -72,7 +72,7 @@ export default async function MarketPage({
         {/* ========== HEADER — collectors first ========== */}
         <div className="mb-6 flex items-end justify-between flex-wrap gap-4">
           <div>
-            <h1 className="font-display text-3xl font-black tracking-tight text-ink mb-2">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-ink mb-2">
               The Collectors&rsquo; Market
             </h1>
             <p className="text-ink-muted max-w-2xl">

@@ -294,7 +294,7 @@ export default function MarketBrowser({
             </p>
           )}
 
-          {loading && <CatalogSkeleton view={query.view} />}
+          {loading && <CatalogSkeleton view={query.view} caption={v("market.loading.catalog")} />}
 
           {/* Source outage is an error, never an empty catalog. */}
           {!loading && !catalog.ok && (
@@ -539,7 +539,7 @@ function CatalogGrid({
         // Pure collector counts — no house bid to subtract anymore.
         const collectorBids = card.p2p_buyers;
         return (
-          <Link key={card.sku} href={`/market/${card.sku}`} className="wardrobe-mat rounded-lg p-3 hover:bg-surface-subtle transition group">
+          <Link key={card.sku} href={`/market/${card.sku}`} className="wardrobe-panel p-3 hover:bg-surface-subtle transition group">
             {card.image_url ? (
               <Image
                 src={card.image_url}
@@ -647,49 +647,61 @@ function SetPill({ active, onClick, children }: { active: boolean; onClick: () =
   );
 }
 
-export function CatalogSkeleton({ view }: { view: ViewMode }) {
+export function CatalogSkeleton({ view, caption }: { view: ViewMode; caption?: string }) {
   if (view === "grid") {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="wardrobe-mat rounded-lg p-3 animate-pulse">
-            <div className="aspect-[2.5/3.5] bg-surface-subtle rounded-lg mb-3" />
-            <div className="h-4 bg-surface-subtle rounded w-3/4 mb-2" />
-            <div className="h-3 bg-surface-subtle rounded w-1/2 mb-3" />
-            <div className="h-4 bg-surface-subtle rounded w-16" />
-          </div>
-        ))}
+      <div aria-busy="true" aria-live="polite">
+        {caption && (
+          <p className="font-display italic text-sm text-ink-faint mb-3">{caption}</p>
+        )}
+        <span className="sr-only">Loading cards…</span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="wardrobe-mat rounded-lg p-3 animate-pulse">
+              <div className="aspect-[2.5/3.5] bg-surface-subtle rounded-lg mb-3" />
+              <div className="h-4 bg-surface-subtle rounded w-3/4 mb-2" />
+              <div className="h-3 bg-surface-subtle rounded w-1/2 mb-3" />
+              <div className="h-4 bg-surface-subtle rounded w-16" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
   return (
-    <div className="wardrobe-mat overflow-x-auto rounded-lg">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-surface-elevated border-b border-border-subtle text-ink-muted text-xs uppercase tracking-wider">
-            <th className="px-3 py-2.5 text-left">Card</th>
-            <th className="px-3 py-2.5 text-left hidden sm:table-cell">Set</th>
-            <th className="px-3 py-2.5 text-right">Best Ask</th>
-            <th className="px-3 py-2.5 text-right">Best Bid</th>
-            <th className="px-3 py-2.5 text-center hidden sm:table-cell">Activity</th>
-            <th className="px-3 py-2.5 text-right">Spot</th>
-            <th className="px-3 py-2.5" />
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <tr key={i} className="animate-pulse">
-              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
-              <td className="px-3 py-3 hidden sm:table-cell"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
-              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
-              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
-              <td className="px-3 py-3 hidden sm:table-cell"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
-              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
-              <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+    <div aria-busy="true" aria-live="polite">
+      {caption && (
+        <p className="font-display italic text-sm text-ink-faint mb-3">{caption}</p>
+      )}
+      <span className="sr-only">Loading cards…</span>
+      <div className="wardrobe-mat overflow-x-auto rounded-lg">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-surface-elevated border-b border-border-subtle text-ink-muted text-xs uppercase tracking-wider">
+              <th className="px-3 py-2.5 text-left">Card</th>
+              <th className="px-3 py-2.5 text-left hidden sm:table-cell">Set</th>
+              <th className="px-3 py-2.5 text-right">Best Ask</th>
+              <th className="px-3 py-2.5 text-right">Best Bid</th>
+              <th className="px-3 py-2.5 text-center hidden sm:table-cell">Activity</th>
+              <th className="px-3 py-2.5 text-right">Spot</th>
+              <th className="px-3 py-2.5" />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <tr key={i} className="animate-pulse">
+                <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+                <td className="px-3 py-3 hidden sm:table-cell"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+                <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+                <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+                <td className="px-3 py-3 hidden sm:table-cell"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+                <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+                <td className="px-3 py-3"><div className="h-4 bg-surface-subtle rounded w-full" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
