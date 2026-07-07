@@ -71,6 +71,11 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // One entry per place card images actually live (the honest ground,
+    // spec 2026-07-07 §2): three per-game S3 hi-res buckets + the three
+    // CardRush hosts images ride on before the 5-min drain archives them.
+    // Only the One Piece pair was listed before — pokemon/dragon-ball
+    // images failed next/image for want of a whitelist line.
     remotePatterns: [
       {
         protocol: "https",
@@ -82,7 +87,23 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "jp-pk-photos.s3.us-east-1.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "jp-db-photos.s3.us-east-1.amazonaws.com",
+      },
+      {
+        protocol: "https",
         hostname: "www.cardrush-op.jp",
+      },
+      {
+        protocol: "https",
+        hostname: "www.cardrush-pokemon.jp",
+      },
+      {
+        protocol: "https",
+        hostname: "www.cardrush-db.jp",
       },
     ],
   },
