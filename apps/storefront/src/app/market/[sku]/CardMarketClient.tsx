@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { formatPrice, formatDateTime } from "@/lib/format";
-import { Money, EmptyState, Icon, TrustTier, WhyLink, type IconName } from "@/lib/ui";
+import { Money } from "@/lib/fx/Money";
+import { EmptyState } from "@/lib/ui/EmptyState";
+import { Icon, type IconName } from "@/lib/ui/Icon";
+import { TrustTier } from "@/lib/ui/TrustTier";
+import { WhyLink } from "@/lib/ui/WhyLink";
+import { Badge, TONE_COLOR } from "@/lib/ui/Badge";
+import { RarityPalette } from "@/lib/ui/status-palettes";
+import { InkRule } from "@/lib/ui/InkRule";
 import { useVoice } from "@/lib/wardrobe/context";
 import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
@@ -244,11 +251,12 @@ function Sparkline({ points, width = 120, height = 28 }: {
 function PriceHistoryTile({ analytics }: {
   analytics: { sparkline: number[]; lastPrice: number | null; change24hPct: number | null };
 }) {
+  const v = useVoice();
   const { sparkline, lastPrice, change24hPct } = analytics;
   if (!sparkline?.length || lastPrice === null) {
     return (
       <div className="wardrobe-mat rounded-lg p-3 mb-4">
-        <span className="text-xs text-ink-faint">No trade history yet.</span>
+        <span className="text-xs text-ink-faint">{v("market.card.history.empty")}</span>
       </div>
     );
   }
@@ -305,6 +313,9 @@ function ReferencePricePanel({ view }: { view: UnifiedMarketView }) {
           </span>
         )}
       </div>
+      <p className="font-mono text-[10px] text-ink-faint mt-0.5">
+        reference · open data, not anyone&rsquo;s offer
+      </p>
 
       {/* Market Price */}
       {market_price != null && (
@@ -825,12 +836,21 @@ export default function CardMarketClient({
           {/* Left: Card image + spot info */}
           <div>
             {book.image_url ? (
-              <div className="wardrobe-mat rounded-lg p-2">
-                <img
-                  src={book.image_url}
-                  alt={book.card_name || sku}
-                  className="w-full rounded"
-                />
+              <div
+                className="wardrobe-aura"
+                style={
+                  {
+                    "--aura": TONE_COLOR[RarityPalette[book.rarity ?? ""] ?? "neutral"],
+                  } as React.CSSProperties
+                }
+              >
+                <div className="wardrobe-panel p-2">
+                  <img
+                    src={book.image_url}
+                    alt={book.card_name || sku}
+                    className="w-full rounded"
+                  />
+                </div>
               </div>
             ) : (
               <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center">
@@ -839,8 +859,18 @@ export default function CardMarketClient({
             )}
             <div className="flex items-start justify-between gap-2 mt-4">
               <div className="min-w-0">
-                <h1 className="text-lg font-bold font-display tracking-tight text-ink">{book.card_name || sku}</h1>
-                <p className="text-xs text-ink-faint font-mono tabular-nums">{sku}</p>
+                <h1 className="text-lg font-semibold font-display tracking-tight text-ink">{book.card_name || sku}</h1>
+                <p className="text-xs text-ink-faint font-mono tabular-nums">
+                  {[book.set_code, book.card_number].filter(Boolean).join(" · ") || sku}
+                </p>
+                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                  {book.rarity && (
+                    <Badge status={book.rarity} palette={RarityPalette} size="sm" />
+                  )}
+                  {book.set_name && (
+                    <span className="text-xs text-ink-muted truncate">{book.set_name}</span>
+                  )}
+                </div>
               </div>
               {loggedIn && watching !== null && (
                 <button
@@ -1233,10 +1263,17 @@ export default function CardMarketClient({
                   <div
                     className={`p-3 rounded-lg text-sm ${
                       result.success
-                        ? "bg-ok/10 text-ok border border-ok/30"
+                        ? "bg-ok/10 text-ok border border-ok/30" +
+                          (result.matched ? " wardrobe-speedlines" : "")
                         : "bg-danger/10 text-danger border border-danger/30"
                     }`}
                   >
+                    {result.success && result.matched && (
+                      <>
+                        <p className="font-display italic text-ink">A deal is struck.</p>
+                        <InkRule accent className="my-2" />
+                      </>
+                    )}
                     <p>{result.message}</p>
                     {result.matched && (
                       <p className="text-xs text-ink-muted mt-1.5">
@@ -1322,7 +1359,7 @@ export default function CardMarketClient({
         <div className="mt-8 wardrobe-mat rounded-lg p-4">
           <h2 className="text-sm font-bold font-display tracking-tight text-ink mb-4">Recent Trades</h2>
           {book.recent_trades.length === 0 ? (
-            <p className="text-ink-faint text-sm py-4 text-center">No trades yet.</p>
+            <p className="text-ink-faint text-sm py-4 text-center">{v("market.card.trades.empty")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
