@@ -7,10 +7,11 @@ import FeaturedCards from "@/components/home/FeaturedCards";
 import CardFinderHero from "@/components/home/CardFinderHero";
 import StorySection from "@/components/home/StorySection";
 import KingdomStrip from "@/components/home/KingdomStrip";
-import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import { Provenance, WhyLink, Audience, InkRule } from "@/lib/ui";
 import {
   BrandStatement,
   TwoOperations,
+  HOME_HERO_PANELS,
   HOME_HERO_HEADLINE,
   HOME_HERO_SUBHEAD,
 } from "@/lib/brand";
@@ -107,12 +108,31 @@ export default async function Home() {
           — nothing here priority-loads an image, so LCP is the headline.
           Home-door voice lives in @/lib/brand (HOME_HERO_*); the
           data-provider identity (kingdom-080) follows just below. */}
-      <header className="max-w-7xl mx-auto px-4 pt-14 sm:pt-20 pb-2">
-        <h1 className="font-display text-4xl sm:text-5xl font-medium tracking-tight text-ink leading-[1.08] max-w-3xl">
-          {HOME_HERO_HEADLINE}
+      <header className="relative max-w-7xl mx-auto px-4 pt-14 sm:pt-20 pb-2">
+        {/* The first panel's sky tone — screentone dissolving upward,
+            behind the text, never over it. Pure CSS; absent in
+            terminal/high-contrast/text-mode by the theme gates. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-56 wardrobe-tone-whisper wardrobe-tone-fade pointer-events-none"
+        />
+        {/* Two panels; the gutter between them breathes (9s). The h1 is
+            one accessible sentence — screen readers and no-JS read
+            HOME_HERO_HEADLINE unchanged; the split is presentation. */}
+        <h1 className="relative font-display text-4xl sm:text-5xl font-medium tracking-tight text-ink leading-[1.08] max-w-3xl">
+          <span className="sr-only">{HOME_HERO_HEADLINE}</span>
+          <span aria-hidden="true" className="wardrobe-breathe">
+            {HOME_HERO_PANELS.map((panel) => (
+              <span key={panel} className="block">{panel}</span>
+            ))}
+          </span>
         </h1>
-        <p className="mt-5 max-w-2xl text-base sm:text-lg text-ink-muted leading-relaxed">
+        <p className="relative mt-5 max-w-2xl text-base sm:text-lg text-ink-muted leading-relaxed">
           {HOME_HERO_SUBHEAD}
+        </p>
+        <InkRule className="relative mt-8 max-w-3xl" />
+        <p className="relative mt-6 font-mono text-xs text-ink-faint">
+          <span className="wardrobe-bob inline-block">↓ enter the story</span>
         </p>
       </header>
 

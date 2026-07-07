@@ -66,7 +66,16 @@ export const BRAND_TAGLINE = "A collectors' market. An open data commons.";
 /** The front door's statement — the quiet gallery home hero (docs/plans/
  *  the-quiet-gallery.md, 2026-07-05). Honest and small: what this place
  *  does for the person standing at the door. */
-export const HOME_HERO_HEADLINE = "Cards, traded between collectors.";
+/* The hero speaks in two panels; the gutter between them is the point
+ * (the manga gallery, spec 2026-07-07 §1a — the gap between panels is
+ * where the story lives; the gap between collectors is where the
+ * market lives). HEADLINE stays derived so every non-hero consumer
+ * (metadata, tests, agents) reads one unchanged sentence. */
+export const HOME_HERO_PANELS = ["Cards,", "traded between collectors."] as const;
+export const HOME_HERO_HEADLINE = HOME_HERO_PANELS.join(" ");
+
+/* The chapter close under the featured shelf (spec §2 home #6). */
+export const HOME_BENEDICTION = "Every card is a panel in somebody's story.";
 
 /** The quiet subhead under the home hero. Substrate-honest: looking is
  *  free, every number carries its source, and the platform sells
