@@ -34,7 +34,7 @@ export default function PaidReturnBanner() {
       <InkRule accent className="my-3 max-w-xs" />
       <p className="text-sm text-ink-muted">{voice("standard", "trades.paid.sub")}</p>
       <p className="mt-1 font-mono text-xs text-ink-faint tabular-nums">
-        {paidLot ? "lot" : "trade"} · {reference}
+        {paidTrade ? "trade" : "lot"} · {reference}
       </p>
     </div>
   );

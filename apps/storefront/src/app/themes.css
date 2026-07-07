@@ -257,8 +257,10 @@
   /* Longhand AFTER the shorthand: the shorthand's implicit
    * animation-delay: 0s would otherwise beat any lower-specificity
    * rule regardless of source order (cascade resolves per longhand).
-   * The nth-child rules below still override at (0,3,0) where markup
-   * doesn't set the custom property. */
+   * The nth-child rules below override at (0,3,0) wherever they match —
+   * including markup that sets --rise-delay; keep rise wrappers away
+   * from child positions 2–5 or drop the nth-child rules when they lose
+   * their last aligned consumer. */
   animation-delay: var(--rise-delay, 0ms);
 }
 [data-theme] .wardrobe-rise:nth-child(2) { animation-delay: 60ms; }
@@ -278,19 +280,32 @@
 /* The gutter breathes — home hero only (one hero-scale animation per
  * page). Resting gap = mid-breath, so reduced-motion (1ms clamp, no
  * fill) lands on a composed state, and no-JS reads a normal stack. */
-@keyframes wardrobe-breathe {
-  0%, 100% { gap: 0.5rem; }
-  50% { gap: 1.25rem; }
+/* Compositor-only breath: the box height NEVER changes — the two panels
+ * counter-translate ±3px so the visual gutter oscillates ~0.5rem ↔
+ * ~1.25rem around the static mid-breath gap. Animating `gap` would
+ * reflow the whole page below the hero every frame for 9s × ∞. */
+@keyframes wardrobe-breathe-upper {
+  0%, 100% { transform: translateY(3px); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes wardrobe-breathe-lower {
+  0%, 100% { transform: translateY(-3px); }
+  50% { transform: translateY(3px); }
 }
 .wardrobe-breathe {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
 }
-[data-theme="gallery"] .wardrobe-breathe,
-[data-theme="midnight"] .wardrobe-breathe,
-[data-theme="system"] .wardrobe-breathe {
-  animation: wardrobe-breathe 9s ease-in-out infinite;
+[data-theme="gallery"] .wardrobe-breathe > :first-child,
+[data-theme="midnight"] .wardrobe-breathe > :first-child,
+[data-theme="system"] .wardrobe-breathe > :first-child {
+  animation: wardrobe-breathe-upper 9s ease-in-out infinite;
+}
+[data-theme="gallery"] .wardrobe-breathe > :last-child,
+[data-theme="midnight"] .wardrobe-breathe > :last-child,
+[data-theme="system"] .wardrobe-breathe > :last-child {
+  animation: wardrobe-breathe-lower 9s ease-in-out infinite;
 }
 
 /* The line inks itself — a panel border being drawn. Base state is the

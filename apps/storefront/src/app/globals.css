@@ -160,7 +160,9 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
  * the toggle promises "low bandwidth, screen reader friendly", so stop the
  * pulse animating (it kept shimmering under text-mode before). */
 body.text-mode .animate-pulse,
+body.text-mode .wardrobe-rise,
 body.text-mode .wardrobe-breathe,
+body.text-mode .wardrobe-breathe > *,
 body.text-mode .wardrobe-draw,
 body.text-mode .wardrobe-bob,
 body.text-mode .wardrobe-speedlines {

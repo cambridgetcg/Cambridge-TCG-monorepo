@@ -133,7 +133,7 @@ const STRINGS = {
     plain: "Payment sent.",
   },
   "trades.paid.sub": {
-    standard: "Stripe has your payment; the status below updates the moment it lands.",
+    standard: "Stripe has your payment; the status here shows it once it's confirmed.",
     plain: "The trade status updates when the payment is confirmed.",
   },
   "trades.completed.benediction": {

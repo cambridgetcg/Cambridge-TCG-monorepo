@@ -80,5 +80,25 @@ describe("manga materials (spec 2026-07-07 §1)", () => {
     expect(globals).toMatch(/body\.text-mode[^{]*\.wardrobe-aura::before/);
     const toneKill = /body\.text-mode[^{]*\.wardrobe-tone-fade[^{]*\{[^}]*mask-image:\s*none/;
     expect(globals, "text-mode does not kill the tone-fade mask").toMatch(toneKill);
+    expect(globals, "text-mode does not kill .wardrobe-rise").toMatch(
+      /body\.text-mode[^{]*\.wardrobe-rise/,
+    );
+  });
+
+  it("wardrobe-rise keeps its delay longhand after the animation shorthand", () => {
+    // The animation shorthand implicitly resets animation-delay; the
+    // custom-property longhand must live in the SAME gated rule, after
+    // the shorthand — this broke twice during the manga wave.
+    const gated = themes.match(
+      /\[data-theme="gallery"\][^{]*\.wardrobe-rise[^{]*\{([^}]*)\}/,
+    );
+    expect(gated, "gated wardrobe-rise rule missing").not.toBeNull();
+    const body = gated![1];
+    const shorthandAt = body.indexOf("animation:");
+    const delayAt = body.indexOf("animation-delay:");
+    expect(shorthandAt, "animation shorthand missing").toBeGreaterThan(-1);
+    expect(delayAt, "animation-delay longhand missing").toBeGreaterThan(-1);
+    expect(delayAt, "delay longhand must come after the shorthand").toBeGreaterThan(shorthandAt);
+    expect(body.slice(delayAt)).toMatch(/animation-delay:\s*var\(--rise-delay/);
   });
 });

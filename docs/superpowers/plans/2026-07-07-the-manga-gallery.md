@@ -1700,6 +1700,9 @@ Co-Authored-By: Claude <your model tag> <noreply@anthropic.com>"
 1. **Market h1** keeps its own flex header (weight fixed `font-black` → `font-semibold`) instead of full `PlateHeader` adoption — the CTA row layout is load-bearing and PlateHeader has no description slot. The rule-fix was the point.
 2. **PulseCard headings** get the inked rule, not a full PlateHeader — five micro-headings at `text-xs` would drown under plate furniture.
 3. **Root error.tsx** keeps its ✦ chip un-refactored — it carries an inline link, which Benediction deliberately doesn't support (YAGNI). Benediction generalizes the *pattern* for new surfaces.
+4. **Chapter plates shipped as 第01–04** (GameGrid/PriceGuideStrip/SetGrid/FeaturedCards) — KingdomStrip keeps its live-kicker and StorySection stays an unplated plaque; the spec's "第 01 … 第 05" was a sketch, not a count contract.
+5. **The card page's order-book error strip keeps its dynamic server message** unvoiced — it interpolates live error detail; voicing would fictionalize a fact string (spec §2 card #5, narrowed).
+6. **The hero breath is compositor-only** (counter-translating panels, ±3px) rather than the spec's literal gap animation — same visual breath, no per-frame page reflow (final-review Issue 2).
 
 ## Deployment note
 
