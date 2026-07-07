@@ -237,6 +237,50 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     display_priority: 10,
     accent: "blue",
   },
+  {
+    // Registered via the Atlas 2026-07-07 (spec the-atlas §2) with
+    // research-verified papers. NO cardrush subdomain exists (all
+    // candidates NXDOMAIN — verified, not speculative-registered);
+    // anticipated sources: official DB (gundam-gcg.com), yuyu-tei.
+    slug: "gundam",
+    game_code: "gcg",
+    display_name: "Gundam Card Game",
+    short_name: "Gundam",
+    seo_title: "Gundam Card Game Price Guide UK — Updated Daily",
+    seo_description:
+      "Daily-updated GUNDAM CARD GAME prices in the UK. Bandai's 2025 trilingual launch (JA/EN/ZH). Every set, every card. Free price guide from Cambridge TCG.",
+    hero_paragraph:
+      "Daily-updated price guide for the GUNDAM CARD GAME — Bandai's 2025 launch, the first of its card games released simultaneously in Japanese, English and Simplified Chinese. Matched numbering across languages (Pattern A); cross-language siblings share an oracle. UK retail prices from the Cambridge TCG marketplace.",
+    set_intro_template:
+      "Complete price list for {{setName}} ({{setCode}}) from the GUNDAM CARD GAME. All {{cardCount}} cards listed below. JA/EN/ZH printings collapse to one oracle. Prices in GBP, updated daily.",
+    pricing_note:
+      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Catalog coverage anticipated (game code 'gcg' is pre-registered; first ingest flips it confirmed). No CardRush store carries this game — coverage will arrive from other sources.",
+    cardrush: null,
+    display_priority: 11,
+    accent: "blue",
+  },
+  {
+    // Registered via the Atlas 2026-07-07 (spec the-atlas §2). Regional
+    // set-code renumbering (JP UA##BT vs NA UE##BT) — Pattern C
+    // (diverged); the TITLE-wave-seq segment is the future anchor.
+    // NO cardrush subdomain exists (verified NXDOMAIN).
+    slug: "union-arena",
+    game_code: "una",
+    display_name: "Union Arena",
+    short_name: "Union Arena",
+    seo_title: "Union Arena Price Guide UK — Updated Daily",
+    seo_description:
+      "Daily-updated UNION ARENA prices in the UK. Bandai's franchise crossover TCG — Jujutsu Kaisen, Hunter x Hunter, Code Geass and more. Free price guide from Cambridge TCG.",
+    hero_paragraph:
+      "Daily-updated price guide for UNION ARENA — Bandai's franchise-crossover card game (2023 JP, 2024 EN). Japanese and English sets renumber regionally, so cross-language identity is curated rather than assumed (Pattern C). UK retail prices from the Cambridge TCG marketplace.",
+    set_intro_template:
+      "Complete price list for {{setName}} ({{setCode}}) from UNION ARENA. All {{cardCount}} cards listed below. Prices in GBP, updated daily.",
+    pricing_note:
+      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Catalog coverage anticipated (game code 'una' is pre-registered; first ingest flips it confirmed). No CardRush store carries this game — coverage will arrive from other sources.",
+    cardrush: null,
+    display_priority: 12,
+    accent: "red",
+  },
 ];
 
 /** Resolve a curated config by URL slug; undefined when not curated. */

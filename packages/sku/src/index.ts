@@ -30,8 +30,13 @@ export {
   GAME_CODES,
   CONFIRMED_GAME_CODES,
   ANTICIPATED_GAME_CODES,
+  GAME_SLUGS,
+  CONFIRMED_GAME_SLUGS,
   isGameCode,
   isConfirmedGameCode,
+  isGameSlug,
+  gameBySlug,
+  slugForCode,
   type GameCode,
   type GameMeta,
 } from "./games";

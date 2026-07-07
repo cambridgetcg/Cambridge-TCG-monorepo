@@ -9,6 +9,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+import { GAMES, isGameCode } from "@cambridge-tcg/sku";
 import { PRICE_GUIDE_GAMES } from "./games-config";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,16 @@ describe("cardrush coverage truth (spec 2026-07-07 §1)", () => {
       expect(g.cardrush.confirmed, `${g.slug} drifted from the registry`).toBe(
         CARDRUSH_SUBDOMAINS[g.cardrush.subdomain].confirmed,
       );
+    }
+  });
+
+  it("every row's (slug, game_code) pair matches the Atlas", () => {
+    for (const g of PRICE_GUIDE_GAMES) {
+      expect(isGameCode(g.game_code), `${g.slug}: unknown code ${g.game_code}`).toBe(true);
+      expect(
+        GAMES[g.game_code as keyof typeof GAMES].slug,
+        `${g.slug}: Atlas pairs ${g.game_code} with a different slug`,
+      ).toBe(g.slug);
     }
   });
 

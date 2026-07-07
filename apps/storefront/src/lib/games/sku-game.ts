@@ -1,82 +1,79 @@
 /**
  * @module @/lib/games/sku-game
  *
- * One truth for SKU → game. Promoted out of `@/lib/tradein/games` (which
- * re-exports for compat) so every surface that infers a game from a SKU —
- * market pages, product pages, portfolio search — reads the same map
- * instead of re-deriving it wrongly.
+ * One truth for SKU → game — now a DERIVATION of the Atlas
+ * (packages/sku GAMES; spec 2026-07-07 the-atlas §3). The storefront
+ * keeps its literal SkuGameSlug union for type ergonomics; the contract
+ * test pins it equal to the Atlas's confirmed slugs, so the union can
+ * lag the Atlas only as a failing test, never silently.
  *
  * Two SKU regimes coexist in production:
- *   - Legacy prefix-typed uppercase SKUs (the wholesale catalog today):
- *     `PK-SV2A-011-JP-V4K5`, `OP-…`, `FB-…` — the first segment is a
- *     set-family prefix.
- *   - Canonical lowercase SKUs per @cambridge-tcg/sku (kingdom-071):
- *     `<game>-<set>-<number>-<lang>` with game codes op / pkm / dbf.
+ *   - Legacy prefix-typed uppercase SKUs (`PK-SV2A-011-JP-V4K5`) — the
+ *     frozen founding-trio regime; prefixes live in the Atlas as
+ *     `legacyPrefixes`.
+ *   - Canonical lowercase SKUs per @cambridge-tcg/sku
+ *     (`<game>-<set>-<number>-<lang>`), any registered game code.
  *
  * `gameFromSku` resolves both. SEALED- SKUs exist under multiple games,
  * so they can't be derived — returns null and the caller keeps whatever
  * game context it has.
  */
 
-/** The games whose SKUs we can recognise, with display labels and the
- *  official brand names (JSON-LD `brand`, breadcrumbs). Slugs match the
- *  wholesale catalog's /api/v1/games slugs — verified against prod. */
-export const SKU_GAMES = [
-  {
-    slug: "one-piece",
-    label: "One Piece",
-    brand: "One Piece Card Game",
-  },
-  {
-    slug: "pokemon",
-    label: "Pokémon",
-    brand: "Pokémon Trading Card Game",
-  },
-  {
-    slug: "dragon-ball",
-    label: "Dragon Ball",
-    brand: "Dragon Ball Super Card Game Fusion World",
-  },
-] as const;
+import {
+  GAMES,
+  GAME_CODES,
+  CONFIRMED_GAME_CODES,
+  gameBySlug,
+  type GameCode,
+} from "@cambridge-tcg/sku";
 
-export type SkuGameSlug = (typeof SKU_GAMES)[number]["slug"];
+/** The confirmed games (cards in prod), Atlas-derived: slug + label +
+ *  official brand. The literal type union below is pinned to this by
+ *  the contract test. */
+export const SKU_GAMES = CONFIRMED_GAME_CODES.filter((c) => c !== "tst").map(
+  (code) => ({
+    slug: GAMES[code].slug as SkuGameSlug,
+    label: GAMES[code].name.replace(/ TCG$| Card Game$/, ""),
+    brand: GAMES[code].brand,
+  }),
+);
+
+export type SkuGameSlug = "one-piece" | "pokemon" | "dragon-ball";
 
 export function isSkuGameSlug(game: string): game is SkuGameSlug {
   return SKU_GAMES.some((g) => g.slug === game);
 }
 
-/** Official brand name for a game slug (JSON-LD, SEO surfaces). */
-export function gameBrand(slug: SkuGameSlug): string {
-  return SKU_GAMES.find((g) => g.slug === slug)!.brand;
+/** Official brand name for a game slug (JSON-LD, SEO surfaces) —
+ *  Atlas-wide: any registered game's slug resolves (a gundam SKU gets
+ *  "GUNDAM CARD GAME", not a One Piece fallback). Unknown slugs echo
+ *  back rather than lie. */
+export function gameBrand(slug: string): string {
+  return gameBySlug(slug)?.brand ?? slug;
 }
 
-// Legacy prefix-typed SKUs (verified against the live wholesale catalog):
-// one-piece uses OP/EB/ST/P/PRB/DON, pokemon PK, dragon-ball FB/SB.
-export const PREFIX_TO_GAME: Record<string, SkuGameSlug> = {
-  OP: "one-piece",
-  EB: "one-piece",
-  ST: "one-piece",
-  P: "one-piece",
-  PRB: "one-piece",
-  DON: "one-piece",
-  PK: "pokemon",
-  FB: "dragon-ball",
-  SB: "dragon-ball",
-};
+// Legacy prefix-typed SKUs — Atlas-derived from the frozen
+// legacyPrefixes facts (founding trio only, by construction).
+export const PREFIX_TO_GAME: Record<string, SkuGameSlug> = Object.fromEntries(
+  CONFIRMED_GAME_CODES.flatMap((code) =>
+    (GAMES[code].legacyPrefixes ?? []).map((p) => [p, GAMES[code].slug]),
+  ),
+) as Record<string, SkuGameSlug>;
 
-// Canonical SKU game codes per packages/sku (lowercase-first segment).
-const CODE_TO_GAME: Record<string, SkuGameSlug> = {
-  op: "one-piece",
-  pkm: "pokemon",
-  dbf: "dragon-ball",
-};
+// Canonical SKU game codes — the FULL Atlas (all registered codes →
+// slug), so canonical SKUs of any registered game resolve; downstream
+// subsets (weather, tradein, price-guide copy) stay deliberately
+// narrower and simply no-op on slugs they don't dress.
+const CODE_TO_GAME: Record<string, string> = Object.fromEntries(
+  GAME_CODES.map((code: GameCode) => [code, GAMES[code].slug]),
+);
 
 /**
  * Derive the game slug from a SKU's first segment. Handles both the
  * legacy uppercase prefix regime and canonical lowercase game codes.
  * Returns null when underivable (SEALED-, unknown prefixes).
  */
-export function gameFromSku(sku: string): SkuGameSlug | null {
+export function gameFromSku(sku: string): string | null {
   const prefix = sku.split("-")[0] ?? "";
   return (
     PREFIX_TO_GAME[prefix.toUpperCase()] ??

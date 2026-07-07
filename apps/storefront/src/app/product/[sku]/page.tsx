@@ -23,7 +23,7 @@ import Script from "next/script";
 import CardGrid from "@/components/catalog/CardGrid";
 import { Provenance, WhyLink, Audience, Palettes } from "@/lib/ui";
 import { TONE_COLOR } from "@/lib/ui/Badge";
-import { gameFromSku, gameBrand } from "@/lib/games/sku-game";
+import { gameFromSku, gameBrand, isSkuGameSlug } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
 import { weatherClass } from "@/lib/wardrobe/weather";
 
@@ -276,7 +276,12 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
               (CardRush/Cardmarket/eBay). Sits below the market CTA so the
               collectors' market stays the primary door; the guide at
               /guides/buying explains each channel's cost, wait and fees. */}
-          <ExternalBuyLinks card={card} gameSlug={gameSlug} />
+          {/* Buy-links exist for the confirmed trio only; other games'
+              SKUs (Atlas-wide resolution) simply skip the strip rather
+              than borrow One Piece's channels. */}
+          {isSkuGameSlug(gameSlug) && (
+            <ExternalBuyLinks card={card} gameSlug={gameSlug} />
+          )}
         </div>
       </div>
 

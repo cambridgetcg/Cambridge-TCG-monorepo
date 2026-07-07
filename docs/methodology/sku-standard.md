@@ -48,6 +48,8 @@ fab-wtr-001-en-cf         Flesh and Blood, Welcome to Rathe, cold foil
 | `wei` | Weiß Schwarz | Bushiroad |
 | `vng` | Cardfight!! Vanguard | Bushiroad |
 | `dmw` | Digimon Card Game | Bandai |
+| `gcg` | GUNDAM CARD GAME | Bandai |
+| `una` | UNION ARENA | Bandai |
 | `bsr` | Battle Spirits Saga | Bandai |
 | `lcg` | Living Card Game (umbrella) | various |
 | `fab` | Flesh and Blood | LSS |

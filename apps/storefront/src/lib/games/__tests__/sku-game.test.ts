@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CONFIRMED_GAME_SLUGS, GAMES, gameBySlug } from "@cambridge-tcg/sku";
 import {
   SKU_GAMES,
   gameBrand,
@@ -51,5 +52,23 @@ describe("gameFromSku — one truth for SKU → game", () => {
     expect(gameBrand("dragon-ball")).toBe(
       "Dragon Ball Super Card Game Fusion World",
     );
+  });
+});
+
+describe("the Atlas derivation contract (spec 2026-07-07 the-atlas §3)", () => {
+  it("pins the literal SkuGameSlug union to the Atlas's confirmed slugs", () => {
+    const atlasSlugs = CONFIRMED_GAME_SLUGS.filter((s) => s !== GAMES.tst.slug);
+    expect(SKU_GAMES.map((g) => g.slug).sort()).toEqual([...atlasSlugs].sort());
+  });
+
+  it("resolves canonical SKUs of newly registered games Atlas-wide", () => {
+    expect(gameFromSku("gcg-st01-001-en")).toBe("gundam");
+    expect(gameFromSku("una-ua02bt-jjk1001-ja")).toBe("union-arena");
+    expect(gameBrand("gundam")).toBe("GUNDAM CARD GAME");
+  });
+
+  it("brands echo unknown slugs honestly instead of borrowing", () => {
+    expect(gameBrand("not-a-game")).toBe("not-a-game");
+    expect(gameBySlug("gundam")?.code).toBe("gcg");
   });
 });

@@ -71,6 +71,8 @@ const YGO_PATTERN = /\b[A-Z]{2,4}-([A-Z]{2})\d{3}\b/i;
 
 const GAME_DEFAULT_LANG: Record<GameCode, string> = {
   op: "en",   // OP-TCG sold globally; JP is marked explicitly
+  gcg: "en",  // trilingual simultaneous launch; JP/ZH marked explicitly
+  una: "en",  // NA English line since 2024; JP prints marked explicitly
   pkm: "en",
   mtg: "en",
   ygo: "en",
