@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Audience, Money } from "@/lib/ui";
+import { Benediction } from "@/lib/ui/Benediction";
 function ClickableStars({
   value,
   onChange,
@@ -156,6 +157,7 @@ export default function ReviewTradePage() {
           <div className="text-4xl mb-4 text-ok">&#10003;</div>
           <h2 className="text-xl font-bold text-ink mb-2">Review Submitted</h2>
           <p className="text-ink-muted mb-6">Thank you for your feedback. Your review helps build trust in the community.</p>
+          <Benediction line="The trade is complete; the story continues." />
           <Link
             href="/account/trades"
             className="inline-block px-6 py-2.5 rounded-lg bg-ink text-page font-semibold text-sm hover:opacity-90 transition"

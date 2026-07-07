@@ -27,8 +27,11 @@ export default function CheckoutPage() {
         Cambridge TCG stopped selling cards on 6 July 2026 — buy from collectors instead.
         Every past order was completed and honored; your order history is untouched.
       </p>
-      <p className="text-sm text-ink-faint mb-8">
+      <p className="text-sm text-ink-faint mb-3">
         Same cards, same escrow protection — the sellers are collectors now, not us.
+      </p>
+      <p className="font-display italic text-ink-faint mb-8">
+        The till closed; the stories kept trading.
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link

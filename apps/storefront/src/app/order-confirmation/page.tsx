@@ -4,6 +4,7 @@ import OrderDetails from "./OrderDetails";
 import GoogleAdsConversion from "./GoogleAdsConversion";
 import { getStripe } from "@/lib/stripe";
 import { recordOrderFromStripeSession } from "@/lib/orders/record";
+import { InkRule } from "@/lib/ui";
 
 export default async function OrderConfirmationPage({
   searchParams,
@@ -56,7 +57,10 @@ export default async function OrderConfirmationPage({
           </svg>
         </div>
         <h1 className="text-3xl font-display font-semibold text-ink">Order Confirmed!</h1>
-        <p className="text-ink-muted mt-2">Thank you for your purchase.</p>
+        <InkRule accent className="mt-4 max-w-xs mx-auto" />
+        <p className="font-display italic text-ink-muted mt-3">
+          Your cards begin their voyage. Thank you for your purchase.
+        </p>
       </div>
 
       <div className="bg-surface border border-border-subtle rounded-lg p-6 space-y-6">

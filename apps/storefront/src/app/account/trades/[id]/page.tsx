@@ -11,6 +11,8 @@ import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
 
 import { Audience, Consequences, MessageButton, WhyLink } from "@/lib/ui";
+import { InkRule } from "@/lib/ui/InkRule";
+import { voice } from "@/lib/wardrobe/voice";
 import { buildTradeTermBullets, tierHeadline, type TradeRole } from "@/lib/escrow/trade-terms";
 // ── Escrow tier display ──
 
@@ -62,7 +64,12 @@ function EscrowTimeline({ tier, escrowStatus }: { tier: EscrowTier; escrowStatus
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div className={`h-0.5 w-6 shrink-0 ${lineColor} -mt-4`} />
+              <div
+                data-ink={isDone ? "drawn" : undefined}
+                className={`w-6 shrink-0 -mt-4 ${
+                  isDone ? "wardrobe-draw" : `h-0.5 ${lineColor}`
+                }`}
+              />
             )}
           </div>
         );
@@ -1161,6 +1168,10 @@ export default function TradeDetailPage() {
             <span className="text-ok text-lg">&#10003;</span>
             <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Trade completed</h2>
           </div>
+          <p className="mt-1 font-display italic text-sm text-ink-muted">
+            {voice("standard", "trades.completed.benediction")}
+          </p>
+          <InkRule accent className="mt-2 mb-1 max-w-xs" />
           <p className="text-sm text-ink-muted mt-2">
             {viewerIsSeller ? (
               trade.payout_hold_days != null && trade.payout_hold_days > 0 ? (
