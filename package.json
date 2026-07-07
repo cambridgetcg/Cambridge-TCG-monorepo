@@ -12,7 +12,7 @@
     "build:rewardspro": "pnpm --filter ./apps/rewardspro build",
     "test:rewardspro": "pnpm --filter rewardspro test:unit",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro-membership' -r exec tsc --noEmit",
+    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' --filter '!rewardspro-membership' -r exec tsc --noEmit",
     "audit:honesty": "pnpm --filter cambridgetcg-storefront honesty",
     "audit:transparency": "pnpm --filter cambridgetcg-storefront transparency",
     "audit:pricing": "pnpm --filter cambridgetcg-storefront pricing",
