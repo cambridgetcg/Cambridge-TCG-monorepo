@@ -159,8 +159,24 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
 /* Decorative skeleton shimmer has no meaning in a text reading layout —
  * the toggle promises "low bandwidth, screen reader friendly", so stop the
  * pulse animating (it kept shimmering under text-mode before). */
-body.text-mode .animate-pulse {
+body.text-mode .animate-pulse,
+body.text-mode .wardrobe-breathe,
+body.text-mode .wardrobe-draw,
+body.text-mode .wardrobe-bob,
+body.text-mode .wardrobe-speedlines {
   animation: none !important;
+}
+
+/* The universal text-mode flatten targets elements; pseudo-element
+ * textures need their own kill. The manga layer reads as bare
+ * black-on-white text, as promised. */
+body.text-mode .wardrobe-speedlines::before,
+body.text-mode .wardrobe-aura::before {
+  content: none !important;
+}
+body.text-mode .wardrobe-tone-whisper,
+body.text-mode .wardrobe-tone-fade {
+  background-image: none !important;
 }
 
 /*

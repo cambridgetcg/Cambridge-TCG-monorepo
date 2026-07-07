@@ -259,3 +259,174 @@
 [data-theme] .wardrobe-rise:nth-child(3) { animation-delay: 120ms; }
 [data-theme] .wardrobe-rise:nth-child(4) { animation-delay: 180ms; }
 [data-theme] .wardrobe-rise:nth-child(5) { animation-delay: 240ms; }
+
+/* ── Manga materials — the Manga Gallery (spec 2026-07-07) ──────────────
+ * The quiet gallery's bones, inked: screentone, panels, speed lines,
+ * the breathing gutter, lines that draw themselves. Every animated
+ * material is gated to gallery/midnight/system exactly like
+ * wardrobe-rise; terminal and high-contrast never animate this layer.
+ * Colors are tokens or color-mixes of tokens only — the manga page
+ * re-inks itself per theme (bronze by day, moonlight gilt at midnight).
+ * text-mode kills all of it by name in globals.css. */
+
+/* The gutter breathes — home hero only (one hero-scale animation per
+ * page). Resting gap = mid-breath, so reduced-motion (1ms clamp, no
+ * fill) lands on a composed state, and no-JS reads a normal stack. */
+@keyframes wardrobe-breathe {
+  0%, 100% { gap: 0.5rem; }
+  50% { gap: 1.25rem; }
+}
+.wardrobe-breathe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+[data-theme="gallery"] .wardrobe-breathe,
+[data-theme="midnight"] .wardrobe-breathe,
+[data-theme="system"] .wardrobe-breathe {
+  animation: wardrobe-breathe 9s ease-in-out infinite;
+}
+
+/* The line inks itself — a panel border being drawn. Base state is the
+ * COMPLETE line (scaleX(1)): no-JS, terminal, high-contrast and
+ * never-observed below-fold instances all read a present line. The
+ * animation (from scaleX(0)) runs only under a theme gate, and only
+ * when the element carries data-ink="drawn" (set on load-visible
+ * instances by default markup, or by InkRule on first intersection). */
+@keyframes wardrobe-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.wardrobe-draw {
+  display: block;
+  height: 1px;
+  background: color-mix(in srgb, var(--color-ink) 70%, transparent);
+  transform-origin: left;
+  transform: scaleX(1);
+}
+.wardrobe-draw--accent {
+  background: var(--color-accent);
+}
+[data-theme="gallery"] .wardrobe-draw[data-ink="drawn"],
+[data-theme="midnight"] .wardrobe-draw[data-ink="drawn"],
+[data-theme="system"] .wardrobe-draw[data-ink="drawn"] {
+  animation: wardrobe-draw 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Screentone — the manga texture. Halftone dots from the ink token;
+ * whisper volume under content, never over it. Gallery register. */
+[data-theme="gallery"] .wardrobe-tone-whisper,
+[data-theme="system"] .wardrobe-tone-whisper {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-ink) 5%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 6px 6px;
+}
+/* The dark chapter carries heavier tone (night pages do). */
+[data-theme="midnight"] .wardrobe-tone-whisper {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-ink) 9%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 6px 6px;
+}
+/* Sky-tone fade: dots dissolve upward, for hero backdrops. */
+.wardrobe-tone-fade {
+  -webkit-mask-image: linear-gradient(to top, rgb(0 0 0 / 1), transparent);
+  mask-image: linear-gradient(to top, rgb(0 0 0 / 1), transparent);
+}
+
+/* The manga panel — earned by card art and story moments; ordinary UI
+ * stays wardrobe-mat. Sharp corners, ink-weight border, same mat shadow. */
+.wardrobe-panel {
+  background-color: var(--color-surface);
+  border: 2px solid color-mix(in srgb, var(--color-ink) 85%, transparent);
+  border-radius: 3px;
+  box-shadow: var(--shadow-mat);
+}
+
+/* The impact frame — radial speed lines behind a celebration. Ink at
+ * whisper volume by day; the dark chapter lines in gilt. One 300ms
+ * settle on entry counts as the page's hero-scale animation. */
+@keyframes wardrobe-speedlines-settle {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+.wardrobe-speedlines {
+  position: relative;
+  overflow: hidden;
+}
+.wardrobe-speedlines::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 0deg,
+    currentColor 0deg 0.4deg,
+    transparent 0.4deg 5deg
+  );
+  -webkit-mask-image: radial-gradient(circle at center, transparent 25%, rgb(0 0 0 / 1) 70%);
+  mask-image: radial-gradient(circle at center, transparent 25%, rgb(0 0 0 / 1) 70%);
+  opacity: 0;
+}
+[data-theme="gallery"] .wardrobe-speedlines::before,
+[data-theme="system"] .wardrobe-speedlines::before {
+  color: var(--color-ink);
+  opacity: 0.05;
+}
+[data-theme="midnight"] .wardrobe-speedlines::before {
+  color: var(--color-accent);
+  opacity: 0.08;
+}
+[data-theme="gallery"] .wardrobe-speedlines,
+[data-theme="midnight"] .wardrobe-speedlines,
+[data-theme="system"] .wardrobe-speedlines {
+  animation: wardrobe-speedlines-settle 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* The threshold bob — "↓ enter the story". Micro-hint, not hero-scale. */
+@keyframes wardrobe-bob {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(6px); opacity: 1; }
+}
+[data-theme="gallery"] .wardrobe-bob,
+[data-theme="midnight"] .wardrobe-bob,
+[data-theme="system"] .wardrobe-bob {
+  animation: wardrobe-bob 2s ease-in-out infinite;
+}
+
+/* The card's own aura — a screentone burst in the card's rarity tone.
+ * Wrap the mount: <div class="wardrobe-aura" style="--aura: <tone>">.
+ * Dots dense at center, dissolving out; the card stays the only
+ * saturated thing — this is its own color, leaking. Whisper by day,
+ * a little braver in the dark chapter. */
+.wardrobe-aura {
+  position: relative;
+}
+.wardrobe-aura > * {
+  position: relative;
+  z-index: 1;
+}
+.wardrobe-aura::before {
+  content: "";
+  position: absolute;
+  inset: -14%;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(circle, var(--aura, transparent) 1px, transparent 1px);
+  background-size: 5px 5px;
+  -webkit-mask-image: radial-gradient(ellipse at center, rgb(0 0 0 / 1) 30%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, rgb(0 0 0 / 1) 30%, transparent 72%);
+  opacity: 0;
+}
+[data-theme="gallery"] .wardrobe-aura::before,
+[data-theme="system"] .wardrobe-aura::before {
+  opacity: 0.3;
+}
+[data-theme="midnight"] .wardrobe-aura::before {
+  opacity: 0.45;
+}
