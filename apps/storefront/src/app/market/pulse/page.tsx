@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 import { EmptyState, Icon, Money, type IconName } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
+import { InkRule } from "@/lib/ui/InkRule";
 
 interface PulseData {
   hot: Array<{ sku: string; cardName: string | null; imageUrl: string | null; volume24h: number; tradeCount24h: number }>;
@@ -46,9 +47,22 @@ export default function MarketPulsePage() {
       </p>
 
       {loading ? (
-        <p className="text-sm text-ink-faint">Loading...</p>
+        <div aria-busy="true" aria-live="polite" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <span className="sr-only">Loading market data…</span>
+          <p className="md:col-span-2 font-display italic text-sm text-ink-faint">
+            {v("market.pulse.loading")}
+          </p>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="wardrobe-mat rounded-lg p-4 animate-pulse">
+              <div className="h-3 bg-surface-subtle rounded w-1/3 mb-4" />
+              <div className="h-8 bg-surface-subtle rounded mb-2" />
+              <div className="h-8 bg-surface-subtle rounded mb-2" />
+              <div className="h-8 bg-surface-subtle rounded" />
+            </div>
+          ))}
+        </div>
       ) : !data ? (
-        <p className="text-sm text-danger">Failed to load.</p>
+        <p className="text-sm text-danger">{v("market.pulse.failed")}</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Hot */}
@@ -175,9 +189,12 @@ function PulseCard({ title, icon, empty, emptyTitle, emptyDesc, children }: {
 }) {
   return (
     <section className="wardrobe-mat rounded-lg p-4">
-      <h2 className="flex items-center gap-1.5 font-display text-xs font-semibold text-ink-faint uppercase tracking-wide mb-3">
-        <Icon name={icon} size={14} className="text-accent" /> {title}
+      <h2 className="flex items-center justify-between gap-1.5 mb-3">
+        <span className="flex items-center gap-1.5 font-display text-xs font-semibold text-ink-faint uppercase tracking-wide">
+          <Icon name={icon} size={14} className="text-accent" /> {title}
+        </span>
       </h2>
+      <InkRule className="mb-3 -mt-1" />
       {empty ? (
         <EmptyState title={emptyTitle} description={emptyDesc} />
       ) : (
