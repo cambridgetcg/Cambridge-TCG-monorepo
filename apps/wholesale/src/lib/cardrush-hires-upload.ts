@@ -256,11 +256,22 @@ export async function runHiresUpload(
         alreadyInS3 = true;
       } catch (err) {
         const code = (err as { name?: string })?.name ?? "";
-        if (code !== "NotFound" && code !== "NoSuchKey") {
+        const http = (err as { $metadata?: { httpStatusCode?: number } })
+          ?.$metadata?.httpStatusCode;
+        // AWS gotcha (the coverage gate spec §2): HeadObject on a
+        // NON-EXISTENT object returns 403 (not 404) when the caller
+        // lacks s3:ListBucket. Treat 403 as "cannot prove existence" and
+        // fall through to the PUT — a real permission problem then fails
+        // loudly at upload instead of wedging the drain in a silent
+        // head-loop (FB-FB09-007-JP-VYCC looped every 5min for this).
+        if (code !== "NotFound" && code !== "NoSuchKey" && http !== 403) {
           // Unexpected error — count as failed, don't mark archived.
           failed += 1;
           event("s3_head_failed", { sku: row.sku, key, reason: code || String(err) });
           continue;
+        }
+        if (http === 403) {
+          event("s3_head_403_treated_as_missing", { sku: row.sku, key });
         }
       }
 

@@ -22,15 +22,16 @@ import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
 
 /** Coverage truth: subdomain named here, confirmed read LIVE from the
  *  data-ingest registry. A subdomain the registry doesn't know is
- *  honestly unconfirmed. */
+ *  honestly unconfirmed; a BLOCKED entry (NXDOMAIN phantom or dead host —
+ *  the coverage gate spec §3) yields null, because the pill must not
+ *  promise a confirmation that cannot come. */
 function cardrushCoverage(subdomain: string): {
   subdomain: string;
   confirmed: boolean;
-} {
-  return {
-    subdomain,
-    confirmed: CARDRUSH_SUBDOMAINS[subdomain]?.confirmed ?? false,
-  };
+} | null {
+  const entry = CARDRUSH_SUBDOMAINS[subdomain];
+  if (!entry || entry.role === "blocked") return null;
+  return { subdomain, confirmed: entry.confirmed };
 }
 
 export interface PriceGuideGameConfig {

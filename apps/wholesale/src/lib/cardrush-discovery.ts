@@ -65,6 +65,11 @@ export interface DiscoveryRunOptions {
   onlySubdomain?: string;
   /** Dry-run: walk sitemap + log diffs but skip product fetches + INSERTs. */
   dryRun?: boolean;
+  /** Wall-clock budget in seconds (default 600 — 200s headroom under the
+   *  route's maxDuration=800). The run finalizes honestly on exhaustion
+   *  instead of being killed unrecorded by the platform (the 07-06/07-07
+   *  runs both died as eternal "running" rows; the coverage gate spec). */
+  budgetSeconds?: number;
 }
 
 interface PerSubdomainResult {
@@ -213,6 +218,7 @@ async function enrichSetWithTcgdex(
  */
 async function tcgdexPostBackfill(
   gameIdByCode: Map<string, number>,
+  shouldStop?: () => boolean,
 ): Promise<{ enriched: number; namesLifted: number }> {
   const supportedGameIds: number[] = [];
   for (const gameCode of SUPPORTED_GAMES_FOR_TCGDEX) {
@@ -237,6 +243,7 @@ async function tcgdexPostBackfill(
   let enriched = 0;
   let namesLifted = 0;
   for (const row of unvisited) {
+    if (shouldStop?.()) break; // budget exhausted — backlog resumes next tick
     const t = await fetchTcgdexSet(row.code);
     if (!t) continue;
     const cols = projectToColumns(t);
@@ -267,6 +274,8 @@ export async function runCardRushDiscovery(
   const startMs = Date.now();
   const triggeredBy = options.triggeredBy ?? "cron";
   const maxNew = options.maxNewPerSubdomain ?? DEFAULT_MAX_NEW_PER_SUBDOMAIN;
+  const budgetMs = (options.budgetSeconds ?? 600) * 1000;
+  const budgetLeftMs = () => budgetMs - (Date.now() - startMs);
 
   // ── 1. INSERT ingest_run ──────────────────────────────────────────
   const [runRow] = await db
@@ -372,7 +381,10 @@ export async function runCardRushDiscovery(
         // haven't enriched yet. Idempotent — bounded at 200 per run.
         // See `docs/connections/the-second-witness.md`.
         try {
-          const tcgdex = await tcgdexPostBackfill(gameIdByCode);
+          const tcgdex = await tcgdexPostBackfill(
+            gameIdByCode,
+            () => budgetLeftMs() < 120_000, // keep 2min+ for the host walk
+          );
           backfill_tcgdex_enriched = tcgdex.enriched;
           backfill_tcgdex_names_lifted = tcgdex.namesLifted;
           event("tcgdex_post_backfill", {
@@ -423,7 +435,28 @@ export async function runCardRushDiscovery(
       },
     );
 
+    // Walk order: fewest-prod-cards first, so a newly confirmed game's
+    // initial backfill (digimon: 13,520 products, 0 cards) gets budget
+    // before the mature hosts burn it (the coverage gate spec §1).
+    const cardCounts = await db
+      .select({ gameId: cards.gameId, n: sql<number>`count(*)::int` })
+      .from(cards)
+      .groupBy(cards.gameId);
+    const countByGameId = new Map(cardCounts.map((r) => [r.gameId, r.n]));
+    subdomainsToWalk.sort(([, a], [, b]) => {
+      const ca = countByGameId.get(gameIdByCode.get(a.game) ?? -1) ?? 0;
+      const cb = countByGameId.get(gameIdByCode.get(b.game) ?? -1) ?? 0;
+      return ca - cb;
+    });
+
     for (const [host, entry] of subdomainsToWalk) {
+      if (budgetLeftMs() < 60_000) {
+        event("budget_exhausted_before_host", {
+          host,
+          elapsed_ms: Date.now() - startMs,
+        });
+        break; // remaining hosts get the next tick (cron is 6-hourly now)
+      }
       const result: PerSubdomainResult = {
         host,
         game_code: entry.game,
@@ -542,6 +575,15 @@ export async function runCardRushDiscovery(
 
       // 2c. For each new URL: fetch product page → parse → INSERT
       for (const url of newUrls) {
+        if (budgetLeftMs() < 30_000) {
+          event("budget_exhausted_mid_host", {
+            host,
+            fetched: result.fetched,
+            remaining: newUrls.length - result.fetched,
+          });
+          result.capped = true;
+          break; // the rest resumes next tick — diff re-finds them
+        }
         const fetch_result = await fetchAndParseProduct(url, fetcher);
         result.fetched += 1;
 
@@ -674,6 +716,26 @@ export async function runCardRushDiscovery(
       }
 
       per_subdomain.push(result);
+
+      // Incremental flush: a platform-killed run must still show its
+      // progress (the 07-06/07-07 runs died as rows_read 0 "running"
+      // ghosts — the coverage gate spec §1). Failure is non-fatal.
+      try {
+        await db
+          .update(ingestRun)
+          .set({
+            rowsRead: per_subdomain.reduce((a, p) => a + p.fetched, 0),
+            rowsWritten: per_subdomain.reduce(
+              (a, p) => a + p.inserted + p.updated,
+              0,
+            ),
+            rowsQuarantined: totalQuarantined,
+            notes: `in progress — ${per_subdomain.length} host(s) walked, last: ${host}`,
+          })
+          .where(eq(ingestRun.id, ingestRunId));
+      } catch {
+        // flush is best-effort; the final UPDATE remains authoritative
+      }
     }
 
     // ── 3. UPDATE ingest_run with final state ───────────────────────

@@ -176,11 +176,11 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     access: "direct",
     role: "catalog+price",
     note:
-      "Cardfight!! Vanguard — 40,642 products in sitemap (kingdom-087 probe: upstream " +
-      "exists). confirmed:false per the field's definition — no wholesale " +
-      "scrape traffic has ever run ('vng' has no games row; we don't stock " +
-      "it yet). Flip true when the first real scrape returns prices " +
-      "(kingdom-039 audit-honesty pass, 2026-06-10).",
+      "Cardfight!! Vanguard — 40,642 products (kingdom-087); re-probed " +
+      "2026-07-07: alive, homepage 200, sitemap 200 (3.6MB). games row " +
+      "seeded inactive. Unlock order (docs/plans/game-expansion.md): " +
+      "after digimon's 13.5k proves the fair scheduler. Flip true when " +
+      "the first real scrape returns prices.",
   },
   "cardrush-bs.jp": {
     game: "bsr",
@@ -188,11 +188,10 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     access: "direct",
     role: "catalog+price",
     note:
-      "Battle Spirits Saga — 35,485 products in sitemap (kingdom-087 probe: upstream " +
-      "exists). confirmed:false per the field's definition — no wholesale " +
-      "scrape traffic has ever run ('bsr' has no games row; we don't stock " +
-      "it yet). Flip true when the first real scrape returns prices " +
-      "(kingdom-039 audit-honesty pass, 2026-06-10).",
+      "Battle Spirits Saga — 35,485 products (kingdom-087); re-probed " +
+      "2026-07-07: alive, homepage 200, sitemap 200 (2.9MB). games row " +
+      "seeded inactive. Unlock order: after vanguard (which follows " +
+      "digimon). Flip true when the first real scrape returns prices.",
   },
   // ── speculative — homepage 200 + ¥ but sitemap fetch failed ──
   "cardrush-mtg.jp": {
@@ -200,43 +199,43 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     confirmed: false,
     access: "direct",
     role: "price-only",
-    note: "Magic: The Gathering — homepage live, sitemap times out (catalog ~200K+ printings, too large to walk). Title format uses 【SET】 not {SET-NUMBER}, so parseCardMetadata would fail anyway. Plan: future Scryfall catalog seeds cards.cardrush_url; this subdomain acts as price-only enricher.",
+    note: "Magic: The Gathering — re-probed 2026-07-07: homepage 200, sitemap timeout x2 (catalog ~200K+ printings, too large to walk). Title format uses 【SET】 not {SET-NUMBER}, so parseCardMetadata would fail anyway. Plan: future Scryfall catalog seeds cards.cardrush_url; this subdomain acts as price-only enricher.",
   },
   // ── speculative — homepage fetch_error (likely DNS-dead or wrong host) ──
   "cardrush-ygo.jp": {
     game: "ygo",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Yu-Gi-Oh! — fetch_error on homepage (DNS or connection refused); host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Yu-Gi-Oh! — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-weiss.jp": {
     game: "wei",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Weiß Schwarz — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Weiß Schwarz — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-fab.jp": {
     game: "fab",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Flesh and Blood — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Flesh and Blood — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-lorcana.jp": {
     game: "lgr",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Disney Lorcana — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Disney Lorcana — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-fw.jp": {
     game: "dbf",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Dragon Ball Super Fusion World — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Dragon Ball Super Fusion World — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
 };
 

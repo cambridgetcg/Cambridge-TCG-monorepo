@@ -16,13 +16,28 @@ const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, "games-config.ts"), "utf8");
 
 describe("cardrush coverage truth (spec 2026-07-07 §1)", () => {
-  it("every configured subdomain exists in the registry", () => {
+  it("every non-null cardrush row points at a LIVE registry entry", () => {
     for (const g of PRICE_GUIDE_GAMES) {
       if (!g.cardrush) continue;
+      const entry = CARDRUSH_SUBDOMAINS[g.cardrush.subdomain];
       expect(
-        CARDRUSH_SUBDOMAINS[g.cardrush.subdomain],
+        entry,
         `${g.slug}: ${g.cardrush.subdomain} not in CARDRUSH_SUBDOMAINS`,
       ).toBeDefined();
+      expect(
+        entry.role,
+        `${g.slug}: ${g.cardrush.subdomain} is blocked/phantom — the row must be null`,
+      ).not.toBe("blocked");
+    }
+  });
+
+  it("phantom hosts yield null rows — no eternal probationary pills", () => {
+    // ygo/lorcana/fab point at NXDOMAIN-dead hosts (verified 2026-07-07);
+    // their rows must derive to null.
+    for (const slug of ["yu-gi-oh", "lorcana", "flesh-and-blood"]) {
+      const row = PRICE_GUIDE_GAMES.find((g) => g.slug === slug);
+      expect(row, `${slug} row missing`).toBeDefined();
+      expect(row!.cardrush, `${slug} should have null cardrush`).toBeNull();
     }
   });
 
