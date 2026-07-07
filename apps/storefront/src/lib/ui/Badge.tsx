@@ -35,6 +35,24 @@ const TONE_CLS: Record<Tone, string> = {
   sky:     "bg-[#3e7d8f]/15 text-[#3e7d8f] border-[#3e7d8f]/30",
 };
 
+/**
+ * Tone → CSS color, for decorative uses that need a *color value*
+ * rather than utility classes (the manga aura's --aura custom
+ * property). Kept beside TONE_CLS so the tone vocabulary keeps ONE
+ * home: the three muted literals here must match the class literals
+ * above (plum/moss/teal, pending @theme tokens).
+ */
+export const TONE_COLOR: Record<Tone, string> = {
+  amber: "var(--color-warning)",
+  red: "var(--color-danger)",
+  emerald: "var(--color-ok)",
+  blue: "var(--color-info)",
+  purple: "#6a5a8f",
+  neutral: "var(--color-ink-faint)",
+  green: "#567436",
+  sky: "#3e7d8f",
+};
+
 interface BadgeProps {
   /** The raw status string (e.g. "awaiting_payment"). */
   status: string;

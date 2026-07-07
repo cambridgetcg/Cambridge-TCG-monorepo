@@ -36,7 +36,7 @@ const STRINGS = {
     plain: "Buy and sell cards. Each card has its own page.",
   },
   "market.empty.catalog.title": {
-    standard: "The gallery is being hung",
+    standard: "Nothing drawn on this page yet",
     plain: "No cards found",
   },
   "market.empty.catalog.description": {
@@ -44,7 +44,7 @@ const STRINGS = {
     plain: "Try a different search term or set filter.",
   },
   "market.empty.trades.title": {
-    standard: "A quiet day on the floor",
+    standard: "A quiet day on the page",
     plain: "No trades in the last 24 hours",
   },
   "market.empty.trades.description": {
@@ -68,7 +68,7 @@ const STRINGS = {
     plain: "No cards are being watched yet.",
   },
   "market.empty.book.title": {
-    standard: "An open book, waiting",
+    standard: "An open book, waiting for its first line",
     plain: "No open orders",
   },
   "market.empty.book.description": {
@@ -76,7 +76,7 @@ const STRINGS = {
     plain: "There are no bids or asks for this card.",
   },
   "market.cta.browse": {
-    standard: "Browse the gallery",
+    standard: "Browse the pages",
     plain: "Browse cards",
   },
   // "market.cta.sell" ("Sell to us — instant credit") retired 2026-07-06
@@ -105,6 +105,44 @@ const STRINGS = {
   "market.lots.empty.description": {
     standard: "Nobody is selling a bundle right now. Yours could be first.",
     plain: "There are no lots for sale right now.",
+  },
+  // ── The manga register (spec 2026-07-07-the-manga-gallery-design.md §1i).
+  // Tone changes the greeting, never the facts; plain stays plain.
+  "market.loading.catalog": {
+    standard: "The next page is being inked…",
+    plain: "Loading cards…",
+  },
+  "market.pulse.loading": {
+    standard: "Taking the market's pulse…",
+    plain: "Loading market data…",
+  },
+  "market.pulse.failed": {
+    standard: "The pulse reader slipped — try again in a moment.",
+    plain: "Failed to load. Try again in a moment.",
+  },
+  "market.card.trades.empty": {
+    standard: "This panel hasn't been drawn yet.",
+    plain: "No trades yet.",
+  },
+  "market.card.history.empty": {
+    standard: "No history here yet — the ink is fresh.",
+    plain: "No prior trades recorded.",
+  },
+  "trades.paid.title": {
+    standard: "Payment sent — the escrow desk takes the next panel.",
+    plain: "Payment sent.",
+  },
+  "trades.paid.sub": {
+    standard: "Stripe has your payment; the status below updates the moment it lands.",
+    plain: "The trade status updates when the payment is confirmed.",
+  },
+  "trades.completed.benediction": {
+    standard: "The card changes hands; the story turns the page.",
+    plain: "Trade complete.",
+  },
+  "login.checkEmail": {
+    standard: "A letter is crossing the gutter to you.",
+    plain: "Check your email to sign in.",
   },
 } as const satisfies Record<string, VoiceEntry>;
 
