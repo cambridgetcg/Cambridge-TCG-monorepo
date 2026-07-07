@@ -11,10 +11,27 @@
  * up automatically; the landing surfaces it once the wholesale catalog
  * has cards in it.
  *
- * Substrate-honesty: every entry names its upstream (cardrush subdomain
- * + confirmed flag from the data-ingest registry). The Provenance pill
- * on each page surfaces this on the wire.
+ * Substrate-honesty: every entry names its upstream cardrush subdomain;
+ * the confirmed flag is DERIVED live from the data-ingest registry
+ * (CARDRUSH_SUBDOMAINS) — one truth, no hand copy (the honest ground,
+ * spec 2026-07-07 §1; the digimon drift this replaces: registry flipped
+ * true 2026-07-05, this file still said false on 2026-07-07). The
+ * Provenance pill on each page surfaces this on the wire.
  */
+import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+
+/** Coverage truth: subdomain named here, confirmed read LIVE from the
+ *  data-ingest registry. A subdomain the registry doesn't know is
+ *  honestly unconfirmed. */
+function cardrushCoverage(subdomain: string): {
+  subdomain: string;
+  confirmed: boolean;
+} {
+  return {
+    subdomain,
+    confirmed: CARDRUSH_SUBDOMAINS[subdomain]?.confirmed ?? false,
+  };
+}
 
 export interface PriceGuideGameConfig {
   /** URL slug — must match GameItem.slug from /api/v1/games. */
@@ -66,7 +83,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from the One Piece Trading Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices are in GBP and updated daily from the Cambridge TCG marketplace.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-op.jp", confirmed: true },
+    cardrush: cardrushCoverage("cardrush-op.jp"),
     display_priority: 1,
     accent: "red",
   },
@@ -84,7 +101,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from the Pokémon Trading Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. The English Pokémon catalog is in pre-launch; Japanese set coverage is live today.",
-    cardrush: { subdomain: "cardrush-pokemon.jp", confirmed: true },
+    cardrush: cardrushCoverage("cardrush-pokemon.jp"),
     display_priority: 2,
     accent: "yellow",
   },
@@ -108,7 +125,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Dragon Ball Super Fusion World. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-db.jp", confirmed: true },
+    cardrush: cardrushCoverage("cardrush-db.jp"),
     display_priority: 3,
     accent: "orange",
   },
@@ -126,7 +143,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Magic: The Gathering. All {{cardCount}} cards listed below, sorted by value. Cross-language printings share an oracle (Pattern A); per-language listings shown when present. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace; market signals from TCGplayer (US) and Cardmarket (EU, planned). Scryfall provides the catalog under CC-BY-NC — attribution preserved. UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-mtg.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-mtg.jp"),
     display_priority: 5,
     accent: "purple",
   },
@@ -144,7 +161,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Yu-Gi-Oh!. All {{cardCount}} cards listed below, sorted by value. Each card's passcode links to all cross-printing siblings. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and updated daily. The Konami passcode anchors cross-language identity (Pattern B); YGOPRODeck provides the catalog (CC-BY). UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-ygo.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-ygo.jp"),
     display_priority: 6,
     accent: "purple",
   },
@@ -162,7 +179,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from the Digimon Card Game. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily via our @cambridge-tcg/pricing engine. CardRush Digimon subdomain registered as anticipated; first confirmed scrape flips coverage.",
-    cardrush: { subdomain: "cardrush-digimon.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-digimon.jp"),
     display_priority: 7,
     accent: "blue",
   },
@@ -180,7 +197,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Disney Lorcana. All {{cardCount}} cards listed below, sorted by value. EN/FR/DE printings collapse to one oracle. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and updated daily. Market signals from Cardmarket (EU, planned) and TCGplayer (US). UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-lorcana.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-lorcana.jp"),
     display_priority: 8,
     accent: "purple",
   },
@@ -198,7 +215,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Flesh and Blood. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and updated daily. Market signals from TCGplayer (US) and Cardmarket (EU, planned). UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-fab.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-fab.jp"),
     display_priority: 9,
     accent: "red",
   },
