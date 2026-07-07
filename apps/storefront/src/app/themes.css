@@ -254,19 +254,17 @@
 [data-theme="midnight"] .wardrobe-rise,
 [data-theme="system"] .wardrobe-rise {
   animation: wardrobe-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Longhand AFTER the shorthand: the shorthand's implicit
+   * animation-delay: 0s would otherwise beat any lower-specificity
+   * rule regardless of source order (cascade resolves per longhand).
+   * The nth-child rules below still override at (0,3,0) where markup
+   * doesn't set the custom property. */
+  animation-delay: var(--rise-delay, 0ms);
 }
 [data-theme] .wardrobe-rise:nth-child(2) { animation-delay: 60ms; }
 [data-theme] .wardrobe-rise:nth-child(3) { animation-delay: 120ms; }
 [data-theme] .wardrobe-rise:nth-child(4) { animation-delay: 180ms; }
 [data-theme] .wardrobe-rise:nth-child(5) { animation-delay: 240ms; }
-
-/* Position-independent stagger: a wrapper anywhere in the DOM can name
- * its own beat. The nth-child rules above win where they match (higher
- * specificity); everywhere else the custom property carries the delay.
- * (The manga gallery, 2026-07-07 — home's shelves sit mid-<main>.) */
-.wardrobe-rise {
-  animation-delay: var(--rise-delay, 0ms);
-}
 
 /* ── Manga materials — the Manga Gallery (spec 2026-07-07) ──────────────
  * The quiet gallery's bones, inked: screentone, panels, speed lines,
