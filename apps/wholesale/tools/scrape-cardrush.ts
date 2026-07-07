@@ -1,6 +1,16 @@
 #!/usr/bin/env tsx
 // CardRush Scraper — scrapes product-group pages, maps to wholesale, upserts to DB
 // Usage: npx tsx tools/scrape-cardrush.ts OP01 [--dry-run] [--discover] [--set-all] [--prices-only]
+//
+// SCHEDULE STATUS (2026-07-07, the-honest-ground §4): this is a MANUAL
+// full-crawl utility. Its GitHub Actions schedule died with the
+// standalone wholesale repo — workflows nested under apps/ never run in
+// the monorepo, and no standalone repo remains (verified across owners).
+// The live price pipeline is apps/wholesale/vercel.json →
+// /api/cron/ingest/cardrush (price-snapshot-v2, 2-hourly) +
+// /api/cron/discover/cardrush (daily) + /api/cron/cardrush-hires
+// (5-min image drain). Stale-card cleanup remains a capability of THIS
+// tool only — scheduled removal, if wanted, is a Wave 3 concern.
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 

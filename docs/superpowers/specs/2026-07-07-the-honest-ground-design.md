@@ -68,10 +68,14 @@ canonical history. Yet Pipeline A (`tools/scrape-cardrush.ts:349`) still
 INSERTs into `price_history` every run.
 
 **Design:** evidence first — enumerate readers of `price_history` across the
-monorepo. If zero readers and the migration is applied (verify against prod
-information_schema if reachable; otherwise the migration file + schema comment
-are the record), delete the write and its helper. If a reader exists, the
-finding graduates to its own decision instead of a silent fix.
+monorepo. If zero readers and the migration is applied, delete the write and
+its helper. If a reader exists, the finding graduates to its own decision.
+
+**Found during implementation (2026-07-07):** zero readers (storefront grep
+hits are the distinct `card_price_history` table on the storefront RDS); TWO
+insert sites, not one — the set-all path (~:349) and the single-set path
+(~:580) — plus the stale-cleanup DELETE. All three removed. The writes never
+errored in prod only because the tool's schedule was itself dead (§4).
 
 ## 4 · One pipeline (retire the duplicate)
 
@@ -82,23 +86,23 @@ finding graduates to its own decision instead of a silent fix.
   `runDailySnapshotV2`, data-ingest protocol, stalest-first) + daily discovery
   cron (sitemap walk → new cards) + 5-min hires image drain
 
-**Design:** B is canonical (protocol-aligned, provenance-carrying,
-chunk-fair). Retirement criterion, checked with evidence during
-implementation: B + discovery provably cover A's price path (same tables:
-`cards` price columns + `price_archive`; discovery covers new-card arrival).
-A's stale-card cleanup is the one capability B lacks — port it into the
-discovery cron (which already walks the full sitemap and can diff removals)
-or keep it as a documented manual tool run. Then:
-- the GHA schedule (`scrape-prices.yml`) is disabled (workflow kept,
-  `workflow_dispatch`-only, header comment naming this spec);
-- `tools/scrape-cardrush.ts` survives as the manual full-crawl utility
-  (it is also the catalog-structure crawler B does not replace);
-- the legacy AWS Fargate deploy scripts (`infra/deploy-scraper.sh`,
-  `Dockerfile.scraper`) gain a RETIRED header pointing here (files kept —
-  they document the shape a future heavy-crawl runner would take).
+**Found during implementation (2026-07-07) — A was never running:** GitHub
+executes only root `.github/workflows/` (ci.yml, health.yml). The file
+`apps/wholesale/.github/workflows/scrape-prices.yml` was unreachable — a
+fossil from the standalone-repo era, and no standalone wholesale repo
+survives on any owner (gh repo list + search). "Two parallel pipelines" was
+itself an illusion: **B is, and has been, the only live pipeline.**
 
-If evidence shows B does NOT cover A's price path for any confirmed game, A's
-schedule stays until Wave 3 closes the gap — honesty over tidiness.
+**Design as executed:**
+- the fossil workflow file is deleted (a schedule that claims to fire and
+  cannot is the exact dishonesty this wave exists to remove);
+- `tools/scrape-cardrush.ts` survives as the MANUAL full-crawl utility, its
+  header stating the schedule's death, the live pipeline's address, and that
+  stale-card cleanup remains this tool's capability (scheduled removal, if
+  wanted, is a Wave 3 concern);
+- the legacy AWS Fargate deploy scripts (`infra/deploy-scraper.sh`,
+  `Dockerfile.scraper`) carry RETIRED headers pointing here (files kept —
+  they document the shape a future heavy-crawl runner would take).
 
 ## 5 · Out of scope (later waves)
 

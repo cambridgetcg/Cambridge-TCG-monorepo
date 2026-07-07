@@ -2,6 +2,14 @@
 set -euo pipefail
 
 # ===========================================================================
+# RETIRED (2026-07-07, the-honest-ground §4). Superseded by the Vercel
+# cron pipeline (vercel.json -> ingest/discover/hires). Kept as the shape
+# a future heavy-crawl runner would take -- do not run against prod
+# without a fresh decision. Spec:
+# docs/superpowers/specs/2026-07-07-the-honest-ground-design.md
+# ===========================================================================
+
+# ===========================================================================
 # TCG Wholesale Scraper — AWS ECS Fargate Scheduled Task
 # Creates: ECR repo, ECS cluster, task definition, EventBridge cron rule
 # Usage: ./infra/deploy-scraper.sh
