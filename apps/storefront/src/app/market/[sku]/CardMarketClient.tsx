@@ -13,6 +13,8 @@ import { Badge, TONE_COLOR } from "@/lib/ui/Badge";
 import { RarityPalette } from "@/lib/ui/status-palettes";
 import { InkRule } from "@/lib/ui/InkRule";
 import { useVoice } from "@/lib/wardrobe/context";
+import { weatherClass } from "@/lib/wardrobe/weather";
+import { gameFromSku } from "@/lib/games/sku-game";
 import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
@@ -831,8 +833,9 @@ export default function CardMarketClient({
           <span className="text-ink-muted">{book.card_name || sku}</span>
         </div>
 
-        {/* Main layout */}
-        <div className="grid md:grid-cols-[240px_1fr_320px] gap-6">
+        {/* Main layout — the card's stage wears its game's weather
+            (spec 2026-07-07 §4); SEALED-/unknown SKUs derive null → bare. */}
+        <div className={`grid md:grid-cols-[240px_1fr_320px] gap-6 ${weatherClass(gameFromSku(sku))}`}>
           {/* Left: Card image + spot info */}
           <div>
             {book.image_url ? (

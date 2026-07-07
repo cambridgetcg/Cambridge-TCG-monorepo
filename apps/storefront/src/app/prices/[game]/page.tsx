@@ -43,6 +43,7 @@ import {
   PATTERN_TONE,
   ORACLE_ID_FORM_LABEL,
 } from "@/lib/prices/game-context";
+import { weatherClass } from "@/lib/wardrobe/weather";
 
 /**
  * Resolve the page's config: curated first, fall through to catalog-
@@ -422,28 +423,32 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           </ol>
         </nav>
 
-        <h1 className={`text-3xl font-bold mb-4 ${accent.text}`}>
-          {cfg.seo_title}
-        </h1>
+        {/* The header band wears the game's weather (spec 2026-07-07 §4);
+            price-guide slugs beyond the weather registry get "" — bare. */}
+        <header className={weatherClass(cfg.slug)}>
+          <h1 className={`text-3xl font-bold mb-4 ${accent.text}`}>
+            {cfg.seo_title}
+          </h1>
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Provenance
-            kind="synced"
-            source={cfg.cardrush?.subdomain ?? "wholesale"}
-            at={freshestUpdate}
-            cadence="daily"
-          />
-          <WhyLink href="/methodology/pricing" label="how prices work" />
-          <CurrencyWhyLink />
-          {cfg.cardrush && !cfg.cardrush.confirmed && (
-            <span
-              className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-accent-wash text-accent border border-accent/30 rounded"
-              title="Upstream subdomain registered but not yet confirmed by daily scrape"
-            >
-              coverage probationary
-            </span>
-          )}
-        </div>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <Provenance
+              kind="synced"
+              source={cfg.cardrush?.subdomain ?? "wholesale"}
+              at={freshestUpdate}
+              cadence="daily"
+            />
+            <WhyLink href="/methodology/pricing" label="how prices work" />
+            <CurrencyWhyLink />
+            {cfg.cardrush && !cfg.cardrush.confirmed && (
+              <span
+                className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-accent-wash text-accent border border-accent/30 rounded"
+                title="Upstream subdomain registered but not yet confirmed by daily scrape"
+              >
+                coverage probationary
+              </span>
+            )}
+          </div>
+        </header>
 
         <p className="text-ink-muted leading-relaxed max-w-3xl mb-6">
           {cfg.hero_paragraph}

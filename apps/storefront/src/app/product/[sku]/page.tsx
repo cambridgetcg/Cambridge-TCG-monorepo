@@ -25,6 +25,7 @@ import { Provenance, WhyLink, Audience, Palettes } from "@/lib/ui";
 import { TONE_COLOR } from "@/lib/ui/Badge";
 import { gameFromSku, gameBrand } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
+import { weatherClass } from "@/lib/wardrobe/weather";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }): Promise<Metadata> {
   const { sku } = await params;
@@ -139,7 +140,10 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
         <span className="text-ink-muted">{card.card_number}</span>
       </nav>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
+      {/* The game weather follows the derivable game only — a SEALED- box
+          keeps the breadcrumb's one-piece fallback but wears no sky it
+          can't honestly claim (spec 2026-07-07 §4). */}
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 ${weatherClass(gameFromSku(card.sku))}`}>
         {/* Card image */}
         <div
           className="wardrobe-aura"

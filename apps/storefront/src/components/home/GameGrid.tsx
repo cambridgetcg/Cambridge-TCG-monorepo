@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { GameItem } from "@/lib/wholesale/client";
 import { PlateHeader } from "@/lib/ui";
+import { weatherClass } from "@/lib/wardrobe/weather";
 
 /**
  * GameGrid — the doors into each game's market.
@@ -9,6 +10,8 @@ import { PlateHeader } from "@/lib/ui";
  * art; a game's door is a name, not a poster). Hairline mounts, Fraunces
  * names, card counts in mono — the data does the talking. Collectors
  * first (2026-07-06): the doors open onto the market, not a shop.
+ * The game weather (spec 2026-07-07) keeps that line: each door wears
+ * its game's sky as material texture — ink weather, not imagery.
  */
 export default function GameGrid({ games }: { games: GameItem[] }) {
   return (
@@ -19,7 +22,7 @@ export default function GameGrid({ games }: { games: GameItem[] }) {
           <Link
             key={g.code}
             href={`/market?game=${g.slug}`}
-            className="group wardrobe-mat rounded-lg p-5 flex flex-col justify-between min-h-28 hover:bg-surface-subtle transition-colors"
+            className={`group wardrobe-mat rounded-lg p-5 flex flex-col justify-between min-h-28 hover:bg-surface-subtle transition-colors ${weatherClass(g.slug)}`}
           >
             <span className="font-display text-lg font-semibold text-ink group-hover:text-accent transition-colors">
               {g.name}

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, EmptyState, ErrorAlert, Icon, Money, Palettes, WhyLink } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
+import { weatherClass } from "@/lib/wardrobe/weather";
 import {
   buildBrowseUrl,
   buildCatalogSearch,
@@ -158,7 +159,7 @@ export default function MarketBrowser({
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div>
+    <div className={weatherClass(query.game)}>
       {/* ---- Search + sort + view (no-JS fallback: plain GET form) ---- */}
       <form
         action="/market"
