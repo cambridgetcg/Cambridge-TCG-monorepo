@@ -16,12 +16,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { usePathname } from "next/navigation";
 import NotificationBell from "./NotificationBell";
 import { MegaMenu } from "./MegaMenu";
 import { STOREFRONT_PRIMARY_NAV } from "@/lib/nav/menu-config";
 import type { ThemeChoice } from "@/lib/wardrobe/themes";
+import { applyLightsFlip } from "@/lib/wardrobe/flip";
 
 // Unread-DM badge on an envelope link to /account/messages. Counts
 // unread CONVERSATIONS (same source as the /account attention list),
@@ -164,10 +165,25 @@ export default function Nav({
   // For system-follow, the resolved light/dark scheme is only knowable on
   // the client (OS preference). Default light for SSR; corrected on mount.
   const [systemDark, setSystemDark] = useState(false);
+  // What the page is wearing RIGHT NOW. Seeded from the server-read
+  // cookie; the instant flip (below) updates it without a navigation, so
+  // the glyph and label stay honest to the ink on screen.
+  const [wearing, setWearing] = useState<ThemeChoice>(theme);
   const pathname = usePathname();
   const effectiveDark =
-    theme === "system" ? systemDark : theme === "midnight" || theme === "terminal";
-  const toggle = themeToggle(theme, effectiveDark, pathname);
+    wearing === "system" ? systemDark : wearing === "midnight" || wearing === "terminal";
+  const toggle = themeToggle(wearing, effectiveDark, pathname);
+
+  // The lights switch's JS fast path: re-ink <html> in one frame, persist
+  // the cookie in the background over the anchor's own URL. The <a> href
+  // stays the no-JS route (full navigation) — the 2026-06-10 idiom holds.
+  const flipLights = (e: MouseEvent<HTMLAnchorElement>) => {
+    // Modified/middle clicks keep native anchor behavior (new tab etc.).
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    applyLightsFlip(toggle);
+    setWearing(toggle.target as ThemeChoice);
+  };
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -177,13 +193,13 @@ export default function Nav({
   }, []);
 
   useEffect(() => {
-    if (theme !== "system") return;
+    if (wearing !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     setSystemDark(mq.matches);
     const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, [theme]);
+  }, [wearing]);
 
   // Close mobile menu on navigation
   useEffect(() => {
@@ -233,12 +249,15 @@ export default function Nav({
               />
             </svg>
           </Link>
-          {/* The lights switch — no JS needed; all themes at /appearance.
+          {/* The lights switch — instant with JS (onClick re-inks <html>
+              and persists in the background), full navigation without it
+              (the href is the cookie writer; the no-JS idiom holds).
               Hidden on high-contrast so the accessibility theme can't be
               flipped away by a mis-tap. */}
           {!toggle.hidden && (
             <a
               href={toggle.href}
+              onClick={flipLights}
               aria-label={toggle.label}
               title={`${toggle.label} — all themes at /appearance`}
               className="text-ink-muted hover:text-ink transition py-2"
@@ -398,13 +417,14 @@ export default function Nav({
               {loggedIn ? "My Account" : "Sign In"}
             </Link>
             {/* The lights switch, labelled for the drawer; the full
-                wardrobe one step away. Plain <a> — works without JS. On
-                high-contrast the flip is hidden (see themeToggle), leaving
-                just the door to /appearance. */}
+                wardrobe one step away. Instant with JS, plain <a> without
+                it. On high-contrast the flip is hidden (see themeToggle),
+                leaving just the door to /appearance. */}
             <div className="flex items-center justify-between border-t border-border-subtle">
               {!toggle.hidden ? (
                 <a
                   href={toggle.href}
+                  onClick={flipLights}
                   className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink"
                 >
                   <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
