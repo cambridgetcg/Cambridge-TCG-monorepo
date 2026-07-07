@@ -89,9 +89,10 @@ the app can recognise is a game whose weather exists.
    sealed line "a game's door is a name, not a poster" holds: weather is
    material, not imagery — the door still shows only a name and a count, now
    on its own paper.
-2. **Market browse — `MarketBrowser`.** When `query.game` is a recognised
-   slug, the results region wears that game's weather. The default/all view
-   stays bare (no game, no weather).
+2. **Market browse — `MarketBrowser`.** The browse room wears the active
+   game's weather (`query.game` — the browse always carries a game;
+   `DEFAULT_GAME` is one-piece). If the catalog ever gains an all-games
+   view, no game → `weatherClass` returns `""` → no weather, honestly.
 3. **The card's stage — `/product/[sku]` + `/market/[sku]`.** The image-column
    that already holds panel + aura gains the game's weather behind it, from
    `gameFromSku` (product page already computes `gameSlug`; CardMarketClient
