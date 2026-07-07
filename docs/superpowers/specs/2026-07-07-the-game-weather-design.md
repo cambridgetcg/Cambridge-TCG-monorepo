@@ -108,6 +108,12 @@ the app can recognise is a game whose weather exists.
    SEALED- SKUs derive null → no weather, honestly.
 4. **The price guide — `/prices/[game]`.** The page's header band wears the
    game's weather.
+5. **The landing's sets shelf — `SetGrid`** (added same day, Yu: "加嗰格海啦
+   gogogo!"). The home page's one honestly single-game corner ("Latest One
+   Piece Sets" by construction) wears its game's weather, following the
+   `gameSlug` prop. The rest of the landing deliberately stays bare paper —
+   weather is contextual, the lobby holds all games at once, and the doors'
+   three skies only read against blank ground.
 
 ## 5 · Tests (file-contract style, like themes.manga.test.ts)
 

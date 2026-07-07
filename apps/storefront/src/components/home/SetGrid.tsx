@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { SetItem, PriceItem } from "@/lib/wholesale/client";
 import { PlateHeader } from "@/lib/ui";
+import { weatherClass } from "@/lib/wardrobe/weather";
 
 interface SetWithThumb extends SetItem {
   thumb: PriceItem | null;
@@ -29,7 +30,12 @@ export default function SetGrid({
   if (!sets.length) return null;
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-14">
+    /* The landing's one honestly single-game corner wears its game's
+       weather (spec 2026-07-07 §4) — it follows the gameSlug prop, so
+       the sky changes with the shelf, and an all-games shelf would go
+       bare. The lobby ground around it stays paper: the doors' three
+       skies only read against blank ground. */
+    <section className={`max-w-7xl mx-auto px-4 py-14 ${weatherClass(gameSlug)}`}>
       <PlateHeader
         title={heading}
         plate={3}
