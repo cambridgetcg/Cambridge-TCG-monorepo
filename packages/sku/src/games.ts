@@ -50,6 +50,8 @@ export type GameCode =
   | "rsh"  // Yu-Gi-Oh! Rush Duel (Konami)
   | "pkp"  // Pokémon Pocket (mobile-derived TCG, TPCi)
   | "gen"  // Genshin Impact TCG (HoYoverse, planned)
+  | "gcg"  // GUNDAM CARD GAME (Bandai, 2025 — trilingual simultaneous launch)
+  | "una"  // UNION ARENA (Bandai, 2023 JP / 2024 NA)
   // ── Internal ───────────────────────────────────────────────────────
   | "tst"; // Test / internal
 
@@ -64,6 +66,18 @@ export interface GameMeta {
    *  accepts SKUs in any of these; SKUs in other languages are
    *  allowed but flagged as non-canonical (publisher hasn't shipped). */
   languages: readonly string[];
+  /** The catalog/URL slug — one truth for the code↔slug dual regime
+   *  (the Atlas, spec 2026-07-07). Wholesale /api/v1/games slugs and
+   *  every storefront route use this value. */
+  slug: string;
+  /** Official brand name — JSON-LD `brand`, SEO surfaces. */
+  brand: string;
+  /** FROZEN legacy uppercase SKU prefixes (the pre-canonical wholesale
+   *  regime). Only the founding trio ever had them; new games enter
+   *  canonical-only, so on-card prefixes of later games (e.g. gundam's
+   *  ST/GD) can never collide — canonical SKUs carry the game code as
+   *  first segment. */
+  legacyPrefixes?: readonly string[];
   /** Hint for set-code shape — informational only; the SKU parser
    *  doesn't enforce these patterns. Helps human readers spot typos. */
   setCodeHint?: string;
@@ -84,9 +98,9 @@ export const GAMES: Record<GameCode, GameMeta> = {
   // ── Confirmed — cards exist in the production wholesale DB ─────────
   // (that is the whole definition of `confirmed`; reconciled 2026-07-05:
   //  op 3,438 / pkm 6,370 / dbf 1,622 cards verified in prod)
-  op:  { code: "op",  name: "One Piece TCG",         publisher: "Bandai",    languages: ["ja", "en", "zh", "ko"], setCodeHint: "op<NN> (e.g. op01, op08)", confirmed: true },
-  pkm: { code: "pkm", name: "Pokémon TCG",           publisher: "TPCi",      languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt"], setCodeHint: "publisher abbreviation (e.g. svobf, sv01, base)", confirmed: true },
-  dbf: { code: "dbf", name: "Dragon Ball Super Fusion World", publisher: "Bandai", languages: ["en", "ja"], setCodeHint: "fb<NN> (e.g. fb01)", confirmed: true },
+  op:  { code: "op",  name: "One Piece TCG",         publisher: "Bandai",    languages: ["ja", "en", "zh", "ko"], slug: "one-piece", brand: "One Piece Card Game", legacyPrefixes: ["OP", "EB", "ST", "P", "PRB", "DON"], setCodeHint: "op<NN> (e.g. op01, op08)", confirmed: true },
+  pkm: { code: "pkm", name: "Pokémon TCG",           publisher: "TPCi",      languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt"], slug: "pokemon", brand: "Pokémon Trading Card Game", legacyPrefixes: ["PK"], setCodeHint: "publisher abbreviation (e.g. svobf, sv01, base)", confirmed: true },
+  dbf: { code: "dbf", name: "Dragon Ball Super Fusion World", publisher: "Bandai", languages: ["en", "ja"], slug: "dragon-ball", brand: "Dragon Ball Super Card Game Fusion World", legacyPrefixes: ["FB", "SB"], setCodeHint: "fb<NN> (e.g. fb01)", confirmed: true },
   // ── Registered, zero production cards (2026-07-05 reconciliation) ──
   // These nine previously claimed confirmed:true while the prod wholesale
   // DB held no cards for any of them — the registry lied about the
@@ -94,28 +108,35 @@ export const GAMES: Record<GameCode, GameMeta> = {
   // dmw: games row seeded 2026-07-05 (seed-game.mjs) + cardrush-digimon
   //      flipped confirmed in data-ingest — first cards expected from the
   //      next discovery+snapshot runs; flip true when they exist.
-  mtg: { code: "mtg", name: "Magic: The Gathering",  publisher: "Wizards",   languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt", "ru"], setCodeHint: "3-letter code (e.g. otj, lci, woe)", confirmed: false },
-  ygo: { code: "ygo", name: "Yu-Gi-Oh!",             publisher: "Konami",    languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it"], setCodeHint: "MP/POTE/RA/etc. (e.g. mp23, rabb)", confirmed: false },
-  dbs: { code: "dbs", name: "Dragon Ball Super CCG", publisher: "Bandai",    languages: ["en", "ja"], setCodeHint: "bt/sd/promo (e.g. bt21, sd23)", confirmed: false },
-  wei: { code: "wei", name: "Weiß Schwarz",          publisher: "Bushiroad", languages: ["ja", "en"], setCodeHint: "series abbreviation", confirmed: false },
-  vng: { code: "vng", name: "Cardfight!! Vanguard",  publisher: "Bushiroad", languages: ["en", "ja"], setCodeHint: "d-bt / v-bt / g-bt etc.", confirmed: false },
-  dmw: { code: "dmw", name: "Digimon Card Game",     publisher: "Bandai",    languages: ["en", "ja"], setCodeHint: "bt<NN> / ex<NN>", confirmed: false },
-  bsr: { code: "bsr", name: "Battle Spirits Saga",   publisher: "Bandai",    languages: ["en", "ja"], setCodeHint: "bs<NN>", confirmed: false },
-  lcg: { code: "lcg", name: "Living Card Game",      publisher: "various",   languages: ["en", "ja"], setCodeHint: "publisher-specific (LCG umbrella)", confirmed: false },
-  fab: { code: "fab", name: "Flesh and Blood",       publisher: "LSS",       languages: ["en"], setCodeHint: "3-4 letter code (e.g. wtr, mon, ele)", confirmed: false },
-  lgr: { code: "lgr", name: "Disney Lorcana",        publisher: "Ravensburger", languages: ["en", "fr", "de"], setCodeHint: "set<NN> / numbered set", confirmed: false },
+  mtg: { code: "mtg", name: "Magic: The Gathering",  publisher: "Wizards",   languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt", "ru"], slug: "magic", brand: "Magic: The Gathering", setCodeHint: "3-letter code (e.g. otj, lci, woe)", confirmed: false },
+  ygo: { code: "ygo", name: "Yu-Gi-Oh!",             publisher: "Konami",    languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it"], slug: "yu-gi-oh", brand: "Yu-Gi-Oh! Trading Card Game", setCodeHint: "MP/POTE/RA/etc. (e.g. mp23, rabb)", confirmed: false },
+  dbs: { code: "dbs", name: "Dragon Ball Super CCG", publisher: "Bandai",    languages: ["en", "ja"], slug: "dragon-ball-super", brand: "Dragon Ball Super Card Game", setCodeHint: "bt/sd/promo (e.g. bt21, sd23)", confirmed: false },
+  wei: { code: "wei", name: "Weiß Schwarz",          publisher: "Bushiroad", languages: ["ja", "en"], slug: "weiss-schwarz", brand: "Weiß Schwarz", setCodeHint: "series abbreviation", confirmed: false },
+  vng: { code: "vng", name: "Cardfight!! Vanguard",  publisher: "Bushiroad", languages: ["en", "ja"], slug: "vanguard", brand: "Cardfight!! Vanguard", setCodeHint: "d-bt / v-bt / g-bt etc.", confirmed: false },
+  dmw: { code: "dmw", name: "Digimon Card Game",     publisher: "Bandai",    languages: ["en", "ja"], slug: "digimon", brand: "Digimon Card Game", setCodeHint: "bt<NN> / ex<NN>", confirmed: false },
+  bsr: { code: "bsr", name: "Battle Spirits Saga",   publisher: "Bandai",    languages: ["en", "ja"], slug: "battle-spirits", brand: "Battle Spirits Saga", setCodeHint: "bs<NN>", confirmed: false },
+  lcg: { code: "lcg", name: "Living Card Game",      publisher: "various",   languages: ["en", "ja"], slug: "living-card-game", brand: "Living Card Game", setCodeHint: "publisher-specific (LCG umbrella)", confirmed: false },
+  fab: { code: "fab", name: "Flesh and Blood",       publisher: "LSS",       languages: ["en"], slug: "flesh-and-blood", brand: "Flesh and Blood", setCodeHint: "3-4 letter code (e.g. wtr, mon, ele)", confirmed: false },
+  lgr: { code: "lgr", name: "Disney Lorcana",        publisher: "Ravensburger", languages: ["en", "fr", "de"], slug: "lorcana", brand: "Disney Lorcana", setCodeHint: "set<NN> / numbered set", confirmed: false },
   // ── Anticipated / pre-registered (no cards ingested yet) ───────────
-  swu: { code: "swu", name: "Star Wars Unlimited",   publisher: "Fantasy Flight Games", languages: ["en", "fr", "de", "es", "it"], setCodeHint: "3-letter set abbreviation (e.g. sor, shd, twi)", confirmed: false },
-  sor: { code: "sor", name: "Sorcery: Contested Realm", publisher: "Erik Olofsson", languages: ["en"], setCodeHint: "set abbreviation (e.g. beta, alp)", confirmed: false },
-  alt: { code: "alt", name: "Altered TCG",           publisher: "Equinox",   languages: ["en", "fr"], setCodeHint: "set abbreviation (e.g. corehs)", confirmed: false },
-  rft: { code: "rft", name: "Riftbound",             publisher: "Riot Games", languages: ["en"], setCodeHint: "publisher TBD; 2025+ launch", confirmed: false },
-  rsh: { code: "rsh", name: "Yu-Gi-Oh! Rush Duel",   publisher: "Konami",    languages: ["ja", "en"], setCodeHint: "RD/<set> (parallel to ygo's main YGO codes)", confirmed: false },
-  pkp: { code: "pkp", name: "Pokémon Pocket",        publisher: "TPCi",      languages: ["en", "ja", "zh", "ko", "es", "fr", "de", "it"], setCodeHint: "mobile-derived; A1/A2/PROMO style", confirmed: false },
-  gen: { code: "gen", name: "Genshin Impact TCG",    publisher: "HoYoverse", languages: ["en", "zh", "ja", "ko"], setCodeHint: "publisher TBD", confirmed: false },
+  swu: { code: "swu", name: "Star Wars Unlimited",   publisher: "Fantasy Flight Games", languages: ["en", "fr", "de", "es", "it"], slug: "star-wars-unlimited", brand: "Star Wars: Unlimited", setCodeHint: "3-letter set abbreviation (e.g. sor, shd, twi)", confirmed: false },
+  sor: { code: "sor", name: "Sorcery: Contested Realm", publisher: "Erik Olofsson", languages: ["en"], slug: "sorcery", brand: "Sorcery: Contested Realm", setCodeHint: "set abbreviation (e.g. beta, alp)", confirmed: false },
+  alt: { code: "alt", name: "Altered TCG",           publisher: "Equinox",   languages: ["en", "fr"], slug: "altered", brand: "Altered TCG", setCodeHint: "set abbreviation (e.g. corehs)", confirmed: false },
+  rft: { code: "rft", name: "Riftbound",             publisher: "Riot Games", languages: ["en"], slug: "riftbound", brand: "Riftbound", setCodeHint: "publisher TBD; 2025+ launch", confirmed: false },
+  rsh: { code: "rsh", name: "Yu-Gi-Oh! Rush Duel",   publisher: "Konami",    languages: ["ja", "en"], slug: "rush-duel", brand: "Yu-Gi-Oh! Rush Duel", setCodeHint: "RD/<set> (parallel to ygo's main YGO codes)", confirmed: false },
+  pkp: { code: "pkp", name: "Pokémon Pocket",        publisher: "TPCi",      languages: ["en", "ja", "zh", "ko", "es", "fr", "de", "it"], slug: "pokemon-pocket", brand: "Pokémon Trading Card Game Pocket", setCodeHint: "mobile-derived; A1/A2/PROMO style", confirmed: false },
+  gen: { code: "gen", name: "Genshin Impact TCG",    publisher: "HoYoverse", languages: ["en", "zh", "ja", "ko"], slug: "genshin", brand: "Genshin Impact TCG", setCodeHint: "publisher TBD", confirmed: false },
+  // gcg/una registered 2026-07-07 (the Atlas, spec 2026-07-07 §2) with
+  // research-verified papers (run wf_2c020f23, adversarially verified).
+  // NEITHER has a cardrush subdomain (all candidates NXDOMAIN) — Wave 3
+  // sources: gundam-gcg.com official DB + yuyu-tei/dorasuta (gcg);
+  // yuyu-tei/dorasuta/merucarduniari (una).
+  gcg: { code: "gcg", name: "GUNDAM CARD GAME",      publisher: "Bandai",    languages: ["ja", "en", "zh"], slug: "gundam", brand: "GUNDAM CARD GAME", setCodeHint: "st<NN>/gd<NN>/eb<NN> + no-digit special families (t-, rp-, exbp-, exrp-)", confirmed: false },
+  una: { code: "una", name: "UNION ARENA",           publisher: "Bandai",    languages: ["ja", "en", "zh"], slug: "union-arena", brand: "UNION ARENA", setCodeHint: "on-card SETCODE/TITLE-wave-seq; JP ua<NN>bt|st|nc, ex<NN>bt; NA ue<NN>bt, uex<NN>bt (regional renumbering)", confirmed: false },
   // ── Internal ───────────────────────────────────────────────────────
   // tst is exempt from the production-DB definition: it exists so tests
   // can exercise the confirmed path without a real game.
-  tst: { code: "tst", name: "Test",                  publisher: "(internal)", languages: ["en"], setCodeHint: "any", confirmed: true },
+  tst: { code: "tst", name: "Test",                  publisher: "(internal)", languages: ["en"], slug: "test", brand: "Test", setCodeHint: "any", confirmed: true },
 };
 
 /** Type-guard: is this string a registered game code? */
@@ -141,3 +162,29 @@ export const CONFIRMED_GAME_CODES: readonly GameCode[] = GAME_CODES.filter(
 export const ANTICIPATED_GAME_CODES: readonly GameCode[] = GAME_CODES.filter(
   (c) => !GAMES[c].confirmed && c !== "tst",
 );
+
+/* ── The Atlas: slug-side helpers (spec 2026-07-07 the-atlas §1) ─────── */
+
+/** Every game's slug, in registry order. */
+export const GAME_SLUGS: readonly string[] = GAME_CODES.map((c) => GAMES[c].slug);
+
+/** Confirmed games' slugs (cards exist in prod; includes internal tst). */
+export const CONFIRMED_GAME_SLUGS: readonly string[] = CONFIRMED_GAME_CODES.map(
+  (c) => GAMES[c].slug,
+);
+
+/** Type-guard: is this string a registered game's slug? */
+export function isGameSlug(s: string): boolean {
+  return GAME_CODES.some((c) => GAMES[c].slug === s);
+}
+
+/** Full meta for a slug, or null — the slug-side door into the Atlas. */
+export function gameBySlug(slug: string): GameMeta | null {
+  const code = GAME_CODES.find((c) => GAMES[c].slug === slug);
+  return code ? GAMES[code] : null;
+}
+
+/** The slug for a code — the code-side door. */
+export function slugForCode(code: GameCode): string {
+  return GAMES[code].slug;
+}

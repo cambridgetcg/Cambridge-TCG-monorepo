@@ -216,6 +216,30 @@ export const SET_FORMATS: Record<GameCode, readonly SetFormat[]> = {
   pkp: [{ game: "pkp", pattern: /^([A-Z]\d{1,2})-(\d{3})$/i, description: "Pokémon Pocket (A1, A2 series)", examples: ["A1-001"], confirmed: false }],
   gen: [{ game: "gen", pattern: /^([A-Z0-9]+)-(\d{3,4})$/i, description: "Genshin TCG catch-all", examples: [], confirmed: false }],
 
+  // ── GUNDAM CARD GAME ─────────────────────────────────────────────────
+  // Verified vs the official DB (gundam-gcg.com) 2026-07-07: sets
+  // ST01..ST10 / GD01..GD05 / EB01, numbers 3-digit; special families
+  // carry no digits in the prefix (T-001, RP-, EXBP-, EXRP-); promos
+  // reuse base numbers. confirmed:false until first real ingest.
+  gcg: [
+    { game: "gcg", pattern: /^((?:ST|GD|EB)\d{2})-(\d{3})$/i, description: "Gundam starter/booster/extra (ST01-001, GD01-100, EB01-001)", examples: ["ST01-001", "GD01-087", "EB01-001"], confirmed: false },
+    { game: "gcg", pattern: /^((?:T|RP|EXBP|EXRP))-(\d{3})$/i, setOverride: "special", description: "Gundam no-digit special families (tokens/resources/EX)", examples: ["T-001", "EXBP-001"], confirmed: false },
+    { game: "gcg", pattern: /^([A-Z]{1,5}\d{0,2})-(\d{3,4})$/i, description: "Gundam catch-all", examples: [], confirmed: false },
+  ],
+
+  // ── UNION ARENA ──────────────────────────────────────────────────────
+  // On-card form is SETCODE/TITLE-wave-seq (UA02BT/JJK-1-001,
+  // EX04BT/JJK-3-006, NA UE03BT/JJK-1-040; AP cards use APnn; UAPR/UEPR
+  // promos may omit the wave). Set codes are REGIONAL; the TITLE-wave-seq
+  // segment is language-invariant (oracle.ts). The canonical set/number
+  // normalization (slash + wave don't fit [a-z0-9]+) is DEFERRED to the
+  // wave that lands the first cards — these rows record the verified
+  // shape so that decision starts from facts. confirmed:false.
+  una: [
+    { game: "una", pattern: /^((?:UA|UE)\d{2}(?:BT|ST|NC)|(?:EX|UEX)\d{2}BT)\/([A-Z]{2,4}-\d-(?:\d{3}|AP\d{2}))$/i, description: "Union Arena set-coded card (regional set prefix / title-wave-seq)", examples: ["UA02BT/JJK-1-001", "EX04BT/JJK-3-006", "UE03BT/JJK-1-040"], confirmed: false },
+    { game: "una", pattern: /^((?:UA|UE)PR)\/([A-Z]{2,4}-(?:\d-)?(?:\d{3}|AP\d{2}))$/i, setOverride: "promo", description: "Union Arena promo (wave may be omitted)", examples: ["UAPR/CGH-AP01"], confirmed: false },
+  ],
+
   // ── Internal test ────────────────────────────────────────────────────
   tst: [{ game: "tst", pattern: /^([a-z0-9]+)-([a-z0-9]+)$/i, description: "Test catch-all", examples: [], confirmed: true }],
 };

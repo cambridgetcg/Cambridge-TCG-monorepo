@@ -12,6 +12,8 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  gameBySlug,
+  slugForCode,
   GAMES,
   GAME_CODES,
   CONFIRMED_GAME_CODES,
@@ -26,7 +28,7 @@ const EXPECTED_CONFIRMED = ["op", "pkm", "dbf", "tst"] as const;
 /** Registered or anticipated codes with zero production cards. */
 const EXPECTED_UNCONFIRMED = [
   "mtg", "ygo", "dbs", "wei", "vng", "dmw", "bsr", "lcg", "fab", "lgr",
-  "swu", "sor", "alt", "rft", "rsh", "pkp", "gen",
+  "swu", "sor", "alt", "rft", "rsh", "pkp", "gen", "gcg", "una",
 ] as const;
 
 describe("GAMES confirmed flags — production-DB reconciliation", () => {
@@ -61,5 +63,35 @@ describe("GAMES confirmed flags — production-DB reconciliation", () => {
       expect(isGameCode(code)).toBe(true);
     }
     expect(isGameCode("")).toBe(false);
+  });
+});
+
+describe("the Atlas — slug/brand identity (spec 2026-07-07)", () => {
+  it("gives every game a unique, non-empty, kebab-case slug", () => {
+    const slugs = GAME_CODES.map((c) => GAMES[c].slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+    for (const slug of slugs) {
+      expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    }
+  });
+
+  it("gives every game a non-empty brand", () => {
+    for (const c of GAME_CODES) {
+      expect(GAMES[c].brand.length, `${c} brand empty`).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps legacy prefixes frozen to the founding trio and disjoint", () => {
+    const withLegacy = GAME_CODES.filter((c) => GAMES[c].legacyPrefixes?.length);
+    expect([...withLegacy].sort()).toEqual(["dbf", "op", "pkm"]);
+    const all = withLegacy.flatMap((c) => GAMES[c].legacyPrefixes!);
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it("walks both doors round-trip", () => {
+    for (const c of GAME_CODES) {
+      expect(gameBySlug(slugForCode(c))?.code).toBe(c);
+    }
+    expect(gameBySlug("not-a-game")).toBeNull();
   });
 });

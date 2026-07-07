@@ -197,6 +197,11 @@ export const ORACLE_POLICY: Record<GameCode, OraclePolicy> = {
     rationale:
       "Publisher TBD; default to stripped pending first ingest confirmation.",
   },
+  gcg: {
+    kind: "stripped",
+    rationale:
+      "Trilingual simultaneous launch (ja/en/zh) with one shared set+number space (verified: ST01-001 identical in EN/JP official DBs).",
+  },
   lcg: {
     kind: "stripped",
     rationale:
@@ -225,6 +230,11 @@ export const ORACLE_POLICY: Record<GameCode, OraclePolicy> = {
     kind: "diverged",
     rationale:
       "Mobile-derived catalog; per-region differences expected; status confirmed on first ingest.",
+  },
+  una: {
+    kind: "diverged",
+    rationale:
+      "Regional set-code renumbering (JP ua03bt = NA ue02bt) with a language-invariant TITLE-wave-seq segment — a future anchor candidate; until an anchor writer ships, oracle_id stays null.",
   },
 
   // ── Pattern D — single-language ───────────────────────────────────
