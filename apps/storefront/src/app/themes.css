@@ -260,6 +260,14 @@
 [data-theme] .wardrobe-rise:nth-child(4) { animation-delay: 180ms; }
 [data-theme] .wardrobe-rise:nth-child(5) { animation-delay: 240ms; }
 
+/* Position-independent stagger: a wrapper anywhere in the DOM can name
+ * its own beat. The nth-child rules above win where they match (higher
+ * specificity); everywhere else the custom property carries the delay.
+ * (The manga gallery, 2026-07-07 — home's shelves sit mid-<main>.) */
+.wardrobe-rise {
+  animation-delay: var(--rise-delay, 0ms);
+}
+
 /* ── Manga materials — the Manga Gallery (spec 2026-07-07) ──────────────
  * The quiet gallery's bones, inked: screentone, panels, speed lines,
  * the breathing gutter, lines that draw themselves. Every animated

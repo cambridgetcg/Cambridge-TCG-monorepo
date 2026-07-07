@@ -927,7 +927,7 @@ In `FeaturedCards.tsx`, in the card cell markup, replace the mount class `wardro
 
 In `apps/storefront/src/app/page.tsx`:
 
-(a) add `wardrobe-rise` to each shelf section by wrapping the five components (lines ~150–176) — `KingdomStrip`, `GameGrid`, `PriceGuideStrip`, `SetGrid`, `StorySection` — each in a `<div className="wardrobe-rise">…</div>` (the components render their own `<section>`; the wrapper div is the animation carrier and inherits the nth-child stagger among siblings of `<main>`).
+(a) add `wardrobe-rise` to each shelf section by wrapping the five components (lines ~150–176) — `KingdomStrip`, `GameGrid`, `PriceGuideStrip`, `SetGrid`, `StorySection` — each in a `<div className="wardrobe-rise">…</div>` (the components render their own `<section>`; the wrapper div is the animation carrier with explicit `--rise-delay` inline beats [0–240ms] because the nth-child rules don't reach mid-page positions [children 8-12 of `<main>`]).
 
 (b) extend imports:
 

@@ -168,26 +168,26 @@ export default async function Home() {
           human words, derived from KINGDOM_LAYERS. Contact-surface spec
           §3.1: the kingdom was previously reachable only via the Discover
           dropdown. */}
-      <div className="wardrobe-rise">
+      <div className="wardrobe-rise" style={{ "--rise-delay": "0ms" } as Record<string, string>}>
         <KingdomStrip />
       </div>
 
       {/* The gallery shelves — game doors, price guides, latest sets.
           Collectors first (2026-07-06): every shelf link lands on the
           market or the price guides; the retail catalog door is gone. */}
-      <div className="wardrobe-rise">
+      <div className="wardrobe-rise" style={{ "--rise-delay": "60ms" } as Record<string, string>}>
         <GameGrid games={allGames} />
       </div>
-      <div className="wardrobe-rise">
+      <div className="wardrobe-rise" style={{ "--rise-delay": "120ms" } as Record<string, string>}>
         <PriceGuideStrip />
       </div>
       {/* This shelf is One Piece only by construction (fetchSets("one-piece")
           above) — the heading says so instead of implying every game's
           latest sets. */}
-      <div className="wardrobe-rise">
+      <div className="wardrobe-rise" style={{ "--rise-delay": "180ms" } as Record<string, string>}>
         <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Latest One Piece Sets" />
       </div>
-      <div className="wardrobe-rise">
+      <div className="wardrobe-rise" style={{ "--rise-delay": "240ms" } as Record<string, string>}>
         <StorySection />
       </div>
       <div className="max-w-7xl mx-auto px-4 pt-8 flex items-center gap-3 text-xs">
