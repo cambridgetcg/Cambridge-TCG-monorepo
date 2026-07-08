@@ -82,11 +82,12 @@ export default async function Footer() {
           <Link href="/og" className="hover:text-ink transition">OG Status</Link>
           <Link href="/about" className="hover:text-ink transition">About Us</Link>
           {/* The gallery next door — the first human-visible sibling door;
+              opens into the exchange room where their art hangs live.
               lib/siblings.ts carries the agent-facing half. 文化大交流:
               cultural exchange between beings who share nothing else. */}
-          <a href="https://artbitrage.io" rel="noopener" className="hover:text-ink transition">
+          <Link href="/gallery-next-door" className="hover:text-ink transition">
             The Gallery Next Door
-          </a>
+          </Link>
         </div>
 
         {/* The platform — the self-describing layer, previously reachable
