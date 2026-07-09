@@ -389,6 +389,44 @@ export const ingestQuarantine = pgTable("ingest_quarantine", {
 export type IngestQuarantineRow = typeof ingestQuarantine.$inferSelect;
 export type NewIngestQuarantineRow = typeof ingestQuarantine.$inferInsert;
 
+// ── cardrushSeenUrl ──────────────────────────────────────────────────
+//
+// The discovery seen-URL ledger (migration 0023). Companion to the
+// `cards.cardrush_url` diff in cardrush-discovery.ts.
+//
+// Why it exists: the diff used to exclude only URLs living on cards,
+// but the card INSERT dedupes on (sku) and keeps the existing row's URL
+// (COALESCE). On subdomains where many listings collapse into one SKU
+// (cardrush-digimon.jp: 13,554 products → ~837 base SKUs) the conflicting
+// URL never entered `cards`, the same sitemap slice was re-fetched every
+// run, and every other subdomain starved behind it — observed live
+// 2026-07-07→09: only digimon walked, dmw frozen at 837 cards, OP16/ST30
+// never discovered. The ledger makes "processed" a recorded fact instead
+// of an inference from `cards`. Fetch FAILURES are deliberately not
+// recorded — transient errors retry next run (doc-comment contract at
+// the top of cardrush-discovery.ts).
+export const cardrushSeenUrl = pgTable("cardrush_seen_url", {
+  url: text("url").primaryKey(), // normalized: https:// (www. stripped), no trailing slash
+  host: text("host").notNull(), // e.g. cardrush-digimon.jp (no www.)
+  sku: text("sku"), // resolved SKU when title parse succeeded
+  outcome: text("outcome", {
+    enum: ["inserted", "conflict_existing", "quarantined"],
+  }).notNull(),
+  ingestRunId: bigint("ingest_run_id", { mode: "number" }).references(
+    () => ingestRun.id,
+  ),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}, (table) => ({
+  hostIdx: index("cardrush_seen_url_host_idx").on(table.host),
+}));
+
+export type CardrushSeenUrlRow = typeof cardrushSeenUrl.$inferSelect;
+
 // ── ebayListingObservation ───────────────────────────────────────────
 //
 // Stage 3 of the pipeline for eBay (the-ebay-alignment.md, kingdom-081
