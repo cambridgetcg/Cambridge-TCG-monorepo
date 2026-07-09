@@ -159,6 +159,7 @@ export const SET_FORMATS: Record<GameCode, readonly SetFormat[]> = {
     { game: "dbf", pattern: /^(FB\d{2})-(\d{3,4})$/i, description: "Fusion World booster (FB01..FBNN)", examples: ["FB01-001", "FB08-100"], confirmed: true },
     { game: "dbf", pattern: /^(FS\d{2})-(\d{3,4})$/i, description: "Fusion World starter (FS01..FSNN)", examples: ["FS01-001"], confirmed: true },
     { game: "dbf", pattern: /^(SB\d{2})-(\d{3,4})$/i, description: "Fusion World manga booster (SB01..SBNN)", examples: ["SB01-001"], confirmed: true },
+    { game: "dbf", pattern: /^(ST\d{2})-(\d{3,4})$/i, description: "Fusion World story booster (ST01.., first releases 2026-08-08)", examples: ["ST01-001"], confirmed: true },
     // DB-PROMO / DB-1ANNY etc — single token, no number; consolidated as set: "promo"
     { game: "dbf", pattern: /^DB-([A-Z0-9]+)$/i, setGroupIndex: undefined, numberGroupIndex: 1, setOverride: "promo", description: "Fusion World named promo (DB-PROMO, DB-1ANNY)", examples: ["DB-PROMO", "DB-1ANNY"], confirmed: true },
     { game: "dbf", pattern: /^([A-Z]{2,4}\d{2})-(\d{3,4})$/i, description: "Fusion World catch-all", examples: [], confirmed: false },
@@ -174,6 +175,9 @@ export const SET_FORMATS: Record<GameCode, readonly SetFormat[]> = {
   vng: [
     { game: "vng", pattern: /^(D-[A-Z]{2}\d{2})\/(\d{3,4})$/i, description: "Vanguard D-series", examples: ["D-BT01/001"], confirmed: true },
     { game: "vng", pattern: /^(V-[A-Z]{2}\d{2})\/(\d{3,4})$/i, description: "Vanguard V-series", examples: ["V-BT01/001"], confirmed: true },
+    // DZ era numbers may carry letters and lowercase (FFR01, 15thSP01) —
+    // validated live against cardrush-vanguard.jp product titles 2026-07-09.
+    { game: "vng", pattern: /^(DZ-[A-Z]{2,4}\d{2})\/([A-Za-z0-9]{2,10})$/i, description: "Vanguard DZ-series (numbers incl. FFR01, 15thSP01)", examples: ["DZ-BT15/001", "DZ-BT15/15thSP01"], confirmed: true },
     { game: "vng", pattern: /^([A-Z0-9-]+)\/(\d{3,4})$/i, description: "Vanguard catch-all", examples: [], confirmed: false },
   ],
 
@@ -187,6 +191,10 @@ export const SET_FORMATS: Record<GameCode, readonly SetFormat[]> = {
   // ── Battle Spirits Saga ──────────────────────────────────────────────
   bsr: [
     { game: "bsr", pattern: /^(BSS\d{2})-(\d{3,4})$/i, description: "BSS booster", examples: ["BSS01-001"], confirmed: true },
+    // Real Battle Spirits shapes validated live against cardrush-bs.jp
+    // 2026-07-09: BS75-001, BS75-CX04 (lettered numbers), BSC46-099,
+    // SD56-RV009, and 2026-renewal codes 26RBS01 / 26RCB01 / 26RSD05.
+    { game: "bsr", pattern: /^((?:\d{2}R)?(?:BSC?|SD|CB)\d{2})-([A-Z]{0,2}\d{2,3})$/i, description: "Battle Spirits main/collab/deck (BS64.., BSC46.., CB30.., SD56.., 26RBS01..)", examples: ["BS75-001", "BS75-CX04", "26RSD05-014"], confirmed: true },
     { game: "bsr", pattern: /^([A-Z]{2,4}\d{2})-(\d{3,4})$/i, description: "BSS catch-all", examples: [], confirmed: false },
   ],
 

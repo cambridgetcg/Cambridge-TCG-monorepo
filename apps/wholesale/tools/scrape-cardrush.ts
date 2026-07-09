@@ -12,7 +12,7 @@ if (existsSync(".env.local")) {
   }
 }
 import { join } from "path";
-import { getSetConfig, getAllSetCodes, getGameConfig, SET_CONFIGS, type GameConfig } from "./lib/config";
+import { getSetConfig, getAllSetCodes, getGameConfig, SET_CONFIGS, GAME_CONFIGS, type GameConfig } from "./lib/config";
 import { fetchGbpJpyRate } from "./lib/fx-rate";
 import { fetchProductGroupPages, fetchProductListPages, fetchDiscoveryPage } from "./lib/cardrush-client";
 import {
@@ -56,7 +56,7 @@ const gameFlag = args.find((a) => a.startsWith("--game="));
 const gameCode = gameFlag ? gameFlag.split("=")[1] : "onepiece";
 const resolvedGameConfig = getGameConfig(gameCode);
 if (!resolvedGameConfig) {
-  console.error(`Unknown game: ${gameCode}. Known games: onepiece, dragonball, pokemon`);
+  console.error(`Unknown game: ${gameCode}. Known games: ${Object.keys(GAME_CONFIGS).join(", ")}`);
   process.exit(1);
 }
 const gameConfig: GameConfig = resolvedGameConfig;
