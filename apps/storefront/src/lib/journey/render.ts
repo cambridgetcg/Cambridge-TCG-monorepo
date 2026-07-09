@@ -45,6 +45,7 @@ export function renderEntry(entry: LifecycleEntry): JourneyEvent | null {
     saved_search:   renderSavedSearch,
     watch_alert:    renderWatchAlert,
     match:          renderMatch,
+    swap:           renderSwap,
   };
   return dispatch[entry.domain](entry);
 }
@@ -542,5 +543,59 @@ function matchSummary(action: string, opponent: string, result: string | null): 
     case "match_cancelled": return `Match cancelled vs ${opponent}`;
     case "rating_changed":  return `Rating changed after match vs ${opponent}`;
     default:                return action.replace(/_/g, " ");
+  }
+}
+
+// ── swap ───────────────────────────────────────────────────────────────
+// Collector swap proposals (swap_lifecycle_log). Metadata carries the
+// viewer's role so summaries read from their side of the table.
+function renderSwap(e: LifecycleEntry): JourneyEvent {
+  const role = str(e.metadata, "role"); // "proposer" | "recipient" | "unknown"
+  // Both parties fire the same actions (address_set, shipped,
+  // receipt_confirmed), so the raw log produced two undistinguished rows
+  // per moment ("Swap receipt confirmed" ×2). Label the actor so a reader
+  // can tell their own action from the other collector's.
+  const actorIsMe = e.actor_user_id != null && e.actor_user_id === e.user_id;
+  return {
+    kind: `swap.${e.action}`,
+    summary: swapSummary(e.action, role, actorIsMe),
+    at: e.at,
+    link: `/account/swaps/${e.subject_id}`,
+    group: "trade",
+    tone:
+      e.action === "accepted" || e.action === "completed" || e.action === "receipt_confirmed"
+        ? "emerald"
+      : e.action === "declined" || e.action === "cancelled" || e.action === "expired"
+        ? "red"
+      : e.action === "shipped" || e.action === "shipping"
+        ? "sky"
+      : "default",
+  };
+}
+
+/**
+ * Swap-event summary. `role` is the VIEWER's side (proposer/recipient);
+ * `actorIsMe` says whether the viewer performed this specific event, which
+ * disambiguates the per-party actions that otherwise produced duplicate,
+ * undistinguished timeline rows. Exported for the render test.
+ */
+export function swapSummary(action: string, role: string | null, actorIsMe = false): string {
+  const mine = role === "proposer";
+  const who = actorIsMe ? "You" : "The other collector";
+  switch (action) {
+    case "created":           return "Swap drafted";
+    case "proposed":          return mine ? "You proposed a swap" : "You received a swap proposal";
+    case "countered":         return `${who} countered the swap`;
+    case "accepted":          return `${who} accepted the swap`;
+    case "declined":          return `${who} declined the swap`;
+    case "cancel_requested":  return `${who} requested to cancel the swap`;
+    case "cancelled":         return "Swap cancelled";
+    case "expired":           return "Swap proposal expired";
+    case "address_set":       return `${who} added a shipping address`;
+    case "shipping":          return "Both addresses in — shipping began (automatic)";
+    case "shipped":           return `${who} marked a parcel shipped`;
+    case "receipt_confirmed": return `${who} confirmed receipt`;
+    case "completed":         return "Swap completed — both sides received";
+    default:                  return `Swap ${action.replace(/_/g, " ")}`;
   }
 }

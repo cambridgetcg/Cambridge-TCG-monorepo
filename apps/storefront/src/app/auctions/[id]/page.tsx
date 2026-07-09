@@ -1,191 +1,104 @@
-"use client";
+// /auctions/[id] — the interactive auction detail page.
+//
+// Previously a pure client shell: the SSR HTML carried no card, price or
+// bids, so shared links and crawlers got an empty page and there was no
+// generateMetadata. This server shell now resolves the auction, its card
+// identity (resolveCardIdentity via auctions.sku), and the bidders' trust
+// tiers, then hands them to the client island (AuctionDetailClient) as a
+// seed — the first paint carries the auction, and the live bid/poll stays
+// interactive. Mirrors the market card page's server-shell + client-island
+// split and the /auctions/[id]/read metadata pattern.
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import type { Metadata } from "next";
+import { cache } from "react";
+import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { getAuction } from "@/lib/auction/db";
+import { getCardIdentity } from "@/lib/market/catalog-card";
 import type { AuctionDetail } from "@/lib/auction/types";
-import { isReserveMet } from "@/lib/auction/lifecycle";
-import AuctionImageGallery from "@/components/auction/AuctionImageGallery";
-import BidPanel from "@/components/auction/BidPanel";
-import BidHistory from "@/components/auction/BidHistory";
-import AuctionStatusBadge from "@/components/auction/AuctionStatusBadge";
-import PostWinPanel from "@/components/auction/PostWinPanel";
+import AuctionDetailClient, { type AuctionCardIdentity } from "./AuctionDetailClient";
+import { loadBidderTiers } from "./bidder-tiers";
 
-const TYPE_LABELS: Record<string, string> = {
-  english: "English Auction",
-  dutch: "Dutch Auction",
-  buy_now: "Buy Now",
-};
+// getAuction runs the scheduled→live / live→ended sweeps and the order book
+// is live-polled, so this page is inherently dynamic. force-dynamic keeps a
+// missing auction a real 404 rather than a soft-200.
+export const dynamic = "force-dynamic";
 
-export default function AuctionDetailPage() {
-  const params = useParams();
-  const id = params.id as string;
+// Request-cached so generateMetadata and the page body share one query
+// (getAuction also runs the lifecycle sweeps — dedupe them per request).
+const loadAuction = cache((id: string) => getAuction(id).catch(() => null));
 
-  const [auction, setAuction] = useState<AuctionDetail | null>(null);
-  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const auction = await loadAuction(id);
+  if (!auction) return { title: "Auction not found — Cambridge TCG" };
+  const title = `${auction.title} — Auction · Cambridge TCG`;
+  const description =
+    auction.description?.trim() ||
+    `Live auction for ${auction.title} at Cambridge TCG — bid directly with other collectors.`;
+  const image = auction.images?.[0]?.url;
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      ...(image ? { images: [{ url: image }] } : {}),
+    },
+  };
+}
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [auctionRes, sessionRes] = await Promise.all([
-          fetch(`/api/auctions/${id}`),
-          fetch("/api/auth/session"),
-        ]);
+export default async function AuctionDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const auction = await loadAuction(id);
+  if (!auction) notFound();
 
-        if (!auctionRes.ok) {
-          setError("Auction not found");
-          return;
-        }
+  const session = await auth().catch(() => null);
+  const sessionUserId = session?.user?.id ?? null;
 
-        const auctionData: AuctionDetail = await auctionRes.json();
-        setAuction(auctionData);
-
-        try {
-          const sessionData = await sessionRes.json();
-          setSessionUserId(sessionData?.user?.id || null);
-        } catch {
-          // Not logged in
-        }
-      } catch {
-        setError("Failed to load auction");
-      } finally {
-        setLoading(false);
-      }
+  // Card identity from the catalogue (auctions.sku). Enrichment only — a
+  // missing sku (pre-pivot demo auctions) simply omits the strip.
+  const sku = (auction as { sku?: string | null }).sku ?? null;
+  let cardIdentity: AuctionCardIdentity | null = null;
+  if (sku) {
+    const c = await getCardIdentity(sku).catch(() => null);
+    if (c) {
+      cardIdentity = {
+        sku: c.sku,
+        card_name: c.card_name,
+        card_number: c.card_number,
+        set_name: c.set_name,
+        set_code: c.set_code,
+      };
     }
-
-    load();
-  }, [id]);
-
-  // Poll for updates every 10 seconds on live auctions
-  useEffect(() => {
-    if (!auction || auction.status !== "live") return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/auctions/${id}`);
-        if (res.ok) {
-          const data: AuctionDetail = await res.json();
-          setAuction(data);
-        }
-      } catch {
-        // Silently fail on poll
-      }
-    }, 10_000);
-
-    return () => clearInterval(interval);
-  }, [id, auction?.status]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-950">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            <div className="lg:col-span-3 space-y-6">
-              <div className="aspect-square bg-neutral-900 rounded-xl animate-pulse" />
-              <div className="h-8 bg-neutral-900 rounded w-3/4 animate-pulse" />
-              <div className="h-32 bg-neutral-900 rounded animate-pulse" />
-            </div>
-            <div className="lg:col-span-2">
-              <div className="h-80 bg-neutral-900 rounded-xl animate-pulse" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   }
 
-  if (error || !auction) {
-    return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">
-            {error || "Auction not found"}
-          </h1>
-          <a href="/auctions" className="text-amber-500 hover:text-amber-400 transition text-sm">
-            Back to auctions
-          </a>
-        </div>
-      </div>
-    );
-  }
+  const bidderIds = Array.from(new Set(auction.bids.map((b) => b.user_id).filter(Boolean)));
+  const trustTiers = await loadBidderTiers(bidderIds);
 
-  const reserveStatus = isReserveMet(auction);
+  // Privacy: the winner's shipping_address rides on the row (SELECT *), but
+  // it's participant-only. Strip it from the seed for anyone who isn't the
+  // seller so it never lands in the SSR HTML or a non-seller's props.
+  const isSeller = sessionUserId != null && auction.seller_user_id === sessionUserId;
+  const seed: AuctionDetail = { ...auction };
+  if (!isSeller) {
+    (seed as { shipping_address?: unknown }).shipping_address = null;
+  }
 
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-6">
-          <a href="/auctions" className="hover:text-white transition">Auctions</a>
-          <span>/</span>
-          <span className="text-neutral-300 truncate">{auction.title}</span>
-        </nav>
-
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Left column: images + description + bid history */}
-          <div className="lg:col-span-3 space-y-6">
-            <AuctionImageGallery images={auction.images} />
-
-            {/* Title & meta */}
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <AuctionStatusBadge status={auction.status} />
-                <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-900/60 text-amber-300">
-                  {TYPE_LABELS[auction.auction_type] || auction.auction_type}
-                </span>
-                {reserveStatus !== null && (
-                  <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${
-                    reserveStatus
-                      ? "bg-emerald-900/60 text-emerald-300"
-                      : "bg-amber-900/60 text-amber-300"
-                  }`}>
-                    {reserveStatus ? "Reserve met" : "Reserve not yet met"}
-                  </span>
-                )}
-              </div>
-              <h1 className="text-2xl font-bold text-white">{auction.title}</h1>
-            </div>
-
-            {/* Description */}
-            {auction.description && (
-              <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
-                <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
-                  Description
-                </h2>
-                <div className="text-neutral-300 text-sm leading-relaxed whitespace-pre-wrap">
-                  {auction.description}
-                </div>
-              </div>
-            )}
-
-            {/* Bid History */}
-            <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
-              <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
-                Bid History
-              </h2>
-              <BidHistory bids={auction.bids} />
-            </div>
-          </div>
-
-          {/* Right column: sticky bid panel + post-win flow */}
-          <div className="lg:col-span-2">
-            <div className="lg:sticky lg:top-24 space-y-4">
-              <BidPanel auction={auction} sessionUserId={sessionUserId} />
-              {(auction.status === "ended" || auction.status === "paid") && (
-                <PostWinPanel
-                  auction={auction}
-                  sessionUserId={sessionUserId}
-                  onRefresh={async () => {
-                    const res = await fetch(`/api/auctions/${id}`);
-                    if (res.ok) setAuction(await res.json());
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <AuctionDetailClient
+      initialAuction={seed}
+      initialSessionUserId={sessionUserId}
+      trustTiers={trustTiers}
+      cardIdentity={cardIdentity}
+    />
   );
 }

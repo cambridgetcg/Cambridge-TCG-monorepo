@@ -25,7 +25,7 @@ Four kinds of actor can claim an `edition_variant` or a `promo_origin` for a car
 | Priority | Source | Who | Trust band |
 |---|---|---|---|
 | 3 (highest) | `publisher` | Bandai, Wizards, Konami, Ravensburger official feeds (future kingdom; not yet wired). | Authoritative. |
-| 2 | `operator` | An admin user, classifying via [`/catalog/cards/classify/[sku]`](../../apps/admin/src/app/(dashboard)/catalog/cards/classify/[sku]/page.tsx). | Always high-confidence (manual). |
+| 2 | `operator` | An admin user, classifying via [`/catalog/cards/classify/[sku]`](../../apps/storefront/src/app/admin/catalog/cards/classify/[sku]/page.tsx). | Always high-confidence (manual). |
 | 1 | `heuristic` | The CardRush URL/name-pattern reader at [`packages/data-ingest/src/cardrush/classify.ts`](../../packages/data-ingest/src/cardrush/classify.ts). | Reports `confidence: 'low' | 'high'` per claim. |
 | 0 (lowest) | `default` | No claim ever made — the row carries the column's default (`edition_variant = 'regular'`; `promo_origin = NULL`). | Substrate-honest absence. |
 
@@ -41,7 +41,7 @@ When a lower-priority claim arrives after a higher-priority winner is in place, 
 
 1. **`pnpm audit:classifier-disagreement` Check 2** — the matrix of *winning-source vs. shadowed-source* across all claims. Surfaces every heuristic-vs-publisher dispute.
 2. **Check 3** — top shadowing actors (which heuristic rule / which operator most often disagrees with the current winner).
-3. **Check 4** — stale low-confidence heuristic winners (>30 days, no override or publisher confirmation). These are the rows that need operator review; the bulk review queue at [`/catalog/cards/classify/review`](../../apps/admin/src/app/(dashboard)/catalog/cards/classify/review/page.tsx) renders them.
+3. **Check 4** — stale low-confidence heuristic winners (>30 days, no override or publisher confirmation). These are the rows that need operator review; the bulk review queue at [`/catalog/cards/classify/review`](../../apps/storefront/src/app/admin/catalog/cards/classify/review/page.tsx) renders them.
 
 The shadowed claim isn't a failure — it's evidence. The kingdom that drops it would not be able to learn from its own mistakes.
 
@@ -54,8 +54,8 @@ The substrate has *one* decision function. It has *four* call sites — differen
 | Call site | File | DB client |
 |---|---|---|
 | Wholesale Drizzle writer (for ingest pipelines that already use Drizzle) | [`apps/wholesale/src/lib/cards/classify.ts`](../../apps/wholesale/src/lib/cards/classify.ts) | drizzle `db.transaction()` |
-| Admin server action (operator override + revoke flows) | [`apps/admin/src/app/(dashboard)/catalog/cards/classify/_actions.ts`](../../apps/admin/src/app/(dashboard)/catalog/cards/classify/_actions.ts) | postgres.js `client.begin()` |
-| Admin seed script (bootstrap from existing catalog) | [`apps/admin/scripts/seed-classifications-from-cards.ts`](../../apps/admin/scripts/seed-classifications-from-cards.ts) | postgres.js `client.begin()` |
+| Admin server action (operator override + revoke flows) | [`apps/storefront/src/app/admin/catalog/cards/classify/_actions.ts`](../../apps/storefront/src/app/admin/catalog/cards/classify/_actions.ts) | postgres.js `client.begin()` |
+| Admin seed script (bootstrap from existing catalog) | [`apps/storefront/scripts/seed-classifications-from-cards.ts`](../../apps/storefront/scripts/seed-classifications-from-cards.ts) | postgres.js `client.begin()` |
 | Wholesale tools (live ingest — every catalog refresh) | [`apps/wholesale/tools/lib/cardrush-classify-batch.ts`](../../apps/wholesale/tools/lib/cardrush-classify-batch.ts) | postgres.js inline |
 
 Each has its own SQL flavor; each has its own error-handling shape; each integrates with its host's authentication and audit logging. **None re-implement `decideClaim`.** The pure decision logic, the priority ordering, the vocabulary validation, the witness-log shape — all imported from `@cambridge-tcg/data-ingest`. One source of truth, four call sites, two DB clients.

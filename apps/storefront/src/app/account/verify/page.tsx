@@ -163,17 +163,17 @@ export default function VerifyPage() {
     return (
       <div className="space-y-4">
       <Audience kind="consumer" />
-        <div className="h-8 bg-neutral-800 rounded w-48 animate-pulse" />
-        <div className="h-64 bg-neutral-900 rounded-xl animate-pulse" />
+        <div className="h-8 bg-surface-subtle rounded w-48 animate-pulse" />
+        <div className="h-64 bg-surface rounded-lg animate-pulse" />
       </div>
     );
   }
 
   if (loggedIn === false) {
     return (
-      <div className="bg-neutral-900 rounded-xl p-8 text-center">
-        <p className="text-neutral-400 mb-3">You need to be signed in to verify your identity.</p>
-        <a href="/login" className="text-amber-400 hover:underline text-sm font-medium">Sign in</a>
+      <div className="bg-surface rounded-lg p-8 text-center">
+        <p className="text-ink-muted mb-3">You need to be signed in to verify your identity.</p>
+        <a href="/login" className="text-accent hover:underline text-sm font-medium">Sign in</a>
       </div>
     );
   }
@@ -185,8 +185,8 @@ export default function VerifyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Identity verification (optional)</h1>
-        <p className="text-sm text-neutral-400 mt-2 max-w-prose">
+        <h1 className="text-2xl font-bold text-ink">Identity verification (optional)</h1>
+        <p className="text-sm text-ink-muted mt-2 max-w-prose">
           Verification is voluntary. Trading needs an account, not an identity — verifying
           does not affect what you can trade or your trust score. This flow exists for users
           who want their identity on file with the platform, and is currently UK-identity
@@ -199,7 +199,7 @@ export default function VerifyPage() {
       {status === "verified" && (
         <StatusCard tone="emerald" title="Verified">
           Your identity was verified on{" "}
-          <span className="text-white">
+          <span className="text-ink">
             {verification?.verified_at
               ? new Date(verification.verified_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
               : "N/A"}
@@ -211,7 +211,7 @@ export default function VerifyPage() {
         <StatusCard tone="amber" title="Under Review">
           We&apos;re reviewing your submission — usually 1-2 business days.
           {verification?.resubmitted_count != null && verification.resubmitted_count > 0 && (
-            <span className="text-xs text-neutral-500 block mt-1">
+            <span className="text-xs text-ink-faint block mt-1">
               Resubmission {verification.resubmitted_count + 1}.
             </span>
           )}
@@ -221,8 +221,8 @@ export default function VerifyPage() {
       {status === "rejected" && (
         <StatusCard tone="red" title="Rejected">
           {verification?.rejected_reason && (
-            <p className="text-red-200 text-sm mb-2">
-              <span className="text-neutral-400">Reason:</span> {verification.rejected_reason}
+            <p className="text-danger text-sm mb-2">
+              <span className="text-ink-muted">Reason:</span> {verification.rejected_reason}
             </p>
           )}
           <p>Fix the issues below and resubmit.</p>
@@ -237,10 +237,10 @@ export default function VerifyPage() {
       )}
 
       {canUpload && (
-        <div className="bg-neutral-900 rounded-xl p-6 space-y-4">
+        <div className="bg-surface rounded-lg p-6 space-y-4">
           <div>
-            <h2 className="text-sm font-bold text-white uppercase tracking-wide">Identity Documents</h2>
-            <p className="text-xs text-neutral-500 mt-1">
+            <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Identity Documents</h2>
+            <p className="text-xs text-ink-faint mt-1">
               Government-issued photo ID and a recent proof of address. Images or PDF.
             </p>
           </div>
@@ -250,21 +250,21 @@ export default function VerifyPage() {
               {documents.map((doc) => (
                 <div key={doc.id} className="relative group">
                   <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                     className="block rounded-lg border border-neutral-800 overflow-hidden hover:border-amber-500/40 transition">
+                     className="block rounded-lg border border-border-subtle overflow-hidden hover:border-accent/40 transition">
                     {doc.mime_type?.startsWith("image/") ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={doc.url} alt={doc.doc_type} className="aspect-square w-full object-cover" />
                     ) : (
-                      <div className="aspect-square w-full bg-neutral-800 flex items-center justify-center text-neutral-500 text-xs">PDF</div>
+                      <div className="aspect-square w-full bg-surface-subtle flex items-center justify-center text-ink-faint text-xs">PDF</div>
                     )}
-                    <p className="text-[11px] text-neutral-400 px-2 py-1 truncate">
+                    <p className="text-[11px] text-ink-muted px-2 py-1 truncate">
                       {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
                     </p>
                   </a>
                   {/* canUpload gate above ensures status isn't 'verified' here */}
                   <button
                     onClick={() => handleDeleteDoc(doc.id)}
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-neutral-300 hover:bg-red-900/80 hover:text-white opacity-0 group-hover:opacity-100 transition text-xs"
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-ink/70 text-page/80 hover:bg-danger hover:text-page opacity-0 group-hover:opacity-100 transition text-xs"
                     title="Remove"
                   >×</button>
                 </div>
@@ -276,7 +276,7 @@ export default function VerifyPage() {
             <select
               value={uploadType}
               onChange={(e) => setUploadType(e.target.value)}
-              className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500/50"
+              className="px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink focus:outline-none focus:border-accent/50"
             >
               {Object.entries(VERIFICATION_DOC_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
@@ -284,8 +284,8 @@ export default function VerifyPage() {
             </select>
             <label className={`cursor-pointer px-4 py-2 rounded-lg font-bold text-sm transition ${
               uploading
-                ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
-                : "bg-amber-500 text-black hover:bg-amber-400"
+                ? "bg-surface-subtle text-ink-faint cursor-not-allowed"
+                : "bg-ink text-page hover:opacity-90"
             }`}>
               {uploading ? "Uploading…" : "Upload document"}
               <input
@@ -301,13 +301,13 @@ export default function VerifyPage() {
               />
             </label>
           </div>
-          {uploadError && <p className="text-xs text-red-400">{uploadError}</p>}
+          {uploadError && <p className="text-xs text-danger">{uploadError}</p>}
         </div>
       )}
 
       {success && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
-          <p className="text-emerald-400 text-sm font-medium">
+        <div className="bg-ok/10 border border-ok/30 rounded-lg p-4">
+          <p className="text-ok text-sm font-medium">
             Verification submitted! We&apos;ll review within 1-2 business days.
           </p>
         </div>
@@ -315,8 +315,8 @@ export default function VerifyPage() {
 
       {showForm && (
         <>
-          <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
-            <p className="text-amber-200/80 text-sm">
+          <div className="bg-accent-wash border border-accent/30 rounded-lg p-4">
+            <p className="text-accent text-sm">
               This optional flow is currently UK residents only. Your information is
               encrypted and never shared.
             </p>
@@ -350,15 +350,15 @@ export default function VerifyPage() {
             </FieldsCard>
 
             {error && Object.keys(fieldErrors).length === 0 && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                <p className="text-red-400 text-sm">{error}</p>
+              <div className="bg-danger/10 border border-danger/30 rounded-lg p-4">
+                <p className="text-danger text-sm">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 rounded-lg font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition disabled:opacity-50"
+              className="w-full py-3 rounded-lg font-semibold text-sm bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
             >
               {submitting
                 ? "Submitting…"
@@ -383,7 +383,7 @@ function VerificationTimelineBar({ verification }: { verification: UserVerificat
   const isRejected = verification.status === "rejected";
 
   return (
-    <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4">
+    <div className="bg-surface border border-border-subtle rounded-lg p-4">
       <div className="flex items-center gap-0 overflow-x-auto">
         {VERIFICATION_TIMELINE.map((step, i) => {
           let ts: string | null = null;
@@ -394,19 +394,19 @@ function VerificationTimelineBar({ verification }: { verification: UserVerificat
           const current = !terminal && i === activeIdx;
 
           const dotClass = isRejected && i === 2
-            ? "bg-red-400 text-black"
+            ? "bg-danger text-page"
             : done
-              ? "bg-emerald-400 text-black"
+              ? "bg-ok text-page"
               : current
-                ? "bg-amber-400 text-black ring-2 ring-offset-2 ring-offset-neutral-900 ring-amber-400/40"
-                : "bg-neutral-700 text-neutral-600";
+                ? "bg-ink text-page"
+                : "bg-surface-subtle text-ink-faint";
           const labelClass = isRejected && i === 2
-            ? "text-red-400"
+            ? "text-danger"
             : done
-              ? "text-emerald-400"
+              ? "text-ok"
               : current
-                ? "text-amber-400"
-                : "text-neutral-600";
+                ? "text-ink"
+                : "text-ink-faint";
 
           return (
             <div key={step.key} className="flex items-center flex-1 min-w-0">
@@ -418,13 +418,13 @@ function VerificationTimelineBar({ verification }: { verification: UserVerificat
                   {step.key === "resolved" && isRejected ? "Rejected" : step.label}
                 </span>
                 {ts && done && (
-                  <span className="text-[9px] text-neutral-500 font-mono whitespace-nowrap mt-0.5">
+                  <span className="text-[9px] text-ink-faint font-mono whitespace-nowrap mt-0.5">
                     {new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </span>
                 )}
               </div>
               {i < VERIFICATION_TIMELINE.length - 1 && (
-                <div className={`h-0.5 flex-1 -mt-5 ${done ? "bg-emerald-400/50" : "bg-neutral-700"}`} />
+                <div className={`h-0.5 flex-1 -mt-5 ${done ? "bg-ok/50" : "bg-surface-subtle"}`} />
               )}
             </div>
           );
@@ -438,14 +438,14 @@ function StatusCard({
   tone, title, children,
 }: { tone: "emerald" | "amber" | "red"; title: string; children: React.ReactNode }) {
   const cls = {
-    emerald: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
-    amber:   "bg-amber-500/10 border-amber-500/30 text-amber-300",
-    red:     "bg-red-500/10 border-red-500/30 text-red-300",
+    emerald: "bg-ok/10 border-ok/30 text-ok",
+    amber:   "bg-accent-wash border-accent/30 text-accent",
+    red:     "bg-danger/10 border-danger/30 text-danger",
   }[tone];
   return (
-    <div className={`rounded-xl p-5 border ${cls}`}>
+    <div className={`rounded-lg p-5 border ${cls}`}>
       <p className="font-semibold text-sm mb-1">{title}</p>
-      <div className="text-sm text-neutral-300">{children}</div>
+      <div className="text-sm text-ink-muted">{children}</div>
     </div>
   );
 }
@@ -454,10 +454,10 @@ function FieldsCard({
   title, hint, children,
 }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-neutral-900 rounded-xl p-6 space-y-4">
+    <div className="bg-surface rounded-lg p-6 space-y-4">
       <div>
-        <h2 className="text-sm font-bold text-white uppercase tracking-wide">{title}</h2>
-        {hint && <p className="text-xs text-neutral-500 mt-1">{hint}</p>}
+        <h2 className="text-sm font-bold text-ink uppercase tracking-wide">{title}</h2>
+        {hint && <p className="text-xs text-ink-faint mt-1">{hint}</p>}
       </div>
       {children}
     </div>
@@ -478,20 +478,20 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs text-neutral-500 mb-1">{label}</label>
+      <label className="block text-xs text-ink-faint mb-1">{label}</label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
         placeholder={placeholder}
-        className={`w-full px-3 py-2.5 bg-neutral-800 border rounded-lg text-white text-sm focus:outline-none transition ${
+        className={`w-full px-3 py-2.5 bg-surface-subtle border rounded-lg text-ink text-sm focus:outline-none transition ${
           error
-            ? "border-red-500/50 focus:border-red-500"
-            : "border-neutral-700 focus:border-amber-500/50"
+            ? "border-danger/50 focus:border-danger"
+            : "border-border-subtle focus:border-accent/50"
         } ${className ?? ""}`}
       />
-      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+      {error && <p className="text-xs text-danger mt-1">{error}</p>}
     </div>
   );
 }

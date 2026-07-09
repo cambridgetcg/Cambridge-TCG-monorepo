@@ -47,7 +47,7 @@ interface SetSeed {
 const GAMES: GameSeed[] = [
   { code: "op", name: "One Piece", slug: "one-piece" },
   { code: "pkm", name: "Pokémon", slug: "pokemon" },
-  { code: "dbf", name: "Dragon Ball Fusion World", slug: "dragon-ball-fusion" },
+  { code: "dbf", name: "Dragon Ball Fusion World", slug: "dragon-ball" },
   { code: "dmw", name: "Digimon", slug: "digimon" },
   { code: "vng", name: "Cardfight!! Vanguard", slug: "vanguard" },
   { code: "bsr", name: "Battle Spirits", slug: "battle-spirits" },
@@ -125,20 +125,21 @@ async function main(): Promise<void> {
   try {
     // ── One-truth reconciliation (2026-07-09) ─────────────────────────
     // dbf had THREE slugs across the platform: "dragon-ball" (production
-    // games row, from seed.ts), "dragon-ball-fusion" (storefront curated
-    // guide), "dragon-ball-fusion-world" (scraper GAME_CONFIGS). The
-    // mismatch 404'd the whole DBF price guide despite 1,622 priced
-    // cards. Canonical from today: dragon-ball-fusion, everywhere.
+    // games row + sister's Atlas curation, the canonical pair),
+    // "dragon-ball-fusion" (an earlier curated row, since superseded),
+    // "dragon-ball-fusion-world" (scraper GAME_CONFIGS, informational).
+    // Canonical: dragon-ball — matching the deployed storefront. This
+    // asserts it and repairs any stray value.
     // vng/bsr rows existed inactive since seeding; the 2026-07-09
     // expansion stands their guides up, so they activate here.
     if (dryRun) {
-      console.log("(dry run) would reconcile dbf slug → dragon-ball-fusion; activate vng/bsr\n");
+      console.log("(dry run) would assert dbf slug = dragon-ball; activate vng/bsr\n");
     } else {
       const slugFix = await sql`
-        UPDATE games SET slug = 'dragon-ball-fusion', name = 'Dragon Ball Fusion World'
-        WHERE code = 'dbf' AND slug IN ('dragon-ball', 'dragon-ball-fusion-world')
+        UPDATE games SET slug = 'dragon-ball', name = 'Dragon Ball Fusion World'
+        WHERE code = 'dbf' AND slug <> 'dragon-ball'
         RETURNING id`;
-      if (slugFix.length > 0) console.log("reconciled: games.dbf slug → dragon-ball-fusion");
+      if (slugFix.length > 0) console.log("reconciled: games.dbf slug → dragon-ball");
       const activated = await sql`
         UPDATE games SET active = true
         WHERE code IN ('vng', 'bsr') AND active = false

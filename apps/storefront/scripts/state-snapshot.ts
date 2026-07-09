@@ -171,7 +171,7 @@ function main(): void {
   out.push("");
   out.push("This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).");
   out.push("");
-  out.push("Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full agent onboarding flow see [`AGENTS.md`](AGENTS.md).");
+  out.push("Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full agent onboarding flow see [`AGENTS.md`](../AGENTS.md).");
   out.push("");
   out.push("---");
   out.push("");

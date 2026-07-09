@@ -74,10 +74,10 @@ interface AITurnResult {
 /* ------------------------------------------------------------------ */
 
 const DIFFICULTY_BADGE: Record<string, { bg: string; text: string }> = {
-  easy:    { bg: "bg-green-900/40",  text: "text-green-400" },
-  medium:  { bg: "bg-amber-900/40",  text: "text-amber-400" },
-  hard:    { bg: "bg-red-900/40",    text: "text-red-400" },
-  extreme: { bg: "bg-purple-900/40", text: "text-purple-400" },
+  easy:    { bg: "bg-ok/10",  text: "text-ok" },
+  medium:  { bg: "bg-accent-wash",  text: "text-accent" },
+  hard:    { bg: "bg-danger/10",  text: "text-danger" },
+  extreme: { bg: "bg-[#6a5a8f]/15", text: "text-[#6a5a8f]" },
 };
 
 /* ================================================================== */
@@ -491,7 +491,7 @@ export default function PVEGameBoard() {
         <div
           className={`${
             small ? "w-12 h-[66px]" : "w-16 h-[88px]"
-          } rounded-lg border border-neutral-800 bg-neutral-900/50 flex-shrink-0 ${className}`}
+          } rounded-lg border border-border-subtle bg-surface-subtle flex-shrink-0 ${className}`}
         />
       );
     }
@@ -510,8 +510,8 @@ export default function PVEGameBoard() {
             small ? "w-12 h-[66px]" : "w-16 h-[88px]"
           } rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
             isSelected
-              ? "border-amber-400 ring-2 ring-amber-400/40 scale-105"
-              : "border-neutral-700 hover:border-neutral-500"
+              ? "border-accent ring-2 ring-accent/40 scale-105"
+              : "border-border-subtle hover:border-border-strong"
           } ${isRested ? "rotate-90 origin-center" : ""} ${className}`}
           style={isRested ? { margin: "0 12px" } : undefined}
         >
@@ -524,15 +524,15 @@ export default function PVEGameBoard() {
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-neutral-700 via-neutral-800 to-neutral-700 flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border-2 border-neutral-600 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-neutral-600" />
+            <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full border-2 border-border-subtle flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-border-strong" />
               </div>
             </div>
           )}
         </button>
         {card.attachedDon > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow z-10">
+          <span className="absolute -top-1.5 -right-1.5 bg-ink text-page text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow z-10">
             +{card.attachedDon}
           </span>
         )}
@@ -545,11 +545,11 @@ export default function PVEGameBoard() {
     return (
       <button
         onClick={onClick}
-        className="relative w-16 h-[88px] rounded-lg bg-gradient-to-br from-neutral-700 via-neutral-800 to-neutral-700 border-2 border-neutral-600 hover:border-neutral-500 flex-shrink-0 transition-colors"
+        className="relative w-16 h-[88px] rounded-lg bg-surface-subtle border-2 border-border-subtle hover:border-border-strong flex-shrink-0 transition-colors"
       >
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-neutral-400 text-[10px] font-medium">{label}</span>
-          <span className="text-white font-bold text-lg">{count}</span>
+          <span className="text-ink-muted text-[10px] font-medium">{label}</span>
+          <span className="text-ink font-bold text-lg">{count}</span>
         </div>
       </button>
     );
@@ -563,7 +563,7 @@ export default function PVEGameBoard() {
           <div
             key={i}
             className={`w-3 h-3 rounded-full transition-colors ${
-              i < count ? "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]" : "bg-neutral-700"
+              i < count ? "bg-danger" : "bg-surface-subtle"
             }`}
           />
         ))}
@@ -586,22 +586,22 @@ export default function PVEGameBoard() {
     const used = active + rested;
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-amber-400 font-bold text-xs">DON!!</span>
+        <span className="text-accent font-bold text-xs">DON!!</span>
         <div className="flex items-center gap-0.5">
           {Array.from({ length: used }).map((_, i) => (
             <div
               key={i}
               className={`w-3.5 h-5 rounded-sm text-[8px] font-bold flex items-center justify-center ${
                 i < active
-                  ? "bg-amber-500 text-black"
-                  : "bg-neutral-700 text-neutral-500"
+                  ? "bg-ink text-page"
+                  : "bg-surface-subtle text-ink-faint"
               }`}
             >
               {i < active ? "D" : "R"}
             </div>
           ))}
         </div>
-        <span className="text-neutral-500 text-xs">
+        <span className="text-ink-faint text-xs">
           {active}/{used}{total > 0 ? ` (+${total} deck)` : ""}
         </span>
         {isOwn && gameActive && isMyTurn && !aiThinking && (
@@ -612,11 +612,11 @@ export default function PVEGameBoard() {
               max={active}
               value={donRestCount}
               onChange={(e) => setDonRestCount(Math.max(1, Math.min(active, parseInt(e.target.value) || 1)))}
-              className="w-10 bg-neutral-800 border border-neutral-700 rounded text-center text-xs py-0.5"
+              className="w-10 bg-surface-subtle border border-border-subtle rounded text-center text-xs py-0.5"
             />
             <button
               onClick={() => sendAction("rest_don", { count: donRestCount })}
-              className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-2 py-0.5 rounded transition-colors"
+              className="text-xs bg-accent-wash text-accent hover:bg-accent/20 px-2 py-0.5 rounded transition-colors"
             >
               Rest
             </button>
@@ -643,12 +643,12 @@ export default function PVEGameBoard() {
     }
     if (canAttack) {
       actions.push({
-        label: "⚔ Attack Opponent Leader",
+        label: "Attack Opponent Leader",
         action: () => sendAction("attack", { attackerId: card.id, targetType: "leader" }),
       });
       for (const target of restedOppChars) {
         actions.push({
-          label: `⚔ Attack ${target.name}`,
+          label: `Attack ${target.name}`,
           action: () => sendAction("attack", { attackerId: card.id, targetType: "character", targetId: target.id }),
         });
       }
@@ -676,20 +676,20 @@ export default function PVEGameBoard() {
     if (actions.length === 0) return null;
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSelectedCard(null)}>
-        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 min-w-[220px] shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-neutral-800">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" onClick={() => setSelectedCard(null)}>
+        <div className="bg-surface border border-border-subtle rounded-lg p-4 min-w-[220px] shadow-mat" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-border-subtle">
             {!card.faceDown && card.imageUrl ? (
               <div className="w-10 h-14 rounded overflow-hidden relative flex-shrink-0">
                 <Image src={card.imageUrl} alt={card.name} fill sizes="40px" className="object-cover" />
               </div>
             ) : (
-              <div className="w-10 h-14 rounded bg-neutral-800 flex-shrink-0" />
+              <div className="w-10 h-14 rounded bg-surface-subtle flex-shrink-0" />
             )}
             <div className="min-w-0">
               <p className="font-semibold text-sm truncate">{card.faceDown ? "Face-down card" : card.name}</p>
-              <p className="text-neutral-500 text-xs">{card.zone} {card.isRested ? "(rested)" : ""}</p>
-              {card.attachedDon > 0 && <p className="text-amber-400 text-xs">+{card.attachedDon} DON!!</p>}
+              <p className="text-ink-faint text-xs">{card.zone} {card.isRested ? "(rested)" : ""}</p>
+              {card.attachedDon > 0 && <p className="text-accent text-xs">+{card.attachedDon} DON!!</p>}
             </div>
           </div>
           <div className="space-y-1.5">
@@ -700,8 +700,8 @@ export default function PVEGameBoard() {
                 disabled={actionLoading || !isMyTurn || aiThinking}
                 className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors disabled:opacity-40 ${
                   a.variant === "danger"
-                    ? "hover:bg-red-900/40 text-red-400"
-                    : "hover:bg-neutral-800 text-white"
+                    ? "hover:bg-danger/15 text-danger"
+                    : "hover:bg-surface text-ink"
                 }`}
               >
                 {a.label}
@@ -710,7 +710,7 @@ export default function PVEGameBoard() {
           </div>
           <button
             onClick={() => setSelectedCard(null)}
-            className="w-full mt-3 pt-3 border-t border-neutral-800 text-neutral-500 text-xs hover:text-neutral-300 transition-colors"
+            className="w-full mt-3 pt-3 border-t border-border-subtle text-ink-faint text-xs hover:text-ink transition-colors"
           >
             Cancel
           </button>
@@ -724,12 +724,12 @@ export default function PVEGameBoard() {
     if (!hoverCard || hoverCard.faceDown || !hoverCard.imageUrl) return null;
     return (
       <div className="fixed top-4 right-4 z-40 pointer-events-none">
-        <div className="w-48 h-[264px] rounded-xl overflow-hidden border-2 border-neutral-600 shadow-2xl relative">
+        <div className="w-48 h-[264px] rounded-lg overflow-hidden border-2 border-border-subtle shadow-mat relative">
           <Image src={hoverCard.imageUrl} alt={hoverCard.name} fill sizes="192px" className="object-cover" />
         </div>
-        <p className="text-white text-sm font-semibold mt-2 text-center max-w-[192px] truncate">{hoverCard.name}</p>
+        <p className="text-ink text-sm font-semibold mt-2 text-center max-w-[192px] truncate">{hoverCard.name}</p>
         {hoverCard.cardNumber && (
-          <p className="text-neutral-400 text-xs text-center">{hoverCard.cardNumber}</p>
+          <p className="text-ink-muted text-xs text-center">{hoverCard.cardNumber}</p>
         )}
       </div>
     );
@@ -751,12 +751,12 @@ export default function PVEGameBoard() {
     const handCards = player.hand || [];
 
     return (
-      <div className={`rounded-xl p-3 sm:p-4 ${
+      <div className={`rounded-lg p-3 sm:p-4 ${
         isAI
-          ? "bg-red-950/20 border border-red-900/20"
+          ? "bg-danger/10 border border-danger/20"
           : isOwn
-            ? "bg-neutral-900/80"
-            : "bg-neutral-900/40"
+            ? "bg-surface"
+            : "bg-surface-subtle"
       }`}>
         {/* Label row */}
         <div className="flex items-center justify-between mb-2">
@@ -764,7 +764,7 @@ export default function PVEGameBoard() {
             {isAI && opponent && (
               <span className="text-lg">{opponent.icon}</span>
             )}
-            <span className={`font-bold text-sm ${isOwn ? "text-amber-400" : isAI ? "text-red-400" : "text-neutral-300"}`}>
+            <span className={`font-bold text-sm ${isOwn ? "text-accent" : isAI ? "text-danger" : "text-ink-muted"}`}>
               {label}
             </span>
             {isAI && opponent && (
@@ -775,14 +775,14 @@ export default function PVEGameBoard() {
               </span>
             )}
             {isOwn && isMyTurn && !aiThinking && (
-              <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-[10px] bg-accent-wash text-accent px-2 py-0.5 rounded-full font-medium">
                 Your Turn
               </span>
             )}
           </div>
           <div className="flex items-center gap-3">
             <LifeDots count={player.lifeCount} />
-            <span className="text-neutral-500 text-xs">
+            <span className="text-ink-faint text-xs">
               Deck: {player.deck?.length ?? 0}
             </span>
           </div>
@@ -807,7 +807,7 @@ export default function PVEGameBoard() {
           />
 
           <div className="flex-shrink-0">
-            <div className="text-[10px] text-neutral-500 text-center mb-0.5">Leader</div>
+            <div className="text-[10px] text-ink-faint text-center mb-0.5">Leader</div>
             <CardSlot
               card={player.leader}
               faceUp={true}
@@ -815,14 +815,14 @@ export default function PVEGameBoard() {
             />
           </div>
 
-          <div className="w-px h-16 bg-neutral-700 flex-shrink-0 mx-1" />
+          <div className="w-px h-16 bg-surface-subtle flex-shrink-0 mx-1" />
 
           <div className="flex items-end gap-1.5 sm:gap-2">
             {Array.from({ length: 5 }).map((_, i) => {
               const card = fieldCards[i] ?? null;
               return (
                 <div key={i} className="flex-shrink-0">
-                  {i === 0 && <div className="text-[10px] text-neutral-500 text-center mb-0.5">Field</div>}
+                  {i === 0 && <div className="text-[10px] text-ink-faint text-center mb-0.5">Field</div>}
                   {i !== 0 && <div className="h-[14px]" />}
                   <CardSlot
                     card={card}
@@ -834,10 +834,10 @@ export default function PVEGameBoard() {
             })}
           </div>
 
-          <div className="w-px h-16 bg-neutral-700 flex-shrink-0 mx-1" />
+          <div className="w-px h-16 bg-surface-subtle flex-shrink-0 mx-1" />
 
           <div className="flex-shrink-0">
-            <div className="text-[10px] text-neutral-500 text-center mb-0.5">Stage</div>
+            <div className="text-[10px] text-ink-faint text-center mb-0.5">Stage</div>
             <CardSlot
               card={player.stage}
               faceUp={true}
@@ -847,15 +847,15 @@ export default function PVEGameBoard() {
         </div>
 
         {/* Hand */}
-        <div className="mt-3 pt-3 border-t border-neutral-800">
+        <div className="mt-3 pt-3 border-t border-border-subtle">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] text-neutral-500 font-medium">
+            <span className="text-[10px] text-ink-faint font-medium">
               Hand ({handCards.length})
             </span>
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             {handCards.length === 0 ? (
-              <span className="text-neutral-600 text-xs italic">Empty</span>
+              <span className="text-ink-faint text-xs italic">Empty</span>
             ) : (
               handCards.map((card) => (
                 <CardSlot
@@ -877,13 +877,13 @@ export default function PVEGameBoard() {
   function AIThinkingBanner() {
     if (!aiThinking) return null;
     return (
-      <div className="bg-red-950/30 border border-red-900/30 rounded-lg px-4 py-2.5 flex items-center gap-3">
+      <div className="bg-danger/10 border border-danger/30 rounded-lg px-4 py-2.5 flex items-center gap-3">
         <div className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-red-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-          <span className="w-2 h-2 rounded-full bg-red-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-          <span className="w-2 h-2 rounded-full bg-red-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+          <span className="w-2 h-2 rounded-full bg-danger animate-bounce" style={{ animationDelay: "0ms" }} />
+          <span className="w-2 h-2 rounded-full bg-danger animate-bounce" style={{ animationDelay: "150ms" }} />
+          <span className="w-2 h-2 rounded-full bg-danger animate-bounce" style={{ animationDelay: "300ms" }} />
         </div>
-        <span className="text-red-400 text-sm font-medium">
+        <span className="text-danger text-sm font-medium">
           {aiThinkingText || "AI is thinking"}...
         </span>
       </div>
@@ -900,23 +900,23 @@ export default function PVEGameBoard() {
 
     return (
       <div
-        className={`fixed top-0 right-0 h-full w-80 bg-neutral-950 border-l border-neutral-800 z-30 transform transition-transform ${
+        className={`fixed top-0 right-0 h-full w-80 bg-page border-l border-border-subtle z-30 transform transition-transform ${
           showLog ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+        <div className="flex items-center justify-between p-4 border-b border-border-subtle">
           <h3 className="font-bold text-sm">Game Log</h3>
-          <button onClick={() => setShowLog(false)} className="text-neutral-500 hover:text-white text-lg">
+          <button onClick={() => setShowLog(false)} className="text-ink-faint hover:text-ink text-lg">
             &times;
           </button>
         </div>
         <div className="overflow-y-auto h-[calc(100%-56px)] p-3 space-y-1.5">
           {gameLog.length === 0 ? (
-            <p className="text-neutral-600 text-xs italic">No actions yet.</p>
+            <p className="text-ink-faint text-xs italic">No actions yet.</p>
           ) : (
             gameLog.map((entry, i) => (
-              <div key={i} className={`text-xs py-1 border-b border-neutral-900 ${entry.isAI ? "text-red-400/80" : "text-neutral-400"}`}>
-                <span className="text-neutral-600 mr-1">{entry.time}</span>
+              <div key={i} className={`text-xs py-1 border-b border-border-subtle ${entry.isAI ? "text-danger/80" : "text-ink-muted"}`}>
+                <span className="text-ink-faint mr-1">{entry.time}</span>
                 {entry.text}
               </div>
             ))
@@ -934,27 +934,27 @@ export default function PVEGameBoard() {
   /* ---- Setup / Deck selection screen ---- */
   if (needsSetup) {
     return (
-      <main className="min-h-screen bg-neutral-950 text-white flex items-center justify-center px-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 sm:p-8 max-w-xl w-full space-y-5">
+      <main className="min-h-screen bg-page text-ink flex items-center justify-center px-4">
+        <div className="bg-surface border border-border-subtle rounded-lg p-6 sm:p-8 max-w-xl w-full space-y-5">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-1">Adventure Mode</h2>
-            <p className="text-neutral-400 text-sm">
+            <p className="text-ink-muted text-sm">
               Select a deck to begin your battle.
             </p>
           </div>
 
           {setupError && (
-            <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-2 text-sm">
+            <div className="bg-danger/10 border border-danger text-danger rounded-lg px-4 py-2 text-sm">
               {setupError}
             </div>
           )}
 
           {savedDecks.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-neutral-500 mb-4">No saved decks found.</p>
+              <p className="text-ink-faint mb-4">No saved decks found.</p>
               <Link
                 href="/deck-builder"
-                className="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
+                className="inline-block bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
               >
                 Open Deck Builder
               </Link>
@@ -970,20 +970,20 @@ export default function PVEGameBoard() {
                       onClick={() => setSelectedDeckIdx(i)}
                       className={`w-full text-left p-3 rounded-lg border transition-all ${
                         selectedDeckIdx === i
-                          ? "border-amber-500 bg-amber-500/10"
-                          : "border-neutral-800 bg-neutral-800/50 hover:border-neutral-600"
+                          ? "border-accent bg-accent-wash"
+                          : "border-border-subtle bg-surface-subtle hover:border-border-strong"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-semibold">{deck.name}</span>
                           {deck.leader && (
-                            <span className="text-amber-400 text-xs ml-2">
+                            <span className="text-accent text-xs ml-2">
                               Leader: {deck.leader.name}
                             </span>
                           )}
                         </div>
-                        <span className="text-neutral-500 text-sm">{totalCards} cards</span>
+                        <span className="text-ink-faint text-sm">{totalCards} cards</span>
                       </div>
                     </button>
                   );
@@ -992,11 +992,11 @@ export default function PVEGameBoard() {
               <button
                 onClick={handleStart}
                 disabled={selectedDeckIdx === null || setupLoading}
-                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-lg py-3 transition-colors text-lg"
+                className="w-full bg-ink hover:bg-ink/85 disabled:opacity-50 text-page font-bold rounded-lg py-3 transition-colors text-lg"
               >
                 {setupLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-black/40 border-t-black rounded-full animate-spin" />
+                    <span className="w-4 h-4 border-2 border-page/40 border-t-page rounded-full animate-spin" />
                     Starting...
                   </span>
                 ) : (
@@ -1007,7 +1007,7 @@ export default function PVEGameBoard() {
           )}
 
           <div className="text-center">
-            <Link href="/play/adventure" className="text-neutral-500 hover:text-neutral-300 text-sm transition-colors">
+            <Link href="/play/adventure" className="text-ink-faint hover:text-ink text-sm transition-colors">
               &larr; Back to Adventure
             </Link>
           </div>
@@ -1019,10 +1019,10 @@ export default function PVEGameBoard() {
   /* ---- Loading (no state yet) ---- */
   if (!state || !myState || !oppState) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <main className="min-h-screen bg-page flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-neutral-400">Loading game...</p>
+          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-ink-muted">Loading game...</p>
         </div>
       </main>
     );
@@ -1031,33 +1031,26 @@ export default function PVEGameBoard() {
   /* ---- Victory screen ---- */
   if (victoryResult) {
     return (
-      <main className="min-h-screen bg-neutral-950 text-white flex items-center justify-center px-4">
+      <main className="min-h-screen bg-page text-ink flex items-center justify-center px-4">
         <div className="relative">
-          {/* Confetti-style decorative elements */}
-          <div className="absolute -top-10 -left-10 w-20 h-20 bg-amber-500/10 rounded-full blur-xl animate-pulse" />
-          <div className="absolute -top-6 -right-8 w-16 h-16 bg-green-500/10 rounded-full blur-xl animate-pulse" style={{ animationDelay: "500ms" }} />
-          <div className="absolute -bottom-8 left-1/2 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl animate-pulse" style={{ animationDelay: "1000ms" }} />
-
-          <div className="bg-neutral-900 border border-amber-700/40 rounded-2xl p-8 max-w-md text-center space-y-6 shadow-2xl shadow-amber-500/10 relative">
+          <div className="bg-surface border border-accent/40 rounded-lg p-8 max-w-md text-center space-y-6 shadow-mat relative">
             {/* Victory header */}
             <div>
-              <div className="text-5xl mb-3">&#127881;</div>
-              <h2 className="text-3xl font-extrabold text-amber-400">VICTORY!</h2>
-              <p className="text-neutral-300 mt-2">
+              <h2 className="text-3xl font-display font-semibold text-accent">VICTORY!</h2>
+              <p className="text-ink-muted mt-2">
                 You defeated {opponent?.icon} {opponent?.name}!
               </p>
             </div>
 
             {/* Rewards */}
-            <div className="bg-neutral-800/60 rounded-xl p-4 space-y-3">
+            <div className="bg-surface-subtle rounded-lg p-4 space-y-3">
               {victoryResult.firstClear && (
-                <div className="text-xs text-amber-400 font-bold uppercase tracking-wider mb-2">
+                <div className="text-xs text-accent font-bold uppercase tracking-wider mb-2">
                   First Clear Bonus
                 </div>
               )}
               <div className="flex items-center justify-center gap-2 text-lg">
-                <span>&#11088;</span>
-                <span className="text-amber-400 font-bold">+{victoryResult.pointsEarned} Berries</span>
+                <span className="text-accent font-bold">+{victoryResult.pointsEarned} Berries</span>
               </div>
 
               {/* Earn breakdown — shown when any multiplier is in play */}
@@ -1068,30 +1061,30 @@ export default function PVEGameBoard() {
                 const hasTier = b.tierMultiplier > 1;
                 if (!hasDaily && !hasStreak && !hasTier) return null;
                 return (
-                  <div className="text-xs text-neutral-400 font-mono bg-neutral-900/50 rounded-lg p-2 leading-relaxed">
+                  <div className="text-xs text-ink-muted font-mono bg-surface-subtle rounded-lg p-2 leading-relaxed">
                     <span>{b.base} base</span>
                     {hasDaily && (
                       <>
-                        <span className="text-neutral-600"> × </span>
-                        <span className="text-red-400">
+                        <span className="text-ink-faint"> × </span>
+                        <span className="text-danger">
                           {Math.round(b.dailyMultiplier * 100)}%
-                          <span className="text-neutral-500"> (clear #{b.clearsToday} today)</span>
+                          <span className="text-ink-faint"> (clear #{b.clearsToday} today)</span>
                         </span>
                       </>
                     )}
                     {hasStreak && (
                       <>
-                        <span className="text-neutral-600"> × </span>
-                        <span className="text-orange-400">
+                        <span className="text-ink-faint"> × </span>
+                        <span className="text-warning">
                           {b.streakMultiplier.toFixed(2)}x
-                          <span className="text-neutral-500"> ({b.currentStreak}-day streak)</span>
+                          <span className="text-ink-faint"> ({b.currentStreak}-day streak)</span>
                         </span>
                       </>
                     )}
                     {hasTier && (
                       <>
-                        <span className="text-neutral-600"> × </span>
-                        <span className="text-purple-400">{b.tierMultiplier.toFixed(2)}x tier</span>
+                        <span className="text-ink-faint"> × </span>
+                        <span className="text-[#6a5a8f]">{b.tierMultiplier.toFixed(2)}x tier</span>
                       </>
                     )}
                   </div>
@@ -1104,9 +1097,8 @@ export default function PVEGameBoard() {
                   no longer surfaced on the play surface. */}
 
               {victoryResult.pullTokenEarned && (
-                <div className="flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-amber-500/20 to-fuchsia-500/20 border border-amber-500/30 rounded-lg py-2 px-3">
-                  <span>&#127891;</span>
-                  <span className="text-amber-300 font-bold">
+                <div className="flex items-center justify-center gap-2 text-sm bg-accent-wash border border-accent/30 rounded-lg py-2 px-3">
+                  <span className="text-accent font-bold">
                     {victoryResult.pullTokenEarned.replace("_", " ").toUpperCase()} Pull Token
                   </span>
                 </div>
@@ -1115,7 +1107,7 @@ export default function PVEGameBoard() {
               {victoryResult.guestMode && (
                 <a
                   href={victoryResult.signInPromptUrl || "/api/auth/signin?callbackUrl=/play"}
-                  className="block text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3 hover:bg-amber-500/20 transition-colors"
+                  className="block text-xs text-accent/90 bg-accent-wash border border-accent/20 rounded-lg py-2 px-3 hover:bg-accent/20 transition-colors"
                 >
                   Playing as guest — sign in to earn Berries for wins like this one.
                 </a>
@@ -1134,7 +1126,7 @@ export default function PVEGameBoard() {
                     setState(null);
                     setGameLog([]);
                   }}
-                  className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
+                  className="w-full sm:w-auto bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
                 >
                   Next Level &rarr;
                 </button>
@@ -1147,13 +1139,13 @@ export default function PVEGameBoard() {
                   setState(null);
                   setGameLog([]);
                 }}
-                className="w-full sm:w-auto bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold rounded-lg px-6 py-3 transition-colors"
+                className="w-full sm:w-auto bg-surface hover:bg-surface border border-border-subtle text-ink font-semibold rounded-lg px-6 py-3 transition-colors"
               >
                 Play Again
               </button>
               <Link
                 href="/play/adventure"
-                className="w-full sm:w-auto text-center bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 font-semibold rounded-lg px-6 py-3 transition-colors"
+                className="w-full sm:w-auto text-center bg-surface hover:bg-surface border border-border-subtle text-ink-muted font-semibold rounded-lg px-6 py-3 transition-colors"
               >
                 Back to Adventure
               </Link>
@@ -1167,18 +1159,17 @@ export default function PVEGameBoard() {
   /* ---- Defeat screen ---- */
   if (defeatResult) {
     return (
-      <main className="min-h-screen bg-neutral-950 text-white flex items-center justify-center px-4">
-        <div className="bg-neutral-900 border border-red-900/40 rounded-2xl p-8 max-w-md text-center space-y-6 shadow-2xl shadow-red-500/10">
+      <main className="min-h-screen bg-page text-ink flex items-center justify-center px-4">
+        <div className="bg-surface border border-danger/40 rounded-lg p-8 max-w-md text-center space-y-6 shadow-mat">
           <div>
-            <div className="text-5xl mb-3">&#128128;</div>
-            <h2 className="text-3xl font-extrabold text-red-400">DEFEATED</h2>
-            <p className="text-neutral-300 mt-2">
+            <h2 className="text-3xl font-display font-semibold text-danger">DEFEATED</h2>
+            <p className="text-ink-muted mt-2">
               {opponent?.icon} {opponent?.name} wins this round.
             </p>
           </div>
 
-          <div className="bg-neutral-800/60 rounded-xl p-4">
-            <p className="text-neutral-400 text-sm">
+          <div className="bg-surface-subtle rounded-lg p-4">
+            <p className="text-ink-muted text-sm">
               {defeatResult.message || "Your deck is still ready. Try a different strategy!"}
             </p>
           </div>
@@ -1192,7 +1183,7 @@ export default function PVEGameBoard() {
                 setState(null);
                 setGameLog([]);
               }}
-              className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
+              className="w-full sm:w-auto bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
             >
               Try Again
             </button>
@@ -1205,13 +1196,13 @@ export default function PVEGameBoard() {
                 setGameLog([]);
                 setSelectedDeckIdx(null);
               }}
-              className="w-full sm:w-auto bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold rounded-lg px-6 py-3 transition-colors"
+              className="w-full sm:w-auto bg-surface hover:bg-surface border border-border-subtle text-ink font-semibold rounded-lg px-6 py-3 transition-colors"
             >
               Change Deck
             </button>
             <Link
               href="/play/adventure"
-              className="w-full sm:w-auto text-center bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 font-semibold rounded-lg px-6 py-3 transition-colors"
+              className="w-full sm:w-auto text-center bg-surface hover:bg-surface border border-border-subtle text-ink-muted font-semibold rounded-lg px-6 py-3 transition-colors"
             >
               Back to Adventure
             </Link>
@@ -1226,20 +1217,20 @@ export default function PVEGameBoard() {
   /* ================================================================ */
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white flex flex-col">
+    <main className="min-h-screen bg-page text-ink flex flex-col">
       <HoverPreview />
       <CardActionMenu />
       <GameLogPanel />
 
       {/* ---- Level info bar ---- */}
-      <div className="bg-neutral-900/60 border-b border-neutral-800 px-3 py-1.5 text-center">
+      <div className="bg-surface-subtle border-b border-border-subtle px-3 py-1.5 text-center">
         <span className="text-sm">
-          <span className="text-neutral-500">Level {opponent?.level_number ?? "?"}:</span>{" "}
-          <span className="text-white font-medium">{opponent?.title ?? "Unknown"}</span>
-          <span className="text-neutral-500 mx-2">&#8212;</span>
-          <span className="text-neutral-400">vs</span>{" "}
+          <span className="text-ink-faint">Level {opponent?.level_number ?? "?"}:</span>{" "}
+          <span className="text-ink font-medium">{opponent?.title ?? "Unknown"}</span>
+          <span className="text-ink-faint mx-2">&#8212;</span>
+          <span className="text-ink-muted">vs</span>{" "}
           <span>{opponent?.icon ?? ""}</span>{" "}
-          <span className="text-red-400 font-medium">{opponent?.name ?? "AI"}</span>
+          <span className="text-danger font-medium">{opponent?.name ?? "AI"}</span>
           {opponent?.difficulty && (
             <span className={`ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
               DIFFICULTY_BADGE[opponent.difficulty]?.bg ?? ""
@@ -1251,25 +1242,25 @@ export default function PVEGameBoard() {
       </div>
 
       {/* ---- Top bar ---- */}
-      <header className="bg-neutral-900/80 border-b border-neutral-800 px-3 sm:px-4 py-2 flex items-center justify-between text-sm flex-shrink-0">
+      <header className="bg-surface border-b border-border-subtle px-3 sm:px-4 py-2 flex items-center justify-between text-sm flex-shrink-0">
         <div className="flex items-center gap-3">
-          <Link href="/play/adventure" className="text-neutral-500 hover:text-neutral-300 transition-colors">
+          <Link href="/play/adventure" className="text-ink-faint hover:text-ink transition-colors">
             &larr;
           </Link>
-          <span className="text-neutral-400 font-medium">Adventure Mode</span>
+          <span className="text-ink-muted font-medium">Adventure Mode</span>
         </div>
         <div className="flex items-center gap-2">
-          {error && <span className="text-red-400 text-xs">{error}</span>}
+          {error && <span className="text-danger text-xs">{error}</span>}
           <button
             onClick={() => setShowLog(!showLog)}
-            className="text-neutral-500 hover:text-white text-xs bg-neutral-800 px-3 py-1.5 rounded transition-colors"
+            className="text-ink-faint hover:text-ink text-xs bg-surface-subtle px-3 py-1.5 rounded transition-colors"
           >
             Log
           </button>
           {gameActive && (
             <button
               onClick={() => { if (confirm("Concede this battle?")) handleConcede(); }}
-              className="text-red-500 hover:text-red-400 text-xs bg-neutral-800 px-3 py-1.5 rounded transition-colors"
+              className="text-danger hover:text-danger text-xs bg-surface-subtle px-3 py-1.5 rounded transition-colors"
             >
               Concede
             </button>
@@ -1291,31 +1282,31 @@ export default function PVEGameBoard() {
         {aiThinking ? (
           <AIThinkingBanner />
         ) : (
-          <div className="bg-neutral-800/60 rounded-lg px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="bg-surface-subtle rounded-lg px-4 py-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-3">
-              <span className="text-amber-400 font-bold text-sm">
+              <span className="text-accent font-bold text-sm">
                 {PHASE_LABELS[state.phase as GamePhase] || state.phase}
               </span>
-              <span className="text-neutral-500 text-xs">
+              <span className="text-ink-faint text-xs">
                 Turn {state.turnNumber}
               </span>
               {!isMyTurn && (
-                <span className="text-red-400/70 text-xs italic">
+                <span className="text-danger/70 text-xs italic">
                   {opponent?.name ?? "AI"}&apos;s turn
                 </span>
               )}
             </div>
             {isMyTurn && gameActive && (
               <div className="flex items-center gap-2">
-                <span className="text-neutral-500 text-xs hidden sm:inline">
+                <span className="text-ink-faint text-xs hidden sm:inline">
                   Tap a card to play or attack
                 </span>
                 <button
                   onClick={handleEndTurn}
                   disabled={actionLoading}
-                  className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+                  className="text-xs bg-surface hover:bg-surface border border-border-subtle text-ink px-3 py-1.5 rounded-lg transition-colors font-medium"
                 >
-                  End Turn &#127937;
+                  End Turn
                 </button>
               </div>
             )}
@@ -1332,18 +1323,18 @@ export default function PVEGameBoard() {
 
       {/* ---- Quick actions (mobile) ---- */}
       {isMyTurn && gameActive && !aiThinking && (
-        <div className="sm:hidden bg-neutral-900 border-t border-neutral-800 px-3 py-2 flex items-center gap-2 overflow-x-auto flex-shrink-0">
-          <span className="text-neutral-500 text-xs whitespace-nowrap">Tap a card to play or attack</span>
+        <div className="sm:hidden bg-surface border-t border-border-subtle px-3 py-2 flex items-center gap-2 overflow-x-auto flex-shrink-0">
+          <span className="text-ink-faint text-xs whitespace-nowrap">Tap a card to play or attack</span>
           <button
             onClick={handleEndTurn}
             disabled={actionLoading}
-            className="text-xs bg-white/10 text-white px-3 py-2 rounded-lg whitespace-nowrap ml-auto"
+            className="text-xs bg-surface border border-border-subtle text-ink px-3 py-2 rounded-lg whitespace-nowrap ml-auto"
           >
             End Turn
           </button>
           <button
             onClick={() => { if (confirm("Concede?")) handleConcede(); }}
-            className="text-xs bg-red-900/40 text-red-400 px-3 py-2 rounded-lg whitespace-nowrap"
+            className="text-xs bg-danger/10 text-danger px-3 py-2 rounded-lg whitespace-nowrap"
           >
             Concede
           </button>

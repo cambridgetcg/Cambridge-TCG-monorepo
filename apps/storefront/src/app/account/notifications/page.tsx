@@ -11,18 +11,6 @@ import { useRouter } from "next/navigation";
 import type { Notification } from "@/lib/notifications/db";
 
 import { Audience } from "@/lib/ui";
-const KIND_ICON: Record<string, string> = {
-  tradein: "📤",
-  quote: "💷",
-  dispute: "⚖️",
-  verification: "🪪",
-  auction: "🔨",
-  subscription: "💎",
-};
-function iconFor(kind: string): string {
-  return KIND_ICON[kind.split(".")[0]] ?? "🔔";
-}
-
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
     day: "numeric", month: "short", year: "numeric",
@@ -98,12 +86,12 @@ export default function NotificationsPage() {
     <div>
       <Audience kind="consumer" />
       <div className="flex items-baseline justify-between flex-wrap gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-white">Notifications</h1>
+        <h1 className="text-2xl font-bold text-ink">Notifications</h1>
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}
             disabled={marking}
-            className="text-sm text-amber-400 hover:text-amber-300 transition disabled:opacity-50"
+            className="text-sm text-accent hover:text-accent-strong transition disabled:opacity-50"
           >
             {marking ? "…" : "Mark all read"}
           </button>
@@ -117,8 +105,8 @@ export default function NotificationsPage() {
             onClick={() => setFilter(key)}
             className={`text-xs px-3 py-1.5 rounded-full transition ${
               filter === key
-                ? "bg-amber-500 text-black font-bold"
-                : "bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800"
+                ? "bg-ink text-page font-semibold"
+                : "bg-surface text-ink-muted hover:text-ink border border-border-subtle"
             }`}
           >
             {key === "all" ? "All" : `Unread${unreadCount > 0 ? ` · ${unreadCount}` : ""}`}
@@ -127,15 +115,15 @@ export default function NotificationsPage() {
       </div>
 
       {loading && items.length === 0 ? (
-        <p className="text-sm text-neutral-500">Loading…</p>
+        <p className="text-sm text-ink-faint">Loading…</p>
       ) : items.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-500 mb-2">
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-faint mb-2">
             {filter === "unread"
               ? "Nothing unread — you're caught up."
               : "No notifications yet."}
           </p>
-          <Link href="/" className="text-sm text-amber-400 hover:text-amber-300">Back to site</Link>
+          <Link href="/" className="text-sm text-accent hover:text-accent-strong">Back to site</Link>
         </div>
       ) : (
         <>
@@ -144,22 +132,25 @@ export default function NotificationsPage() {
               const unread = !n.read_at;
               const card = (
                 <div
-                  className={`bg-neutral-900 hover:bg-neutral-900/60 border rounded-xl p-4 transition ${
-                    unread ? "border-amber-500/30" : "border-neutral-800"
+                  className={`bg-surface hover:bg-surface-subtle border rounded-lg p-4 transition ${
+                    unread ? "border-accent/30" : "border-border-subtle"
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl shrink-0">{iconFor(n.kind)}</span>
+                    <span
+                      className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${unread ? "bg-accent" : "bg-border-strong"}`}
+                      aria-hidden="true"
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${unread ? "text-white font-semibold" : "text-neutral-400"}`}>
+                      <p className={`text-sm ${unread ? "text-ink font-semibold" : "text-ink-muted"}`}>
                         {n.title}
                       </p>
                       {n.body && (
-                        <p className="text-xs text-neutral-500 mt-0.5 whitespace-pre-wrap">{n.body}</p>
+                        <p className="text-xs text-ink-faint mt-0.5 whitespace-pre-wrap">{n.body}</p>
                       )}
-                      <div className="flex items-center gap-3 mt-2 text-[11px] text-neutral-600">
+                      <div className="flex items-center gap-3 mt-2 text-[11px] text-ink-faint">
                         <span>{formatWhen(n.created_at)}</span>
-                        <code className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-500">{n.kind}</code>
+                        <code className="px-1.5 py-0.5 rounded bg-surface-subtle text-ink-faint">{n.kind}</code>
                       </div>
                     </div>
                     {unread && (
@@ -169,7 +160,7 @@ export default function NotificationsPage() {
                           e.stopPropagation();
                           markRead(n.id);
                         }}
-                        className="text-[11px] text-neutral-500 hover:text-amber-300 shrink-0"
+                        className="text-[11px] text-ink-faint hover:text-accent-strong shrink-0"
                       >
                         Mark read
                       </button>
@@ -196,7 +187,7 @@ export default function NotificationsPage() {
               <button
                 onClick={() => load(false)}
                 disabled={loading}
-                className="px-5 py-2.5 bg-neutral-900 border border-neutral-800 text-sm text-neutral-300 rounded-lg hover:bg-neutral-800 transition disabled:opacity-50"
+                className="px-5 py-2.5 bg-surface border border-border-subtle text-sm text-ink-muted rounded-lg hover:bg-surface-subtle transition disabled:opacity-50"
               >
                 {loading ? "Loading…" : "Load more"}
               </button>

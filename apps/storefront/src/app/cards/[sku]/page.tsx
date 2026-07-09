@@ -3,7 +3,7 @@
  *
  * The breadcrumb registry (lib/nav/breadcrumb-registry.ts) emits
  * /cards/:sku as the parent crumb of /cards/:sku/market; until this
- * route existed, that link 404'd. The card's buyable detail page lives
+ * route existed, that link 404'd. The card's reference page lives
  * at /product/[sku] — this route keeps the promise by forwarding there.
  */
 

@@ -53,7 +53,7 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
 
       <Link
         href="/account/b2b/catalog"
-        className="inline-block text-sm text-neutral-400 hover:text-amber-400"
+        className="inline-block text-sm text-ink-muted hover:text-accent"
       >
         ← Back to catalog
       </Link>
@@ -66,10 +66,10 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
               alt={altText}
               width={280}
               height={392}
-              className="rounded-lg border border-neutral-800"
+              className="rounded-lg border border-border-subtle"
             />
           ) : (
-            <div className="aspect-[5/7] rounded-lg border border-neutral-800 bg-neutral-900 flex items-center justify-center text-neutral-600 text-xs">
+            <div className="aspect-[5/7] rounded-lg border border-border-subtle bg-surface flex items-center justify-center text-ink-faint text-xs">
               No image
             </div>
           )}
@@ -79,20 +79,20 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
           <Card>
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-xs uppercase tracking-wider text-neutral-500">
+                <span className="text-xs uppercase tracking-wider text-ink-faint">
                   Wholesale price
                 </span>
-                <span className="text-2xl font-semibold text-white">
+                <span className="text-2xl font-semibold text-ink">
                   {formatPrice(wholesalePrice)}
                 </span>
               </div>
-              <div className="text-xs text-neutral-500">
+              <div className="text-xs text-ink-faint">
                 Price reflects your wholesale account tier. Total at checkout uses the live rate.
               </div>
               <div className="pt-1">
                 <AddToB2BCart sku={card.sku} disabled={card.stock <= 0} />
                 {card.stock <= 0 && (
-                  <span className="ml-3 text-xs text-neutral-500">Out of stock</span>
+                  <span className="ml-3 text-xs text-ink-faint">Out of stock</span>
                 )}
               </div>
             </div>
@@ -101,10 +101,10 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
           <Card>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-neutral-400">UK on-hand stock</span>
+                <span className="text-ink-muted">UK on-hand stock</span>
                 <span
                   className={
-                    "font-mono " + (card.stock > 0 ? "text-emerald-400" : "text-neutral-600")
+                    "font-mono " + (card.stock > 0 ? "text-ok" : "text-ink-faint")
                   }
                 >
                   {card.stock}
@@ -112,14 +112,14 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
               </div>
               {card.pending_stock > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Pending (ordered)</span>
-                  <span className="font-mono text-amber-500">+{card.pending_stock}</span>
+                  <span className="text-ink-muted">Pending (ordered)</span>
+                  <span className="font-mono text-accent">+{card.pending_stock}</span>
                 </div>
               )}
               {card.updated_at && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-400">Last synced</span>
-                  <span className="text-neutral-500 text-xs">
+                  <span className="text-ink-muted">Last synced</span>
+                  <span className="text-ink-faint text-xs">
                     {new Date(card.updated_at).toISOString().slice(0, 10)}
                   </span>
                 </div>
@@ -129,15 +129,15 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
 
           <Card>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <dt className="text-neutral-500">SKU</dt>
-              <dd className="font-mono text-xs text-neutral-300">{card.sku}</dd>
-              <dt className="text-neutral-500">Set</dt>
+              <dt className="text-ink-faint">SKU</dt>
+              <dd className="font-mono text-xs text-ink-muted">{card.sku}</dd>
+              <dt className="text-ink-faint">Set</dt>
               <dd>
                 {card.set_name ? `${card.set_name} (${card.set_code ?? "?"})` : card.set_code ?? "—"}
               </dd>
-              <dt className="text-neutral-500">Rarity</dt>
+              <dt className="text-ink-faint">Rarity</dt>
               <dd>{card.rarity ?? "—"}</dd>
-              <dt className="text-neutral-500">Category</dt>
+              <dt className="text-ink-faint">Category</dt>
               <dd>{card.category ?? "—"}</dd>
             </dl>
           </Card>

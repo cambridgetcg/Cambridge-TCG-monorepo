@@ -9,13 +9,13 @@ export const metadata = {
 
 export default function HowItWorksPage() {
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <Audience kind="public-documentation" />
       <div className="max-w-3xl mx-auto px-4 py-12 space-y-10">
         <header>
-          <Link href="/verify" className="text-xs text-neutral-500 hover:text-neutral-300">← Verification home</Link>
+          <Link href="/verify" className="text-xs text-ink-faint hover:text-ink">← Verification home</Link>
           <h1 className="text-3xl font-bold mt-2 mb-2">How Provably-Fair Works</h1>
-          <p className="text-neutral-400">
+          <p className="text-ink-muted">
             A working summary — plain English, then the math, then how to verify
             it yourself. Read top-to-bottom or jump to any section.
           </p>
@@ -64,24 +64,24 @@ rolled_key = pickWeighted(weights, roll)`}
             <Code>/verify/pull/[id]</Code> or <Code>/verify/draw/[id]</Code>{" "}
             ) and four independent checks run in your browser:
           </p>
-          <ol className="list-decimal list-inside space-y-2 text-neutral-300 text-sm">
+          <ol className="list-decimal list-inside space-y-2 text-ink-muted text-sm">
             <li>
-              <strong className="text-white">Commitment matches seed.</strong> We fetch the
+              <strong className="text-ink">Commitment matches seed.</strong> We fetch the
               revealed <Code>server_seed</Code> and re-hash it. The output must equal the
               commitment published at <Code>committed_at</Code>.
             </li>
             <li>
-              <strong className="text-white">Roll reproduces the outcome.</strong> Given the seed
+              <strong className="text-ink">Roll reproduces the outcome.</strong> Given the seed
               + client_seed + nonce + tier weights, the recomputed <Code>pickWeighted</Code>{" "}
               must return the same rarity we claim.
             </li>
             <li>
-              <strong className="text-white">Ordering is sane.</strong>{" "}
+              <strong className="text-ink">Ordering is sane.</strong>{" "}
               <Code>committed_at &lt;= revealed_at</Code> — and these are two separate SQL writes,
               so the ordering reflects real time.
             </li>
             <li>
-              <strong className="text-white">Anchored in a public digest.</strong> See below.
+              <strong className="text-ink">Anchored in a public digest.</strong> See below.
             </li>
           </ol>
         </Section>
@@ -115,7 +115,7 @@ rolled_key = pickWeighted(weights, roll)`}
         </Section>
 
         <Section title="What&apos;s public vs hidden">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <div className="bg-surface border border-border-subtle rounded-lg p-4">
             <table className="w-full text-sm">
               <tbody>
                 <DataRow field="commitment (sha256 of seed)" status="public" reason="needed to verify — doesn't reveal the seed" />
@@ -182,7 +182,7 @@ console.log(verdict.allMatch ? '✓ verified' : '✗ failed');`}
             <Code>weights</Code> snapshot at roll time.
           </p>
           <p>
-            The <Link href="/verify/fairness" className="text-amber-400 hover:text-amber-300 underline">aggregate fairness dashboard</Link>{" "}
+            The <Link href="/verify/fairness" className="text-accent hover:text-accent-strong underline">aggregate fairness dashboard</Link>{" "}
             shows expected vs observed distributions so you can spot drift over time. If the
             observed always matches the published weights, the weights are what they say they
             are.
@@ -190,16 +190,16 @@ console.log(verdict.allMatch ? '✓ verified' : '✗ failed');`}
         </Section>
 
         <Section title="Surfaces covered">
-          <ul className="text-sm text-neutral-300 space-y-1 list-disc list-inside">
-            <li><strong className="text-white">Bounty Pulls</strong> — full commit-reveal + Merkle. <Code>/verify/pull/[id]</Code></li>
-            <li><strong className="text-white">Pack Openings</strong> — 5 slots per pack, each independently verifiable. <Code>/verify/draw/[id]</Code></li>
-            <li><strong className="text-white">Spin Wheel</strong> — weighted-segment pick, single-slot. Same verifier.</li>
-            <li><strong className="text-white">Mystery Boxes</strong> — weighted-reward pick, single-slot. Same verifier.</li>
-            <li><strong className="text-white">Raffles</strong> — pre-commit at creation time + provably-fair draw. <Code>/api/rewards/raffles/[id]/proof</Code></li>
+          <ul className="text-sm text-ink-muted space-y-1 list-disc list-inside">
+            <li><strong className="text-ink">Bounty Pulls</strong> — full commit-reveal + Merkle. <Code>/verify/pull/[id]</Code></li>
+            <li><strong className="text-ink">Pack Openings</strong> — 5 slots per pack, each independently verifiable. <Code>/verify/draw/[id]</Code></li>
+            <li><strong className="text-ink">Spin Wheel</strong> — weighted-segment pick, single-slot. Same verifier.</li>
+            <li><strong className="text-ink">Mystery Boxes</strong> — weighted-reward pick, single-slot. Same verifier.</li>
+            <li><strong className="text-ink">Raffles</strong> — pre-commit at creation time + provably-fair draw. <Code>/api/rewards/raffles/[id]/proof</Code></li>
           </ul>
         </Section>
 
-        <div className="border-t border-neutral-800 pt-6 text-xs text-neutral-500">
+        <div className="border-t border-border-subtle pt-6 text-xs text-ink-faint">
           Questions, edge cases, or something you think is wrong? Email us — we&apos;ll fix it and
           publish the correction. The point of this system is that we can&apos;t quietly hope you
           don&apos;t notice.
@@ -212,15 +212,15 @@ console.log(verdict.allMatch ? '✓ verified' : '✗ failed');`}
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-lg font-bold mb-3 text-white">{title}</h2>
-      <div className="text-sm text-neutral-400 space-y-3 leading-relaxed">{children}</div>
+      <h2 className="text-lg font-bold mb-3 text-ink">{title}</h2>
+      <div className="text-sm text-ink-muted space-y-3 leading-relaxed">{children}</div>
     </section>
   );
 }
 
 function Code({ children }: { children: React.ReactNode }) {
   return (
-    <code className="text-[13px] bg-neutral-900 border border-neutral-800 rounded px-1 py-0.5 font-mono text-neutral-300">
+    <code className="text-[13px] bg-surface border border-border-subtle rounded px-1 py-0.5 font-mono text-ink-muted">
       {children}
     </code>
   );
@@ -228,7 +228,7 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function Pre({ children }: { children: React.ReactNode }) {
   return (
-    <pre className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 text-[12px] text-neutral-300 font-mono overflow-x-auto">
+    <pre className="bg-surface border border-border-subtle rounded-lg p-3 text-[12px] text-ink-muted font-mono overflow-x-auto">
       {children}
     </pre>
   );
@@ -237,12 +237,12 @@ function Pre({ children }: { children: React.ReactNode }) {
 function DataRow({ field, status, reason }: { field: string; status: string; reason: string }) {
   const isPrivate = status === "private";
   return (
-    <tr className="border-t border-neutral-800 first:border-t-0">
-      <td className="py-2 pr-3 font-mono text-xs text-neutral-300">{field}</td>
-      <td className={`py-2 pr-3 text-xs whitespace-nowrap ${isPrivate ? "text-red-400" : "text-emerald-400"}`}>
+    <tr className="border-t border-border-subtle first:border-t-0">
+      <td className="py-2 pr-3 font-mono text-xs text-ink-muted">{field}</td>
+      <td className={`py-2 pr-3 text-xs whitespace-nowrap ${isPrivate ? "text-danger" : "text-ok"}`}>
         {status}
       </td>
-      <td className="py-2 text-xs text-neutral-500">{reason}</td>
+      <td className="py-2 text-xs text-ink-faint">{reason}</td>
     </tr>
   );
 }

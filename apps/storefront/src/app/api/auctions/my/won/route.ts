@@ -16,7 +16,7 @@ export async function GET() {
   }
 
   const r = await query(
-    `SELECT a.id, a.title, a.auction_type, a.status, a.escrow_status,
+    `SELECT a.id, a.title, a.sku, a.condition, a.auction_type, a.status, a.escrow_status,
             a.current_price, a.paid_at, a.payment_expires_at,
             a.is_consignment,
             a.seller_shipped_at, a.received_by_ctcg_at, a.shipped_to_buyer_at,

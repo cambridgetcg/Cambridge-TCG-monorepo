@@ -31,14 +31,35 @@
  *
  * ── Runtime dependencies ────────────────────────────────────────────────
  *
- * Requires migration `apps/wholesale/drizzle/0016_ebay_observations.sql`
- * to be applied (promote from drafts/ first). Until then this code compiles
- * but the first INSERT against ebay_listing_observation / ebay_watch_list
- * fails at runtime — substrate-honest about the dependency.
+ * Requires migration `apps/wholesale/drizzle/0024_ebay_observations.sql`
+ * (promoted from drafts/0016 on 2026-07-05; renumbered because the 0016
+ * slot was already taken twice). Until it is applied to a given database,
+ * this code compiles but the first INSERT against ebay_listing_observation
+ * / ebay_watch_list fails at runtime — substrate-honest about the dependency.
  *
  * Requires EBAY_CLIENT_ID + EBAY_CLIENT_SECRET env vars (already present
  * for the sell-side push; the read-side reuses the same app credentials
  * with a different OAuth scope — `https://api.ebay.com/oauth/api_scope`).
+ *
+ * ── Activation status (honest, 2026-07-05 investigation) ────────────────
+ *
+ * This pipeline is code-complete but INERT in production: price_archive
+ * contains only source='cardrush' rows, and the existing 'ebay-sync' cron
+ * in vercel.json is the sales-channel ORDER sync, not this comp pipeline.
+ * Activating it — the operator's call, because it involves credentials —
+ * needs exactly:
+ *
+ *   1. Apply drizzle/0024_ebay_observations.sql (creates + seeds
+ *      ebay_watch_list from cards.cardrush_url IS NOT NULL).
+ *   2. Set EBAY_CLIENT_ID + EBAY_CLIENT_SECRET in the wholesale
+ *      deployment env.
+ *   3. Verify with a manual `/api/cron/ingest/ebay?tier=top&dryRun=1`.
+ *   4. Add tiered cron entries to vercel.json for
+ *      `/api/cron/ingest/ebay` (suggested: tier=top every 30min,
+ *      tier=mid every 4h, tier=all daily).
+ *
+ * Nothing here activates by itself; steps 2 and 4 are deliberate
+ * operator actions.
  *
  * ── Designed in ─────────────────────────────────────────────────────────
  *

@@ -124,23 +124,23 @@ export default function BulkImport({ onClose, onImport }: BulkImportProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 px-4"
       onClick={onClose}
     >
       <div
-        className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-surface border border-border-subtle rounded-xl p-6 max-w-2xl w-full shadow-mat max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between mb-4">
           <div>
-            <h2 className="text-xl font-bold">Import decklist</h2>
-            <p className="text-xs text-neutral-500 mt-0.5">
+            <h2 className="text-xl font-bold text-ink">Import decklist</h2>
+            <p className="text-xs text-ink-faint mt-0.5">
               Paste from any source. We match by card number (e.g. OP01-120).
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-500 hover:text-white text-2xl leading-none"
+            className="text-ink-faint hover:text-ink text-2xl leading-none"
           >
             &times;
           </button>
@@ -155,24 +155,24 @@ export default function BulkImport({ onClose, onImport }: BulkImportProps) {
           }}
           placeholder={`Leader: OP01-001 Monkey D. Luffy\n4x OP01-006 Nami\n4x OP01-007 Usopp\n2 OP01-013 Portgas D. Ace\n...`}
           rows={10}
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-500 resize-y"
+          className="w-full bg-surface-subtle border border-border-subtle rounded-lg px-3 py-2 text-sm font-mono text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 resize-y"
         />
 
         {error && (
-          <div className="mt-3 bg-red-900/30 border border-red-700/40 text-red-300 rounded-lg px-3 py-2 text-xs">
+          <div className="mt-3 bg-danger/10 border border-danger/30 text-danger rounded-lg px-3 py-2 text-xs">
             {error}
           </div>
         )}
 
         {parsed && !result && (
-          <div className="mt-4 bg-neutral-950/40 border border-neutral-800 rounded-lg p-3">
-            <p className="text-sm font-semibold">
+          <div className="mt-4 bg-surface-subtle border border-border-subtle rounded-lg p-3">
+            <p className="text-sm font-semibold text-ink">
               Parsed: {parsed.entries.length} unique cards, {totalCopies} copies
             </p>
             {parsed.warnings.length > 0 && (
-              <ul className="mt-2 text-xs text-amber-400 space-y-0.5">
+              <ul className="mt-2 text-xs text-warning space-y-0.5">
                 {parsed.warnings.map((w, i) => (
-                  <li key={i}>⚠ {w}</li>
+                  <li key={i}>{w}</li>
                 ))}
               </ul>
             )}
@@ -180,16 +180,16 @@ export default function BulkImport({ onClose, onImport }: BulkImportProps) {
         )}
 
         {result && (
-          <div className="mt-4 bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3 text-sm">
-            <p className="text-emerald-400 font-semibold">
+          <div className="mt-4 bg-ok/10 border border-ok/30 rounded-lg p-3 text-sm">
+            <p className="text-ok font-semibold">
               Imported {result.added} card{result.added === 1 ? "" : "s"}.
             </p>
             {result.notFound.length > 0 && (
               <div className="mt-2">
-                <p className="text-amber-400 text-xs">
+                <p className="text-warning text-xs">
                   Couldn&apos;t find {result.notFound.length} card{result.notFound.length === 1 ? "" : "s"}:
                 </p>
-                <p className="text-xs font-mono text-neutral-400 mt-0.5">
+                <p className="text-xs font-mono text-ink-muted mt-0.5">
                   {result.notFound.join(", ")}
                 </p>
               </div>
@@ -200,7 +200,7 @@ export default function BulkImport({ onClose, onImport }: BulkImportProps) {
         <div className="mt-5 flex items-center gap-2 justify-end">
           <button
             onClick={onClose}
-            className="text-sm bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg px-4 py-2 transition-colors"
+            className="text-sm bg-surface-subtle hover:bg-surface text-ink-muted border border-border-subtle rounded-lg px-4 py-2 transition-colors"
           >
             {result ? "Close" : "Cancel"}
           </button>
@@ -208,7 +208,7 @@ export default function BulkImport({ onClose, onImport }: BulkImportProps) {
             <button
               onClick={handleParse}
               disabled={text.trim().length === 0}
-              className="text-sm bg-neutral-700 hover:bg-neutral-600 disabled:opacity-40 rounded-lg px-4 py-2 transition-colors"
+              className="text-sm bg-surface-subtle hover:bg-surface text-ink border border-border-subtle disabled:opacity-40 rounded-lg px-4 py-2 transition-colors"
             >
               Preview
             </button>
@@ -217,7 +217,7 @@ export default function BulkImport({ onClose, onImport }: BulkImportProps) {
             <button
               onClick={handleImport}
               disabled={importing || parsed.entries.length === 0}
-              className="text-sm bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black font-bold rounded-lg px-4 py-2 transition-colors"
+              className="text-sm bg-ink hover:bg-ink/85 disabled:opacity-40 text-page font-semibold rounded-lg px-4 py-2 transition-colors"
             >
               {importing ? "Importing..." : `Add ${totalCopies} cards`}
             </button>

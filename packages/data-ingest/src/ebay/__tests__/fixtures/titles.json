@@ -166,7 +166,10 @@
       "title": "One Piece TCG OP01-001 Zoro Japanese DAMAGED creased",
       "expected": {
         "forces_quarantine": true,
-        "exclude_keywords_includes": ["damaged", "creased"]
+        "exclude_keywords_includes": [
+          "damaged",
+          "creased"
+        ]
       }
     },
     {
@@ -174,7 +177,10 @@
       "title": "Pokemon Charizard VMAX SV107/SV122 PROXY custom card replica",
       "expected": {
         "forces_quarantine": true,
-        "exclude_keywords_includes": ["proxy", "counterfeit"]
+        "exclude_keywords_includes": [
+          "proxy",
+          "counterfeit"
+        ]
       }
     },
     {
@@ -198,7 +204,9 @@
       "title": "Lot of 50 Pokemon Cards Mixed Sets Bulk",
       "expected": {
         "forces_quarantine": true,
-        "exclude_keywords_includes": ["lot"]
+        "exclude_keywords_includes": [
+          "lot"
+        ]
       }
     },
     {
@@ -224,7 +232,10 @@
       "title": "Pikachu Illustrator BGS Pristine 10 Black Label",
       "expected": {
         "grade_company": "BGS",
-        "grade_value_oneof": ["BGS_BLACK_LABEL_10", "BGS_PRISTINE_10"]
+        "grade_value_oneof": [
+          "BGS_BLACK_LABEL_10",
+          "BGS_PRISTINE_10"
+        ]
       }
     },
     {
@@ -298,6 +309,24 @@
       "expected": {
         "sku_is_null": true,
         "max_confidence": 0.5
+      }
+    },
+    {
+      "id": "gcg-01",
+      "title": "GUNDAM CARD GAME ST01-001 RX-78-2 Gundam LR",
+      "expected": {
+        "sku_is_null": true,
+        "max_confidence": 0.69,
+        "notes_includes": "game-prefix-conflict"
+      }
+    },
+    {
+      "id": "una-01",
+      "title": "Union Arena UA02BT/JJK-1-001 Yuji Itadori",
+      "expected": {
+        "sku_is_null": true,
+        "max_confidence": 0.69,
+        "notes_includes": "game-prefix-conflict"
       }
     }
   ]

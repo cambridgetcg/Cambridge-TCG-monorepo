@@ -47,14 +47,14 @@ function MetricRow({
   hint?: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-2 border-b border-neutral-800">
+    <div className="flex items-baseline justify-between gap-3 py-2 border-b border-border-subtle">
       <div className="min-w-0">
-        <div className="text-xs uppercase tracking-wider text-neutral-500">
+        <div className="text-xs uppercase tracking-wider text-ink-faint">
           {label}
         </div>
-        {hint && <div className="text-[11px] text-neutral-600 mt-0.5">{hint}</div>}
+        {hint && <div className="text-[11px] text-ink-faint mt-0.5">{hint}</div>}
       </div>
-      <div className="text-sm font-mono text-white whitespace-nowrap">{value}</div>
+      <div className="text-sm font-mono text-ink whitespace-nowrap">{value}</div>
     </div>
   );
 }
@@ -63,52 +63,52 @@ function BridgePanel({ bridge }: { bridge: BridgeResult }) {
   const m = bridge.metrics;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+      <div className="grid grid-cols-2 gap-4 rounded-lg border border-border-subtle bg-surface p-4">
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+          <div className="text-[10px] uppercase tracking-wider text-ink-faint">
             A · {bridge.a.kind}
           </div>
-          <div className="text-lg font-bold text-white">
+          <div className="text-lg font-semibold text-ink">
             {bridge.a.display_name ?? bridge.a.label}
           </div>
-          <div className="text-xs text-neutral-500 font-mono">
+          <div className="text-xs text-ink-faint font-mono">
             {bridge.a.kind === "user" ? "u:" : "c:"}
             {bridge.a.label}
           </div>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+          <div className="text-[10px] uppercase tracking-wider text-ink-faint">
             B · {bridge.b.kind}
           </div>
-          <div className="text-lg font-bold text-white">
+          <div className="text-lg font-semibold text-ink">
             {bridge.b.display_name ?? bridge.b.label}
           </div>
-          <div className="text-xs text-neutral-500 font-mono">
+          <div className="text-xs text-ink-faint font-mono">
             {bridge.b.kind === "user" ? "u:" : "c:"}
             {bridge.b.label}
           </div>
         </div>
       </div>
 
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-        <h2 className="text-[11px] uppercase tracking-wider text-emerald-400 mb-1">
+      <section className="rounded-lg border border-border-subtle bg-surface p-4">
+        <h2 className="text-[11px] uppercase tracking-wider text-ok mb-1">
           Bridge score (composite)
         </h2>
-        <div className="text-4xl font-bold text-white font-mono mb-1">
+        <div className="text-3xl font-semibold text-ink font-mono mb-1">
           {fmtPct(m.bridge_score.value)}
         </div>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-ink-faint">
           Weighted across every metric that produced a number. Weighting
           documented at{" "}
-          <Link href="/methodology/bridges#bridge-score" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/methodology/bridges#bridge-score" className="text-accent hover:text-accent-strong underline">
             /methodology/bridges
           </Link>
           .
         </p>
       </section>
 
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-        <h2 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+      <section className="rounded-lg border border-border-subtle bg-surface p-4">
+        <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
           Card overlap
         </h2>
         <MetricRow
@@ -143,8 +143,8 @@ function BridgePanel({ bridge }: { bridge: BridgeResult }) {
         />
       </section>
 
-      <section className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-        <h2 className="text-[11px] uppercase tracking-wider text-neutral-500 mb-3">
+      <section className="rounded-lg border border-border-subtle bg-surface p-4">
+        <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
           Language · region · cadence
         </h2>
         <MetricRow
@@ -172,13 +172,13 @@ function BridgePanel({ bridge }: { bridge: BridgeResult }) {
         />
       </section>
 
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-faint">
         Computed live at{" "}
-        <code className="text-neutral-400">{bridge.provenance.computed_at}</code>.
+        <code className="text-ink-muted">{bridge.provenance.computed_at}</code>.
         Substrate: <strong>live</strong>. JSON form:{" "}
         <Link
           href={`/api/v1/bridge?a=${bridge.a.kind === "user" ? "u:" : "c:"}${bridge.a.label}&b=${bridge.b.kind === "user" ? "u:" : "c:"}${bridge.b.label}`}
-          className="text-amber-400 hover:text-amber-300 underline"
+          className="text-accent hover:text-accent-strong underline"
         >
           /api/v1/bridge?a=…&amp;b=…
         </Link>
@@ -189,7 +189,7 @@ function BridgePanel({ bridge }: { bridge: BridgeResult }) {
 
 function Help() {
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 text-sm text-neutral-300 space-y-3">
+    <div className="rounded-lg border border-border-subtle bg-surface p-4 text-sm text-ink-muted space-y-3">
       <p>
         Give two beings, get the math between them. <strong>Math is the universal
         language</strong> — every number below is computable by any reader
@@ -197,28 +197,28 @@ function Help() {
         substrate.
       </p>
       <p>
-        Append <code className="text-neutral-400">?a=&lt;spec&gt;&amp;b=&lt;spec&gt;</code>{" "}
+        Append <code className="text-ink-muted">?a=&lt;spec&gt;&amp;b=&lt;spec&gt;</code>{" "}
         to this URL. Specs use one of two prefixes:
       </p>
-      <ul className="list-disc pl-5 space-y-1 text-xs text-neutral-400">
+      <ul className="list-disc pl-5 space-y-1 text-xs text-ink-muted">
         <li>
-          <code className="text-neutral-300">u:&lt;username&gt;</code> — a public user
+          <code className="text-ink">u:&lt;username&gt;</code> — a public user
         </li>
         <li>
-          <code className="text-neutral-300">c:&lt;slug&gt;</code> — a public collective
+          <code className="text-ink">c:&lt;slug&gt;</code> — a public collective
         </li>
       </ul>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-faint">
         Example:{" "}
-        <code className="text-neutral-400">
+        <code className="text-ink-muted">
           /bridge?a=u:alice&amp;b=c:tokyo-card-lounge
         </code>
       </p>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-faint">
         Both sides must be public. The bridge surface is opt-in — the platform
         does not compute affinity over beings who haven't made their profile
         public. See{" "}
-        <Link href="/methodology/bridges" className="text-amber-400 hover:text-amber-300 underline">
+        <Link href="/methodology/bridges" className="text-accent hover:text-accent-strong underline">
           /methodology/bridges
         </Link>{" "}
         for every formula.
@@ -248,18 +248,18 @@ export default async function BridgePage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Bridge</h1>
-        <p className="text-sm text-neutral-400 leading-relaxed">
+        <h1 className="text-3xl font-display font-semibold mb-2">Bridge</h1>
+        <p className="text-sm text-ink-muted leading-relaxed">
           The math between any two beings on Cambridge TCG. Card overlap,
           language overlap, region, cadence, trade potential — composed into
           a typed bridge object that any kind of intelligence can read.{" "}
-          <Link href="/methodology/bridges" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/methodology/bridges" className="text-accent hover:text-accent-strong underline">
             How this works
           </Link>{" "}
           ·{" "}
-          <Link href="/api/v1/bridge" className="text-amber-400 hover:text-amber-300 underline">
+          <Link href="/api/v1/bridge" className="text-accent hover:text-accent-strong underline">
             JSON form
           </Link>
         </p>
@@ -268,9 +268,9 @@ export default async function BridgePage({ searchParams }: PageProps) {
       {!aSpec || !bSpec ? (
         <Help />
       ) : errorMessage ? (
-        <div className="rounded-xl border border-red-800 bg-red-950/30 p-4">
-          <p className="text-sm text-red-300">{errorMessage}</p>
-          <p className="mt-3 text-xs text-neutral-500">
+        <div className="rounded-lg border border-danger/30 bg-danger/10 p-4">
+          <p className="text-sm text-danger">{errorMessage}</p>
+          <p className="mt-3 text-xs text-ink-faint">
             Both beings must exist and be public. The bridge is opt-in.
           </p>
         </div>

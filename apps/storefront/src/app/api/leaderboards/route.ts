@@ -24,13 +24,30 @@ export async function GET(request: Request) {
   // Three boards — independent queries to keep each one indexed cleanly.
   const [sellersRes, buyersRes, skusRes] = await Promise.all([
     query(
-      `SELECT u.username, u.name,
-              COUNT(*)::int                              AS trade_count,
-              SUM(t.price::numeric * t.quantity)::numeric AS volume
-         FROM market_trades t
-         JOIN users u ON u.id = t.seller_id
-        WHERE t.escrow_status = ANY($1)
-          AND t.created_at > NOW() - make_interval(days => $2)
+      // Seller board = order-book sales + auction settlements. Volume is
+      // gross transaction value in both rails (the market side already
+      // sums price*qty), so auctions contribute their hammer price
+      // (current_price). Without this, a seller who only sold under the
+      // hammer showed nothing and the board read as a ghost town.
+      `WITH seller_sales AS (
+         SELECT t.seller_id AS user_id,
+                t.price::numeric * t.quantity AS amount,
+                t.created_at AS at
+           FROM market_trades t
+          WHERE t.escrow_status = ANY($1)
+         UNION ALL
+         SELECT a.seller_user_id AS user_id,
+                a.current_price::numeric AS amount,
+                a.paid_at AS at
+           FROM auctions a
+          WHERE a.status = 'paid' AND a.seller_user_id IS NOT NULL AND a.paid_at IS NOT NULL
+       )
+       SELECT u.username, u.name,
+              COUNT(*)::int          AS trade_count,
+              SUM(s.amount)::numeric AS volume
+         FROM seller_sales s
+         JOIN users u ON u.id = s.user_id
+        WHERE s.at > NOW() - make_interval(days => $2)
           AND u.username IS NOT NULL
         GROUP BY u.username, u.name
         ORDER BY volume DESC
@@ -38,13 +55,27 @@ export async function GET(request: Request) {
       [COMPLETED_STATES, days, LIMIT]
     ),
     query(
-      `SELECT u.username, u.name,
-              COUNT(*)::int                              AS trade_count,
-              SUM(t.price::numeric * t.quantity)::numeric AS volume
-         FROM market_trades t
-         JOIN users u ON u.id = t.buyer_id
-        WHERE t.escrow_status = ANY($1)
-          AND t.created_at > NOW() - make_interval(days => $2)
+      // Buyer board = order-book purchases + auction wins (the winner paid
+      // the hammer price).
+      `WITH buyer_purchases AS (
+         SELECT t.buyer_id AS user_id,
+                t.price::numeric * t.quantity AS amount,
+                t.created_at AS at
+           FROM market_trades t
+          WHERE t.escrow_status = ANY($1)
+         UNION ALL
+         SELECT a.winner_user_id AS user_id,
+                a.current_price::numeric AS amount,
+                a.paid_at AS at
+           FROM auctions a
+          WHERE a.status = 'paid' AND a.winner_user_id IS NOT NULL AND a.paid_at IS NOT NULL
+       )
+       SELECT u.username, u.name,
+              COUNT(*)::int          AS trade_count,
+              SUM(b.amount)::numeric AS volume
+         FROM buyer_purchases b
+         JOIN users u ON u.id = b.user_id
+        WHERE b.at > NOW() - make_interval(days => $2)
           AND u.username IS NOT NULL
         GROUP BY u.username, u.name
         ORDER BY volume DESC

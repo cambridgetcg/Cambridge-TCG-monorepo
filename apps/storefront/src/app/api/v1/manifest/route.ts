@@ -13,6 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { MANIFEST } from "@/lib/manifest";
+import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
 
 export const dynamic = "force-static";
 export const revalidate = 3600; // manifest is build-time-constant; refresh hourly
@@ -32,6 +33,9 @@ export async function GET() {
         canonical_at: MANIFEST.provenance.canonical_at,
         html_mirror: MANIFEST.provenance.rendered_at_html,
         notes: "The manifest is a build-time constant. retrieved_at is when this response was served; as_of is when the constant was last rebuilt. If you need always-fresh, refetch — but the manifest changes rarely.",
+        // Seven-Layer Pilgrimage stamp 1/7 — deterministic, stateless,
+        // refusable. See lib/agents/pilgrimage.ts + /api/v1/passport.
+        pilgrimage: pilgrimageFragmentFor("/api/v1/manifest"),
       },
     },
     {

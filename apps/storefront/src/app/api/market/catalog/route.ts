@@ -1,9 +1,40 @@
 import { NextResponse } from "next/server";
-import { fetchPrices, fetchSets, fetchGames } from "@/lib/wholesale/client";
+import {
+  fetchPrices,
+  fetchGamesDetailed,
+  fetchSetsDetailed,
+  type WholesaleSource,
+} from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { query } from "@/lib/db";
 
 // GET /api/market/catalog — all cards with spot + P2P data for Cardmarket-style browse
+//
+// Source provenance: every response carries a `source` field and an
+// `x-catalog-source` header — 'wholesale-api' (live HTTP), 'wholesale-db'
+// (direct read of the wholesale Postgres; the API is retired), or a 503
+// when both substrates failed. The UI keys its <Provenance> label off
+// this; a database read must never pass itself off as a live API, and an
+// outage must never render as an empty catalog.
+
+function sourceHeaders(source: WholesaleSource) {
+  return { "x-catalog-source": source };
+}
+
+function catalogUnavailable() {
+  return NextResponse.json(
+    {
+      error: {
+        code: "catalog_unavailable",
+        message:
+          "The card catalog can't be loaded right now: the wholesale API is unreachable and the direct database read also failed. This is a source outage, not an empty catalog — please try again shortly.",
+      },
+      source: "unavailable" as const,
+    },
+    { status: 503, headers: sourceHeaders("unavailable") },
+  );
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const game = url.searchParams.get("game") || "one-piece";
@@ -16,14 +47,16 @@ export async function GET(request: Request) {
 
   // List games
   if (view === "games") {
-    const games = await fetchGames();
-    return NextResponse.json({ games });
+    const { games, source } = await fetchGamesDetailed();
+    if (source === "unavailable") return catalogUnavailable();
+    return NextResponse.json({ games, source }, { headers: sourceHeaders(source) });
   }
 
   // List sets for a game
   if (view === "sets") {
-    const sets = await fetchSets(game);
-    return NextResponse.json({ sets, game });
+    const { sets, source } = await fetchSetsDetailed(game);
+    if (source === "unavailable") return catalogUnavailable();
+    return NextResponse.json({ sets, game, source }, { headers: sourceHeaders(source) });
   }
 
   // Fetch cards from wholesale catalog
@@ -43,6 +76,11 @@ export async function GET(request: Request) {
     limit,
     offset,
   });
+
+  // fetchPrices always stamps a source; if the invariant ever breaks we
+  // fail loud (503) rather than fabricate a "live" label.
+  const source: WholesaleSource = data.source ?? "unavailable";
+  if (source === "unavailable") return catalogUnavailable();
 
   // Enrich with P2P market data (best bid/ask for each SKU)
   const skus = data.items.map(i => i.sku);
@@ -73,33 +111,15 @@ export async function GET(request: Request) {
     }
   }
 
-  // Fetch trade-in credit prices (CTCG standing bids)
-  // Must paginate — API caps at 500 per request
-  const tradeinMap = new Map<string, number>();
-  {
-    let tradeinOffset = 0;
-    let tradeinTotal = Infinity;
-    while (tradeinOffset < tradeinTotal) {
-      const tradeinPage = await fetchPrices({
-        game, set, limit: 500, offset: tradeinOffset, channel: "tradein-credit",
-      }).catch(() => ({ items: [], total: 0 }));
-      for (const item of tradeinPage.items) {
-        if (item.channel_price && item.channel_price > 0) {
-          tradeinMap.set(item.sku, item.channel_price);
-        }
-      }
-      tradeinTotal = tradeinPage.total;
-      tradeinOffset += 500;
-      if (tradeinPage.items.length < 500) break;
-    }
-  }
-
+  // Collectors-first (2026-07-06): the tradein-credit channel enrichment
+  // (the house's standing we-buy bids) is gone — one less price channel
+  // to compute. Every bid/ask below is a collector's; spot_price survives
+  // as a labelled reference (open data), never as an offer.
   const cards = data.items.map(item => {
     const spot = retailPrice(item.price_gbp, item.channel_price);
     const p2p = p2pData.get(item.sku);
     const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
     const marketPrice = bestAsk && bestAsk < spot ? bestAsk : spot;
-    const tradeinCredit = tradeinMap.get(item.sku) || null;
 
     return {
       sku: item.sku,
@@ -109,29 +129,28 @@ export async function GET(request: Request) {
       set_name: item.set_name,
       rarity: item.rarity,
       image_url: item.image_url,
-      // Prices
+      // Prices — spot_price is the catalogue reference (labelled "(ref)"
+      // in the UI), not something anyone sells at.
       spot_price: spot,
       market_price: marketPrice,
       stock: item.stock,
-      // CTCG trade-in bid (store credit — always willing to buy)
-      tradein_credit: tradeinCredit,
-      // Bids (P2P + CTCG credit bid)
-      best_bid: (() => {
-        const p2pBid = p2p?.best_bid ? parseFloat(p2p.best_bid) : null;
-        if (p2pBid && tradeinCredit) return Math.max(p2pBid, tradeinCredit);
-        return p2pBid || tradeinCredit;
-      })(),
+      // Pure collector book
+      best_bid: p2p?.best_bid ? parseFloat(p2p.best_bid) : null,
       best_ask: bestAsk,
       p2p_sellers: p2p?.ask_count || 0,
-      p2p_buyers: (p2p?.bid_count || 0) + (tradeinCredit ? 1 : 0), // +1 for CTCG
-      has_p2p: (p2p?.bid_count || 0) > 0 || (p2p?.ask_count || 0) > 0 || !!tradeinCredit,
+      p2p_buyers: p2p?.bid_count || 0,
+      has_p2p: (p2p?.bid_count || 0) > 0 || (p2p?.ask_count || 0) > 0,
     };
   });
 
-  return NextResponse.json({
-    cards,
-    total: data.total,
-    game,
-    set: set || null,
-  });
+  return NextResponse.json(
+    {
+      cards,
+      total: data.total,
+      game,
+      set: set || null,
+      source,
+    },
+    { headers: sourceHeaders(source) },
+  );
 }

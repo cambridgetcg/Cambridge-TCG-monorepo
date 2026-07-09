@@ -86,19 +86,19 @@ export default async function PricesLandingPage() {
       />
 
       <main className="max-w-5xl mx-auto px-4 py-12">
-        <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-muted mb-8">
           <ol className="flex items-center gap-1.5">
             <li>
-              <Link href="/" className="hover:text-white transition-colors">
+              <Link href="/" className="hover:text-ink transition-colors">
                 Home
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
-            <li className="text-white">Price Guide</li>
+            <li className="text-ink-faint">/</li>
+            <li className="text-ink">Price Guide</li>
           </ol>
         </nav>
 
-        <h1 className="text-3xl font-bold text-white mb-4">
+        <h1 className="text-3xl font-bold text-ink mb-4">
           TCG Card Price Guide UK
         </h1>
 
@@ -109,13 +109,13 @@ export default async function PricesLandingPage() {
           <CurrencyWhyLink />
           <Link
             href="/prices/coverage"
-            className="text-xs text-blue-400 hover:underline"
+            className="text-xs text-info hover:underline"
           >
             coverage map →
           </Link>
         </div>
 
-        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-10">
+        <p className="text-ink-muted leading-relaxed max-w-3xl mb-10">
           Cambridge TCG publishes free, daily-updated price guides across the
           TCG landscape. Each card carries a UK retail buy price plus, where
           the upstream license permits, a trade-in store credit value.
@@ -137,16 +137,16 @@ export default async function PricesLandingPage() {
         </div>
 
         <section>
-          <h2 className="text-xl font-semibold text-white mb-6">
+          <h2 className="text-xl font-semibold text-ink mb-6">
             Browse by Game
           </h2>
 
           {tiles.length === 0 ? (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-400 text-sm">
+            <div className="rounded-lg border border-border-subtle bg-surface p-6 text-ink-muted text-sm">
               More games coming soon — see the{" "}
               <Link
                 href="/prices/coverage"
-                className="text-blue-400 hover:underline"
+                className="text-info hover:underline"
               >
                 coverage map
               </Link>{" "}
@@ -162,21 +162,21 @@ export default async function PricesLandingPage() {
                   <Link
                     key={config.slug}
                     href={`/prices/${config.slug}`}
-                    className={`block rounded-xl border border-neutral-800 ${accent.bg} p-6 hover:${accent.border} transition-colors`}
+                    className={`block rounded-lg border border-border-subtle ${accent.bg} p-6 hover:${accent.border} transition-colors`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h3 className={`text-lg font-semibold ${accent.text}`}>
                         {config.display_name}
                       </h3>
-                      <span className="text-xs text-neutral-500 font-mono">
+                      <span className="text-xs text-ink-faint font-mono">
                         {config.game_code}
                       </span>
                     </div>
-                    <p className="text-sm text-neutral-400 mb-3">
+                    <p className="text-sm text-ink-muted mb-3">
                       {config.seo_description}
                     </p>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-neutral-500">
+                      <span className="text-ink-faint">
                         {isLive
                           ? `${cardCount.toLocaleString()} cards`
                           : "preparing coverage"}
@@ -185,8 +185,8 @@ export default async function PricesLandingPage() {
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider ${
                             config.cardrush.confirmed
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                              : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                              ? "bg-ok/10 text-ok border border-ok/30"
+                              : "bg-accent-wash text-accent border border-accent/30"
                           }`}
                           title={
                             config.cardrush.confirmed
@@ -207,29 +207,29 @@ export default async function PricesLandingPage() {
           )}
         </section>
 
-        <section className="mt-14 border-t border-neutral-800 pt-8">
-          <h2 className="text-lg font-semibold text-white mb-3">
+        <section className="mt-14 border-t border-border-subtle pt-8">
+          <h2 className="text-lg font-semibold text-ink mb-3">
             How Our Prices Work
           </h2>
-          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-4">
+          <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
             Prices shown are from the Cambridge TCG marketplace, updated daily
             from the wholesale catalog. The{" "}
-            <strong className="text-neutral-200">Buy Price</strong> is our
+            <strong className="text-ink-muted">Buy Price</strong> is our
             retail price for purchasing a card. The{" "}
-            <strong className="text-neutral-200">We Buy</strong> price is the
+            <strong className="text-ink-muted">We Buy</strong> price is the
             instant store credit we offer when you trade in your cards.
           </p>
-          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl">
+          <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
             For multi-source comparison (UK retail vs JP retail vs US market),
             visit any card&apos;s detail page or the{" "}
-            <Link href="/prices/coverage" className="text-blue-400 hover:underline">
+            <Link href="/prices/coverage" className="text-info hover:underline">
               coverage map
             </Link>{" "}
             to see which upstream sources we hold data from for each game.
             License tiers per source are declared in{" "}
             <Link
               href="/methodology/upstream-sources"
-              className="text-blue-400 hover:underline"
+              className="text-info hover:underline"
             >
               the welcome table
             </Link>

@@ -47,10 +47,12 @@ export function MessageButton({
 }: MessageButtonProps) {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   async function open() {
     if (pending) return;
     setPending(true);
+    setError(null);
     try {
       const res = await fetch("/api/messages/conversations", {
         method: "POST",
@@ -65,21 +67,33 @@ export function MessageButton({
         router.push(`/account/messages?c=${data.conversation.id}${ref}`);
         return; // stay pending through the navigation
       }
+      // The server refuses for a reason worth reading — block list,
+      // recipient opted out, rate limit. Surface it here, BEFORE the
+      // user writes anything into a thread that can't open.
+      setError(typeof data.error === "string" ? data.error : "Couldn't open a conversation.");
     } catch {
       // Network failure — fall through and re-enable the button.
+      setError("Network error — try again.");
     }
     setPending(false);
   }
 
   return (
-    <button
-      type="button"
-      onClick={open}
-      disabled={pending}
-      className={`inline-flex items-center justify-center gap-2 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-surface-elevated text-ink border border-border-subtle hover:bg-border-strong ${SIZE_CLS[size]}`}
-    >
-      <Icon name="message" size={size === "sm" ? 13 : 15} />
-      {pending ? "…" : label}
-    </button>
+    <span className="inline-flex flex-col items-start gap-1">
+      <button
+        type="button"
+        onClick={open}
+        disabled={pending}
+        className={`inline-flex items-center justify-center gap-2 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-surface text-ink border border-border-subtle hover:bg-surface-subtle ${SIZE_CLS[size]}`}
+      >
+        <Icon name="message" size={size === "sm" ? 13 : 15} />
+        {pending ? "…" : label}
+      </button>
+      {error && (
+        <span role="alert" className="text-[11px] text-danger">
+          {error}
+        </span>
+      )}
+    </span>
   );
 }

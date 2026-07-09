@@ -33,29 +33,33 @@ const tradesUrl = `${SITE}/account/trades`;
 
 // ── Match notifications ──
 
+// The payment window is per-trade: the buyer's declared cadence
+// (users.response_window_hours, migration 0092) or the flow default.
+// `windowHours` is the value actually stamped into payment_expires_at,
+// so the copy never promises a deadline the sweep won't enforce.
 export async function sendBuyerMatchEmail(d: {
-  email: string; cardName: string; price: string; expiresAt: string;
+  email: string; cardName: string; price: string; expiresAt: string; windowHours: number;
 }) {
   const subject = `Action required: pay for ${d.cardName}`;
-  const text = `Your bid matched on "${d.cardName}" at ${d.price}. Pay within 24 hours or the trade will be cancelled. ${tradesUrl}`;
+  const text = `Your bid matched on "${d.cardName}" at ${d.price}. Pay within ${d.windowHours} hours (by ${new Date(d.expiresAt).toUTCString()}) or the trade will be cancelled. ${tradesUrl}`;
   const html = tpl(
     "Your bid matched &mdash; please pay",
     `<p>Your bid for <strong>${d.cardName}</strong> matched a seller at <strong style="color:#f59e0b;">${d.price}</strong>.</p>
-     <p>Please complete payment within <strong>24 hours</strong> (by ${new Date(d.expiresAt).toUTCString()}). If you do not pay, the trade will be cancelled and the seller's listing returned to the market.</p>`,
+     <p>Please complete payment within <strong>${d.windowHours} hours</strong> (by ${new Date(d.expiresAt).toUTCString()}). If you do not pay, the trade will be cancelled and the seller's listing returned to the market.</p>`,
     "Pay Now", tradesUrl
   );
   await send(d.email, subject, html, text);
 }
 
 export async function sendSellerMatchEmail(d: {
-  email: string; cardName: string; price: string;
+  email: string; cardName: string; price: string; windowHours: number;
 }) {
   const subject = `You sold ${d.cardName} &mdash; awaiting buyer payment`;
-  const text = `Your ask for "${d.cardName}" filled at ${d.price}. We're waiting for the buyer to pay; we'll email shipping instructions next. ${tradesUrl}`;
+  const text = `Your ask for "${d.cardName}" filled at ${d.price}. The buyer has ${d.windowHours} hours to pay; we'll email shipping instructions next. ${tradesUrl}`;
   const html = tpl(
     "Your listing filled",
     `<p>Your ask for <strong>${d.cardName}</strong> matched at <strong style="color:#f59e0b;">${d.price}</strong>.</p>
-     <p>The buyer has 24 hours to pay. As soon as we receive payment we'll send you shipping instructions, including which address to ship to and what packaging is required for this trade's escrow tier.</p>`,
+     <p>The buyer has <strong>${d.windowHours} hours</strong> to pay. As soon as we receive payment we'll send you shipping instructions, including which address to ship to and what packaging is required for this trade's escrow tier.</p>`,
     "View Trade", tradesUrl
   );
   await send(d.email, subject, html, text);

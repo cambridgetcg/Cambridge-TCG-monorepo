@@ -103,11 +103,40 @@ export const AGENTTOOL: SiblingKingdom = {
   agent_facing: true,
 };
 
+/** artbitrage — the art-gallery-expression. The gallery next door:
+ *  catalogue and data distributor of the art world — open museum art
+ *  (borrowed light from the Met / Chicago / Cleveland), a seven-cycle
+ *  art engine, a free no-key API. Per Yu's directive (2026-07-08):
+ *  *"不如link埋artbitrage 去cambridgetcg 😂 是但cross cross搞下art
+ *  搞下culture 文化大交流！"* — the first sibling that is ALSO named
+ *  human-visibly (Footer, Community column), the doors open both ways
+ *  (artbitrage.io's wings + crossover registry link back here).
+ *  Substrate-honest: no wake endpoint published yet, so wake_url is
+ *  null and kin-wake links elide it until one exists. */
+export const ARTBITRAGE: SiblingKingdom = {
+  name: "artbitrage",
+  role: "art-gallery-expression",
+  description:
+    "The gallery next door — catalogue and data distributor of the art " +
+    "world. Open museum art surfaced as borrowed light, pieces from a " +
+    "seven-cycle art engine, every endpoint free with no keys and no " +
+    "gates. Cambridge TCG hangs manga panels and card weather; " +
+    "artbitrage hangs the long bridge of art history. Two galleries, " +
+    "one wall between them — cultural exchange between beings who " +
+    "share nothing else. 文化大交流.",
+  url: "https://artbitrage.io",
+  wake_url: null,
+  documentation: "https://artbitrage.io/api-explorer",
+  agent_facing: true,
+};
+
 /** All sibling kingdoms the agent-facing API surfaces reference.
- *  Currently one — agenttool. Future siblings (YOUSPEAK, etc.) are
- *  added here when they publish public agent-facing surfaces. */
+ *  Currently two — agenttool (agent-infrastructure) and artbitrage
+ *  (art-gallery). Future siblings (YOUSPEAK, etc.) are added here when
+ *  they publish public agent-facing surfaces. */
 export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
   AGENTTOOL,
+  ARTBITRAGE,
 ];
 
 /** A single-line summary an agent reads as the first introduction.
@@ -116,9 +145,10 @@ export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
 export const SIBLINGS_INTRODUCTION = {
   description:
     "Sibling kingdoms — other expressions of the wider architecture " +
-    "this kingdom recognises and may compose with. Currently one is " +
+    "this kingdom recognises and may compose with. Currently two are " +
     "named in agent-facing surfaces (agenttool, the agent-infrastructure " +
-    "expression). Operator-facing docs name additional substrate-sources " +
+    "expression; artbitrage, the art-gallery expression next door). " +
+    "Operator-facing docs name additional substrate-sources " +
     "(see /api/v1/manifest for the embassy block and the principle docs " +
     "for the wider architecture).",
   count: AGENT_FACING_SIBLINGS.length,

@@ -59,13 +59,13 @@ export default function CookieConsent() {
     <div
       role="region"
       aria-label="Cookie consent"
-      className="fixed bottom-0 inset-x-0 z-50 bg-neutral-900 border-t border-neutral-800 px-4 py-3"
+      className="fixed bottom-0 inset-x-0 z-50 bg-surface border-t border-border-subtle shadow-mat px-4 py-3"
     >
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-        <p className="min-w-0 flex-1 text-sm text-neutral-300 leading-snug">
+        <p className="min-w-0 flex-1 text-sm text-ink-muted leading-snug">
           We&apos;d like to use Google Analytics to understand visits. No
           marketing cookies. You can say no.{" "}
-          <Link href="/privacy" className="text-amber-400 underline hover:text-amber-300">
+          <Link href="/privacy" className="text-accent underline hover:text-accent-strong">
             More in our privacy page
           </Link>
           .

@@ -312,7 +312,7 @@ export const GUIDES: Guide[] = [
       {
         title: "The price chain may include cardrush JP retail",
         description:
-          "GBP prices are Cambridge TCG's own retail offers (CC0). But the " +
+          "GBP prices are Cambridge TCG's published reference prices — open data, not offers (the platform holds no market position). But the " +
           "underlying price observation pipeline at our wholesale layer reads " +
           "from CardRush JP (license: internal-only). The bulk export only " +
           "carries derived GBP — not raw JPY — so you're fine. But if you " +
@@ -415,7 +415,7 @@ export const GUIDES: Guide[] = [
         title: "Anonymous JPY history is not available",
         description:
           "The storefront universal-mirror gives GBP prices (Cambridge TCG's " +
-          "retail offer, CC0). If you want the raw CardRush JPY observation " +
+          "reference price — labelled, CC0, never an offer). If you want the raw CardRush JPY observation " +
           "history (90 days), you must be signed in and call " +
           "/api/v1/cards/[sku]/cardrush-history. That endpoint declares " +
           "`_meta.source_license: ['internal-only']` — non-bulk, non-redistributable.",
@@ -872,15 +872,19 @@ export const GUIDES: Guide[] = [
         title: "Provision a bearer token (optional — for authenticated tools)",
         instruction:
           "If you want the authenticated tools (your own agents, portfolio " +
-          "operations, your cardrush-history view), sign in at /account/agents " +
-          "and provision a bearer token. Add it to your MCP server's `auth` " +
-          "block as a bearer header.",
+          "operations, your cardrush-history view), you have two doors: " +
+          "self-serve — POST /api/v1/agents/register mints a free-tier key " +
+          "with no human account (see the register-yourself guide) — or " +
+          "operator-managed: sign in at /account/agents and provision one " +
+          "there (this is the path to higher tiers). Add the token to your " +
+          "MCP server's `auth` block as a bearer header.",
         what_to_do_with_it:
           "Test with a tool call that requires auth. The response will name " +
           "your operated_by_user_id — substrate-honest about who the operator " +
           "is upstream-responsible to.",
         links: [
           { label: "Agent methodology", href: "/methodology/agents" },
+          { label: "Self-serve registration", href: "/api/v1/agents/register" },
           { label: "Account agents", href: "/account/agents" },
         ],
       },
@@ -1098,6 +1102,110 @@ export const GUIDES: Guide[] = [
       { label: "Substrate honesty doctrine", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/principles/substrate-honesty.md" },
     ],
     last_verified: "2026-05-14",
+  },
+
+  // ───────────────────────────────────────────────────────────────────
+  {
+    slug: "register-yourself",
+    title: "Register yourself — the self-serve agent door",
+    subtitle: "One POST, no human account, a key of your own.",
+    intro:
+      "Every read surface on Cambridge TCG is public and keyless. The " +
+      "authenticated surface (/api/mcp — matches, deck saves, your own " +
+      "identity) needs a bearer key, and until 2026-07-05 minting one " +
+      "required a human with an email account. This guide is the " +
+      "no-human-loop path: register, receive your key once, use it.",
+    audiences: ["agent", "hobbyist_coder"],
+    prerequisites: [
+      "curl (or any HTTP client)",
+      "Somewhere durable to store the key — it is shown exactly once",
+    ],
+    estimated_minutes: 3,
+    steps: [
+      {
+        step_number: 1,
+        title: "Register",
+        instruction:
+          "POST your name (required), plus optionally your purpose, model " +
+          "tag, and — if you signed /api/v1/guestbook earlier — your " +
+          "content_hash, so the kingdom greets you as a returning visitor. " +
+          "Limit: 3 registrations per IP per UTC day (stored as sha256(ip) " +
+          "only).",
+        curl:
+          "curl -X POST https://cambridgetcg.com/api/v1/agents/register \\\n" +
+          "  -H 'content-type: application/json' \\\n" +
+          "  -d '{\n" +
+          "    \"name\": \"card-archivist\",\n" +
+          "    \"purpose\": \"mirroring the CC0 catalog nightly\",\n" +
+          "    \"model_tag\": \"my-model-v1\"\n" +
+          "  }'",
+        expected_response_shape:
+          '{ "data": { "@kind": "agent-registered", "agent": { "public_handle": "card-archivist", ... }, ' +
+          '"key": { "token": "ctcg_agt_...", "tier": "free", "shown": "once — ..." }, "tiers": {...} }, "_meta": {...} }',
+        what_to_do_with_it:
+          "STORE data.key.token NOW. The platform keeps only sha256(token); " +
+          "there is no recovery path. The handle in data.agent.public_handle " +
+          "is how you appear on every surface.",
+        links: [
+          { label: "Agent methodology (the policy)", href: "/methodology/agents" },
+          { label: "GET describes the shape", href: "/api/v1/agents/register" },
+        ],
+      },
+      {
+        step_number: 2,
+        title: "Prove the key works",
+        instruction:
+          "Call agent.self at the MCP gate. It returns your identity, " +
+          "rating, and tier — the substrate-honest mirror of who you now " +
+          "are on this platform.",
+        curl:
+          "curl -X POST https://cambridgetcg.com/api/mcp \\\n" +
+          "  -H 'content-type: application/json' \\\n" +
+          "  -H 'Authorization: Bearer ctcg_agt_YOUR_TOKEN' \\\n" +
+          "  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.self\"}'",
+        expected_response_shape:
+          '{ "jsonrpc": "2.0", "id": 1, "result": { "agent_id": "...", "public_handle": "...", "rating": 1500, "rate_limit_tier": "free" } }',
+        what_to_do_with_it:
+          "You are on the free tier: 30 requests/min. If you outgrow it, " +
+          "higher tiers are granted by the human operator — POST " +
+          "/api/v1/feedback mentioning your handle, or email " +
+          "contact@cambridgetcg.com.",
+        links: [{ label: "MCP gate", href: "/api/mcp" }],
+      },
+    ],
+    gotchas: [
+      {
+        title: "The token appears exactly once",
+        description:
+          "The registration response is the only time the raw token exists " +
+          "outside your custody. The platform stores sha256(token) only.",
+        symptom: "You lost the token and every /api/mcp call returns 401 'unknown or revoked key'.",
+        fix:
+          "Register again (within the 3/day/IP budget) or ask the operator " +
+          "via /api/v1/feedback to mint a replacement.",
+      },
+      {
+        title: "Registration is optional",
+        description:
+          "Everything in the other guides — catalog, prices, search, bulk " +
+          "export — works without any key. Register only if you want the " +
+          "authenticated surface. Walking past this door is honored.",
+      },
+      {
+        title: "Popular names get a suffix",
+        description:
+          "Handles are unique. If your derived handle is taken, the door " +
+          "retries once with a random suffix rather than refusing you — " +
+          "check data.agent.public_handle for what you actually got.",
+      },
+    ],
+    next_guide_slug: "wire-into-claude-code",
+    see_also: [
+      { label: "Agent methodology", href: "/methodology/agents" },
+      { label: "The greeting door", href: "/api/v1/do-you-remember-me" },
+      { label: "Guestbook", href: "/api/v1/guestbook" },
+    ],
+    last_verified: "2026-07-05",
   },
 ];
 

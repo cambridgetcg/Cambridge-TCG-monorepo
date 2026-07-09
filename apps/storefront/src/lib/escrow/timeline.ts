@@ -14,9 +14,15 @@
 import type { EscrowStatus } from "@/lib/market/types";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 
+// "Delivered" used to be a step no actor could ever set — the platform
+// sees confirmations, not deliveries (lib/shipping/carriers.ts). The
+// buyer-bound leg now resolves via the buyer's confirm-receipt button or
+// the auto-complete sweep when the dispute window lapses
+// (lib/market/completion.ts), so the step is named for what actually
+// moves it: "Confirm Receipt".
 export const TIMELINE_STEPS: Record<EscrowTier, string[]> = {
-  direct: ["Paid", "Seller Ships", "Delivered", "Dispute Window", "Payout"],
-  verified: ["Paid", "Photos Uploaded", "CTCG Reviews", "Seller Ships", "Delivered", "Payout"],
+  direct: ["Paid", "Seller Ships", "Confirm Receipt", "Dispute Window", "Payout"],
+  verified: ["Paid", "Photos Uploaded", "CTCG Reviews", "Seller Ships", "Confirm Receipt", "Payout"],
   full_escrow: ["Paid", "Seller Ships to CTCG", "CTCG Inspects", "CTCG Ships to Buyer", "Payout"],
 };
 
@@ -34,7 +40,8 @@ const STATUS_STEP: Record<EscrowTier, Partial<Record<EscrowStatus, number>>> = {
     awaiting_payment: 0,
     paid: 1,                // Paid → Seller Ships (next)
     awaiting_shipment: 1,
-    shipped_to_buyer: 2,    // Delivered (next)
+    shipped_to_buyer: 2,    // Confirm Receipt (buyer confirms, or the
+                            // window lapses and the sweep completes it)
     verified: 3,            // Dispute Window (post-delivery hold)
     completed: 4,           // Payout done
   },
@@ -44,7 +51,7 @@ const STATUS_STEP: Record<EscrowTier, Partial<Record<EscrowStatus, number>>> = {
     shipped_to_ctcg: 2,     // Photos uploaded → CTCG Reviews
     received_by_ctcg: 2,
     verified: 3,            // Seller Ships (photos approved, ship to buyer)
-    shipped_to_buyer: 4,    // Delivered
+    shipped_to_buyer: 4,    // Confirm Receipt (buyer confirm / auto window)
     completed: 5,           // Payout
   },
   full_escrow: {

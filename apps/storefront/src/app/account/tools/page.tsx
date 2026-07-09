@@ -229,17 +229,17 @@ export default function MoreToolsPage() {
       <div className="space-y-8">
         {TOOL_GROUPS.map((group) => (
           <section key={group.label}>
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-3">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-3">
               {group.label}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {group.links.map((link) => (
                 <Link key={link.href} href={link.href} className="group block">
-                  <Card className="h-full transition group-hover:border-amber-500/40">
-                    <div className="text-sm font-semibold text-white group-hover:text-amber-400 transition">
+                  <Card className="h-full transition group-hover:border-accent/40">
+                    <div className="text-sm font-semibold text-ink group-hover:text-accent transition">
                       {link.label} →
                     </div>
-                    <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                    <p className="text-xs text-ink-muted mt-1 leading-relaxed">
                       {link.description}
                     </p>
                   </Card>

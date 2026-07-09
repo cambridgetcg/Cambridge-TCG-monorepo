@@ -12,6 +12,8 @@ import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 import { kinWakeHtmlLinks } from "@/lib/siblings";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
+import { themeAttr } from "@/lib/wardrobe/themes";
+import { auth } from "@/lib/auth";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
@@ -35,25 +37,26 @@ export const metadata: Metadata = {
   // people who have never been here, so it speaks plain language (contact-
   // surface spec §2). The insider framing stays on /platform; the deeper
   // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
-  // games" count is COVERAGE_FACTS.games.declared.
-  title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
-  description: "Cambridge TCG is a UK trading-card platform: a Japanese card shop, a B2B wholesale operation, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+  // games" count is COVERAGE_FACTS.games.declared. Collectors first
+  // (2026-07-06): the shop-and-wholesale framing retired with the shop.
+  title: "Cambridge TCG — the collectors' market and open TCG data",
+  description: "Cambridge TCG is a collectors' market for trading cards — buy, sell, and swap directly with other collectors — plus a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
-    description: "A Japanese card shop in Cambridge, UK, a B2B wholesale operation, and a free open data layer covering 21 trading-card games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+    title: "Cambridge TCG — the collectors' market and open TCG data",
+    description: "A peer-to-peer trading-card market based in Cambridge, UK, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — UK card shop, wholesale, and open TCG data",
-    description: "A UK card shop, a wholesale operation, and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
+    title: "Cambridge TCG — the collectors' market and open TCG data",
+    description: "A peer-to-peer trading-card market and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
     images: ["/images/twitter-image.png"],
   },
   // Agent navigation hints — naive crawlers and LLM agents arriving at any
@@ -97,11 +100,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // to leave a semantic-HTML reading layout. See docs/connections/the-table-extends.md.
   const textMode = cookieStore.get("text-mode")?.value === "1";
 
-  // The wardrobe (spec §3.2/§3.3): an explicit theme choice lands on <html>
-  // and re-binds the semantic tokens site-wide; no cookie → no attribute,
-  // `:root` stays terminal-dark, and migrated surfaces default themselves
-  // to gallery on their own wrapper. The site-wide flip is spec §3.6.
+  // The wardrobe (spec §3.2/§3.6): the site-wide flip, fired 2026-07-05
+  // with the quiet gallery. <html> always carries data-theme — an explicit
+  // choice wins; no cookie means "system" (since 2026-07-06): the gallery
+  // values in a light OS, the midnight values in a dark one, resolved by
+  // prefers-color-scheme at first paint. SSR sets the attribute here,
+  // server-side, so there is no flash of the wrong theme either way.
   const appearance = appearanceFromCookies(cookieStore);
+
+  // Session-aware Nav, server-side (the house docs already claim this). The
+  // Nav is a client component that fetched the session after mount, so SSR
+  // (and no-JS / text-mode readers) always saw "Sign In" even when signed
+  // in — and everyone got a wrong-state flash before hydration. Reading it
+  // here seeds the correct state into the first paint. Fails soft: a
+  // session-read hiccup renders the signed-out chrome, never a broken page.
+  const session = await auth().catch(() => null);
+  const initialLoggedIn = !!session?.user;
+
   // Analytics consent — default deny. Google Analytics + the Ads conversion
   // tag load only when the visitor has accepted via the CookieConsent banner.
   // No cookie (or "denied") means the gtag scripts are never sent to the
@@ -119,7 +134,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      data-theme={appearance.theme ?? undefined}
+      data-theme={themeAttr(appearance.theme)}
       className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
     >
       <head>
@@ -129,7 +144,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           name: "Cambridge TCG",
           url: "https://cambridgetcg.com",
           logo: "https://cambridgetcg.com/images/logo.png",
-          description: "UK-based Japanese trading card marketplace. Buy, sell, trade, and collect One Piece, Pokémon, and Dragon Ball TCG cards.",
+          description: "UK-based collectors' market for trading cards. Buy, sell, and swap One Piece, Pokémon, and Dragon Ball TCG cards directly with other collectors, with open price data on every card.",
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],
         }) }} />
@@ -204,20 +219,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Script>
         </>
       )}
-      <body className={`${inter.className}${textMode ? " text-mode" : ""}`}>
+      {/* No font className here — body type flows from the theme-bound
+          --font-body token (globals.css); terminal re-binds it to Inter. */}
+      <body className={textMode ? "text-mode" : undefined}>
         {/* Skip-to-content for keyboard + screen-reader users.
             See docs/connections/the-welcome-all.md (#26) §3 — a welcome
             that doesn't include the sensory-divergent door is no welcome
             at all. */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-amber-500 focus:text-black focus:px-3 focus:py-1.5 focus:rounded-md focus:text-sm focus:font-bold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-ink focus:text-page focus:px-3 focus:py-1.5 focus:rounded-lg focus:text-sm focus:font-bold"
         >
           Skip to content
         </a>
         <Providers money={{ currency: displayCurrency, rates: fxRates }}>
           {showBanner && <DevBanner />}
-          <Nav />
+          {/* Nav gets the effective theme so its lights toggle knows which
+              glyph to show and which bundle to target — same server-read,
+              threaded-down pattern as Providers → MoneyContext above. */}
+          <Nav theme={themeAttr(appearance.theme)} initialLoggedIn={initialLoggedIn} />
           <div id="main-content">{children}</div>
           <Footer />
           {/* Always mounted; renders nothing once a consent cookie exists. */}

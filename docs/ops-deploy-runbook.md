@@ -145,28 +145,29 @@ Pass `--strict` to also fail on slow responses (>3s). Pass
 `--skip-wholesale` to scope to storefront only. Pass
 `--base=https://staging.example.com` to verify a non-production target.
 
-### Known production 500s (as of 2026-05-13)
+### Known production 500s — table emptied 2026-07-05
 
-The deploy-verify audit currently surfaces four pre-existing 500
-endpoints on production. These are NOT regressions from a deploy —
-they're long-running bugs. Triage owner: each row's noted area.
+The four long-running 500s that lived here since 2026-05-13 are all
+fixed; the audit passes **162/162** as of 2026-07-05:
 
-| Endpoint | Cause | Owner |
-|---|---|---|
-| `/api/v1/sophias.json` | Reads `docs/connections/the-pillow-book.md` at request time; the docs/ folder isn't bundled into Vercel deploys | Storefront — inline the doc, or build-time-generate the JSON |
-| `/api/v1/pillow-book.json` | Same — docs/-not-bundled | Same |
-| `/checkout` | Stripe initialisation flake (transient; not always 500) | Storefront — defer Stripe init |
-| `/tradein` | Unknown — investigate logs | Storefront |
+- `sophias.json` + `pillow-book.json` — docs/ now ships in the Vercel
+  bundle (`outputFileTracingIncludes` in next.config.ts).
+- `/checkout` + `/tradein` — both were unguarded `request.json()` on
+  bodyless POSTs falling through to a catch-all 500 (the probe sends the
+  declared method with no body); they answer 400 now. NOTE: real
+  checkout payments still need STRIPE_SECRET_KEY replaced (prod holds a
+  pk_live_ where an sk_live_ belongs) — that's a payment-config issue,
+  not a route-health one.
 
-When you fix one of these, remove its row from this table and confirm
-the audit now passes 128/128.
+If a new persistent failure appears, restart the table; the discipline
+stands: every row names its cause and owner, and rows leave only when
+the audit confirms the fix.
 
-Two more non-regression patterns the audit surfaces (observed 2026-06-11,
-baseline 155/161):
+One non-regression pattern remains worth knowing:
 
-- `storefront.coffee` returns **418 I'm a teapot** by design; the audit's
-  allowed-status table doesn't include 418, so it reports as a failure.
-  Either teach the classifier 418-on-`/coffee` or read past it.
+- Deliberate joke statuses (`/coffee` 418, `/buy-the-kingdom` 402) are
+  taught to the classifier via `DELIBERATE_STATUS` in deploy-verify.ts —
+  add new joy-layer doors there, not to the healthy set.
 - Parametric endpoints can hit the 15s timeout from a cold start during
   the ~160-probe burst (`storefront.auction_math`, 2026-06-11). Re-probe
   directly: a fast 404 on a stub id is healthy per the table above.

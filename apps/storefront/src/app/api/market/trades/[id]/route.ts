@@ -3,6 +3,12 @@ import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
 import { updateEscrowStatus, listTradePhotos, reviewTradePhoto } from "@/lib/market/db";
+import {
+  computeAutoCompleteAt,
+  defaultDisputeWindowHours,
+  isBuyerConfirmableState,
+} from "@/lib/market/completion";
+import type { EscrowTier } from "@/lib/escrow/service-tiers";
 
 // GET — participant view of a single trade. Usernames + user ids instead
 // of counterparty emails (contact goes through platform messaging — global
@@ -38,7 +44,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   // Same role annotation as the list endpoint so clients share one contract.
   const current_user_role = trade.buyer_id === session.user.id ? ("buyer" as const) : ("seller" as const);
-  return NextResponse.json({ trade: { ...trade, current_user_role } });
+
+  // Auto-complete annotation for the buyer-bound leg: dispatch stamp +
+  // the trade's own dispute window (tier default when the row predates
+  // window stamping). Derived, not stored — the detail page shows it so
+  // "waiting" has an honest end date, and the same formula drives the
+  // sweep in lib/market/completion.ts.
+  let auto_complete_at: string | null = null;
+  if (isBuyerConfirmableState(trade.escrow_tier, trade.escrow_status)) {
+    const windows = await defaultDisputeWindowHours();
+    const fallback = windows[trade.escrow_tier as EscrowTier] ?? windows.full_escrow;
+    auto_complete_at = computeAutoCompleteAt(
+      trade.shipped_to_buyer_at ?? trade.seller_shipped_at,
+      trade.dispute_window_hours,
+      fallback,
+    )?.toISOString() ?? null;
+  }
+
+  return NextResponse.json({ trade: { ...trade, current_user_role, auto_complete_at } });
 }
 
 // PATCH — admin: update escrow status, or bulk-review all unreviewed photos.

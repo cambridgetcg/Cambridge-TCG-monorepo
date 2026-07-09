@@ -19,7 +19,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className = "h-4 w-full", rows = 1, pulse = true }: SkeletonProps) {
-  const blockCls = `bg-neutral-800/60 rounded ${pulse ? "animate-pulse" : ""} ${className}`;
+  const blockCls = `bg-surface-subtle rounded ${pulse ? "animate-pulse" : ""} ${className}`;
   if (rows <= 1) return <div className={blockCls} />;
   return (
     <div className="space-y-2">
@@ -37,7 +37,7 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
       <Skeleton className="h-6 w-48" />
       <div className="space-y-3">
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="bg-neutral-900 rounded-xl p-4 space-y-2">
+          <div key={i} className="bg-surface border border-border-subtle rounded-lg p-4 space-y-2">
             <Skeleton className="h-4 w-1/3" />
             <Skeleton className="h-3 w-2/3" />
           </div>
@@ -53,7 +53,7 @@ export function DetailSkeleton() {
     <div className="space-y-6">
       <Skeleton className="h-7 w-2/3" />
       <Skeleton className="h-4 w-1/2" />
-      <div className="bg-neutral-900 rounded-xl p-6 space-y-3">
+      <div className="bg-surface border border-border-subtle rounded-lg p-6 space-y-3">
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
         <Skeleton className="h-4 w-3/4" />

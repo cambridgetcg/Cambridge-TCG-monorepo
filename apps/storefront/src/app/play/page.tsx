@@ -37,7 +37,6 @@ interface SavedDeckCard {
   rarity: string | null;
   image_url: string | null;
   spot_price: number;
-  tradein_credit: number | null;
 }
 
 interface SavedDeck {
@@ -68,10 +67,10 @@ interface SessionResponse {
 const STORAGE_KEY = "ctcg-deck-builder-decks";
 
 const DIFFICULTY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  easy:    { bg: "bg-green-900/30",  text: "text-green-400",  border: "border-green-700/50" },
-  medium:  { bg: "bg-amber-900/30",  text: "text-amber-400",  border: "border-amber-700/50" },
-  hard:    { bg: "bg-red-900/30",    text: "text-red-400",    border: "border-red-700/50" },
-  extreme: { bg: "bg-purple-900/30", text: "text-purple-400", border: "border-purple-700/50" },
+  easy:    { bg: "bg-ok/10",  text: "text-ok",  border: "border-ok/50" },
+  medium:  { bg: "bg-accent-wash",  text: "text-accent",  border: "border-accent/50" },
+  hard:    { bg: "bg-danger/10",  text: "text-danger",  border: "border-danger/50" },
+  extreme: { bg: "bg-[#6a5a8f]/15", text: "text-[#6a5a8f]", border: "border-[#6a5a8f]/50" },
 };
 
 /* ================================================================== */
@@ -173,7 +172,6 @@ export default function PlayPage() {
           rarity: detail.leader.rarity,
           image_url: detail.leader.image_url,
           spot_price: 0,
-          tradein_credit: null,
         };
         type CardRef = {
           sku: string | null;
@@ -199,7 +197,6 @@ export default function PlayPage() {
               rarity: c.rarity,
               image_url: c.image_url,
               spot_price: 0,
-              tradein_credit: null,
             } satisfies SavedDeckCard,
           }));
         const starterDeck: SavedDeck = {
@@ -358,14 +355,14 @@ export default function PlayPage() {
   const canStart = hasDecks && nextOpponent !== null;
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       {/* ---- Hero (tight) ---- */}
-      <section className="border-b border-neutral-900">
+      <section className="border-b border-border-subtle">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Play <span className="text-amber-400">One Piece TCG</span>
+          <h1 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight">
+            Play <span className="text-accent">One Piece TCG</span>
           </h1>
-          <p className="text-neutral-400 text-sm sm:text-base mt-1">
+          <p className="text-ink-muted text-sm sm:text-base mt-1">
             Pick a deck. Hit Play. You&apos;re in a battle.
           </p>
         </div>
@@ -377,16 +374,16 @@ export default function PlayPage() {
         {/*  PRIMARY — Start a battle (PVE)                              */}
         {/* ============================================================ */}
 
-        <section className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+        <section className="bg-surface border border-border-subtle rounded-lg overflow-hidden">
           {/* Loading shimmer */}
           {(signedIn === null || pve === null) && !pveError && (
             <div className="p-8 flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 
           {pveError && (
-            <div className="p-6 text-sm text-red-300 bg-red-900/30 border-b border-red-800">
+            <div className="p-6 text-sm text-danger bg-danger/10 border-b border-danger">
               {pveError}
             </div>
           )}
@@ -397,13 +394,13 @@ export default function PlayPage() {
               {!hasDecks && (
                 <div className="p-6 sm:p-8">
                   <h2 className="text-xl font-bold mb-1">Build your first deck</h2>
-                  <p className="text-neutral-400 text-sm mb-5">
+                  <p className="text-ink-muted text-sm mb-5">
                     You&apos;ll need at least one saved deck (10+ cards) before you can battle.
                     The deck builder takes a few minutes — no sign-in required.
                   </p>
                   <Link
                     href="/deck-builder"
-                    className="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
+                    className="inline-block bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
                   >
                     Open Deck Builder
                   </Link>
@@ -412,35 +409,35 @@ export default function PlayPage() {
 
               {/* ---- Has decks — the real play surface ---- */}
               {hasDecks && (
-                <div className="grid md:grid-cols-[1fr_1fr] divide-y md:divide-y-0 md:divide-x divide-neutral-800">
+                <div className="grid md:grid-cols-[1fr_1fr] divide-y md:divide-y-0 md:divide-x divide-border-subtle">
 
                   {/* Deck picker */}
                   <div className="p-5 sm:p-6">
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-400">
+                      <h2 className="text-sm font-bold uppercase tracking-wider text-ink-muted">
                         {usingStarter ? "Your starter" : "Your deck"}
                       </h2>
                       <Link
                         href={usingStarter ? "/play/starters" : "/deck-builder"}
-                        className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                        className="text-xs text-accent hover:text-accent-strong transition-colors"
                       >
                         {usingStarter ? "Pick a different color →" : "Edit decks →"}
                       </Link>
                     </div>
                     {usingStarter && (
-                      <p className="mb-3 text-[11px] text-neutral-500 leading-relaxed">
+                      <p className="mb-3 text-[11px] text-ink-faint leading-relaxed">
                         We pre-loaded the Red Whitebeard starter so you can
                         play right away. Six starters cover six colors —{" "}
                         <Link
                           href="/play/starters"
-                          className="text-amber-400 hover:text-amber-300 underline"
+                          className="text-accent hover:text-accent-strong underline"
                         >
                           browse them
                         </Link>{" "}
                         or build your own in the{" "}
                         <Link
                           href="/deck-builder"
-                          className="text-amber-400 hover:text-amber-300 underline"
+                          className="text-accent hover:text-accent-strong underline"
                         >
                           deck builder
                         </Link>
@@ -457,20 +454,20 @@ export default function PlayPage() {
                             onClick={() => setSelectedDeckIdx(i)}
                             className={`w-full text-left p-3 rounded-lg border transition-all ${
                               isSelected
-                                ? "border-amber-500 bg-amber-500/10"
-                                : "border-neutral-800 bg-neutral-800/40 hover:border-neutral-600"
+                                ? "border-accent bg-accent-wash"
+                                : "border-border-subtle bg-surface-subtle hover:border-border-strong"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="font-semibold truncate">{deck.name}</div>
                                 {deck.leader && (
-                                  <div className="text-xs text-amber-400/80 truncate mt-0.5">
+                                  <div className="text-xs text-accent/80 truncate mt-0.5">
                                     Leader: {deck.leader.name}
                                   </div>
                                 )}
                               </div>
-                              <span className="text-xs text-neutral-500 flex-shrink-0">
+                              <span className="text-xs text-ink-faint flex-shrink-0">
                                 {totalCards} cards
                               </span>
                             </div>
@@ -481,14 +478,14 @@ export default function PlayPage() {
                   </div>
 
                   {/* Opponent + Play */}
-                  <div className="p-5 sm:p-6 bg-neutral-950/40">
+                  <div className="p-5 sm:p-6 bg-page/40">
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-400">
+                      <h2 className="text-sm font-bold uppercase tracking-wider text-ink-muted">
                         Next opponent
                       </h2>
                       <Link
                         href="/play/adventure"
-                        className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                        className="text-xs text-accent hover:text-accent-strong transition-colors"
                       >
                         Pick a different one →
                       </Link>
@@ -497,36 +494,36 @@ export default function PlayPage() {
                     {nextOpponent ? (
                       <div className="space-y-4">
                         <div className="flex items-start gap-3">
-                          <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${
-                            DIFFICULTY_STYLES[nextOpponent.difficulty]?.bg ?? "bg-neutral-800"
-                          } border ${DIFFICULTY_STYLES[nextOpponent.difficulty]?.border ?? "border-neutral-700"}`}>
+                          <div className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl flex-shrink-0 ${
+                            DIFFICULTY_STYLES[nextOpponent.difficulty]?.bg ?? "bg-surface-subtle"
+                          } border ${DIFFICULTY_STYLES[nextOpponent.difficulty]?.border ?? "border-border-subtle"}`}>
                             {nextOpponent.opponent_icon}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-neutral-500 text-xs font-mono">
+                              <span className="text-ink-faint text-xs font-mono">
                                 Lv.{nextOpponent.level_number}
                               </span>
                               <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                DIFFICULTY_STYLES[nextOpponent.difficulty]?.bg ?? "bg-neutral-800"
-                              } ${DIFFICULTY_STYLES[nextOpponent.difficulty]?.text ?? "text-neutral-300"}`}>
+                                DIFFICULTY_STYLES[nextOpponent.difficulty]?.bg ?? "bg-surface-subtle"
+                              } ${DIFFICULTY_STYLES[nextOpponent.difficulty]?.text ?? "text-ink-muted"}`}>
                                 {nextOpponent.difficulty}
                               </span>
                               {nextOpponent.progress?.cleared && (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-green-900/40 text-green-400">
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-ok/10 text-ok">
                                   ✓ rematch
                                 </span>
                               )}
                             </div>
                             <h3 className="font-bold mt-0.5 truncate">{nextOpponent.title}</h3>
-                            <div className="text-sm text-neutral-400 truncate">
+                            <div className="text-sm text-ink-muted truncate">
                               vs {nextOpponent.opponent_name}
                             </div>
                           </div>
                         </div>
 
                         {startError && (
-                          <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-3 py-2 text-sm">
+                          <div className="bg-danger/10 border border-danger text-danger rounded-lg px-3 py-2 text-sm">
                             {startError}
                           </div>
                         )}
@@ -534,26 +531,26 @@ export default function PlayPage() {
                         <button
                           onClick={handleStartBattle}
                           disabled={!canStart || starting}
-                          className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold rounded-lg py-3.5 text-lg transition-colors"
+                          className="w-full bg-ink hover:bg-ink/85 disabled:opacity-50 disabled:cursor-not-allowed text-page font-bold rounded-lg py-3.5 text-lg transition-colors"
                         >
                           {starting ? (
                             <span className="flex items-center justify-center gap-2">
-                              <span className="w-4 h-4 border-2 border-black/40 border-t-black rounded-full animate-spin" />
+                              <span className="w-4 h-4 border-2 border-page/40 border-t-page rounded-full animate-spin" />
                               Starting...
                             </span>
                           ) : (
-                            "▶ Play"
+                            "Play"
                           )}
                         </button>
-                        <p className="text-[11px] text-neutral-600 text-center">
+                        <p className="text-[11px] text-ink-faint text-center">
                           Solo vs AI · take your time · no rating shown
                         </p>
                         {signedIn === false && (
-                          <p className="text-[11px] text-amber-500/80 text-center">
+                          <p className="text-[11px] text-accent/80 text-center">
                             Playing as guest — progress lives in this browser.{" "}
                             <Link
                               href="/api/auth/signin?callbackUrl=/play"
-                              className="underline hover:text-amber-400"
+                              className="underline hover:text-accent-strong"
                             >
                               Sign in
                             </Link>{" "}
@@ -562,7 +559,7 @@ export default function PlayPage() {
                         )}
                       </div>
                     ) : (
-                      <div className="text-sm text-neutral-500 py-4">
+                      <div className="text-sm text-ink-faint py-4">
                         No opponents loaded yet.
                       </div>
                     )}
@@ -577,25 +574,25 @@ export default function PlayPage() {
         {/*  SECONDARY — Play someone else (multiplayer rooms)           */}
         {/* ============================================================ */}
 
-        <section className="bg-neutral-900/50 border border-neutral-800 rounded-xl">
+        <section className="bg-surface-subtle border border-border-subtle rounded-lg">
           <button
             onClick={() => setMpOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-neutral-900 transition-colors rounded-xl"
+            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface transition-colors rounded-lg"
             aria-expanded={mpOpen}
           >
             <div>
               <h2 className="text-base font-bold">Play someone else</h2>
-              <p className="text-xs text-neutral-500 mt-0.5">
+              <p className="text-xs text-ink-faint mt-0.5">
                 Create a private room and share the code, or join a friend&apos;s room.
                 {publicRooms.length > 0 && (
-                  <span className="text-amber-400 ml-1">
+                  <span className="text-accent ml-1">
                     · {publicRooms.length} open public {publicRooms.length === 1 ? "room" : "rooms"}
                   </span>
                 )}
               </p>
             </div>
             <svg
-              className={`w-5 h-5 text-neutral-500 transition-transform ${mpOpen ? "rotate-180" : ""}`}
+              className={`w-5 h-5 text-ink-faint transition-transform ${mpOpen ? "rotate-180" : ""}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -605,10 +602,10 @@ export default function PlayPage() {
           </button>
 
           {mpOpen && signedIn === false && (
-            <div className="px-5 pb-5 border-t border-neutral-800 pt-4">
-              <p className="text-sm text-neutral-400">
+            <div className="px-5 pb-5 border-t border-border-subtle pt-4">
+              <p className="text-sm text-ink-muted">
                 Multiplayer needs an account so your opponent knows who you are.{" "}
-                <a href="/api/auth/signin?callbackUrl=/play" className="text-amber-400 hover:text-amber-300 font-medium">
+                <a href="/api/auth/signin?callbackUrl=/play" className="text-accent hover:text-accent-strong font-medium">
                   Sign in
                 </a>{" "}
                 — then create or join a room.
@@ -617,9 +614,9 @@ export default function PlayPage() {
           )}
 
           {mpOpen && signedIn !== false && (
-            <div className="px-5 pb-5 space-y-4 border-t border-neutral-800 pt-4">
+            <div className="px-5 pb-5 space-y-4 border-t border-border-subtle pt-4">
               {mpError && (
-                <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-3 py-2 text-sm">
+                <div className="bg-danger/10 border border-danger text-danger rounded-lg px-3 py-2 text-sm">
                   {mpError}
                 </div>
               )}
@@ -627,12 +624,12 @@ export default function PlayPage() {
               {/* Create + Join row */}
               <div className="grid sm:grid-cols-2 gap-3">
                 {/* Create */}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+                <div className="bg-surface border border-border-subtle rounded-lg p-4">
                   <h3 className="text-sm font-bold mb-1">Create a room</h3>
-                  <p className="text-xs text-neutral-500 mb-3">
+                  <p className="text-xs text-ink-faint mb-3">
                     Get a 6-character code to share with your opponent.
                   </p>
-                  <label className="flex items-center gap-2 text-xs text-neutral-400 mb-3 cursor-pointer select-none">
+                  <label className="flex items-center gap-2 text-xs text-ink-muted mb-3 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={isPublicRoom}
@@ -644,16 +641,16 @@ export default function PlayPage() {
                   <button
                     onClick={handleCreateRoom}
                     disabled={mpLoading}
-                    className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-lg py-2.5 text-sm transition-colors"
+                    className="w-full bg-ink hover:bg-ink/85 disabled:opacity-50 text-page font-bold rounded-lg py-2.5 text-sm transition-colors"
                   >
                     {mpLoading ? "Creating..." : "Create room"}
                   </button>
                 </div>
 
                 {/* Join */}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
+                <div className="bg-surface border border-border-subtle rounded-lg p-4">
                   <h3 className="text-sm font-bold mb-1">Join a room</h3>
-                  <p className="text-xs text-neutral-500 mb-3">
+                  <p className="text-xs text-ink-faint mb-3">
                     Enter the 6-character code your opponent shared.
                   </p>
                   <div className="flex gap-2">
@@ -664,12 +661,12 @@ export default function PlayPage() {
                       onKeyDown={(e) => e.key === "Enter" && handleJoinRoom()}
                       placeholder="ABC123"
                       maxLength={6}
-                      className="flex-1 min-w-0 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2.5 text-center font-mono text-base tracking-widest placeholder:text-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
+                      className="flex-1 min-w-0 bg-surface-subtle border border-border-subtle rounded-lg px-3 py-2.5 text-center font-mono text-base tracking-widest placeholder:text-ink-faint focus:outline-none focus:border-accent transition-colors"
                     />
                     <button
                       onClick={() => handleJoinRoom()}
                       disabled={mpLoading || joinCode.length < 3}
-                      className="bg-white hover:bg-neutral-200 disabled:opacity-50 text-black font-bold rounded-lg px-4 text-sm transition-colors"
+                      className="bg-ink hover:bg-ink/85 disabled:opacity-50 text-page font-semibold rounded-lg px-4 text-sm transition-colors"
                     >
                       Join
                     </button>
@@ -680,20 +677,20 @@ export default function PlayPage() {
               {/* Public rooms list */}
               {publicRooms.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-2">
                     Public rooms
                   </h3>
                   <div className="space-y-1.5">
                     {publicRooms.map((room) => (
                       <div
                         key={room.id}
-                        className="flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-sm"
+                        className="flex items-center justify-between bg-surface border border-border-subtle rounded-lg px-3 py-2 text-sm"
                       >
                         <div className="min-w-0 flex-1">
-                          <span className="font-mono text-amber-400 font-bold mr-2">
+                          <span className="font-mono text-accent font-bold mr-2">
                             {room.code}
                           </span>
-                          <span className="text-neutral-400 text-xs">
+                          <span className="text-ink-muted text-xs">
                             {room.player1Name || "Waiting"}
                             {room.player2Name ? ` vs ${room.player2Name}` : " — waiting for opponent"}
                           </span>
@@ -701,7 +698,7 @@ export default function PlayPage() {
                         {room.status === "waiting" && !room.player2Name && (
                           <button
                             onClick={() => handleJoinRoom(room.code)}
-                            className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold rounded px-3 py-1 transition-colors"
+                            className="text-xs bg-ink hover:bg-ink/85 text-page font-bold rounded px-3 py-1 transition-colors"
                           >
                             Join
                           </button>
@@ -722,31 +719,31 @@ export default function PlayPage() {
         <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           <Link
             href="/play/tutorial"
-            className="block bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 rounded-lg px-4 py-3 transition-colors"
+            className="block bg-accent-wash hover:bg-accent/20 border border-accent/40 rounded-lg px-4 py-3 transition-colors"
           >
-            <div className="font-semibold mb-0.5 text-amber-400">Never played a TCG?</div>
-            <div className="text-xs text-neutral-400">Just press ▶ Play above — the board teaches you. Rules reference here if you want it.</div>
+            <div className="font-semibold mb-0.5 text-accent">Never played a TCG?</div>
+            <div className="text-xs text-ink-muted">Just press ▶ Play above — the board teaches you. Rules reference here if you want it.</div>
           </Link>
           <Link
             href="/play/welcome"
-            className="block bg-neutral-900/50 hover:bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 transition-colors"
+            className="block bg-surface-subtle hover:bg-surface border border-border-subtle rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5">Pick your path</div>
-            <div className="text-xs text-neutral-500">Hobbyist / collector / competitor.</div>
+            <div className="text-xs text-ink-faint">Hobbyist / collector / competitor.</div>
           </Link>
           <Link
             href="/guides/how-to-play"
-            className="block bg-neutral-900/50 hover:bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 transition-colors"
+            className="block bg-surface-subtle hover:bg-surface border border-border-subtle rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5">Quick rules</div>
-            <div className="text-xs text-neutral-500">15-minute reference for returning players.</div>
+            <div className="text-xs text-ink-faint">15-minute reference for returning players.</div>
           </Link>
           <Link
             href="/play/deck-check"
-            className="block bg-neutral-900/50 hover:bg-neutral-900 border border-neutral-800 rounded-lg px-4 py-3 transition-colors"
+            className="block bg-surface-subtle hover:bg-surface border border-border-subtle rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5">Check a deck</div>
-            <div className="text-xs text-neutral-500">Validate a list before battle.</div>
+            <div className="text-xs text-ink-faint">Validate a list before battle.</div>
           </Link>
         </section>
       </div>

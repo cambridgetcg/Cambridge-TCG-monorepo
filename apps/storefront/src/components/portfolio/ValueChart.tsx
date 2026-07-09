@@ -104,17 +104,17 @@ export default function ValueChart({ initial }: Props) {
   }
 
   return (
-    <div className="bg-neutral-900 rounded-xl p-4">
+    <div className="bg-surface border border-border-subtle rounded-lg p-4">
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
         <div>
-          <p className="text-xs text-neutral-500 uppercase tracking-wide">Portfolio Value</p>
+          <p className="text-xs text-ink-faint uppercase tracking-wide">Portfolio Value</p>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-xl font-bold text-white">
+            <span className="text-xl font-bold text-ink">
               {points.length > 0 ? <Money value={points[points.length - 1].value} /> : "—"}
             </span>
             {points.length > 1 && (
               <span
-                className={`text-xs font-mono ${delta >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                className={`text-xs font-mono ${delta >= 0 ? "text-bid" : "text-ask"}`}
               >
                 {delta >= 0 ? "+" : ""}
                 <Money value={delta} /> ({delta >= 0 ? "+" : ""}
@@ -130,8 +130,8 @@ export default function ValueChart({ initial }: Props) {
               onClick={() => setWindow(w)}
               className={`px-2.5 py-1 rounded transition-colors ${
                 window === w
-                  ? "bg-amber-500 text-black font-bold"
-                  : "bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
+                  ? "bg-accent-wash text-accent font-semibold"
+                  : "bg-surface-subtle text-ink-muted hover:text-ink"
               }`}
             >
               {w}d
@@ -141,13 +141,13 @@ export default function ValueChart({ initial }: Props) {
       </div>
 
       {loading && points.length === 0 && (
-        <div className="h-[180px] flex items-center justify-center text-neutral-600 text-xs">
+        <div className="h-[180px] flex items-center justify-center text-ink-faint text-xs">
           Loading…
         </div>
       )}
 
       {!loading && points.length < 2 && (
-        <div className="h-[180px] flex items-center justify-center text-neutral-600 text-xs text-center px-4">
+        <div className="h-[180px] flex items-center justify-center text-ink-faint text-xs text-center px-4">
           Need at least two daily snapshots for a chart — visit your portfolio
           tomorrow and the first bar will be here.
         </div>
@@ -164,12 +164,12 @@ export default function ValueChart({ initial }: Props) {
           >
             <defs>
               <linearGradient id="pfGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
               </linearGradient>
             </defs>
             <path d={areaPath} fill="url(#pfGrad)" />
-            <path d={path} fill="none" stroke="#f59e0b" strokeWidth="2" />
+            <path d={path} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
             {hover && (
               <>
                 <line
@@ -177,23 +177,23 @@ export default function ValueChart({ initial }: Props) {
                   x2={hover.x}
                   y1={padding.top}
                   y2={padding.top + innerH}
-                  stroke="#525252"
+                  stroke="var(--color-border-strong)"
                   strokeDasharray="2 2"
                 />
-                <circle cx={hover.x} cy={hover.y} r="4" fill="#f59e0b" stroke="#0a0a0a" strokeWidth="2" />
+                <circle cx={hover.x} cy={hover.y} r="4" fill="var(--color-accent)" stroke="var(--color-surface)" strokeWidth="2" />
               </>
             )}
           </svg>
           {hover && (
             <div
-              className="absolute -top-2 -translate-y-full bg-neutral-950 border border-neutral-700 rounded-md px-2 py-1 text-xs pointer-events-none whitespace-nowrap shadow-lg"
+              className="absolute -top-2 -translate-y-full bg-page border border-border-subtle rounded-md px-2 py-1 text-xs pointer-events-none whitespace-nowrap shadow-lg"
               style={{
                 left: `${(hover.x / width) * 100}%`,
                 transform: `translate(-50%, -100%)`,
               }}
             >
-              <p className="text-neutral-500 text-[10px]">{hover.date}</p>
-              <p className="text-white font-bold"><Money value={hover.value} /></p>
+              <p className="text-ink-faint text-[10px]">{hover.date}</p>
+              <p className="text-ink font-bold"><Money value={hover.value} /></p>
             </div>
           )}
         </div>

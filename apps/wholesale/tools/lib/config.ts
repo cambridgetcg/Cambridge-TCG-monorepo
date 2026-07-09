@@ -221,11 +221,11 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     s3Bucket: "jp-db-photos",
     dbGameCode: "dbf",
     dbGameName: "Dragon Ball Fusion World",
-    // Canonical since 2026-07-09 (was dragon-ball-fusion-world here,
-    // dragon-ball in the DB, dragon-ball-fusion on the storefront — the
-    // three-way drift 404'd the DBF guide; tools/register-sets.ts
-    // reconciles the production row).
-    dbGameSlug: "dragon-ball-fusion",
+    // Canonical since 2026-07-09: dragon-ball — matching the production
+    // games row and the storefront's Atlas curation. (This field said
+    // dragon-ball-fusion-world before; only used on first-create, but
+    // one truth in one place.)
+    dbGameSlug: "dragon-ball",
     parse: DRAGONBALL_PARSE,
     map: DRAGONBALL_MAP,
   },

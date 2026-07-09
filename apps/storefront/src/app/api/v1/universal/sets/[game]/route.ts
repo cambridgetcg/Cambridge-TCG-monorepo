@@ -48,11 +48,27 @@ export async function GET(
     );
 
     if (r.rows.length === 0) {
+      // Substrate-honest empty/404: say whether the whole shelf is bare
+      // (restock pending) or just this game, and point at doors that
+      // open today. A bare "not found" would blame the caller for the
+      // platform's own empty mirror.
+      const anyRows = await query(`SELECT 1 FROM card_sets LIMIT 1`);
+      const catalogEmpty = anyRows.rows.length === 0;
       return NextResponse.json(
         {
           error: {
             code: "game_not_found_or_empty",
-            message: `No sets in the storefront catalog for game "${gameParam}". Browse /api/v1/universal/games for the list of games with at least one set imported.`,
+            message: catalogEmpty
+              ? `No sets in the storefront catalog for game "${gameParam}" — and none for ANY game: ` +
+                `the storefront mirror has not been restocked from the wholesale catalog since the ` +
+                `outage window (the restock script exists and awaits its production run). ` +
+                `Working doors meanwhile: https://cambridgetcg.com/api/v1/search/cards?game=op&q=OP01-001 ` +
+                `resolves against the wholesale catalog directly; https://cambridgetcg.com/prices is the ` +
+                `human-browsable guide. /api/v1/universal/games carries the same empty_state honestly.`
+              : `No sets in the storefront catalog for game "${gameParam}". Browse ` +
+                `https://cambridgetcg.com/api/v1/universal/games for the list of games with at least ` +
+                `one set imported, or try https://cambridgetcg.com/api/v1/search/cards for direct ` +
+                `card-number resolution against the wholesale catalog.`,
           },
         },
         { status: 404 },

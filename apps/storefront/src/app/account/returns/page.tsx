@@ -94,24 +94,24 @@ export default function ReturnsPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-2">Returns</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-display font-semibold text-ink mb-2">Returns</h1>
+      <p className="text-sm text-ink-muted mb-6">
         No-fault returns on completed trades. Different from disputes — for cases where the
         card arrived as described but you've changed your mind. Open within the trade's
         14-day window; sellers have 7 days to respond.
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-300">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-4 text-sm text-danger">
           {error}
         </div>
       )}
 
-      <div className="flex gap-1 bg-neutral-900 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-surface rounded-lg p-1 mb-6 w-fit">
         <button
           onClick={() => setTab("outgoing")}
           className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-            tab === "outgoing" ? "bg-amber-500 text-black" : "text-neutral-400 hover:text-white"
+            tab === "outgoing" ? "bg-ink text-page" : "text-ink-muted hover:text-ink"
           }`}
         >
           My returns
@@ -119,7 +119,7 @@ export default function ReturnsPage() {
         <button
           onClick={() => setTab("incoming")}
           className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-            tab === "incoming" ? "bg-amber-500 text-black" : "text-neutral-400 hover:text-white"
+            tab === "incoming" ? "bg-ink text-page" : "text-ink-muted hover:text-ink"
           }`}
         >
           Buyers' returns
@@ -128,11 +128,11 @@ export default function ReturnsPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : returns.length === 0 ? (
-        <div className="bg-neutral-900 rounded-xl p-8 text-center">
-          <p className="text-neutral-400 text-sm">
+        <div className="bg-surface rounded-lg p-8 text-center">
+          <p className="text-ink-muted text-sm">
             {tab === "outgoing"
               ? "You haven't opened any returns yet. Eligible completed trades show a Return button on /account/trades."
               : "No buyer return requests on your sales."}
@@ -140,7 +140,7 @@ export default function ReturnsPage() {
           {tab === "outgoing" && (
             <Link
               href="/account/trades"
-              className="inline-block mt-3 text-amber-400 text-xs font-semibold hover:text-amber-300"
+              className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong"
             >
               View completed trades →
             </Link>
@@ -195,15 +195,15 @@ function ReturnCard({
   const trackUrl = buildTrackingUrl(row.return_tracking_carrier, row.return_tracking_number);
 
   return (
-    <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800">
+    <div className="bg-surface rounded-lg p-4 border border-border-subtle">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <div className="min-w-0">
-          <p className="text-white font-semibold text-sm truncate">
+          <p className="text-ink font-semibold text-sm truncate">
             {row.card_name || row.sku}
-            <span className="text-neutral-500 font-mono text-xs ml-2">{row.sku}</span>
+            <span className="text-ink-faint font-mono text-xs ml-2">{row.sku}</span>
           </p>
-          <p className="text-xs text-neutral-500 mt-0.5">
+          <p className="text-xs text-ink-faint mt-0.5">
             {perspective === "seller" ? "From" : "To"} {otherLabel}
             <span className="mx-1.5">·</span>
             Trade total {formatPrice(parseFloat(row.trade_price) * row.trade_quantity)}
@@ -215,37 +215,37 @@ function ReturnCard({
       </div>
 
       {/* Buyer's reason + message */}
-      <div className="bg-neutral-950/40 rounded p-2 mb-2">
-        <span className="text-[10px] uppercase tracking-wide text-neutral-500">Reason</span>
-        <p className="text-xs text-neutral-300 mt-0.5">{row.reason.replace(/_/g, " ")}</p>
+      <div className="bg-surface-subtle rounded p-2 mb-2">
+        <span className="text-[10px] uppercase tracking-wide text-ink-faint">Reason</span>
+        <p className="text-xs text-ink-muted mt-0.5">{row.reason.replace(/_/g, " ")}</p>
         {row.message && (
-          <p className="text-xs text-neutral-300 italic mt-1">“{row.message}”</p>
+          <p className="text-xs text-ink-muted italic mt-1">“{row.message}”</p>
         )}
       </div>
 
       {/* Decline reason if declined */}
       {row.status === "declined" && row.decline_reason && (
-        <div className="bg-red-500/5 rounded p-2 mb-2 border border-red-500/10">
-          <span className="text-[10px] uppercase tracking-wide text-red-400">Seller declined</span>
-          <p className="text-xs text-red-300 italic mt-0.5">“{row.decline_reason}”</p>
+        <div className="bg-danger/5 rounded p-2 mb-2 border border-danger/10">
+          <span className="text-[10px] uppercase tracking-wide text-danger">Seller declined</span>
+          <p className="text-xs text-danger italic mt-0.5">“{row.decline_reason}”</p>
         </div>
       )}
 
       {/* Tracking surface (any status >= shipping) */}
       {row.return_tracking_number && (
-        <div className="bg-blue-500/5 rounded p-2 mb-2 border border-blue-500/10">
-          <span className="text-[10px] uppercase tracking-wide text-blue-400">Return tracking</span>
+        <div className="bg-info/5 rounded p-2 mb-2 border border-info/10">
+          <span className="text-[10px] uppercase tracking-wide text-info">Return tracking</span>
           <p className="text-xs mt-0.5">
             {trackUrl ? (
               <a href={trackUrl} target="_blank" rel="noopener noreferrer"
-                 className="text-blue-300 hover:text-blue-200 font-mono">
+                 className="text-info hover:text-info font-mono">
                 {row.return_tracking_number} ↗
               </a>
             ) : (
-              <span className="text-blue-300 font-mono">{row.return_tracking_number}</span>
+              <span className="text-info font-mono">{row.return_tracking_number}</span>
             )}
             {row.return_tracking_carrier && (
-              <span className="text-neutral-500 ml-2">via {row.return_tracking_carrier}</span>
+              <span className="text-ink-faint ml-2">via {row.return_tracking_carrier}</span>
             )}
           </p>
         </div>
@@ -254,12 +254,12 @@ function ReturnCard({
       {/* Refund amount surface (when accepted+) */}
       {row.refund_amount && (
         <div className="flex items-center gap-2 mb-2 text-xs">
-          <span className="text-neutral-500">Refund amount:</span>
-          <span className={`font-mono font-bold ${row.status === "refunded" ? "text-emerald-400" : "text-white"}`}>
+          <span className="text-ink-faint">Refund amount:</span>
+          <span className={`font-mono font-bold ${row.status === "refunded" ? "text-ok" : "text-ink"}`}>
             {formatPrice(parseFloat(row.refund_amount))}
           </span>
           {row.status === "refunded" && row.refunded_at && (
-            <span className="text-[10px] text-neutral-500">
+            <span className="text-[10px] text-ink-faint">
               · issued {new Date(row.refunded_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
             </span>
           )}
@@ -277,17 +277,17 @@ function ReturnCard({
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
                     done
-                      ? current ? "bg-amber-500 text-black" : "bg-emerald-500 text-black"
-                      : "bg-neutral-800 text-neutral-600"
+                      ? current ? "bg-ink text-page" : "bg-ok text-page"
+                      : "bg-surface-subtle text-ink-faint"
                   }`}
                 >
                   {done ? "✓" : i + 1}
                 </div>
-                <span className={`text-[10px] capitalize whitespace-nowrap ${done ? "text-white" : "text-neutral-600"}`}>
+                <span className={`text-[10px] capitalize whitespace-nowrap ${done ? "text-ink" : "text-ink-faint"}`}>
                   {step}
                 </span>
                 {i < RETURN_STEPS.length - 1 && (
-                  <div className={`h-px flex-1 ${done ? "bg-emerald-500/40" : "bg-neutral-800"}`} />
+                  <div className={`h-px flex-1 ${done ? "bg-ok/40" : "bg-surface-subtle"}`} />
                 )}
               </div>
             );
@@ -297,15 +297,15 @@ function ReturnCard({
 
       {/* Off-path closed-state copy */}
       {closedCopy && (
-        <p className="text-xs text-neutral-500 italic mb-3">{closedCopy}</p>
+        <p className="text-xs text-ink-faint italic mb-3">{closedCopy}</p>
       )}
 
       {/* Action row + TTL */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         {row.status === "requested" ? (
-          <span className="text-[10px] text-neutral-500 font-mono">{formatTimeUntil(row.expires_at)} left</span>
+          <span className="text-[10px] text-ink-faint font-mono">{formatTimeUntil(row.expires_at)} left</span>
         ) : (
-          <span className="text-[10px] text-neutral-500">
+          <span className="text-[10px] text-ink-faint">
             {row.resolved_at && `Resolved ${new Date(row.resolved_at).toLocaleDateString("en-GB", {
               day: "numeric", month: "short",
             })}`}
@@ -319,14 +319,14 @@ function ReturnCard({
               <button
                 disabled={busy}
                 onClick={() => onAct("accept")}
-                className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
               >
                 {busy ? "..." : "Accept return"}
               </button>
               <button
                 disabled={busy}
                 onClick={() => setShowDecline(true)}
-                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
               >
                 Decline
               </button>
@@ -339,14 +339,14 @@ function ReturnCard({
               <button
                 disabled={busy}
                 onClick={() => setShowShipForm(true)}
-                className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-black rounded-md hover:bg-amber-400 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
               >
                 Add tracking
               </button>
               <button
                 disabled={busy}
                 onClick={() => onAct("cancel")}
-                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -358,7 +358,7 @@ function ReturnCard({
             <button
               disabled={busy}
               onClick={() => onAct("receive")}
-              className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-md hover:bg-emerald-400 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
             >
               {busy ? "..." : "Confirm received"}
             </button>
@@ -369,7 +369,7 @@ function ReturnCard({
             <button
               disabled={busy}
               onClick={() => onAct("cancel")}
-              className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
             >
               Withdraw
             </button>
@@ -379,7 +379,7 @@ function ReturnCard({
           {isReturnTerminal(row.status) && (
             <Link
               href="/account/trades"
-              className="px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-white transition"
+              className="px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink transition"
             >
               View trade →
             </Link>
@@ -389,28 +389,28 @@ function ReturnCard({
 
       {/* Inline ship form (buyer) */}
       {showShipForm && perspective === "buyer" && row.status === "accepted" && (
-        <div className="mt-3 pt-3 border-t border-neutral-800">
-          <p className="text-xs text-neutral-500 mb-2">Enter the carrier and tracking number for your return shipment.</p>
+        <div className="mt-3 pt-3 border-t border-border-subtle">
+          <p className="text-xs text-ink-faint mb-2">Enter the carrier and tracking number for your return shipment.</p>
           <div className="grid grid-cols-2 gap-2 mb-2">
             <input
               type="text"
               value={carrier}
               onChange={(e) => setCarrier(e.target.value)}
               placeholder="Carrier (Royal Mail, UPS, …)"
-              className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-sm"
+              className="px-2 py-1 bg-surface-subtle border border-border-subtle rounded text-ink text-sm"
             />
             <input
               type="text"
               value={tracking}
               onChange={(e) => setTracking(e.target.value)}
               placeholder="Tracking number"
-              className="px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-sm font-mono"
+              className="px-2 py-1 bg-surface-subtle border border-border-subtle rounded text-ink text-sm font-mono"
             />
           </div>
           <div className="flex justify-end gap-2">
             <button
               onClick={() => { setShowShipForm(false); setCarrier(""); setTracking(""); }}
-              className="px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-white transition"
+              className="px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink transition"
             >
               Cancel
             </button>
@@ -421,7 +421,7 @@ function ReturnCard({
                 setShowShipForm(false);
                 setCarrier(""); setTracking("");
               }}
-              className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-black rounded-md hover:bg-amber-400 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
             >
               {busy ? "..." : "Submit tracking"}
             </button>
@@ -431,18 +431,18 @@ function ReturnCard({
 
       {/* Inline decline form (seller) */}
       {showDecline && perspective === "seller" && row.status === "requested" && (
-        <div className="mt-3 pt-3 border-t border-neutral-800">
+        <div className="mt-3 pt-3 border-t border-border-subtle">
           <textarea
             value={declineText}
             onChange={(e) => setDeclineText(e.target.value)}
             placeholder="Optional reason for declining (visible to the buyer)"
             rows={2}
-            className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-white text-xs resize-none mb-2"
+            className="w-full px-2 py-1 bg-surface-subtle border border-border-subtle rounded text-ink text-xs resize-none mb-2"
           />
           <div className="flex justify-end gap-2">
             <button
               onClick={() => { setShowDecline(false); setDeclineText(""); }}
-              className="px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-white transition"
+              className="px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink transition"
             >
               Cancel
             </button>
@@ -453,7 +453,7 @@ function ReturnCard({
                 setShowDecline(false);
                 setDeclineText("");
               }}
-              className="px-3 py-1.5 text-xs font-bold bg-red-500 text-white rounded-md hover:bg-red-400 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-bold bg-danger text-page rounded-md hover:bg-danger/85 transition disabled:opacity-50"
             >
               {busy ? "..." : "Decline return"}
             </button>
@@ -462,7 +462,7 @@ function ReturnCard({
       )}
 
       {myTurn && !showShipForm && !showDecline && (
-        <p className="text-[10px] text-amber-400/80 mt-2">
+        <p className="text-[10px] text-accent/80 mt-2">
           {perspective === "seller"
             ? row.status === "requested" ? "Your turn — accept or decline." : "Your turn — confirm receipt."
             : "Your turn — add tracking once you've shipped."}

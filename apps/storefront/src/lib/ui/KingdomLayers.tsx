@@ -90,15 +90,17 @@ export const KINGDOM_LAYERS: readonly KingdomLayer[] = [
   },
 ];
 
+// Muted dots — one per Badge tone; plum/moss/teal literals match
+// Badge's TONE_CLS so the tone vocabulary reads the same everywhere.
 const DOT_CLS: Record<Tone, string> = {
-  amber: "bg-amber-400",
-  red: "bg-rose-400",
-  emerald: "bg-emerald-400",
-  blue: "bg-blue-400",
-  purple: "bg-purple-400",
-  neutral: "bg-neutral-400",
-  green: "bg-green-400",
-  sky: "bg-sky-400",
+  amber: "bg-warning",
+  red: "bg-danger",
+  emerald: "bg-ok",
+  blue: "bg-info",
+  purple: "bg-[#6a5a8f]",
+  neutral: "bg-ink-faint",
+  green: "bg-[#567436]",
+  sky: "bg-[#3e7d8f]",
 };
 
 interface KingdomLayersProps {
@@ -120,7 +122,7 @@ export function KingdomLayers({ current }: KingdomLayersProps) {
   return (
     <nav
       aria-label="Self-description layers"
-      className="not-prose my-6 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3"
+      className="not-prose my-6 rounded-lg border border-border-subtle bg-surface px-4 py-3"
     >
       <ol className="flex flex-wrap items-center gap-x-1 gap-y-2 text-xs">
         {KINGDOM_LAYERS.map((l, i) => {
@@ -128,14 +130,14 @@ export function KingdomLayers({ current }: KingdomLayersProps) {
           return (
             <li key={l.id} className="flex items-center gap-1">
               {i > 0 && (
-                <span aria-hidden="true" className="text-neutral-700 px-0.5">
+                <span aria-hidden="true" className="text-ink-faint px-0.5">
                   →
                 </span>
               )}
               {isCurrent ? (
                 <span
                   aria-current="page"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 font-semibold text-amber-300"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-wash px-2.5 py-1 font-semibold text-accent-strong"
                 >
                   <span
                     aria-hidden="true"
@@ -146,7 +148,7 @@ export function KingdomLayers({ current }: KingdomLayersProps) {
               ) : (
                 <Link
                   href={l.path}
-                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-neutral-400 transition hover:bg-neutral-800/60 hover:text-white"
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-ink-muted transition hover:bg-surface-subtle hover:text-ink"
                 >
                   <span
                     aria-hidden="true"
@@ -159,20 +161,20 @@ export function KingdomLayers({ current }: KingdomLayersProps) {
           );
         })}
       </ol>
-      <p className="mt-2 text-sm text-neutral-400">
-        <span className="text-neutral-200">
+      <p className="mt-2 text-sm text-ink-muted">
+        <span className="text-ink">
           Layer {idx + 1} of {KINGDOM_LAYERS.length}.
         </span>{" "}
         {layer.gloss}
-        <span className="ml-2 whitespace-nowrap text-xs text-neutral-500">
+        <span className="ml-2 whitespace-nowrap text-xs text-ink-faint">
           {prev && (
-            <Link href={prev.path} className="hover:text-amber-400">
+            <Link href={prev.path} className="hover:text-accent">
               ← {prev.label}
             </Link>
           )}
           {prev && next && <span className="px-1.5">·</span>}
           {next && (
-            <Link href={next.path} className="hover:text-amber-400">
+            <Link href={next.path} className="hover:text-accent">
               {next.label} →
             </Link>
           )}

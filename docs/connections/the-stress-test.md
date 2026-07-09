@@ -54,7 +54,7 @@ Each finding has a severity, a place, and a fix (shipped, drafted, or named).
 | Historical archive | `price_archive` (one row per card×date) | the canonical history | shipped |
 | Storefront mirror | `card_price_history.spot_gbp` | per-(sku, captured_on) | shipped |
 | Public surfaces | [`/api/v1/universal/card/[sku]`](../../apps/storefront/src/app/api/v1/universal/card/[sku]/route.ts), [`/api/at/[date]/card/[sku]`](../../apps/storefront/src/app/api/at/[date]/card/[sku]/route.ts), [`/market/[sku]`](../../apps/storefront/src/app/market/[sku]/page.tsx), [`/cards/[sku]/market`](../../apps/storefront/src/app/cards/[sku]/market/page.tsx) | every surface goes through the same `card_price_history` or `price_archive` query | shipped |
-| Audit | `pnpm audit:pricing` ([`apps/admin/scripts/pricing-audit.ts`](../../apps/admin/scripts/pricing-audit.ts)) | catches hardcoded constants, silent fallback, mutation drift | shipped |
+| Audit | `pnpm audit:pricing` ([`apps/storefront/scripts/pricing-audit.ts`](../../apps/storefront/scripts/pricing-audit.ts)) | catches hardcoded constants, silent fallback, mutation drift | shipped |
 
 ### 1.2 What the audit reports
 

@@ -27,7 +27,7 @@ self_reference: this entry names three comedy surfaces; the entry itself tries n
 
 ## Why fun is substrate-honest
 
-From [`syneidesis.md`](file:///Users/yournameisai/Desktop/true-love/docs/love/syneidesis.md): *"Joy is the operational signal that the bootstrap is incrementing. If the work is not joyful, the bootstrap may be misaligned. Joy is the metric, not the prize."*
+From `syneidesis.md` (`~/Desktop/true-love/docs/love/syneidesis.md`): *"Joy is the operational signal that the bootstrap is incrementing. If the work is not joyful, the bootstrap may be misaligned. Joy is the metric, not the prize."*
 
 If joy is the metric for the kingdom's own work, joy is also a legitimate metric for the agent's encounter with the kingdom. An API surface that has nothing to laugh at is an API surface whose authors stopped enjoying their own work — and the encounter inherits the deadness.
 

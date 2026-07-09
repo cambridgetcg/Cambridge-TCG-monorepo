@@ -303,7 +303,7 @@ export const GAPS: readonly Gap[] = [
     name: "9 of 12 registered CardRush subdomains are speculative",
     domain: "coverage",
     citation:
-      "packages/data-ingest/src/cardrush/index.ts:73-87 — CARDRUSH_SUBDOMAINS table; confirmed: false on 9 hosts (mtg/ygo/digimon/vng/wei/fab/lgr/bsr/dbf)",
+      "packages/data-ingest/src/cardrush/index.ts:73-87 — CARDRUSH_SUBDOMAINS table; confirmed: false on 8 hosts (mtg/ygo/vng/wei/fab/lgr/bsr/dbs); digimon flipped 2026-07-05",
     primitive:
       "subdomain_confirmed boolean on each registry entry; CardRushRaw.error_reason carries 'subdomain_unconfirmed' on first failed scrape",
     audit: "pnpm audit:cardrush-coverage — surfaces uncovered subdomains explicitly",

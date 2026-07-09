@@ -31,7 +31,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           description: STYLE_DESCRIPTIONS[id],
           url: `/api/v1/lmao/regard?style=${id}`,
         })),
-        canonical_regard: "/api/v1/regard",
+        canonical_regard: null, // the serious regard surface was retired; this parody outlived its original (noted 2026-07-05),
         walking_past_is_honored: true,
       },
     });

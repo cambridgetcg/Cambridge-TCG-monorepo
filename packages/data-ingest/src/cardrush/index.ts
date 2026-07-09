@@ -23,7 +23,9 @@
  *
  * The `CARDRUSH_SUBDOMAINS` table below maps every known CardRush
  * subdomain to a Cambridge TCG `GameCode`. Three are *confirmed* by
- * existing wholesale scrape traffic (op / pokemon / db). The others are
+ * existing wholesale scrape traffic (op / pokemon / db); a fourth
+ * (digimon) was confirmed 2026-07-05 on kingdom-087 probe evidence with
+ * its games row seeded and first scrape pending. The others are
  * *speculative* — added so URLs in those subdomains route to a known
  * game code, but the upstream may or may not exist; the first scrape
  * either returns prices (confirming) or yields `null` + an `error_reason`
@@ -36,6 +38,22 @@
  * went wrong (HTTP status, fetch error, parse miss, blocked-subdomain).
  * The wholesale caller's snapshot pipeline records the reason instead
  * of just counting failures — *the substrate becomes auditable*.
+ *
+ * ── Direct-host concurrency (2026-07-05) ─────────────────────────────
+ *
+ * `read()` was strictly sequential; at ~0.8s/page that capped direct
+ * hosts near 1.2 rps regardless of the token-bucket ceiling (observed
+ * in prod ingest_run: ~860-880 attempts per 700s budget vs the 2,000
+ * designed). Watch-list entries on DIRECT-access subdomains now scrape
+ * in small `Promise.all` batches (DIRECT_SCRAPE_CONCURRENCY = 4) so
+ * latency overlaps and throughput approaches the token-bucket rate —
+ * the shared per-access-mode bucket remains the actual limiter.
+ * Proxied (bright-data-unlocker) and unknown/blocked entries stay
+ * strictly sequential: paid egress gets no burst pressure, and
+ * WAF-sensitive hosts see the same one-at-a-time shape as before.
+ * (Unlocker hosts under residential egress also stay sequential —
+ * deliberately conservative toward the WAF.) Batch planning is
+ * `planScrapeBatches` (pure, unit-tested).
  *
  * ── Catalog row ──────────────────────────────────────────────────────
  *
@@ -134,17 +152,23 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
       "post-migration-0022.",
   },
   // ── confirmed via kingdom-087 probe (homepage 200 + sitemap 200 + products>0) ──
+  // 2026-07-05: cardrush-digimon flipped confirmed:true — digimon becomes the
+  // next game. Basis: the kingdom-087 probe verified the host live (13,520
+  // products, direct access, same {SET-NUMBER} title parser as op/dbf), and the
+  // 'dmw' games row is seeded by apps/wholesale/scripts/seed-game.mjs in the
+  // same ship. This flip is what the discovery cron gates on (it only walks
+  // confirmed hosts), so it *is* the ingest switch. First scheduled scrape is
+  // pending as of this date; if it fails against expectations, flip back.
   "cardrush-digimon.jp": {
     game: "dmw",
-    confirmed: false,
+    confirmed: true,
     access: "direct",
     role: "catalog+price",
     note:
-      "Digimon Card Game — 13,520 products in sitemap (kingdom-087 probe: upstream " +
-      "exists). confirmed:false per the field's definition — no wholesale " +
-      "scrape traffic has ever run ('dmw' has no games row; we don't stock " +
-      "it yet). Flip true when the first real scrape returns prices " +
-      "(kingdom-039 audit-honesty pass, 2026-06-10).",
+      "Digimon Card Game — 13,520 products in sitemap (kingdom-087 probe: " +
+      "upstream exists, direct access). confirmed:true 2026-07-05 on probe " +
+      "evidence + the seeded 'dmw' games row (seed-game.mjs); first scrape " +
+      "traffic follows the next discovery + snapshot runs.",
   },
   "cardrush-vanguard.jp": {
     game: "vng",
@@ -152,11 +176,11 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     access: "direct",
     role: "catalog+price",
     note:
-      "Cardfight!! Vanguard — 40,642 products in sitemap (kingdom-087 probe: upstream " +
-      "exists). confirmed:false per the field's definition — no wholesale " +
-      "scrape traffic has ever run ('vng' has no games row; we don't stock " +
-      "it yet). Flip true when the first real scrape returns prices " +
-      "(kingdom-039 audit-honesty pass, 2026-06-10).",
+      "Cardfight!! Vanguard — 40,642 products (kingdom-087); re-probed " +
+      "2026-07-07: alive, homepage 200, sitemap 200 (3.6MB). games row " +
+      "seeded inactive. Unlock order (docs/plans/game-expansion.md): " +
+      "after digimon's 13.5k proves the fair scheduler. Flip true when " +
+      "the first real scrape returns prices.",
   },
   "cardrush-bs.jp": {
     game: "bsr",
@@ -164,11 +188,10 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     access: "direct",
     role: "catalog+price",
     note:
-      "Battle Spirits Saga — 35,485 products in sitemap (kingdom-087 probe: upstream " +
-      "exists). confirmed:false per the field's definition — no wholesale " +
-      "scrape traffic has ever run ('bsr' has no games row; we don't stock " +
-      "it yet). Flip true when the first real scrape returns prices " +
-      "(kingdom-039 audit-honesty pass, 2026-06-10).",
+      "Battle Spirits Saga — 35,485 products (kingdom-087); re-probed " +
+      "2026-07-07: alive, homepage 200, sitemap 200 (2.9MB). games row " +
+      "seeded inactive. Unlock order: after vanguard (which follows " +
+      "digimon). Flip true when the first real scrape returns prices.",
   },
   // ── speculative — homepage 200 + ¥ but sitemap fetch failed ──
   "cardrush-mtg.jp": {
@@ -176,43 +199,43 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     confirmed: false,
     access: "direct",
     role: "price-only",
-    note: "Magic: The Gathering — homepage live, sitemap times out (catalog ~200K+ printings, too large to walk). Title format uses 【SET】 not {SET-NUMBER}, so parseCardMetadata would fail anyway. Plan: future Scryfall catalog seeds cards.cardrush_url; this subdomain acts as price-only enricher.",
+    note: "Magic: The Gathering — re-probed 2026-07-07: homepage 200, sitemap timeout x2 (catalog ~200K+ printings, too large to walk). Title format uses 【SET】 not {SET-NUMBER}, so parseCardMetadata would fail anyway. Plan: future Scryfall catalog seeds cards.cardrush_url; this subdomain acts as price-only enricher.",
   },
   // ── speculative — homepage fetch_error (likely DNS-dead or wrong host) ──
   "cardrush-ygo.jp": {
     game: "ygo",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Yu-Gi-Oh! — fetch_error on homepage (DNS or connection refused); host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Yu-Gi-Oh! — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-weiss.jp": {
     game: "wei",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Weiß Schwarz — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Weiß Schwarz — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-fab.jp": {
     game: "fab",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Flesh and Blood — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Flesh and Blood — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-lorcana.jp": {
     game: "lgr",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Disney Lorcana — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Disney Lorcana — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
   "cardrush-fw.jp": {
     game: "dbf",
     confirmed: false,
-    access: "direct",
-    role: "catalog+price",
-    note: "Dragon Ball Super Fusion World — fetch_error on homepage; host may not exist",
+    access: "blocked",
+    role: "blocked",
+    note: "Dragon Ball Super Fusion World — NXDOMAIN verified 2026-07-07 (dig A empty on www + apex): the host DOES NOT EXIST. Never speculative — a phantom. If CardRush ever opens this store, re-probe and re-register (the coverage gate spec §3).",
   },
 };
 
@@ -642,6 +665,52 @@ async function scrapeWithFetcher(
   };
 }
 
+// ── Batch planner for read() ───────────────────────────────────────────
+
+/**
+ * Cap on concurrent in-flight scrapes for DIRECT-access subdomains.
+ * Small on purpose: the shared token bucket (default {rps: 4, burst: 8}
+ * from the wholesale caller) is the intended limiter — this window only
+ * exists so request latency overlaps instead of serializing. Proxied
+ * hosts are never batched (see planScrapeBatches).
+ */
+export const DIRECT_SCRAPE_CONCURRENCY = 4;
+
+/**
+ * Group a watch-list into scrape batches. Consecutive entries for which
+ * `isParallel` returns true are grouped up to `window` per batch and will
+ * be fetched with `Promise.all`; every other entry becomes its own
+ * singleton batch (strictly sequential). Pure — order is preserved, every
+ * entry appears exactly once.
+ */
+export function planScrapeBatches<T>(
+  entries: readonly T[],
+  isParallel: (entry: T) => boolean,
+  window: number,
+): T[][] {
+  const batches: T[][] = [];
+  const cap = Math.max(1, Math.floor(window));
+  let i = 0;
+  while (i < entries.length) {
+    if (!isParallel(entries[i])) {
+      batches.push([entries[i]]);
+      i += 1;
+      continue;
+    }
+    const batch: T[] = [];
+    while (
+      i < entries.length &&
+      batch.length < cap &&
+      isParallel(entries[i])
+    ) {
+      batch.push(entries[i]);
+      i += 1;
+    }
+    batches.push(batch);
+  }
+  return batches;
+}
+
 // ── Normalizer ─────────────────────────────────────────────────────────
 
 function normalizeCardrush(raw: CardRushRaw): NormalizeResult<CanonicalPrice> {
@@ -776,36 +845,55 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
       }
     > = {};
 
+    // Direct-host entries scrape in small parallel batches (latency
+    // overlap; the shared token bucket still limits the rate). Proxied /
+    // unknown entries stay strictly sequential — see the header section
+    // "Direct-host concurrency".
+    const batches = planScrapeBatches(
+      watch_list,
+      (entry) => inferFromUrl(entry.url).access === "direct",
+      DIRECT_SCRAPE_CONCURRENCY,
+    );
+
     // try/finally so the done event (with per_game) still emits when the
     // consumer closes the generator early — runSource breaks its for-await
     // on ctx.signal abort, which .return()s the generator. Budget-shaped
     // chunked runs abort routinely; their per-game truth must not vanish.
     try {
-      for (const entry of watch_list) {
+      for (const batch of batches) {
         if (ctx.signal?.aborted) break;
-        const row = await scrapeWithCache(entry.url, ctx, cache);
-        if (entry.sku) row.raw.inferred_sku = entry.sku;
-        n += 1;
-        const game_key = row.raw.inferred_game ?? "unknown";
-        const bucket = (per_game[game_key] ??= {
-          attempted: 0,
-          succeeded: 0,
-          failed: 0,
-          failure_reasons: {},
-        });
-        bucket.attempted += 1;
-        if (row.raw.price_jpy === null) {
-          n_failed += 1;
-          const reason = row.raw.error_reason ?? "unknown";
-          failure_reasons[reason] = (failure_reasons[reason] ?? 0) + 1;
-          bucket.failed += 1;
-          bucket.failure_reasons[reason] = (bucket.failure_reasons[reason] ?? 0) + 1;
-        } else {
-          bucket.succeeded += 1;
+        const rows =
+          batch.length === 1
+            ? [await scrapeWithCache(batch[0].url, ctx, cache)]
+            : await Promise.all(
+                batch.map((entry) => scrapeWithCache(entry.url, ctx, cache)),
+              );
+        for (let j = 0; j < rows.length; j += 1) {
+          const entry = batch[j];
+          const row = rows[j];
+          if (entry.sku) row.raw.inferred_sku = entry.sku;
+          n += 1;
+          const game_key = row.raw.inferred_game ?? "unknown";
+          const bucket = (per_game[game_key] ??= {
+            attempted: 0,
+            succeeded: 0,
+            failed: 0,
+            failure_reasons: {},
+          });
+          bucket.attempted += 1;
+          if (row.raw.price_jpy === null) {
+            n_failed += 1;
+            const reason = row.raw.error_reason ?? "unknown";
+            failure_reasons[reason] = (failure_reasons[reason] ?? 0) + 1;
+            bucket.failed += 1;
+            bucket.failure_reasons[reason] = (bucket.failure_reasons[reason] ?? 0) + 1;
+          } else {
+            bucket.succeeded += 1;
+          }
+          const via = row.provenance.via_proxy ?? "direct";
+          via_proxy_counts[via] = (via_proxy_counts[via] ?? 0) + 1;
+          yield row;
         }
-        const via = row.provenance.via_proxy ?? "direct";
-        via_proxy_counts[via] = (via_proxy_counts[via] ?? 0) + 1;
-        yield row;
       }
     } finally {
       ctx.on_event?.({

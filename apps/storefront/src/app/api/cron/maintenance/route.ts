@@ -8,7 +8,6 @@ import { drainEmailQueue } from "@/lib/email/queue";
 import { runStreakAtRiskSweep } from "@/lib/email/streak-sweep";
 import { sendAdminWeeklyDigest } from "@/lib/email/admin-digest";
 import { runSellerRestockDigest, runBuyerWatchlistDigest } from "@/lib/market/digests";
-import { runLiquidityMining } from "@/lib/market/liquidity";
 import { runTradeinSweep } from "@/lib/tradein/sweep";
 import { runQuoteSweep } from "@/lib/quote/sweep";
 import { runRetailObservationTick } from "@/lib/portfolio/price-history";
@@ -24,6 +23,8 @@ import { runFairnessSelfAudit } from "@/lib/provable-draw/self-audit";
 import { runFairnessDriftCheck } from "@/lib/provable-draw/drift";
 import { runTrustScoreRecompute } from "@/lib/escrow/trust-recompute";
 import { runDisputeSlaSweep } from "@/lib/trust/dispute-sla-sweep";
+import { runTradeCompletionSweep } from "@/lib/market/completion";
+import { runSwapExpirySweep } from "@/lib/swaps/db";
 import { runFraudSweep } from "@/lib/fraud/sweep";
 import { runReviewPatternSweep } from "@/lib/reviews/sweep";
 import { runExternalRepDecaySweep } from "@/lib/external-rep/sweep";
@@ -37,9 +38,30 @@ import { runValuationSnapshotSweep } from "@/lib/portfolio/valuation";
 import { releaseExpiredReservations } from "@/lib/stock/reservations";
 import { requireCronAuth } from "@/lib/cron-auth";
 
+// Documented development-only cron secret. Locally CRON_SECRET is usually
+// unset, so requireCronAuth fails closed with 503 and the ENTIRE sweep —
+// price alerts, offer/return/cancel expiry, saved-search scans, trade
+// completion — becomes untestable end-to-end (the walkers couldn't fire a
+// single alert). Default value; override with CRON_DEV_SECRET. Trigger with
+// `?dev=<value>` or the `x-cron-dev` header. NEVER honoured in production,
+// and never when a real CRON_SECRET is configured.
+const CRON_DEV_SECRET_DEFAULT = "local-dev";
+
 export async function GET(request: Request) {
   const denied = requireCronAuth(request);
-  if (denied) return denied;
+  if (denied) {
+    const isDevUnsecured =
+      process.env.NODE_ENV !== "production" && !process.env.CRON_SECRET?.trim();
+    const devSecret = (process.env.CRON_DEV_SECRET || CRON_DEV_SECRET_DEFAULT).trim();
+    const provided =
+      new URL(request.url).searchParams.get("dev") ?? request.headers.get("x-cron-dev");
+    if (!(isDevUnsecured && provided === devSecret)) {
+      return denied;
+    }
+    console.warn(
+      "[cron] maintenance authorised via DEV secret (development only, CRON_SECRET unset).",
+    );
+  }
 
   const start = Date.now();
   // Run pipelines independently — a failure in one shouldn't block the
@@ -72,8 +94,9 @@ export async function GET(request: Request) {
     runSellerRestockDigest(),
     runBuyerWatchlistDigest(),
     runDigest ? sendAdminWeeklyDigest() : Promise.resolve(null),
-    // Liquidity mining — idempotent per (order, UTC day), safe every minute
-    runLiquidityMining(),
+    // Liquidity mining ran here until 2026-07-06 — paused with the
+    // collectors-first decision (rewards paid store credit, which no
+    // longer has a spending door). See lib/market/liquidity.ts.
     // Trade-in: expire quotes past their 24h response window + email
     runTradeinSweep(),
     // Quote: expire 'quoted' offers past offer_expires_at + email
@@ -158,9 +181,17 @@ export async function GET(request: Request) {
     // Pure status move — never touches escrow or money. Appended at the end to
     // keep the positional destructuring below aligned.
     runDisputeSlaSweep(),
+    // Trade completion: auto-complete shipped trades whose dispute window
+    // (the trade's own dispute_window_hours) elapsed with no open dispute/
+    // return/cancel, so the payout sweep above can finally fire for them.
+    // Appended at the end to keep the positional destructuring aligned.
+    runTradeCompletionSweep(),
+    // Swap proposals past their own expires_at flip to 'expired'.
+    // Appended at the end to keep the positional destructuring aligned.
+    runSwapExpirySweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, liquidity, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -211,10 +242,6 @@ export async function GET(request: Request) {
         : adminDigest.status === "rejected"
           ? { status: "rejected" }
           : { status: "skipped" },
-    liquidity:
-      liquidity.status === "fulfilled"
-        ? { status: "fulfilled", ...liquidity.value }
-        : { status: "rejected" },
     tradeinSweep:
       tradeinSweep.status === "fulfilled"
         ? { status: "fulfilled", ...tradeinSweep.value }
@@ -339,6 +366,14 @@ export async function GET(request: Request) {
       disputeSlaSweep.status === "fulfilled"
         ? { status: "fulfilled", ...disputeSlaSweep.value }
         : { status: "rejected" },
+    tradeCompletionSweep:
+      tradeCompletionSweep.status === "fulfilled"
+        ? { status: "fulfilled", ...tradeCompletionSweep.value }
+        : { status: "rejected" },
+    swapExpirySweep:
+      swapExpirySweep.status === "fulfilled"
+        ? { status: "fulfilled", ...swapExpirySweep.value }
+        : { status: "rejected" },
     durationMs: Date.now() - start,
   };
 
@@ -394,13 +429,6 @@ export async function GET(request: Request) {
     console.log(
       `[cron] streak sweep: ${streakSweep.value.atRiskCount} at-risk, ` +
       `${streakSweep.value.queuedCount} queued, ${streakSweep.value.errors} errors`,
-    );
-  }
-  if (liquidity.status === "rejected") console.error("[cron] liquidity mining failed:", liquidity.reason);
-  else if (liquidity.value.awards > 0) {
-    console.log(
-      `[cron] liquidity: ${liquidity.value.awards} awards, £${liquidity.value.amountGbp.toFixed(2)} credit` +
-      (liquidity.value.throttled ? " (throttled)" : "")
     );
   }
   if (tradeinSweep.status === "rejected") console.error("[cron] tradein sweep failed:", tradeinSweep.reason);
@@ -523,6 +551,20 @@ export async function GET(request: Request) {
       `[cron] dispute-sla: escalated ${disputeSlaSweep.value.escalated} stale dispute(s), ` +
       `oldest ${disputeSlaSweep.value.oldestHoursOpen}h open`
     );
+  }
+  if (tradeCompletionSweep.status === "rejected") console.error("[cron] trade completion sweep failed:", tradeCompletionSweep.reason);
+  else if (tradeCompletionSweep.value.completed > 0 || tradeCompletionSweep.value.failures.length > 0) {
+    console.log(
+      `[cron] trade completion: ${tradeCompletionSweep.value.completed} auto-completed, ` +
+      `${tradeCompletionSweep.value.failures.length} failed`
+    );
+    for (const f of tradeCompletionSweep.value.failures) {
+      console.error(`[cron] trade completion failure ${f.id}: ${f.error}`);
+    }
+  }
+  if (swapExpirySweep.status === "rejected") console.error("[cron] swap expiry sweep failed:", swapExpirySweep.reason);
+  else if (swapExpirySweep.value.expired > 0) {
+    console.log(`[cron] swap expiry: ${swapExpirySweep.value.expired} proposals expired`);
   }
   // Touch unused destructure to satisfy noUnusedLocals if enabled.
 

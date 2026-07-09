@@ -72,15 +72,15 @@ export default function VacationPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-black text-white mb-2">Vacation Mode</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-display font-semibold text-ink mb-2">Vacation Mode</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Step away without breaking your response-window contracts. While active, your asks
         are paused (excluded from matching) and the deadlines on in-flight offers, returns,
         and cancellation requests are pushed back by the duration of your vacation.
       </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-300">
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-4 text-sm text-danger">
           {error}
         </div>
       )}
@@ -97,23 +97,23 @@ export default function VacationPage() {
         <NewVacationForm busy={busy} onSubmit={(body) => action("/api/account/vacation", body)} />
       )}
 
-      <h2 className="text-sm font-bold text-neutral-400 mb-2 uppercase tracking-wide mt-8">History</h2>
+      <h2 className="text-sm font-bold text-ink-muted mb-2 uppercase tracking-wide mt-8">History</h2>
       {loading ? (
         <div className="flex justify-center py-8">
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : vacations.length === 0 ? (
-        <p className="text-xs text-neutral-500">No vacations on record yet.</p>
+        <p className="text-xs text-ink-faint">No vacations on record yet.</p>
       ) : (
         <div className="space-y-2">
           {vacations.map((v) => (
-            <div key={v.id} className="bg-neutral-900 rounded-xl p-3 border border-neutral-800">
+            <div key={v.id} className="bg-surface rounded-lg p-3 border border-border-subtle">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
-                  <p className="text-white text-sm font-semibold">
+                  <p className="text-ink text-sm font-semibold">
                     {formatDateTime(v.starts_at)} → {formatDateTime(v.ends_at)}
                   </p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
+                  <p className="text-xs text-ink-faint mt-0.5">
                     Duration {durationLabel(v.starts_at, v.ends_at)}
                     {v.message && (
                       <>
@@ -149,25 +149,31 @@ function ActiveBanner({
   if (!current) return null;
 
   const isActive = current.status === "active";
-  const tone = isActive ? "amber" : "blue";
+  // Quiet-gallery semantic tokens only — the previous `bg-${tone}-500/10`
+  // string interpolation both broke the house palette rule and produced
+  // classes Tailwind never generated (so the banner rendered unstyled).
+  const surface = isActive
+    ? "bg-warning/10 border-warning/30"
+    : "bg-info/10 border-info/30";
+  const heading = isActive ? "text-warning" : "text-info";
 
   return (
-    <div className={`bg-${tone}-500/10 border border-${tone}-500/30 rounded-xl p-5 mb-6`}>
+    <div className={`${surface} border rounded-lg p-5 mb-6`}>
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <h2 className={`text-sm font-bold uppercase tracking-wide text-${tone}-400`}>
+        <h2 className={`text-sm font-bold uppercase tracking-wide ${heading}`}>
           {isActive ? "On vacation now" : "Vacation scheduled"}
         </h2>
-        <span className="text-xs text-neutral-400">
+        <span className="text-xs text-ink-muted">
           {formatDateTime(current.starts_at)} → {formatDateTime(current.ends_at)}
         </span>
       </div>
-      <p className="text-sm text-neutral-300 mb-3">
+      <p className="text-sm text-ink-muted mb-3">
         {isActive
           ? "Your asks are paused and won't match new bids. Offer/return/cancel response windows on in-flight items have been extended by your vacation duration."
           : `Starting ${formatDateTime(current.starts_at)}. Until then, everything operates normally.`}
       </p>
       {current.message && (
-        <p className="text-xs text-neutral-300 italic mb-3 bg-neutral-950/40 rounded p-2">
+        <p className="text-xs text-ink-muted italic mb-3 bg-surface-subtle rounded p-2">
           Public message: “{current.message}”
         </p>
       )}
@@ -181,7 +187,7 @@ function ActiveBanner({
             );
             if (newEnd) onAction(`/api/account/vacation/${current.id}/extend`, { newEndsAt: newEnd });
           }}
-          className="px-3 py-1.5 text-xs font-medium bg-neutral-800 text-neutral-300 rounded-md hover:bg-neutral-700 transition disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-medium bg-surface-subtle text-ink-muted rounded-md hover:bg-surface-subtle transition disabled:opacity-50"
         >
           Extend
         </button>
@@ -192,7 +198,7 @@ function ActiveBanner({
               onAction(`/api/account/vacation/${current.id}/end`);
             }
           }}
-          className="px-3 py-1.5 text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30 rounded-md hover:bg-red-500/25 transition disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-medium bg-danger/15 text-danger border border-danger/30 rounded-md hover:bg-danger/15 transition disabled:opacity-50"
         >
           {isActive ? "End vacation now" : "Cancel"}
         </button>
@@ -231,29 +237,29 @@ function NewVacationForm({
   }
 
   return (
-    <div className="bg-neutral-900 rounded-xl p-5 border border-amber-500/20">
-      <h2 className="text-sm font-bold text-amber-400 uppercase tracking-wide mb-3">Schedule a vacation</h2>
+    <div className="bg-surface rounded-lg p-5 border border-accent/30">
+      <h2 className="text-sm font-bold text-accent uppercase tracking-wide mb-3">Schedule a vacation</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">Starts</label>
+          <label className="block text-xs text-ink-faint mb-1">Starts</label>
           <input
             type="datetime-local"
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+            className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">Ends</label>
+          <label className="block text-xs text-ink-faint mb-1">Ends</label>
           <input
             type="datetime-local"
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+            className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
           />
         </div>
       </div>
-      <label className="block text-xs text-neutral-500 mb-1">
+      <label className="block text-xs text-ink-faint mb-1">
         Public message (shown on your profile + listings)
       </label>
       <input
@@ -262,18 +268,18 @@ function NewVacationForm({
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Back Mon Dec 18 — expedited shipping after"
         maxLength={200}
-        className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm mb-3"
+        className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm mb-3"
       />
       <div className="flex justify-end">
         <button
           disabled={busy}
           onClick={submit}
-          className="px-4 py-2 text-xs font-bold bg-amber-500 text-black rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
+          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition disabled:opacity-50"
         >
           {busy ? "Scheduling..." : "Schedule vacation"}
         </button>
       </div>
-      <p className="text-[10px] text-neutral-600 mt-3">
+      <p className="text-[10px] text-ink-faint mt-3">
         Min 4 hours · Max 60 days · Must start at least 5 minutes from now
       </p>
     </div>

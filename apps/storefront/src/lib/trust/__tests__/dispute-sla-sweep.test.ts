@@ -1,4 +1,9 @@
 import { describe, it, expect } from "vitest";
+
+// The lazy imports below pull in @/lib/db, which constructs its client at
+// module load and needs a URL to exist (never connected in these tests).
+process.env.DATABASE_URL ||= "postgres://localhost:5432/placeholder_never_connected";
+
 import { getDisputeStep, isDisputeTerminal } from "../dispute-timeline";
 
 describe("dispute-sla-sweep — export shape", () => {

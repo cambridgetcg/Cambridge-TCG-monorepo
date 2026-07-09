@@ -10,7 +10,7 @@ export default function CommissionRateMethodology() {
   return (
     <>
       <h1>Commission rate</h1>
-      <p className="text-sm uppercase tracking-wider text-amber-400">Stub — full content forthcoming.</p>
+      <p className="text-sm uppercase tracking-wider text-accent">Stub — full content forthcoming.</p>
       <p>
         When you sell on Cambridge TCG, the platform takes a commission from your payout. The
         rate depends on the <strong>kind of sale</strong> (P2P trade vs auction) and your{" "}

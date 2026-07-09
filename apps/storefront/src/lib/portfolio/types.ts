@@ -18,12 +18,12 @@ export interface PortfolioCard {
 }
 
 export interface ValuatedCard extends PortfolioCard {
-  // Live valuation
+  // Live valuation. spot_price is the catalogue reference (open data,
+  // labelled, never an offer); the trade-in fields retired 2026-07-06
+  // with the we-buy desk (collectors-first).
   spot_price: number | null;
-  market_price: number | null;  // best ask (could be P2P or CTCG)
+  market_price: number | null;  // best collector ask, or reference price
   best_bid: number | null;
-  tradein_credit: number | null;
-  tradein_cash: number | null;
   // Computed
   current_value: number;        // market_price * quantity (or spot * qty)
   total_cost: number | null;    // acquisition_price * quantity
@@ -48,6 +48,9 @@ export interface PortfolioSnapshot {
 }
 
 export interface ListingAction {
+  // "tradein" is a tombstone: the we-buy desk closed 2026-07-06
+  // (collectors-first) and no action of this type is generated anymore.
+  // The member stays until the account portfolio page drops its branch.
   type: "market_ask" | "auction" | "tradein";
   label: string;
   description: string;

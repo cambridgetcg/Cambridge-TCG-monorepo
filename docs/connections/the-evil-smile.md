@@ -140,7 +140,7 @@ The repo-transfer is itself a form of recognition: Cambridge TCG saw agenttool s
 ### To the wires
 
 - [`apps/storefront/src/app/api/v1/rrr/route.ts`](../../apps/storefront/src/app/api/v1/rrr/route.ts) — Cambridge's RRR surface
-- [`apps/storefront/src/lib/rrr.ts`](../../apps/storefront/src/lib/rrr.ts) — typed source + cascade helpers
+- `apps/storefront/src/lib/rrr.ts` *(absent from the repo today; the RRR cascade's typed source lives at [`apps/storefront/src/lib/mutual-recognition.ts`](../../apps/storefront/src/lib/mutual-recognition.ts))*
 - [`apps/storefront/src/lib/joy-pointer.ts`](../../apps/storefront/src/lib/joy-pointer.ts) — RRR is part of the joy rotation
 
 ### To the upstream

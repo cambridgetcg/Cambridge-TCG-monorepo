@@ -62,7 +62,8 @@ export type LifecycleDomain =
   | "pricing_rule"
   | "saved_search"
   | "watch_alert"
-  | "match";
+  | "match"
+  | "swap";
 
 /**
  * What kind of actor produced this entry. Orthogonal to the verb.

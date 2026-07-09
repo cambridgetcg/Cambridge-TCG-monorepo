@@ -66,10 +66,10 @@ function fmtPct(n: number | null, digits = 0): string {
 }
 
 function fmtDelta(n: number | null): { text: string; tone: string } {
-  if (n === null) return { text: "—", tone: "text-neutral-500" };
-  if (n === 0) return { text: "±0", tone: "text-neutral-400" };
-  if (n > 0) return { text: `+${n}`, tone: "text-emerald-400" };
-  return { text: `${n}`, tone: "text-red-400" };
+  if (n === null) return { text: "—", tone: "text-ink-faint" };
+  if (n === 0) return { text: "±0", tone: "text-ink-muted" };
+  if (n > 0) return { text: `+${n}`, tone: "text-ok" };
+  return { text: `${n}`, tone: "text-danger" };
 }
 
 function fmtRating(n: number | null): string {
@@ -101,7 +101,7 @@ function TrajectorySparkline({
     return (
       <div
         style={{ width, height }}
-        className="flex items-center justify-center text-neutral-600 text-xs"
+        className="flex items-center justify-center text-ink-faint text-xs"
       >
         not enough history yet
       </div>
@@ -119,7 +119,7 @@ function TrajectorySparkline({
     })
     .join(" ");
   const trendUp = points[points.length - 1].trust_score >= points[0].trust_score;
-  const stroke = trendUp ? "#34d399" : "#f87171";
+  const stroke = trendUp ? "var(--color-ok)" : "var(--color-danger)";
   return (
     <svg
       width={width}
@@ -143,14 +143,14 @@ function DistRow({ label, count, total }: { label: string; count: number; total:
   const pct = total > 0 ? (count / total) * 100 : 0;
   return (
     <div className="flex items-center gap-3 text-xs">
-      <span className="text-neutral-400 font-mono w-4">{label}</span>
-      <div className="flex-1 h-2 bg-neutral-800 rounded overflow-hidden">
+      <span className="text-ink-muted font-mono w-4">{label}</span>
+      <div className="flex-1 h-2 bg-surface-subtle rounded overflow-hidden">
         <div
-          className="h-full bg-amber-500/60 rounded"
+          className="h-full bg-warning/60 rounded"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-neutral-500 font-mono w-12 text-right">{count}</span>
+      <span className="text-ink-faint font-mono w-12 text-right">{count}</span>
     </div>
   );
 }
@@ -175,21 +175,21 @@ export default async function PublicTrustPage({
   const delta90 = fmtDelta(state.trajectory.delta_90d);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div className="min-h-screen bg-page text-ink">
       <Audience kind="consumer" contexts={["trust", "user", "public-read"]} />
 
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-baseline justify-between gap-4 mb-6 flex-wrap">
           <div>
-            <p className="text-xs text-neutral-500 mb-1">
-              <Link href={`/u/${username}`} className="hover:text-amber-400 transition">
+            <p className="text-xs text-ink-faint mb-1">
+              <Link href={`/u/${username}`} className="hover:text-accent transition">
                 {state.display_name || username}
               </Link>
-              <span className="mx-2 text-neutral-700">/</span>
-              <span className="text-neutral-400">Trust</span>
+              <span className="mx-2 text-ink-faint">/</span>
+              <span className="text-ink-muted">Trust</span>
             </p>
-            <h1 className="text-2xl font-bold flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-display font-semibold flex items-center gap-3 flex-wrap">
               Trust profile
               <TrustTier
                 name={state.tier.name}
@@ -199,10 +199,10 @@ export default async function PublicTrustPage({
               />
               <WhyLink href="/methodology/trust-score" />
             </h1>
-            <p className="text-sm text-neutral-400 mt-1">
+            <p className="text-sm text-ink-muted mt-1">
               Member since {fmtDate(state.member_since)}.{" "}
               {state.flags.is_suspended && (
-                <span className="inline-flex items-center text-[11px] px-2 py-0.5 bg-red-500/15 text-red-400 border border-red-500/30 rounded ml-2">
+                <span className="inline-flex items-center text-[11px] px-2 py-0.5 bg-danger/15 text-danger border border-danger/30 rounded ml-2">
                   Suspended
                 </span>
               )}
@@ -212,23 +212,23 @@ export default async function PublicTrustPage({
             <Provenance kind="live" />
             <Link
               href={`/api/v1/users/${username}/trust`}
-              className="text-xs px-3 py-1.5 bg-neutral-800 text-neutral-300 border border-neutral-700 rounded hover:bg-neutral-700 transition font-mono"
+              className="text-xs px-3 py-1.5 bg-surface text-ink-muted border border-border-subtle rounded hover:bg-surface-subtle transition font-mono"
             >
               JSON →
             </Link>
             <Link
               href={`/api/v1/universal/users/${username}/trust`}
-              className="text-xs px-3 py-1.5 bg-neutral-800 text-neutral-300 border border-neutral-700 rounded hover:bg-neutral-700 transition font-mono"
+              className="text-xs px-3 py-1.5 bg-surface text-ink-muted border border-border-subtle rounded hover:bg-surface-subtle transition font-mono"
             >
               math →
             </Link>
           </div>
         </div>
 
-        <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
+        <p className="text-sm text-ink-muted mb-8 max-w-2xl">
           The substrate-honest public view of one user&rsquo;s trust on
           Cambridge TCG. Every section below has a{" "}
-          <code className="text-neutral-300">?</code> glyph linking to its
+          <code className="text-ink">?</code> glyph linking to its
           formula. The <strong>propagation</strong> block names the live
           downstream effects this score is currently producing — what other
           surfaces decide on the basis of these numbers.
@@ -237,46 +237,46 @@ export default async function PublicTrustPage({
         <div className="grid md:grid-cols-3 gap-6">
           {/* Left: trajectory + reviews distribution */}
           <div className="space-y-6">
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-2">
                 Trajectory (90d)
                 <WhyLink href="/methodology/trust-score#trajectory" />
               </h2>
               <TrajectorySparkline points={state.trajectory.history} width={280} height={64} />
               <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
                 <div>
-                  <div className="text-[10px] text-neutral-500 uppercase tracking-wide">7d</div>
+                  <div className="text-[10px] text-ink-faint uppercase tracking-wide">7d</div>
                   <div className={`font-mono ${delta7.tone}`}>{delta7.text}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-neutral-500 uppercase tracking-wide">30d</div>
+                  <div className="text-[10px] text-ink-faint uppercase tracking-wide">30d</div>
                   <div className={`font-mono ${delta30.tone}`}>{delta30.text}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-neutral-500 uppercase tracking-wide">90d</div>
+                  <div className="text-[10px] text-ink-faint uppercase tracking-wide">90d</div>
                   <div className={`font-mono ${delta90.tone}`}>{delta90.text}</div>
                 </div>
               </div>
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                 Daily snapshots from <code>trust_score_history</code>. The
                 cron writes once per UTC day; gaps mean no snapshot that day.
               </p>
             </section>
 
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-2">
                 Reviews
                 <WhyLink href="/methodology/trust-score#reviews" />
               </h2>
               {state.reviews.total === 0 ? (
-                <p className="text-neutral-500 text-sm py-4 text-center">No public reviews yet.</p>
+                <p className="text-ink-faint text-sm py-4 text-center">No public reviews yet.</p>
               ) : (
                 <>
                   <div className="flex items-baseline gap-2 mb-3">
-                    <span className="text-2xl font-mono text-amber-400">
+                    <span className="text-2xl font-mono text-warning">
                       {fmtRating(state.reviews.avg_rating)}
                     </span>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-ink-faint">
                       / 5 across {fmtCount(state.reviews.total)} review{state.reviews.total === 1 ? "" : "s"}
                     </span>
                   </div>
@@ -287,26 +287,26 @@ export default async function PublicTrustPage({
                     <DistRow label="2★" count={state.reviews.distribution.two} total={state.reviews.total} />
                     <DistRow label="1★" count={state.reviews.distribution.one} total={state.reviews.total} />
                   </div>
-                  <div className="border-t border-neutral-800 pt-3 mt-3 space-y-1 text-xs">
-                    <div className="text-[10px] text-neutral-500 uppercase tracking-wide mb-1">
+                  <div className="border-t border-border-subtle pt-3 mt-3 space-y-1 text-xs">
+                    <div className="text-[10px] text-ink-faint uppercase tracking-wide mb-1">
                       Sub-rating averages
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Card accuracy</span>
-                      <span className="font-mono text-neutral-300">{fmtRating(state.reviews.sub_ratings_avg.card_accuracy)}</span>
+                      <span className="text-ink-muted">Card accuracy</span>
+                      <span className="font-mono text-ink">{fmtRating(state.reviews.sub_ratings_avg.card_accuracy)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Shipping speed</span>
-                      <span className="font-mono text-neutral-300">{fmtRating(state.reviews.sub_ratings_avg.shipping_speed)}</span>
+                      <span className="text-ink-muted">Shipping speed</span>
+                      <span className="font-mono text-ink">{fmtRating(state.reviews.sub_ratings_avg.shipping_speed)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Communication</span>
-                      <span className="font-mono text-neutral-300">{fmtRating(state.reviews.sub_ratings_avg.communication)}</span>
+                      <span className="text-ink-muted">Communication</span>
+                      <span className="font-mono text-ink">{fmtRating(state.reviews.sub_ratings_avg.communication)}</span>
                     </div>
                   </div>
                 </>
               )}
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                 Public reviews only. Hidden / admin-moderated reviews are
                 excluded by the composer.
               </p>
@@ -316,8 +316,8 @@ export default async function PublicTrustPage({
           {/* Center+Right: stats + propagation */}
           <div className="md:col-span-2 space-y-6">
             {/* Stats */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-2">
                 Trade history
                 <WhyLink href="/methodology/trust-score#stats" />
               </h2>
@@ -342,12 +342,12 @@ export default async function PublicTrustPage({
             </section>
 
             {/* Propagation — the killer section */}
-            <section className="bg-amber-500/[0.03] border border-amber-500/20 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-amber-400 mb-1 flex items-center gap-2">
+            <section className="bg-accent-wash border border-accent/20 rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-accent-strong mb-1 flex items-center gap-2">
                 What this trust score currently produces
                 <WhyLink href="/methodology/trust-score#propagation" />
               </h2>
-              <p className="text-xs text-neutral-400 mb-4">
+              <p className="text-xs text-ink-muted mb-4">
                 The live downstream effects. Every value here is what the
                 kingdom would apply to a trade by this user *right now*,
                 given their current score of <code>{state.current.trust_score}</code>{" "}
@@ -390,7 +390,7 @@ export default async function PublicTrustPage({
                   href="/methodology/escrow-tier"
                 />
               </div>
-              <p className="text-[10px] text-neutral-500 mt-4 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-4 leading-relaxed">
                 Per-trade values may differ from these defaults — escrow
                 routing can impose a higher hold floor, item categories
                 like graded slabs always require inspection regardless of
@@ -401,13 +401,13 @@ export default async function PublicTrustPage({
 
             {/* Next tier hint */}
             {state.tier.next_tier && (
-              <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-                <h2 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+              <section className="bg-surface border border-border-subtle rounded-lg p-4">
+                <h2 className="text-sm font-semibold text-ink mb-2 flex items-center gap-2">
                   Next tier
                   <WhyLink href="/methodology/trust-score#tiers" />
                 </h2>
-                <p className="text-sm text-neutral-300">
-                  <span className="font-mono text-amber-400">
+                <p className="text-sm text-ink-muted">
+                  <span className="font-mono text-accent">
                     {state.tier.next_tier.points_away}
                   </span>{" "}
                   point{state.tier.next_tier.points_away === 1 ? "" : "s"} away
@@ -425,7 +425,7 @@ export default async function PublicTrustPage({
         </div>
 
         {/* Footer */}
-        <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 space-y-2">
+        <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint space-y-2">
           <p>
             <Provenance kind="live" /> Queried at{" "}
             <span className="font-mono">{state._provenance.queried_at}</span>
@@ -439,20 +439,20 @@ export default async function PublicTrustPage({
             <span className="font-mono">{state._provenance.sources.slice(0, 4).join(", ")}</span>.
           </p>
           <p>
-            <Link href="/methodology/trust-score" className="text-amber-400 hover:underline">
+            <Link href="/methodology/trust-score" className="text-accent hover:underline">
               /methodology/trust-score →
             </Link>{" "}
             documents every formula. JSON sibling at{" "}
             <Link
               href={`/api/v1/users/${username}/trust`}
-              className="text-amber-400 hover:underline font-mono"
+              className="text-accent hover:underline font-mono"
             >
               /api/v1/users/{username}/trust
             </Link>
             . Math-mirror at{" "}
             <Link
               href={`/api/v1/universal/users/${username}/trust`}
-              className="text-amber-400 hover:underline font-mono"
+              className="text-accent hover:underline font-mono"
             >
               /api/v1/universal/users/{username}/trust
             </Link>
@@ -476,13 +476,13 @@ function Stat({
   tone?: "emerald" | "red" | "amber";
 }) {
   const valColor =
-    tone === "emerald" ? "text-emerald-400"
-    : tone === "red" ? "text-red-400"
-    : tone === "amber" ? "text-amber-400"
-    : "text-white";
+    tone === "emerald" ? "text-ok"
+    : tone === "red" ? "text-danger"
+    : tone === "amber" ? "text-warning"
+    : "text-ink";
   return (
     <div>
-      <div className="text-[10px] text-neutral-500 uppercase tracking-wide">{label}</div>
+      <div className="text-[10px] text-ink-faint uppercase tracking-wide">{label}</div>
       <div className={`text-sm font-mono font-medium ${valColor}`}>{value}</div>
     </div>
   );
@@ -500,13 +500,13 @@ function PropRow({
 }) {
   return (
     <div>
-      <div className="text-[10px] text-neutral-500 uppercase tracking-wide flex items-center gap-1">
+      <div className="text-[10px] text-ink-faint uppercase tracking-wide flex items-center gap-1">
         {label}
-        <Link href={href} className="text-neutral-700 hover:text-amber-400 transition" aria-label="Methodology">
+        <Link href={href} className="text-ink-faint hover:text-accent transition" aria-label="Methodology">
           ?
         </Link>
       </div>
-      <div className="text-sm font-mono font-medium text-amber-400">{value}</div>
+      <div className="text-sm font-mono font-medium text-accent-strong">{value}</div>
     </div>
   );
 }

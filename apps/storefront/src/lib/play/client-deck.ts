@@ -18,7 +18,6 @@ export interface SavedDeckCard {
   rarity: string | null;
   image_url: string | null;
   spot_price: number;
-  tradein_credit: number | null;
 }
 
 export interface SavedDeck {
@@ -95,7 +94,6 @@ export async function fetchStarterAsSavedDeck(
       rarity: detail.leader.rarity,
       image_url: detail.leader.image_url,
       spot_price: 0,
-      tradein_credit: null,
     };
 
     type CardRef = {
@@ -122,7 +120,6 @@ export async function fetchStarterAsSavedDeck(
           rarity: c.rarity,
           image_url: c.image_url,
           spot_price: 0,
-          tradein_credit: null,
         } satisfies SavedDeckCard,
       }));
 

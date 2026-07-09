@@ -30,7 +30,6 @@ export default function LotDetailPage() {
 
   const [lot, setLot] = useState<Lot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
@@ -46,27 +45,10 @@ export default function LotDetailPage() {
       .catch(() => setLoggedIn(false));
   }, [id]);
 
-  async function handleBuy() {
-    setBuying(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/market/lots/${id}/buy`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Failed to start checkout");
-        return;
-      }
-      window.location.href = data.url;
-    } finally {
-      setBuying(false);
-    }
-  }
-
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-ink-faint text-sm">Loading...</p></div>;
   if (!lot) return <div className="min-h-screen flex items-center justify-center"><p className="text-ink-faint text-sm">{error || "Not found"}</p></div>;
 
   const price = parseFloat(lot.price);
-  const canBuy = lot.status === "active";
 
   // Wardrobe migration (spec §3.4): Gallery tokens, matted art, mono numerals — behaviour unchanged.
   return (
@@ -139,22 +121,30 @@ export default function LotDetailPage() {
           )}
 
           <div className="mt-6 mb-3">
-            {!loggedIn ? (
-              <Link href="/login" className="inline-block px-5 py-3 bg-accent text-white font-bold rounded-lg hover:bg-accent-strong transition">
-                Sign in to buy
-              </Link>
-            ) : lot.status === "sold" ? (
+            {lot.status === "sold" ? (
               <span className="inline-block px-5 py-3 bg-surface-elevated border border-border-subtle text-ink-faint font-bold rounded-lg">Sold</span>
             ) : lot.status === "cancelled" ? (
               <span className="inline-block px-5 py-3 bg-surface-elevated border border-border-subtle text-ink-faint font-bold rounded-lg">Cancelled</span>
             ) : (
-              <button
-                onClick={handleBuy}
-                disabled={buying || !canBuy}
-                className="px-5 py-3 bg-accent text-white font-bold rounded-lg hover:bg-accent-strong transition disabled:opacity-50"
-              >
-                {buying ? "Starting..." : <>Buy lot for <span className="font-mono tabular-nums"><Money value={price} /></span></>}
-              </button>
+              // Purchases are paused (mirrors the guard in
+              // lib/market/lots.ts): no fulfilment path exists after
+              // payment, so the buy action would take money and strand
+              // the trade. Browsing stays live.
+              <div className="space-y-2">
+                <button
+                  disabled
+                  title="Lot purchases are paused"
+                  className="px-5 py-3 bg-surface-elevated border border-border-subtle text-ink-faint font-bold rounded-lg cursor-not-allowed"
+                >
+                  Lot purchases paused
+                </button>
+                <p className="text-xs text-ink-muted max-w-md leading-relaxed">
+                  Lot purchases are paused while fulfilment is rebuilt &mdash; buying a lot today
+                  would take your money with no shipping flow behind it. Browse the{" "}
+                  <Link href="/market" className="text-accent hover:underline">singles market</Link>{" "}
+                  meanwhile.
+                </p>
+              </div>
             )}
           </div>
 

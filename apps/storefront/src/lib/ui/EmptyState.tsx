@@ -24,8 +24,8 @@ export function EmptyState({ title, description, action, tone = "neutral" }: Emp
       ? "border-warning/20 bg-warning/5"
       : "border-border-subtle bg-surface-subtle";
   return (
-    <div className={`rounded-xl border ${tint} p-6 text-center`}>
-      <p className={tone === "warning" ? "text-sm font-bold text-warning mb-2" : "text-sm font-semibold text-ink mb-1"}>
+    <div className={`rounded-lg border ${tint} p-6 text-center`}>
+      <p className={tone === "warning" ? "text-sm font-semibold text-warning mb-2" : "text-sm font-semibold text-ink mb-1"}>
         {title}
       </p>
       {description && (

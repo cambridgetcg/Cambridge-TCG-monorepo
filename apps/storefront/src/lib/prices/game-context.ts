@@ -54,11 +54,14 @@ export const PATTERN_LABEL: Record<OraclePolicy["kind"], string> = {
   "single-lang": "Pattern D — single-language game",
 };
 
+// Quiet-gallery re-tune: same tone semantics as the home strip's map
+// (stripped→ok, passcode→info, diverged→warning, single-lang→neutral),
+// rendered as hairline wash chips. Rings are focus-only in the gallery.
 export const PATTERN_TONE: Record<OraclePolicy["kind"], string> = {
-  stripped: "bg-emerald-950 text-emerald-300 ring-emerald-800",
-  passcode: "bg-blue-950 text-blue-300 ring-blue-800",
-  diverged: "bg-amber-950 text-amber-300 ring-amber-800",
-  "single-lang": "bg-neutral-900 text-neutral-300 ring-neutral-700",
+  stripped: "bg-ok/15 text-ok border-ok/30",
+  passcode: "bg-info/15 text-info border-info/30",
+  diverged: "bg-warning/15 text-warning border-warning/30",
+  "single-lang": "bg-surface-subtle text-ink-muted border-border-subtle",
 };
 
 /** Counts the platform's coverage state for a game. */

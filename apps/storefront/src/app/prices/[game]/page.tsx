@@ -43,6 +43,7 @@ import {
   PATTERN_TONE,
   ORACLE_ID_FORM_LABEL,
 } from "@/lib/prices/game-context";
+import { weatherClass } from "@/lib/wardrobe/weather";
 
 /**
  * Resolve the page's config: curated first, fall through to catalog-
@@ -107,42 +108,42 @@ function CrossLanguagePanel({ slug }: { slug: string }) {
   return (
     // Collapsed by default — engineering detail, kept whole but out of
     // the way of the shopper. The summary line carries the heading.
-    <details className="rounded-lg border border-neutral-800 bg-neutral-950">
-      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-neutral-300 hover:text-white transition">
+    <details className="rounded-lg border border-border-subtle bg-page">
+      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-ink-muted hover:text-ink transition">
         Cross-language identity
       </summary>
       <div className="px-5 pb-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span
-          className={`inline-flex items-center rounded px-2 py-0.5 text-xs ring-1 ${PATTERN_TONE[ctx.policy.kind]}`}
+          className={`inline-flex items-center rounded px-2 py-0.5 text-xs border ${PATTERN_TONE[ctx.policy.kind]}`}
         >
           {PATTERN_LABEL[ctx.policy.kind]}
         </span>
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs text-ink-faint">
           {ctx.languages.length} language
           {ctx.languages.length === 1 ? "" : "s"} (
-          <code className="text-neutral-400">{ctx.languages.join(", ")}</code>)
+          <code className="text-ink-muted">{ctx.languages.join(", ")}</code>)
         </span>
       </div>
-      <p className="mb-2 text-sm text-neutral-300">{ctx.policy.rationale}</p>
-      <p className="text-xs text-neutral-500">
+      <p className="mb-2 text-sm text-ink-muted">{ctx.policy.rationale}</p>
+      <p className="text-xs text-ink-faint">
         Oracle id form:{" "}
-        <code className="text-neutral-400">
+        <code className="text-ink-muted">
           {ORACLE_ID_FORM_LABEL[ctx.policy.kind]}
         </code>
       </p>
-      <p className="mt-3 text-xs text-neutral-500">
+      <p className="mt-3 text-xs text-ink-faint">
         See{" "}
         <Link
           href="/api/v1/oracle-policies"
-          className="text-blue-400 hover:underline"
+          className="text-info hover:underline"
         >
           /api/v1/oracle-policies
         </Link>{" "}
         for the machine-readable policy across all 21 registered games, or{" "}
         <Link
           href="/methodology/oracle-policies"
-          className="text-blue-400 hover:underline"
+          className="text-info hover:underline"
         >
           /methodology/oracle-policies
         </Link>{" "}
@@ -172,47 +173,47 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
     // Collapsed by default — same disclosure pattern as the
     // cross-language panel above. All content kept; only placement
     // and default visibility changed.
-    <details className="rounded-lg border border-neutral-800 bg-neutral-950">
-      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-neutral-300 hover:text-white transition">
+    <details className="rounded-lg border border-border-subtle bg-page">
+      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-ink-muted hover:text-ink transition">
         Data coverage details
       </summary>
       <div className="px-5 pb-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <h3 className="mb-2 text-xs uppercase tracking-wider text-neutral-500">
+          <h3 className="mb-2 text-xs uppercase tracking-wider text-ink-faint">
             Upstream sources for {ctx.config.short_name}
           </h3>
           <ul className="space-y-1 text-sm">
             {arrived.length > 0 && (
-              <li className="text-emerald-400">
+              <li className="text-ok">
                 <span className="font-medium">Arrived ({arrived.length}):</span>{" "}
-                <span className="text-neutral-300">
+                <span className="text-ink-muted">
                   {arrived.map((w) => w.source_id).join(", ")}
                 </span>
               </li>
             )}
             {anticipated.length > 0 && (
-              <li className="text-amber-400">
+              <li className="text-accent">
                 <span className="font-medium">
                   Anticipated ({anticipated.length}):
                 </span>{" "}
-                <span className="text-neutral-300">
+                <span className="text-ink-muted">
                   {anticipated.map((w) => w.source_id).join(", ")}
                 </span>
               </li>
             )}
             {arrived.length === 0 && anticipated.length === 0 && (
-              <li className="text-neutral-500">
+              <li className="text-ink-faint">
                 No upstream sources mapped for this game yet — wholesale RDS
                 is the only source.
               </li>
             )}
           </ul>
-          <p className="mt-2 text-xs text-neutral-500">
+          <p className="mt-2 text-xs text-ink-faint">
             See{" "}
             <Link
               href={`/api/v1/welcomes?kind=upstream-source`}
-              className="text-blue-400 hover:underline"
+              className="text-info hover:underline"
             >
               /api/v1/welcomes
             </Link>{" "}
@@ -220,26 +221,26 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
           </p>
         </div>
         <div>
-          <h3 className="mb-2 text-xs uppercase tracking-wider text-neutral-500">
+          <h3 className="mb-2 text-xs uppercase tracking-wider text-ink-faint">
             Known gaps for {ctx.config.short_name}
           </h3>
           {openGaps.length === 0 && closedGaps.length === 0 ? (
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-ink-faint">
               No game-specific gaps in the ledger today.
             </p>
           ) : (
             <ul className="space-y-1 text-sm">
               {openGaps.map((g) => (
-                <li key={g.id} className="text-neutral-300">
-                  <span className="mr-1 inline-block rounded bg-amber-950 px-1.5 py-0.5 text-[10px] text-amber-300 ring-1 ring-amber-800">
+                <li key={g.id} className="text-ink-muted">
+                  <span className="mr-1 inline-block rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning border border-warning/30">
                     {g.status}
                   </span>
                   {g.name}
                 </li>
               ))}
               {closedGaps.map((g) => (
-                <li key={g.id} className="text-neutral-300">
-                  <span className="mr-1 inline-block rounded bg-emerald-950 px-1.5 py-0.5 text-[10px] text-emerald-300 ring-1 ring-emerald-800">
+                <li key={g.id} className="text-ink-muted">
+                  <span className="mr-1 inline-block rounded bg-ok/15 px-1.5 py-0.5 text-[10px] text-ok border border-ok/30">
                     closed
                   </span>
                   {g.name}
@@ -247,11 +248,11 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
               ))}
             </ul>
           )}
-          <p className="mt-2 text-xs text-neutral-500">
+          <p className="mt-2 text-xs text-ink-faint">
             See{" "}
             <Link
               href="/methodology/known-gaps"
-              className="text-blue-400 hover:underline"
+              className="text-info hover:underline"
             >
               /methodology/known-gaps
             </Link>{" "}
@@ -260,7 +261,7 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
         </div>
       </div>
       {!ctx.confirmed && (
-        <p className="mt-4 rounded border border-amber-900 bg-amber-950/40 p-3 text-xs text-amber-300">
+        <p className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-ink-muted">
           <strong>Anticipated game.</strong> The slot for{" "}
           <code>{ctx.game_code}</code> is registered in{" "}
           <code>packages/sku/src/games.ts</code> with{" "}
@@ -268,7 +269,7 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
           true. The welcome lives in{" "}
           <Link
             href="/api/v1/welcomes?kind=publisher"
-            className="text-amber-200 hover:underline"
+            className="text-accent hover:underline"
           >
             /api/v1/welcomes
           </Link>
@@ -287,12 +288,12 @@ function CoverageStatusPanel({ slug }: { slug: string }) {
 function RarityBadge({ rarity }: { rarity: string | null }) {
   if (!rarity) return null;
   const r = rarity.toUpperCase();
-  let cls = "bg-neutral-700 text-neutral-400";
+  let cls = "bg-surface-subtle text-ink-muted";
   if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP")
-    cls = "bg-yellow-500/20 text-yellow-400";
+    cls = "bg-warning/20 text-warning";
   else if (r === "R" || r === "RR" || r === "SSR")
-    cls = "bg-purple-500/20 text-purple-400";
-  else if (r === "UC") cls = "bg-blue-500/20 text-blue-400";
+    cls = "bg-[#6a5a8f]/15 text-[#6a5a8f]";
+  else if (r === "UC") cls = "bg-info/20 text-info";
   return (
     <span
       className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cls}`}
@@ -313,12 +314,14 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
 
   const accent = ACCENT_CLASSES[cfg.accent];
 
-  // Fetch sets, top cards, tradein channel, aggregator coverage, FX
-  // rates, and display currency in parallel. Coverage is null when
+  // Fetch sets, top cards, aggregator coverage, FX rates, and display
+  // currency in parallel. (Collectors-first, 2026-07-06: the tradein
+  // channel fetch and its "We Buy" column are gone — the house buys
+  // nothing.) Coverage is null when
   // wholesale is unreachable — the page renders without the coverage
   // strip in that case. Rates fall back to a static table on upstream
   // failure (substrate-honest: the surface shows a "fallback" pill).
-  const [sets, topCardsData, tradeinData, coverage, rates, currency] =
+  const [sets, topCardsData, coverage, rates, currency] =
     await Promise.all([
       fetchSets(cfg.slug).catch(() => []),
       fetchPrices({
@@ -326,12 +329,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         sort: "price_desc",
         limit: 20,
       }).catch(() => ({ items: [], total: 0 })),
-      fetchPrices({
-        game: cfg.slug,
-        sort: "price_desc",
-        limit: 20,
-        channel: "tradein-credit",
-      }).catch(() => ({ items: [] })),
       // kingdom-085: per-game aggregator coverage. Scoped via game_code so
       // the response only carries this game's rows; the strip renders below.
       fetchAggregatorCoverage({ game: cfg.game_code }).catch(() => null),
@@ -350,13 +347,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
   // Substrate-honest: if the catalog returns nothing for this game, the
   // page renders with an empty-but-honest body rather than fabricating
   // value. SEO copy still applies; tables degrade visibly.
-  const tradeinMap = new Map<string, number>();
-  for (const item of tradeinData.items) {
-    if (item.channel_price && item.channel_price > 0) {
-      tradeinMap.set(item.sku, item.channel_price);
-    }
-  }
-
   const topCards = topCardsData.items.map((item) => ({
     sku: item.sku,
     name: item.name_en || item.name || item.card_number,
@@ -365,7 +355,6 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
     set_name: item.set_name,
     rarity: item.rarity,
     price: retailPrice(item.price_gbp, item.channel_price),
-    tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
 
   // Freshest synced timestamp — feeds the Provenance pill.
@@ -413,51 +402,55 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         <Audience kind="public-documentation" contexts={["prices", cfg.slug]} />
 
         {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-muted mb-8">
           <ol className="flex items-center gap-1.5">
             <li>
-              <Link href="/" className="hover:text-white transition-colors">
+              <Link href="/" className="hover:text-ink transition-colors">
                 Home
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
+            <li className="text-ink-faint">/</li>
             <li>
               <Link
                 href="/prices"
-                className="hover:text-white transition-colors"
+                className="hover:text-ink transition-colors"
               >
                 Prices
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
-            <li className="text-white">{cfg.display_name}</li>
+            <li className="text-ink-faint">/</li>
+            <li className="text-ink">{cfg.display_name}</li>
           </ol>
         </nav>
 
-        <h1 className={`text-3xl font-bold mb-4 ${accent.text}`}>
-          {cfg.seo_title}
-        </h1>
+        {/* The header band wears the game's weather (spec 2026-07-07 §4);
+            price-guide slugs beyond the weather registry get "" — bare. */}
+        <header className={weatherClass(cfg.slug)}>
+          <h1 className={`text-3xl font-bold mb-4 ${accent.text}`}>
+            {cfg.seo_title}
+          </h1>
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Provenance
-            kind="synced"
-            source={cfg.cardrush?.subdomain ?? "wholesale"}
-            at={freshestUpdate}
-            cadence="daily"
-          />
-          <WhyLink href="/methodology/pricing" label="how prices work" />
-          <CurrencyWhyLink />
-          {cfg.cardrush && !cfg.cardrush.confirmed && (
-            <span
-              className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded"
-              title="Upstream subdomain registered but not yet confirmed by daily scrape"
-            >
-              coverage probationary
-            </span>
-          )}
-        </div>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <Provenance
+              kind="synced"
+              source={cfg.cardrush?.subdomain ?? "wholesale"}
+              at={freshestUpdate}
+              cadence="daily"
+            />
+            <WhyLink href="/methodology/pricing" label="how prices work" />
+            <CurrencyWhyLink />
+            {cfg.cardrush && !cfg.cardrush.confirmed && (
+              <span
+                className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-accent-wash text-accent border border-accent/30 rounded"
+                title="Upstream subdomain registered but not yet confirmed by daily scrape"
+              >
+                coverage probationary
+              </span>
+            )}
+          </div>
+        </header>
 
-        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-6">
+        <p className="text-ink-muted leading-relaxed max-w-3xl mb-6">
           {cfg.hero_paragraph}
         </p>
 
@@ -469,7 +462,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         <form
           action="/prices/search"
           method="get"
-          className="mb-10 rounded-lg border border-amber-700/50 bg-amber-500/5 p-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end"
+          className="mb-10 rounded-lg border border-accent/30 bg-accent-wash p-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end"
         >
           {/* Use slug not code — the wholesale prices route's game filter
               matches reliably on `slug` per the games table; `game_code`
@@ -477,7 +470,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               live verification 2026-05-14. */}
           <input type="hidden" name="game" value={cfg.slug} />
           <div>
-            <label className="block text-xs uppercase tracking-wider text-amber-300 mb-2 font-semibold">
+            <label className="block text-xs uppercase tracking-wider text-accent mb-2 font-semibold">
               Card number → everything
             </label>
             <input
@@ -485,12 +478,12 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               name="q"
               required
               placeholder={`e.g. ${cfg.game_code.toUpperCase()}01-001 — or just 001`}
-              className="w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full rounded-md border border-border-subtle bg-page px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <button
             type="submit"
-            className="rounded-md bg-amber-500 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-400 transition"
+            className="rounded-md bg-ink px-5 py-2 text-sm font-semibold text-page hover:opacity-90 transition"
           >
             Search →
           </button>
@@ -509,40 +502,40 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         {/* ── Observed coverage strip (kingdom-085) ──────────────── */}
         {/*  What we've actually accumulated for THIS game.            */}
         {gameCoverage && gameCoverage.observations > 0 && (
-          <section className="mb-10 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+          <section className="mb-10 rounded-lg border border-border-subtle bg-surface p-4">
             <div className="flex items-baseline justify-between gap-4 mb-3 flex-wrap">
-              <h2 className="text-sm font-semibold text-white uppercase tracking-wider">
+              <h2 className="text-sm font-semibold text-ink uppercase tracking-wider">
                 Aggregator coverage for {cfg.short_name}
               </h2>
               <Link
                 href="/prices/coverage"
-                className="text-xs text-blue-400 hover:underline"
+                className="text-xs text-info hover:underline"
               >
                 full coverage map →
               </Link>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-3">
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                <div className="text-[10px] uppercase tracking-wider text-ink-faint">
                   Observations
                 </div>
-                <div className="text-xl font-bold text-white font-mono">
+                <div className="text-xl font-bold text-ink font-mono">
                   {gameCoverage.observations.toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                <div className="text-[10px] uppercase tracking-wider text-ink-faint">
                   Cards observed
                 </div>
-                <div className="text-xl font-bold text-white font-mono">
+                <div className="text-xl font-bold text-ink font-mono">
                   {gameCoverage.distinct_cards_max.toLocaleString()}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                <div className="text-[10px] uppercase tracking-wider text-ink-faint">
                   Days of data
                 </div>
-                <div className="text-xl font-bold text-white font-mono">
+                <div className="text-xl font-bold text-ink font-mono">
                   {(() => {
                     const days =
                       (new Date(gameCoverage.latest_snapshot).getTime() -
@@ -552,20 +545,20 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                     return Math.round(days).toLocaleString();
                   })()}
                 </div>
-                <div className="text-[10px] text-neutral-500 mt-0.5">
+                <div className="text-[10px] text-ink-faint mt-0.5">
                   {gameCoverage.earliest_snapshot} →{" "}
                   {gameCoverage.latest_snapshot}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-neutral-500">
+                <div className="text-[10px] uppercase tracking-wider text-ink-faint">
                   Sources
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {gameCoverage.sources.map((s) => (
                     <span
                       key={s}
-                      className="inline-block text-[10px] px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded font-mono"
+                      className="inline-block text-[10px] px-1.5 py-0.5 bg-surface-subtle text-ink-muted rounded font-mono"
                     >
                       {s}
                     </span>
@@ -574,17 +567,17 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               </div>
             </div>
             {gameCoverageSources.length > 1 && (
-              <div className="text-[10px] text-neutral-500 pt-3 border-t border-neutral-800/60">
+              <div className="text-[10px] text-ink-faint pt-3 border-t border-border-subtle">
                 Per-source freshness:{" "}
                 {gameCoverageSources.map((r, i) => (
                   <span key={r.source} className="font-mono">
-                    {i > 0 && <span className="text-neutral-700"> · </span>}
+                    {i > 0 && <span className="text-ink-faint"> · </span>}
                     {r.source}{" "}
                     <span
                       className={
                         r.freshest_age_hours > 48
-                          ? "text-amber-400"
-                          : "text-emerald-400"
+                          ? "text-warning"
+                          : "text-ok"
                       }
                     >
                       {r.freshest_age_hours < 1
@@ -597,9 +590,9 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                 ))}
               </div>
             )}
-            <div className="text-[10px] text-neutral-600 mt-2">
+            <div className="text-[10px] text-ink-faint mt-2">
               Live observed data from{" "}
-              <code className="text-neutral-500">price_archive</code>. The
+              <code className="text-ink-faint">price_archive</code>. The
               underlying source license tier still applies — raw upstream
               values are emitted only on auth-gated per-card endpoints.
             </div>
@@ -618,11 +611,12 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               The horizon (2026-07-09): empty sets with a known release
               date near or ahead of today are not "pending" — they are
               anticipated. They get a quiet strip of their own instead of
-              vanishing into the pill: upcoming sets show their release
+              vanishing into the pill: upcoming sets show their JP release
               date; just-released sets (≤60 days) say they await their
               first scrape. The tile flips to the live grid automatically
               the day cards carry prices. Registered by
-              apps/wholesale/tools/register-sets.ts. */}
+              apps/wholesale/tools/register-sets.ts; story at
+              docs/connections/the-horizon.md. */}
           {(() => {
             const populated = sets.filter((s) => s.card_count > 0);
             const empty = sets.filter((s) => s.card_count === 0);
@@ -644,12 +638,12 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
             return (
               <>
                 <div className="flex items-baseline justify-between gap-4 mb-5 flex-wrap">
-                  <h2 className="text-xl font-semibold text-white">
+                  <h2 className="text-xl font-semibold text-ink">
                     All {cfg.display_name} Sets
                   </h2>
                   {pending.length > 0 && (
                     <span
-                      className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-neutral-800/60 text-neutral-500 border border-neutral-800 rounded"
+                      className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-surface-subtle text-ink-faint border border-border-subtle rounded"
                       title={`${pending.length} additional sets are registered but not yet seeded with cards. Substrate-honest: hidden from this list, visitable by URL.`}
                     >
                       {pending.length} sets pending
@@ -658,11 +652,11 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                 </div>
 
                 {populated.length === 0 ? (
-                  <p className="text-neutral-500 text-sm py-6 text-center bg-neutral-900 border border-neutral-800 rounded-lg">
+                  <p className="text-ink-faint text-sm py-6 text-center bg-surface border border-border-subtle rounded-lg">
                     {sets.length === 0
                       ? "No sets in the catalog for this game yet. Coverage rolls out as we mirror upstream sources; "
                       : "No sets with observed cards yet — every set registered for this game is awaiting its first scrape. "}
-                    <Link href="/api/v1/sources" className="text-blue-400 hover:underline">
+                    <Link href="/api/v1/sources" className="text-info hover:underline">
                       see /api/v1/sources
                     </Link>{" "}
                     for the live ingest state.
@@ -673,17 +667,17 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                       <Link
                         key={set.code}
                         href={`/prices/${cfg.slug}/${set.code.toLowerCase()}`}
-                        className={`flex items-center justify-between rounded-lg border border-neutral-800 ${accent.bg} px-4 py-3 hover:${accent.border} transition-colors`}
+                        className={`flex items-center justify-between rounded-lg border border-border-subtle ${accent.bg} px-4 py-3 hover:${accent.border} transition-colors`}
                       >
                         <div>
-                          <span className="text-white font-medium text-sm">
+                          <span className="text-ink font-medium text-sm">
                             {set.code}
                           </span>
-                          <span className="text-neutral-400 text-sm ml-2">
+                          <span className="text-ink-muted text-sm ml-2">
                             {set.name}
                           </span>
                         </div>
-                        <span className="text-neutral-500 text-xs">
+                        <span className="text-ink-faint text-xs">
                           {set.card_count} cards
                         </span>
                       </Link>
@@ -694,33 +688,32 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                 {horizon.length > 0 && (
                   <div className="mt-8">
                     <div className="flex items-baseline gap-3 mb-3">
-                      <h3 className="text-[11px] uppercase tracking-widest text-neutral-500">
+                      <h3 className="text-[11px] uppercase tracking-widest text-ink-faint">
                         On the horizon
                       </h3>
-                      <span className="text-[10px] text-neutral-600">
+                      <span className="font-display italic text-xs text-ink-faint">
                         no prices yet — each set goes live the day its
                         first scrape lands
                       </span>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {horizon.map((set) => {
-                        const upcoming =
-                          (set.release_date ?? "") > today;
+                        const upcoming = (set.release_date ?? "") > today;
                         return (
                           <Link
                             key={set.code}
                             href={`/prices/${cfg.slug}/${set.code.toLowerCase()}`}
-                            className="flex items-center justify-between rounded-lg border border-dashed border-neutral-800/80 bg-neutral-900/40 px-4 py-3 hover:border-neutral-700 transition-colors"
+                            className="flex items-center justify-between rounded-lg border border-dashed border-border-subtle bg-surface-subtle px-4 py-3 hover:border-border-strong transition-colors"
                           >
                             <div>
-                              <span className="text-neutral-300 font-medium text-sm">
+                              <span className="text-ink-muted font-medium text-sm">
                                 {set.code}
                               </span>
-                              <span className="text-neutral-500 text-sm ml-2">
+                              <span className="text-ink-faint text-sm ml-2">
                                 {set.name}
                               </span>
                             </div>
-                            <span className="text-neutral-600 text-[11px] whitespace-nowrap font-mono">
+                            <span className="text-ink-faint text-[11px] whitespace-nowrap font-mono">
                               {upcoming
                                 ? `JP ${set.release_date}`
                                 : "awaiting first scrape"}
@@ -741,14 +734,14 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         {/* ---------------------------------------------------------- */}
         <section className="mb-14">
           <div className="flex items-baseline justify-between mb-5">
-            <h2 className="text-xl font-semibold text-white">
+            <h2 className="text-xl font-semibold text-ink">
               Top {topCards.length > 0 ? topCards.length : 20} Most Valuable{" "}
               {cfg.short_name} Cards
             </h2>
             {topCards.length > 0 && (
               <Link
                 href={`/prices/${cfg.slug}/movers`}
-                className="text-sm text-blue-400 hover:underline"
+                className="text-sm text-info hover:underline"
               >
                 See top 50 →
               </Link>
@@ -756,53 +749,49 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           </div>
 
           {topCards.length === 0 ? (
-            <p className="text-neutral-500 text-sm py-6 text-center bg-neutral-900 border border-neutral-800 rounded-lg">
+            <p className="text-ink-faint text-sm py-6 text-center bg-surface border border-border-subtle rounded-lg">
               No price data for this game yet.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-neutral-800">
+            <div className="overflow-x-auto rounded-lg border border-border-subtle">
               <table className="w-full text-sm text-left">
-                <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+                <thead className="bg-surface-subtle text-ink-muted text-xs uppercase tracking-wider">
                   <tr>
                     <th className="px-3 py-3 w-10">#</th>
                     <th className="px-3 py-3">Card</th>
                     <th className="px-3 py-3">Set</th>
                     <th className="px-3 py-3">Rarity</th>
                     <th className="px-3 py-3 text-right">Buy Price</th>
-                    <th className="px-3 py-3 text-right">We Buy</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800">
+                <tbody className="divide-y divide-border-subtle">
                   {topCards.map((card, i) => (
                     <tr
                       key={card.sku}
-                      className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                      className="bg-surface hover:bg-surface-subtle transition-colors"
                     >
-                      <td className="px-3 py-3 text-neutral-500 font-medium">
+                      <td className="px-3 py-3 text-ink-faint font-medium">
                         {i + 1}
                       </td>
                       <td className="px-3 py-3">
                         <Link
                           href={`/product/${card.sku}`}
-                          className="text-white hover:text-blue-400 transition-colors"
+                          className="text-ink hover:text-info transition-colors"
                         >
                           {card.name}
                         </Link>
-                        <span className="text-neutral-500 text-xs ml-2">
+                        <span className="text-ink-faint text-xs ml-2">
                           {card.card_number}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-neutral-400">
+                      <td className="px-3 py-3 text-ink-muted">
                         {card.set_code}
                       </td>
                       <td className="px-3 py-3">
                         <RarityBadge rarity={card.rarity} />
                       </td>
-                      <td className="px-3 py-3 text-right text-white font-medium">
+                      <td className="px-3 py-3 text-right text-ink font-medium">
                         <Money value={card.price} />
-                      </td>
-                      <td className="px-3 py-3 text-right text-green-400">
-                        <Money value={card.tradein_credit} treatZeroAsMissing />
                       </td>
                     </tr>
                   ))}
@@ -826,20 +815,20 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         {/* ---------------------------------------------------------- */}
         {/*  Pricing explanation                                         */}
         {/* ---------------------------------------------------------- */}
-        <section className="border-t border-neutral-800 pt-8">
-          <h2 className="text-lg font-semibold text-white mb-3">
+        <section className="border-t border-border-subtle pt-8">
+          <h2 className="text-lg font-semibold text-ink mb-3">
             How Prices Are Calculated
           </h2>
-          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-4">
+          <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
-            The <strong className="text-neutral-200">Buy Price</strong> is our
-            retail price — the cost to purchase a card from stock. The{" "}
-            <strong className="text-neutral-200">We Buy</strong> price is the
-            instant store credit we offer when you trade in your cards.
+            The <strong className="text-ink-muted">Buy Price</strong> is our
+            catalogue reference price — open data, not an offer. Cambridge TCG
+            no longer sells from stock or buys cards itself; trading happens
+            between collectors on the market.
           </p>
-          <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl">
+          <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
             Want to buy or sell live?{" "}
-            <Link href="/market" className="text-blue-400 hover:underline">
+            <Link href="/market" className="text-info hover:underline">
               Visit the Cambridge TCG Market
             </Link>{" "}
             for real-time peer-to-peer trading, bid/ask orders, and instant

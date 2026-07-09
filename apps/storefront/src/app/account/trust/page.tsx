@@ -11,46 +11,46 @@ import { Audience } from "@/lib/ui";
 type TrustTier = (typeof TRUST_TIERS)[number];
 
 function scoreColor(score: number): string {
-  if (score >= 95) return "text-purple-400";
-  if (score >= 80) return "text-blue-400";
-  if (score >= 50) return "text-emerald-400";
-  if (score >= 20) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 95) return "text-[#6a5a8f]";
+  if (score >= 80) return "text-info";
+  if (score >= 50) return "text-ok";
+  if (score >= 20) return "text-warning";
+  return "text-danger";
 }
 
 function scoreRingColor(score: number): string {
-  if (score >= 95) return "stroke-purple-400";
-  if (score >= 80) return "stroke-blue-400";
-  if (score >= 50) return "stroke-emerald-400";
-  if (score >= 20) return "stroke-amber-400";
-  return "stroke-red-400";
+  if (score >= 95) return "stroke-[#6a5a8f]";
+  if (score >= 80) return "stroke-info";
+  if (score >= 50) return "stroke-ok";
+  if (score >= 20) return "stroke-warning";
+  return "stroke-danger";
 }
 
 function scoreBg(score: number): string {
-  if (score >= 95) return "bg-purple-400";
-  if (score >= 80) return "bg-blue-400";
-  if (score >= 50) return "bg-emerald-400";
-  if (score >= 20) return "bg-amber-400";
-  return "bg-red-400";
+  if (score >= 95) return "bg-[#6a5a8f]";
+  if (score >= 80) return "bg-info";
+  if (score >= 50) return "bg-ok";
+  if (score >= 20) return "bg-warning";
+  return "bg-danger";
 }
 
 function tierBadgeClass(tier: TrustTier): string {
   const map: Record<string, string> = {
-    neutral: "bg-neutral-700 text-neutral-300",
-    blue: "bg-blue-500/20 text-blue-400",
-    emerald: "bg-emerald-500/20 text-emerald-400",
-    amber: "bg-amber-500/20 text-amber-400",
-    purple: "bg-purple-500/20 text-purple-400",
+    neutral: "bg-ink-faint/15 text-ink-muted",
+    blue: "bg-info/15 text-info",
+    emerald: "bg-ok/15 text-ok",
+    amber: "bg-warning/15 text-warning",
+    purple: "bg-[#6a5a8f]/15 text-[#6a5a8f]",
   };
   return map[tier.color] || map.neutral;
 }
 
 function platformBadgeClass(platform: string): string {
   const p = platform.toLowerCase();
-  if (p.includes("ebay")) return "bg-blue-500/20 text-blue-400";
-  if (p.includes("cardmarket")) return "bg-emerald-500/20 text-emerald-400";
-  if (p.includes("tcgplayer")) return "bg-amber-500/20 text-amber-400";
-  return "bg-neutral-700 text-neutral-300";
+  if (p.includes("ebay")) return "bg-info/15 text-info";
+  if (p.includes("cardmarket")) return "bg-ok/15 text-ok";
+  if (p.includes("tcgplayer")) return "bg-warning/15 text-warning";
+  return "bg-ink-faint/15 text-ink-muted";
 }
 
 function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
@@ -59,7 +59,7 @@ function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) 
     <span className={`${cls} inline-flex gap-0.5`}>
       <Audience kind="consumer" />
       {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={i <= Math.round(rating) ? "text-amber-400" : "text-neutral-700"}>
+        <span key={i} className={i <= Math.round(rating) ? "text-accent" : "text-border-strong"}>
           ★
         </span>
       ))}
@@ -75,7 +75,7 @@ function ScoreRing({ score }: { score: number }) {
   return (
     <div className="relative w-36 h-36">
       <svg className="w-36 h-36 -rotate-90" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={radius} fill="none" className="stroke-neutral-800" strokeWidth="8" />
+        <circle cx="60" cy="60" r={radius} fill="none" className="stroke-border-subtle" strokeWidth="8" />
         <circle
           cx="60"
           cy="60"
@@ -91,7 +91,7 @@ function ScoreRing({ score }: { score: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={`text-3xl font-bold ${scoreColor(score)}`}>{score}</span>
-        <span className="text-xs text-neutral-500">/ 100</span>
+        <span className="text-xs text-ink-faint">/ 100</span>
       </div>
     </div>
   );
@@ -101,11 +101,11 @@ function BreakdownBar({ label, value, max }: { label: string; value: number; max
   const pct = Math.min(100, (value / max) * 100);
   return (
     <div className="flex items-center gap-3">
-      <span className="text-sm text-neutral-400 w-32 shrink-0">{label}</span>
-      <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden">
+      <span className="text-sm text-ink-muted w-32 shrink-0">{label}</span>
+      <div className="flex-1 h-2 bg-surface-subtle rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${scoreBg(pct)}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-neutral-500 w-12 text-right font-mono">{value}/{max}</span>
+      <span className="text-xs text-ink-faint w-12 text-right font-mono">{value}/{max}</span>
     </div>
   );
 }
@@ -145,20 +145,20 @@ function TrustHistorySparkline() {
   const first = points[0].trust_score;
   const last = points[points.length - 1].trust_score;
   const delta = last - first;
-  const deltaTone = delta > 0 ? "text-emerald-400" : delta < 0 ? "text-red-400" : "text-neutral-500";
+  const deltaTone = delta > 0 ? "text-ok" : delta < 0 ? "text-danger" : "text-ink-faint";
 
   return (
-    <div className="mt-6 pt-4 border-t border-neutral-800">
+    <div className="mt-6 pt-4 border-t border-border-subtle">
       <div className="flex items-baseline justify-between mb-1">
-        <p className="text-xs uppercase tracking-wider text-neutral-500">Last 90 days</p>
+        <p className="text-xs uppercase tracking-wider text-ink-faint">Last 90 days</p>
         <p className={`text-xs font-mono ${deltaTone}`}>
           {delta > 0 ? "+" : ""}{delta} points
         </p>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-12 block">
-        <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" />
+        <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ok" />
       </svg>
-      <p className="text-[10px] text-neutral-600">
+      <p className="text-[10px] text-ink-faint">
         {points.length} daily snapshot{points.length === 1 ? "" : "s"} ·
         range {minScore} – {maxScore}
       </p>
@@ -203,47 +203,47 @@ function EscrowThresholdsSection({ trustScore }: { trustScore: number }) {
   }
 
   return (
-    <div className="bg-neutral-900 rounded-xl p-6 mb-6">
-      <h3 className="text-lg font-semibold text-white mb-4">Your Trade Thresholds</h3>
-      <p className="text-sm text-neutral-400 mb-4">
+    <div className="bg-surface rounded-lg p-6 mb-6">
+      <h3 className="text-lg font-semibold text-ink mb-4">Your Trade Thresholds</h3>
+      <p className="text-sm text-ink-muted mb-4">
         Based on your trust score ({trustScore}):
       </p>
       <div className="space-y-2">
-        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-ok/10 border border-ok/20">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span className="text-sm font-medium text-emerald-400">Direct Ship</span>
+            <span className="w-2 h-2 rounded-full bg-ok" />
+            <span className="text-sm font-medium text-ok">Direct Ship</span>
           </div>
-          <span className="text-sm text-neutral-300">
-            trades up to <span className="font-mono font-semibold text-emerald-400"><Money value={directMax} /></span>
+          <span className="text-sm text-ink-muted">
+            trades up to <span className="font-mono font-semibold text-ok"><Money value={directMax} /></span>
           </span>
         </div>
         {directMax !== verifiedMax && (
-          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-info/10 border border-info/20">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
-              <span className="text-sm font-medium text-blue-400">Verified Ship</span>
+              <span className="w-2 h-2 rounded-full bg-info" />
+              <span className="text-sm font-medium text-info">Verified Ship</span>
             </div>
-            <span className="text-sm text-neutral-300">
-              trades up to <span className="font-mono font-semibold text-blue-400"><Money value={verifiedMax} /></span>
+            <span className="text-sm text-ink-muted">
+              trades up to <span className="font-mono font-semibold text-info"><Money value={verifiedMax} /></span>
             </span>
           </div>
         )}
-        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-warning/10 border border-warning/30">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            <span className="text-sm font-medium text-amber-400">Full Escrow</span>
+            <span className="w-2 h-2 rounded-full bg-warning" />
+            <span className="text-sm font-medium text-warning">Full Escrow</span>
           </div>
-          <span className="text-sm text-neutral-300">
-            trades above <span className="font-mono font-semibold text-amber-400"><Money value={verifiedMax} /></span>
+          <span className="text-sm text-ink-muted">
+            trades above <span className="font-mono font-semibold text-warning"><Money value={verifiedMax} /></span>
           </span>
         </div>
       </div>
       {improvements.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-neutral-800">
+        <div className="mt-4 pt-3 border-t border-border-subtle">
           {improvements.map((tip, i) => (
-            <p key={i} className="text-xs text-neutral-500 flex items-center gap-1.5">
-              <span className="text-amber-400">&uarr;</span>
+            <p key={i} className="text-xs text-ink-faint flex items-center gap-1.5">
+              <span className="text-accent">&uarr;</span>
               {tip}
             </p>
           ))}
@@ -272,7 +272,8 @@ export default function TrustProfilePage() {
   const [linkSubmitting, setLinkSubmitting] = useState(false);
   const [linkError, setLinkError] = useState("");
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
     fetch("/api/auth/session")
       .then((r) => r.json())
       .then((data) => {
@@ -298,6 +299,16 @@ export default function TrustProfilePage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    load();
+    // Safety ceiling: a hung request must never leave the page spinning on
+    // "Loading..." forever — after 15s we drop to the "couldn't load" state
+    // (which now offers a retry) instead.
+    const timer = setTimeout(() => setLoading(false), 15_000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   async function handleLinkAccount(e: React.FormEvent) {
@@ -335,15 +346,21 @@ export default function TrustProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-ink-faint">Loading...</p>
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-neutral-500">Could not load trust profile.</p>
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <p className="text-ink-faint">Could not load your trust profile.</p>
+        <button
+          onClick={load}
+          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -382,29 +399,29 @@ export default function TrustProfilePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-6">
         Trust Score
         <WhyLink href="/methodology/trust-score" tooltip="How is the trust score computed?" />
       </h1>
 
       {/* Trust Score Card */}
-      <div className="bg-neutral-900 rounded-xl p-6 mb-6">
+      <div className="bg-surface rounded-lg p-6 mb-6">
         <div className="flex flex-col sm:flex-row items-center gap-6">
           <ScoreRing score={score} />
           <div className="text-center sm:text-left">
             <div className="flex items-center gap-3 justify-center sm:justify-start">
-              <h2 className="text-xl font-bold text-white">{tier.name} Tier</h2>
+              <h2 className="text-xl font-bold text-ink">{tier.name} Tier</h2>
               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${tierBadgeClass(tier)}`}>
                 {tier.name}
               </span>
             </div>
-            <p className="text-neutral-400 text-sm mt-2">
+            <p className="text-ink-muted text-sm mt-2">
               {profile.total_reviews > 0
                 ? `${parseFloat(profile.avg_rating).toFixed(1)} avg rating from ${profile.total_reviews} reviews`
                 : "No reviews yet"}
             </p>
             {profile.is_suspended && (
-              <p className="text-red-400 text-sm mt-2 font-medium">
+              <p className="text-danger text-sm mt-2 font-medium">
                 Account suspended{profile.suspended_reason ? `: ${profile.suspended_reason}` : ""}
               </p>
             )}
@@ -413,9 +430,9 @@ export default function TrustProfilePage() {
       </div>
 
       {/* Score Breakdown — real per-component contributions, not estimates */}
-      <div className="bg-neutral-900 rounded-xl p-6 mb-6">
-        <h3 className="text-lg font-semibold text-white mb-1">Score Breakdown</h3>
-        <p className="text-xs text-neutral-500 mb-4">
+      <div className="bg-surface rounded-lg p-6 mb-6">
+        <h3 className="text-lg font-semibold text-ink mb-1">Score Breakdown</h3>
+        <p className="text-xs text-ink-faint mb-4">
           Sum of components minus penalties = current score ({score}).
         </p>
         <div className="space-y-3">
@@ -425,12 +442,12 @@ export default function TrustProfilePage() {
           <BreakdownBar label="Verification"    value={verificationContrib} max={10} />
           <BreakdownBar label="External rep"    value={externalContrib}   max={10} />
           {totalPenalty > 0 && (
-            <div className="pt-2 mt-2 border-t border-neutral-800">
+            <div className="pt-2 mt-2 border-t border-border-subtle">
               <div className="flex items-baseline justify-between text-sm">
-                <span className="text-red-400">Penalties</span>
-                <span className="text-red-400 font-mono">−{totalPenalty}</span>
+                <span className="text-danger">Penalties</span>
+                <span className="text-danger font-mono">−{totalPenalty}</span>
               </div>
-              <p className="text-[10px] text-neutral-500 mt-0.5">
+              <p className="text-[10px] text-ink-faint mt-0.5">
                 {profile.disputes_lost} disputes lost (−15 each){openPenalty > 0 ? ` · ${openPenalty / 10} open (−10 each)` : ""}
               </p>
             </div>
@@ -443,75 +460,75 @@ export default function TrustProfilePage() {
       <EscrowThresholdsSection trustScore={score} />
 
       {/* Trade Stats */}
-      <div className="bg-neutral-900 rounded-xl p-6 mb-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Trade Statistics</h3>
+      <div className="bg-surface rounded-lg p-6 mb-6">
+        <h3 className="text-lg font-semibold text-ink mb-4">Trade Statistics</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
-            <p className="text-2xl font-bold text-white">{profile.completed_trades}</p>
-            <p className="text-xs text-neutral-500">Completed</p>
+            <p className="text-2xl font-bold text-ink">{profile.completed_trades}</p>
+            <p className="text-xs text-ink-faint">Completed</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-white">{profile.cancelled_trades}</p>
-            <p className="text-xs text-neutral-500">Cancelled</p>
+            <p className="text-2xl font-bold text-ink">{profile.cancelled_trades}</p>
+            <p className="text-xs text-ink-faint">Cancelled</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-white">{profile.disputed_trades}</p>
-            <p className="text-xs text-neutral-500">Disputed</p>
+            <p className="text-2xl font-bold text-ink">{profile.disputed_trades}</p>
+            <p className="text-xs text-ink-faint">Disputed</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-white">
+            <p className="text-2xl font-bold text-ink">
               {winRate !== null ? `${winRate}%` : "--"}
             </p>
-            <p className="text-xs text-neutral-500">Dispute Win Rate</p>
+            <p className="text-xs text-ink-faint">Dispute Win Rate</p>
           </div>
         </div>
       </div>
 
       {/* Trade Limits & Payout Hold */}
       <div className="grid sm:grid-cols-2 gap-4 mb-6">
-        <div className="bg-neutral-900 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-3">Trade Limits</h3>
+        <div className="bg-surface rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-ink mb-3">Trade Limits</h3>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm text-neutral-400">Per-trade limit</span>
-              <span className="text-sm font-medium text-white"><Money value={tier.tradeLimit} /></span>
+              <span className="text-sm text-ink-muted">Per-trade limit</span>
+              <span className="text-sm font-medium text-ink"><Money value={tier.tradeLimit} /></span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-neutral-400">Daily limit</span>
-              <span className="text-sm font-medium text-white"><Money value={tier.dailyLimit} /></span>
+              <span className="text-sm text-ink-muted">Daily limit</span>
+              <span className="text-sm font-medium text-ink"><Money value={tier.dailyLimit} /></span>
             </div>
           </div>
         </div>
-        <div className="bg-neutral-900 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-3">Payout Hold</h3>
-          <p className="text-sm text-neutral-400">
+        <div className="bg-surface rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-ink mb-3">Payout Hold</h3>
+          <p className="text-sm text-ink-muted">
             {tier.payoutHoldDays === 0
               ? "Your payouts are released instantly."
               : `Your payouts are held for ${tier.payoutHoldDays} day${tier.payoutHoldDays !== 1 ? "s" : ""}.`}
           </p>
           {tier.requiresInspection && (
-            <p className="text-xs text-amber-400 mt-2">Escrow inspection required for trades.</p>
+            <p className="text-xs text-accent mt-2">Escrow inspection required for trades.</p>
           )}
         </div>
       </div>
 
       {/* Tier Progress */}
       {nextTier && (
-        <div className="bg-neutral-900 rounded-xl p-6 mb-6">
-          <h3 className="text-lg font-semibold text-white mb-3">Next Tier: {nextTier.name}</h3>
+        <div className="bg-surface rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold text-ink mb-3">Next Tier: {nextTier.name}</h3>
           <div className="mb-2">
-            <div className="flex justify-between text-xs text-neutral-500 mb-1">
+            <div className="flex justify-between text-xs text-ink-faint mb-1">
               <span>{score} / {nextTier.minScore}</span>
               <span>{nextTier.minScore - score} score needed</span>
             </div>
-            <div className="h-3 bg-neutral-800 rounded-full overflow-hidden">
+            <div className="h-3 bg-surface-subtle rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${scoreBg(score)}`}
                 style={{ width: `${Math.min(100, (score / nextTier.minScore) * 100)}%` }}
               />
             </div>
           </div>
-          <div className="mt-3 text-xs text-neutral-500 space-y-1">
+          <div className="mt-3 text-xs text-ink-faint space-y-1">
             <p>At {nextTier.name}: trade limit <Money value={nextTier.tradeLimit} />, daily limit <Money value={nextTier.dailyLimit} /></p>
             {nextTier.payoutHoldDays === 0 ? (
               <p>Instant payouts</p>
@@ -527,43 +544,43 @@ export default function TrustProfilePage() {
 
       {/* Reviews */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Reviews</h3>
+        <h3 className="text-lg font-semibold text-ink mb-4">Reviews</h3>
         {reviews.length === 0 ? (
-          <div className="bg-neutral-900 rounded-xl p-6 text-center">
-            <p className="text-neutral-500">No reviews yet. Complete trades to receive reviews.</p>
+          <div className="bg-surface rounded-lg p-6 text-center">
+            <p className="text-ink-faint">No reviews yet. Complete trades to receive reviews.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {reviews.map((review) => (
-              <div key={review.id} className="bg-neutral-900 rounded-xl p-5">
+              <div key={review.id} className="bg-surface rounded-lg p-5">
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <Stars rating={review.rating} />
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs text-ink-faint">
                         {review.role === "buyer" ? "as buyer" : "as seller"}
                       </span>
                     </div>
                     {review.reviewer_name && (
-                      <p className="text-sm text-neutral-400 mt-1">by {review.reviewer_name}</p>
+                      <p className="text-sm text-ink-muted mt-1">by {review.reviewer_name}</p>
                     )}
                   </div>
-                  <span className="text-xs text-neutral-600">
+                  <span className="text-xs text-ink-faint">
                     {new Date(review.created_at).toLocaleDateString()}
                   </span>
                 </div>
                 {review.card_name && (
-                  <p className="text-xs text-neutral-500 mb-2">Trade: {review.card_name}{review.trade_price ? ` - ${formatPrice(parseFloat(review.trade_price))}` : ""}</p>
+                  <p className="text-xs text-ink-faint mb-2">Trade: {review.card_name}{review.trade_price ? ` - ${formatPrice(parseFloat(review.trade_price))}` : ""}</p>
                 )}
                 {(review.card_accuracy || review.shipping_speed || review.communication) && (
-                  <div className="flex gap-4 text-xs text-neutral-500 mb-2">
+                  <div className="flex gap-4 text-xs text-ink-faint mb-2">
                     {review.card_accuracy && <span>Accuracy: {review.card_accuracy}/5</span>}
                     {review.shipping_speed && <span>Shipping: {review.shipping_speed}/5</span>}
                     {review.communication && <span>Comms: {review.communication}/5</span>}
                   </div>
                 )}
                 {review.comment && (
-                  <p className="text-sm text-neutral-300">{review.comment}</p>
+                  <p className="text-sm text-ink-muted">{review.comment}</p>
                 )}
               </div>
             ))}
@@ -574,23 +591,23 @@ export default function TrustProfilePage() {
       {/* External Reputation */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">External Reputation</h3>
+          <h3 className="text-lg font-semibold text-ink">External Reputation</h3>
           <button
             onClick={() => setShowLinkForm(!showLinkForm)}
-            className="text-sm font-medium text-amber-400 hover:text-amber-300 transition"
+            className="text-sm font-medium text-accent hover:text-accent-strong transition"
           >
             {showLinkForm ? "Cancel" : "Link Account"}
           </button>
         </div>
 
         {showLinkForm && (
-          <form onSubmit={handleLinkAccount} className="bg-neutral-900 rounded-xl p-5 mb-4 space-y-4">
+          <form onSubmit={handleLinkAccount} className="bg-surface rounded-lg p-5 mb-4 space-y-4">
             <div>
-              <label className="block text-sm text-neutral-400 mb-1">Platform</label>
+              <label className="block text-sm text-ink-muted mb-1">Platform</label>
               <select
                 value={linkPlatform}
                 onChange={(e) => setLinkPlatform(e.target.value)}
-                className="w-full bg-neutral-800 text-white rounded-lg px-3 py-2 text-sm border border-neutral-700 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-subtle text-ink rounded-lg px-3 py-2 text-sm border border-border-subtle focus:border-accent focus:outline-none"
               >
                 {PLATFORM_OPTIONS.map((p) => (
                   <option key={p} value={p}>{p}</option>
@@ -598,41 +615,41 @@ export default function TrustProfilePage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm text-neutral-400 mb-1">Username</label>
+              <label className="block text-sm text-ink-muted mb-1">Username</label>
               <input
                 type="text"
                 value={linkUsername}
                 onChange={(e) => setLinkUsername(e.target.value)}
                 required
-                className="w-full bg-neutral-800 text-white rounded-lg px-3 py-2 text-sm border border-neutral-700 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-subtle text-ink rounded-lg px-3 py-2 text-sm border border-border-subtle focus:border-accent focus:outline-none"
                 placeholder="Your username on this platform"
               />
             </div>
             <div>
-              <label className="block text-sm text-neutral-400 mb-1">Profile URL</label>
+              <label className="block text-sm text-ink-muted mb-1">Profile URL</label>
               <input
                 type="url"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
-                className="w-full bg-neutral-800 text-white rounded-lg px-3 py-2 text-sm border border-neutral-700 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-subtle text-ink rounded-lg px-3 py-2 text-sm border border-border-subtle focus:border-accent focus:outline-none"
                 placeholder="https://..."
               />
             </div>
             <div>
-              <label className="block text-sm text-neutral-400 mb-1">Screenshot URL (optional)</label>
+              <label className="block text-sm text-ink-muted mb-1">Screenshot URL (optional)</label>
               <input
                 type="url"
                 value={linkScreenshot}
                 onChange={(e) => setLinkScreenshot(e.target.value)}
-                className="w-full bg-neutral-800 text-white rounded-lg px-3 py-2 text-sm border border-neutral-700 focus:border-amber-500 focus:outline-none"
+                className="w-full bg-surface-subtle text-ink rounded-lg px-3 py-2 text-sm border border-border-subtle focus:border-accent focus:outline-none"
                 placeholder="Link to a screenshot of your profile"
               />
             </div>
-            {linkError && <p className="text-red-400 text-sm">{linkError}</p>}
+            {linkError && <p className="text-danger text-sm">{linkError}</p>}
             <button
               type="submit"
               disabled={linkSubmitting || !linkUsername}
-              className="w-full py-2.5 rounded-lg bg-amber-500 text-black font-semibold text-sm hover:bg-amber-400 transition disabled:opacity-50"
+              className="w-full py-2.5 rounded-lg bg-ink text-page font-semibold text-sm hover:opacity-90 transition disabled:opacity-50"
             >
               {linkSubmitting ? "Linking..." : "Link Account"}
             </button>
@@ -640,21 +657,21 @@ export default function TrustProfilePage() {
         )}
 
         {externalAccounts.length === 0 && !showLinkForm ? (
-          <div className="bg-neutral-900 rounded-xl p-6 text-center">
-            <p className="text-neutral-500">No linked accounts. Link your eBay, Cardmarket, or TCGPlayer profile to boost your trust score.</p>
+          <div className="bg-surface rounded-lg p-6 text-center">
+            <p className="text-ink-faint">No linked accounts. Link your eBay, Cardmarket, or TCGPlayer profile to boost your trust score.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {externalAccounts.map((acct, i) => (
-              <div key={i} className="bg-neutral-900 rounded-xl p-5 flex items-center justify-between">
+              <div key={i} className="bg-surface rounded-lg p-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className={`px-2.5 py-1 rounded text-xs font-semibold ${platformBadgeClass(acct.platform)}`}>
                     {acct.platform}
                   </span>
                   <div>
-                    <p className="text-sm text-white font-medium">{acct.username}</p>
+                    <p className="text-sm text-ink font-medium">{acct.username}</p>
                     {acct.rating !== null && (
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-xs text-ink-faint">
                         {acct.positive_percent !== null ? `${acct.positive_percent}% positive` : `Rating: ${acct.rating}`}
                         {acct.total_sales !== null ? ` / ${acct.total_sales} sales` : ""}
                       </p>
@@ -663,14 +680,14 @@ export default function TrustProfilePage() {
                 </div>
                 <div>
                   {acct.verified ? (
-                    <span className="text-xs font-medium text-emerald-400 flex items-center gap-1">
+                    <span className="text-xs font-medium text-ok flex items-center gap-1">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                       Verified
                     </span>
                   ) : (
-                    <span className="text-xs font-medium text-amber-400">Pending verification</span>
+                    <span className="text-xs font-medium text-accent">Pending verification</span>
                   )}
                 </div>
               </div>

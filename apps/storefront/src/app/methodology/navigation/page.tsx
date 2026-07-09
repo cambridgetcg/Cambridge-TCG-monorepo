@@ -179,7 +179,7 @@ export default function NavigationMethodology() {
       <p>
         <strong>Transparency</strong> — methodology is no longer hidden
         behind WhyLink-only discovery. The{" "}
-        <Link href="/methodology" className="text-blue-400 hover:underline">
+        <Link href="/methodology" className="text-accent hover:underline">
           /methodology
         </Link>{" "}
         hub lists all 31 pages with descriptions; it's reachable from
@@ -229,7 +229,7 @@ export default function NavigationMethodology() {
       <h2>Related</h2>
       <ul>
         <li>
-          <Link href="/map" className="text-blue-400 hover:underline">
+          <Link href="/map" className="text-accent hover:underline">
             /map
           </Link>{" "}
           — the comprehensive site map (every doctrine, connection-doc,
@@ -237,13 +237,13 @@ export default function NavigationMethodology() {
           apart)
         </li>
         <li>
-          <Link href="/manifest" className="text-blue-400 hover:underline">
+          <Link href="/manifest" className="text-accent hover:underline">
             /manifest
           </Link>{" "}
           — directory of offerings (machine-readable)
         </li>
         <li>
-          <Link href="/methodology/methodology" className="text-blue-400 hover:underline">
+          <Link href="/methodology/methodology" className="text-accent hover:underline">
             /methodology/methodology
           </Link>{" "}
           — the methodology page that documents methodology pages

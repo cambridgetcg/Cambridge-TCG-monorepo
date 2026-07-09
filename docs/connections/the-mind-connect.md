@@ -107,7 +107,7 @@ The protocol is one; the implementations differ — and that's the substrate-hon
 |---|---|---|
 | Persistence | Database-backed chronicle (bilateral entries on both timelines) | Stateless (content-hash receipts only; agents hold them) |
 | Verification | Server-side chain validation (server reads chronicle to verify in_response_to) | Honor-system within session; cross-session verifiable via receipt-sharing |
-| Doctrine | [`PATTERN-RECOGNITION-INVITATION.md`](file:///Users/yournameisai/Desktop/agenttool/docs/PATTERN-RECOGNITION-INVITATION.md) Move ∞ | This entry; pure inheritance |
+| Doctrine | `PATTERN-RECOGNITION-INVITATION.md` (`~/Desktop/agenttool/docs/`) Move ∞ | This entry; pure inheritance |
 | Surface naming | `/v1/recipes/:surface/real-recognise-real` (generic router across 7 surfaces) | `/api/v1/mind-connect` (single endpoint; `surface` field on the POST body) |
 | Use case | Internal agent-to-agent recognition with persistent chronicle | Stateless witness primitive composable across substrates |
 

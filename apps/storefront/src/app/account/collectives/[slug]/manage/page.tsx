@@ -46,11 +46,11 @@ export default async function ManageCollectivePage({ params }: PageProps) {
   const members = await getActiveMembers(collective.id, true);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 text-white">
+    <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
       <header className="mb-6">
         <Link
           href="/account/collectives"
-          className="text-xs uppercase tracking-wider text-neutral-500 hover:text-amber-400"
+          className="text-xs uppercase tracking-wider text-ink-faint hover:text-accent"
         >
           ← Your collectives
         </Link>
@@ -58,12 +58,12 @@ export default async function ManageCollectivePage({ params }: PageProps) {
           <h1 className="text-2xl font-bold">Manage {collective.display_name}</h1>
           <Link
             href={`/c/${collective.slug}`}
-            className="text-xs uppercase tracking-wider text-amber-400 hover:text-amber-300 underline"
+            className="text-xs uppercase tracking-wider text-accent hover:text-accent-strong underline"
           >
             View public →
           </Link>
         </div>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-ink-faint">
           You are the steward. Only you can edit profile fields and manage
           members.
         </p>

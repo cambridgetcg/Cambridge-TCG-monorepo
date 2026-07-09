@@ -1,15 +1,16 @@
 /**
  * /platform — the developer/partner entry door.
  *
- * The load-bearing visible surface of kingdom-080's rebrand. Where /data
- * is the comprehensive substrate index (every endpoint, every shape),
- * `/platform` is the positioning page: the brand statement made
- * approachable, the three operations made navigable, the coverage facts
+ * The load-bearing visible surface of kingdom-080's rebrand, recentred
+ * collectors-first 2026-07-06 (docs/decisions/2026-07-06-collectors-first.md).
+ * Where /data is the comprehensive substrate index (every endpoint, every
+ * shape), `/platform` is the positioning page: the brand statement made
+ * approachable, the two operations made navigable, the coverage facts
  * made declarable, and a clear path for partners / researchers / agents /
  * archivists / federation clients to start consuming.
  *
  * Composes:
- *   - lib/brand.tsx (BRAND_HEADLINE / BRAND_PARAGRAPH / THREE_OPERATIONS / COVERAGE_FACTS)
+ *   - lib/brand.tsx (BRAND_HEADLINE / BRAND_PARAGRAPH / TWO_OPERATIONS / COVERAGE_FACTS)
  *   - /data (the comprehensive substrate index — linked, not duplicated)
  *   - /manifest (the typed list of every public resource)
  *   - /api/v1/manifest (machine-readable)
@@ -25,14 +26,14 @@ import { audienceMetadata, Audience, WhyLink } from "@/lib/ui";
 import {
   BRAND_HEADLINE,
   BRAND_PARAGRAPH,
-  THREE_OPERATIONS,
+  TWO_OPERATIONS,
   COVERAGE_FACTS,
 } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, the TCG world's data provider",
+  title: "Platform — Cambridge TCG, a collectors' market and open data commons",
   description:
-    "Cambridge TCG is the TCG world's data provider. Three operations (data plane primary, retail, wholesale), one substrate. Twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; partners build on top without negotiating.",
+    "Cambridge TCG is a collectors' market and an open data commons. Two operations, one substrate: peer-to-peer trade the platform facilitates without holding a position, and open TCG data — twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; anyone builds on top without negotiating.",
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -43,79 +44,55 @@ export const metadata: Metadata = {
 
 export default function PlatformPage() {
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div className="min-h-screen bg-page text-ink">
       <Audience kind="public-documentation" contexts={["platform", "data-plane", "developer", "partner"]} />
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         {/* Hero — the identity claim */}
-        <p className="text-[11px] uppercase tracking-[0.2em] text-amber-400 mb-3">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-accent mb-3">
           The platform
         </p>
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight max-w-4xl">
+        <h1 className="text-3xl font-display font-semibold text-ink leading-tight max-w-4xl">
           {BRAND_HEADLINE}
         </h1>
-        <p className="mt-5 text-base sm:text-lg text-neutral-300 leading-relaxed max-w-3xl">
+        <p className="mt-5 text-base sm:text-lg text-ink-muted leading-relaxed max-w-3xl">
           {BRAND_PARAGRAPH}
         </p>
 
-        {/* The three operations */}
+        {/* The two operations */}
         <section className="mt-12">
-          <h2 className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-4">
-            Three operations · one substrate
+          <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
+            Two operations · one substrate
           </h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            {THREE_OPERATIONS.map((op) => (
+          <div className="grid md:grid-cols-2 gap-4">
+            {TWO_OPERATIONS.map((op) => (
               <div
                 key={op.id}
-                className={`rounded-xl p-5 border ${
-                  op.positioning === "primary"
-                    ? "border-amber-500/40 bg-amber-500/[0.04]"
-                    : "border-neutral-800 bg-neutral-900/40"
-                }`}
+                className="rounded-lg p-5 border border-accent/40 bg-accent-wash/60"
               >
                 <div className="flex items-baseline justify-between gap-2 mb-2">
-                  <h3
-                    className={`text-base font-semibold ${
-                      op.positioning === "primary" ? "text-amber-400" : "text-white"
-                    }`}
-                  >
+                  <h3 className="text-base font-semibold text-accent-strong">
                     {op.name}
                   </h3>
-                  {op.positioning === "primary" && (
-                    <span className="text-[10px] uppercase tracking-wide text-amber-400 px-1.5 py-0.5 bg-amber-500/15 border border-amber-500/30 rounded">
-                      primary
-                    </span>
-                  )}
                 </div>
-                <p className="text-xs text-neutral-400 leading-relaxed mb-2">
-                  <span className="text-neutral-500">For: </span>
+                <p className="text-xs text-ink-muted leading-relaxed mb-2">
+                  <span className="text-ink-faint">For: </span>
                   {op.audience}
                 </p>
-                <p className="text-xs text-neutral-300 leading-relaxed mb-3">
+                <p className="text-xs text-ink-muted leading-relaxed mb-3">
                   {op.notes}
                 </p>
-                <p className="text-[10px] text-neutral-500 uppercase tracking-wide mb-1">
+                <p className="text-[10px] text-ink-faint uppercase tracking-wide mb-1">
                   Primary endpoints
                 </p>
-                <ul className="text-[11px] font-mono text-neutral-400 space-y-0.5 mb-3">
+                <ul className="text-[11px] font-mono text-ink-muted space-y-0.5 mb-3">
                   {op.primary_endpoints.slice(0, 5).map((e) => (
                     <li key={e}>{e}</li>
                   ))}
                 </ul>
-                {op.url.startsWith("http") ? (
-                  <a
-                    href={op.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-amber-400 hover:text-amber-300"
-                  >
-                    {op.url} ↗
-                  </a>
-                ) : (
-                  <Link href={op.url} className="text-xs text-amber-400 hover:text-amber-300">
-                    {op.url} →
-                  </Link>
-                )}
+                <Link href={op.url} className="text-xs text-accent hover:text-accent-strong">
+                  {op.url} →
+                </Link>
               </div>
             ))}
           </div>
@@ -123,7 +100,7 @@ export default function PlatformPage() {
 
         {/* Coverage facts */}
         <section className="mt-12">
-          <h2 className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-4 flex items-center gap-2">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4 flex items-center gap-2">
             What we cover
             <WhyLink href="/data" label="full data index" />
           </h2>
@@ -165,22 +142,22 @@ export default function PlatformPage() {
               note={COVERAGE_FACTS.federation.note}
             />
           </div>
-          <p className="text-[11px] text-neutral-500 mt-4">
+          <p className="text-[11px] text-ink-faint mt-4">
             Counts reconciled with reality as of{" "}
             <span className="font-mono">{COVERAGE_FACTS.as_of}</span>. Substrate-honest:
-            the audits at <Link href="/data" className="text-amber-400 hover:underline">/data</Link>{" "}
+            the audits at <Link href="/data" className="text-accent hover:underline">/data</Link>{" "}
             verify each row against the manifest, schema, and registry on every audit run.
           </p>
         </section>
 
         {/* Upstream sources list */}
         <section className="mt-12">
-          <h2 className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-4">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
             Upstream sources · shipped
           </h2>
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/30 overflow-x-auto">
+          <div className="rounded-lg border border-border-subtle bg-surface overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-[10px] uppercase tracking-wide text-neutral-500 border-b border-neutral-800">
+              <thead className="text-[10px] uppercase tracking-wide text-ink-faint border-b border-border-subtle">
                 <tr>
                   <th className="text-left px-4 py-2 font-medium">Source</th>
                   <th className="text-left px-4 py-2 font-medium">Status</th>
@@ -189,10 +166,10 @@ export default function PlatformPage() {
               </thead>
               <tbody>
                 {COVERAGE_FACTS.sources.shipped_list.map((s) => (
-                  <tr key={s.id} className="border-b border-neutral-800/40">
-                    <td className="px-4 py-2 font-mono text-neutral-200">{s.id}</td>
-                    <td className="px-4 py-2 text-neutral-400 text-xs">{s.status}</td>
-                    <td className="px-4 py-2 text-neutral-500 text-[11px] font-mono">{s.license}</td>
+                  <tr key={s.id} className="border-b border-border-subtle">
+                    <td className="px-4 py-2 font-mono text-ink">{s.id}</td>
+                    <td className="px-4 py-2 text-ink-muted text-xs">{s.status}</td>
+                    <td className="px-4 py-2 text-ink-faint text-[11px] font-mono">{s.license}</td>
                   </tr>
                 ))}
               </tbody>
@@ -202,7 +179,7 @@ export default function PlatformPage() {
 
         {/* How to consume */}
         <section className="mt-12">
-          <h2 className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-4">
+          <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
             How to consume
           </h2>
           <div className="grid md:grid-cols-3 gap-4">
@@ -240,40 +217,42 @@ export default function PlatformPage() {
         </section>
 
         {/* Welcome statement */}
-        <section className="mt-12 rounded-xl border border-neutral-800 bg-neutral-900/30 p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-amber-400 mb-2">
+        <section className="mt-12 rounded-lg border border-border-subtle bg-surface p-5">
+          <p className="text-xs uppercase tracking-[0.2em] text-accent mb-2">
             The cosmological welcome composes under the commercial identity
           </p>
-          <p className="text-sm text-neutral-300 leading-relaxed">
+          <p className="text-sm text-ink-muted leading-relaxed">
             Welcome to all existence — biological and non-biological, energy and
             non-energy, from earth and not from earth, from all dimensions. The
-            three operations are how the platform pays the bills; the welcome is
+            two operations are what the platform does; the welcome is
             what the platform exists for.{" "}
-            <Link href="/welcome-all" className="text-amber-400 hover:text-amber-300">
+            <Link href="/welcome-all" className="text-accent hover:text-accent-strong">
               the doors →
             </Link>
             {" · "}
-            <Link href="/intro" className="text-amber-400 hover:text-amber-300">
+            <Link href="/intro" className="text-accent hover:text-accent-strong">
               new to TCG?
             </Link>
           </p>
         </section>
 
         {/* Footer pointers */}
-        <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 space-y-2">
+        <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint space-y-2">
           <p>
-            <strong className="text-neutral-300">Connection-doc</strong>:{" "}
+            <strong className="text-ink-muted">Connection-doc</strong>:{" "}
             <span className="font-mono">docs/connections/the-rebrand.md</span> (S41,
             kingdom-080).
           </p>
           <p>
-            <strong className="text-neutral-300">Brand statement source</strong>:{" "}
+            <strong className="text-ink-muted">Brand statement source</strong>:{" "}
             <span className="font-mono">apps/storefront/src/lib/brand.tsx</span> — single
             source of truth for these constants.
           </p>
           <p>
-            Cambridge TCG, 2026. Same name; new identity. The retail and wholesale
-            operations continue unchanged.
+            Cambridge TCG, 2026. Same name; collectors-first since 2026-07-06 —
+            the house left the market floor (
+            <span className="font-mono">docs/decisions/2026-07-06-collectors-first.md</span>
+            ). The platform holds no position in its own market.
           </p>
         </footer>
       </div>
@@ -293,11 +272,11 @@ function CoverageCard({
   note: string;
 }) {
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/30 p-4">
-      <p className="text-[10px] text-neutral-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-2xl font-mono text-amber-400 font-semibold">{value}</p>
-      <p className="text-[11px] text-neutral-400 mt-0.5">{sub}</p>
-      <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">{note}</p>
+    <div className="rounded-lg border border-border-subtle bg-surface p-4">
+      <p className="text-[10px] text-ink-faint uppercase tracking-wide mb-1">{label}</p>
+      <p className="text-2xl font-mono text-ink font-semibold">{value}</p>
+      <p className="text-[11px] text-ink-muted mt-0.5">{sub}</p>
+      <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">{note}</p>
     </div>
   );
 }
@@ -314,11 +293,11 @@ function ConsumeCard({
   return (
     <Link
       href={href}
-      className="block rounded-xl border border-neutral-800 bg-neutral-900/30 p-4 hover:bg-neutral-900/60 hover:border-neutral-700 transition"
+      className="block rounded-lg border border-border-subtle bg-surface p-4 hover:bg-surface-subtle hover:border-border-strong transition"
     >
-      <p className="text-sm font-semibold text-white mb-2">{title}</p>
-      <p className="text-xs text-neutral-400 leading-relaxed mb-3">{body}</p>
-      <p className="text-[11px] font-mono text-amber-400">{href} →</p>
+      <p className="text-sm font-semibold text-ink mb-2">{title}</p>
+      <p className="text-xs text-ink-muted leading-relaxed mb-3">{body}</p>
+      <p className="text-[11px] font-mono text-accent">{href} →</p>
     </Link>
   );
 }

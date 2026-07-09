@@ -267,7 +267,7 @@ const fooSlot: LifecycleSlot = {
 
 ### Admin — pick an archetype before writing
 
-Per [`apps/admin/CLAUDE.md`](../apps/admin/CLAUDE.md):
+Per `apps/admin/CLAUDE.md` (lost in an earlier cleanup; the archetypes survive here):
 
 - **Dashboard archetype** — read-only, multi-section, KPIs at top. Use when admin *summarises* state owned elsewhere.
 - **Manager archetype** — owns the data. Search + filter pills + paginated table. Mutations via Server Actions.

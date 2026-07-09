@@ -1,4 +1,5 @@
 import { sendMail } from "@cambridge-tcg/email";
+import type { AuctionShippingAddress } from "./types";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com").trim().replace(/\/+$/, "");
@@ -63,6 +64,62 @@ export async function sendWinnerEmail(data: {
      <p>Winning price: <strong style="color:#f59e0b;">${data.winningPrice}</strong></p>
      <p>Please complete your payment within 48 hours.</p>`,
     "Pay Now",
+    url
+  );
+  await send(data.email, subject, html, text);
+}
+
+// Seller-facing "you sold — buyer paid, ship it" email, fired from the
+// auction 'paid' webhook branch. Mirrors the market's sendSellerPaidEmail:
+// renders the payout and — for direct (non-consigned) sales — the winner's
+// shipping address that Stripe collected at pay time. Before this, the only
+// end-of-auction email went to the store address; the seller was a ghost in
+// their own sale.
+export async function sendAuctionSellerPaidEmail(data: {
+  email: string;
+  auctionTitle: string;
+  auctionId: string;
+  winningPrice: string;
+  payout: string;
+  shipsTo: "buyer" | "ctcg";
+  shippingAddress?: AuctionShippingAddress | null;
+  buyerUsername?: string | null;
+}) {
+  const url = `${SITE}/auctions/${data.auctionId}`;
+  const dest = data.shipsTo === "ctcg"
+    ? "Cambridge TCG (we'll forward to the buyer)"
+    : "the winner directly";
+  // Buyer-typed free text passed through Stripe — escape before HTML.
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Render the winner's address only on the direct-ship route — on a
+  // consigned sale the ship-to is Cambridge TCG, not the winner's door.
+  const addressLines = data.shipsTo === "buyer" && data.shippingAddress
+    ? [
+        data.shippingAddress.name,
+        data.shippingAddress.line1,
+        data.shippingAddress.line2,
+        [data.shippingAddress.city, data.shippingAddress.state, data.shippingAddress.postal_code].filter(Boolean).join(", "),
+        data.shippingAddress.country,
+      ].filter((line): line is string => !!line)
+    : [];
+  const addressHtml = addressLines.length > 0
+    ? `<p>Ship to:<br/><strong style="color:#fff;">${addressLines.map(esc).join("<br/>")}</strong></p>`
+    : "";
+  const messageHtml = data.buyerUsername
+    ? `<p>Need to arrange logistics? <a href="${SITE}/account/messages" style="color:#f59e0b;">Message @${esc(data.buyerUsername)}</a> on the platform.</p>`
+    : "";
+  const subject = `Payment confirmed — please ship ${data.auctionTitle}`;
+  const text = `The winner paid ${data.winningPrice} for "${data.auctionTitle}". Ship to ${dest}.`
+    + (addressLines.length > 0 ? ` Ship to: ${addressLines.join(", ")}.` : "")
+    + (data.buyerUsername ? ` Message @${data.buyerUsername} on the platform: ${SITE}/account/messages.` : "")
+    + ` Your payout after commission will be ${data.payout}. Details: ${url}`;
+  const html = emailTemplate(
+    "Buyer has paid — ship now",
+    `<p>The winner has paid <strong style="color:#f59e0b;">${data.winningPrice}</strong> for <strong>${data.auctionTitle}</strong>.</p>
+     <p>Ship to: <strong>${dest}</strong>.</p>
+     ${addressHtml}${messageHtml}
+     <p>Your payout after commission: <strong style="color:#34d399;">${data.payout}</strong>, released after delivery.</p>`,
+    "Add Tracking",
     url
   );
   await send(data.email, subject, html, text);

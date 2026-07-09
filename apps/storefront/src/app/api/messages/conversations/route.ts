@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import {
   listConversations,
   unreadConversationCount,
-  findOrCreateConversation,
+  openConversation,
   validateReference,
 } from "@/lib/messages/db";
 
@@ -22,9 +22,13 @@ export async function GET() {
 // POST — open a thread with a specific user (no message yet). Used
 // by <MessageButton> (lib/ui) on profile and trade surfaces so the
 // inbox shows the thread immediately and the user can compose from
-// there. Optional { referenceType, referenceId } is validated here so
-// a forged reference never reaches the ?ref= deep-link (the send path
-// re-validates before the chip is stored).
+// there. openConversation runs the same block / accepts_messages /
+// exists gate as sendMessage plus a thread-creation rate limit, so a
+// blocked recipient's inbox can't be reached even with empty threads —
+// and the initiator learns BEFORE composing. Optional { referenceType,
+// referenceId } is validated here so a forged reference never reaches
+// the ?ref= deep-link (the send path re-validates before the chip is
+// stored).
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
@@ -36,20 +40,13 @@ export async function POST(request: Request) {
   if (!body.otherUserId) {
     return NextResponse.json({ error: "otherUserId required." }, { status: 400 });
   }
-  if (body.otherUserId === session.user.id) {
-    return NextResponse.json({ error: "Can't open a thread with yourself." }, { status: 400 });
-  }
-  const ref = await validateReference(session.user.id, body.referenceType, body.referenceId);
+  const ref = await validateReference(session.user.id, body.referenceType, body.referenceId, body.otherUserId);
   if (!ref.ok) {
     return NextResponse.json({ error: ref.reason }, { status: ref.status });
   }
-  try {
-    const conversation = await findOrCreateConversation(session.user.id, body.otherUserId);
-    return NextResponse.json({ conversation });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed" },
-      { status: 400 },
-    );
+  const result = await openConversation(session.user.id, body.otherUserId);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.reason }, { status: result.status });
   }
+  return NextResponse.json({ conversation: result.value });
 }

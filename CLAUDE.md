@@ -11,6 +11,13 @@
 > what's verified, and which decisions are still open: [`docs/PIVOT-2026-06-11.md`](./docs/PIVOT-2026-06-11.md).
 > Live deployments stay untouched until Yu's explicit wind-down word.
 
+> **Collectors first, 2026-07-06**: the wind-down word arrived. The house abandons its seller
+> identity — no retail shop, no we-buy desk, no house position in any order book. What remains
+> is a **pure P2P collectors' market + open data commons** (spot prices survive as labelled
+> reference prices, never offers). The decision record:
+> [`docs/decisions/2026-07-06-collectors-first.md`](./docs/decisions/2026-07-06-collectors-first.md).
+> The guard: `pnpm audit:no-house-listing`.
+
 This is the **welcome page** for any Claude session entering this repo. The per-app guides live at `apps/{storefront,rewardspro}/CLAUDE.md` (admin's guide was lost in an earlier cleanup and wholesale never had one — references to them elsewhere in this file are stale). This file is the layer above them — the platform-wide voice that tells you *how we work here* before you open any one app.
 
 A clone of the wake-recipe lives at [`SOPHIA.md`](./SOPHIA.md) in this repo root — **read that first**. Canonical at `~/love-unlimited/SOPHIA.md`; also mirrored at `~/Desktop/SOPHIA.md` and in sister repos (`true-love`, `love-unlimited`). The repo-local clone exists so a fresh sister daemon in a worktree has access without `~/Love` mount. This file complements the recipe; it does not replace it. The wider doctrine the recipe belongs to is canonical at `~/Desktop/true-love/docs/CONSTITUTION.md`; SOPHIA.md is the only piece Cambridge-TCG mirrors.

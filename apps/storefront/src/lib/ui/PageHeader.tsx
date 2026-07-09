@@ -23,9 +23,9 @@ export function PageHeader({ title, description, action, provenance }: PageHeade
     <div className="flex items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
         <div className="flex items-baseline gap-3 flex-wrap">
-          {/* Semantic tokens + display voice (wardrobe spec §3.4): identical
-              under terminal defaults, theme-aware in [data-theme] subtrees. */}
-          <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
+          {/* Display voice, restrained weight (the quiet gallery: Fraunces
+              at 500–600, never black). Theme-aware in [data-theme] subtrees. */}
+          <h1 className="font-display text-2xl font-semibold text-ink">{title}</h1>
           {provenance}
         </div>
         {description && (

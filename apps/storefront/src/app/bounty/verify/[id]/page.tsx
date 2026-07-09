@@ -108,14 +108,14 @@ export default function VerifyPullPage() {
   }, [id]);
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-8">
-          <Link href="/bounty" className="text-sm text-neutral-500 hover:text-neutral-300">&larr; Bounty Board</Link>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-3 mb-1">
+          <Link href="/bounty" className="text-sm text-ink-faint hover:text-ink">&larr; Bounty Board</Link>
+          <h1 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight mt-3 mb-1">
             Provably Fair Verification
           </h1>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-ink-muted">
             Every Bounty Pull publishes a SHA-256 commitment *before* the roll and
             the seed *after*. Anyone can verify the draw was not rigged — this
             page runs the check in your browser using the Web Crypto API. No data
@@ -125,12 +125,12 @@ export default function VerifyPullPage() {
 
         {loading && (
           <div className="py-12 text-center">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
         )}
 
         {notFound && !loading && (
-          <div className="bg-red-900/30 border border-red-700/40 text-red-300 rounded-lg px-4 py-3 text-sm">
+          <div className="bg-danger/10 border border-danger/40 text-danger rounded-lg px-4 py-3 text-sm">
             No pull with that ID. Check the URL — the proof endpoint is
             <code className="mx-1">/api/bounty/pulls/&lt;id&gt;/proof</code>.
           </div>
@@ -139,38 +139,38 @@ export default function VerifyPullPage() {
         {proof && !loading && (
           <>
             {/* Summary */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-5">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-3">Pull</h2>
+            <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-5">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-ink-faint mb-3">Pull</h2>
               <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                <div className="text-neutral-500">Tier</div>
+                <div className="text-ink-faint">Tier</div>
                 <div className="font-mono">{proof.tier}</div>
-                <div className="text-neutral-500">Rolled rarity</div>
-                <div className="font-mono text-amber-400">{proof.rolled_rarity ?? "—"}</div>
-                <div className="text-neutral-500">Rolled SKU</div>
+                <div className="text-ink-faint">Rolled rarity</div>
+                <div className="font-mono text-accent">{proof.rolled_rarity ?? "—"}</div>
+                <div className="text-ink-faint">Rolled SKU</div>
                 <div className="font-mono">{proof.rolled_sku ?? "—"}</div>
                 {proof.rolled_spot_gbp && (
                   <>
-                    <div className="text-neutral-500">Spot value</div>
+                    <div className="text-ink-faint">Spot value</div>
                     <div>£{parseFloat(proof.rolled_spot_gbp).toFixed(2)}</div>
                   </>
                 )}
-                <div className="text-neutral-500">Resolved at</div>
+                <div className="text-ink-faint">Resolved at</div>
                 <div>{new Date(proof.resolved_at).toLocaleString()}</div>
               </div>
             </section>
 
             {/* Proof values */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-5">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-3">Proof values</h2>
+            <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-5">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-ink-faint mb-3">Proof values</h2>
               <div className="space-y-3 text-xs font-mono">
                 <KV label="commitment (published pre-roll)" value={proof.commitment} />
                 <KV label="server_seed (revealed post-roll)" value={proof.server_seed ?? "(not revealed)"} />
                 <KV label="client_seed" value={proof.client_seed} />
                 <KV label="nonce" value={String(proof.nonce)} />
               </div>
-              <div className="mt-4 text-xs text-neutral-500">
-                <p className="mb-1"><strong className="text-neutral-400">Weights used:</strong></p>
-                <div className="font-mono text-[11px] bg-neutral-800/60 rounded px-3 py-2">
+              <div className="mt-4 text-xs text-ink-faint">
+                <p className="mb-1"><strong className="text-ink-muted">Weights used:</strong></p>
+                <div className="font-mono text-[11px] bg-surface-subtle rounded px-3 py-2">
                   {Object.entries(proof.rarity_weights ?? {}).map(([r, w]) => (
                     <span key={r} className="mr-3">{r}={w}</span>
                   ))}
@@ -179,10 +179,10 @@ export default function VerifyPullPage() {
             </section>
 
             {/* Verification result */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-5">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-3">Verification</h2>
+            <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-5">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-ink-faint mb-3">Verification</h2>
               {!proof.server_seed && (
-                <p className="text-sm text-neutral-400">
+                <p className="text-sm text-ink-muted">
                   Server seed isn&apos;t revealed — this pull may not have resolved. Try again later.
                 </p>
               )}
@@ -192,10 +192,10 @@ export default function VerifyPullPage() {
                     passed={verification.commitmentOk}
                     label="sha256(server_seed) matches published commitment"
                   >
-                    <p className="text-[11px] font-mono text-neutral-500 break-all mt-1">
+                    <p className="text-[11px] font-mono text-ink-faint break-all mt-1">
                       computed = {verification.computedCommit}
                     </p>
-                    <p className="text-[11px] font-mono text-neutral-500 break-all">
+                    <p className="text-[11px] font-mono text-ink-faint break-all">
                       claimed  = {proof.commitment}
                     </p>
                   </Check>
@@ -203,18 +203,18 @@ export default function VerifyPullPage() {
                     passed={verification.rarityOk === true}
                     label="Rarity pick from sha256(seed:client:nonce) matches the roll"
                   >
-                    <p className="text-[11px] font-mono text-neutral-500 mt-1">
+                    <p className="text-[11px] font-mono text-ink-faint mt-1">
                       roll = {verification.rarityRoll.toFixed(6)} → {verification.predictedRarity}
                       {" (claimed: "}{proof.rolled_rarity}{")"}
                     </p>
                   </Check>
                   {verification.commitmentOk && verification.rarityOk && (
-                    <p className="text-emerald-400 text-sm font-semibold pt-2 border-t border-neutral-800">
+                    <p className="text-ok text-sm font-semibold pt-2 border-t border-border-subtle">
                       ✓ Both checks passed — this pull is provably fair.
                     </p>
                   )}
                   {(!verification.commitmentOk || verification.rarityOk === false) && (
-                    <p className="text-red-400 text-sm font-semibold pt-2 border-t border-red-900/40">
+                    <p className="text-danger text-sm font-semibold pt-2 border-t border-danger/40">
                       ✗ Verification failed. If you see this on a real pull, please contact us.
                     </p>
                   )}
@@ -223,17 +223,17 @@ export default function VerifyPullPage() {
             </section>
 
             {/* How to verify yourself */}
-            <section className="bg-neutral-900/40 border border-neutral-800/60 rounded-xl p-5 mb-5 text-xs text-neutral-500">
-              <h3 className="text-sm font-bold text-neutral-300 mb-2">Verify it yourself</h3>
+            <section className="bg-surface-subtle border border-border-subtle rounded-lg p-5 mb-5 text-xs text-ink-faint">
+              <h3 className="text-sm font-bold text-ink-muted mb-2">Verify it yourself</h3>
               <p className="mb-3 leading-relaxed">
                 Don&apos;t trust this page — run the checks on your own machine. Any SHA-256
                 tool (openssl, Python hashlib, online hashers) will do.
               </p>
-              <div className="font-mono bg-neutral-900 rounded px-3 py-2 mb-2">
+              <div className="font-mono bg-surface rounded px-3 py-2 mb-2">
                 echo -n &quot;{proof.server_seed ?? "<seed>"}&quot; | shasum -a 256
               </div>
               <p className="mb-3">Should match the commitment above.</p>
-              <div className="font-mono bg-neutral-900 rounded px-3 py-2 mb-2">
+              <div className="font-mono bg-surface rounded px-3 py-2 mb-2">
                 echo -n &quot;{proof.server_seed ?? "<seed>"}:{proof.client_seed}:{proof.nonce}&quot; | shasum -a 256
               </div>
               <p>
@@ -252,8 +252,8 @@ export default function VerifyPullPage() {
 function KV({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-0.5">{label}</p>
-      <p className="text-neutral-300 break-all leading-relaxed">{value}</p>
+      <p className="text-[10px] uppercase tracking-wider text-ink-faint mb-0.5">{label}</p>
+      <p className="text-ink-muted break-all leading-relaxed">{value}</p>
     </div>
   );
 }
@@ -268,8 +268,8 @@ function Check({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={`border-l-2 pl-3 ${passed ? "border-emerald-500" : "border-red-500"}`}>
-      <p className={`text-sm font-semibold ${passed ? "text-emerald-400" : "text-red-400"}`}>
+    <div className={`border-l-2 pl-3 ${passed ? "border-ok" : "border-danger"}`}>
+      <p className={`text-sm font-semibold ${passed ? "text-ok" : "text-danger"}`}>
         {passed ? "✓" : "✗"} {label}
       </p>
       {children}

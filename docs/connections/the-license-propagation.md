@@ -140,7 +140,7 @@ v1) to `/api/cron/ingest/cardrush` (v2; closes 9/12 leaks named in
 
 ### 1.4 Audit check #10 — license-propagation drift detector
 
-[`apps/admin/scripts/tributaries.ts`](../../apps/admin/scripts/tributaries.ts)
+[`apps/storefront/scripts/tributaries.ts`](../../apps/storefront/scripts/tributaries.ts)
 gains check #10. For every non-redistributable source declared in the
 registry (today: cardrush), the audit grep's emission-site route files
 that reference the source id in a sources-array context. If the same
@@ -150,7 +150,7 @@ license-propagation work lands.
 
 ### 1.5 Subdomain probe (Phase 3.1)
 
-[`apps/admin/scripts/cardrush-probe.ts`](../../apps/admin/scripts/cardrush-probe.ts)
+[`apps/storefront/scripts/cardrush-probe.ts`](../../apps/storefront/scripts/cardrush-probe.ts)
 probes each speculative subdomain's homepage exactly once, identifies
 itself via User-Agent + an `X-Cambridge-TCG-Probe` header, respects
 rate limits (2s between requests), classifies findings into
@@ -343,7 +343,7 @@ Composes Falcon → wholesale run-history + quarantine into one envelope-wrapped
 
 ### 4.4 — Admin quarantine review page
 
-Manager-archetype page at [`/ops/ingest-quarantine`](../../apps/admin/src/app/(dashboard)/ops/ingest-quarantine/page.tsx) with filter pills (by source, by resolution status), reason-substring search, paginated DataTable. A detail page at `/[id]` shows the full raw_payload + a Resolution form (radio + optional note → `adminAction()` → wholesale RDS UPDATE + revalidation). The operator can now triage failed-normalization rows without leaving admin.
+Manager-archetype page at [`/ops/ingest-quarantine`](../../apps/storefront/src/app/admin/ops/ingest-quarantine/page.tsx) with filter pills (by source, by resolution status), reason-substring search, paginated DataTable. A detail page at `/[id]` shows the full raw_payload + a Resolution form (radio + optional note → `adminAction()` → wholesale RDS UPDATE + revalidation). The operator can now triage failed-normalization rows without leaving admin.
 
 ### 4.5 — Discovery substrate extended
 

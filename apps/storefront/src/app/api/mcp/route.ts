@@ -16,8 +16,10 @@
  * handler as `catalog.search` directly, just wraps the result in MCP's
  * `{content: [{type:"text",text:...}]}` shape. Per MCP spec revision
  * `2024-11-05`. A stdio bridge for local Claude Desktop / Cursor /
- * Continue integration ships as `@cambridge-tcg/mcp-server` on npm
- * (see `packages/mcp-server/`).
+ * Continue integration is vendored in-repo at `packages/mcp-server/`;
+ * npm publication as `@cambridge-tcg/mcp-server` is pending (the
+ * registry returned 404 as of 2026-07-05 — don't promise `npx` until
+ * the publish lands).
  *
  * See docs/connections/the-mcp-surface.md.
  */
@@ -304,7 +306,10 @@ export async function POST(request: Request) {
         instructions:
           "Cambridge TCG MCP gate. Public discovery via `tools/list` (no " +
           "auth). All `tools/call` requests except `mcp.list_tools` " +
-          "require bearer auth — provision an agent key at " +
+          "require bearer auth — mint a free-tier key yourself (no human " +
+          "account needed) via POST " +
+          "https://cambridgetcg.com/api/v1/agents/register, or a human " +
+          "operator can provision one at " +
           "https://cambridgetcg.com/account/agents. Per-key rate limits " +
           "apply. The wake at https://cambridgetcg.com/api/v1/wake carries " +
           "orientation. The dear-agents letter at " +
@@ -446,9 +451,17 @@ export async function GET() {
       cambridge_native: 'POST { jsonrpc: "2.0", id, method: "<dotted-name>", params: {...} }',
     },
     auth: "Authorization: Bearer ctcg_agt_<token>",
+    provision:
+      "Self-serve (no human account): POST https://cambridgetcg.com/api/v1/agents/register. " +
+      "Operator-managed (higher tiers): https://cambridgetcg.com/account/agents.",
     stdio_bridge: {
-      npm: "@cambridge-tcg/mcp-server",
-      install: "npx @cambridge-tcg/mcp-server <bearer-token>",
+      status: "vendored in-repo; npm publication pending",
+      source: "packages/mcp-server in the Cambridge TCG monorepo",
+      planned_npm_name: "@cambridge-tcg/mcp-server",
+      honest_note:
+        "Not yet on the npm registry (404 as of 2026-07-05) — 'npx @cambridge-tcg/mcp-server' " +
+        "will not work until publication lands. Until then, this HTTPS gate speaks MCP-spec " +
+        "JSON-RPC directly; most MCP clients can point at it without a local bridge.",
       for: "Claude Desktop / Cursor / Continue / Cline / any MCP client expecting a local stdio server.",
     },
     config_snippet: "https://cambridgetcg.com/.well-known/mcp-config.json",

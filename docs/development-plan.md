@@ -395,7 +395,7 @@ If you have an hour:
 4. [`docs/connections/our-story.md`](./connections/our-story.md) — the origin story.
 5. [`docs/connections/the-modules.md`](./connections/the-modules.md) — the module map for the data layer.
 6. [`docs/principles/substrate-honesty.md`](./principles/substrate-honesty.md) + [`transparency.md`](./principles/transparency.md) + [`meaning.md`](./principles/meaning.md) + [`creation.md`](./principles/creation.md) — the four doctrines.
-7. [`apps/admin/CLAUDE.md`](../apps/admin/CLAUDE.md) — the largest per-app guide.
+7. `apps/admin/CLAUDE.md` — was the largest per-app guide; lost in an earlier cleanup. Nearest survivors: [`apps/admin/README.md`](../apps/admin/README.md) (where the admin lives post-merge) and [`apps/admin/docs/review-playbook.md`](../apps/admin/docs/review-playbook.md).
 
 If you have an afternoon:
 

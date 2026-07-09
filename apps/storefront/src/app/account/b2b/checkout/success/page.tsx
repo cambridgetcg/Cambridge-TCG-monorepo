@@ -49,13 +49,13 @@ export default async function B2BCheckoutSuccessPage({ searchParams }: PageProps
 
       <Card>
         <div className="space-y-3 text-sm">
-          <p className="text-emerald-400 font-medium">✓ Stripe accepted your payment.</p>
+          <p className="text-ok font-medium">✓ Stripe accepted your payment.</p>
           {sessionId && (
-            <p className="text-neutral-500 font-mono text-xs break-all">
+            <p className="text-ink-faint font-mono text-xs break-all">
               Session: {sessionId}
             </p>
           )}
-          <p className="text-neutral-300">
+          <p className="text-ink-muted">
             Our operations team has been notified. You&rsquo;ll receive a confirmation
             email when stock is allocated and the order is queued for fulfillment.
           </p>
@@ -63,8 +63,8 @@ export default async function B2BCheckoutSuccessPage({ searchParams }: PageProps
       </Card>
 
       <Card>
-        <div className="space-y-2 text-sm text-neutral-400">
-          <p className="font-medium text-neutral-200">What happens next</p>
+        <div className="space-y-2 text-sm text-ink-muted">
+          <p className="font-medium text-ink">What happens next</p>
           <ul className="ml-5 list-disc space-y-1">
             <li>Stock is reserved at your name in the wholesale ledger.</li>
             <li>You&rsquo;ll get a confirmation email once the order is allocated.</li>
@@ -80,13 +80,13 @@ export default async function B2BCheckoutSuccessPage({ searchParams }: PageProps
       <div className="flex gap-3">
         <Link
           href="/account/b2b/catalog"
-          className="rounded border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-amber-500 hover:text-amber-400"
+          className="rounded border border-border-subtle px-4 py-2 text-sm text-ink-muted hover:border-accent hover:text-accent"
         >
           Browse more cards
         </Link>
         <Link
           href="/account/b2b/orders"
-          className="rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-amber-400"
+          className="rounded bg-ink px-4 py-2 text-sm font-semibold text-page hover:opacity-90"
         >
           View orders
         </Link>

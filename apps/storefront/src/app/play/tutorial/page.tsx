@@ -21,18 +21,18 @@ function SectionHeader({ index, total, id, title, minutes }: {
   index: number; total: number; id: string; title: string; minutes: number;
 }) {
   return (
-    <header className="flex items-center justify-between gap-4 mb-4 pb-3 border-b border-neutral-800">
+    <header className="flex items-center justify-between gap-4 mb-4 pb-3 border-b border-border-subtle">
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-0.5">
+        <div className="text-[10px] uppercase tracking-widest text-ink-faint mb-0.5">
           Step {index} of {total} · {minutes} {minutes === 1 ? "minute" : "minutes"}
         </div>
-        <h2 id={id} className="text-2xl font-bold text-white scroll-mt-20">
+        <h2 id={id} className="text-2xl font-bold text-ink scroll-mt-20">
           {title}
         </h2>
       </div>
       <a
         href="#top"
-        className="text-xs text-neutral-500 hover:text-amber-400 transition-colors whitespace-nowrap"
+        className="text-xs text-ink-faint hover:text-accent-strong transition-colors whitespace-nowrap"
         aria-label="Back to top"
       >
         ↑ top
@@ -43,11 +43,11 @@ function SectionHeader({ index, total, id, title, minutes }: {
 
 function PlaymatDiagram() {
   return (
-    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 sm:p-6 my-6 font-mono text-[10px] sm:text-xs leading-tight overflow-x-auto">
-      <div className="text-neutral-500 text-center text-[10px] uppercase tracking-wider mb-3">
+    <div className="bg-page border border-border-subtle rounded-lg p-4 sm:p-6 my-6 font-mono text-[10px] sm:text-xs leading-tight overflow-x-auto">
+      <div className="text-ink-faint text-center text-[10px] uppercase tracking-wider mb-3">
         Player perspective (opponent's side mirrors above)
       </div>
-      <pre className="text-neutral-300 whitespace-pre">
+      <pre className="text-ink-muted whitespace-pre">
 {`                                                                                          ┌──────┐
                                                                                           │ ❶ Ch │
         ┌────────┐                  ╔═════════════════════════════════╗                   │   1  │
@@ -72,7 +72,7 @@ function PlaymatDiagram() {
         └────────┘         └──────────────────────────────────┘         └──────┘
 `}
       </pre>
-      <div className="text-[10px] text-neutral-500 mt-3 space-y-1">
+      <div className="text-[10px] text-ink-faint mt-3 space-y-1">
         <p>❶ <strong>Character Area</strong> — up to 5 Character cards, face-up, open to both players.</p>
         <p>❷ <strong>Leader</strong> — face-up at setup; never moves from this slot.</p>
         <p>❸ <strong>Stage</strong> — at most 1 Stage card. Face-up.</p>
@@ -88,68 +88,68 @@ function PlaymatDiagram() {
 
 function CardAnatomyDiagram() {
   return (
-    <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 sm:p-6 my-6 grid sm:grid-cols-2 gap-6">
+    <div className="bg-page border border-border-subtle rounded-lg p-4 sm:p-6 my-6 grid sm:grid-cols-2 gap-6">
       <div>
-        <div className="text-neutral-500 text-center text-[10px] uppercase tracking-wider mb-2">
+        <div className="text-ink-faint text-center text-[10px] uppercase tracking-wider mb-2">
           Leader card
         </div>
-        <div className="bg-gradient-to-br from-red-900/40 to-red-950 border-2 border-red-500/50 rounded-lg p-3 aspect-[5/7] flex flex-col font-mono text-[10px] text-neutral-200">
+        <div className="bg-danger/10 border-2 border-danger/50 rounded-lg p-3 aspect-[5/7] flex flex-col font-mono text-[10px] text-ink-muted">
           <div className="flex justify-between text-[9px]">
-            <span className="bg-red-500/30 px-1 rounded">Cost: —</span>
-            <span className="bg-amber-500/30 px-1 rounded">5 life</span>
+            <span className="bg-danger/10 px-1 rounded">Cost: —</span>
+            <span className="bg-accent-wash px-1 rounded">5 life</span>
           </div>
-          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-amber-400/80">
+          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-accent/80">
             ART
           </div>
-          <div className="text-center font-bold text-white mb-1">Leader Name</div>
-          <div className="text-[9px] text-neutral-400 mb-1">Type / Trait</div>
-          <div className="border-t border-red-500/30 pt-1 text-[9px] text-neutral-300">
+          <div className="text-center font-bold text-ink mb-1">Leader Name</div>
+          <div className="text-[9px] text-ink-muted mb-1">Type / Trait</div>
+          <div className="border-t border-danger/30 pt-1 text-[9px] text-ink-muted">
             <p className="italic">[Effect text — what this leader does, if anything]</p>
           </div>
           <div className="flex justify-between mt-1 text-[9px]">
             <span className="hexagon">⬡ color</span>
-            <span className="bg-red-500/30 px-1 rounded">Power 5000</span>
-            <span className="text-neutral-500">Blk2</span>
+            <span className="bg-danger/10 px-1 rounded">Power 5000</span>
+            <span className="text-ink-faint">Blk2</span>
           </div>
         </div>
-        <ul className="text-[11px] text-neutral-400 mt-3 space-y-1">
-          <li><strong className="text-white">Life</strong> — top right; how many life cards you start with (usually 4 or 5).</li>
-          <li><strong className="text-white">Power</strong> — bottom centre; used in combat.</li>
-          <li><strong className="text-white">Color hexagon</strong> — bottom left; your deck must only contain these colors.</li>
-          <li><strong className="text-white">Block number</strong> — bottom right; which rotation block this card belongs to.</li>
+        <ul className="text-[11px] text-ink-muted mt-3 space-y-1">
+          <li><strong className="text-ink">Life</strong> — top right; how many life cards you start with (usually 4 or 5).</li>
+          <li><strong className="text-ink">Power</strong> — bottom centre; used in combat.</li>
+          <li><strong className="text-ink">Color hexagon</strong> — bottom left; your deck must only contain these colors.</li>
+          <li><strong className="text-ink">Block number</strong> — bottom right; which rotation block this card belongs to.</li>
         </ul>
       </div>
       <div>
-        <div className="text-neutral-500 text-center text-[10px] uppercase tracking-wider mb-2">
+        <div className="text-ink-faint text-center text-[10px] uppercase tracking-wider mb-2">
           Character card
         </div>
-        <div className="bg-gradient-to-br from-blue-900/40 to-blue-950 border-2 border-blue-500/50 rounded-lg p-3 aspect-[5/7] flex flex-col font-mono text-[10px] text-neutral-200">
+        <div className="bg-info/10 border-2 border-info/50 rounded-lg p-3 aspect-[5/7] flex flex-col font-mono text-[10px] text-ink-muted">
           <div className="flex justify-between text-[9px]">
-            <span className="bg-blue-500/30 px-1 rounded">Cost: 3</span>
-            <span className="bg-emerald-500/30 px-1 rounded">Counter: 1000</span>
+            <span className="bg-info/10 px-1 rounded">Cost: 3</span>
+            <span className="bg-ok/10 px-1 rounded">Counter: 1000</span>
           </div>
-          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-blue-300/80">
+          <div className="flex-1 flex items-center justify-center text-xs sm:text-sm text-info/80">
             ART
           </div>
-          <div className="text-center font-bold text-white mb-1">Character Name</div>
-          <div className="text-[9px] text-neutral-400 mb-1">Type / Trait</div>
-          <div className="border-t border-blue-500/30 pt-1 text-[9px] text-neutral-300">
+          <div className="text-center font-bold text-ink mb-1">Character Name</div>
+          <div className="text-[9px] text-ink-muted mb-1">Type / Trait</div>
+          <div className="border-t border-info/30 pt-1 text-[9px] text-ink-muted">
             <p className="italic">[On Play] / [Trigger] / [Blocker] etc.</p>
           </div>
           <div className="flex justify-between mt-1 text-[9px]">
             <span className="hexagon">⬡ color</span>
-            <span className="bg-blue-500/30 px-1 rounded">Power 4000</span>
-            <span className="text-neutral-500">Blk2</span>
+            <span className="bg-info/10 px-1 rounded">Power 4000</span>
+            <span className="text-ink-faint">Blk2</span>
           </div>
         </div>
-        <ul className="text-[11px] text-neutral-400 mt-3 space-y-1">
-          <li><strong className="text-white">Cost</strong> — top left; how many DON!! you rest to play this from hand.</li>
-          <li><strong className="text-white">Counter</strong> — top right; the boost (0/1000/2000) you can spend from hand when defending.</li>
-          <li><strong className="text-white">Power</strong> — bottom centre; used in combat. Higher number wins; defender wins ties.</li>
-          <li><strong className="text-white">Effect text</strong> — what the card does. <em>Keyword tags</em> like [On Play] / [Trigger] / [Blocker] / [Once Per Turn] mark when the effect fires.</li>
+        <ul className="text-[11px] text-ink-muted mt-3 space-y-1">
+          <li><strong className="text-ink">Cost</strong> — top left; how many DON!! you rest to play this from hand.</li>
+          <li><strong className="text-ink">Counter</strong> — top right; the boost (0/1000/2000) you can spend from hand when defending.</li>
+          <li><strong className="text-ink">Power</strong> — bottom centre; used in combat. Higher number wins; defender wins ties.</li>
+          <li><strong className="text-ink">Effect text</strong> — what the card does. <em>Keyword tags</em> like [On Play] / [Trigger] / [Blocker] / [Once Per Turn] mark when the effect fires.</li>
         </ul>
       </div>
-      <p className="sm:col-span-2 text-[10px] text-neutral-500 italic text-center">
+      <p className="sm:col-span-2 text-[10px] text-ink-faint italic text-center">
         Illustrative diagram — actual cards have real art and Bandai-specific layout. Phase 4 of the play module roadmap will add per-card effect interpretation; today's engine plays vanilla combat without resolving keyword effects.
       </p>
     </div>
@@ -169,12 +169,12 @@ function TurnPhaseDiagram() {
       {phases.map((p, i) => (
         <div
           key={p.name}
-          className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex flex-col"
+          className="bg-surface border border-border-subtle rounded-lg p-3 flex flex-col"
         >
-          <div className="text-amber-400 text-xs font-bold mb-1">
+          <div className="text-accent text-xs font-bold mb-1">
             {i + 1}. {p.name}
           </div>
-          <div className="text-[11px] text-neutral-400 leading-snug">{p.body}</div>
+          <div className="text-[11px] text-ink-muted leading-snug">{p.body}</div>
         </div>
       ))}
     </div>
@@ -193,15 +193,15 @@ function CombatStepsDiagram() {
       {steps.map((s, i) => (
         <li
           key={s.name}
-          className="bg-neutral-900 border border-neutral-800 rounded-lg p-4"
+          className="bg-surface border border-border-subtle rounded-lg p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <span className="bg-amber-500/20 text-amber-400 text-xs font-mono px-2 py-0.5 rounded">
+            <span className="bg-accent-wash text-accent text-xs font-mono px-2 py-0.5 rounded">
               Step {i + 1}
             </span>
-            <span className="text-white font-bold">{s.name}</span>
+            <span className="text-ink font-bold">{s.name}</span>
           </div>
-          <p className="text-[12px] text-neutral-400 leading-snug">{s.body}</p>
+          <p className="text-[12px] text-ink-muted leading-snug">{s.body}</p>
         </li>
       ))}
     </ol>
@@ -219,7 +219,7 @@ function SectionBody({ id }: { id: string }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-neutral-300 leading-relaxed">{section.natural_language_body}</p>
+      <p className="text-ink-muted leading-relaxed">{section.natural_language_body}</p>
 
       {/* Section-specific visual widgets */}
       {id === "the_playmat" && <PlaymatDiagram />}
@@ -229,12 +229,12 @@ function SectionBody({ id }: { id: string }) {
 
       {/* Keywords */}
       {section.keywords_introduced.length > 0 && (
-        <div className="text-[11px] text-neutral-500 pt-2 border-t border-neutral-800/60">
+        <div className="text-[11px] text-ink-faint pt-2 border-t border-border-subtle">
           <span className="uppercase tracking-wider mr-2">Keywords</span>
           {section.keywords_introduced.map((kw) => (
             <span
               key={kw}
-              className="inline-block bg-neutral-800/60 text-neutral-400 font-mono rounded px-1.5 py-0.5 mr-1.5 mb-1"
+              className="inline-block bg-surface-subtle text-ink-muted font-mono rounded px-1.5 py-0.5 mr-1.5 mb-1"
             >
               {kw}
             </span>
@@ -274,37 +274,37 @@ export default function TutorialPage() {
   const totalMinutes = sections.reduce((sum, s) => sum + s.estimated_read_minutes, 0);
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white" id="top">
+    <main className="min-h-screen bg-page text-ink" id="top">
       {/* ---- Hero ---- */}
-      <section className="border-b border-neutral-900">
+      <section className="border-b border-border-subtle">
         <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
-          <div className="text-[10px] uppercase tracking-widest text-amber-500 mb-2">
+          <div className="text-[10px] uppercase tracking-widest text-accent mb-2">
             Play module · tutorial
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
-            Never played a card game? <span className="text-amber-400">Start here.</span>
+          <h1 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight mb-3">
+            Never played a card game? <span className="text-accent">Start here.</span>
           </h1>
-          <p className="text-neutral-400 text-base sm:text-lg max-w-2xl">
+          <p className="text-ink-muted text-base sm:text-lg max-w-2xl">
             A walkthrough for anyone who's never picked up a trading card game before.
-            Read at your own pace — about <strong className="text-white">{totalMinutes} minutes</strong> end-to-end. At
+            Read at your own pace — about <strong className="text-ink">{totalMinutes} minutes</strong> end-to-end. At
             the end you'll play your first match, anonymously, no sign-in.
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-6">
             <Link
               href="#what_is_a_card_game"
-              className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-5 py-2.5 text-sm transition-colors"
+              className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-5 py-2.5 text-sm transition-colors"
             >
               Start at the beginning
             </Link>
             <Link
               href="/play"
-              className="text-amber-400 hover:text-amber-300 text-sm font-medium transition-colors"
+              className="text-accent hover:text-accent-strong text-sm font-medium transition-colors"
             >
               Skip to play →
             </Link>
             <Link
               href="/api/v1/play/tutorial"
-              className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors font-mono ml-auto"
+              className="text-xs text-ink-faint hover:text-ink transition-colors font-mono ml-auto"
               title="Machine-readable JSON version"
             >
               .json
@@ -317,7 +317,7 @@ export default function TutorialPage() {
         {/* ---- Sticky table of contents (desktop only) ---- */}
         <aside className="hidden lg:block">
           <div className="sticky top-20">
-            <div className="text-[10px] uppercase tracking-widest text-neutral-500 mb-3">
+            <div className="text-[10px] uppercase tracking-widest text-ink-faint mb-3">
               On this page
             </div>
             <ol className="space-y-1 text-sm">
@@ -325,9 +325,9 @@ export default function TutorialPage() {
                 <li key={s.id}>
                   <Link
                     href={`#${s.id}`}
-                    className="text-neutral-400 hover:text-amber-400 transition-colors block py-0.5"
+                    className="text-ink-muted hover:text-accent-strong transition-colors block py-0.5"
                   >
-                    <span className="text-neutral-600 mr-2 font-mono text-xs">
+                    <span className="text-ink-faint mr-2 font-mono text-xs">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     {s.title.replace(/^[\w]+ — /, "")}
@@ -335,16 +335,16 @@ export default function TutorialPage() {
                 </li>
               ))}
             </ol>
-            <div className="text-[10px] text-neutral-600 mt-4 pt-4 border-t border-neutral-800/60 space-y-1">
+            <div className="text-[10px] text-ink-faint mt-4 pt-4 border-t border-border-subtle space-y-1">
               <Link
                 href="/api/v1/play/glossary"
-                className="block hover:text-amber-400 transition-colors"
+                className="block hover:text-accent-strong transition-colors"
               >
                 Glossary →
               </Link>
               <Link
                 href="/methodology/tutorial"
-                className="block hover:text-amber-400 transition-colors"
+                className="block hover:text-accent-strong transition-colors"
               >
                 Methodology →
               </Link>
@@ -357,7 +357,7 @@ export default function TutorialPage() {
           {sections.map((s, i) => (
             <section
               key={s.id}
-              className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-5 sm:p-7"
+              className="bg-surface-subtle border border-border-subtle rounded-lg p-5 sm:p-7"
             >
               <SectionHeader
                 index={i + 1}
@@ -369,21 +369,21 @@ export default function TutorialPage() {
               <SectionBody id={s.id} />
 
               {/* Footer nav per section */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-neutral-800/60 text-sm">
+              <div className="flex items-center justify-between mt-6 pt-4 border-t border-border-subtle text-sm">
                 {i > 0 ? (
                   <Link
                     href={`#${sections[i - 1].id}`}
-                    className="text-neutral-500 hover:text-amber-400 transition-colors"
+                    className="text-ink-faint hover:text-accent-strong transition-colors"
                   >
                     ← Previous
                   </Link>
                 ) : (
-                  <span className="text-neutral-700">←</span>
+                  <span className="text-ink-faint">←</span>
                 )}
                 {i < sections.length - 1 ? (
                   <Link
                     href={`#${sections[i + 1].id}`}
-                    className="text-amber-400 hover:text-amber-300 transition-colors font-medium"
+                    className="text-accent hover:text-accent-strong transition-colors font-medium"
                   >
                     Next →
                   </Link>
@@ -391,13 +391,13 @@ export default function TutorialPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
                       href="/play/starters"
-                      className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-5 py-2 transition-colors"
+                      className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-5 py-2 transition-colors"
                     >
                       Pick a starter deck →
                     </Link>
                     <Link
                       href="/play"
-                      className="text-amber-400 hover:text-amber-300 transition-colors font-medium"
+                      className="text-accent hover:text-accent-strong transition-colors font-medium"
                     >
                       Or skip straight to /play →
                     </Link>
@@ -410,12 +410,12 @@ export default function TutorialPage() {
       </div>
 
       {/* ---- Footer note ---- */}
-      <section className="border-t border-neutral-900">
-        <div className="mx-auto max-w-4xl px-4 py-8 text-sm text-neutral-500 space-y-2">
+      <section className="border-t border-border-subtle">
+        <div className="mx-auto max-w-4xl px-4 py-8 text-sm text-ink-faint space-y-2">
           <p>
-            <strong className="text-neutral-300">For agents and machine readers:</strong>{" "}
+            <strong className="text-ink-muted">For agents and machine readers:</strong>{" "}
             the same content (minus the visual diagrams) is published in structural form at{" "}
-            <Link href="/api/v1/play/tutorial" className="text-amber-400/70 hover:text-amber-400 font-mono">
+            <Link href="/api/v1/play/tutorial" className="text-accent/70 hover:text-accent-strong font-mono">
               /api/v1/play/tutorial
             </Link>
             . Each section has typed <code>preconditions</code> / <code>transitions</code> /{" "}
@@ -423,26 +423,26 @@ export default function TutorialPage() {
             state-after triples.
           </p>
           <p>
-            <strong className="text-neutral-300">For Japanese players or anyone who learned OPTCG in Japanese:</strong>{" "}
+            <strong className="text-ink-muted">For Japanese players or anyone who learned OPTCG in Japanese:</strong>{" "}
             the{" "}
-            <Link href="/api/v1/play/glossary" className="text-amber-400/70 hover:text-amber-400 font-mono">
+            <Link href="/api/v1/play/glossary" className="text-accent/70 hover:text-accent-strong font-mono">
               bilingual glossary
             </Link>{" "}
             maps every term across English and Japanese (kanji/kana + romaji + a structural
             definition that doesn't require natural-language understanding).
           </p>
           <p>
-            <strong className="text-neutral-300">For Competitor-archetype players:</strong>{" "}
+            <strong className="text-ink-muted">For Competitor-archetype players:</strong>{" "}
             this tutorial teaches the substrate. For deck-building doctrine, meta history,
             ban-list and tournament-format details, see{" "}
-            <Link href="/play/compete" className="text-amber-400/70 hover:text-amber-400">
+            <Link href="/play/compete" className="text-accent/70 hover:text-accent-strong">
               /play/compete
             </Link>
             .
           </p>
           <p className="pt-2 italic">
             The play module declares its rules-fidelity level at{" "}
-            <Link href="/methodology/tutorial" className="text-amber-400/70 hover:text-amber-400">
+            <Link href="/methodology/tutorial" className="text-accent/70 hover:text-accent-strong">
               /methodology/tutorial
             </Link>
             : core ruleset, vanilla effect interpretation. Card-effect interpretation lands

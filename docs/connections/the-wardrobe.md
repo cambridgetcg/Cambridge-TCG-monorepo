@@ -23,6 +23,15 @@ Four outfits hang in v1:
 | **Midnight** (members) | the 2am reader | blue-black ground, moonlight gilt — the first cosmetic perk |
 | **High contrast** (free, always) | whoever needs it | black on white, hard borders — accessibility is never paywalled |
 
+> **Un-gated, 2026-07-06.** Midnight's member lock came off — dark mode is table
+> stakes, not a perk. All four outfits are free; the entitlement mechanism
+> (`entitlements.ts`) stays in code for a future skin that may genuinely be one.
+> The same day the wardrobe learned to follow the OS: no cookie now renders
+> `data-theme="system"` — gallery values in a light scheme, midnight values in a
+> dark one, duplicated verbatim across the media boundary and guarded by
+> `src/app/themes.sync.test.ts`. The table above is kept as written (the
+> 2026-06-10 record); this note is the correction.
+
 ## The doctrine moves
 
 **Substrate honesty.** The settings page says exactly what is stored (two cookies, device-local, one year) and what is not (no analytics event, no DB write — *yet*, and the methodology page promises to keep saying so until persistence ships). The terminal bundle is byte-equivalent to the old hardcoded values, verified by the acceptance criterion, so "nothing is lost" is a checkable claim, not marketing.

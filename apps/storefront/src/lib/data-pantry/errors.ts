@@ -174,6 +174,48 @@ export function errorResponse(opts: ErrorOptions): NextResponse {
   });
 }
 
+/**
+ * Canonical 405 for pantry surfaces. Next's default method-mismatch
+ * response is an empty body with no guidance — the stark opposite of the
+ * pantry's loving 404/MISSING_PARAM errors. This emits the SAME error
+ * envelope (code + message + request_id + wake fragment) AND the two
+ * things a machine needs to recover: an `Allow` header and an
+ * `allowed_methods` list in `details`.
+ *
+ * (Uses the INVALID_INPUT code with a 405 status override — the shared
+ * data-spec corpus has no METHOD_NOT_ALLOWED code, and adding one there
+ * is a separate, cross-package change; the Allow header + allowed_methods
+ * carry the machine-readable specifics regardless.)
+ */
+export function methodNotAllowed(opts: {
+  allowed: string[];
+  endpoint?: string;
+  request_id?: string;
+  message?: string;
+}): NextResponse {
+  const allowList = Array.from(new Set(opts.allowed.map((m) => m.toUpperCase())));
+  const allowHeader = allowList.join(", ");
+  const body = errorBody({
+    code: "INVALID_INPUT",
+    message:
+      opts.message ??
+      `That HTTP method isn't allowed on this endpoint. Allowed method${allowList.length === 1 ? "" : "s"}: ${allowHeader || "none"}.`,
+    details: { allowed_methods: allowList },
+    endpoint: opts.endpoint,
+    request_id: opts.request_id,
+  });
+  return NextResponse.json(body, {
+    status: 405,
+    headers: {
+      Allow: allowHeader,
+      "Access-Control-Allow-Origin": "*",
+      "X-Request-Id": body.error.request_id,
+      "X-Spec-Version": SPEC_VERSION,
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 /** Shortcut for the most common case: bad SKU input. */
 export function invalidSkuError(badInput: string, request_id?: string): NextResponse {
   return errorResponse({

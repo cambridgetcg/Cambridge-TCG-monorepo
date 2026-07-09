@@ -20,6 +20,34 @@
 const WHOLESALE_URL = (process.env.WHOLESALE_API_URL || 'https://wholesaletcgdirect.com').trim();
 const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 
+// ── The ground route ─────────────────────────────────────────────────
+//
+// The wholesale app is retired: its domain 301s to cambridgetcg.com and
+// the API times out. The catalog paths (fetchPrices / fetchGames /
+// fetchSets) therefore fall back to reading the wholesale Postgres
+// directly (./db-source) when HTTP fails — and skip HTTP entirely when
+// WHOLESALE_DB_DIRECT=1, so production can be flipped to direct reads
+// without waiting out a 5s timeout per request. Each response names the
+// source that actually served it, so surfaces can label the provenance
+// instead of passing a database read off as a live API.
+
+import { dbFetchCard, dbFetchGames, dbFetchPrices, dbFetchSets } from './db-source';
+
+/**
+ * Which substrate served a catalog response.
+ *  - 'wholesale-api' — the retired HTTP API answered (live upstream).
+ *  - 'wholesale-db'  — direct read from the wholesale Postgres.
+ *  - 'unavailable'   — both failed; any empty items array means the
+ *    sources are down, NOT that no cards exist.
+ */
+export type WholesaleSource = 'wholesale-api' | 'wholesale-db' | 'unavailable';
+
+// Read per call, not at module scope, so ops can flip the env var
+// without a rebuild and tests can stub it.
+function dbDirectOnly(): boolean {
+  return (process.env.WHOLESALE_DB_DIRECT || '').trim() === '1';
+}
+
 // B2B-channel key for the /account/b2b/* shell (wholesale consolidation
 // Phase 2). After the wholesale-side fix #2 (channel hard-enforce), the
 // `?channel=` query param is logged-and-ignored — the API uses the key's
@@ -147,6 +175,14 @@ export interface PricesResponse {
   total: number;
   channel: string;
   items: PriceItem[];
+  /**
+   * Substrate that served this page — see {@link WholesaleSource}.
+   * fetchPrices always stamps it; it is optional only because a few
+   * callers synthesize a shape-compatible empty envelope for genuine
+   * "no matches" results (e.g. the search routes' game fallbacks),
+   * which carry no source claim at all.
+   */
+  source?: WholesaleSource;
 }
 
 export interface GameItem {
@@ -191,38 +227,57 @@ export async function fetchPrices(params?: {
   if (params?.offset) url.searchParams.set('offset', String(params.offset));
   if (params?.category) url.searchParams.set('category', params.category);
 
-  let res: Response;
-  try {
-    res = await wholesaleFetch(url.toString(), {
-      headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
-      next: { revalidate: 300 },
-    });
-  } catch (err) {
-    console.error('[wholesale] prices fetch error', err);
-    return { count: 0, total: 0, channel: '', items: [] };
+  if (!dbDirectOnly()) {
+    try {
+      const res = await wholesaleFetch(url.toString(), {
+        headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
+        next: { revalidate: 300 },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { ...data, source: 'wholesale-api' };
+      }
+      console.error('[wholesale] prices error', res.status, await res.text().catch(() => ''));
+    } catch (err) {
+      console.error('[wholesale] prices fetch error', err);
+    }
   }
 
-  if (!res.ok) {
-    console.error('[wholesale] prices error', res.status, await res.text().catch(() => ''));
-    return { count: 0, total: 0, channel: '', items: [] };
+  try {
+    return await dbFetchPrices(params);
+  } catch (err) {
+    console.error('[wholesale] prices db-source error', err);
+    return { count: 0, total: 0, channel: '', items: [], source: 'unavailable' };
   }
-  return res.json();
 }
 
 export async function fetchCard(sku: string, channel = 'cambridgetcg'): Promise<PriceItem | null> {
-  let res: Response;
+  // HTTP first (unless flipped to direct reads), then the wholesale
+  // Postgres ground route — the same fallback fetchPrices uses. Without
+  // it the retired API's 401/timeout left the card page nameless and
+  // price-less while /market (which reads through the DB) showed both;
+  // now both surfaces resolve from one substrate. A 404 is an honest
+  // "no such card" and short-circuits; other failures fall through.
+  if (!dbDirectOnly()) {
+    try {
+      const res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
+        headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
+        next: { revalidate: 300 },
+      });
+      if (res.status === 404) return null;
+      if (res.ok) return res.json();
+      console.error('[wholesale] card error', res.status);
+    } catch (err) {
+      console.error('[wholesale] card fetch error', err);
+    }
+  }
+
   try {
-    res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/prices/' + encodeURIComponent(sku) + '?channel=' + channel, {
-      headers: { Authorization: 'Bearer ' + keyForChannel(channel) },
-      next: { revalidate: 300 },
-    });
+    return await dbFetchCard(sku, channel);
   } catch (err) {
-    console.error('[wholesale] card fetch error', err);
+    console.error('[wholesale] card db-source error', err);
     return null;
   }
-  if (res.status === 404) return null;
-  if (!res.ok) return null;
-  return res.json();
 }
 
 // Uncached variant for revenue-critical checks (price/stock at checkout).
@@ -239,38 +294,78 @@ export async function fetchCardFresh(sku: string, channel = 'cambridgetcg'): Pro
   return res.json();
 }
 
-export async function fetchGames(): Promise<GameItem[]> {
-  let res: Response;
-  try {
-    res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/games', {
-      headers: { Authorization: 'Bearer ' + WHOLESALE_KEY },
-      next: { revalidate: 600 },
-    });
-  } catch (err) {
-    console.error('[wholesale] games fetch error', err);
-    return [];
+export interface GamesResult {
+  games: GameItem[];
+  source: WholesaleSource;
+}
+
+/**
+ * fetchGames with source provenance. Callers that must distinguish
+ * "no games" from "sources down" (the catalog route's 503 path) use
+ * this; fetchGames below keeps the legacy array shape.
+ */
+export async function fetchGamesDetailed(): Promise<GamesResult> {
+  if (!dbDirectOnly()) {
+    try {
+      const res = await wholesaleFetch(WHOLESALE_URL + '/api/v1/games', {
+        headers: { Authorization: 'Bearer ' + WHOLESALE_KEY },
+        next: { revalidate: 600 },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { games: data.games || [], source: 'wholesale-api' };
+      }
+      console.error('[wholesale] games error', res.status);
+    } catch (err) {
+      console.error('[wholesale] games fetch error', err);
+    }
   }
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.games || [];
+  try {
+    return { games: await dbFetchGames(), source: 'wholesale-db' };
+  } catch (err) {
+    console.error('[wholesale] games db-source error', err);
+    return { games: [], source: 'unavailable' };
+  }
+}
+
+export async function fetchGames(): Promise<GameItem[]> {
+  return (await fetchGamesDetailed()).games;
+}
+
+export interface SetsResult {
+  sets: SetItem[];
+  source: WholesaleSource;
+}
+
+/** Source-aware companion to fetchSets — see fetchGamesDetailed. */
+export async function fetchSetsDetailed(game?: string): Promise<SetsResult> {
+  if (!dbDirectOnly()) {
+    const url = new URL(WHOLESALE_URL + '/api/v1/sets');
+    if (game) url.searchParams.set('game', game);
+    try {
+      const res = await wholesaleFetch(url.toString(), {
+        headers: { Authorization: 'Bearer ' + WHOLESALE_KEY },
+        next: { revalidate: 600 },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { sets: data.sets || [], source: 'wholesale-api' };
+      }
+      console.error('[wholesale] sets error', res.status);
+    } catch (err) {
+      console.error('[wholesale] sets fetch error', err);
+    }
+  }
+  try {
+    return { sets: await dbFetchSets(game), source: 'wholesale-db' };
+  } catch (err) {
+    console.error('[wholesale] sets db-source error', err);
+    return { sets: [], source: 'unavailable' };
+  }
 }
 
 export async function fetchSets(game?: string): Promise<SetItem[]> {
-  const url = new URL(WHOLESALE_URL + '/api/v1/sets');
-  if (game) url.searchParams.set('game', game);
-  let res: Response;
-  try {
-    res = await wholesaleFetch(url.toString(), {
-      headers: { Authorization: 'Bearer ' + WHOLESALE_KEY },
-      next: { revalidate: 600 },
-    });
-  } catch (err) {
-    console.error('[wholesale] sets fetch error', err);
-    return [];
-  }
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.sets || [];
+  return (await fetchSetsDetailed(game)).sets;
 }
 
 /**

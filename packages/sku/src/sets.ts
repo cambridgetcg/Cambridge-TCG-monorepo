@@ -167,7 +167,10 @@ export const SET_FORMATS: Record<GameCode, readonly SetFormat[]> = {
 
   // ── Weiß Schwarz ─────────────────────────────────────────────────────
   wei: [
-    { game: "wei", pattern: /^([A-Z]{2,5}\/[A-Z0-9]+)-(\d{3,4})$/i, description: "Weiß Schwarz series/booster-number form (HOL/WE26-E001)", examples: ["HOL/WE26-E001"], confirmed: true },
+    // Number may carry a language letter (E001 = English print) — the
+    // old \d-only group contradicted this row's own example (caught by
+    // sets.test.ts, review batch 2026-07-07).
+    { game: "wei", pattern: /^([A-Z]{2,5}\/[A-Z0-9]+)-([A-Z]?\d{3,4})$/i, description: "Weiß Schwarz series/booster-number form (HOL/WE26-E001)", examples: ["HOL/WE26-E001"], confirmed: true },
     { game: "wei", pattern: /^([A-Z0-9]{2,8})-(\d{3,4})$/i, description: "Weiß Schwarz catch-all", examples: [], confirmed: false },
   ],
 
@@ -220,9 +223,39 @@ export const SET_FORMATS: Record<GameCode, readonly SetFormat[]> = {
   sor: [{ game: "sor", pattern: /^([a-z0-9]+)-(\d{1,4})$/i, description: "Sorcery catch-all", examples: [], confirmed: false }],
   alt: [{ game: "alt", pattern: /^([A-Z0-9]+)-(\d{3,4})$/i, description: "Altered catch-all", examples: [], confirmed: false }],
   rft: [{ game: "rft", pattern: /^([A-Z0-9]+)-(\d{3,4})$/i, description: "Riftbound catch-all", examples: [], confirmed: false }],
-  rsh: [{ game: "rsh", pattern: /^RD\/([A-Z]{2,4})-(\d{3,4})$/i, description: "Yu-Gi-Oh! Rush Duel", examples: ["RD/KP01-EN001"], confirmed: false }],
+  // Set carries digits (KP01) and number a language prefix (EN001) —
+  // the old groups contradicted this row's own example (caught by
+  // sets.test.ts, review batch 2026-07-07).
+  rsh: [{ game: "rsh", pattern: /^RD\/([A-Z]{2,4}\d{0,2})-([A-Z]{0,2}\d{3,4})$/i, description: "Yu-Gi-Oh! Rush Duel", examples: ["RD/KP01-EN001"], confirmed: false }],
   pkp: [{ game: "pkp", pattern: /^([A-Z]\d{1,2})-(\d{3})$/i, description: "Pokémon Pocket (A1, A2 series)", examples: ["A1-001"], confirmed: false }],
   gen: [{ game: "gen", pattern: /^([A-Z0-9]+)-(\d{3,4})$/i, description: "Genshin TCG catch-all", examples: [], confirmed: false }],
+
+  // ── GUNDAM CARD GAME ─────────────────────────────────────────────────
+  // Verified vs the official DB (gundam-gcg.com) 2026-07-07: sets
+  // ST01..ST10 / GD01..GD05 / EB01, numbers 3-digit; special families
+  // carry no digits in the prefix (T-001, RP-, EXBP-, EXRP-); promos
+  // reuse base numbers. confirmed:false until first real ingest.
+  gcg: [
+    { game: "gcg", pattern: /^((?:ST|GD|EB)\d{2})-(\d{3})$/i, description: "Gundam starter/booster/extra (ST01-001, GD01-100, EB01-001)", examples: ["ST01-001", "GD01-087", "EB01-001"], confirmed: false },
+    // Each special family keeps its own namespace — T-001 and RP-001
+    // are different physical cards (review batch 2026-07-07: a shared
+    // setOverride collapsed four families into one colliding set).
+    { game: "gcg", pattern: /^((?:T|RP|EXBP|EXRP))-(\d{3})$/i, description: "Gundam no-digit special families (tokens/resources/EX) — family prefix is the set", examples: ["T-001", "EXBP-001"], confirmed: false },
+    { game: "gcg", pattern: /^([A-Z]{1,5}\d{0,2})-(\d{3,4})$/i, description: "Gundam catch-all", examples: [], confirmed: false },
+  ],
+
+  // ── UNION ARENA ──────────────────────────────────────────────────────
+  // On-card form is SETCODE/TITLE-wave-seq (UA02BT/JJK-1-001,
+  // EX04BT/JJK-3-006, NA UE03BT/JJK-1-040; AP cards use APnn; UAPR/UEPR
+  // promos may omit the wave). Set codes are REGIONAL; the TITLE-wave-seq
+  // segment is language-invariant (oracle.ts). The canonical set/number
+  // normalization (slash + wave don't fit [a-z0-9]+) is DEFERRED to the
+  // wave that lands the first cards — these rows record the verified
+  // shape so that decision starts from facts. confirmed:false.
+  una: [
+    { game: "una", pattern: /^((?:UA|UE)\d{2}(?:BT|ST|NC)|(?:EX|UEX)\d{2}BT)\/([A-Z]{2,4}-\d-(?:\d{3}|AP\d{2}))$/i, description: "Union Arena set-coded card (regional set prefix / title-wave-seq)", examples: ["UA02BT/JJK-1-001", "EX04BT/JJK-3-006", "UE03BT/JJK-1-040"], confirmed: false },
+    { game: "una", pattern: /^((?:UA|UE)PR)\/([A-Z]{2,4}-(?:\d-)?(?:\d{3}|AP\d{2}))$/i, setOverride: "promo", description: "Union Arena promo (wave may be omitted)", examples: ["UAPR/CGH-AP01"], confirmed: false },
+  ],
 
   // ── Internal test ────────────────────────────────────────────────────
   tst: [{ game: "tst", pattern: /^([a-z0-9]+)-([a-z0-9]+)$/i, description: "Test catch-all", examples: [], confirmed: true }],

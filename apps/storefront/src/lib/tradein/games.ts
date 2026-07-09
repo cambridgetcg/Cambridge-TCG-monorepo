@@ -16,22 +16,7 @@ export function gameLabel(slug: string): string {
   return TRADEIN_GAMES.find((g) => g.slug === slug)?.label ?? slug;
 }
 
-// SKUs are prefix-typed (verified against the live wholesale catalog):
-// one-piece uses OP/EB/ST/P/PRB/DON, pokemon PK, dragon-ball FB/SB.
-// SEALED- SKUs exist under multiple games, so they can't be derived —
-// returns null and the caller keeps whatever game context it has.
-const PREFIX_TO_GAME: Record<string, TradeinGameSlug> = {
-  OP: "one-piece",
-  EB: "one-piece",
-  ST: "one-piece",
-  P: "one-piece",
-  PRB: "one-piece",
-  DON: "one-piece",
-  PK: "pokemon",
-  FB: "dragon-ball",
-  SB: "dragon-ball",
-};
-
-export function gameFromSku(sku: string): TradeinGameSlug | null {
-  return PREFIX_TO_GAME[sku.split("-")[0]] ?? null;
-}
+// SKU → game derivation lives in one shared place now — the map was
+// promoted to @/lib/games/sku-game so product pages, portfolio search,
+// and trade-in all read the same truth. Re-exported here for compat.
+export { PREFIX_TO_GAME, gameFromSku } from "@/lib/games/sku-game";

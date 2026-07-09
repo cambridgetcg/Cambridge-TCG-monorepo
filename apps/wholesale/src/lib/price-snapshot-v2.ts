@@ -24,16 +24,54 @@
  *   1. CHUNKED, STALEST-FIRST — each invocation takes the `chunk` cards
  *      whose `last_scrape_attempt_at` is oldest (NULL first). The cursor
  *      advances on every ATTEMPT, so dead URLs can't starve the queue.
- *      The cron runs every 2h (vercel.json); 12 × 2,000 = 24,000 attempts
- *      per day covers the full list roughly twice.
+ *      The cron runs every 2h (vercel.json).
  *   2. INCREMENTAL WRITES — archive/cards/price-log writes flush inside
  *      the runSource write() callback every BATCH_SIZE rows. A killed
  *      invocation keeps everything scraped so far.
  *   3. HONEST RATE — ctx.rate_limit {rps: 4, burst: 8} overrides the
  *      meta default 0.5 rps. The legacy 8-worker pool ran ~26 rps against
  *      CardRush for a year without complaint; 0.5 rps was an accidental
- *      50× regression introduced when Leak 3 was closed. 2,000 cards at
- *      4 rps ≈ 500s — inside the budget with retry headroom.
+ *      50× regression introduced when Leak 3 was closed.
+ *
+ * (Superseded claim, kept for the record: the kingdom-039 design said
+ * "12 × 2,000 = 24,000 attempts per day covers the full list roughly
+ * twice". Observed production reality (2026-07-05 investigation): every
+ * run budget-aborts at SCRAPE_BUDGET_MS having attempted 110–880 of its
+ * 2,000 selected — sequential fetching tops out around ~1.2 rps on
+ * direct hosts and ~0.2–0.45 rps through the Bright Data unlocker — so
+ * actual coverage is ~4–6 days per full pass, not 12 hours. The
+ * data-ingest package now runs direct-host scrapes with bounded
+ * concurrency, which lifts the direct lanes toward the 4 rps bucket
+ * ceiling; the proxied lane stays latency-bound.)
+ *
+ * ── Per-game fair scheduling (2026-07-05) ───────────────────────────────
+ *
+ * THE POLICY. One global stalest-first queue starved whole games: 3,476
+ * never-attempted Pokémon cards sorted ahead of everything (NULLS FIRST),
+ * and One Piece went weeks without a scrape. Selection and budget are now
+ * per-game:
+ *
+ *   1. SELECTION — each active game gets its own stalest-first (NULLS
+ *      FIRST) list. The `chunk` is split as evenly as possible across
+ *      games (`splitChunkAcrossGames`), so no game's backlog can occupy
+ *      another game's share of the run.
+ *   2. BUDGET — the scrape budget is spent in per-game segments. Games
+ *      whose CardRush host is DIRECT-access run first; games behind the
+ *      paid Bright Data unlocker run last. Each segment receives
+ *      (remaining budget) / (remaining segments); a segment that finishes
+ *      early donates its leftover to the segments after it. Direct hosts
+ *      are 5–25× faster than the proxied one, so this ordering means the
+ *      fast games reliably complete their share and the slow proxied lane
+ *      inherits every spare second — instead of the reverse, where one
+ *      slow game ate the whole run.
+ *   3. FUTURE GAMES ARE FAIR AUTOMATICALLY — both the split and the
+ *      segment ordering derive at runtime from active `games` rows and
+ *      the CARDRUSH_SUBDOMAINS access map. Adding a game = one games row;
+ *      it immediately gets an equal chunk share and a budget segment in
+ *      the right lane. No constant to update here.
+ *
+ *   Cursor semantics are unchanged: `last_scrape_attempt_at` advances on
+ *   every ATTEMPT (success or failure), per card, regardless of game.
  *
  * Pokémon (cardrush-pokemon.jp) requires the Bright Data unlocker
  * (kingdom-088); when CARDRUSH_BRIGHT_DATA_PROXY_URL is unset those cards
@@ -72,6 +110,7 @@ import { cardrush, runSource, CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-in
 import { fetchGbpJpyRate } from "@/lib/fx";
 import { calculatePriceByCategory } from "@/lib/pricing";
 import { logPriceChange } from "@/lib/price-change-log";
+import { splitChunkAcrossGames } from "@/lib/fair-share";
 import { eq, inArray, isNotNull, isNull, and, sql, asc } from "drizzle-orm";
 
 export interface SnapshotV2Options {
@@ -81,9 +120,10 @@ export interface SnapshotV2Options {
   /** Cap the number of cards scraped (useful for dry-runs). */
   maxCards?: number;
   /**
-   * Cards per invocation, selected stalest-first by
-   * `last_scrape_attempt_at`. Defaults to CHUNK_DEFAULT. `maxCards`
-   * (dry-run cap) wins when smaller.
+   * Cards per invocation, split as evenly as possible across active
+   * games (fair scheduling — see file header), each game's share
+   * selected stalest-first by `last_scrape_attempt_at`. Defaults to
+   * CHUNK_DEFAULT. `maxCards` (dry-run cap) wins when smaller.
    */
   chunk?: number;
   /**
@@ -271,32 +311,56 @@ export async function runDailySnapshotV2(
       ),
     );
 
-    const [chunkCards, nullUrlCount, proxySkippedCount, cooldownHeldCount] = await Promise.all([
-      db
-        .select({
-          id: cards.id,
-          sku: cards.sku,
-          setCode: cards.setCode,
-          category: cards.category,
-          cardrushUrl: cards.cardrushUrl,
-          gameId: cards.gameId,
-          previousPrice: cards.price,
-          previousBaseGbp: cards.baseGbp,
-        })
-        .from(cards)
-        .where(
-          and(
-            inArray(cards.gameId, gameIds),
-            isNotNull(cards.cardrushUrl),
-            ...proxyExclusion,
-            ...proxyCooldown,
-          ),
-        )
-        .orderBy(
-          sql`${cards.lastScrapeAttemptAt} ASC NULLS FIRST`,
-          asc(cards.id),
-        )
-        .limit(chunkSize) as Promise<CardRow[]>,
+    // ── Fair scheduling (see file header): per-game selection, direct-
+    // host games first. A game is "proxied" when any CardRush subdomain
+    // registered for its code needs the paid Bright Data unlocker (today:
+    // pkm only). Residential egress reaches those hosts directly, so
+    // under it every game is a direct-lane game.
+    const proxiedGameCodes = new Set(
+      Object.values(CARDRUSH_SUBDOMAINS)
+        .filter((entry) => entry.access === "bright-data-unlocker")
+        .map((entry) => entry.game as string),
+    );
+    const isProxiedGame = (id: number): boolean =>
+      !residentialEgress && proxiedGameCodes.has(codeByGameId.get(id) ?? "");
+    const orderedGameIds = [...gameIds].sort(
+      (a, b) => Number(isProxiedGame(a)) - Number(isProxiedGame(b)) || a - b,
+    );
+    const allocations = splitChunkAcrossGames(chunkSize, orderedGameIds.length);
+
+    const selectGameChunk = (gameId: number, limit: number): Promise<CardRow[]> =>
+      limit === 0
+        ? Promise.resolve([])
+        : (db
+            .select({
+              id: cards.id,
+              sku: cards.sku,
+              setCode: cards.setCode,
+              category: cards.category,
+              cardrushUrl: cards.cardrushUrl,
+              gameId: cards.gameId,
+              previousPrice: cards.price,
+              previousBaseGbp: cards.baseGbp,
+            })
+            .from(cards)
+            .where(
+              and(
+                eq(cards.gameId, gameId),
+                isNotNull(cards.cardrushUrl),
+                ...proxyExclusion,
+                ...proxyCooldown,
+              ),
+            )
+            .orderBy(
+              sql`${cards.lastScrapeAttemptAt} ASC NULLS FIRST`,
+              asc(cards.id),
+            )
+            .limit(limit) as Promise<CardRow[]>);
+
+    const [gameChunks, nullUrlCount, proxySkippedCount, cooldownHeldCount] = await Promise.all([
+      Promise.all(
+        orderedGameIds.map((gid, i) => selectGameChunk(gid, allocations[i])),
+      ),
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(cards)
@@ -335,8 +399,18 @@ export async function runDailySnapshotV2(
         : Promise.resolve(0),
     ]);
 
-    const watchList = chunkCards.map((c) => ({ url: c.cardrushUrl, sku: c.sku }));
-    const skuToCard = new Map(chunkCards.map((c) => [c.sku, c]));
+    // One segment per game with eligible cards, in fair-scheduling order
+    // (direct-host games first, proxied last).
+    const segments = orderedGameIds
+      .map((gid, i) => ({
+        gameId: gid,
+        code: codeByGameId.get(gid) ?? "unknown",
+        proxied: isProxiedGame(gid),
+        cards: gameChunks[i],
+      }))
+      .filter((s) => s.cards.length > 0);
+    const allChunkCards = segments.flatMap((s) => s.cards);
+    const skuToCard = new Map(allChunkCards.map((c) => [c.sku, c]));
 
     // ── 3. Fetch FX once per run ──────────────────────────────────────────
     const gbpJpyRate = await fetchGbpJpyRate();
@@ -481,49 +555,81 @@ export async function runDailySnapshotV2(
       rowsWritten += batch.length;
     };
 
+    // ── Per-game segments (fair scheduling, see file header). Each
+    // segment gets (remaining budget) / (remaining segments); a segment
+    // that finishes early donates its leftover to the ones after it.
+    // Direct-host segments run first, so the slow proxied lane inherits
+    // every spare second instead of eating the whole run up front.
+    //
     // bright_data_proxy_url: forwarded from the deployment env. When set,
     // cardrush subdomains with access="bright-data-unlocker" (currently
     // cardrush-pokemon.jp; WAF-blocked on direct egress) route through
     // the unlocker. Added kingdom-088 (the-bright-data-unlock).
-    const ctx: CardRushContext = {
-      cardrush: {
-        urls: watchList,
-        bright_data_proxy_url: process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL,
-      },
-      rate_limit: SCRAPE_RATE,
-      signal: AbortSignal.timeout(options?.scrapeBudgetMs ?? SCRAPE_BUDGET_MS),
+    const scrapeDeadline = Date.now() + (options?.scrapeBudgetMs ?? SCRAPE_BUDGET_MS);
+    const agg = {
+      rows_read: 0,
+      rows_normalized: 0,
+      errors: 0,
+      events: [] as unknown[],
     };
+    // Games whose segment never started because earlier segments consumed
+    // the whole budget — named in the notes, not silently dropped.
+    const budgetSkippedGames: string[] = [];
 
-    const summary = await runSource(cardrush, ctx, {
-      write: async (canonical) => {
-        const card = skuToCard.get(canonical.sku);
-        if (!card) return; // shouldn't happen — watch list comes from skuToCard
-        pending.push({ canonical, card });
-        attemptedIds.push(card.id); // lastScrapeAttemptAt set in flushPending too; harmless double-set
-        bumpGame(card, true);
-        if (pending.length >= BATCH_SIZE) {
-          await flushPending();
-          await flushAttempts();
-        }
-      },
-      quarantine: async ({ raw, reason, provenance }) => {
-        rowsQuarantined += 1;
-        const sku = (raw as { inferred_sku?: string | null }).inferred_sku;
-        const card = sku ? skuToCard.get(sku) : undefined;
-        if (card) attemptedIds.push(card.id);
-        bumpGame(card, false);
-        await db.insert(ingestQuarantine).values({
-          ingestRunId,
-          sourceId: "cardrush",
-          upstreamId: (raw as { url?: string }).url ?? null,
-          rawPayload: raw as unknown as Record<string, unknown>,
-          reason,
-          asOf: new Date(provenance.as_of),
-          retrievedAt: new Date(provenance.retrieved_at),
-        });
-        if (attemptedIds.length >= BATCH_SIZE) await flushAttempts();
-      },
-    });
+    for (let i = 0; i < segments.length; i += 1) {
+      const segment = segments[i];
+      const remainingMs = scrapeDeadline - Date.now();
+      if (remainingMs <= 0) {
+        budgetSkippedGames.push(segment.code);
+        continue;
+      }
+      const segmentBudgetMs = Math.floor(remainingMs / (segments.length - i));
+
+      const ctx: CardRushContext = {
+        cardrush: {
+          urls: segment.cards.map((c) => ({ url: c.cardrushUrl, sku: c.sku })),
+          bright_data_proxy_url: process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL,
+        },
+        rate_limit: SCRAPE_RATE,
+        signal: AbortSignal.timeout(segmentBudgetMs),
+      };
+
+      const summary = await runSource(cardrush, ctx, {
+        write: async (canonical) => {
+          const card = skuToCard.get(canonical.sku);
+          if (!card) return; // shouldn't happen — watch list comes from skuToCard
+          pending.push({ canonical, card });
+          attemptedIds.push(card.id); // lastScrapeAttemptAt set in flushPending too; harmless double-set
+          bumpGame(card, true);
+          if (pending.length >= BATCH_SIZE) {
+            await flushPending();
+            await flushAttempts();
+          }
+        },
+        quarantine: async ({ raw, reason, provenance }) => {
+          rowsQuarantined += 1;
+          const sku = (raw as { inferred_sku?: string | null }).inferred_sku;
+          const card = sku ? skuToCard.get(sku) : undefined;
+          if (card) attemptedIds.push(card.id);
+          bumpGame(card, false);
+          await db.insert(ingestQuarantine).values({
+            ingestRunId,
+            sourceId: "cardrush",
+            upstreamId: (raw as { url?: string }).url ?? null,
+            rawPayload: raw as unknown as Record<string, unknown>,
+            reason,
+            asOf: new Date(provenance.as_of),
+            retrievedAt: new Date(provenance.retrieved_at),
+          });
+          if (attemptedIds.length >= BATCH_SIZE) await flushAttempts();
+        },
+      });
+
+      agg.rows_read += summary.rows_read;
+      agg.rows_normalized += summary.rows_normalized;
+      agg.errors += summary.errors;
+      agg.events.push(...summary.events);
+    }
 
     // Final flush for the tail batch.
     await flushPending();
@@ -534,9 +640,17 @@ export async function runDailySnapshotV2(
       .map(([code, b]) => `${code} ${b.succeeded}/${b.attempted} ok`)
       .join(", ");
     const attempted = Object.values(perGameDb).reduce((s, b) => s + b.attempted, 0);
+    const totalSelected = allChunkCards.length;
+    const selectedNote = segments
+      .map((s) => `${s.code} ${s.cards.length}${s.proxied ? " (proxied lane)" : ""}`)
+      .join(", ");
     const noteParts = [
-      `attempted=${attempted}/${chunkCards.length} selected (stalest-first by last_scrape_attempt_at${attempted < chunkCards.length ? "; budget-aborted, remainder picked up next run" : ""})`,
+      `attempted=${attempted}/${totalSelected} selected (per-game fair share, stalest-first by last_scrape_attempt_at, direct-host games first${attempted < totalSelected ? "; budget-aborted, remainder picked up next run" : ""})`,
+      selectedNote ? `selected per-game: ${selectedNote}` : null,
       perGameNote ? `per-game: ${perGameNote}` : null,
+      budgetSkippedGames.length > 0
+        ? `budget_skipped_games=${budgetSkippedGames.join(",")} (earlier segments consumed the whole budget — they go first next run)`
+        : null,
       proxySkippedCount > 0
         ? `proxy_skipped=${proxySkippedCount} (hosts ${unlockerHosts.join(", ")} need CARDRUSH_BRIGHT_DATA_PROXY_URL — unset, cards excluded from chunk)`
         : null,
@@ -549,22 +663,22 @@ export async function runDailySnapshotV2(
     ].filter(Boolean);
 
     await markRunDone(ingestRunId, {
-      rows_read: summary.rows_read,
-      rows_normalized: summary.rows_normalized,
+      rows_read: agg.rows_read,
+      rows_normalized: agg.rows_normalized,
       rowsWritten,
       rowsQuarantined,
-      errors: summary.errors,
-      events: summary.events,
+      errors: agg.errors,
+      events: agg.events,
       notes: noteParts.length > 0 ? noteParts.join("; ") : null,
     });
 
     return {
       ingestRunId,
       snapshotDate,
-      rowsRead: summary.rows_read,
+      rowsRead: agg.rows_read,
       rowsWritten,
       rowsQuarantined,
-      errors: summary.errors,
+      errors: agg.errors,
       nullUrlCount,
       proxySkippedCount,
       durationMs: Date.now() - startMs,

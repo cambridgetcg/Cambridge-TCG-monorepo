@@ -16,6 +16,7 @@
 // ── The env contract ─────────────────────────────────────────────────────
 //
 //   EMAIL_TRANSPORT            default for all streams: "ses" (default) | "smtp"
+//                              | "console" (dev: prints to stdout, sends nothing)
 //   EMAIL_TRANSPORT_AUTH       per-stream overrides; same values. AUTH is
 //   EMAIL_TRANSPORT_NOREPLY    expected to be the LAST one flipped to smtp
 //   EMAIL_TRANSPORT_TRADEIN    (magic links are login-critical) and the
@@ -33,6 +34,7 @@
 
 import { sesTransport } from "./ses";
 import { smtpTransport } from "./smtp";
+import { consoleTransport } from "./console";
 import type {
   EmailStream,
   MailEnvelope,
@@ -52,10 +54,11 @@ export type {
 const TRANSPORTS: Record<TransportName, () => MailTransport> = {
   ses: sesTransport,
   smtp: smtpTransport,
+  console: consoleTransport,
 };
 
 function isTransportName(value: string): value is TransportName {
-  return value === "ses" || value === "smtp";
+  return value === "ses" || value === "smtp" || value === "console";
 }
 
 /**

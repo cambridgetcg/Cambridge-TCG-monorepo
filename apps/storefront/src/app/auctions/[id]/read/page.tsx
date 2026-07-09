@@ -55,12 +55,12 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  scheduled: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  live:      "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  ended:     "bg-neutral-700/40 text-neutral-300 border-neutral-700",
-  paid:      "bg-purple-500/15 text-purple-400 border-purple-500/30",
-  cancelled: "bg-red-500/15 text-red-400 border-red-500/30",
-  draft:     "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  scheduled: "bg-info/15 text-info border-info/30",
+  live:      "bg-ok/15 text-ok border-ok/30",
+  ended:     "bg-surface-subtle text-ink-muted border-border-subtle",
+  paid:      "bg-[#6a5a8f]/15 text-[#6a5a8f] border-[#6a5a8f]/30",
+  cancelled: "bg-danger/15 text-danger border-danger/30",
+  draft:     "bg-accent-wash text-accent border-accent/30",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -113,27 +113,27 @@ export default async function AuctionReadPage({
   const isDutch = meta.auction_type === "dutch";
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
+    <div className="min-h-screen bg-page text-ink">
       <Audience kind="consumer" contexts={["auction", "public-read"]} />
 
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-baseline justify-between gap-4 mb-6 flex-wrap">
           <div>
-            <p className="text-xs text-neutral-500 mb-1">
-              <Link href="/auctions" className="hover:text-amber-400 transition">Auctions</Link>
-              <span className="mx-2 text-neutral-700">/</span>
-              <span className="font-mono text-neutral-400 text-[10px]">{meta.id.slice(0, 8)}</span>
+            <p className="text-xs text-ink-faint mb-1">
+              <Link href="/auctions" className="hover:text-accent-strong transition">Auctions</Link>
+              <span className="mx-2 text-ink-faint">/</span>
+              <span className="font-mono text-ink-muted text-[10px]">{meta.id.slice(0, 8)}</span>
             </p>
             <h1 className="text-2xl font-bold flex items-center gap-3 flex-wrap">
               {meta.title}
               <StatusBadge status={meta.status} />
               <WhyLink href="/methodology/commission-rate" />
             </h1>
-            <p className="text-sm text-neutral-400 mt-1">
+            <p className="text-sm text-ink-muted mt-1">
               {TYPE_LABELS[meta.auction_type] ?? meta.auction_type}
               {meta.is_consignment && (
-                <span className="ml-2 text-[11px] px-2 py-0.5 bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded">
+                <span className="ml-2 text-[11px] px-2 py-0.5 bg-info/15 text-info border border-info/30 rounded">
                   Consignment
                 </span>
               )}
@@ -143,31 +143,31 @@ export default async function AuctionReadPage({
             <Provenance kind="live" />
             <Link
               href={`/auctions/${meta.id}`}
-              className="text-xs px-3 py-1.5 bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded hover:bg-amber-500/25 transition"
+              className="text-xs px-3 py-1.5 bg-accent-wash text-accent border border-accent/30 rounded hover:bg-accent/20 transition"
             >
               Bid on this →
             </Link>
             <Link
               href={`/api/v1/auctions/${meta.id}`}
-              className="text-xs px-3 py-1.5 bg-neutral-800 text-neutral-300 border border-neutral-700 rounded hover:bg-neutral-700 transition font-mono"
+              className="text-xs px-3 py-1.5 bg-surface-subtle text-ink-muted border border-border-subtle rounded hover:bg-surface-subtle transition font-mono"
             >
               JSON →
             </Link>
             <Link
               href={`/api/v1/universal/auctions/${meta.id}`}
-              className="text-xs px-3 py-1.5 bg-neutral-800 text-neutral-300 border border-neutral-700 rounded hover:bg-neutral-700 transition font-mono"
+              className="text-xs px-3 py-1.5 bg-surface-subtle text-ink-muted border border-border-subtle rounded hover:bg-surface-subtle transition font-mono"
             >
               math →
             </Link>
           </div>
         </div>
 
-        <p className="text-sm text-neutral-400 mb-8 max-w-2xl">
+        <p className="text-sm text-ink-muted mb-8 max-w-2xl">
           The substrate-honest pure-read mirror of one auction. Bidder identities are
           anonymised behind opaque ids; the reserve value is hidden until met;
           counterparty trust tiers are shown so the reader can judge the auction&rsquo;s
           shape without learning who anyone is. The interactive surface for placing
-          bids is at <Link href={`/auctions/${meta.id}`} className="text-amber-400 hover:underline">/auctions/{meta.id.slice(0, 8)}</Link>.
+          bids is at <Link href={`/auctions/${meta.id}`} className="text-accent hover:underline">/auctions/{meta.id.slice(0, 8)}</Link>.
         </p>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -175,9 +175,9 @@ export default async function AuctionReadPage({
           <div className="space-y-6">
             {primaryImage ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={primaryImage} alt={meta.title} className="w-full rounded-xl border border-neutral-800" />
+              <img src={primaryImage} alt={meta.title} className="w-full rounded-xl border border-border-subtle" />
             ) : (
-              <div className="aspect-square w-full bg-neutral-900 rounded-xl border border-neutral-800 flex items-center justify-center text-neutral-600">
+              <div className="aspect-square w-full bg-surface rounded-xl border border-border-subtle flex items-center justify-center text-ink-faint">
                 No image
               </div>
             )}
@@ -190,34 +190,34 @@ export default async function AuctionReadPage({
                     key={img.display_order}
                     src={img.url}
                     alt=""
-                    className="aspect-square object-cover rounded border border-neutral-800"
+                    className="aspect-square object-cover rounded border border-border-subtle"
                   />
                 ))}
               </div>
             )}
 
             {/* Seller */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 Seller
                 <WhyLink href="/methodology/trust-score" />
               </h2>
               {!seller ? (
-                <p className="text-neutral-500 text-sm">—</p>
+                <p className="text-ink-faint text-sm">—</p>
               ) : (
                 <div className="space-y-2 text-sm">
                   <div>
                     {seller.username ? (
                       <Link
                         href={`/u/${seller.username}/trust`}
-                        className="text-amber-400 hover:underline font-medium"
+                        className="text-accent hover:underline font-medium"
                       >
                         {seller.display_name || seller.username}
                       </Link>
                     ) : (
-                      <span className="text-neutral-300">{seller.display_name || "—"}</span>
+                      <span className="text-ink-muted">{seller.display_name || "—"}</span>
                     )}
-                    <span className="block text-[10px] text-neutral-500 mt-0.5">
+                    <span className="block text-[10px] text-ink-faint mt-0.5">
                       {seller.is_consignment ? "Consignment seller" : "Platform-owned auction"}
                     </span>
                   </div>
@@ -234,9 +234,9 @@ export default async function AuctionReadPage({
 
             {/* Description */}
             {meta.description && (
-              <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-                <h2 className="text-sm font-bold text-white mb-3">Description</h2>
-                <p className="text-sm text-neutral-300 whitespace-pre-wrap">{meta.description}</p>
+              <section className="bg-surface border border-border-subtle rounded-lg p-4">
+                <h2 className="text-sm font-bold text-ink mb-3">Description</h2>
+                <p className="text-sm text-ink-muted whitespace-pre-wrap">{meta.description}</p>
               </section>
             )}
           </div>
@@ -244,8 +244,8 @@ export default async function AuctionReadPage({
           {/* Center+Right: pricing, timing, propagation, bids */}
           <div className="md:col-span-2 space-y-6">
             {/* Pricing */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 Pricing
                 <WhyLink href="/methodology/commission-rate" />
               </h2>
@@ -278,7 +278,7 @@ export default async function AuctionReadPage({
                 )}
               </div>
               {isDutch && pricing.dutch && (
-                <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+                <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                   Dutch auction — drops <MoneyDisplay value={pricing.dutch.drop_amount} /> every{" "}
                   {pricing.dutch.drop_interval_seconds}s from <MoneyDisplay value={pricing.dutch.start_price} />{" "}
                   toward <MoneyDisplay value={pricing.dutch.end_price} />.
@@ -287,8 +287,8 @@ export default async function AuctionReadPage({
             </section>
 
             {/* Timing */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3">Timing</h2>
+            <section className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-sm font-bold text-ink mb-3">Timing</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                 <Stat label="Starts" value={fmtDate(timing.starts_at)} />
                 <Stat label="Ends" value={fmtDate(timing.ends_at)} />
@@ -305,12 +305,12 @@ export default async function AuctionReadPage({
             </section>
 
             {/* Propagation */}
-            <section className="bg-amber-500/[0.03] border border-amber-500/20 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-amber-400 mb-1 flex items-center gap-2">
+            <section className="bg-accent-wash border border-accent/20 rounded-lg p-4">
+              <h2 className="text-sm font-bold text-accent mb-1 flex items-center gap-2">
                 What this auction state currently produces
                 <WhyLink href="/methodology/commission-rate" />
               </h2>
-              <p className="text-xs text-neutral-400 mb-4">
+              <p className="text-xs text-ink-muted mb-4">
                 The kingdom&rsquo;s live downstream effects if the auction settled at the current price.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
@@ -340,7 +340,7 @@ export default async function AuctionReadPage({
                   href="/methodology/commission-rate"
                 />
               </div>
-              <p className="text-[10px] text-neutral-500 mt-4 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-4 leading-relaxed">
                 Estimated values use the current price; actual settlement may include
                 shipping, dispute outcomes, or refunds. Auctions always route through
                 CTCG-mediated escrow — different from P2P trades, which choose between
@@ -350,14 +350,14 @@ export default async function AuctionReadPage({
 
             {/* Winner (when ended) */}
             {winner && (
-              <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-                <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+              <section className="bg-surface border border-border-subtle rounded-lg p-4">
+                <h2 className="text-sm font-bold text-ink mb-3 flex items-center gap-2">
                   Winner
                   <WhyLink href="/methodology/trust-score" />
                 </h2>
                 <div className="flex items-center justify-between gap-4 flex-wrap text-sm">
                   <div>
-                    <span className="text-neutral-300 font-mono">#{winner.anonymous_winner_id}</span>
+                    <span className="text-ink-muted font-mono">#{winner.anonymous_winner_id}</span>
                     {winner.trust_tier && (
                       <span className="ml-3">
                         <TrustTier name={winner.trust_tier} score={winner.trust_score} size="sm" />
@@ -365,10 +365,10 @@ export default async function AuctionReadPage({
                     )}
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] text-neutral-500 uppercase tracking-wide">Winning bid</div>
-                    <div className="text-amber-400 font-mono font-medium"><MoneyDisplay value={winner.winning_bid} /></div>
+                    <div className="text-[10px] text-ink-faint uppercase tracking-wide">Winning bid</div>
+                    <div className="text-accent font-mono font-medium"><MoneyDisplay value={winner.winning_bid} /></div>
                     {winner.paid_at && (
-                      <div className="text-[10px] text-emerald-400 mt-1">Paid {fmtRel(winner.paid_at)}</div>
+                      <div className="text-[10px] text-ok mt-1">Paid {fmtRel(winner.paid_at)}</div>
                     )}
                   </div>
                 </div>
@@ -376,23 +376,23 @@ export default async function AuctionReadPage({
             )}
 
             {/* Bids */}
-            <section className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-              <h2 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <section className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-sm font-bold text-ink mb-3 flex items-center gap-2">
                 Recent bids
                 <WhyLink href="/methodology/trust-score" />
               </h2>
               {bids.recent.length === 0 ? (
-                <p className="text-neutral-500 text-sm py-4 text-center">No bids yet.</p>
+                <p className="text-ink-faint text-sm py-4 text-center">No bids yet.</p>
               ) : (
                 <>
-                  <div className="flex items-center gap-4 mb-3 text-xs text-neutral-500">
-                    <span>Total: <span className="text-neutral-300 font-mono">{bids.bid_count}</span></span>
-                    <span>Unique bidders: <span className="text-neutral-300 font-mono">{bids.unique_bidders_count}</span></span>
+                  <div className="flex items-center gap-4 mb-3 text-xs text-ink-faint">
+                    <span>Total: <span className="text-ink-muted font-mono">{bids.bid_count}</span></span>
+                    <span>Unique bidders: <span className="text-ink-muted font-mono">{bids.unique_bidders_count}</span></span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-neutral-500 text-xs uppercase tracking-wide border-b border-neutral-800">
+                        <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
                           <th className="text-left py-2 font-medium">Amount</th>
                           <th className="text-left py-2 font-medium">Bidder</th>
                           <th className="text-left py-2 font-medium">Tier</th>
@@ -401,22 +401,22 @@ export default async function AuctionReadPage({
                       </thead>
                       <tbody>
                         {bids.recent.map((b, i) => (
-                          <tr key={i} className="border-b border-neutral-800/50">
-                            <td className="py-2 text-white font-mono">
+                          <tr key={i} className="border-b border-border-subtle">
+                            <td className="py-2 text-ink font-mono">
                               <MoneyDisplay value={b.amount} />
                               {b.is_best_offer && (
-                                <span className="ml-2 text-[10px] text-blue-400">offer</span>
+                                <span className="ml-2 text-[10px] text-info">offer</span>
                               )}
                             </td>
-                            <td className="py-2 text-neutral-400 text-xs font-mono">#{b.anonymous_bidder_id}</td>
+                            <td className="py-2 text-ink-muted text-xs font-mono">#{b.anonymous_bidder_id}</td>
                             <td className="py-2">
                               {b.trust_tier ? (
                                 <TrustTier name={b.trust_tier} score={b.trust_score} size="sm" />
                               ) : (
-                                <span className="text-neutral-600 text-xs">—</span>
+                                <span className="text-ink-faint text-xs">—</span>
                               )}
                             </td>
-                            <td className="py-2 text-neutral-500 text-right text-xs">{fmtRel(b.created_at)}</td>
+                            <td className="py-2 text-ink-faint text-right text-xs">{fmtRel(b.created_at)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -424,17 +424,17 @@ export default async function AuctionReadPage({
                   </div>
                 </>
               )}
-              <p className="text-[10px] text-neutral-500 mt-3 leading-relaxed">
+              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
                 Last 50 bids, descending by time. Bidder identities are anonymised behind
                 opaque ids; trust tiers come from <code>trust_profiles</code> joined at read time.
-                {" "}<Link href="/methodology/trust-score" className="text-amber-400 hover:underline">methodology →</Link>
+                {" "}<Link href="/methodology/trust-score" className="text-accent hover:underline">methodology →</Link>
               </p>
             </section>
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="mt-12 pt-6 border-t border-neutral-800 text-xs text-neutral-500 space-y-2">
+        <footer className="mt-12 pt-6 border-t border-border-subtle text-xs text-ink-faint space-y-2">
           <p>
             <Provenance kind="live" /> Queried at{" "}
             <span className="font-mono">{state._provenance.queried_at}</span>. Sources:{" "}
@@ -442,11 +442,11 @@ export default async function AuctionReadPage({
           </p>
           <p>
             JSON sibling at{" "}
-            <Link href={`/api/v1/auctions/${meta.id}`} className="text-amber-400 hover:underline font-mono">
+            <Link href={`/api/v1/auctions/${meta.id}`} className="text-accent hover:underline font-mono">
               /api/v1/auctions/{meta.id}
             </Link>
             . Math-mirror at{" "}
-            <Link href={`/api/v1/universal/auctions/${meta.id}`} className="text-amber-400 hover:underline font-mono">
+            <Link href={`/api/v1/universal/auctions/${meta.id}`} className="text-accent hover:underline font-mono">
               /api/v1/universal/auctions/{meta.id}
             </Link>
             .
@@ -471,16 +471,16 @@ function Stat({
   tone?: "emerald" | "red" | "amber" | "neutral";
 }) {
   const valColor =
-    tone === "emerald" ? "text-emerald-400"
-    : tone === "red" ? "text-red-400"
-    : tone === "amber" ? "text-amber-400"
-    : tone === "neutral" ? "text-neutral-300"
-    : "text-white";
+    tone === "emerald" ? "text-ok"
+    : tone === "red" ? "text-danger"
+    : tone === "amber" ? "text-accent"
+    : tone === "neutral" ? "text-ink-muted"
+    : "text-ink";
   return (
     <div>
-      <div className="text-[10px] text-neutral-500 uppercase tracking-wide">{label}</div>
+      <div className="text-[10px] text-ink-faint uppercase tracking-wide">{label}</div>
       <div className={`text-sm font-mono font-medium ${valColor}`}>{value}</div>
-      {sub && <div className="text-[10px] text-neutral-600 mt-0.5">{sub}</div>}
+      {sub && <div className="text-[10px] text-ink-faint mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -497,13 +497,13 @@ function PropRow({
 }) {
   return (
     <div>
-      <div className="text-[10px] text-neutral-500 uppercase tracking-wide flex items-center gap-1">
+      <div className="text-[10px] text-ink-faint uppercase tracking-wide flex items-center gap-1">
         {label}
-        <Link href={href} className="text-neutral-700 hover:text-amber-400 transition" aria-label="Methodology">
+        <Link href={href} className="text-ink-faint hover:text-accent-strong transition" aria-label="Methodology">
           ?
         </Link>
       </div>
-      <div className="text-sm font-mono font-medium text-amber-400">{value}</div>
+      <div className="text-sm font-mono font-medium text-accent">{value}</div>
     </div>
   );
 }

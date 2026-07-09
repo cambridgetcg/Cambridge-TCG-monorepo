@@ -23,17 +23,19 @@ interface RarityBadgeProps {
   className?: string;
 }
 
+// Muted per the quiet gallery — same scarcity groupings; the plum
+// literal matches Badge's TONE_CLS purple.
 function toneFor(r: string): string {
   if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP") {
-    return "bg-yellow-500/20 text-yellow-400";
+    return "bg-warning/15 text-warning";
   }
   if (r === "R" || r === "RR" || r === "SSR") {
-    return "bg-purple-500/20 text-purple-400";
+    return "bg-[#6a5a8f]/15 text-[#6a5a8f]";
   }
   if (r === "UC") {
-    return "bg-blue-500/20 text-blue-400";
+    return "bg-info/15 text-info";
   }
-  return "bg-neutral-700 text-neutral-400";
+  return "bg-ink-faint/15 text-ink-muted";
 }
 
 function sizeFor(size: Size): string {
@@ -55,7 +57,7 @@ export function RarityBadge({
   const r = rarity.toUpperCase();
   return (
     <span
-      className={`inline-block font-bold rounded ${toneFor(r)} ${sizeFor(size)} ${className}`.trim()}
+      className={`inline-block font-semibold rounded ${toneFor(r)} ${sizeFor(size)} ${className}`.trim()}
     >
       {r}
     </span>

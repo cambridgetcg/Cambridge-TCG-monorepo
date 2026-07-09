@@ -214,7 +214,7 @@ CREATE INDEX ingest_quarantine_unresolved_idx
   ON ingest_quarantine(source_id, quarantined_at) WHERE reviewed_at IS NULL;
 ```
 
-**Admin review surface** (planned, [`apps/admin/src/app/(dashboard)/ingest/quarantine/page.tsx`](../../apps/admin/src/app/) — *not yet built*):
+**Admin review surface** (planned then as `apps/admin/src/app/(dashboard)/ingest/quarantine/page.tsx`; shipped post-merge at [`apps/storefront/src/app/admin/ops/ingest-quarantine/page.tsx`](../../apps/storefront/src/app/admin/ops/ingest-quarantine/page.tsx)):
 - Filter by `source_id`, `reason` cluster, age.
 - Inspect raw payload.
 - One-click reprocess (after the normalizer is fixed).
@@ -378,7 +378,7 @@ Five layers, layered from most-foundational to most-emergent:
 - **Breaking changes** (new required field on `_meta`, removed field, semantic shift on an existing field) → bump `SPEC_VERSION` to `"2"`. Old responses continue to be served at `/api/v1/*` with `_meta.spec_version: "1"`; new responses at `/api/v2/*` with `"2"`. Deprecation window: 12 months minimum. Old endpoint emits `_meta.deprecation: { sunset, replacement }`.
 - **Non-breaking additions** (new optional field, new `FreshnessKey`, new `ErrorCode`) → no version bump. Add to `data-spec`, ship.
 
-**Change-log:** [`docs/STANDARDS-CHANGELOG.md`](../STANDARDS-CHANGELOG.md) — *planned, not yet shipped*. Versioned feed of changes. Citable. RSS-friendly.
+**Change-log:** `docs/STANDARDS-CHANGELOG.md` — *planned, not yet shipped*. Versioned feed of changes. Citable. RSS-friendly.
 
 **RFC process:** for breaking changes, write a connection-doc (`docs/connections/the-spec-v<N>.md`) describing the change + rationale + migration path + community feedback before bumping `SPEC_VERSION`. Mirrors how IETF RFCs work, scaled down.
 

@@ -103,25 +103,25 @@ export default function AccountExternalRepPage() {
   return (
     <div>
       <Audience kind="consumer" />
-      <h1 className="text-2xl font-bold text-white mb-2">External Reputation</h1>
-      <p className="text-sm text-neutral-400 mb-6">
+      <h1 className="text-2xl font-bold text-ink mb-2">External Reputation</h1>
+      <p className="text-sm text-ink-muted mb-6">
         Verify your accounts on other marketplaces. Each verified platform
         contributes to your{" "}
-        <Link href="/account/trust" className="text-amber-400 underline">trust score</Link>{" "}
+        <Link href="/account/trust" className="text-accent underline">trust score</Link>{" "}
         (up to 10 points). Verifications expire after 90 days and re-check automatically.
       </p>
 
       {/* Connect-platform form */}
-      <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 mb-6">
+      <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-6">
         <h2 className="text-base font-bold mb-3">Connect a platform</h2>
         <form onSubmit={issueCode} className="space-y-3">
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-xs text-neutral-500 block mb-1">Platform</span>
+              <span className="text-xs text-ink-faint block mb-1">Platform</span>
               <select
                 value={platform}
                 onChange={(e) => setPlatform(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+                className="w-full bg-surface-subtle border border-border-subtle rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
               >
                 {(data?.platforms ?? []).map((p) => (
                   <option key={p.key} value={p.key}>{p.label}</option>
@@ -129,53 +129,53 @@ export default function AccountExternalRepPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-xs text-neutral-500 block mb-1">Username on that platform</span>
+              <span className="text-xs text-ink-faint block mb-1">Username on that platform</span>
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="your-handle"
                 required
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-500"
+                className="w-full bg-surface-subtle border border-border-subtle rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent"
               />
             </label>
           </div>
           <label className="block">
-            <span className="text-xs text-neutral-500 block mb-1">Public profile URL</span>
+            <span className="text-xs text-ink-faint block mb-1">Public profile URL</span>
             <input
               value={profileUrl}
               onChange={(e) => setProfileUrl(e.target.value)}
               placeholder="https://www.ebay.co.uk/usr/your-handle"
               required
               type="url"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+              className="w-full bg-surface-subtle border border-border-subtle rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
             />
           </label>
           {error && (
-            <p className="text-xs text-red-400">{error}</p>
+            <p className="text-xs text-danger">{error}</p>
           )}
           <button
             type="submit"
             disabled={issuing}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg text-sm disabled:opacity-50"
+            className="px-4 py-2 bg-ink hover:opacity-90 text-page font-semibold rounded-lg text-sm disabled:opacity-50"
           >
             {issuing ? "Issuing…" : "Get verification code"}
           </button>
         </form>
 
         {issueResult && (
-          <div className="mt-4 p-4 bg-emerald-500/5 border border-emerald-500/30 rounded-lg">
-            <p className="text-sm text-emerald-400 font-bold mb-1">Code issued</p>
-            <p className="text-xs text-neutral-300 mb-3">
+          <div className="mt-4 p-4 bg-ok/5 border border-ok/30 rounded-lg">
+            <p className="text-sm text-ok font-bold mb-1">Code issued</p>
+            <p className="text-xs text-ink-muted mb-3">
               Add this code anywhere on your public profile (about/me, listing description, etc),
               then click Verify below:
             </p>
-            <code className="block font-mono text-lg text-amber-400 bg-neutral-950 px-4 py-3 rounded mb-3 break-all">
+            <code className="block font-mono text-lg text-accent bg-page px-4 py-3 rounded mb-3 break-all">
               {issueResult.code}
             </code>
             <button
               onClick={() => verify(issueResult.repId)}
               disabled={verifying === issueResult.repId}
-              className="text-xs px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded disabled:opacity-50"
+              className="text-xs px-3 py-1.5 bg-ink hover:opacity-90 text-page font-semibold rounded disabled:opacity-50"
             >
               {verifying === issueResult.repId ? "Verifying…" : "I've added it — verify"}
             </button>
@@ -185,13 +185,13 @@ export default function AccountExternalRepPage() {
 
       {/* Entries list */}
       <section>
-        <h2 className="text-sm uppercase tracking-wider text-neutral-500 mb-3">
+        <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">
           Your platforms
         </h2>
         {loading ? (
-          <p className="text-neutral-500">Loading…</p>
+          <p className="text-ink-faint">Loading…</p>
         ) : !data || data.entries.length === 0 ? (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 text-center text-neutral-500 text-sm">
+          <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
             No platforms connected yet. Use the form above to get started.
           </div>
         ) : (
@@ -202,48 +202,48 @@ export default function AccountExternalRepPage() {
               const decayDays = decayMs != null ? Math.floor(decayMs / 86_400_000) : null;
               const decayWarn = decayDays != null && decayDays < 14;
               return (
-                <div key={e.id} className={`bg-neutral-900 rounded-xl p-4 border ${
+                <div key={e.id} className={`bg-surface rounded-lg p-4 border ${
                   e.verified
-                    ? (e.failed_check_count > 0 ? "border-amber-500/40" : "border-emerald-500/30")
-                    : "border-neutral-800"
+                    ? (e.failed_check_count > 0 ? "border-accent/30" : "border-ok/30")
+                    : "border-border-subtle"
                 }`}>
                   <div className="flex items-baseline justify-between flex-wrap gap-2">
                     <div className="min-w-0">
                       <p className="font-bold flex items-center gap-2 flex-wrap">
                         <span>{platformLabel}</span>
-                        <span className="text-sm text-neutral-400 font-mono">@{e.username}</span>
+                        <span className="text-sm text-ink-muted font-mono">@{e.username}</span>
                         {e.verified ? (
-                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border bg-ok/10 text-ok border-ok/30">
                             Verified
                           </span>
                         ) : e.verification_code ? (
-                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/30">
+                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border bg-accent-wash text-accent border-accent/30">
                             Awaiting verify
                           </span>
                         ) : (
-                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border bg-neutral-800 text-neutral-400 border-neutral-700">
+                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border bg-surface-subtle text-ink-muted border-border-subtle">
                             Unverified
                           </span>
                         )}
                       </p>
                       <a href={e.profile_url} target="_blank" rel="noopener noreferrer"
-                         className="text-xs text-neutral-500 hover:text-neutral-300 underline truncate block">
+                         className="text-xs text-ink-faint hover:text-ink underline truncate block">
                         {e.profile_url}
                       </a>
                     </div>
                     <button
                       onClick={() => remove(e.id)}
-                      className="text-[11px] text-neutral-500 hover:text-red-400 underline"
+                      className="text-[11px] text-ink-faint hover:text-danger underline"
                     >
                       Remove
                     </button>
                   </div>
 
                   {e.verified && e.decay_at && (
-                    <p className={`text-xs mt-2 ${decayWarn ? "text-amber-400" : "text-neutral-500"}`}>
+                    <p className={`text-xs mt-2 ${decayWarn ? "text-accent" : "text-ink-faint"}`}>
                       Re-verifies in {decayDays}d ({new Date(e.decay_at).toLocaleDateString("en-GB")})
                       {e.failed_check_count > 0 && (
-                        <span className="ml-2 text-amber-400">
+                        <span className="ml-2 text-accent">
                           · {e.failed_check_count} failed re-check{e.failed_check_count === 1 ? "" : "s"}
                         </span>
                       )}
@@ -251,15 +251,15 @@ export default function AccountExternalRepPage() {
                   )}
 
                   {!e.verified && e.verification_code && (
-                    <div className="mt-3 p-3 bg-neutral-950/50 rounded">
-                      <p className="text-xs text-neutral-500 mb-1">Code to paste on your profile:</p>
-                      <code className="block font-mono text-amber-400 text-sm break-all mb-2">
+                    <div className="mt-3 p-3 bg-surface-subtle rounded">
+                      <p className="text-xs text-ink-faint mb-1">Code to paste on your profile:</p>
+                      <code className="block font-mono text-accent text-sm break-all mb-2">
                         {e.verification_code}
                       </code>
                       <button
                         onClick={() => verify(e.id)}
                         disabled={verifying === e.id}
-                        className="text-xs px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded disabled:opacity-50"
+                        className="text-xs px-3 py-1.5 bg-ink hover:opacity-90 text-page font-semibold rounded disabled:opacity-50"
                       >
                         {verifying === e.id ? "Verifying…" : "I've added it — verify now"}
                       </button>

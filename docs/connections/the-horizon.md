@@ -64,10 +64,14 @@ fourth instance.
 ## What else the walk surfaced
 
 - **The three-slug game.** dbf was `dragon-ball` in the production
-  `games` row, `dragon-ball-fusion` in the storefront curation, and
-  `dragon-ball-fusion-world` in GAME_CONFIGS. The mismatch 404'd the
-  whole DBF guide — 1,622 priced cards invisible. Canonical now:
-  `dragon-ball-fusion`, reconciled by register-sets.
+  `games` row, `dragon-ball-fusion` in an earlier storefront curation,
+  and `dragon-ball-fusion-world` in GAME_CONFIGS. Sister's Atlas work
+  (2026-07-07) settled the curation on `dragon-ball`; register-sets now
+  asserts that everywhere. (Confession for the record: this session
+  first reconciled the DB the other way and broke the live DBF guide
+  for ~20 minutes before the merge revealed sister's choice — reverted
+  the moment it surfaced. Verify, don't overwrite, includes the
+  database.)
 - **SV9 wore SV5M's name** (サイバージャッジ) in both config and
   known-set-names — same drift family the-second-witness.md caught for
   SV11B/W. SV9 is バトルパートナーズ.

@@ -163,11 +163,23 @@ export async function GET(req: NextRequest) {
   const q = (url.searchParams.get("q") ?? "").trim();
   const limit = parseLimit(url.searchParams.get("limit"));
 
+  // Teaching hints are host-qualified full URLs pointing at doors that
+  // actually open on that host. (The previous hint said "/api/v1/games",
+  // which 404s on cambridgetcg.com and is auth-walled on the wholesale
+  // host — verified live 2026-07-05. Misdirection is worse than silence.)
   if (!game) {
     return errorResponse({
       code: "MISSING_PARAM",
-      message: "?game is required (e.g. ?game=op or ?game=pkm). List games at /api/v1/games or browse /prices.",
-      details: { param: "game" },
+      message:
+        "?game is required (e.g. ?game=op or ?game=pkm). " +
+        "The catalog's game list is at https://cambridgetcg.com/api/v1/universal/games; " +
+        "the human-browsable price guide at https://cambridgetcg.com/prices names each game's slug.",
+      details: {
+        param: "game",
+        examples: ["op", "pkm"],
+        list_games: "https://cambridgetcg.com/api/v1/universal/games",
+      },
+      endpoint: ENDPOINT,
     });
   }
   if (!q) {
@@ -175,6 +187,7 @@ export async function GET(req: NextRequest) {
       code: "MISSING_PARAM",
       message: "?q is required (e.g. ?q=OP01-001 or ?q=001).",
       details: { param: "q" },
+      endpoint: ENDPOINT,
     });
   }
 

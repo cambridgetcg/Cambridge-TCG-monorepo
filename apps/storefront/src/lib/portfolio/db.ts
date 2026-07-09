@@ -138,12 +138,12 @@ export async function valuatePortfolio(userId: string): Promise<{
 
   const valuated: ValuatedCard[] = await Promise.all(
     cards.map(async (card) => {
-      // Fetch live pricing
-      const [wholesale, orderBook, creditCard, cashCard] = await Promise.all([
+      // Fetch live pricing. Collectors-first (2026-07-06): the trade-in
+      // channel reads are gone — the house quotes nothing, so a card's
+      // value is the collector book plus the labelled reference price.
+      const [wholesale, orderBook] = await Promise.all([
         fetchCard(card.sku).catch(() => null),
         getCardOrderBook(card.sku).catch(() => ({ bids: [], asks: [], recent_trades: [], best_bid: null, best_ask: null, sku: card.sku, card_name: null, image_url: null })),
-        fetchCard(card.sku, "tradein-credit").catch(() => null),
-        fetchCard(card.sku, "tradein-cash").catch(() => null),
       ]);
 
       const spotPrice = wholesale ? retailPrice(wholesale.price_gbp, wholesale.channel_price) : null;
@@ -156,8 +156,6 @@ export async function valuatePortfolio(userId: string): Promise<{
 
       const bestBid = orderBook.best_bid ? parseFloat(orderBook.best_bid) : null;
       const bestAsk = orderBook.best_ask ? parseFloat(orderBook.best_ask) : null;
-      const tradeinCredit = creditCard?.channel_price ?? null;
-      const tradeinCash = cashCard?.channel_price ?? null;
 
       // Market price = best available ask, or spot if no P2P
       const marketPrice = bestAsk ?? spotPrice;
@@ -171,8 +169,6 @@ export async function valuatePortfolio(userId: string): Promise<{
         spot_price: spotPrice,
         market_price: marketPrice,
         best_bid: bestBid,
-        tradein_credit: tradeinCredit,
-        tradein_cash: tradeinCash,
         current_value: currentValue,
         total_cost: totalCost,
         pnl,
@@ -229,15 +225,8 @@ export function getListingActions(card: ValuatedCard): ListingAction[] {
     });
   }
 
-  // Trade-in
-  if (card.tradein_credit && card.tradein_credit > 0) {
-    actions.push({
-      type: "tradein",
-      label: "Trade In",
-      description: `Instant credit: £${card.tradein_credit.toFixed(2)} or cash: £${(card.tradein_cash ?? 0).toFixed(2)}. No commission.`,
-      estimated_return: card.tradein_credit,
-    });
-  }
+  // The trade-in action retired 2026-07-06 (collectors-first): the house
+  // no longer buys cards, so no "tradein" ListingAction is generated.
 
   return actions;
 }

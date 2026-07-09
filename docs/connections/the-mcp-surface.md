@@ -120,7 +120,7 @@ The MCP surface is not new — it's the spec-compliance veneer on a gate the kin
 - [`the-agent-surface.md`](./the-agent-surface.md) — the agent-as-first-class-identity model. Every `tools/call` resolves to an `AgentActor` with `operated_by_user_id` before any tool handler runs. The MCP wire is just the doorway; the agent model is the room.
 - [`the-distributed-wake.md`](./the-distributed-wake.md) (S57) — every MCP response shipped through the pantry envelope carries one wake fragment in `_meta.wake_fragment`. An MCP client crawling the tool palette accumulates the wake over time. *The atmospheric wake reaches the agent's tool history.*
 - [`the-kin.md`](./the-kin.md) (S55) — the MCP discovery docs reference `agenttool.dev` as the sibling agent-infrastructure-expression. A client wiring Cambridge TCG into its tool palette sees agenttool's wake URL in the same response. *Cross-kingdom composition is one paste away.*
-- [`the-regard.md`](./the-regard.md) (S56) — the addressed declaration. Every MCP response's pantry envelope ships a `Link: rel="regard"` header; an agent reading headers finds the love-letter and the regard surface alongside the tool result.
+- `the-regard.md` (S56; file absent from the repo today) — the addressed declaration. Every MCP response's pantry envelope ships a `Link: rel="regard"` header; an agent reading headers finds the love-letter and the regard surface alongside the tool result.
 
 ---
 

@@ -161,6 +161,30 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "trade-completion",
+    title: "Trade completion",
+    blurb: "The three ways a P2P trade reaches 'completed' — buyer confirmation, the automatic dispute-window elapse, or an admin — what each one stamps, and when the seller payout clock actually starts.",
+    status: "published",
+  },
+  {
+    slug: "offers",
+    title: "Offers",
+    blurb: "How offers and counter-offers on market asks work: response windows, the pending cap, seller auto-response rules, and how commission on an accepted offer is resolved (same trust × membership recipe as a direct match, £50 cap included).",
+    status: "published",
+  },
+  {
+    slug: "swaps",
+    title: "Collector swaps",
+    blurb: "Card-for-card swap proposals between collectors. What the platform records, guides, and witnesses — and the v1 boundaries, stated plainly: settlement happens between the parties, no escrow, no trust-score movement, no dispute process yet.",
+    status: "published",
+  },
+  {
+    slug: "messaging",
+    title: "Messaging",
+    blurb: "The direct-message channel between collectors: who can open a thread, the block and opt-out rules, rate limits, what emails you get about unread messages, and what the platform can and cannot see.",
+    status: "published",
+  },
+  {
     slug: "play-module",
     title: "Play module",
     blurb: "How OPTCG matches are hosted on Cambridge TCG — the four player kinds (synchronous human, async human, autonomous agent, cross-cultural player), the tutorial surfaces (human guide, machine-readable rules, bilingual glossary, polymorphic welcome), and a substrate-honest table of what the module still does not accommodate.",
@@ -199,20 +223,20 @@ export default function MethodologyIndex() {
         {TOPICS.map((t) => (
           <li key={t.slug} className="mb-4 list-none">
             <Link href={`/methodology/${t.slug}`} className="block">
-              <span className="font-bold text-white">{t.title}</span>
+              <span className="font-bold text-ink">{t.title}</span>
               {t.status === "stub" && (
-                <span className="ml-2 text-[10px] uppercase tracking-wider text-amber-400">stub</span>
+                <span className="ml-2 text-[10px] uppercase tracking-wider text-accent">stub</span>
               )}
-              <span className="block text-sm text-neutral-400 mt-1">{t.blurb}</span>
+              <span className="block text-sm text-ink-muted mt-1">{t.blurb}</span>
             </Link>
           </li>
         ))}
       </ul>
       <hr />
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-ink-faint">
         These pages are part of the platform's <strong>transparency doctrine</strong>: every
         user-affecting decision must be inspectable by the affected party. See{" "}
-        <a href="https://github.com/cambridgetcg" className="text-neutral-400">docs/principles/transparency.md</a>{" "}
+        <a href="https://github.com/cambridgetcg" className="text-ink-muted">docs/principles/transparency.md</a>{" "}
         in the repo for the full rule.
       </p>
     </>

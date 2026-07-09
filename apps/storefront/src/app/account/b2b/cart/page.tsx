@@ -69,11 +69,11 @@ export default async function B2BCartPage() {
       <div className="space-y-6">
         <PageHeader title="Wholesale cart" description="Your cart is empty." />
         <Card>
-          <div className="text-sm text-neutral-400 space-y-3">
+          <div className="text-sm text-ink-muted space-y-3">
             <p>Nothing in your cart yet. Head to the catalog to start adding cards.</p>
             <Link
               href="/account/b2b/catalog"
-              className="inline-block rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-amber-400"
+              className="inline-block rounded bg-ink px-4 py-2 text-sm font-semibold text-page hover:opacity-90"
             >
               Browse catalog →
             </Link>
@@ -92,7 +92,7 @@ export default async function B2BCartPage() {
 
       {(hasOutOfStock || hasMissing) && (
         <Card>
-          <div className="text-sm text-amber-400 space-y-1">
+          <div className="text-sm text-accent space-y-1">
             {hasOutOfStock && (
               <p>
                 <strong>Stock warning:</strong> one or more lines exceeds available stock. Quantities will be capped at checkout.
@@ -107,9 +107,9 @@ export default async function B2BCartPage() {
         </Card>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-800">
+      <div className="overflow-x-auto rounded-lg border border-border-subtle">
         <table className="w-full text-left text-sm">
-          <thead className="bg-neutral-800 text-xs uppercase tracking-wider text-neutral-400">
+          <thead className="bg-surface-subtle text-xs uppercase tracking-wider text-ink-muted">
             <tr>
               <th className="px-3 py-3"></th>
               <th className="px-3 py-3">Card</th>
@@ -121,13 +121,13 @@ export default async function B2BCartPage() {
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {lines.map((line) => {
               const card = line.card;
               const displayName = card?.name_en || card?.name || line.sku;
               const overSold = card && card.stock < line.quantity;
               return (
-                <tr key={line.sku} className="bg-neutral-900">
+                <tr key={line.sku} className="bg-surface">
                   <td className="px-3 py-3 w-12">
                     {card?.image_url ? (
                       <Image
@@ -135,37 +135,37 @@ export default async function B2BCartPage() {
                         alt={cardAltText(card)}
                         width={36}
                         height={50}
-                        className="rounded border border-neutral-800"
+                        className="rounded border border-border-subtle"
                       />
                     ) : (
-                      <div className="h-12 w-8 rounded border border-neutral-800 bg-neutral-950" />
+                      <div className="h-12 w-8 rounded border border-border-subtle bg-page" />
                     )}
                   </td>
                   <td className="px-3 py-3">
                     {card ? (
                       <Link
                         href={`/account/b2b/cards/${encodeURIComponent(line.sku)}`}
-                        className="text-white hover:text-amber-400"
+                        className="text-ink hover:text-accent"
                       >
                         {displayName}
                       </Link>
                     ) : (
-                      <span className="text-red-400">Unavailable</span>
+                      <span className="text-danger">Unavailable</span>
                     )}
                     {card && (
-                      <div className="text-xs text-neutral-500">
+                      <div className="text-xs text-ink-faint">
                         {card.card_number} · {card.set_code ?? "—"} · {card.rarity ?? "—"}
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-3 font-mono text-xs text-neutral-500">{line.sku}</td>
+                  <td className="px-3 py-3 font-mono text-xs text-ink-faint">{line.sku}</td>
                   <td className="px-3 py-3 text-right font-mono text-xs">
                     {card ? (
-                      <span className={overSold ? "text-red-400" : card.stock > 0 ? "text-emerald-400" : "text-neutral-600"}>
+                      <span className={overSold ? "text-danger" : card.stock > 0 ? "text-ok" : "text-ink-faint"}>
                         {card.stock}
                       </span>
                     ) : (
-                      <span className="text-neutral-600">—</span>
+                      <span className="text-ink-faint">—</span>
                     )}
                   </td>
                   <td className="px-3 py-3 text-right font-mono">
@@ -184,12 +184,12 @@ export default async function B2BCartPage() {
               );
             })}
           </tbody>
-          <tfoot className="bg-neutral-800/50 border-t border-neutral-800">
+          <tfoot className="bg-surface-subtle border-t border-border-subtle">
             <tr>
-              <td colSpan={6} className="px-3 py-3 text-right text-sm uppercase tracking-wider text-neutral-500">
+              <td colSpan={6} className="px-3 py-3 text-right text-sm uppercase tracking-wider text-ink-faint">
                 Total
               </td>
-              <td className="px-3 py-3 text-right text-lg font-bold text-white">
+              <td className="px-3 py-3 text-right text-lg font-bold text-ink">
                 {formatPrice(total)}
               </td>
               <td className="px-3 py-3"></td>
@@ -203,14 +203,14 @@ export default async function B2BCartPage() {
         <div className="flex gap-3">
           <Link
             href="/account/b2b/catalog"
-            className="rounded border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-amber-500 hover:text-amber-400"
+            className="rounded border border-border-subtle px-4 py-2 text-sm text-ink-muted hover:border-accent hover:text-accent"
           >
             ← Keep shopping
           </Link>
           <Link
             href="/account/b2b/checkout"
             className={
-              "rounded bg-amber-500 px-5 py-2 text-sm font-semibold text-neutral-950 hover:bg-amber-400 " +
+              "rounded bg-ink px-5 py-2 text-sm font-semibold text-page hover:opacity-90 " +
               (lines.length === 0 || hasMissing ? "pointer-events-none opacity-50" : "")
             }
           >
@@ -219,7 +219,7 @@ export default async function B2BCartPage() {
         </div>
       </div>
 
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-ink-faint">
         Prices reflect the current wholesale-channel rate at this moment. If a card&rsquo;s price changes between now and checkout, your total at Stripe will match the price at checkout-time, not at add-time.
       </p>
     </div>

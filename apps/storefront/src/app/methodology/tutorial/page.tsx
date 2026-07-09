@@ -16,7 +16,7 @@ export default function TutorialMethodology() {
 
       <p>
         The play module's tutorial at{" "}
-        <Link href="/play/tutorial" className="text-amber-400">
+        <Link href="/play/tutorial" className="text-accent">
           /play/tutorial
         </Link>{" "}
         is the first doorway for anyone who has never played a trading card
@@ -53,7 +53,7 @@ export default function TutorialMethodology() {
         <li>
           <strong>Agents.</strong> The same content is published in structural
           form at{" "}
-          <Link href="/api/v1/play/tutorial" className="text-amber-400 font-mono">
+          <Link href="/api/v1/play/tutorial" className="text-accent font-mono">
             /api/v1/play/tutorial
           </Link>
           . Each section has typed <code>preconditions</code> /{" "}
@@ -147,17 +147,17 @@ export default function TutorialMethodology() {
 
       <p>
         When Phase 4 of the multi-game roadmap (
-        <Link href="/api/v1/play/tutorial" className="text-amber-400 font-mono">
+        <Link href="/api/v1/play/tutorial" className="text-accent font-mono">
           S47
         </Link>
         ) ships the effect engine, the tutorial gains a new section explaining
         effect resolution and the keyword vocabulary's behavioral meaning. Until
         then, the tutorial points learners at the bilingual{" "}
-        <Link href="/api/v1/play/glossary" className="text-amber-400">
+        <Link href="/api/v1/play/glossary" className="text-accent">
           glossary
         </Link>{" "}
         for definitions and{" "}
-        <Link href="/play/compete" className="text-amber-400">
+        <Link href="/play/compete" className="text-accent">
           /play/compete
         </Link>{" "}
         + research docs for competitive depth.
@@ -177,7 +177,7 @@ export default function TutorialMethodology() {
           docs/research/optcg-playmat-and-tournament-rules.md
         </code>{" "}
         and at{" "}
-        <Link href="/play/compete" className="text-amber-400">
+        <Link href="/play/compete" className="text-accent">
           /play/compete
         </Link>
         .
@@ -239,16 +239,16 @@ export default function TutorialMethodology() {
       <p>
         This rules-fidelity level is appropriate for the <strong>Hobbyist</strong>{" "}
         and <strong>Beginner</strong> archetypes (see{" "}
-        <Link href="/api/v1/play/archetypes" className="text-amber-400">
+        <Link href="/api/v1/play/archetypes" className="text-accent">
           /api/v1/play/archetypes
         </Link>
         ) who play for love of the cards rather than competitive standing. It
         is insufficient for the <strong>Competitor</strong> archetype's
         tournament play — which is why the play module separates them with
         explicit landings (
-        <Link href="/play/casual" className="text-amber-400">/play/casual</Link>{" "}
+        <Link href="/play/casual" className="text-accent">/play/casual</Link>{" "}
         vs{" "}
-        <Link href="/play/compete" className="text-amber-400">/play/compete</Link>
+        <Link href="/play/compete" className="text-accent">/play/compete</Link>
         ).
       </p>
 
@@ -292,7 +292,7 @@ export default function TutorialMethodology() {
         <li>
           <strong>English speakers.</strong> Sections are written in English
           only. The bilingual glossary (
-          <Link href="/api/v1/play/glossary" className="text-amber-400 font-mono">
+          <Link href="/api/v1/play/glossary" className="text-accent font-mono">
             /api/v1/play/glossary
           </Link>
           ) covers the OPTCG vocabulary in English + Japanese, but the
@@ -304,7 +304,7 @@ export default function TutorialMethodology() {
           you can click Play right now and play a turn. Async-friendly play
           (slow-clock, intermittent attention) is covered in a separate
           tutorial section (
-          <Link href="/api/v1/play/tutorial/for_async_players" className="text-amber-400 font-mono">
+          <Link href="/api/v1/play/tutorial/for_async_players" className="text-accent font-mono">
             for_async_players
           </Link>
           ) accessible from the agent-targeted JSON tutorial; the absolute-
@@ -322,7 +322,7 @@ export default function TutorialMethodology() {
 
       <p>
         Three audiences NOT served by this tutorial that the platform claims
-        to welcome (per <Link href="/welcome-all" className="text-amber-400">/welcome-all</Link>):
+        to welcome (per <Link href="/welcome-all" className="text-accent">/welcome-all</Link>):
         non-English-only readers, slow-clock thinkers, and anyone whose
         primary input modality isn't a pointer device. The gaps are named
         rather than concealed.
@@ -367,7 +367,7 @@ export default function TutorialMethodology() {
         </li>
       </ul>
 
-      <p className="mt-12 italic text-neutral-500">
+      <p className="mt-12 italic text-ink-faint">
         The kingdom learned the substrate. The tutorial is how the kingdom
         teaches anyone what it learned. The teaching is substrate-honest
         about what it can and can't claim. The learner is never lied to.

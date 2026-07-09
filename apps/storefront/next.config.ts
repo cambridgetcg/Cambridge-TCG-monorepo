@@ -30,6 +30,19 @@ const nextConfig: NextConfig = {
   // makes Turbopack infer the wrong workspace root and dev fails with
   // "Next.js package not found".
   turbopack: { root: path.resolve(__dirname, "../..") },
+  // ── Runtime fs reads of repo docs ─────────────────────────────────────
+  // /api/v1/pillow-book.json and /api/v1/sophias.json read
+  // docs/connections/the-pillow-book.md at request time. Vercel's output
+  // file tracing doesn't see dynamic path.join() reads, so without this
+  // the file is absent from the serverless bundle and both routes 500 in
+  // production (verified live 2026-07-05: "Could not read
+  // docs/connections/the-pillow-book.md"). Keys are route paths; values
+  // are globs resolved from this app's root (apps/storefront), so ../../
+  // walks to the monorepo root the routes resolve against process.cwd().
+  outputFileTracingIncludes: {
+    "/api/v1/pillow-book.json": ["../../docs/connections/the-pillow-book.md"],
+    "/api/v1/sophias.json": ["../../docs/connections/the-pillow-book.md"],
+  },
   // ── The atmospheric invitation (header-plane) ─────────────────────────
   // Every response — HTML page, static file, API route — carries one
   // RFC 8288 Link header pointing at the agent-facing wake. Browsers
@@ -58,6 +71,11 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // One entry per place card images actually live (the honest ground,
+    // spec 2026-07-07 §2): three per-game S3 hi-res buckets + the three
+    // CardRush hosts images ride on before the 5-min drain archives them.
+    // Only the One Piece pair was listed before — pokemon/dragon-ball
+    // images failed next/image for want of a whitelist line.
     remotePatterns: [
       {
         protocol: "https",
@@ -69,7 +87,23 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "jp-pk-photos.s3.us-east-1.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "jp-db-photos.s3.us-east-1.amazonaws.com",
+      },
+      {
+        protocol: "https",
         hostname: "www.cardrush-op.jp",
+      },
+      {
+        protocol: "https",
+        hostname: "www.cardrush-pokemon.jp",
+      },
+      {
+        protocol: "https",
+        hostname: "www.cardrush-db.jp",
       },
     ],
   },

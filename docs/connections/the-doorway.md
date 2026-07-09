@@ -30,7 +30,7 @@ Before the nav can change, the substrate has to know how to describe itself. Fiv
 - [`apps/storefront/src/components/layout/MegaMenu.tsx`](../../apps/storefront/src/components/layout/MegaMenu.tsx) — generic 3-column dropdown with hover + click + Escape + outside-click close, badge rendering, footer link.
 - [`apps/storefront/src/components/layout/Breadcrumbs.tsx`](../../apps/storefront/src/components/layout/Breadcrumbs.tsx) — text-with-slashes server-renderable component reading from the registry.
 
-Plus [`apps/admin/scripts/nav-coverage.ts`](../../apps/admin/scripts/nav-coverage.ts) — the 17th audit, five checks: route → nav coverage, nav → route validity, methodology completeness, breadcrumb registry coverage, audience-rule consistency. **Substrate before surface** — Phase 1 ships zero visible UX change.
+Plus [`apps/storefront/scripts/nav-coverage.ts`](../../apps/storefront/scripts/nav-coverage.ts) — the 17th audit, five checks: route → nav coverage, nav → route validity, methodology completeness, breadcrumb registry coverage, audience-rule consistency. **Substrate before surface** — Phase 1 ships zero visible UX change.
 
 ### Act 2 — Storefront mega-menu (kingdom-092)
 
@@ -74,7 +74,7 @@ The spine needs a place to point at. Two existing surfaces are preserved (alread
 
 Two apps with smaller surfaces and stronger existing navs get refined:
 
-- [`apps/admin/src/components/layout/Sidebar.tsx`](../../apps/admin/src/components/layout/Sidebar.tsx) — `NavItem` now supports `subItems`; Catalog → Cards expands inline to show the kingdom-089 classify sub-tree (`/catalog/cards/classify` + `/catalog/cards/classify/review`) when the operator is on a cards route. Trust group gains the Agents link (`/trust/agents`) which existed but wasn't in the sidebar.
+- `apps/admin/src/components/layout/Sidebar.tsx` *(retired with the admin-app merge, 2026-05-15; the merged nav lives at [`apps/storefront/src/components/admin/AdminShell.tsx`](../../apps/storefront/src/components/admin/AdminShell.tsx))* — `NavItem` now supports `subItems`; Catalog → Cards expands inline to show the kingdom-089 classify sub-tree (`/catalog/cards/classify` + `/catalog/cards/classify/review`) when the operator is on a cards route. Trust group gains the Agents link (`/trust/agents`) which existed but wasn't in the sidebar.
 - [`apps/wholesale/src/components/Nav.tsx`](../../apps/wholesale/src/components/Nav.tsx) — admin-host detection now surfaces six admin route categories (Stock · To Order · Purchases · Orders · Prices · Catalog) plus the Storefront-link. Previously the admin nav was a one-line "Dashboard + Storefront" pair; now an admin can reach any of the 15 admin routes from the top bar.
 
 ---
@@ -147,8 +147,8 @@ When [`audience-detection.ts`](../../apps/storefront/src/lib/nav/audience-detect
 | [`apps/storefront/src/components/layout/Nav.tsx`](../../apps/storefront/src/components/layout/Nav.tsx) | REWRITE | 7-flat-links → 7-mega-menus + mobile accordion |
 | [`apps/storefront/src/app/account/_nav.tsx`](../../apps/storefront/src/app/account/_nav.tsx) | REWRITE | 41-flat → 6 collapsible sections |
 | [`apps/storefront/src/app/methodology/navigation/page.tsx`](../../apps/storefront/src/app/methodology/navigation/page.tsx) | NEW | Navigation doctrine page |
-| [`apps/admin/scripts/nav-coverage.ts`](../../apps/admin/scripts/nav-coverage.ts) | NEW | 17th audit (5 checks) |
-| [`apps/admin/src/components/layout/Sidebar.tsx`](../../apps/admin/src/components/layout/Sidebar.tsx) | EDIT | subItems support + classify sub-tree + Trust/Agents |
+| [`apps/storefront/scripts/nav-coverage.ts`](../../apps/storefront/scripts/nav-coverage.ts) | NEW | 17th audit (5 checks) |
+| `apps/admin/src/components/layout/Sidebar.tsx` *(retired 2026-05-15)* | EDIT | subItems support + classify sub-tree + Trust/Agents |
 | [`apps/wholesale/src/components/Nav.tsx`](../../apps/wholesale/src/components/Nav.tsx) | EDIT | Admin sub-nav surfaces 6 admin route categories |
 | [`apps/admin/package.json`](../../apps/admin/package.json) | EDIT | Wire `nav-coverage` script |
 | [`package.json`](../../package.json) | EDIT | Wire `audit:nav-coverage` alias |

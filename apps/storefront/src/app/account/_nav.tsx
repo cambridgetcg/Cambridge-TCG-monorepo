@@ -38,6 +38,7 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
     items: [
       { href: "/account", label: "Overview" },
       { href: "/account/notifications", label: "Notifications" },
+      { href: "/account/messages", label: "Messages" },
       { href: "/account/profile", label: "Profile & settings" },
       // Sister-shipped mid-rebase (kingdom-095, the wardrobe). Self-
       // expression sits with Profile, first-class — verify, don't overwrite.
@@ -50,6 +51,12 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
       { href: "/account/orders", label: "Orders" },
       { href: "/account/trade-ins", label: "Trade-Ins" },
       { href: "/account/trades", label: "Trades" },
+      // Incoming price negotiations. Previously reachable only from a
+      // single ephemeral notification (walker: a seller who missed it had
+      // no path back to a 48h-expiring offer). The badge counts pending +
+      // countered offers awaiting the seller's response.
+      { href: "/account/offers", label: "Offers" },
+      { href: "/account/swaps", label: "Swaps" },
       { href: "/account/refunds", label: "Payments & refunds" },
       { href: "/account/payouts", label: "Payouts" },
       { href: "/account/membership", label: "Membership" },
@@ -100,7 +107,17 @@ function isActive(pathname: string, href: string): boolean {
   return (pathname === href || pathname.startsWith(href + "/")) && href.length === bestLen;
 }
 
-export function AccountNav() {
+/** A small count pill for a nav item — the pending-offers badge, e.g. */
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-page text-[10px] font-semibold leading-none">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+export function AccountNav({ badges }: { badges?: Record<string, number> }) {
   const pathname = usePathname();
 
   return (
@@ -113,11 +130,12 @@ export function AccountNav() {
             href={item.href}
             className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition ${
               isActive(pathname, item.href)
-                ? "bg-amber-500 text-black"
-                : "bg-neutral-900 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                ? "bg-accent-wash text-accent-strong"
+                : "text-ink-muted hover:text-ink hover:bg-surface-subtle"
             }`}
           >
             {item.label}
+            <NavBadge count={badges?.[item.href] ?? 0} />
           </Link>
         ))}
       </nav>
@@ -127,7 +145,7 @@ export function AccountNav() {
         <nav className="flex flex-col gap-1 sticky top-8">
           {ACCOUNT_NAV_SECTIONS.map((section) => (
             <div key={section.label} className="mb-1">
-              <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
                 {section.label}
               </div>
               <ul className="space-y-0.5">
@@ -135,13 +153,14 @@ export function AccountNav() {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={`block px-4 py-2 rounded-lg text-sm font-medium transition ${
+                      className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition ${
                         isActive(pathname, item.href)
-                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                          : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                          ? "bg-accent-wash text-accent-strong"
+                          : "text-ink-muted hover:text-ink hover:bg-surface-subtle"
                       }`}
                     >
                       {item.label}
+                      <NavBadge count={badges?.[item.href] ?? 0} />
                     </Link>
                   </li>
                 ))}
@@ -150,13 +169,13 @@ export function AccountNav() {
           ))}
 
           {/* The long tail lives behind one door. */}
-          <div className="border-t border-neutral-800 mt-1 pt-2">
+          <div className="border-t border-border-subtle mt-1 pt-2">
             <Link
               href={MORE_TOOLS_ITEM.href}
               className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition ${
                 isActive(pathname, MORE_TOOLS_ITEM.href)
-                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                  ? "bg-accent-wash text-accent-strong"
+                  : "text-ink-muted hover:text-ink hover:bg-surface-subtle"
               }`}
             >
               {MORE_TOOLS_ITEM.label} →

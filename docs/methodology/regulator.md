@@ -49,8 +49,8 @@ methodology.
 ## How our revenue works now
 
 - A **commission** on completed P2P trades (published rate, capped per
-  item — see [`/methodology/commission-rate`](/methodology/commission-rate)
-  and [`/methodology/fees`](/methodology/fees)).
+  item — see [`/methodology/commission-rate`](https://cambridgetcg.com/methodology/commission-rate)
+  and [`/methodology/fees`](./fees.md)).
 - **Membership** subscriptions (optional perks).
 - Nothing else. No spread, no markup, no house position.
 

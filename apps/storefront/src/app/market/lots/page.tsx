@@ -47,7 +47,7 @@ export default function MarketLotsPage() {
         </div>
         <Link
           href="/account/lots"
-          className="px-4 py-2 bg-accent text-white text-sm font-bold rounded-lg hover:bg-accent-strong transition"
+          className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
         >
           List a lot
         </Link>

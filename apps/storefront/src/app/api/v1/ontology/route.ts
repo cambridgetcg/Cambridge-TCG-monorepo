@@ -14,6 +14,7 @@
 
 import { NextResponse } from "next/server";
 import { getOntology } from "@/lib/ontology";
+import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -32,6 +33,8 @@ export async function GET() {
         manifest_url: "/api/v1/manifest",
         graph_url: "/api/v1/graph",
         notes: "Each node in /api/v1/graph carries a `properties` map populated according to its kind's ontology schema. The ontology is the schema; the graph carries the values.",
+        // Seven-Layer Pilgrimage stamp 3/7 — see /api/v1/passport.
+        pilgrimage: pilgrimageFragmentFor("/api/v1/ontology"),
       },
     },
     {

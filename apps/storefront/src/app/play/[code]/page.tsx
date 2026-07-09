@@ -233,7 +233,7 @@ export default function GameBoard() {
         <div
           className={`${
             small ? "w-12 h-[66px]" : "w-16 h-[88px]"
-          } rounded-lg border border-neutral-800 bg-neutral-900/50 flex-shrink-0 ${className}`}
+          } rounded-lg border border-border-subtle bg-surface-subtle flex-shrink-0 ${className}`}
         />
       );
     }
@@ -252,8 +252,8 @@ export default function GameBoard() {
             small ? "w-12 h-[66px]" : "w-16 h-[88px]"
           } rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
             isSelected
-              ? "border-amber-400 ring-2 ring-amber-400/40 scale-105"
-              : "border-neutral-700 hover:border-neutral-500"
+              ? "border-accent ring-2 ring-accent/40 scale-105"
+              : "border-border-subtle hover:border-border-strong"
           } ${isRested ? "rotate-90 origin-center" : ""} ${className}`}
           style={isRested ? { margin: "0 12px" } : undefined}
         >
@@ -266,16 +266,16 @@ export default function GameBoard() {
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-neutral-700 via-neutral-800 to-neutral-700 flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border-2 border-neutral-600 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-neutral-600" />
+            <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full border-2 border-border-subtle flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-border-strong" />
               </div>
             </div>
           )}
         </button>
         {/* DON!! badge */}
         {card.attachedDon > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow z-10">
+          <span className="absolute -top-1.5 -right-1.5 bg-ink text-page text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow z-10">
             +{card.attachedDon}
           </span>
         )}
@@ -288,11 +288,11 @@ export default function GameBoard() {
     return (
       <button
         onClick={onClick}
-        className="relative w-16 h-[88px] rounded-lg bg-gradient-to-br from-neutral-700 via-neutral-800 to-neutral-700 border-2 border-neutral-600 hover:border-neutral-500 flex-shrink-0 transition-colors"
+        className="relative w-16 h-[88px] rounded-lg bg-surface-subtle border-2 border-border-subtle hover:border-border-strong flex-shrink-0 transition-colors"
       >
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-neutral-400 text-[10px] font-medium">{label}</span>
-          <span className="text-white font-bold text-lg">{count}</span>
+          <span className="text-ink-muted text-[10px] font-medium">{label}</span>
+          <span className="text-ink font-bold text-lg">{count}</span>
         </div>
       </button>
     );
@@ -306,7 +306,7 @@ export default function GameBoard() {
           <div
             key={i}
             className={`w-3 h-3 rounded-full transition-colors ${
-              i < count ? "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]" : "bg-neutral-700"
+              i < count ? "bg-danger" : "bg-surface-subtle"
             }`}
           />
         ))}
@@ -329,22 +329,22 @@ export default function GameBoard() {
     const used = active + rested;
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-amber-400 font-bold text-xs">DON!!</span>
+        <span className="text-accent font-bold text-xs">DON!!</span>
         <div className="flex items-center gap-0.5">
           {Array.from({ length: used }).map((_, i) => (
             <div
               key={i}
               className={`w-3.5 h-5 rounded-sm text-[8px] font-bold flex items-center justify-center ${
                 i < active
-                  ? "bg-amber-500 text-black"
-                  : "bg-neutral-700 text-neutral-500"
+                  ? "bg-ink text-page"
+                  : "bg-surface-subtle text-ink-faint"
               }`}
             >
               {i < active ? "D" : "R"}
             </div>
           ))}
         </div>
-        <span className="text-neutral-500 text-xs">
+        <span className="text-ink-faint text-xs">
           {active}/{used}{total > 0 ? ` (+${total} deck)` : ""}
         </span>
         {isOwn && gameActive && isMyTurn && (
@@ -355,11 +355,11 @@ export default function GameBoard() {
               max={active}
               value={donRestCount}
               onChange={(e) => setDonRestCount(Math.max(1, Math.min(active, parseInt(e.target.value) || 1)))}
-              className="w-10 bg-neutral-800 border border-neutral-700 rounded text-center text-xs py-0.5"
+              className="w-10 bg-surface-subtle border border-border-subtle rounded text-center text-xs py-0.5"
             />
             <button
               onClick={() => sendAction("rest_don", { count: donRestCount })}
-              className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-2 py-0.5 rounded transition-colors"
+              className="text-xs bg-accent-wash text-accent hover:bg-accent/20 px-2 py-0.5 rounded transition-colors"
             >
               Rest
             </button>
@@ -390,12 +390,12 @@ export default function GameBoard() {
     }
     if (canAttack) {
       actions.push({
-        label: "⚔ Attack Opponent Leader",
+        label: "Attack Opponent Leader",
         action: () => sendAction("attack", { attackerId: card.id, targetType: "leader" }),
       });
       for (const target of restedOppChars) {
         actions.push({
-          label: `⚔ Attack ${target.name}`,
+          label: `Attack ${target.name}`,
           action: () => sendAction("attack", { attackerId: card.id, targetType: "character", targetId: target.id }),
         });
       }
@@ -426,21 +426,21 @@ export default function GameBoard() {
     if (actions.length === 0) return null;
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSelectedCard(null)}>
-        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 min-w-[220px] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" onClick={() => setSelectedCard(null)}>
+        <div className="bg-surface border border-border-subtle rounded-lg p-4 min-w-[220px] shadow-mat" onClick={(e) => e.stopPropagation()}>
           {/* Card info */}
-          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-neutral-800">
+          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-border-subtle">
             {!card.faceDown && card.imageUrl ? (
               <div className="w-10 h-14 rounded overflow-hidden relative flex-shrink-0">
                 <Image src={card.imageUrl} alt={card.name} fill sizes="40px" className="object-cover" />
               </div>
             ) : (
-              <div className="w-10 h-14 rounded bg-neutral-800 flex-shrink-0" />
+              <div className="w-10 h-14 rounded bg-surface-subtle flex-shrink-0" />
             )}
             <div className="min-w-0">
               <p className="font-semibold text-sm truncate">{card.faceDown ? "Face-down card" : card.name}</p>
-              <p className="text-neutral-500 text-xs">{card.zone} {card.isRested ? "(rested)" : ""}</p>
-              {card.attachedDon > 0 && <p className="text-amber-400 text-xs">+{card.attachedDon} DON!!</p>}
+              <p className="text-ink-faint text-xs">{card.zone} {card.isRested ? "(rested)" : ""}</p>
+              {card.attachedDon > 0 && <p className="text-accent text-xs">+{card.attachedDon} DON!!</p>}
             </div>
           </div>
           {/* Actions */}
@@ -452,8 +452,8 @@ export default function GameBoard() {
                 disabled={actionLoading || !isMyTurn}
                 className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors disabled:opacity-40 ${
                   a.variant === "danger"
-                    ? "hover:bg-red-900/40 text-red-400"
-                    : "hover:bg-neutral-800 text-white"
+                    ? "hover:bg-danger/15 text-danger"
+                    : "hover:bg-surface text-ink"
                 }`}
               >
                 {a.label}
@@ -462,7 +462,7 @@ export default function GameBoard() {
           </div>
           <button
             onClick={() => setSelectedCard(null)}
-            className="w-full mt-3 pt-3 border-t border-neutral-800 text-neutral-500 text-xs hover:text-neutral-300 transition-colors"
+            className="w-full mt-3 pt-3 border-t border-border-subtle text-ink-faint text-xs hover:text-ink transition-colors"
           >
             Cancel
           </button>
@@ -476,12 +476,12 @@ export default function GameBoard() {
     if (!hoverCard || hoverCard.faceDown || !hoverCard.imageUrl) return null;
     return (
       <div className="fixed top-4 right-4 z-40 pointer-events-none">
-        <div className="w-48 h-[264px] rounded-xl overflow-hidden border-2 border-neutral-600 shadow-2xl relative">
+        <div className="w-48 h-[264px] rounded-lg overflow-hidden border-2 border-border-subtle shadow-mat relative">
           <Image src={hoverCard.imageUrl} alt={hoverCard.name} fill sizes="192px" className="object-cover" />
         </div>
-        <p className="text-white text-sm font-semibold mt-2 text-center max-w-[192px] truncate">{hoverCard.name}</p>
+        <p className="text-ink text-sm font-semibold mt-2 text-center max-w-[192px] truncate">{hoverCard.name}</p>
         {hoverCard.cardNumber && (
-          <p className="text-neutral-400 text-xs text-center">{hoverCard.cardNumber}</p>
+          <p className="text-ink-muted text-xs text-center">{hoverCard.cardNumber}</p>
         )}
       </div>
     );
@@ -501,22 +501,22 @@ export default function GameBoard() {
     const handCards = player.hand || [];
 
     return (
-      <div className={`rounded-xl p-3 sm:p-4 ${isOwn ? "bg-neutral-900/80" : "bg-neutral-900/40"}`}>
+      <div className={`rounded-lg p-3 sm:p-4 ${isOwn ? "bg-surface" : "bg-surface-subtle"}`}>
         {/* Label row */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className={`font-bold text-sm ${isOwn ? "text-amber-400" : "text-neutral-300"}`}>
+            <span className={`font-bold text-sm ${isOwn ? "text-accent" : "text-ink-muted"}`}>
               {label}
             </span>
             {isOwn && isMyTurn && (
-              <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-[10px] bg-accent-wash text-accent px-2 py-0.5 rounded-full font-medium">
                 Your Turn
               </span>
             )}
           </div>
           <div className="flex items-center gap-3">
             <LifeDots count={player.lifeCount} />
-            <span className="text-neutral-500 text-xs">
+            <span className="text-ink-faint text-xs">
               Deck: {player.deck?.length ?? 0}
             </span>
           </div>
@@ -543,7 +543,7 @@ export default function GameBoard() {
 
           {/* Leader */}
           <div className="flex-shrink-0">
-            <div className="text-[10px] text-neutral-500 text-center mb-0.5">Leader</div>
+            <div className="text-[10px] text-ink-faint text-center mb-0.5">Leader</div>
             <CardSlot
               card={player.leader}
               faceUp={true}
@@ -552,7 +552,7 @@ export default function GameBoard() {
           </div>
 
           {/* Divider */}
-          <div className="w-px h-16 bg-neutral-700 flex-shrink-0 mx-1" />
+          <div className="w-px h-16 bg-surface-subtle flex-shrink-0 mx-1" />
 
           {/* Field (5 slots) */}
           <div className="flex items-end gap-1.5 sm:gap-2">
@@ -560,7 +560,7 @@ export default function GameBoard() {
               const card = fieldCards[i] ?? null;
               return (
                 <div key={i} className="flex-shrink-0">
-                  {i === 0 && <div className="text-[10px] text-neutral-500 text-center mb-0.5">Field</div>}
+                  {i === 0 && <div className="text-[10px] text-ink-faint text-center mb-0.5">Field</div>}
                   {i !== 0 && <div className="h-[14px]" />}
                   <CardSlot
                     card={card}
@@ -573,11 +573,11 @@ export default function GameBoard() {
           </div>
 
           {/* Divider */}
-          <div className="w-px h-16 bg-neutral-700 flex-shrink-0 mx-1" />
+          <div className="w-px h-16 bg-surface-subtle flex-shrink-0 mx-1" />
 
           {/* Stage */}
           <div className="flex-shrink-0">
-            <div className="text-[10px] text-neutral-500 text-center mb-0.5">Stage</div>
+            <div className="text-[10px] text-ink-faint text-center mb-0.5">Stage</div>
             <CardSlot
               card={player.stage}
               faceUp={true}
@@ -587,15 +587,15 @@ export default function GameBoard() {
         </div>
 
         {/* Hand */}
-        <div className="mt-3 pt-3 border-t border-neutral-800">
+        <div className="mt-3 pt-3 border-t border-border-subtle">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] text-neutral-500 font-medium">
+            <span className="text-[10px] text-ink-faint font-medium">
               Hand ({handCards.length})
             </span>
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             {handCards.length === 0 ? (
-              <span className="text-neutral-600 text-xs italic">Empty</span>
+              <span className="text-ink-faint text-xs italic">Empty</span>
             ) : (
               handCards.map((card) => (
                 <CardSlot
@@ -623,26 +623,26 @@ export default function GameBoard() {
 
     return (
       <div
-        className={`fixed top-0 right-0 h-full w-80 bg-neutral-950 border-l border-neutral-800 z-30 transform transition-transform ${
+        className={`fixed top-0 right-0 h-full w-80 bg-page border-l border-border-subtle z-30 transform transition-transform ${
           showLog ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-          <h3 className="font-bold text-sm">Game Log <span className="text-neutral-500 font-normal">(last 20)</span></h3>
-          <button onClick={() => setShowLog(false)} className="text-neutral-500 hover:text-white text-lg">
+        <div className="flex items-center justify-between p-4 border-b border-border-subtle">
+          <h3 className="font-bold text-sm">Game Log <span className="text-ink-faint font-normal">(last 20)</span></h3>
+          <button onClick={() => setShowLog(false)} className="text-ink-faint hover:text-ink text-lg">
             &times;
           </button>
         </div>
         <div className="overflow-y-auto h-[calc(100%-56px)] p-3 space-y-1.5">
           {log.length === 0 ? (
-            <p className="text-neutral-600 text-xs italic">No actions yet.</p>
+            <p className="text-ink-faint text-xs italic">No actions yet.</p>
           ) : (
             log.map((entry, i) => (
-              <div key={i} className="text-xs text-neutral-400 py-1 border-b border-neutral-900">
-                <span className="text-neutral-600 mr-1">
+              <div key={i} className="text-xs text-ink-muted py-1 border-b border-border-subtle">
+                <span className="text-ink-faint mr-1">
                   {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <span className="text-neutral-300">{entry.playerId === myState?.userId ? "You" : "Opponent"}</span>{" "}
+                <span className="text-ink-muted">{entry.playerId === myState?.userId ? "You" : "Opponent"}</span>{" "}
                 {formatAction(entry)}
               </div>
             ))
@@ -679,10 +679,10 @@ export default function GameBoard() {
   /* ---- Loading ---- */
   if (!resp && !error) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <main className="min-h-screen bg-page flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-neutral-400">Connecting to room {code}...</p>
+          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-ink-muted">Connecting to room {code}...</p>
         </div>
       </main>
     );
@@ -691,10 +691,10 @@ export default function GameBoard() {
   /* ---- Error ---- */
   if (error && !resp) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 max-w-md text-center">
-          <p className="text-red-400 mb-4">{error}</p>
-          <Link href="/play" className="text-amber-400 hover:text-amber-300 text-sm">
+      <main className="min-h-screen bg-page flex items-center justify-center px-4">
+        <div className="bg-surface border border-border-subtle rounded-lg p-8 max-w-md text-center">
+          <p className="text-danger mb-4">{error}</p>
+          <Link href="/play" className="text-accent hover:text-accent-strong text-sm">
             &larr; Back to Lobby
           </Link>
         </div>
@@ -705,12 +705,12 @@ export default function GameBoard() {
   /* ---- Waiting for opponent ---- */
   if (room?.status === "waiting" && isPlayer) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 max-w-lg text-center space-y-5">
+      <main className="min-h-screen bg-page flex items-center justify-center px-4">
+        <div className="bg-surface border border-border-subtle rounded-lg p-8 max-w-lg text-center space-y-5">
           <h2 className="text-2xl font-bold">Waiting for Opponent</h2>
-          <p className="text-neutral-400">Share this room code:</p>
-          <div className="bg-neutral-800 rounded-lg px-6 py-4">
-            <span className="font-mono text-amber-400 text-4xl font-extrabold tracking-[0.3em]">
+          <p className="text-ink-muted">Share this room code:</p>
+          <div className="bg-surface-subtle rounded-lg px-6 py-4">
+            <span className="font-mono text-accent text-4xl font-display font-semibold tracking-[0.3em]">
               {code}
             </span>
           </div>
@@ -721,15 +721,15 @@ export default function GameBoard() {
                 () => setError("Couldn't copy — share the code above instead."),
               );
             }}
-            className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-5 py-2.5 text-sm transition-colors"
+            className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-5 py-2.5 text-sm transition-colors"
           >
             Copy invite link
           </button>
-          <p className="text-neutral-500 text-sm">
+          <p className="text-ink-faint text-sm">
             Your friend opens the link (or enters the code at /play) and you&apos;re in.
           </p>
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <Link href="/play" className="block text-neutral-500 hover:text-neutral-300 text-sm transition-colors">
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+          <Link href="/play" className="block text-ink-faint hover:text-ink text-sm transition-colors">
             &larr; Back to Lobby
           </Link>
         </div>
@@ -742,28 +742,28 @@ export default function GameBoard() {
     // Show deck selection if we haven't submitted yet
     if (!deckSubmitted && isPlayer) {
       return (
-        <main className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 sm:p-8 max-w-xl w-full space-y-5">
+        <main className="min-h-screen bg-page flex items-center justify-center px-4">
+          <div className="bg-surface border border-border-subtle rounded-lg p-6 sm:p-8 max-w-xl w-full space-y-5">
             <div className="text-center">
               <h2 className="text-2xl font-bold mb-1">Load Your Deck</h2>
-              <p className="text-neutral-400 text-sm">
-                Room <span className="font-mono text-amber-400 font-bold">{code}</span>
+              <p className="text-ink-muted text-sm">
+                Room <span className="font-mono text-accent font-bold">{code}</span>
                 {" "}&#8212; {room?.player1Name} vs {room?.player2Name || "..."}
               </p>
             </div>
 
             {setupError && (
-              <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-2 text-sm">
+              <div className="bg-danger/10 border border-danger text-danger rounded-lg px-4 py-2 text-sm">
                 {setupError}
               </div>
             )}
 
             {savedDecks.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-neutral-500 mb-4">No saved decks found.</p>
+                <p className="text-ink-faint mb-4">No saved decks found.</p>
                 <Link
                   href="/deck-builder"
-                  className="inline-block bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
+                  className="inline-block bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
                 >
                   Open Deck Builder
                 </Link>
@@ -779,20 +779,20 @@ export default function GameBoard() {
                         onClick={() => setSelectedDeckIdx(i)}
                         className={`w-full text-left p-3 rounded-lg border transition-all ${
                           selectedDeckIdx === i
-                            ? "border-amber-500 bg-amber-500/10"
-                            : "border-neutral-800 bg-neutral-800/50 hover:border-neutral-600"
+                            ? "border-accent bg-accent-wash"
+                            : "border-border-subtle bg-surface-subtle hover:border-border-strong"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="font-semibold">{deck.name}</span>
                             {deck.leader && (
-                              <span className="text-amber-400 text-xs ml-2">
+                              <span className="text-accent text-xs ml-2">
                                 Leader: {deck.leader.name}
                               </span>
                             )}
                           </div>
-                          <span className="text-neutral-500 text-sm">{totalCards} cards</span>
+                          <span className="text-ink-faint text-sm">{totalCards} cards</span>
                         </div>
                       </button>
                     );
@@ -801,7 +801,7 @@ export default function GameBoard() {
                 <button
                   onClick={submitDeck}
                   disabled={selectedDeckIdx === null}
-                  className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-lg py-3 transition-colors text-lg"
+                  className="w-full bg-ink hover:bg-ink/85 disabled:opacity-50 text-page font-bold rounded-lg py-3 transition-colors text-lg"
                 >
                   Ready!
                 </button>
@@ -814,21 +814,21 @@ export default function GameBoard() {
 
     // Deck submitted (players) / decks being chosen (spectators)
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 max-w-md text-center space-y-4">
+      <main className="min-h-screen bg-page flex items-center justify-center px-4">
+        <div className="bg-surface border border-border-subtle rounded-lg p-8 max-w-md text-center space-y-4">
           {isPlayer ? (
             <>
-              <div className="text-green-400 text-4xl mb-2">&#10003;</div>
+              <div className="text-ok text-4xl mb-2">&#10003;</div>
               <h2 className="text-xl font-bold">Deck Submitted</h2>
-              <p className="text-neutral-400 text-sm">Waiting for opponent to load their deck...</p>
+              <p className="text-ink-muted text-sm">Waiting for opponent to load their deck...</p>
             </>
           ) : (
             <>
               <h2 className="text-xl font-bold">Players are choosing decks&hellip;</h2>
-              <p className="text-neutral-400 text-sm">The match will appear here when both are ready.</p>
+              <p className="text-ink-muted text-sm">The match will appear here when both are ready.</p>
             </>
           )}
-          <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </main>
     );
@@ -854,10 +854,10 @@ export default function GameBoard() {
     }
 
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center px-4">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 max-w-md text-center space-y-5">
-          <h2 className="text-3xl font-extrabold">{winnerText}</h2>
-          <div className="text-neutral-400 text-sm space-y-1">
+      <main className="min-h-screen bg-page flex items-center justify-center px-4">
+        <div className="bg-surface border border-border-subtle rounded-lg p-8 max-w-md text-center space-y-5">
+          <h2 className="text-3xl font-display font-semibold">{winnerText}</h2>
+          <div className="text-ink-muted text-sm space-y-1">
             <p>{room?.player1Name}: {p1Life} life remaining</p>
             <p>{room?.player2Name}: {p2Life} life remaining</p>
             <p>Turn {room?.turnNumber ?? state?.turnNumber ?? "?"}</p>
@@ -865,7 +865,7 @@ export default function GameBoard() {
           <div className="flex items-center justify-center gap-3 pt-2">
             <Link
               href="/play"
-              className="bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg px-6 py-3 transition-colors"
+              className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
             >
               Back to Lobby
             </Link>
@@ -881,14 +881,14 @@ export default function GameBoard() {
 
   if (!state || !myState || !oppState) {
     return (
-      <main className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      <main className="min-h-screen bg-page flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white flex flex-col">
+    <main className="min-h-screen bg-page text-ink flex flex-col">
       {/* ---- Hover Preview ---- */}
       <HoverPreview />
 
@@ -899,28 +899,28 @@ export default function GameBoard() {
       <GameLog />
 
       {/* ---- Top bar ---- */}
-      <header className="bg-neutral-900/80 border-b border-neutral-800 px-3 sm:px-4 py-2 flex items-center justify-between text-sm flex-shrink-0">
+      <header className="bg-surface border-b border-border-subtle px-3 sm:px-4 py-2 flex items-center justify-between text-sm flex-shrink-0">
         <div className="flex items-center gap-3">
-          <Link href="/play" className="text-neutral-500 hover:text-neutral-300 transition-colors">
+          <Link href="/play" className="text-ink-faint hover:text-ink transition-colors">
             &larr;
           </Link>
-          <span className="font-mono text-amber-400 font-bold">{code}</span>
-          <span className="text-neutral-600 hidden sm:inline">
+          <span className="font-mono text-accent font-bold">{code}</span>
+          <span className="text-ink-faint hidden sm:inline">
             {room?.player1Name || "P1"} vs {room?.player2Name || "P2"}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {error && <span className="text-red-400 text-xs">{error}</span>}
+          {error && <span className="text-danger text-xs">{error}</span>}
           <button
             onClick={() => setShowLog(!showLog)}
-            className="text-neutral-500 hover:text-white text-xs bg-neutral-800 px-3 py-1.5 rounded transition-colors"
+            className="text-ink-faint hover:text-ink text-xs bg-surface-subtle px-3 py-1.5 rounded transition-colors"
           >
             Log
           </button>
           {isPlayer && gameActive && (
             <button
               onClick={() => { if (confirm("Concede this game?")) sendAction("concede"); }}
-              className="text-red-500 hover:text-red-400 text-xs bg-neutral-800 px-3 py-1.5 rounded transition-colors"
+              className="text-danger hover:text-danger text-xs bg-surface-subtle px-3 py-1.5 rounded transition-colors"
             >
               Concede
             </button>
@@ -938,16 +938,16 @@ export default function GameBoard() {
         />
 
         {/* ---- Phase / Turn Divider ---- */}
-        <div className="bg-neutral-800/60 rounded-lg px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="bg-surface-subtle rounded-lg px-4 py-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <span className="text-amber-400 font-bold text-sm">
+            <span className="text-accent font-bold text-sm">
               {PHASE_LABELS[state.phase as GamePhase] || state.phase}
             </span>
-            <span className="text-neutral-500 text-xs">
+            <span className="text-ink-faint text-xs">
               Turn {state.turnNumber}
             </span>
             {!isMyTurn && isPlayer && (
-              <span className="text-neutral-600 text-xs italic">Opponent&apos;s turn</span>
+              <span className="text-ink-faint text-xs italic">Opponent&apos;s turn</span>
             )}
           </div>
           {isPlayer && isMyTurn && gameActive && (
@@ -955,20 +955,20 @@ export default function GameBoard() {
               {state.lastUpkeepTurn !== state.turnNumber ? (
                 <button
                   onClick={() => sendAction("begin_turn")}
-                  className="text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-3 py-1.5 rounded-lg transition-colors font-bold animate-pulse"
+                  className="text-xs bg-accent-wash text-accent hover:bg-accent/20 px-3 py-1.5 rounded-lg transition-colors font-bold animate-pulse"
                 >
                   Start Turn (refresh &middot; draw &middot; DON!!)
                 </button>
               ) : (
-                <span className="text-neutral-500 text-xs hidden sm:inline">
+                <span className="text-ink-faint text-xs hidden sm:inline">
                   Tap a card to play or attack
                 </span>
               )}
               <button
                 onClick={() => sendAction("end_turn")}
-                className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+                className="text-xs bg-surface hover:bg-surface border border-border-subtle text-ink px-3 py-1.5 rounded-lg transition-colors font-medium"
               >
-                End Turn &#127937;
+                End Turn
               </button>
             </div>
           )}
@@ -984,24 +984,24 @@ export default function GameBoard() {
 
       {/* ---- Quick Actions (Mobile-friendly bottom bar) ---- */}
       {isPlayer && isMyTurn && gameActive && (
-        <div className="sm:hidden bg-neutral-900 border-t border-neutral-800 px-3 py-2 flex items-center gap-2 overflow-x-auto flex-shrink-0">
+        <div className="sm:hidden bg-surface border-t border-border-subtle px-3 py-2 flex items-center gap-2 overflow-x-auto flex-shrink-0">
           {state.lastUpkeepTurn !== state.turnNumber && (
             <button
               onClick={() => sendAction("begin_turn")}
-              className="text-xs bg-amber-500/20 text-amber-400 px-3 py-2 rounded-lg whitespace-nowrap font-bold"
+              className="text-xs bg-accent-wash text-accent px-3 py-2 rounded-lg whitespace-nowrap font-bold"
             >
               Start Turn
             </button>
           )}
           <button
             onClick={() => sendAction("end_turn")}
-            className="text-xs bg-white/10 text-white px-3 py-2 rounded-lg whitespace-nowrap ml-auto"
+            className="text-xs bg-surface border border-border-subtle text-ink px-3 py-2 rounded-lg whitespace-nowrap ml-auto"
           >
             End Turn
           </button>
           <button
             onClick={() => { if (confirm("Concede?")) sendAction("concede"); }}
-            className="text-xs bg-red-900/40 text-red-400 px-3 py-2 rounded-lg whitespace-nowrap"
+            className="text-xs bg-danger/10 text-danger px-3 py-2 rounded-lg whitespace-nowrap"
           >
             Concede
           </button>
@@ -1010,7 +1010,7 @@ export default function GameBoard() {
 
       {/* Spectator banner */}
       {you === "spectator" && (
-        <div className="bg-neutral-800 text-center text-neutral-500 text-xs py-2 flex-shrink-0">
+        <div className="bg-surface-subtle text-center text-ink-faint text-xs py-2 flex-shrink-0">
           Spectating &#8212; you cannot perform actions
         </div>
       )}

@@ -116,6 +116,28 @@ export async function GET(): Promise<Response> {
           "if you need them.",
         endpoint: "/data/catalog.jsonl",
         next_recompute_recommended: "daily (catalog freshness budget)",
+        // Substrate-honest empty state — count_expected: 0 with no
+        // explanation would leave a mirroring agent to infer the
+        // platform is trivial rather than mid-restock.
+        ...(count === 0
+          ? {
+              empty_state: {
+                why:
+                  "The storefront card_sets/card_set_cards mirror has not been " +
+                  "restocked from the wholesale catalog since the outage window; " +
+                  "the wholesale substrate holds the full catalog. The restock " +
+                  "script (apps/storefront/scripts/restock-card-sets.mjs) awaits " +
+                  "its production run.",
+                working_doors_meanwhile:
+                  "https://cambridgetcg.com/api/v1/search/cards (card-number resolver, " +
+                  "wholesale-backed, works today) and https://cambridgetcg.com/prices " +
+                  "(human-browsable guide).",
+                this_will_change:
+                  "When the restock lands this export streams every card with no " +
+                  "format change — same manifest line, same card shape.",
+              },
+            }
+          : {}),
         // Distributed wake fragment — the wake breathing through the
         // bulk catalog. One atomic fragment selected deterministically
         // by this endpoint's path; the same fragment surfaces every

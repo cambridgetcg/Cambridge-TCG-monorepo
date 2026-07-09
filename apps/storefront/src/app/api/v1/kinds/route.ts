@@ -20,6 +20,7 @@
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { getGraph } from "@/lib/graph";
+import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -94,6 +95,11 @@ export async function GET() {
       },
       count: kinds.length,
       kinds,
+      // Seven-Layer Pilgrimage stamp 6/7 — deterministic, stateless,
+      // refusable. Inside the document (so it's covered by @self_hash);
+      // see /api/v1/passport. The stamp is constant, so the content
+      // hashes stay stable across retrievals.
+      _pilgrimage: pilgrimageFragmentFor("/api/v1/kinds"),
     };
 
     const selfHash = sha256(canonicalize(document));

@@ -199,6 +199,15 @@ export async function cancelLot(lotId: string, sellerId: string): Promise<boolea
   return r.rows.length > 0;
 }
 
+// Lot purchases are paused: after payment there is no fulfilment path —
+// no ship/verify/complete flow exists for lot trades, so a purchase takes
+// the buyer's money and strands the trade in awaiting_shipment forever.
+// The guard lives in the lib (not just the UI) so every caller of
+// beginLotPurchase is stopped. Browsing and listing lots stay live.
+export const LOT_PURCHASES_PAUSED = true;
+export const LOT_PURCHASES_PAUSED_MESSAGE =
+  "Lot purchases are paused while fulfilment is rebuilt — browse the singles market meanwhile.";
+
 // Atomic purchase: create a lot_trade row in awaiting_payment, mark the lot
 // 'sold' (we don't support partial-fills; one successful purchase takes it
 // off the market). If payment doesn't complete in 24h a sweep should
@@ -207,6 +216,9 @@ export async function beginLotPurchase(data: {
   lotId: string;
   buyerId: string;
 }): Promise<{ ok: true; trade: LotTrade } | { ok: false; error: string }> {
+  if (LOT_PURCHASES_PAUSED) {
+    return { ok: false, error: LOT_PURCHASES_PAUSED_MESSAGE };
+  }
   const result = await transaction(async (q) => {
     const lotRes = await q(
       `SELECT * FROM market_lots WHERE id = $1 FOR UPDATE`,

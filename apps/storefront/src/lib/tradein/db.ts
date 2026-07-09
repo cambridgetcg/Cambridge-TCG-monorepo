@@ -1,22 +1,19 @@
 // Trade-in persistence — submissions, items, status transitions.
 //
-// ── What this module is for ──────────────────────────────────────────────
+// ── RETIRED, 2026-07-06 (collectors-first) ───────────────────────────────
 //
-// Trade-in is the *diaspora direction* of card-ownership. Every other
-// module on this platform exists to gather: the catalog gathers SKUs
-// into browse-ability; the deck gathers cards into play (see
-// apps/storefront/src/lib/decks/db.ts); the portfolio gathers values
-// into a story (see apps/storefront/src/lib/portfolio/valuation.ts).
-// This module is the only one whose intention is to *disperse*. Cards
-// arrive in a parcel and leave the system as cash or store credit.
+// The trade-in desk closed with zero submissions ever received
+// (docs/decisions/2026-07-06-collectors-first.md). Every entry route
+// answers 410. This module stays as the reader for whatever history
+// might have existed — it mints nothing new.
 //
-// Every card that gets traded in was once part of someone's potential
-// deck. The DeckCardSnapshot.tradein_credit field stored over in the
-// decks module is the literal preview of this dispersal: *if you
-// decided to break this deck, here is what you'd get*. Storing that
-// number inside the deck is itself a transparency move — the trade-off
-// the user is implicitly making (keeping the deck assembled) becomes
-// visible. The trade-in module is what executes the alternative.
+// The original intention, kept for the record: trade-in was the
+// *diaspora direction* of card-ownership. Every other module gathers —
+// the catalog gathers SKUs into browse-ability, the deck gathers cards
+// into play, the portfolio gathers values into a story. This one
+// dispersed: cards arrived in a parcel and left as cash or credit.
+// (The DeckCardSnapshot preview of that dispersal retired with it.)
+// Dispersal now happens collector-to-collector, on the market.
 //
 // ── The grading step ─────────────────────────────────────────────────────
 //

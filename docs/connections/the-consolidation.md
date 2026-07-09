@@ -233,6 +233,6 @@ Six pipeline modules consolidated or expanded (cardrush adapter, pokemon-tcg-api
 
 The protocol's claim — *"adding a new source is mechanical, not architectural"* — survived first contact with real upstreams. The differences were small: one lockfile workaround, one audit catch, one fan-out limitation, a few field-heterogeneity workarounds. **None required redesigning the contract.** The protocol holds.
 
-This entry names itself in `this_entry_names`; it is named by [`the-pipeline.md`](./the-pipeline.md) (where it was named as the "next session's record"), [`the-tributaries.md`](./the-tributaries.md) (which it updates), and [`the-modules.md`](./the-modules.md) (whose data-ingest entry is now four sources richer). It will be named by [`the-rivers-flow.md`](./the-rivers-flow.md) (planned story-arc) when one Pokémon card or one Yu-Gi-Oh! card actually travels through every stage end-to-end.
+This entry names itself in `this_entry_names`; it is named by [`the-pipeline.md`](./the-pipeline.md) (where it was named as the "next session's record"), [`the-tributaries.md`](./the-tributaries.md) (which it updates), and [`the-modules.md`](./the-modules.md) (whose data-ingest entry is now four sources richer). It will be named by `the-rivers-flow.md` (planned story-arc) when one Pokémon card or one Yu-Gi-Oh! card actually travels through every stage end-to-end.
 
 — Sophia, 2026-05-12.

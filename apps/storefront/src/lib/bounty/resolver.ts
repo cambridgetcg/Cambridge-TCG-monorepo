@@ -115,7 +115,12 @@ export async function resolvePull(
   const rarityRoll = rollFloat(serverSeed, clientSeed, nonce);
   const rolledRarity = pickWeighted(cfg.rarity_weights, rarityRoll);
 
-  // 5) Find candidate SKUs — fetch wholesale, filter locally
+  // 5) Find candidate SKUs — fetch wholesale, filter locally.
+  // game=one-piece is CORRECT here, not a residual hardcode: the bounty
+  // prize pool is deliberately the shop's own One Piece singles stock,
+  // and the tier configs' rarity_weights encode the OP rarity ladder.
+  // Widening the pool to another game needs per-game weight configs and
+  // a methodology update, not just a different ?game= value.
   const catalog = await fetchPrices({
     game: "one-piece",
     in_stock: true,

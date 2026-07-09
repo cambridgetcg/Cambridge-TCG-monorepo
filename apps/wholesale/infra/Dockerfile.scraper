@@ -1,3 +1,10 @@
+# ===========================================================================
+# RETIRED (2026-07-07, the-honest-ground §4). Superseded by the Vercel
+# cron pipeline (vercel.json -> ingest/discover/hires). Kept as the shape
+# a future heavy-crawl runner would take -- do not run against prod
+# without a fresh decision. Spec:
+# docs/superpowers/specs/2026-07-07-the-honest-ground-design.md
+# ===========================================================================
 FROM node:20-slim AS builder
 
 WORKDIR /app

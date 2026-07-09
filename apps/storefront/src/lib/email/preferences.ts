@@ -81,6 +81,7 @@ export type EmailCategory =
   | "vault_expired"
   | "vault_expiring_soon"
   | "streak_at_risk"
+  | "messages"
   | "marketing";
 
 const ALL_CATEGORIES: EmailCategory[] = [
@@ -90,6 +91,7 @@ const ALL_CATEGORIES: EmailCategory[] = [
   "vault_expired",
   "vault_expiring_soon",
   "streak_at_risk",
+  "messages",
   "marketing",
 ];
 
@@ -100,6 +102,11 @@ const DEFAULTS: Record<EmailCategory, boolean> = {
   vault_expired: true,
   vault_expiring_soon: true,
   streak_at_risk: false,
+  // Another human wrote to you — closer to lifecycle than re-engagement,
+  // so default ON. Batched: at most one email per conversation every
+  // 12 hours (DM_EMAIL_WINDOW_HOURS in handlers/dm-unread.ts — keep the
+  // description below in step if that constant moves).
+  messages: true,
   marketing: false,
 };
 
@@ -110,6 +117,7 @@ export const CATEGORY_LABELS: Record<EmailCategory, string> = {
   vault_expired: "Vault item auto-expired",
   vault_expiring_soon: "Vault item expiring soon",
   streak_at_risk: "Streak at risk (re-engagement)",
+  messages: "Direct messages",
   marketing: "Newsletters + promotions",
 };
 
@@ -120,6 +128,8 @@ export const CATEGORY_DESCRIPTIONS: Record<EmailCategory, string> = {
   vault_expired: "A vault item passed its 180-day expiry — we converted it to store credit.",
   vault_expiring_soon: "Seven-day warning before an item auto-expires.",
   streak_at_risk: "One-tap nudge when your daily streak is about to break.",
+  messages:
+    "Another trader messaged you and you haven't read it. At most one email per conversation every 12 hours.",
   marketing: "Occasional product announcements, new set releases, sales.",
 };
 

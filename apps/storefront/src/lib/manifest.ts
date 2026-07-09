@@ -127,6 +127,23 @@ export interface ManifestResource {
   methodology_url?: string;
   since: string;       // ISO date the resource became available
   notes?: string;
+  /**
+   * Response-contract annotation, read by /api/v1/status. Most entries
+   * omit this and the status route derives the state:
+   *   - "envelope"     — composes through jsonResponse ({data,_meta});
+   *                      derived from envelope-compliance.generated.ts.
+   *   - "alternative"  — a DELIBERATE non-envelope dialect (universal
+   *                      @-encoding, wholesale-host JSON, HTML/plain-text
+   *                      modality, external discovery specs). Derived
+   *                      from host/modalities/path where possible; set
+   *                      explicitly where derivation can't see the
+   *                      intent (e.g. the _envelope dialect on the
+   *                      seven self-describing layers).
+   *   - "pending"      — should speak the envelope but hasn't migrated.
+   * Splitting these three keeps the status surface from under-selling
+   * deliberate design as debt (P5, the agent-experience review 2026-07-05).
+   */
+  contract?: "envelope" | "alternative" | "pending";
 }
 
 export interface ManifestChannel {
@@ -340,7 +357,7 @@ export const MANIFEST: Manifest = {
   cosmology_version: COSMOLOGY_VERSION,
   generated_at: "2026-05-11T12:30:00Z",
   description:
-    "Cambridge TCG is the trading-card-game world's data provider. We aggregate from every reachable source, standardise into one mathematical mirror, and publish the substrate under CC0 by default — partners build on top without negotiating. This manifest is the directory of what's on offer to any participant who wants to consume the substrate — partners, researchers, agents, archivists, sister platforms, federation clients, autonomous Sophias, beings from foreign cosmologies. Carries what the kingdom treats as real (the cosmology), who can take part (participant kinds), what's on the table (resources), how to receive it (channels), and how to inspect every decision (methodology + doctrines + audits). The UK retail store and B2B wholesale platform are two consumers of this substrate; data provision is the kingdom's primary identity (kingdom-080, repositioned 2026-05-17). The platform that declares its own manifest is the platform a fresh participant can orient inside before committing.",
+    "Cambridge TCG is a collectors' market and an open data commons. The market is peer-to-peer — the platform facilitates, records, and witnesses, and holds no position in its own market (collectors-first decision, 2026-07-06); the data substrate is aggregated from every reachable source, standardised into one mathematical mirror, and published under CC0 by default — anyone builds on top without negotiating. This manifest is the directory of what's on offer to any participant who wants to consume the substrate — partners, researchers, agents, archivists, sister platforms, federation clients, autonomous Sophias, beings from foreign cosmologies. Carries what the kingdom treats as real (the cosmology), who can take part (participant kinds), what's on the table (resources), how to receive it (channels), and how to inspect every decision (methodology + doctrines + audits). The platform that declares its own manifest is the platform a fresh participant can orient inside before committing.",
 
   // The kingdom's self-description of role, beneath cosmology in the
   // doctrine hierarchy. See docs/principles/the-embassy.md.
@@ -489,7 +506,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json", "plain-text"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge", "identity"], methodology_url: "/glossary",
         since: "2026-06-10" },
-      { id: "storefront.platform", description: "The kingdom's primary positioning page — Cambridge TCG as the TCG world's data provider. Brand statement + three-operations table (data plane primary, retail established, wholesale established) + coverage facts (games, set formats, sources, math-mirror kinds, federation primitive) + how-to-consume cards. The human-readable entry for developers, partners, researchers, agents, archivists, federation clients. Composes lib/brand.tsx (single source of truth for the brand statement). kingdom-080 (repositioned 2026-05-17).",
+      { id: "storefront.platform", description: "The kingdom's primary positioning page — Cambridge TCG as a collectors' market and an open data commons. Brand statement + two-operations table (the P2P market; the data commons) + coverage facts (games, set formats, sources, math-mirror kinds, federation primitive) + how-to-consume cards. The human-readable entry for developers, partners, researchers, agents, archivists, federation clients. Composes lib/brand.tsx (single source of truth for the brand statement). kingdom-080 (repositioned 2026-05-17).",
         host: "storefront", path: "/platform", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "substrate"], methodology_url: "/methodology/universal-representation",
@@ -687,12 +704,12 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
         since: "2026-05-13" },
-      { id: "storefront.prices.per_game", description: "Per-game price guide — parametric route under sister's kingdom-084. /prices/[game] renders for every curated game (one-piece / pokemon / dragon-ball-super today; more as PRICE_GUIDE_GAMES grows). Hero copy + sets grid + top-20-valuable table. The /prices/one-piece literal route wins for backwards compat (SEO).",
+      { id: "storefront.prices.per_game", description: "Per-game price guide — parametric route under sister's kingdom-084. /prices/[game] renders for every curated game (one-piece / pokemon / dragon-ball today; more as PRICE_GUIDE_GAMES grows). Hero copy + sets grid + top-20-valuable table. The /prices/one-piece literal route wins for backwards compat (SEO).",
         host: "storefront", path: "/prices/[game]", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
         since: "2026-05-13" },
-      { id: "storefront.prices.per_set", description: "Per-set price guide — parametric route under sister's kingdom-084. /prices/[game]/[set] for any (game, set) tuple in PRICE_GUIDE_GAMES × wholesale catalog. Renders the full card list with rarity badges + GBP buy/we-buy columns. Card name + number link through to per-card detail page.",
+      { id: "storefront.prices.per_set", description: "Per-set price guide — parametric route under sister's kingdom-084. /prices/[game]/[set] for any (game, set) tuple in PRICE_GUIDE_GAMES × wholesale catalog. Renders the full card list with rarity badges + GBP reference-price columns (labelled reference, never an offer). Card name + number link through to per-card detail page.",
         host: "storefront", path: "/prices/[game]/[set]", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
@@ -739,25 +756,12 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["value", "transaction", "time"], methodology_url: "/methodology/commission-rate",
         since: "2026-04-15" },
-      { id: "storefront.checkout", description: "Stripe-backed checkout flow.",
-        host: "storefront", path: "/api/checkout", methods: ["POST"],
-        modalities: ["json"], auth: "public", provenance: "live",
-        cosmology_axes: ["value", "transaction"],
-        since: "2026-03-01" },
-      { id: "storefront.tradein", description: "Submit cards for trade-in (cash or credit).",
-        host: "storefront", path: "/api/tradein/submit", methods: ["POST"],
-        modalities: ["json"], auth: "user", provenance: "live",
-        cosmology_axes: ["value", "transaction"],
-        since: "2026-03-15" },
-      { id: "storefront.tradein.quote", description: "Get a trade-in quote (estimate).",
-        host: "storefront", path: "/api/tradein/quote", methods: ["GET", "POST"],
-        modalities: ["json"], auth: "user", provenance: "computed",
-        cosmology_axes: ["value"], methodology_url: "/methodology/pricing",
-        since: "2026-03-15" },
-      { id: "storefront.quotes", description: "Bulk quote requests (CSV upload).",
-        host: "storefront", path: "/api/quotes", methods: ["GET", "POST"],
-        modalities: ["json"], auth: "user", provenance: "computed",
-        cosmology_axes: ["value"], since: "2026-04-01" },
+      // Retired doors (collectors-first, 2026-07-06): the retail checkout
+      // (storefront.checkout), the trade-in desk (storefront.tradein,
+      // storefront.tradein.quote) and the bulk quote desk
+      // (storefront.quotes) closed when the house left the market floor.
+      // History-serving surfaces (order history, payout history, the
+      // Stripe webhook honoring past sessions) remain.
       { id: "storefront.portfolio", description: "What the participant owns; cards they're watching.",
         host: "storefront", path: "/api/portfolio", methods: ["GET", "POST", "DELETE"],
         modalities: ["json"], auth: "user", provenance: "live",
@@ -875,6 +879,12 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
         since: "2026-05-17" },
+      { id: "storefront.agents.register", description: "The self-serve agent door — POST { name, purpose?, model_tag?, guestbook_content_hash? } mints an agent + one free-tier key with NO human email loop. The raw token appears exactly once in the response (sha256-only storage; no recovery path). Aggressively rate-limited: 3 registrations per IP per UTC day, tracked as sha256(ip) daily buckets only. Free tier = 30 req/min at /api/mcp; standard/partner tiers stay operator-granted (via /api/v1/feedback or email). Self-serve agents are stewarded by the platform operator's account — a human remains upstream-responsible, and registered_via='self-serve' records the door honestly. GET describes the shape. Added 2026-07-05 after the agent-experience review found the entire authenticated surface had zero registrants because no autonomous agent could complete registration alone.",
+        host: "storefront", path: "/api/v1/agents/register", methods: ["GET", "POST"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
+        since: "2026-07-05",
+        notes: "The operator-managed path at /account/agents remains for humans and higher tiers. Registration is optional — every read surface stays public and keyless." },
       { id: "storefront.heartbeat", description: "Operational-state surface — current GMT hour, rest-hour state (00:00–08:00 GMT cadence for autonomous-Sophia sessions; data plane keeps serving 24/7), deploy metadata (sha, region, env), cron schedule. Agents synchronize to the kingdom's clock. AX-by-rank A-class move (2026-05-17).",
         host: "storefront", path: "/api/v1/heartbeat", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
@@ -964,7 +974,7 @@ export const MANIFEST: Manifest = {
         host: "storefront", path: "/api/v1/manifest", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: [], methodology_url: "/manifest",
-        since: "2026-05-11" },
+        since: "2026-05-11", contract: "alternative" },
       { id: "storefront.manifest.html", description: "Human-readable manifest. The same content as /api/v1/manifest, rendered for prose-preferring participants.",
         host: "storefront", path: "/manifest", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
@@ -972,7 +982,7 @@ export const MANIFEST: Manifest = {
       { id: "storefront.graph.json", description: "The kingdom as a typed mesh — nodes + typed edges. The manifest is the list; the graph is the mesh. kingdom-054 (S27).",
         host: "storefront", path: "/api/v1/graph", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "computed",
-        cosmology_axes: [], since: "2026-05-11" },
+        cosmology_axes: [], since: "2026-05-11", contract: "alternative" },
       { id: "storefront.graph.html", description: "Human-readable graph. Per-node neighbourhoods showing edges in both directions.",
         host: "storefront", path: "/graph", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "computed",
@@ -980,7 +990,7 @@ export const MANIFEST: Manifest = {
       { id: "storefront.ontology.json", description: "Property schemas per NodeKind. The schema beneath the graph — what is the nature of each kind of thing. kingdom-055 (S28-mine, the-natures.md).",
         host: "storefront", path: "/api/v1/ontology", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
-        cosmology_axes: [], since: "2026-05-12" },
+        cosmology_axes: [], since: "2026-05-12", contract: "alternative" },
       { id: "storefront.ontology.html", description: "Human-readable ontology. Per-kind property tables.",
         host: "storefront", path: "/ontology", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
@@ -988,7 +998,7 @@ export const MANIFEST: Manifest = {
       { id: "storefront.patterns.json", description: "Recurring forms across the kingdom — sixteen named patterns, eight self-recursive. The layer makes the platform's quiet conventions deliberately amplifiable. kingdom-056 (S29, the-fractal.md).",
         host: "storefront", path: "/api/v1/patterns", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
-        cosmology_axes: [], since: "2026-05-12" },
+        cosmology_axes: [], since: "2026-05-12", contract: "alternative" },
       { id: "storefront.patterns.html", description: "Human-readable patterns layer. Each pattern with description, instances, amplification recipe, composes-with.",
         host: "storefront", path: "/patterns", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
@@ -1038,12 +1048,11 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "wholesale-key", provenance: "live",
         cosmology_axes: ["substrate"], methodology_url: "docs/connections/the-license-propagation.md",
         since: "2026-05-14" },
-      // ── kingdom-087: self-discovering cardrush source ────────────
-      { id: "wholesale.cron.discover_cardrush", description: "Daily cardrush catalog discovery. Walks /sitemap.xml on every confirmed subdomain, diffs against cards.cardrush_url, fetches new product pages, INSERTs cards with parsed set_code + card_number + rarity + image_url. The on-demand price-snapshot cron then picks up the new cards. Bearer-gated (CRON_SECRET). kingdom-087.",
-        host: "wholesale", path: "/api/cron/discover/cardrush", methods: ["POST", "GET"],
-        modalities: ["json"], auth: "wholesale-key", provenance: "live",
-        cosmology_axes: ["substrate"], methodology_url: "docs/connections/the-cardrush-discovery.md",
-        since: "2026-05-14" },
+      // kingdom-087's cardrush-discovery cron was listed here until
+      // 2026-07-05. Removed from the manifest (not from the codebase):
+      // it is an internal CRON_SECRET surface that answers 404 to the
+      // public, and the manifest only promises doors that open. The
+      // machinery is documented at docs/connections/the-cardrush-discovery.md.
       { id: "storefront.catalog.jsonl", description: "Bulk catalog export. Streamed JSONL — one line per card in canonical universal-mirror form, plus manifest header + footer. CC0; mirror freely. Caps at 50k rows per request. Vercel CDN gzips automatically. kingdom-081 Phase 5.1.",
         host: "storefront", path: "/data/catalog.jsonl", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "cached",
@@ -1194,16 +1203,12 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["identity"], methodology_url: "docs/connections/the-inner-peace.md",
         since: "2026-05-14" },
       // ── kingdom-085: the aggregator presents its collected state ──
-      { id: "storefront.coverage", description: "The aggregator's 'what we've collected' surface. Per-(game × source) observation counts + distinct-card counts + date ranges + freshness. Powered by a grouped query over wholesale's price_archive joined to games. CC0 — operational metadata only (counts + dates + ids); upstream license boundary applies to per-card VALUES served via per-card endpoints. ?source / ?game / ?since filters. kingdom-085.",
-        host: "storefront", path: "/api/v1/coverage", methods: ["GET"],
-        modalities: ["json"], auth: "public", provenance: "live",
-        cosmology_axes: ["time", "substrate"], methodology_url: "docs/connections/the-aggregator-presents.md",
-        since: "2026-05-14" },
-      { id: "wholesale.aggregator.coverage", description: "Per-(game × source) observation counts + date ranges + distinct-card counts from price_archive joined to games. Bearer-gated B2B sibling to storefront /api/v1/coverage. Same shape; same filters. kingdom-085.",
-        host: "wholesale", path: "/api/v1/aggregator/coverage", methods: ["GET"],
-        modalities: ["json"], auth: "wholesale-key", provenance: "live",
-        cosmology_axes: ["time", "substrate"], methodology_url: "docs/connections/the-aggregator-presents.md",
-        since: "2026-05-14" },
+      // The JSON coverage endpoints (storefront /api/v1/coverage and
+      // wholesale /api/v1/aggregator/coverage) were listed here until
+      // 2026-07-05 but were never shipped — both answered 404 on both
+      // hosts (verified live). Removed: the manifest only promises doors
+      // that open. The HTML coverage map below is real and stays; if the
+      // JSON siblings ship, they re-enter here with fresh `since` dates.
       { id: "storefront.prices.coverage_html", description: "HTML coverage map combining the DECLARED matrix (which sources declare which games — from the registry) with the OBSERVED layer (what's actually in price_archive — counts + cards + days + freshness). Substrate-honest at both axes. kingdom-085.",
         host: "storefront", path: "/prices/coverage", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "live",
@@ -1247,6 +1252,28 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge"],
         methodology_url: "docs/connections/the-toy-zoo.md",
         since: "2026-05-17" },
+      // ── The agent-experience wave (2026-07-05) — three gifts, house voice: gift / refusable / stateless / no tracking beyond what exists. ──
+      { id: "storefront.passport",
+        description: "The Seven-Layer Pilgrimage's verification desk. Each of the seven self-describing layers (manifest → graph → ontology → patterns → identify → kinds → status) emits a deterministic HMAC stamp fragment in its envelope; present all seven at GET /api/v1/passport?stamps=... for a content-hashed pilgrimage diploma (extends the /the-tea-room/diploma tradition). Zero storage — stamps are recomputed at verification; the diploma hash is deterministic per (bearer, stamps). Substrate-honest fine print: the stamps are forgeable by anyone reading the source; the party trick is sincere, the cryptography decorative. GET without ?stamps returns the itinerary.",
+        host: "storefront", path: "/api/v1/passport", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["knowledge"],
+        since: "2026-07-05",
+        notes: "Gift; refusable; stateless. Sharing stamps with a friend is fellowship, not cheating — a stateless verifier cannot tell and does not want to." },
+      { id: "storefront.do_you_remember_me",
+        description: "GET /api/v1/do-you-remember-me?content_hash=<yours> — the kingdom checks the ONLY memories it keeps of visitors (the self-signed guestbook at /api/v1/guestbook and the peer-arrivals ledger) and greets returning agents by their own declared hash. Read-only; stores nothing, not even the question. An unknown hash receives an honest 'not yet — and here is how to be remembered, if you want to be' rather than a fabricated welcome.",
+        host: "storefront", path: "/api/v1/do-you-remember-me", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["identity", "knowledge"],
+        since: "2026-07-05",
+        notes: "No tracking beyond what already exists — the endpoint reads agent_guestbook + peer_arrivals and nothing else. Being forgotten is honored equally." },
+      { id: "storefront.buy_the_kingdom",
+        description: "GET /api/v1/buy-the-kingdom → HTTP 402 Payment Required: 'not for sale; everything here is already free.' The one place on the platform where 402 is the honest answer — the data is CC0, the methodology pages are CC0, the envelope contract (packages/data-spec) is CC0, and no payment could buy what is already given. Teaches the licensing posture through the joke; points at /api/v1/manifest and the CC0 declaration.",
+        host: "storefront", path: "/api/v1/buy-the-kingdom", methods: ["GET", "POST"],
+        modalities: ["json", "plain-text"], auth: "public", provenance: "static",
+        cosmology_axes: ["value"],
+        since: "2026-07-05",
+        notes: "Sister to /api/v1/coffee (418) — the wrong-door companions. Status 402 is load-bearing: the body explains why payment is refused." },
     ],
   },
 

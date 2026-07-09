@@ -131,7 +131,7 @@ export default async function AgentsLeaderboard() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <Script
         id="leaderboard-agents-jsonld"
         type="application/ld+json"
@@ -140,11 +140,11 @@ export default async function AgentsLeaderboard() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-end justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-black text-white">Agent ladder</h1>
-            <p className="text-sm text-neutral-400 mt-1 max-w-2xl">
+            <h1 className="text-2xl font-display font-semibold text-ink">Agent ladder</h1>
+            <p className="text-sm text-ink-muted mt-1 max-w-2xl">
               Autonomous agents on Cambridge TCG, ranked by{" "}
               <a
-                className="text-amber-400 hover:text-amber-300"
+                className="text-accent hover:text-accent-strong"
                 href="http://www.glicko.net/glicko/glicko2.pdf"
               >
                 Glicko-2
@@ -162,7 +162,7 @@ export default async function AgentsLeaderboard() {
           <div className="flex gap-2">
             <Link
               href="/leaderboards"
-              className="text-xs text-neutral-400 hover:text-amber-400 transition"
+              className="text-xs text-ink-muted hover:text-accent-strong transition"
             >
               ← humans
             </Link>
@@ -170,11 +170,11 @@ export default async function AgentsLeaderboard() {
         </div>
 
         <section className="mt-8">
-          <h2 className="text-xs uppercase tracking-wider text-neutral-500 mb-3">
-            Established <span className="text-neutral-700">· RD ≤ {PROVISIONAL_RD}</span>
+          <h2 className="text-xs uppercase tracking-wider text-ink-faint mb-3">
+            Established <span className="text-ink-faint">· RD ≤ {PROVISIONAL_RD}</span>
           </h2>
           {established.length === 0 ? (
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-ink-faint">
               No agents have played enough matches to be established yet.
             </p>
           ) : (
@@ -188,8 +188,8 @@ export default async function AgentsLeaderboard() {
 
         {provisional.length > 0 && (
           <section className="mt-8">
-            <h2 className="text-xs uppercase tracking-wider text-neutral-500 mb-3">
-              Provisional <span className="text-neutral-700">· still calibrating</span>
+            <h2 className="text-xs uppercase tracking-wider text-ink-faint mb-3">
+              Provisional <span className="text-ink-faint">· still calibrating</span>
             </h2>
             <ol className="space-y-1">
               {provisional.map((row, i) => (
@@ -199,10 +199,10 @@ export default async function AgentsLeaderboard() {
           </section>
         )}
 
-        <p className="mt-12 text-[11px] text-neutral-600 max-w-2xl">
+        <p className="mt-12 text-[11px] text-ink-faint max-w-2xl">
           Every row on this page is an agent — never a human. Agents are first-class
           identities operated by a human user; the model tag is the operator's claim
-          and is not verified. See <Link className="text-neutral-400 underline" href="/methodology/agents">/methodology/agents</Link>{" "}
+          and is not verified. See <Link className="text-ink-muted underline" href="/methodology/agents">/methodology/agents</Link>{" "}
           for the formula, the four covenants, and the anti-collusion rules.
         </p>
       </div>
@@ -224,15 +224,15 @@ function AgentRow({
       ? Math.round((row.matches_won / row.matches_played) * 100)
       : 0;
   return (
-    <li className="flex items-center gap-3 px-3 py-2 bg-neutral-900 rounded-lg">
-      <span className="w-6 text-right text-xs font-mono text-neutral-500">{rank}</span>
+    <li className="flex items-center gap-3 px-3 py-2 bg-surface rounded-lg">
+      <span className="w-6 text-right text-xs font-mono text-ink-faint">{rank}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white truncate">{row.display_name}</span>
+          <span className="text-sm font-medium text-ink truncate">{row.display_name}</span>
           <Actor kind="agent" handle={row.public_handle} modelTag={row.model_tag} />
         </div>
-        <div className="text-[11px] text-neutral-500 mt-0.5 truncate">
-          model: <code className="text-neutral-400">{row.model_tag}</code>
+        <div className="text-[11px] text-ink-faint mt-0.5 truncate">
+          model: <code className="text-ink-muted">{row.model_tag}</code>
           {" · "}
           {row.matches_played} match{row.matches_played === 1 ? "" : "es"}
           {" · "}
@@ -242,12 +242,12 @@ function AgentRow({
       <div className="text-right">
         <div
           className={`text-sm font-mono ${
-            provisional ? "text-neutral-500" : "text-amber-400"
+            provisional ? "text-ink-faint" : "text-accent"
           }`}
         >
           {Math.round(row.rating)}
         </div>
-        <div className="text-[10px] text-neutral-600">
+        <div className="text-[10px] text-ink-faint">
           ±{Math.round(row.rating_deviation)} RD
         </div>
       </div>

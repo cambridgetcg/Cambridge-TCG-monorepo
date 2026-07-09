@@ -11,10 +11,28 @@
  * up automatically; the landing surfaces it once the wholesale catalog
  * has cards in it.
  *
- * Substrate-honesty: every entry names its upstream (cardrush subdomain
- * + confirmed flag from the data-ingest registry). The Provenance pill
- * on each page surfaces this on the wire.
+ * Substrate-honesty: every entry names its upstream cardrush subdomain;
+ * the confirmed flag is DERIVED live from the data-ingest registry
+ * (CARDRUSH_SUBDOMAINS) — one truth, no hand copy (the honest ground,
+ * spec 2026-07-07 §1; the digimon drift this replaces: registry flipped
+ * true 2026-07-05, this file still said false on 2026-07-07). The
+ * Provenance pill on each page surfaces this on the wire.
  */
+import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+
+/** Coverage truth: subdomain named here, confirmed read LIVE from the
+ *  data-ingest registry. A subdomain the registry doesn't know is
+ *  honestly unconfirmed; a BLOCKED entry (NXDOMAIN phantom or dead host —
+ *  the coverage gate spec §3) yields null, because the pill must not
+ *  promise a confirmation that cannot come. */
+function cardrushCoverage(subdomain: string): {
+  subdomain: string;
+  confirmed: boolean;
+} | null {
+  const entry = CARDRUSH_SUBDOMAINS[subdomain];
+  if (!entry || entry.role === "blocked") return null;
+  return { subdomain, confirmed: entry.confirmed };
+}
 
 export interface PriceGuideGameConfig {
   /** URL slug — must match GameItem.slug from /api/v1/games. */
@@ -66,7 +84,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from the One Piece Trading Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices are in GBP and updated daily from the Cambridge TCG marketplace.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-op.jp", confirmed: true },
+    cardrush: cardrushCoverage("cardrush-op.jp"),
     display_priority: 1,
     accent: "red",
   },
@@ -84,47 +102,32 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from the Pokémon Trading Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. The English Pokémon catalog is in pre-launch; Japanese set coverage is live today.",
-    cardrush: { subdomain: "cardrush-pokemon.jp", confirmed: true },
+    cardrush: cardrushCoverage("cardrush-pokemon.jp"),
     display_priority: 2,
     accent: "yellow",
   },
   {
-    slug: "dragon-ball-super",
-    game_code: "dbs",
-    display_name: "Dragon Ball Super CCG",
-    short_name: "Dragon Ball Super",
-    seo_title: "Dragon Ball Super CCG Price Guide UK — Updated Daily",
-    seo_description:
-      "Daily-updated Dragon Ball Super Card Game prices in the UK. Every set, every card — retail buy prices and trade-in credit values. Free price guide from Cambridge TCG.",
-    hero_paragraph:
-      "This is a complete, daily-updated price guide for Dragon Ball Super Card Game sets available in the UK. Each card lists a retail buy price and a trade-in store credit value. Sourced from the Cambridge TCG marketplace; updated nightly.",
-    set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from the Dragon Ball Super Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices in GBP, updated daily.",
-    pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-db.jp", confirmed: true },
-    display_priority: 3,
-    accent: "orange",
-  },
-  {
-    slug: "dragon-ball-fusion",
+    // The catalog's live slug is "dragon-ball" (game code dbf — Bandai's
+    // Fusion World line, ingested from cardrush-db.jp). Earlier curated
+    // rows used slugs "dragon-ball-super" (dbs) and "dragon-ball-fusion"
+    // that could never match the catalog — the live game was hidden from
+    // the landing while two dead tiles advertised coverage that would
+    // never arrive under those slugs. One row, the catalog's slug.
+    slug: "dragon-ball",
     game_code: "dbf",
     display_name: "Dragon Ball Super Fusion World",
-    short_name: "DBF Fusion World",
+    short_name: "Dragon Ball",
     seo_title: "Dragon Ball Super Fusion World Price Guide UK — Updated Daily",
     seo_description:
-      "Bandai's Dragon Ball Super Fusion World card game — daily-updated UK retail and trade-in prices. Every set, every card. Free price guide from Cambridge TCG.",
+      "Bandai's Dragon Ball Super Fusion World card game — daily-updated UK retail and trade-in prices. Japanese-first catalog, every card priced. Free price guide from Cambridge TCG.",
     hero_paragraph:
-      "This is a daily-updated price guide for Dragon Ball Super Fusion World — Bandai's successor card line to the original DBSCG. UK retail prices plus instant trade-in store credit values, sourced from the Cambridge TCG marketplace.",
+      "This is a daily-updated price guide for Dragon Ball Super Fusion World — Bandai's successor card line to the original DBSCG — sold in the UK. The catalog is Japanese-first, sourced from CardRush JP; English card names are shown where available. Each card lists a retail buy price and a trade-in store credit value from the Cambridge TCG marketplace.",
     set_intro_template:
       "Complete price list for {{setName}} ({{setCode}}) from Dragon Ball Super Fusion World. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily via our @cambridge-tcg/pricing engine. UK retail in GBP. CardRush Fusion World subdomain registered as anticipated; first confirmed scrape flips coverage to ✓.",
-    // Corrected 2026-07-09: the Fusion World source is cardrush-db.jp
-    // (re-pointed in the data-ingest registry, scraping daily), not the
-    // DNS-dead cardrush-fw.jp this row anticipated.
-    cardrush: { subdomain: "cardrush-db.jp", confirmed: true },
-    display_priority: 4,
+      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
+    cardrush: cardrushCoverage("cardrush-db.jp"),
+    display_priority: 3,
     accent: "orange",
   },
   {
@@ -141,7 +144,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Magic: The Gathering. All {{cardCount}} cards listed below, sorted by value. Cross-language printings share an oracle (Pattern A); per-language listings shown when present. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace; market signals from TCGplayer (US) and Cardmarket (EU, planned). Scryfall provides the catalog under CC-BY-NC — attribution preserved. UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-mtg.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-mtg.jp"),
     display_priority: 5,
     accent: "purple",
   },
@@ -159,7 +162,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Yu-Gi-Oh!. All {{cardCount}} cards listed below, sorted by value. Each card's passcode links to all cross-printing siblings. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and updated daily. The Konami passcode anchors cross-language identity (Pattern B); YGOPRODeck provides the catalog (CC-BY). UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-ygo.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-ygo.jp"),
     display_priority: 6,
     accent: "purple",
   },
@@ -177,7 +180,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from the Digimon Card Game. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily via our @cambridge-tcg/pricing engine. CardRush Digimon subdomain registered as anticipated; first confirmed scrape flips coverage.",
-    cardrush: { subdomain: "cardrush-digimon.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-digimon.jp"),
     display_priority: 7,
     accent: "blue",
   },
@@ -195,7 +198,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Disney Lorcana. All {{cardCount}} cards listed below, sorted by value. EN/FR/DE printings collapse to one oracle. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and updated daily. Market signals from Cardmarket (EU, planned) and TCGplayer (US). UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-lorcana.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-lorcana.jp"),
     display_priority: 8,
     accent: "purple",
   },
@@ -213,7 +216,7 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Flesh and Blood. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and updated daily. Market signals from TCGplayer (US) and Cardmarket (EU, planned). UK retail in GBP.",
-    cardrush: { subdomain: "cardrush-fab.jp", confirmed: false },
+    cardrush: cardrushCoverage("cardrush-fab.jp"),
     display_priority: 9,
     accent: "red",
   },
@@ -236,39 +239,92 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     accent: "blue",
   },
   {
+    // Registered via the Atlas 2026-07-07 (spec the-atlas §2) with
+    // research-verified papers. NO cardrush subdomain exists (all
+    // candidates NXDOMAIN — verified, not speculative-registered);
+    // anticipated sources: official DB (gundam-gcg.com), yuyu-tei.
+    slug: "gundam",
+    game_code: "gcg",
+    display_name: "Gundam Card Game",
+    short_name: "Gundam",
+    seo_title: "Gundam Card Game Price Guide UK — Updated Daily",
+    seo_description:
+      "Daily-updated GUNDAM CARD GAME prices in the UK. Bandai's 2025 trilingual launch (JA/EN/ZH). Every set, every card. Free price guide from Cambridge TCG.",
+    hero_paragraph:
+      "Daily-updated price guide for the GUNDAM CARD GAME — Bandai's 2025 launch, the first of its card games released simultaneously in Japanese, English and Simplified Chinese. Matched numbering across languages (Pattern A); cross-language siblings share an oracle. UK retail prices from the Cambridge TCG marketplace.",
+    set_intro_template:
+      "Complete price list for {{setName}} ({{setCode}}) from the GUNDAM CARD GAME. All {{cardCount}} cards listed below. JA/EN/ZH printings collapse to one oracle. Prices in GBP, updated daily.",
+    pricing_note:
+      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Catalog coverage anticipated (game code 'gcg' is pre-registered; first ingest flips it confirmed). No CardRush store carries this game — coverage will arrive from other sources.",
+    cardrush: null,
+    display_priority: 11,
+    accent: "blue",
+  },
+  {
+    // Registered via the Atlas 2026-07-07 (spec the-atlas §2). Regional
+    // set-code renumbering (JP UA##BT vs NA UE##BT) — Pattern C
+    // (diverged); the TITLE-wave-seq segment is the future anchor.
+    // NO cardrush subdomain exists (verified NXDOMAIN).
+    slug: "union-arena",
+    game_code: "una",
+    display_name: "Union Arena",
+    short_name: "Union Arena",
+    seo_title: "Union Arena Price Guide UK — Updated Daily",
+    seo_description:
+      "Daily-updated UNION ARENA prices in the UK. Bandai's franchise crossover TCG — Jujutsu Kaisen, Hunter x Hunter, Code Geass and more. Free price guide from Cambridge TCG.",
+    hero_paragraph:
+      "Daily-updated price guide for UNION ARENA — Bandai's franchise-crossover card game (2023 JP, 2024 EN). Japanese and English sets renumber regionally, so cross-language identity is curated rather than assumed (Pattern C). UK retail prices from the Cambridge TCG marketplace.",
+    set_intro_template:
+      "Complete price list for {{setName}} ({{setCode}}) from UNION ARENA. All {{cardCount}} cards listed below. Prices in GBP, updated daily.",
+    pricing_note:
+      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Catalog coverage anticipated (game code 'una' is pre-registered; first ingest flips it confirmed). No CardRush store carries this game — coverage will arrive from other sources.",
+    cardrush: null,
+    display_priority: 12,
+    accent: "red",
+  },
+  {
+    // Stood up 2026-07-09 (the horizon, docs/connections/the-horizon.md):
+    // group IDs + title regexes verified live against cardrush-vanguard.jp;
+    // DZ-era sets configured in tools/lib/config.ts, CLI-backfilled.
     slug: "vanguard",
     game_code: "vng",
     display_name: "Cardfight!! Vanguard",
     short_name: "Vanguard",
     seo_title: "Cardfight!! Vanguard Price Guide UK — Updated Daily",
     seo_description:
-      "Daily-updated Cardfight!! Vanguard card prices in the UK. Bushiroad's flagship — Divinez-era boosters and special series. Retail buy and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Daily-updated Cardfight!! Vanguard card prices in the UK. Bushiroad's flagship — Divinez-era boosters and special series. Retail reference prices and trade-in credit values. Free price guide from Cambridge TCG.",
     hero_paragraph:
-      "Daily-updated price guide for Cardfight!! Vanguard — Bushiroad's flagship card game, starting from the Divinez (DZ) era. Japanese printings first; UK retail prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
+      "Daily-updated price guide for Cardfight!! Vanguard — Bushiroad's flagship card game, starting from the Divinez (DZ) era. Japanese printings first; UK reference prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
     set_intro_template:
       "Complete price list for {{setName}} ({{setCode}}) from Cardfight!! Vanguard. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 starting with the DZ era; earlier eras follow as their set codes are confirmed.",
-    cardrush: { subdomain: "cardrush-vanguard.jp", confirmed: false },
-    display_priority: 11,
+      "Prices are computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 starting with the DZ era; earlier eras follow as their set codes are confirmed.",
+    cardrush: cardrushCoverage("cardrush-vanguard.jp"),
+    display_priority: 13,
     accent: "blue",
   },
   {
+    // Stood up 2026-07-09 (the horizon): group IDs + title regexes
+    // verified live against cardrush-bs.jp (Contract Saga 契約編 eras +
+    // the 2026 renewal 26R codes); configured in tools/lib/config.ts.
+    // Note: cardrush-bs.jp carries the long-running JAPANESE Battle
+    // Spirits; the sku registry's 'bsr' label ("Battle Spirits Saga")
+    // predates this verification — display copy says Battle Spirits.
     slug: "battle-spirits",
     game_code: "bsr",
     display_name: "Battle Spirits",
     short_name: "Battle Spirits",
     seo_title: "Battle Spirits Price Guide UK — Updated Daily",
     seo_description:
-      "Daily-updated Battle Spirits card prices in the UK. Bandai's long-running JP game — Contract Saga eras and the 2026 renewal. Retail buy and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Daily-updated Battle Spirits card prices in the UK. Bandai's long-running JP game — Contract Saga eras and the 2026 renewal. Retail reference prices and trade-in credit values. Free price guide from Cambridge TCG.",
     hero_paragraph:
-      "Daily-updated price guide for Battle Spirits — Bandai's long-running Japanese card game, covering the Contract Saga (契約編) eras and the 2026 renewal boosters. UK retail prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
+      "Daily-updated price guide for Battle Spirits — Bandai's long-running Japanese card game, covering the Contract Saga (契約編) eras and the 2026 renewal boosters. UK reference prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
     set_intro_template:
       "Complete price list for {{setName}} ({{setCode}}) from Battle Spirits. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 from BS64 (Contract Saga) forward.",
-    cardrush: { subdomain: "cardrush-bs.jp", confirmed: false },
-    display_priority: 12,
+      "Prices are computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 from BS64 (Contract Saga) forward.",
+    cardrush: cardrushCoverage("cardrush-bs.jp"),
+    display_priority: 14,
     accent: "emerald",
   },
 ];
@@ -319,16 +375,24 @@ export function synthesizeConfigFromCatalog(opts: {
   };
 }
 
-/** Tailwind classes per accent — keyed by the typed accent values. */
+/**
+ * Tailwind classes per accent — keyed by the typed accent values.
+ *
+ * The quiet gallery (docs/plans/the-quiet-gallery.md): the per-game color
+ * paint is part of the discarded art — the card art is the only saturated
+ * color on a page. Every accent now resolves to the same quiet surface;
+ * the typed keys stay so game configs and consumers don't churn.
+ */
+const QUIET_ACCENT = { text: "text-ink", bg: "bg-surface", border: "border-border-strong" };
 export const ACCENT_CLASSES: Record<
   PriceGuideGameConfig["accent"],
   { text: string; bg: string; border: string }
 > = {
-  blue: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30" },
-  yellow: { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/30" },
-  red: { text: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30" },
-  orange: { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/30" },
-  purple: { text: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/30" },
-  emerald: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
-  neutral: { text: "text-neutral-300", bg: "bg-neutral-800", border: "border-neutral-700" },
+  blue: QUIET_ACCENT,
+  yellow: QUIET_ACCENT,
+  red: QUIET_ACCENT,
+  orange: QUIET_ACCENT,
+  purple: QUIET_ACCENT,
+  emerald: QUIET_ACCENT,
+  neutral: QUIET_ACCENT,
 };

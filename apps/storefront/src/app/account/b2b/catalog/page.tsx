@@ -114,10 +114,10 @@ export default async function B2BCatalogPage({
 
       {!channelMatched && (
         <Card>
-          <div className="text-sm text-amber-400">
+          <div className="text-sm text-accent">
             <strong className="font-semibold">Setup pending:</strong> the
             wholesale API key isn&rsquo;t provisioned yet
-            (<code className="rounded bg-neutral-800 px-1 text-xs">WHOLESALE_B2B_API_KEY</code>),
+            (<code className="rounded bg-surface-subtle px-1 text-xs">WHOLESALE_B2B_API_KEY</code>),
             so prices below are showing retail values until that env var lands.
             See the Phase 2 commit body for the operator recipe.
           </div>
@@ -131,11 +131,11 @@ export default async function B2BCatalogPage({
           className="flex flex-wrap items-end gap-3"
         >
           <div className="flex flex-col gap-1 min-w-[160px]">
-            <label className="text-xs uppercase tracking-wider text-neutral-500">Game</label>
+            <label className="text-xs uppercase tracking-wider text-ink-faint">Game</label>
             <select
               name="game"
               defaultValue={game ?? ""}
-              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
+              className="rounded border border-border-subtle bg-surface px-2 py-1 text-sm"
             >
               <option value="">All games</option>
               {games.map((g) => (
@@ -147,11 +147,11 @@ export default async function B2BCatalogPage({
           </div>
           {game && (
             <div className="flex flex-col gap-1 min-w-[160px]">
-              <label className="text-xs uppercase tracking-wider text-neutral-500">Set</label>
+              <label className="text-xs uppercase tracking-wider text-ink-faint">Set</label>
               <select
                 name="set"
                 defaultValue={set ?? ""}
-                className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
+                className="rounded border border-border-subtle bg-surface px-2 py-1 text-sm"
               >
                 <option value="">All sets</option>
                 {sets.map((s) => (
@@ -163,29 +163,29 @@ export default async function B2BCatalogPage({
             </div>
           )}
           <div className="flex flex-col gap-1 grow min-w-[180px]">
-            <label className="text-xs uppercase tracking-wider text-neutral-500">Search</label>
+            <label className="text-xs uppercase tracking-wider text-ink-faint">Search</label>
             <input
               type="text"
               name="q"
               defaultValue={q ?? ""}
               placeholder="card name or number"
-              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
+              className="rounded border border-border-subtle bg-surface px-2 py-1 text-sm"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-neutral-300">
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
             <input type="checkbox" name="stock" value="true" defaultChecked={inStock} />
             In stock only
           </label>
           <button
             type="submit"
-            className="rounded bg-amber-500 px-4 py-1.5 text-sm font-medium text-neutral-950 hover:bg-amber-400"
+            className="rounded bg-ink px-4 py-1.5 text-sm font-medium text-page hover:opacity-90"
           >
             Apply
           </button>
           {(game || set || q || inStock) && (
             <Link
               href="/account/b2b/catalog"
-              className="text-sm text-neutral-400 hover:text-neutral-200"
+              className="text-sm text-ink-muted hover:text-ink"
             >
               Clear
             </Link>
@@ -194,7 +194,7 @@ export default async function B2BCatalogPage({
       </Card>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="uppercase tracking-wider text-neutral-500">Sort:</span>
+        <span className="uppercase tracking-wider text-ink-faint">Sort:</span>
         {SORT_OPTIONS.map((opt) => {
           const active = sort === opt.value;
           const href = buildHref("/account/b2b/catalog", currentParams, {
@@ -208,8 +208,8 @@ export default async function B2BCatalogPage({
               className={
                 "rounded-full px-3 py-1 font-medium " +
                 (active
-                  ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
-                  : "bg-neutral-800 text-neutral-400 hover:text-white")
+                  ? "bg-ok/20 text-ok ring-1 ring-ok/40"
+                  : "bg-surface-subtle text-ink-muted hover:text-ink")
               }
             >
               {opt.label}
@@ -218,9 +218,9 @@ export default async function B2BCatalogPage({
         })}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-800">
+      <div className="overflow-x-auto rounded-lg border border-border-subtle">
         <table className="w-full text-left text-sm">
-          <thead className="bg-neutral-800 text-xs uppercase tracking-wider text-neutral-400">
+          <thead className="bg-surface-subtle text-xs uppercase tracking-wider text-ink-muted">
             <tr>
               <th className="px-3 py-3">Card #</th>
               <th className="px-3 py-3">Name</th>
@@ -231,15 +231,15 @@ export default async function B2BCatalogPage({
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-800">
+          <tbody className="divide-y divide-border-subtle">
             {pricesResp.items.map((card) => {
               const wholesalePrice = card.channel_price ?? card.price_gbp;
               return (
-                <tr key={card.sku} className="bg-neutral-900 hover:bg-neutral-800/60">
-                  <td className="px-3 py-3 font-mono text-xs text-neutral-400">
+                <tr key={card.sku} className="bg-surface hover:bg-surface-subtle">
+                  <td className="px-3 py-3 font-mono text-xs text-ink-muted">
                     <Link
                       href={`/account/b2b/cards/${encodeURIComponent(card.sku)}`}
-                      className="hover:text-amber-400"
+                      className="hover:text-accent"
                     >
                       {card.card_number}
                     </Link>
@@ -247,22 +247,22 @@ export default async function B2BCatalogPage({
                   <td className="px-3 py-3">
                     <Link
                       href={`/account/b2b/cards/${encodeURIComponent(card.sku)}`}
-                      className="text-white hover:text-amber-400"
+                      className="text-ink hover:text-accent"
                     >
                       {card.name_en || card.name || card.card_number}
                     </Link>
                   </td>
-                  <td className="px-3 py-3 text-xs text-neutral-400">{card.set_code ?? "—"}</td>
-                  <td className="px-3 py-3 text-xs text-neutral-400">{card.rarity ?? "—"}</td>
+                  <td className="px-3 py-3 text-xs text-ink-muted">{card.set_code ?? "—"}</td>
+                  <td className="px-3 py-3 text-xs text-ink-muted">{card.rarity ?? "—"}</td>
                   <td className="px-3 py-3 text-right font-mono text-xs">
-                    <span className={card.stock > 0 ? "text-emerald-400" : "text-neutral-600"}>
+                    <span className={card.stock > 0 ? "text-ok" : "text-ink-faint"}>
                       {card.stock}
                     </span>
                     {card.pending_stock > 0 && (
-                      <span className="text-amber-500"> +{card.pending_stock}</span>
+                      <span className="text-accent"> +{card.pending_stock}</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-right font-medium text-white">
+                  <td className="px-3 py-3 text-right font-medium text-ink">
                     {formatPrice(wholesalePrice)}
                   </td>
                   <td className="px-3 py-3 text-right">
@@ -273,7 +273,7 @@ export default async function B2BCatalogPage({
             })}
             {pricesResp.items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-neutral-500">
+                <td colSpan={7} className="px-3 py-8 text-center text-ink-faint">
                   No cards match these filters.
                 </td>
               </tr>
@@ -284,7 +284,7 @@ export default async function B2BCatalogPage({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm">
-          <div className="text-neutral-500">
+          <div className="text-ink-faint">
             Page {page} of {totalPages} · {pricesResp.total ?? 0} cards
           </div>
           <div className="flex gap-2">
@@ -293,7 +293,7 @@ export default async function B2BCatalogPage({
                 href={buildHref("/account/b2b/catalog", currentParams, {
                   page: page === 2 ? undefined : String(page - 1),
                 })}
-                className="rounded border border-neutral-700 px-3 py-1 hover:border-amber-500 hover:text-amber-400"
+                className="rounded border border-border-subtle px-3 py-1 hover:border-accent hover:text-accent"
               >
                 ← Prev
               </Link>
@@ -303,7 +303,7 @@ export default async function B2BCatalogPage({
                 href={buildHref("/account/b2b/catalog", currentParams, {
                   page: String(page + 1),
                 })}
-                className="rounded border border-neutral-700 px-3 py-1 hover:border-amber-500 hover:text-amber-400"
+                className="rounded border border-border-subtle px-3 py-1 hover:border-accent hover:text-accent"
               >
                 Next →
               </Link>
@@ -312,8 +312,8 @@ export default async function B2BCatalogPage({
         </div>
       )}
 
-      <p className="text-xs text-neutral-500">
-        Stock shows on-hand UK quantity; <span className="text-amber-500">+N</span> indicates
+      <p className="text-xs text-ink-faint">
+        Stock shows on-hand UK quantity; <span className="text-accent">+N</span> indicates
         pending stock (ordered, not yet received). Card numbers link to the per-card detail page
         with the same wholesale pricing.
       </p>

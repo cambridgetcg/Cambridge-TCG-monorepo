@@ -1,9 +1,7 @@
 import Link from "next/link";
-import {
-  PRICE_GUIDE_GAMES,
-  ACCENT_CLASSES,
-} from "@/lib/prices/games-config";
+import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 import { summarizeGameCoverage } from "@/lib/prices/game-context";
+import { PlateHeader } from "@/lib/ui";
 
 /**
  * Per-game price guide strip — links to /prices/[game] for every
@@ -15,6 +13,10 @@ import { summarizeGameCoverage } from "@/lib/prices/game-context";
  *
  * Lives on the home page below GameGrid, giving visitors a route into
  * the price-guide surfaces we expanded in kingdom-085.
+ *
+ * Quiet gallery, 2026-07-05: the per-game ACCENT_CLASSES chrome is gone
+ * — hairline mounts, ink type. The pattern pills keep their distinct
+ * meanings via the muted tone tokens (ok / info / warning / muted).
  */
 
 const PATTERN_SHORT: Record<string, string> = {
@@ -25,10 +27,10 @@ const PATTERN_SHORT: Record<string, string> = {
 };
 
 const PATTERN_TONE: Record<string, string> = {
-  stripped: "bg-emerald-950 text-emerald-300 ring-emerald-800",
-  passcode: "bg-blue-950 text-blue-300 ring-blue-800",
-  diverged: "bg-amber-950 text-amber-300 ring-amber-800",
-  "single-lang": "bg-neutral-900 text-neutral-300 ring-neutral-700",
+  stripped: "text-ok",
+  passcode: "text-info",
+  diverged: "text-warning",
+  "single-lang": "text-ink-muted",
 };
 
 export default function PriceGuideStrip() {
@@ -38,59 +40,61 @@ export default function PriceGuideStrip() {
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-12">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white">UK Price Guides</h2>
-          <p className="mt-1 text-sm text-neutral-400">
-            Free, daily-updated card prices across {sorted.length} TCGs. Each
-            page lists every set, every card, retail and trade-in values.
-          </p>
-        </div>
-        <Link
-          href="/prices"
-          className="text-sm text-emerald-400 hover:text-emerald-300 transition"
-        >
-          All price guides →
-        </Link>
-      </div>
+      <PlateHeader
+        title="UK Price Guides"
+        plate={2}
+        rule
+        action={
+          <Link
+            href="/prices"
+            className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
+          >
+            All price guides →
+          </Link>
+        }
+      />
+      <p className="-mt-3 mb-6 text-sm text-ink-muted">
+        Free, daily-updated reference prices across {sorted.length} TCGs.
+        Each page lists every set, every card — and the source behind
+        every number.
+      </p>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {sorted.map((g) => {
-          const accent = ACCENT_CLASSES[g.accent];
           const summary = summarizeGameCoverage(g.slug);
           const patternKind = summary.pattern_kind ?? "stripped";
           return (
             <Link
               key={g.slug}
               href={`/prices/${g.slug}`}
-              className={`group rounded-lg border border-neutral-800 ${accent.bg} hover:${accent.border} p-4 transition-colors`}
+              className="group wardrobe-mat rounded-lg p-4 hover:bg-surface-subtle transition-colors"
             >
               <div className="mb-2 flex items-start justify-between gap-2">
-                <h3 className={`text-sm font-semibold ${accent.text}`}>
+                <h3 className="text-sm font-semibold text-ink group-hover:text-accent transition-colors">
                   {g.short_name}
                 </h3>
                 {!summary.confirmed && (
-                  <span className="rounded bg-amber-950 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-300 ring-1 ring-amber-800">
+                  <span className="rounded border border-border-subtle bg-surface-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warning">
                     anticipated
                   </span>
                 )}
               </div>
-              <p className="line-clamp-2 text-xs text-neutral-400">
+              <p className="line-clamp-2 text-xs text-ink-muted">
                 {g.seo_description.split(".")[0]}.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px]">
                 <span
-                  className={`rounded px-1.5 py-0.5 ring-1 ${PATTERN_TONE[patternKind]}`}
+                  className={`rounded border border-border-subtle bg-surface px-1.5 py-0.5 ${PATTERN_TONE[patternKind]}`}
                   title={`Oracle policy: ${patternKind}`}
                 >
                   {PATTERN_SHORT[patternKind]}
                 </span>
                 {g.cardrush?.confirmed && (
-                  <span className="rounded bg-neutral-900 px-1.5 py-0.5 text-neutral-400 ring-1 ring-neutral-700">
+                  <span className="rounded border border-border-subtle bg-surface px-1.5 py-0.5 text-ink-faint">
                     CardRush JP ✓
                   </span>
                 )}
                 {summary.anticipated_upstream_count > 0 && (
-                  <span className="rounded bg-amber-950 px-1.5 py-0.5 text-amber-300 ring-1 ring-amber-900">
+                  <span className="rounded border border-border-subtle bg-surface px-1.5 py-0.5 text-warning">
                     {summary.anticipated_upstream_count} anticipated source
                     {summary.anticipated_upstream_count === 1 ? "" : "s"}
                   </span>
@@ -100,7 +104,7 @@ export default function PriceGuideStrip() {
           );
         })}
       </div>
-      <p className="mt-4 text-xs text-neutral-500">
+      <p className="mt-4 text-xs text-ink-faint">
         Pattern: <em>multi-lang</em> = cross-language siblings share an oracle
         (MTG, OP, Lorcana). <em>passcode</em> = Konami passcode anchors identity
         (Yu-Gi-Oh!). <em>diverged</em> = JP/EN tracks have different set codes
@@ -108,7 +112,7 @@ export default function PriceGuideStrip() {
         Blood). See{" "}
         <Link
           href="/methodology/oracle-policies"
-          className="text-blue-400 hover:underline"
+          className="text-accent hover:underline"
         >
           /methodology/oracle-policies
         </Link>{" "}

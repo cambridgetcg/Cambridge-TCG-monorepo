@@ -140,6 +140,9 @@ async function loadHandlers(): Promise<void> {
   if (!HANDLERS["wishlist_matched"]) {
     await import("./handlers/wishlist-matched");
   }
+  if (!HANDLERS["dm_unread"]) {
+    await import("./handlers/dm-unread");
+  }
 }
 
 // ── Schedule ────────────────────────────────────────────────────────────

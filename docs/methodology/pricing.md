@@ -113,7 +113,7 @@ A card's price can change for four reasons:
 3. **The CSV upload sync ran.** Bulk imports through the admin CSV path produce the same effect as a daily snapshot for the affected cards.
 4. **The exchange rate moved overnight.** Even if the JPY price is unchanged, a different rate produces a different GBP base, and the resulting retail price will round to a different £0.10 step.
 
-You can see the change history for any individual card on its admin page; the log is append-only and cryptographically attestable as part of the platform's governance digest (see [/methodology/trust-score](./trust-score) for the same audit pattern applied to user-trust decisions).
+You can see the change history for any individual card on its admin page; the log is append-only and cryptographically attestable as part of the platform's governance digest (see [/methodology/trust-score](./trust-score.md) for the same audit pattern applied to user-trust decisions).
 
 ---
 
@@ -123,7 +123,7 @@ A price is **not** affected by:
 
 - Who is looking at it. Every customer sees the same price for the same channel.
 - Stock level. Low-stock cards do not auto-mark-up; high-stock cards do not auto-discount. (The platform's promo system is a separate layer.)
-- Account standing or trust score. These affect *commission* (see [/methodology/commission-rate](./commission-rate)) and *escrow routing* (see [/methodology/escrow-tier](./escrow-tier)), not the retail price.
+- Account standing or trust score. These affect *commission* (see [/methodology/commission-rate](https://cambridgetcg.com/methodology/commission-rate)) and *escrow routing* (see [/methodology/escrow-tier](https://cambridgetcg.com/methodology/escrow-tier)), not the retail price.
 - Membership tier. Tier perks include cashback and points multipliers; the listed price is the same regardless of tier (your cashback/points adjustment lands separately).
 
 ---

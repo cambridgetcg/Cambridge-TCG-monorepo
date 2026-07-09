@@ -1,11 +1,12 @@
 /**
- * Card — the bg-neutral-900 rounded-xl shell that wraps almost every
- * piece of content on /account/* and /market.
+ * Card — the white-mount shell that wraps almost every piece of content
+ * on /account/* and /market.
  *
- * Three visual variants reflect the existing usage:
- *   default  — bg-neutral-900 border border-neutral-800 (the standard card)
- *   elevated — same but with a soft amber glow border (used for primary CTA)
- *   subtle   — bg-neutral-900/50 border-neutral-800/60 (lower visual weight)
+ * The quiet gallery (docs/plans/the-quiet-gallery.md): surface + hairline
+ * border, rounded-lg. Three variants:
+ *   default  — bg-surface, hairline border (the standard mount)
+ *   elevated — same, plus the mat shadow (the only elevation on the site)
+ *   subtle   — bg-surface-subtle (lower visual weight)
  */
 
 import * as React from "react";
@@ -14,9 +15,9 @@ type Variant = "default" | "elevated" | "subtle";
 type Padding = "none" | "sm" | "md" | "lg";
 
 const VARIANT_CLS: Record<Variant, string> = {
-  default:  "bg-neutral-900 border border-neutral-800",
-  elevated: "bg-neutral-900 border border-amber-500/30 shadow-lg shadow-amber-500/5",
-  subtle:   "bg-neutral-900/50 border border-neutral-800/60",
+  default:  "bg-surface border border-border-subtle",
+  elevated: "bg-surface border border-border-subtle shadow-mat",
+  subtle:   "bg-surface-subtle border border-border-subtle",
 };
 
 const PAD_CLS: Record<Padding, string> = {
@@ -35,7 +36,7 @@ interface CardProps {
 
 export function Card({ variant = "default", padding = "md", className = "", children }: CardProps) {
   return (
-    <div className={`rounded-xl ${VARIANT_CLS[variant]} ${PAD_CLS[padding]} ${className}`.trim()}>
+    <div className={`rounded-lg ${VARIANT_CLS[variant]} ${PAD_CLS[padding]} ${className}`.trim()}>
       {children}
     </div>
   );

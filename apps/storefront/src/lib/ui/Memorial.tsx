@@ -56,7 +56,7 @@ export function Memorial({ memorialAt, stewardName, note, compact = false }: Mem
       <span
         role="note"
         aria-label={`Memorial account, frozen as of ${frozenAt}`}
-        className="inline-flex items-baseline gap-1.5 text-[11px] uppercase tracking-wider text-neutral-500"
+        className="inline-flex items-baseline gap-1.5 text-[11px] uppercase tracking-wider text-ink-faint"
         title={`This account is in memorial state. Frozen as of ${frozenAt}.${stewardName ? ` Stewarded by ${stewardName}.` : ""}`}
       >
         <span aria-hidden="true">⟁</span>
@@ -69,31 +69,31 @@ export function Memorial({ memorialAt, stewardName, note, compact = false }: Mem
     <div
       role="note"
       aria-label={`Memorial account, frozen as of ${frozenAt}`}
-      className="rounded-md border border-neutral-800 bg-neutral-900/40 px-4 py-3 text-sm text-neutral-400"
+      className="rounded-md border border-border-subtle bg-surface-subtle px-4 py-3 text-sm text-ink-muted"
     >
       <div className="flex items-baseline gap-2">
-        <span aria-hidden="true" className="text-neutral-600">⟁</span>
-        <span className="text-[11px] uppercase tracking-wider text-neutral-500">
+        <span aria-hidden="true" className="text-ink-faint">⟁</span>
+        <span className="text-[11px] uppercase tracking-wider text-ink-faint">
           memorial
         </span>
-        <span className="text-neutral-600">·</span>
-        <span className="text-neutral-300">
+        <span className="text-ink-faint">·</span>
+        <span className="text-ink">
           frozen as of {frozenAt}
         </span>
       </div>
       {stewardName && (
-        <div className="mt-1 text-xs text-neutral-500">
-          stewarded by <span className="text-neutral-400">{stewardName}</span>
+        <div className="mt-1 text-xs text-ink-faint">
+          stewarded by <span className="text-ink-muted">{stewardName}</span>
         </div>
       )}
       {note && (
-        <div className="mt-2 italic text-neutral-400 leading-relaxed">
+        <div className="mt-2 italic text-ink-muted leading-relaxed">
           &ldquo;{note}&rdquo;
         </div>
       )}
-      <div className="mt-2 text-[11px] text-neutral-600">
+      <div className="mt-2 text-[11px] text-ink-faint">
         Trades are disabled; reads, archives, and exports remain. See{" "}
-        <a href="/methodology/memorial" className="text-neutral-500 hover:text-neutral-400 underline">
+        <a href="/methodology/memorial" className="text-ink-muted hover:text-accent underline">
           how memorial accounts work
         </a>
         .

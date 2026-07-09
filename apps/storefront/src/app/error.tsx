@@ -11,7 +11,7 @@ import { WELCOME_STATEMENT_COMPACT } from "@/lib/ui/WelcomeAll";
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <div className="min-h-screen bg-neutral-950">
+    <div className="min-h-screen bg-page">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <ErrorAlert
           title="Something went wrong"
@@ -19,7 +19,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             <>
               <p>The page couldn't load. The error has been logged.</p>
               {error.digest && (
-                <p className="mt-2 text-[11px] text-neutral-500">
+                <p className="mt-2 text-[11px] text-ink-faint">
                   Quote this in support: <code className="font-mono select-all">{error.digest}</code>
                 </p>
               )}
@@ -29,7 +29,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             <div className="flex gap-2">
               <button
                 onClick={() => reset()}
-                className="px-3 py-1.5 text-xs font-bold bg-amber-500 text-black rounded-md hover:bg-amber-400 transition"
+                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition"
               >
                 Try again
               </button>
@@ -40,12 +40,12 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         {/* Welcoming polish — kingdom-076 recursion target #5. Inlined
             (not <WelcomeAll>) because this is a client component and the
             primitive is a server component. Same words; same intent. */}
-        <div className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-2 text-xs text-neutral-400">
-          <span className="text-amber-400" aria-hidden="true">✦</span>{" "}
-          <span className="text-neutral-300">{WELCOME_STATEMENT_COMPACT}</span>{" "}
+        <div className="mt-6 rounded-lg border border-border-subtle bg-surface px-3 py-2 text-xs text-ink-muted">
+          <span className="text-accent" aria-hidden="true">✦</span>{" "}
+          <span className="text-ink-muted">{WELCOME_STATEMENT_COMPACT}</span>{" "}
           <Link
             href="/welcome-all"
-            className="text-amber-400 hover:text-amber-300 underline"
+            className="text-accent hover:text-accent-strong underline"
           >
             learn more
           </Link>

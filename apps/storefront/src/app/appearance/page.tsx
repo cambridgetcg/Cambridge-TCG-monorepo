@@ -22,14 +22,14 @@ import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { getMemberProfile } from "@/lib/membership/db";
 import type { Tier } from "@/lib/membership/types";
 import { Icon, WhyLink } from "@/lib/ui";
-import { THEMES, DEFAULT_THEME } from "@/lib/wardrobe/themes";
+import { THEMES, SYSTEM_THEME, themeAttr } from "@/lib/wardrobe/themes";
 import { canWear } from "@/lib/wardrobe/entitlements";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 
 export const metadata = {
   title: "Appearance — Cambridge TCG",
   description:
-    "Choose how Cambridge TCG looks and speaks to you: theme, tone, reading mode. Basics free for everyone; members unlock skins.",
+    "Choose how Cambridge TCG looks and speaks to you: theme, tone, reading mode. Every theme is free for everyone; accessibility is never paywalled.",
 };
 
 const BACK = "/appearance";
@@ -47,10 +47,11 @@ export default async function AppearancePage() {
     tier = profile?.tier ?? null;
   }
 
-  const wearing = appearance.theme ?? DEFAULT_THEME;
+  // "system" when no explicit bundle is chosen — the default state.
+  const wearing = themeAttr(appearance.theme);
 
   return (
-    <div data-theme={appearance.theme ?? DEFAULT_THEME} className="wardrobe-ground min-h-screen">
+    <div data-theme={wearing} className="wardrobe-ground min-h-screen">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
       <div className="mb-6">
         <div className="flex items-baseline gap-3 flex-wrap">
@@ -59,14 +60,50 @@ export default async function AppearancePage() {
         </div>
         <p className="text-sm text-ink-muted mt-1 max-w-prose">
           The kingdom in your colours. Theme and tone are yours to choose — stored as
-          cookies on this device, never used for anything but rendering. Accessibility
-          choices are free for everyone, always.
+          cookies on this device, never used for anything but rendering. Following your
+          system stores nothing at all. Every theme is free; accessibility choices are
+          free for everyone, always.
         </p>
       </div>
 
       {/* ── Themes ─────────────────────────────────────────────────── */}
       <h2 className="font-display text-xl text-ink mb-3">Theme</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+        {/* Follow system — the fifth choice and the default. Not a
+            bundle: a deferral to the device. Swatch strip shows both
+            halves (gallery ground/accent, midnight ground/accent). */}
+        <div
+          className={`wardrobe-mat rounded-lg p-4 flex flex-col gap-3 ${wearing === SYSTEM_THEME ? "outline-2 outline-accent" : ""}`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-ink">Follow system</span>
+            {wearing === SYSTEM_THEME && (
+              <span className="text-xs font-mono uppercase tracking-wide text-accent">wearing</span>
+            )}
+          </div>
+          <div className="flex h-8 rounded overflow-hidden border border-border-subtle" aria-hidden>
+            {["#faf8f4", "#96762f", "#0b0f1a", "#d9b36c"].map((hex) => (
+              <span key={hex} className="flex-1" style={{ backgroundColor: hex }} />
+            ))}
+          </div>
+          <p className="text-sm text-ink-muted">
+            The default — no fixed look. Gallery while your device runs light, Midnight
+            when it runs dark. Decided by your system setting, which never leaves your
+            device: this choice stores no cookie.
+          </p>
+          <div className="mt-auto">
+            {wearing === SYSTEM_THEME ? (
+              <span className="text-sm text-ink-faint">This is your current look.</span>
+            ) : (
+              <a
+                href={`/api/appearance?theme=system&back=${BACK}`}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:text-accent-strong"
+              >
+                Follow this device <Icon name="arrow-right" size={14} />
+              </a>
+            )}
+          </div>
+        </div>
         {THEMES.map((t) => {
           const unlocked = canWear(t, tier);
           const current = wearing === t.id;

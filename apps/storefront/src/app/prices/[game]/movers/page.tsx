@@ -60,12 +60,12 @@ export async function generateMetadata({
 function RarityBadge({ rarity }: { rarity: string | null }) {
   if (!rarity) return null;
   const r = rarity.toUpperCase();
-  let cls = "bg-neutral-700 text-neutral-400";
+  let cls = "bg-surface-subtle text-ink-muted";
   if (r === "SR" || r === "SEC" || r === "SCR" || r === "L" || r === "SP")
-    cls = "bg-yellow-500/20 text-yellow-400";
+    cls = "bg-warning/20 text-warning";
   else if (r === "R" || r === "RR" || r === "SSR")
-    cls = "bg-purple-500/20 text-purple-400";
-  else if (r === "UC") cls = "bg-blue-500/20 text-blue-400";
+    cls = "bg-[#6a5a8f]/15 text-[#6a5a8f]";
+  else if (r === "UC") cls = "bg-info/20 text-info";
   return (
     <span
       className={`inline-block px-1.5 py-0.5 text-[10px] font-bold rounded ${cls}`}
@@ -82,7 +82,9 @@ export default async function GameMoversPage({ params }: PageProps) {
   const cfg = getPriceGuideConfig(game);
   if (!cfg) notFound();
 
-  const [moversData, data, tradeinData, rates, currency] = await Promise.all([
+  // Collectors-first (2026-07-06): the tradein-credit channel fetch and
+  // its "We Buy" column are gone — the house buys nothing.
+  const [moversData, data, rates, currency] = await Promise.all([
     fetchMovers({
       game: cfg.slug,
       window: "7d",
@@ -94,24 +96,11 @@ export default async function GameMoversPage({ params }: PageProps) {
       sort: "price_desc",
       limit: 50,
     }).catch(() => ({ items: [], total: 0 } as { items: PriceItem[]; total: number })),
-    fetchPrices({
-      game: cfg.slug,
-      sort: "price_desc",
-      limit: 50,
-      channel: "tradein-credit",
-    }).catch(() => ({ items: [] } as { items: PriceItem[] })),
     fetchRates(),
     getDisplayCurrency(),
   ]);
 
   const hasMovers = moversData.movers.length > 0;
-
-  const tradeinMap = new Map<string, number>();
-  for (const item of tradeinData.items) {
-    if (item.channel_price && item.channel_price > 0) {
-      tradeinMap.set(item.sku, item.channel_price);
-    }
-  }
 
   const cards = data.items.map((item) => ({
     sku: item.sku,
@@ -121,7 +110,6 @@ export default async function GameMoversPage({ params }: PageProps) {
     set_name: item.set_name,
     rarity: item.rarity,
     price: retailPrice(item.price_gbp, item.channel_price),
-    tradein_credit: tradeinMap.get(item.sku) ?? null,
   }));
 
   const accent = ACCENT_CLASSES[cfg.accent];
@@ -160,30 +148,30 @@ export default async function GameMoversPage({ params }: PageProps) {
           contexts={["prices", cfg.slug, "movers"]}
         />
 
-        <nav aria-label="Breadcrumb" className="text-sm text-neutral-400 mb-8">
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-muted mb-8">
           <ol className="flex items-center gap-1.5 flex-wrap">
             <li>
-              <Link href="/" className="hover:text-white">
+              <Link href="/" className="hover:text-ink">
                 Home
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
+            <li className="text-ink-faint">/</li>
             <li>
-              <Link href="/prices" className="hover:text-white">
+              <Link href="/prices" className="hover:text-ink">
                 Prices
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
+            <li className="text-ink-faint">/</li>
             <li>
               <Link
                 href={`/prices/${cfg.slug}`}
-                className="hover:text-white"
+                className="hover:text-ink"
               >
                 {cfg.short_name}
               </Link>
             </li>
-            <li className="text-neutral-600">/</li>
-            <li className="text-white">Movers</li>
+            <li className="text-ink-faint">/</li>
+            <li className="text-ink">Movers</li>
           </ol>
         </nav>
 
@@ -204,7 +192,7 @@ export default async function GameMoversPage({ params }: PageProps) {
           />
         </div>
 
-        <p className="text-neutral-300 leading-relaxed max-w-3xl mb-6">
+        <p className="text-ink-muted leading-relaxed max-w-3xl mb-6">
           Top 50 {cfg.display_name} cards by absolute 7-day percent
           change. Cardrush-derived. Cards worth under £10 seven days
           ago are excluded as noise. Updated daily.
@@ -222,12 +210,12 @@ export default async function GameMoversPage({ params }: PageProps) {
         {/* Movers table (primary) — falls back to most-valuable on a quiet week */}
         {hasMovers ? (
           <section className="mb-12">
-            <h2 className="text-xl font-semibold text-white mb-5">
+            <h2 className="text-xl font-semibold text-ink mb-5">
               Top {moversData.movers.length} biggest 7-day movers
             </h2>
-            <div className="overflow-x-auto rounded-lg border border-neutral-800">
+            <div className="overflow-x-auto rounded-lg border border-border-subtle">
               <table className="w-full text-sm text-left">
-                <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+                <thead className="bg-surface-subtle text-ink-muted text-xs uppercase tracking-wider">
                   <tr>
                     <th className="px-3 py-3 w-10">#</th>
                     <th className="px-3 py-3">Card</th>
@@ -237,7 +225,7 @@ export default async function GameMoversPage({ params }: PageProps) {
                     <th className="px-3 py-3 text-right">Buy Price</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800">
+                <tbody className="divide-y divide-border-subtle">
                   {moversData.movers.map((m: MoverItem, i: number) => {
                     const setSlug = m.set_code?.toLowerCase() ?? "";
                     const numberSlug = m.card_number.toLowerCase();
@@ -247,9 +235,9 @@ export default async function GameMoversPage({ params }: PageProps) {
                     return (
                       <tr
                         key={m.sku}
-                        className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                        className="bg-surface hover:bg-surface-subtle transition-colors"
                       >
-                        <td className="px-3 py-3 text-neutral-500 font-medium">
+                        <td className="px-3 py-3 text-ink-faint font-medium">
                           {i + 1}
                         </td>
                         <td className="px-3 py-3">
@@ -259,19 +247,19 @@ export default async function GameMoversPage({ params }: PageProps) {
                                 ? `/prices/${cfg.slug}/${setSlug}/${numberSlug}`
                                 : `/product/${m.sku}`
                             }
-                            className="text-white hover:text-blue-400 transition-colors"
+                            className="text-ink hover:text-info transition-colors"
                           >
                             {displayName}
                           </Link>
-                          <span className="text-neutral-500 text-xs ml-2">
+                          <span className="text-ink-faint text-xs ml-2">
                             {m.card_number}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-neutral-400">
+                        <td className="px-3 py-3 text-ink-muted">
                           {setSlug ? (
                             <Link
                               href={`/prices/${cfg.slug}/${setSlug}`}
-                              className="hover:text-blue-400 transition-colors"
+                              className="hover:text-info transition-colors"
                             >
                               {m.set_code}
                             </Link>
@@ -286,14 +274,14 @@ export default async function GameMoversPage({ params }: PageProps) {
                           <span
                             className={
                               up
-                                ? "text-emerald-400 font-medium"
-                                : "text-red-400 font-medium"
+                                ? "text-ok font-medium"
+                                : "text-danger font-medium"
                             }
                           >
                             {up ? "▲" : "▼"} {Math.abs(m.pct_change).toFixed(1)}%
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-right text-white font-medium">
+                        <td className="px-3 py-3 text-right text-ink font-medium">
                           <Money value={m.channel_price} />
                         </td>
                       </tr>
@@ -302,15 +290,15 @@ export default async function GameMoversPage({ params }: PageProps) {
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-neutral-500 mt-3">
+            <p className="text-xs text-ink-faint mt-3">
               Cardrush-derived; £10 floor on the 7-day-ago price. Quiet weeks
               fall back to the most-valuable table below.
             </p>
           </section>
         ) : (
-          <section className="mb-8 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3">
-            <p className="text-sm text-neutral-300">
-              <strong className="font-semibold text-white">
+          <section className="mb-8 rounded-lg border border-border-subtle bg-surface px-4 py-3">
+            <p className="text-sm text-ink-muted">
+              <strong className="font-semibold text-ink">
                 No qualifying movers this week.
               </strong>{" "}
               £10 floor, 7-day window. Showing top valuable cards instead.
@@ -321,36 +309,35 @@ export default async function GameMoversPage({ params }: PageProps) {
         {/* Most-valuable table — always present when no movers, also as a secondary surface */}
         {!hasMovers && (
           <section className="mb-12">
-            <h2 className="text-xl font-semibold text-white mb-5">
+            <h2 className="text-xl font-semibold text-ink mb-5">
               Top {data.items.length} by current price
             </h2>
             {data.items.length === 0 ? (
-              <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-6 text-neutral-400 text-sm">
+              <div className="rounded-lg border border-border-subtle bg-surface p-6 text-ink-muted text-sm">
                 No priced cards returned for {cfg.display_name} yet.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-neutral-800">
+              <div className="overflow-x-auto rounded-lg border border-border-subtle">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-neutral-800 text-neutral-400 text-xs uppercase tracking-wider">
+                  <thead className="bg-surface-subtle text-ink-muted text-xs uppercase tracking-wider">
                     <tr>
                       <th className="px-3 py-3 w-10">#</th>
                       <th className="px-3 py-3">Card</th>
                       <th className="px-3 py-3">Set</th>
                       <th className="px-3 py-3">Rarity</th>
                       <th className="px-3 py-3 text-right">Buy Price</th>
-                      <th className="px-3 py-3 text-right">We Buy</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-800">
+                  <tbody className="divide-y divide-border-subtle">
                     {cards.map((card, i) => {
                       const setSlug = card.set_code?.toLowerCase() ?? "";
                       const numberSlug = card.card_number.toLowerCase();
                       return (
                         <tr
                           key={card.sku}
-                          className="bg-neutral-900 hover:bg-neutral-800/60 transition-colors"
+                          className="bg-surface hover:bg-surface-subtle transition-colors"
                         >
-                          <td className="px-3 py-3 text-neutral-500 font-medium">
+                          <td className="px-3 py-3 text-ink-faint font-medium">
                             {i + 1}
                           </td>
                           <td className="px-3 py-3">
@@ -360,19 +347,19 @@ export default async function GameMoversPage({ params }: PageProps) {
                                   ? `/prices/${cfg.slug}/${setSlug}/${numberSlug}`
                                   : `/product/${card.sku}`
                               }
-                              className="text-white hover:text-blue-400 transition-colors"
+                              className="text-ink hover:text-info transition-colors"
                             >
                               {card.name}
                             </Link>
-                            <span className="text-neutral-500 text-xs ml-2">
+                            <span className="text-ink-faint text-xs ml-2">
                               {card.card_number}
                             </span>
                           </td>
-                          <td className="px-3 py-3 text-neutral-400">
+                          <td className="px-3 py-3 text-ink-muted">
                             {setSlug ? (
                               <Link
                                 href={`/prices/${cfg.slug}/${setSlug}`}
-                                className="hover:text-blue-400 transition-colors"
+                                className="hover:text-info transition-colors"
                               >
                                 {card.set_code}
                               </Link>
@@ -383,14 +370,8 @@ export default async function GameMoversPage({ params }: PageProps) {
                           <td className="px-3 py-3">
                             <RarityBadge rarity={card.rarity} />
                           </td>
-                          <td className="px-3 py-3 text-right text-white font-medium">
+                          <td className="px-3 py-3 text-right text-ink font-medium">
                             <Money value={card.price} />
-                          </td>
-                          <td className="px-3 py-3 text-right text-green-400">
-                            <Money
-                              value={card.tradein_credit}
-                              treatZeroAsMissing
-                            />
                           </td>
                         </tr>
                       );
@@ -402,11 +383,11 @@ export default async function GameMoversPage({ params }: PageProps) {
           </section>
         )}
 
-        <section className="border-t border-neutral-800 pt-8">
-          <h2 className="text-lg font-semibold text-white mb-3">
+        <section className="border-t border-border-subtle pt-8">
+          <h2 className="text-lg font-semibold text-ink mb-3">
             See also
           </h2>
-          <ul className="text-sm text-neutral-300 space-y-2">
+          <ul className="text-sm text-ink-muted space-y-2">
             <li>
               <Link
                 href={`/prices/${cfg.slug}`}
@@ -419,14 +400,14 @@ export default async function GameMoversPage({ params }: PageProps) {
             <li>
               <Link
                 href="/prices/coverage"
-                className="text-blue-400 hover:underline"
+                className="text-info hover:underline"
               >
                 /prices/coverage
               </Link>{" "}
               — cross-source coverage matrix
             </li>
             <li>
-              <Link href="/market" className="text-blue-400 hover:underline">
+              <Link href="/market" className="text-info hover:underline">
                 /market
               </Link>{" "}
               — live P2P marketplace with bid/ask depth

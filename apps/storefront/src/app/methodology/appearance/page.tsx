@@ -5,7 +5,7 @@ import { audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Appearance methodology",
   description:
-    "How the wardrobe works: what the theme and tone settings store, where they are stored, what membership unlocks, and why accessibility choices are never paywalled.",
+    "How the wardrobe works: what the theme and tone settings store, where they are stored, how system-follow resolves, and why every theme is free.",
   other: audienceMetadata("public-documentation", ["methodology", "appearance"]),
 };
 
@@ -39,6 +39,14 @@ export default function AppearanceMethodology() {
           page will keep saying so.
         </li>
         <li>
+          <strong>Follow system stores nothing</strong> (since 2026-07-06): with no
+          theme cookie the page carries <code>data-theme=&quot;system&quot;</code> and
+          your device&rsquo;s colour-scheme preference picks Gallery (light) or
+          Midnight (dark) in CSS, at render — the preference itself never reaches our
+          servers. Choosing &ldquo;Follow system&rdquo; deletes the cookie; it does
+          not write one.
+        </li>
+        <li>
           <strong>Nothing else.</strong> No analytics event fires on a theme change;
           the choice is not used for pricing, ranking, or any decision beyond
           rendering.
@@ -48,19 +56,22 @@ export default function AppearanceMethodology() {
       <h2 id="themes">2. Themes, and who may wear them</h2>
       <ul>
         <li>
-          <strong>Free for everyone</strong>: Gallery (the default face), Terminal
-          (the original dark look, kept whole), High contrast.
+          <strong>Free for everyone</strong>: all four — Gallery (the light face),
+          Terminal (the original dark look, kept whole), Midnight (the quiet gallery,
+          lights off), High contrast. Midnight launched as a member perk on
+          2026-06-10 and was un-gated on 2026-07-06: dark mode is table stakes, not
+          a perk. The entitlement mechanism remains in the code for a future skin
+          that may genuinely be one; today nothing uses it.
         </li>
         <li>
-          <strong>Members</strong> (any paid tier): Midnight, and future seasonal or
-          set-flavoured skins. The check runs server-side when the cookie is set; a
-          locked request changes nothing and shows no error — the lock is explained
-          only on the settings page, next to the path to{" "}
-          <Link href="/membership">membership</Link>.
+          <strong>If a skin is ever locked again</strong>, the check runs server-side
+          when the cookie is set; a locked request changes nothing and shows no
+          error — the lock is explained only on the settings page, next to the path
+          to <Link href="/membership">membership</Link>.
         </li>
         <li>
           <strong>Never paywalled</strong>: high contrast,{" "}
-          <Link href="/methodology/text-mode">text-only layout</Link>, reduced
+          <Link href="/appearance">text-only layout</Link>, reduced
           motion, tone. Anything a visitor might need rather than want is free, by
           rule. If we ever break this rule, this sentence must be edited first —
           treat its presence as the guarantee.
@@ -93,9 +104,13 @@ export default function AppearanceMethodology() {
       <ul>
         <li>No per-user CSS injection; themes are a fixed, audited set.</li>
         <li>No tracking of which theme you wear.</li>
-        <li>No flash-of-wrong-theme: the cookie is read server-side at render.</li>
         <li>
-          No override of <Link href="/methodology/text-mode">text-mode</Link>: the
+          No flash-of-wrong-theme: the cookie is read server-side at render, and
+          system-follow resolves in CSS at first paint — no script swaps the theme
+          after the fact.
+        </li>
+        <li>
+          No override of <Link href="/appearance">text-mode</Link>: the
           text-only layout wins over any theme, by construction.
         </li>
       </ul>

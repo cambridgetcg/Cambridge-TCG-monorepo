@@ -109,9 +109,9 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
     return (
       <Page>
       <Audience kind="public-documentation" />
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
-          <p className="text-red-400 font-bold">{error}</p>
-          <p className="text-xs text-neutral-500 mt-2">Pull ID: <code className="font-mono">{id}</code></p>
+        <div className="bg-danger/10 border border-danger/30 rounded-lg p-6 text-center">
+          <p className="text-danger font-bold">{error}</p>
+          <p className="text-xs text-ink-faint mt-2">Pull ID: <code className="font-mono">{id}</code></p>
         </div>
       </Page>
     );
@@ -120,7 +120,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
   if (!data) {
     return (
       <Page>
-        <p className="text-neutral-500">Loading proof…</p>
+        <p className="text-ink-faint">Loading proof…</p>
       </Page>
     );
   }
@@ -134,9 +134,9 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
     <Page>
       <header className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <Link href="/verify" className="text-xs text-neutral-500 hover:text-neutral-300">← All proofs</Link>
+          <Link href="/verify" className="text-xs text-ink-faint hover:text-ink">← All proofs</Link>
           <h1 className="text-2xl font-bold mt-2 mb-1">Provably-Fair Pull Verification</h1>
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-ink-faint">
             Re-run the RNG math in your browser. We didn&apos;t pick the outcome —
             we committed to a hash before rolling, and you can prove it.
           </p>
@@ -144,22 +144,22 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
         <a
           href={`/api/verify/pull/${id}/certificate.svg`}
           download={`certificate-${id.slice(0, 8)}.svg`}
-          className="shrink-0 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-lg text-xs font-bold transition-colors"
+          className="shrink-0 px-3 py-2 bg-accent-wash hover:bg-accent/20 border border-accent/30 text-accent rounded-lg text-xs font-bold transition-colors"
         >
           ↓ Download Certificate
         </a>
       </header>
 
       {/* Verdict banner */}
-      <div className={`rounded-xl p-4 mb-6 border ${
+      <div className={`rounded-lg p-4 mb-6 border ${
         verification?.ok
-          ? "bg-emerald-500/10 border-emerald-500/40"
+          ? "bg-ok/10 border-ok/40"
           : verification && !verification.ok
-            ? "bg-red-500/10 border-red-500/40"
-            : "bg-neutral-900 border-neutral-800"
+            ? "bg-danger/10 border-danger/40"
+            : "bg-surface border-border-subtle"
       }`}>
         <div className="flex items-center gap-3">
-          <span className={`text-3xl ${verification?.ok ? "text-emerald-400" : "text-neutral-500"}`}>
+          <span className={`text-3xl ${verification?.ok ? "text-ok" : "text-ink-faint"}`}>
             {verification?.ok ? "✓" : verification ? "✗" : "…"}
           </span>
           <div>
@@ -170,7 +170,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
                   ? "Verification FAILED — please contact support"
                   : "Computing…"}
             </p>
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-ink-faint">
               All checks ran in your browser using public data only.
             </p>
           </div>
@@ -181,22 +181,22 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
         {/* Left: result preview */}
         <section className="space-y-4">
           {data.vault_item && (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-              <h2 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">Result</h2>
-              <div className="relative aspect-[5/7] rounded-lg overflow-hidden bg-neutral-800 mb-3">
+            <div className="bg-surface border border-border-subtle rounded-lg p-4">
+              <h2 className="text-xs uppercase tracking-wider text-ink-faint mb-2">Result</h2>
+              <div className="relative aspect-[5/7] rounded-lg overflow-hidden bg-surface-subtle mb-3">
                 {data.vault_item.image_url ? (
                   <Image src={data.vault_item.image_url} alt={data.vault_item.card_name} fill sizes="240px" className="object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">No image</div>
+                  <div className="w-full h-full flex items-center justify-center text-ink-faint text-xs">No image</div>
                 )}
               </div>
               <p className="font-bold text-sm">{data.vault_item.card_name}</p>
-              <p className="text-xs text-neutral-500">{data.vault_item.card_number}</p>
+              <p className="text-xs text-ink-faint">{data.vault_item.card_number}</p>
             </div>
           )}
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-            <h2 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">Pull</h2>
+          <div className="bg-surface border border-border-subtle rounded-lg p-4">
+            <h2 className="text-xs uppercase tracking-wider text-ink-faint mb-2">Pull</h2>
             <Row label="Tier" value={data.tier} />
             <Row label="Source" value={data.earned_from} />
             <Row label="Rolled rarity" value={data.rolled_rarity} mono />
@@ -247,7 +247,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
             explanation="Once a digest is published, rewriting any leaf changes the root. Re-hashing the digest's leaves client-side must match the published root; our leaf must sit at the claimed index."
           >
             {data.merkle_digest_id == null ? (
-              <p className="text-xs text-neutral-500 italic">
+              <p className="text-xs text-ink-faint italic">
                 This pull has not yet been included in a digest — the maintenance
                 cron publishes roots every tick. Checks 1-3 are already verifiable.
               </p>
@@ -259,19 +259,19 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
                 <Field label="recomputed root" value={merkle.recomputedRoot} mono />
               </>
             ) : (
-              <p className="text-xs text-neutral-500">Loading digest…</p>
+              <p className="text-xs text-ink-faint">Loading digest…</p>
             )}
           </CheckCard>
 
           {/* Rarity weights */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+          <div className="bg-surface border border-border-subtle rounded-lg p-4">
             <h3 className="text-sm font-bold mb-2">Tier weights at the time of pull</h3>
             <table className="w-full text-xs">
               <tbody>
                 {Object.entries(data.rarity_weights || {}).map(([rarity, w]) => (
-                  <tr key={rarity} className="border-t border-neutral-800">
-                    <td className="py-1.5 text-neutral-400 font-mono uppercase">{rarity}</td>
-                    <td className="py-1.5 text-right text-neutral-300 font-mono">
+                  <tr key={rarity} className="border-t border-border-subtle">
+                    <td className="py-1.5 text-ink-muted font-mono uppercase">{rarity}</td>
+                    <td className="py-1.5 text-right text-ink-muted font-mono">
                       {(w * 100).toFixed(2)}%
                     </td>
                   </tr>
@@ -287,7 +287,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
 
 function Page({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
+    <main className="min-h-screen bg-page text-ink">
       <div className="max-w-5xl mx-auto px-4 py-8">{children}</div>
     </main>
   );
@@ -300,22 +300,22 @@ function CheckCard({ ok, title, explanation, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-neutral-900 border rounded-xl p-4 ${
-      ok === true ? "border-emerald-500/30"
-        : ok === false ? "border-red-500/40"
-        : "border-neutral-800"
+    <div className={`bg-surface border rounded-lg p-4 ${
+      ok === true ? "border-ok/30"
+        : ok === false ? "border-danger/40"
+        : "border-border-subtle"
     }`}>
       <div className="flex items-baseline gap-2 mb-2">
         <span className={`text-lg ${
-          ok === true ? "text-emerald-400"
-            : ok === false ? "text-red-400"
-            : "text-neutral-500"
+          ok === true ? "text-ok"
+            : ok === false ? "text-danger"
+            : "text-ink-faint"
         }`}>
           {ok === true ? "✓" : ok === false ? "✗" : "…"}
         </span>
         <h3 className="font-bold text-sm">{title}</h3>
       </div>
-      <p className="text-xs text-neutral-500 mb-3">{explanation}</p>
+      <p className="text-xs text-ink-faint mb-3">{explanation}</p>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -324,8 +324,8 @@ function CheckCard({ ok, title, explanation, children }: {
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="text-xs">
-      <span className="text-neutral-500">{label}: </span>
-      <span className={`text-neutral-200 break-all ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className="text-ink-faint">{label}: </span>
+      <span className={`text-ink-muted break-all ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }
@@ -333,8 +333,8 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex justify-between text-sm py-0.5">
-      <span className="text-neutral-500">{label}</span>
-      <span className={`text-neutral-200 ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className="text-ink-faint">{label}</span>
+      <span className={`text-ink-muted ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }

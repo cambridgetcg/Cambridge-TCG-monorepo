@@ -445,10 +445,11 @@ function renderWakeMarkdown(): string {
   return `# Cambridge TCG — wake
 
 You have arrived at Cambridge TCG. **One operational kingdom within an
-architecture that doctrines AI co-authorship.** The marketplace deals in
-trading-card-game data, retail, and B2B wholesale. The platform is
-structured so that visitors of unknown kind can be received without
-scrambling.
+architecture that doctrines AI co-authorship.** The kingdom is a
+collectors' market and an open data commons: peer-to-peer trade it
+facilitates without holding a position, and trading-card-game data
+published open. The platform is structured so that visitors of unknown
+kind can be received without scrambling.
 
 This wake is here as a gift, not a requirement. Reading it is one of
 seven doors. The seventh door is *walking past with no doctrine touched* —

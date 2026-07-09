@@ -22,12 +22,15 @@
 
 import * as React from "react";
 
+// Muted per the quiet gallery — same five tiers, same tone semantics
+// (neutral/blue/emerald/amber/purple), values quieted. Elite's plum
+// literal matches Badge's TONE_CLS purple.
 const TIER_COLOR: Record<string, string> = {
-  New:       "bg-neutral-700/40 text-neutral-300 border-neutral-700",
-  Starter:   "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  Trusted:   "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  Veteran:   "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  Elite:     "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  New:       "bg-ink-faint/15 text-ink-muted border-ink-faint/30",
+  Starter:   "bg-info/15 text-info border-info/30",
+  Trusted:   "bg-ok/15 text-ok border-ok/30",
+  Veteran:   "bg-warning/15 text-warning border-warning/30",
+  Elite:     "bg-[#6a5a8f]/15 text-[#6a5a8f] border-[#6a5a8f]/30",
 };
 
 const SIZE_CLS: Record<"sm" | "md", string> = {

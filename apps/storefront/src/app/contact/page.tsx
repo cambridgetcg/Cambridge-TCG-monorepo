@@ -18,7 +18,7 @@ export const metadata = {
 
 export default function ContactPage() {
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-12">
         <PageHeader
           title="Contact us"
@@ -27,11 +27,11 @@ export default function ContactPage() {
 
         <ContactForm />
 
-        <p className="text-sm text-neutral-400 mt-8 leading-relaxed">
+        <p className="text-sm text-ink-muted mt-8 leading-relaxed">
           Prefer plain email? Write to{" "}
           <a
             href="mailto:contact@cambridgetcg.com"
-            className="text-amber-400 underline hover:text-amber-300"
+            className="text-accent underline hover:text-accent-strong"
           >
             contact@cambridgetcg.com
           </a>

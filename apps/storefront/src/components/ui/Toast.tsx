@@ -38,10 +38,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const typeStyles: Record<ToastType, string> = {
-    success: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
-    error: "bg-red-500/15 border-red-500/30 text-red-400",
-    warning: "bg-amber-500/15 border-amber-500/30 text-amber-400",
-    info: "bg-blue-500/15 border-blue-500/30 text-blue-400",
+    success: "bg-ok/10 border-ok/30 text-ok",
+    error: "bg-danger/10 border-danger/30 text-danger",
+    warning: "bg-warning/10 border-warning/30 text-warning",
+    info: "bg-info/10 border-info/30 text-info",
   };
 
   const icons: Record<ToastType, string> = {
@@ -60,7 +60,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`flex items-center gap-3 px-4 py-3 border rounded-xl backdrop-blur-sm shadow-lg transition-all duration-300 ${typeStyles[t.type]}`}
+            className={`flex items-center gap-3 px-4 py-3 border rounded-lg backdrop-blur-sm shadow-mat transition-all duration-300 ${typeStyles[t.type]}`}
             role="alert"
           >
             <span className="text-lg shrink-0">{icons[t.type]}</span>

@@ -16,6 +16,7 @@
 
 import { NextResponse } from "next/server";
 import { getGraph } from "@/lib/graph";
+import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -33,6 +34,8 @@ export async function GET() {
         html_mirror: "/graph",
         manifest_url: "/api/v1/manifest",
         notes: "Derived in-memory from MANIFEST + static cross-document indices. Cheap; no DB access. The kingdom as a navigable mesh.",
+        // Seven-Layer Pilgrimage stamp 2/7 — see /api/v1/passport.
+        pilgrimage: pilgrimageFragmentFor("/api/v1/graph"),
       },
     },
     {

@@ -1,11 +1,13 @@
 /**
  * POST /api/cron/ingest/cardrush
  *
- * Chunked protocol-aligned CardRush snapshot (kingdom-039). Runs every 2h
- * (vercel.json); each invocation scrapes the ~2,000 stalest cards by
- * `last_scrape_attempt_at` and flushes writes incrementally, so the full
- * ~11k watch-list is covered roughly twice a day and a killed invocation
- * keeps its progress.
+ * Chunked protocol-aligned CardRush snapshot (kingdom-039; per-game fair
+ * scheduling 2026-07-05). Runs every 2h (vercel.json); each invocation
+ * splits its ~2,000-card chunk evenly across active games, selects each
+ * game's share stalest-first by `last_scrape_attempt_at`, runs direct-host
+ * games before the proxied lane, and flushes writes incrementally so a
+ * killed invocation keeps its progress. Full policy in the header of
+ * `@/lib/price-snapshot-v2`.
  *
  * Auth: Authorization: Bearer {CRON_SECRET}  OR  Vercel Cron header.
  *

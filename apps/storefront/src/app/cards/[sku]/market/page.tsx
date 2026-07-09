@@ -37,7 +37,7 @@ import { MoneyDisplay, DateDisplay } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { fetchCardrushHistory } from "@/lib/wholesale/client";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
-import { DEFAULT_THEME } from "@/lib/wardrobe/themes";
+import { themeAttr } from "@/lib/wardrobe/themes";
 import { voiceFor } from "@/lib/wardrobe/voice";
 
 export async function generateMetadata({
@@ -170,8 +170,8 @@ export default async function CardMarketReadPage({
   const { meta, book, tape, stats, price_history, conditions, participants } = market;
 
   // Wardrobe migration (spec §3.3): this page lives outside the /market
-  // route group, so it dresses itself — cookie-read appearance, Gallery
-  // default on its own wrapper, semantic tokens throughout below.
+  // route group, so it dresses itself — cookie-read appearance on its own
+  // wrapper (system-follow when unchosen), semantic tokens throughout below.
   const appearance = appearanceFromCookies(await cookies());
   const v = voiceFor(appearance.tone);
 
@@ -189,7 +189,7 @@ export default async function CardMarketReadPage({
     window.map((p) => p.spot_gbp).filter((n): n is number => n !== null);
 
   return (
-    <div data-theme={appearance.theme ?? DEFAULT_THEME} className="wardrobe-ground min-h-screen text-ink">
+    <div data-theme={themeAttr(appearance.theme)} className="wardrobe-ground min-h-screen text-ink">
       <Audience kind="consumer" contexts={["market", "card", "public-read"]} />
 
       <div className="max-w-6xl mx-auto px-4 py-8">

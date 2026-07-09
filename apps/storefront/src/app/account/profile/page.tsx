@@ -51,37 +51,62 @@ export default function EditProfilePage() {
 
   // Validation
   const [usernameError, setUsernameError] = useState("");
+  // A non-fatal load error (404 no-profile-yet or a 5xx) must NOT collapse
+  // to "sign in" — only a genuine missing session does that (walker: a
+  // signed-in new user was told to sign in because ?user=me 404'd).
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const usernameRegex = /^[a-z0-9_]{1,30}$/;
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/auth/session").then((r) => r.json()),
-      fetch("/api/social/profile?user=me").then((r) => {
-        if (r.status === 401) throw new Error("unauth");
-        return r.json();
-      }),
-      // GET /api/portfolio is the portfolio's listing endpoint — it returns
-      // { cards, summary }; the showcase picker only needs the card rows.
-      // (An /api/portfolio/cards route never existed, so this fetch used to
-      // fail silently and the picker never appeared.)
-      fetch("/api/portfolio")
-        .then((r) => (r.ok ? r.json() : { cards: [] }))
-        .catch(() => ({ cards: [] })),
-      fetch("/api/account/preferences")
-        .then((r) => r.json())
-        .catch(() => ({ pronouns: null, preferred_address: null })),
-    ])
-      .then(([session, data, portfolio, prefs]) => {
+    (async () => {
+      try {
+        const session = await fetch("/api/auth/session").then((r) => r.json());
+        // The session — not the profile endpoint — is the auth authority.
         if (!session?.user?.email) {
           setAuthed(false);
           return;
         }
-        const p = data.profile as PublicProfile;
+
+        // Fetch the social profile, distinguishing the three outcomes the
+        // old code flattened: 200 (profile), 401 (really signed out), and
+        // 404 (signed in but no social-profile row yet → editable skeleton).
+        const profRes = await fetch("/api/social/profile?user=me");
+        let data: {
+          profile?: PublicProfile | null;
+          showcase?: ShowcaseCard[];
+          wishlist?: WishlistItem[];
+        } = {};
+        if (profRes.ok) {
+          data = await profRes.json();
+        } else if (profRes.status === 401) {
+          setAuthed(false);
+          return;
+        } else if (profRes.status === 404) {
+          // Brand-new account — no profile row yet. Prefill from the session
+          // handle and let the user save it into existence.
+          data = { profile: null };
+        } else {
+          setLoadError("We couldn't load your saved profile just now — you can still edit and save below.");
+          data = { profile: null };
+        }
+
+        const [portfolio, prefs] = await Promise.all([
+          // GET /api/portfolio returns { cards, summary }; the showcase
+          // picker only needs the card rows.
+          fetch("/api/portfolio")
+            .then((r) => (r.ok ? r.json() : { cards: [] }))
+            .catch(() => ({ cards: [] })),
+          fetch("/api/account/preferences")
+            .then((r) => r.json())
+            .catch(() => ({ pronouns: null, preferred_address: null })),
+        ]);
+
+        const p = data.profile ?? null;
         setProfile(p);
-        setUsername(p.username ?? "");
-        setBio(p.bio ?? "");
-        setIsPublic(p.is_public);
+        setUsername(p?.username ?? session.user.username ?? "");
+        setBio(p?.bio ?? "");
+        setIsPublic(p?.is_public ?? true);
         setShowcase(data.showcase ?? []);
         setWishlist(data.wishlist ?? []);
         setPortfolioCards(portfolio.cards ?? []);
@@ -91,9 +116,14 @@ export default function EditProfilePage() {
           prefs?.response_window_hours != null ? String(prefs.response_window_hours) : "",
         );
         setSabbathUntil(prefs?.sabbath_until ?? null);
-      })
-      .catch(() => setAuthed(false))
-      .finally(() => setLoading(false));
+      } catch {
+        // A network-level failure is not the same as "signed out". Keep the
+        // form reachable and say what happened.
+        setLoadError("We couldn't reach your profile settings just now. Try again shortly.");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   async function savePreferences() {
@@ -235,7 +265,7 @@ export default function EditProfilePage() {
     return (
       <div className="flex justify-center py-16">
       <Audience kind="consumer" />
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -243,10 +273,10 @@ export default function EditProfilePage() {
   if (!authed) {
     return (
       <div className="text-center py-16">
-        <p className="text-neutral-400 mb-4">Sign in to edit your profile.</p>
+        <p className="text-ink-muted mb-4">Sign in to edit your profile.</p>
         <Link
           href="/login"
-          className="px-5 py-2 bg-amber-500 text-black font-bold rounded-lg text-sm hover:bg-amber-400 transition"
+          className="px-5 py-2 bg-ink text-page font-semibold rounded-lg text-sm hover:opacity-90 transition"
         >
           Sign In
         </Link>
@@ -264,11 +294,17 @@ export default function EditProfilePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-6">Edit Profile</h1>
+      <h1 className="text-2xl font-display font-semibold text-ink mb-6">Edit Profile</h1>
+
+      {loadError && (
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 mb-5 text-sm text-ink-muted">
+          {loadError}
+        </div>
+      )}
 
       {/* Username */}
       <div className="mb-5">
-        <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+        <label className="block text-sm font-medium text-ink-muted mb-1.5">
           Username
         </label>
         <input
@@ -280,17 +316,20 @@ export default function EditProfilePage() {
             validateUsername(v);
           }}
           maxLength={30}
-          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+          className="w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
           placeholder="your_username"
         />
         {usernameError && (
-          <p className="text-red-400 text-xs mt-1">{usernameError}</p>
+          <p className="text-danger text-xs mt-1">{usernameError}</p>
         )}
+        <p className="text-ink-faint text-xs mt-1">
+          New accounts get a starter handle picked at first sign-in — change it here any time.
+        </p>
       </div>
 
       {/* Bio */}
       <div className="mb-5">
-        <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+        <label className="block text-sm font-medium text-ink-muted mb-1.5">
           Bio
         </label>
         <textarea
@@ -298,10 +337,10 @@ export default function EditProfilePage() {
           onChange={(e) => setBio(e.target.value.slice(0, 200))}
           maxLength={200}
           rows={3}
-          className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500 resize-none"
+          className="w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent resize-none"
           placeholder="Tell collectors about yourself..."
         />
-        <p className="text-neutral-600 text-xs mt-1">{bio.length}/200</p>
+        <p className="text-ink-faint text-xs mt-1">{bio.length}/200</p>
       </div>
 
       {/* Public/Private */}
@@ -311,16 +350,16 @@ export default function EditProfilePage() {
             type="button"
             onClick={() => setIsPublic(!isPublic)}
             className={`relative w-10 h-6 rounded-full transition ${
-              isPublic ? "bg-amber-500" : "bg-neutral-700"
+              isPublic ? "bg-accent" : "bg-surface-subtle"
             }`}
           >
             <span
-              className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+              className={`absolute top-0.5 w-5 h-5 bg-surface rounded-full transition-transform ${
                 isPublic ? "left-[18px]" : "left-0.5"
               }`}
             />
           </button>
-          <span className="text-sm text-neutral-300">
+          <span className="text-sm text-ink-muted">
             {isPublic ? "Public profile" : "Private profile"}
           </span>
         </label>
@@ -329,14 +368,14 @@ export default function EditProfilePage() {
       {/* Preferences — Wave 1.1: pronouns + preferred_address.
           The platform speaks to every user through <UserMention>; the
           two fields below shape every greeting and third-person reference. */}
-      <section className="mb-8 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-        <h2 className="text-lg font-bold text-white mb-1">How we address you</h2>
-        <p className="text-xs text-neutral-500 mb-4">
+      <section className="mb-8 rounded-lg border border-border-subtle bg-surface p-4">
+        <h2 className="text-lg font-bold text-ink mb-1">How we address you</h2>
+        <p className="text-xs text-ink-faint mb-4">
           Used in greetings ("Hi, X") and every third-person reference. Both fields are optional.
         </p>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+          <label className="block text-sm font-medium text-ink-muted mb-1.5">
             Pronouns
           </label>
           <input
@@ -345,7 +384,7 @@ export default function EditProfilePage() {
             onChange={(e) => setPronouns(e.target.value.slice(0, 60))}
             maxLength={60}
             placeholder="e.g. she/her, they/them, any, ask me"
-            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            className="w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
             list="pronouns-suggestions"
           />
           <datalist id="pronouns-suggestions">
@@ -358,11 +397,11 @@ export default function EditProfilePage() {
             <option value="ask me" />
             <option value="no pronouns" />
           </datalist>
-          <p className="text-[11px] text-neutral-600 mt-1">Free-form; no list is complete.</p>
+          <p className="text-[11px] text-ink-faint mt-1">Free-form; no list is complete.</p>
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
+          <label className="block text-sm font-medium text-ink-muted mb-1.5">
             Preferred address
           </label>
           <select
@@ -381,7 +420,7 @@ export default function EditProfilePage() {
                 setPreferredAddress(v === "name" ? "" : v);
               }
             }}
-            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500 mb-2"
+            className="w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent mb-2"
           >
             <option value="name">Use my name (default)</option>
             <option value="handle">Use my username</option>
@@ -396,14 +435,14 @@ export default function EditProfilePage() {
               onChange={(e) => setPreferredAddress(e.target.value.slice(0, 60))}
               maxLength={60}
               placeholder="Captain, Dr Strange, …"
-              className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+              className="w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
             />
           )}
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
-            Response window <span className="text-neutral-600 font-normal">(hours)</span>
+          <label className="block text-sm font-medium text-ink-muted mb-1.5">
+            Response window <span className="text-ink-faint font-normal">(hours)</span>
           </label>
           <div className="flex flex-wrap gap-2 mb-2">
             {[
@@ -420,8 +459,8 @@ export default function EditProfilePage() {
                 onClick={() => setResponseWindowHours(p.val)}
                 className={`px-3 py-1.5 rounded-lg text-xs border transition ${
                   responseWindowHours === p.val
-                    ? "bg-amber-500 text-black border-amber-500"
-                    : "bg-neutral-900 text-neutral-300 border-neutral-800 hover:border-neutral-700"
+                    ? "bg-ink text-page border-accent"
+                    : "bg-surface text-ink-muted border-border-subtle hover:border-border-strong"
                 }`}
               >
                 {p.label}
@@ -435,25 +474,25 @@ export default function EditProfilePage() {
             value={responseWindowHours}
             onChange={(e) => setResponseWindowHours(e.target.value)}
             placeholder="Custom (1–8760)"
-            className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            className="w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
           />
-          <p className="text-[11px] text-neutral-600 mt-1">
+          <p className="text-[11px] text-ink-faint mt-1">
             How long you get to respond on offers, payments, returns, and other deadlines.
             Default is 48 hours.{" "}
-            <a href="/methodology/response-windows" className="text-amber-500 hover:text-amber-400 underline">
+            <a href="/methodology/response-windows" className="text-accent hover:text-accent underline">
               How this works ↗
             </a>
           </p>
         </div>
 
         {/* Sabbath — Wave 6: the right to be undisturbed. */}
-        <div className="mb-4 mt-6 pt-4 border-t border-neutral-800">
-          <label className="block text-sm font-medium text-neutral-400 mb-1.5">
-            Sabbath mode <span className="text-neutral-600 font-normal">— pause all platform-initiated notifications</span>
+        <div className="mb-4 mt-6 pt-4 border-t border-border-subtle">
+          <label className="block text-sm font-medium text-ink-muted mb-1.5">
+            Sabbath mode <span className="text-ink-faint font-normal">— pause all platform-initiated notifications</span>
           </label>
           {sabbathUntil ? (
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-amber-400">
+              <span className="text-sm text-accent">
                 On until {new Date(sabbathUntil).toLocaleDateString("en-GB", {
                   day: "numeric", month: "short", year: "numeric",
                 })}
@@ -461,7 +500,7 @@ export default function EditProfilePage() {
               <button
                 type="button"
                 onClick={() => setSabbathUntil(null)}
-                className="text-xs text-amber-500 hover:text-amber-400 underline"
+                className="text-xs text-accent hover:text-accent underline"
               >
                 Lift Sabbath
               </button>
@@ -482,17 +521,17 @@ export default function EditProfilePage() {
                     const d = new Date(Date.now() + s.hours * 60 * 60 * 1000);
                     setSabbathUntil(d.toISOString());
                   }}
-                  className="px-3 py-1.5 rounded-lg text-xs border bg-neutral-900 text-neutral-300 border-neutral-800 hover:border-neutral-700 transition"
+                  className="px-3 py-1.5 rounded-lg text-xs border bg-surface text-ink-muted border-border-subtle hover:border-border-strong transition"
                 >
                   {s.label}
                 </button>
               ))}
             </div>
           )}
-          <p className="text-[11px] text-neutral-600 mt-1">
+          <p className="text-[11px] text-ink-faint mt-1">
             User-initiated paths (login, browse, transact) keep working. Platform-initiated
             paths (notifications, emails, mention pings) stop until you lift it. Only you can lift it.{" "}
-            <a href="/methodology/sabbath" className="text-amber-500 hover:text-amber-400 underline">
+            <a href="/methodology/sabbath" className="text-accent hover:text-accent underline">
               How this works ↗
             </a>
           </p>
@@ -502,25 +541,25 @@ export default function EditProfilePage() {
           <button
             onClick={savePreferences}
             disabled={prefsSaving}
-            className="px-4 py-2 bg-amber-500 text-black font-bold rounded-lg text-sm hover:bg-amber-400 disabled:opacity-40 transition"
+            className="px-4 py-2 bg-ink text-page font-semibold rounded-lg text-sm hover:opacity-90 disabled:opacity-40 transition"
           >
             {prefsSaving ? "Saving…" : "Save preferences"}
           </button>
           {prefsSaved && (
-            <span className="text-emerald-400 text-sm font-medium">Saved.</span>
+            <span className="text-ok text-sm font-medium">Saved.</span>
           )}
         </div>
       </section>
 
       {/* Showcase Management */}
       <section className="mb-8">
-        <h2 className="text-lg font-bold text-white mb-3">Showcase</h2>
+        <h2 className="text-lg font-bold text-ink mb-3">Showcase</h2>
         {showcase.length > 0 && (
           <div className="space-y-2 mb-4">
             {showcase.map((card, i) => (
               <div
                 key={card.id}
-                className="flex items-center gap-3 bg-neutral-900 rounded-lg p-2 border border-neutral-800"
+                className="flex items-center gap-3 bg-surface rounded-lg p-2 border border-border-subtle"
               >
                 {card.image_url ? (
                   <img
@@ -529,12 +568,12 @@ export default function EditProfilePage() {
                     className="w-8 h-11 object-cover rounded"
                   />
                 ) : (
-                  <div className="w-8 h-11 bg-neutral-800 rounded" />
+                  <div className="w-8 h-11 bg-surface-subtle rounded" />
                 )}
-                <span className="flex-1 text-white text-sm truncate">
+                <span className="flex-1 text-ink text-sm truncate">
                   {card.card_name}
                   {card.caption && (
-                    <span className="text-neutral-500 ml-2 italic">
+                    <span className="text-ink-faint ml-2 italic">
                       &mdash; {card.caption}
                     </span>
                   )}
@@ -542,20 +581,20 @@ export default function EditProfilePage() {
                 <button
                   onClick={() => moveShowcase(i, -1)}
                   disabled={i === 0}
-                  className="text-neutral-500 hover:text-white disabled:opacity-20 text-xs"
+                  className="text-ink-faint hover:text-ink disabled:opacity-20 text-xs"
                 >
                   Up
                 </button>
                 <button
                   onClick={() => moveShowcase(i, 1)}
                   disabled={i === showcase.length - 1}
-                  className="text-neutral-500 hover:text-white disabled:opacity-20 text-xs"
+                  className="text-ink-faint hover:text-ink disabled:opacity-20 text-xs"
                 >
                   Dn
                 </button>
                 <button
                   onClick={() => removeShowcaseCard(card.portfolio_card_id)}
-                  className="text-red-400 hover:text-red-300 text-xs font-bold"
+                  className="text-danger hover:text-danger text-xs font-bold"
                 >
                   Remove
                 </button>
@@ -568,7 +607,7 @@ export default function EditProfilePage() {
             <select
               value={showcaseAddId}
               onChange={(e) => setShowcaseAddId(e.target.value)}
-              className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+              className="flex-1 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
             >
               <option value="">Select a card...</option>
               {availableCards.map((c) => (
@@ -582,12 +621,12 @@ export default function EditProfilePage() {
               value={showcaseCaption}
               onChange={(e) => setShowcaseCaption(e.target.value)}
               placeholder="Caption (optional)"
-              className="sm:w-48 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+              className="sm:w-48 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
             />
             <button
               onClick={addShowcaseCard}
               disabled={!showcaseAddId}
-              className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 disabled:opacity-40 transition"
+              className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-40 transition"
             >
               Add
             </button>
@@ -602,7 +641,7 @@ export default function EditProfilePage() {
             action={
               <Link
                 href="/account/portfolio"
-                className="inline-block px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition"
+                className="inline-block px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
               >
                 Open portfolio
               </Link>
@@ -613,26 +652,26 @@ export default function EditProfilePage() {
 
       {/* Wishlist Management */}
       <section className="mb-8">
-        <h2 className="text-lg font-bold text-white mb-3">Wishlist</h2>
+        <h2 className="text-lg font-bold text-ink mb-3">Wishlist</h2>
         {wishlist.length > 0 && (
           <div className="space-y-2 mb-4">
             {wishlist.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-3 bg-neutral-900 rounded-lg p-2 border border-neutral-800"
+                className="flex items-center gap-3 bg-surface rounded-lg p-2 border border-border-subtle"
               >
-                <span className="flex-1 text-white text-sm truncate">
+                <span className="flex-1 text-ink text-sm truncate">
                   {item.card_name}
                   {item.max_price && (
-                    <span className="text-neutral-500 ml-2">
+                    <span className="text-ink-faint ml-2">
                       Max: ${item.max_price}
                     </span>
                   )}
-                  <span className="text-neutral-600 ml-2">{item.condition_min}</span>
+                  <span className="text-ink-faint ml-2">{item.condition_min}</span>
                 </span>
                 <button
                   onClick={() => removeWishlistItem(item.id)}
-                  className="text-red-400 hover:text-red-300 text-xs font-bold"
+                  className="text-danger hover:text-danger text-xs font-bold"
                 >
                   Remove
                 </button>
@@ -646,26 +685,26 @@ export default function EditProfilePage() {
             value={wlCardName}
             onChange={(e) => setWlCardName(e.target.value)}
             placeholder="Card name"
-            className="flex-1 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            className="flex-1 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
           />
           <input
             type="text"
             value={wlSku}
             onChange={(e) => setWlSku(e.target.value)}
             placeholder="SKU (optional)"
-            className="sm:w-32 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            className="sm:w-32 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
           />
           <input
             type="text"
             value={wlMaxPrice}
             onChange={(e) => setWlMaxPrice(e.target.value)}
             placeholder="Max $"
-            className="sm:w-24 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            className="sm:w-24 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
           />
           <select
             value={wlCondition}
             onChange={(e) => setWlCondition(e.target.value)}
-            className="sm:w-24 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+            className="sm:w-24 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
           >
             <option value="NM">NM</option>
             <option value="LP">LP</option>
@@ -676,7 +715,7 @@ export default function EditProfilePage() {
           <button
             onClick={addWishlistItem}
             disabled={!wlCardName}
-            className="px-4 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 disabled:opacity-40 transition"
+            className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-40 transition"
           >
             Add
           </button>
@@ -685,42 +724,38 @@ export default function EditProfilePage() {
 
       {/* Preview */}
       <section className="mb-8">
-        <h2 className="text-lg font-bold text-white mb-3">Preview</h2>
-        <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
+        <h2 className="text-lg font-bold text-ink mb-3">Preview</h2>
+        <div className="bg-surface rounded-lg border border-border-subtle p-6">
           <div className="flex items-center gap-4">
             <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-black"
-              style={{
-                background: profile?.avatar_url
-                  ? `url(${profile.avatar_url}) center/cover`
-                  : "rgb(38,38,38)",
-                boxShadow: `0 0 0 3px ${tierColor}`,
-              }}
+              className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-display font-semibold bg-surface-subtle border border-border-subtle"
+              style={
+                profile?.avatar_url
+                  ? { background: `url(${profile.avatar_url}) center/cover` }
+                  : undefined
+              }
             >
               {!profile?.avatar_url && (
-                <span style={{ color: tierColor }}>{initial}</span>
+                <span className="text-ink-muted">{initial}</span>
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-white font-bold">
+                <span className="text-ink font-bold">
                   {profile?.name ?? username}
                 </span>
                 {profile?.tier_name && (
                   <span
-                    className="text-xs px-1.5 py-0.5 rounded-full font-bold"
-                    style={{
-                      background: `${tierColor}20`,
-                      color: tierColor,
-                    }}
+                    className="text-xs px-1.5 py-0.5 font-medium text-ink-muted border-b-2"
+                    style={{ borderBottomColor: tierColor }}
                   >
-                    {profile.tier_icon} {profile.tier_name}
+                    {profile.tier_name}
                   </span>
                 )}
               </div>
-              <p className="text-neutral-500 text-sm">@{username || "username"}</p>
+              <p className="text-ink-faint text-sm">@{username || "username"}</p>
               {bio && (
-                <p className="text-neutral-400 text-sm mt-1">{bio}</p>
+                <p className="text-ink-muted text-sm mt-1">{bio}</p>
               )}
             </div>
           </div>
@@ -732,12 +767,12 @@ export default function EditProfilePage() {
         <button
           onClick={handleSave}
           disabled={saving || !!usernameError}
-          className="px-6 py-2.5 bg-amber-500 text-black font-bold rounded-lg text-sm hover:bg-amber-400 disabled:opacity-40 transition"
+          className="px-6 py-2.5 bg-ink text-page font-semibold rounded-lg text-sm hover:opacity-90 disabled:opacity-40 transition"
         >
           {saving ? "Saving..." : "Save Profile"}
         </button>
         {saved && (
-          <span className="text-emerald-400 text-sm font-medium">
+          <span className="text-ok text-sm font-medium">
             Profile saved!
           </span>
         )}

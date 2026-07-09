@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getUserAuctions, createSellerAuction } from "@/lib/auction/db";
+import { resolveCatalogCard } from "@/lib/market/db";
+import { isAuctionCondition, AUCTION_CONDITIONS } from "@/lib/auction/types";
 
 // GET — user's auctions (as seller)
 export async function GET() {
@@ -35,9 +37,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid auction type." }, { status: 400 });
     }
 
+    // Card identity is required — an auction without a catalog SKU can't
+    // carry a reference price, can't appear on the card's own market/prices
+    // page, and can't feed portfolio realize. Resolve a canonical SKU (or
+    // the bare card number printed on the card) server-side and require a
+    // valid condition. The sell page's catalog picker sends both.
+    if (typeof body.sku !== "string" || !body.sku.trim()) {
+      return NextResponse.json(
+        { error: "sku is required — pick the card from the catalog (a canonical SKU like OP-OP01-001-JP, or the card number printed on the card)." },
+        { status: 400 },
+      );
+    }
+    const resolved = await resolveCatalogCard(body.sku);
+    if (!resolved.ok) {
+      return NextResponse.json(
+        { error: resolved.reason, suggestions: resolved.suggestions },
+        { status: 400 },
+      );
+    }
+    if (!isAuctionCondition(body.condition)) {
+      return NextResponse.json(
+        { error: `condition must be one of: ${AUCTION_CONDITIONS.join(", ")}.`, allowed: AUCTION_CONDITIONS },
+        { status: 400 },
+      );
+    }
+
     const auction = await createSellerAuction(session.user.id, {
       title: body.title.trim(),
       description: body.description?.trim(),
+      sku: resolved.card.sku,
+      condition: body.condition,
       auction_type: body.auction_type,
       starting_price: body.starting_price,
       reserve_price: body.reserve_price,

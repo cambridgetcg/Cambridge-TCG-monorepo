@@ -145,7 +145,7 @@ export async function requestCancel(input: {
     body: input.message
       ? input.message.slice(0, 160)
       : `Reason: ${reasonLabel}. Decide within 12h or the request expires (trade continues).`,
-    linkUrl: "/account/trades",
+    linkUrl: "/account/trade-cancels",
     referenceType: "trade_cancel",
     referenceId: `${row.id}:requested`,
   });
@@ -252,7 +252,7 @@ export async function approveCancel(
     kind: "trade_cancel.approved",
     title: `Cancellation approved on ${c.card_name || c.sku}`,
     body: "The other party agreed. Trade is cancelled and the listing is back on the book.",
-    linkUrl: "/account/trades",
+    linkUrl: "/account/trade-cancels",
     referenceType: "trade_cancel",
     referenceId: `${cancelId}:approved`,
   });
@@ -345,7 +345,7 @@ export async function declineCancel(
     title: `Cancellation declined on ${c.card_name || c.sku}`,
     body: reason?.slice(0, 200)
       ?? "The other party didn't agree. The trade continues — pay or ship as scheduled.",
-    linkUrl: "/account/trades",
+    linkUrl: "/account/trade-cancels",
     referenceType: "trade_cancel",
     referenceId: `${cancelId}:declined`,
   });
@@ -381,7 +381,7 @@ export async function withdrawCancel(
     kind: "trade_cancel.withdrawn",
     title: `Cancel request withdrawn on ${c.card_name || c.sku}`,
     body: "The requester rescinded — trade continues as scheduled.",
-    linkUrl: "/account/trades",
+    linkUrl: "/account/trade-cancels",
     referenceType: "trade_cancel",
     referenceId: `${cancelId}:withdrawn`,
   });
@@ -412,7 +412,7 @@ export async function expireCancelRequests(): Promise<{ expired: number }> {
       kind: "trade_cancel.expired",
       title: `Cancel request expired on ${label}`,
       body: "The other party didn't respond within 12h. Trade continues to its payment window.",
-      linkUrl: "/account/trades",
+      linkUrl: "/account/trade-cancels",
       referenceType: "trade_cancel",
       referenceId: `${row.id}:expired`,
     });

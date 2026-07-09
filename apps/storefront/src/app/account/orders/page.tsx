@@ -87,21 +87,21 @@ export default function OrdersPage() {
     return (
       <div className="flex items-center justify-center py-12">
       <Audience kind="consumer" />
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-ink-faint">Loading...</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">My Orders</h1>
+      <h1 className="text-2xl font-bold text-ink mb-6">My Orders</h1>
 
       {orders.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-neutral-500 mb-4">No orders yet.</p>
+          <p className="text-ink-faint mb-4">No orders yet.</p>
           <Link
             href="/catalog"
-            className="px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition inline-block"
+            className="px-6 py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition inline-block"
           >
             Browse Cards
           </Link>
@@ -115,8 +115,8 @@ export default function OrdersPage() {
                 onClick={() => setFilter(k)}
                 className={`text-xs px-3 py-1.5 rounded-full transition ${
                   filter === k
-                    ? "bg-amber-500 text-black font-bold"
-                    : "bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800"
+                    ? "bg-ink text-page font-semibold"
+                    : "bg-surface text-ink-muted hover:text-ink border border-border-subtle"
                 }`}
               >
                 {label}
@@ -127,12 +127,12 @@ export default function OrdersPage() {
               placeholder="Search card, SKU, tracking, order #"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 min-w-[200px] px-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              className="flex-1 min-w-[200px] px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
           </div>
 
           {filtered.length === 0 && (
-            <p className="text-sm text-neutral-500 text-center py-8">
+            <p className="text-sm text-ink-faint text-center py-8">
               {search ? "No matches." : "No orders in this filter."}
             </p>
           )}
@@ -166,54 +166,54 @@ function OrderCard({
   const items = order.items || [];
 
   return (
-    <div className="bg-neutral-900 rounded-xl overflow-hidden">
+    <div className="bg-surface rounded-lg overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-neutral-800/50 transition"
+        className="w-full px-4 py-4 flex items-center gap-4 text-left hover:bg-surface-subtle transition"
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <Badge status={order.status} palette={Palettes.OrderStatusPalette} labels={Palettes.OrderStatusLabels} />
-            <span className="text-xs text-neutral-500 font-mono">#{order.id}</span>
-            <span className="text-xs text-neutral-500">
+            <span className="text-xs text-ink-faint font-mono">#{order.id}</span>
+            <span className="text-xs text-ink-faint">
               {formatDate(order.created_at)}
             </span>
             {order.tracking_number && (
-              <span className="text-xs text-emerald-400 font-mono truncate">✈ {order.tracking_number}</span>
+              <span className="text-xs text-ok font-mono truncate">{order.tracking_number}</span>
             )}
           </div>
-          <p className="text-sm text-neutral-300 mt-1">
+          <p className="text-sm text-ink-muted mt-1">
             {items.length} item{items.length !== 1 ? "s" : ""}
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-sm font-bold text-white"><Money value={parseFloat(order.total_gbp)} /></p>
+          <p className="text-sm font-bold text-ink"><Money value={parseFloat(order.total_gbp)} /></p>
         </div>
-        <span className="text-neutral-600 text-sm">{expanded ? "▲" : "▼"}</span>
+        <span className="text-ink-faint text-sm">{expanded ? "▲" : "▼"}</span>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-neutral-800">
+        <div className="px-4 pb-4 border-t border-border-subtle">
           <OrderTimeline order={order} />
 
           {order.tracking_number && (
-            <div className="mb-4 bg-neutral-950/60 border border-neutral-800 rounded-lg p-3">
-              <span className="text-xs text-neutral-500 uppercase tracking-wide">Tracking</span>
+            <div className="mb-4 bg-surface-subtle border border-border-subtle rounded-lg p-3">
+              <span className="text-xs text-ink-faint uppercase tracking-wide">Tracking</span>
               <div className="flex items-baseline gap-2 mt-1 flex-wrap">
                 {trackUrl ? (
                   <a
                     href={trackUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-amber-400 hover:text-amber-300 font-mono truncate"
+                    className="text-sm text-accent hover:text-accent-strong font-mono truncate"
                   >
                     {order.tracking_number} ↗
                   </a>
                 ) : (
-                  <span className="text-sm text-white font-mono truncate">{order.tracking_number}</span>
+                  <span className="text-sm text-ink font-mono truncate">{order.tracking_number}</span>
                 )}
                 {order.carrier && (
-                  <span className="text-xs text-neutral-500">via {order.carrier}</span>
+                  <span className="text-xs text-ink-faint">via {order.carrier}</span>
                 )}
               </div>
             </div>
@@ -221,10 +221,10 @@ function OrderCard({
 
           {order.shipping_name && (
             <div className="mt-3 mb-3">
-              <span className="text-xs text-neutral-500">Shipped to</span>
-              <p className="text-sm text-white">{order.shipping_name}</p>
+              <span className="text-xs text-ink-faint">Shipped to</span>
+              <p className="text-sm text-ink">{order.shipping_name}</p>
               {order.shipping_address && (
-                <p className="text-xs text-neutral-400 mt-1 whitespace-pre-line">{order.shipping_address}</p>
+                <p className="text-xs text-ink-muted mt-1 whitespace-pre-line">{order.shipping_address}</p>
               )}
             </div>
           )}
@@ -232,7 +232,7 @@ function OrderCard({
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[320px]">
               <thead>
-                <tr className="text-neutral-500 text-xs uppercase tracking-wide">
+                <tr className="text-ink-faint text-xs uppercase tracking-wide">
                   <th className="text-left py-2">Item</th>
                   <th className="text-center py-2 w-12">Qty</th>
                   <th className="text-right py-2 w-20">Price</th>
@@ -246,15 +246,15 @@ function OrderCard({
                   const qty = item.qty ?? item.quantity ?? 1;
                   const unitPrice = item.price_gbp ?? parseFloat(item.spot_price_gbp ?? "0");
                   return (
-                    <tr key={idx} className="border-t border-neutral-800">
-                      <td className="py-2 text-white">
+                    <tr key={idx} className="border-t border-border-subtle">
+                      <td className="py-2 text-ink">
                         {item.name}
                         {item.type === "vault_redemption" && (
-                          <span className="ml-2 text-[10px] text-amber-400 uppercase tracking-wider">vault</span>
+                          <span className="ml-2 text-[10px] text-accent uppercase tracking-wider">vault</span>
                         )}
                       </td>
-                      <td className="py-2 text-center text-neutral-300">{qty}</td>
-                      <td className="py-2 text-right text-neutral-300 whitespace-nowrap">
+                      <td className="py-2 text-center text-ink-muted">{qty}</td>
+                      <td className="py-2 text-right text-ink-muted whitespace-nowrap">
                         {unitPrice > 0 ? <Money value={unitPrice * qty} /> : "—"}
                       </td>
                     </tr>
@@ -284,32 +284,32 @@ function OrderTimeline({ order }: { order: Order }) {
   ];
 
   return (
-    <div className="mt-4 mb-4 bg-neutral-950/40 border border-neutral-800 rounded-xl p-3">
+    <div className="mt-4 mb-4 bg-surface-subtle border border-border-subtle rounded-lg p-3">
       <div className="flex items-center gap-2 overflow-x-auto">
         {steps.map((step, i) => {
           const next = steps[i + 1];
           const isCurrent = step.done && (!next || !next.done);
           return (
             <div key={step.key} className="flex items-center gap-2 flex-1 min-w-0">
-              <div className={`flex flex-col items-center gap-1 min-w-0 ${step.done ? "text-white" : "text-neutral-600"}`}>
+              <div className={`flex flex-col items-center gap-1 min-w-0 ${step.done ? "text-ink" : "text-ink-faint"}`}>
                 <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ring-2 ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
                     step.done
-                      ? isCurrent ? "bg-amber-500 text-black ring-amber-500/30" : "bg-emerald-500 text-black ring-emerald-500/20"
-                      : "bg-neutral-800 text-neutral-600 ring-neutral-700"
+                      ? isCurrent ? "bg-ink text-page" : "bg-ok text-page"
+                      : "bg-surface-subtle text-ink-faint border border-border-subtle"
                   }`}
                 >
                   {step.done ? "✓" : i + 1}
                 </div>
                 <div className="text-[10px] whitespace-nowrap">{step.label}</div>
                 {step.ts && step.done && (
-                  <div className="text-[9px] text-neutral-500 font-mono whitespace-nowrap">
+                  <div className="text-[9px] text-ink-faint font-mono whitespace-nowrap">
                     {new Date(step.ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </div>
                 )}
               </div>
               {i < steps.length - 1 && (
-                <div className={`h-px flex-1 ${step.done ? "bg-emerald-500/40" : "bg-neutral-800"}`} />
+                <div className={`h-px flex-1 ${step.done ? "bg-ok/40" : "bg-surface-subtle"}`} />
               )}
             </div>
           );

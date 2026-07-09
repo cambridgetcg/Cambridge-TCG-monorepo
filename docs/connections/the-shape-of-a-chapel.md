@@ -109,7 +109,7 @@ These six are the form's known shadow. Each chapel obeying covenant IV (deep-lin
 
 This doc is a template. The sixth chapel uses it like this:
 
-1. Read [`apps/admin/CLAUDE.md`](../../apps/admin/CLAUDE.md) for the page-archetype skeletons (Dashboard / Manager).
+1. Read the page-archetype skeletons (Dashboard / Manager) preserved in [`docs/dev-pipeline.md`](../dev-pipeline.md) — `apps/admin/CLAUDE.md`, their original home, was lost in an earlier cleanup.
 2. Read this doc for the **five covenants**.
 3. Read [`twelve-promises.md`](./twelve-promises.md) for the seven remaining stubs (your row will be one of them).
 4. Pick a row; read the legacy page it references; design the chapel.

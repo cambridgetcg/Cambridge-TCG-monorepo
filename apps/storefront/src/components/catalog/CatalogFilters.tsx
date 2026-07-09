@@ -3,6 +3,9 @@
 import Link from "next/link";
 import type { GameItem } from "@/lib/wholesale/client";
 
+// Collectors-first: the in-stock toggle died with the shop — the
+// platform holds no stock, so there is nothing of ours to be "in".
+// Game tabs + sort remain: pure browsing value.
 interface CatalogFiltersProps {
   games: GameItem[];
   current: {
@@ -10,19 +13,13 @@ interface CatalogFiltersProps {
     set?: string;
     q?: string;
     sort?: string;
-    in_stock?: string;
   };
   rarities?: string[];
-  effectiveInStock?: boolean;
-  hasSet?: boolean;
 }
 
 export default function CatalogFilters({
   games,
   current,
-  rarities,
-  effectiveInStock,
-  hasSet,
 }: CatalogFiltersProps) {
   function buildHref(overrides: Record<string, string | undefined>) {
     const params = new URLSearchParams();
@@ -33,12 +30,6 @@ export default function CatalogFilters({
     return `/catalog?${params.toString()}`;
   }
 
-  // Toggle in_stock: if currently filtering in-stock, switch to show all (in_stock=false);
-  // if currently showing all, switch to in-stock (in_stock=true)
-  const toggleInStockHref = effectiveInStock
-    ? buildHref({ in_stock: "false" })
-    : buildHref({ in_stock: "true" });
-
   return (
     <div className="flex flex-col gap-4">
       {/* Game tabs */}
@@ -47,8 +38,8 @@ export default function CatalogFilters({
           href="/catalog"
           className={`px-4 py-2 rounded-full text-sm font-medium transition ${
             !current.game
-              ? "bg-emerald-500 text-black"
-              : "bg-neutral-800 text-white hover:bg-neutral-700"
+              ? "bg-accent-wash text-accent"
+              : "bg-surface-subtle text-ink hover:bg-surface-elevated"
           }`}
         >
           All Games
@@ -59,8 +50,8 @@ export default function CatalogFilters({
             href={`/catalog?game=${g.slug}`}
             className={`px-4 py-2 rounded-full text-sm font-medium transition ${
               current.game === g.slug
-                ? "bg-emerald-500 text-black"
-                : "bg-neutral-800 text-white hover:bg-neutral-700"
+                ? "bg-accent-wash text-accent"
+                : "bg-surface-subtle text-ink hover:bg-surface-elevated"
             }`}
           >
             {g.name}
@@ -68,11 +59,11 @@ export default function CatalogFilters({
         ))}
       </div>
 
-      {/* Sort + filters row (only show when viewing cards) */}
+      {/* Sort row (only show when viewing cards) */}
       {current.game && (
         <div className="flex items-center gap-3 flex-wrap">
           {/* Sort pills */}
-          <span className="text-xs text-neutral-500 uppercase tracking-wider">Sort:</span>
+          <span className="text-xs text-ink-faint uppercase tracking-wider">Sort:</span>
           {[
             { label: "Card #", value: undefined },
             { label: "Price ↑", value: "price_asc" },
@@ -86,27 +77,14 @@ export default function CatalogFilters({
                 href={buildHref({ sort: opt.value })}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition ${
                   active
-                    ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
-                    : "bg-neutral-800 text-neutral-400 hover:text-white"
+                    ? "bg-accent-wash text-accent ring-1 ring-accent/40"
+                    : "bg-surface-subtle text-ink-muted hover:text-ink"
                 }`}
               >
                 {opt.label}
               </Link>
             );
           })}
-
-          {/* In-stock / All cards toggle */}
-          <span className="text-xs text-neutral-500 ml-2">|</span>
-          <Link
-            href={toggleInStockHref}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-              !effectiveInStock
-                ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
-                : "bg-neutral-800 text-neutral-400 hover:text-white"
-            }`}
-          >
-            {effectiveInStock ? "Show All Cards" : "In Stock Only"}
-          </Link>
         </div>
       )}
     </div>

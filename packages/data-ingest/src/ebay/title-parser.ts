@@ -77,6 +77,8 @@ const GAME_PREFIXES: GamePrefixRule[] = [
   { pattern: /\baltered\s+tcg\b/i, game: "alt" },
   { pattern: /\briftbound\b/i, game: "rft" },
   { pattern: /\bgenshin\s+impact\s+tcg\b/i, game: "gen" },
+  { pattern: /\bgundam\s+card\s+game\b|\bgcg\b/i, game: "gcg" },
+  { pattern: /\bunion\s+arena\b/i, game: "una" },
 ];
 
 // ── Variant patterns (pass 5) ───────────────────────────────────────────

@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import { formatDateTime } from "@/lib/format";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/+$/, "");
 
@@ -37,7 +38,11 @@ const GLOBAL_SHIPPING_COUNTRIES: Stripe.Checkout.SessionCreateParams.ShippingAdd
 ];
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const stripe = getStripe();
+  // NOTE: getStripe() is NOT called here. It throws when STRIPE_SECRET_KEY
+  // is absent, and a throw outside the try below produced a bodiless 500
+  // that stranded the buyer on a ticking payment window with no
+  // explanation (the persona walkers hit exactly this). It is constructed
+  // inside the try, so a config/Stripe failure returns an honest 503.
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to pay." }, { status: 401 });
@@ -72,6 +77,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const total = parseFloat(trade.price) * trade.quantity;
 
   try {
+    const stripe = getStripe();
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{
@@ -112,6 +118,20 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ url: checkoutSession.url });
   } catch (err) {
     console.error("[market] Pay session error:", err);
-    return NextResponse.json({ error: "Failed to create payment session." }, { status: 500 });
+    // Honest failure. Two truths the buyer needs: (1) this is our side,
+    // not theirs, and (2) the payment window does NOT pause while checkout
+    // is down — it still ends at the trade's real payment_expires_at. We
+    // name that time rather than inventing a grace period the sweep won't
+    // honour. The dev-only STRIPE_SECRET_KEY message stays server-side.
+    const unconfigured = err instanceof Error && /STRIPE_SECRET_KEY/.test(err.message);
+    const whenIso: string | null = trade.payment_expires_at ?? null;
+    const whenLabel = whenIso ? formatDateTime(whenIso) : null;
+    const error = whenLabel
+      ? `Payments are temporarily unavailable — this is on our side, not yours. Your payment window is unchanged: it still closes ${whenLabel} and does not pause while checkout is down. Please try again in a few minutes; if it keeps failing, contact support before the window closes.`
+      : `Payments are temporarily unavailable — this is on our side, not yours. Your payment window is unchanged and does not pause while checkout is down. Please try again shortly, and contact support if it persists.`;
+    return NextResponse.json(
+      { error, code: unconfigured ? "payments_unconfigured" : "payments_unavailable", payment_expires_at: whenIso },
+      { status: 503 },
+    );
   }
 }

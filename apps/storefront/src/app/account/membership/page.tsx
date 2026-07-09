@@ -7,27 +7,28 @@ import TierBadge from "@/components/membership/TierBadge";
 import type { Tier, MemberProfile, PointsEntry, CreditEntry } from "@/lib/membership/types";
 
 import { Audience } from "@/lib/ui";
-// ── Tailwind color maps keyed by the tier `color` field ──────────────────────
+// ── Tier tone maps keyed by the tier `color` field. The quiet gallery:
+// hairline cards, a small tone accent per tier — never gradients or glow.
 const TIER_COLORS: Record<string, {
-  border: string; text: string; bg: string; glow: string; progressBg: string; progressBar: string;
+  border: string; text: string; bg: string; progressBg: string; progressBar: string;
 }> = {
   "amber-700": {
-    border: "border-amber-700/50", text: "text-amber-600", bg: "bg-amber-700/10",
-    glow: "ring-amber-700/30", progressBg: "bg-amber-700/20", progressBar: "bg-amber-700",
+    border: "border-[#8a6544]/40", text: "text-[#8a6544]", bg: "bg-surface",
+    progressBg: "bg-surface-subtle", progressBar: "bg-[#8a6544]",
   },
   "neutral-400": {
-    border: "border-neutral-400/50", text: "text-neutral-300", bg: "bg-neutral-400/10",
-    glow: "ring-neutral-400/30", progressBg: "bg-neutral-400/20", progressBar: "bg-neutral-400",
+    border: "border-border-strong", text: "text-ink-muted", bg: "bg-surface",
+    progressBg: "bg-surface-subtle", progressBar: "bg-ink-faint",
   },
   "amber-400": {
-    border: "border-amber-400/50", text: "text-amber-400", bg: "bg-amber-400/10",
-    glow: "ring-amber-400/30", progressBg: "bg-amber-400/20", progressBar: "bg-amber-400",
+    border: "border-accent/40", text: "text-accent", bg: "bg-surface",
+    progressBg: "bg-surface-subtle", progressBar: "bg-accent",
   },
 };
 
 const DEFAULT_TC = {
-  border: "border-neutral-600/50", text: "text-neutral-400", bg: "bg-neutral-700/10",
-  glow: "ring-neutral-600/30", progressBg: "bg-neutral-600/20", progressBar: "bg-neutral-500",
+  border: "border-border-subtle", text: "text-ink-muted", bg: "bg-surface",
+  progressBg: "bg-surface-subtle", progressBar: "bg-ink-faint",
 };
 
 function tc(color: string | undefined) {
@@ -52,21 +53,21 @@ function relativeDate(iso: string) {
 
 // ── Type badge colors ────────────────────────────────────────────────────────
 const POINTS_TYPE_STYLE: Record<string, string> = {
-  order_earned:  "bg-emerald-500/20 text-emerald-400",
-  tradein_earned: "bg-teal-500/20 text-teal-400",
-  manual_credit: "bg-blue-500/20 text-blue-400",
-  manual_debit:  "bg-red-500/20 text-red-400",
-  redeemed:      "bg-orange-500/20 text-orange-400",
-  expired:       "bg-neutral-500/20 text-neutral-500",
-  migration:     "bg-purple-500/20 text-purple-400",
+  order_earned:  "bg-ok/15 text-ok",
+  tradein_earned: "bg-[#3e7d8f]/15 text-[#3e7d8f]",
+  manual_credit: "bg-info/15 text-info",
+  manual_debit:  "bg-danger/15 text-danger",
+  redeemed:      "bg-warning/15 text-warning",
+  expired:       "bg-ink-faint/15 text-ink-faint",
+  migration:     "bg-[#6a5a8f]/15 text-[#6a5a8f]",
 };
 
 const CREDIT_TYPE_STYLE: Record<string, string> = {
-  cashback:          "bg-emerald-500/20 text-emerald-400",
-  tradein_credit:    "bg-teal-500/20 text-teal-400",
-  manual_adjustment: "bg-blue-500/20 text-blue-400",
-  redeemed_checkout: "bg-orange-500/20 text-orange-400",
-  migration:         "bg-purple-500/20 text-purple-400",
+  cashback:          "bg-ok/15 text-ok",
+  tradein_credit:    "bg-[#3e7d8f]/15 text-[#3e7d8f]",
+  manual_adjustment: "bg-info/15 text-info",
+  redeemed_checkout: "bg-warning/15 text-warning",
+  migration:         "bg-[#6a5a8f]/15 text-[#6a5a8f]",
 };
 
 function typeLabel(type: string) {
@@ -134,7 +135,7 @@ export default function MembershipPage() {
     return (
       <div className="flex items-center justify-center py-20">
       <Audience kind="consumer" />
-        <div className="text-neutral-500 animate-pulse">Loading membership...</div>
+        <div className="text-ink-faint animate-pulse">Loading membership...</div>
       </div>
     );
   }
@@ -142,7 +143,7 @@ export default function MembershipPage() {
   if (!profile) {
     return (
       <div className="text-center py-20">
-        <p className="text-neutral-400">Unable to load membership data.</p>
+        <p className="text-ink-muted">Unable to load membership data.</p>
       </div>
     );
   }
@@ -170,57 +171,55 @@ export default function MembershipPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-white">
+      <h1 className="text-2xl font-bold text-ink">
         Membership
         <WhyLink href="/methodology/membership-tier" tooltip="How is my tier assigned?" />
       </h1>
 
       {/* ── Pro upgrade banner (non-Pro, non-Platinum members) ─────────────── */}
       {!isPlatinum && !isPro && (
-        <div className="relative rounded-2xl p-6 sm:p-8 overflow-hidden border border-sky-500/30 bg-gradient-to-br from-sky-950/40 via-neutral-900 to-sky-950/30">
-          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-10 bg-sky-400" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-1">
-              <span className="text-3xl">⭐</span>
-              <h2 className="text-xl font-bold text-white">
+        <div className="rounded-lg p-6 sm:p-8 border border-border-subtle bg-surface">
+          <div>
+            <div className="mb-1">
+              <h2 className="text-xl font-display font-semibold text-ink">
                 Go Pro — <Money value={proMonthly} />/mo
               </h2>
             </div>
-            <p className="text-neutral-400 mb-2">
-              5% off every order, lower selling fees, and early access to restocks.
+            <p className="text-ink-muted mb-2">
+              Lower selling fees on the market and at auction.
             </p>
-            <p className="text-xs text-neutral-500 mb-6">
+            <p className="text-xs text-ink-faint mb-6">
               No catch — nothing free is taken away, and you reach Pro free at £300/yr
               spend. <WhyLink href="/methodology/pro" tooltip="What is Pro?" />
             </p>
             <div className="grid gap-4 sm:grid-cols-2 max-w-md">
-              <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-4 text-center">
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Monthly</p>
-                <p className="text-2xl font-bold text-white mb-1">
+              <div className="rounded-lg border border-border-subtle bg-page p-4 text-center">
+                <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Monthly</p>
+                <p className="text-2xl font-display font-semibold text-ink mb-1">
                   <Money value={proMonthly} />
-                  <span className="text-sm font-normal text-neutral-500"> /month</span>
+                  <span className="text-sm font-normal text-ink-faint"> /month</span>
                 </p>
                 <button
                   onClick={() => handleSubscribe("monthly", "Pro")}
                   disabled={subscribing !== null}
-                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-sky-500 text-neutral-950 hover:bg-sky-400 transition disabled:opacity-50"
+                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
                 >
                   {subscribing === "monthly" ? "Redirecting..." : "Go Pro"}
                 </button>
               </div>
-              <div className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-4 text-center">
-                <p className="text-xs font-medium uppercase tracking-wider mb-2 text-sky-300">Annual</p>
-                <p className="text-2xl font-bold text-white mb-1">
+              <div className="rounded-lg border border-accent/30 bg-accent-wash p-4 text-center">
+                <p className="text-xs font-medium uppercase tracking-wider mb-2 text-accent-strong">Annual</p>
+                <p className="text-2xl font-display font-semibold text-ink mb-1">
                   <Money value={proAnnual} />
-                  <span className="text-sm font-normal text-neutral-500"> /year</span>
+                  <span className="text-sm font-normal text-ink-faint"> /year</span>
                 </p>
-                <p className="text-xs text-emerald-400 font-medium">
+                <p className="text-xs text-ok font-medium">
                   Save <Money value={proMonthly * 12 - proAnnual} />
                 </p>
                 <button
                   onClick={() => handleSubscribe("annual", "Pro")}
                   disabled={subscribing !== null}
-                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-sky-500 text-neutral-950 hover:bg-sky-400 transition disabled:opacity-50"
+                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
                 >
                   {subscribing === "annual" ? "Redirecting..." : "Go Pro"}
                 </button>
@@ -233,24 +232,14 @@ export default function MembershipPage() {
       {/* ── 0. PLATINUM UPGRADE BANNER / PLATINUM STATUS ───────────────────── */}
       {isPlatinum ? (
         /* Platinum member status card */
-        <div
-          className="relative rounded-2xl p-6 sm:p-8 overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%)",
-            border: "1px solid rgba(229, 228, 226, 0.3)",
-          }}
-        >
-          {/* Diamond shimmer effect */}
-          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full blur-3xl opacity-15" style={{ background: "linear-gradient(135deg, #E5E4E2, #B8B5B2)" }} />
-          <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full blur-3xl opacity-10" style={{ background: "linear-gradient(135deg, #C0B8D6, #E5E4E2)" }} />
-
-          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="rounded-lg p-6 sm:p-8 border border-border-subtle bg-surface">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">💎</span>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#6e6a80]/15 text-[#6e6a80] border border-[#6e6a80]/30">Platinum</span>
                 <div>
-                  <h2 className="text-xl font-bold" style={{ color: "#E5E4E2" }}>Platinum Member</h2>
-                  <p className="text-sm text-neutral-400">
+                  <h2 className="text-xl font-display font-semibold text-ink">Platinum Member</h2>
+                  <p className="text-sm text-ink-muted">
                     {profile.tier_source === "subscription" ? "Active subscription" : "Active"}
                   </p>
                 </div>
@@ -258,12 +247,7 @@ export default function MembershipPage() {
             </div>
             <a
               href="/account/billing"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              style={{
-                background: "rgba(229, 228, 226, 0.1)",
-                color: "#E5E4E2",
-                border: "1px solid rgba(229, 228, 226, 0.2)",
-              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-surface text-ink border border-border-subtle hover:bg-surface-subtle"
             >
               Manage Subscription
             </a>
@@ -271,108 +255,63 @@ export default function MembershipPage() {
         </div>
       ) : (
         /* Platinum upgrade banner for non-Platinum members */
-        <div
-          className="relative rounded-2xl p-6 sm:p-8 overflow-hidden"
-          style={{
-            background: "linear-gradient(135deg, #0d0d1a 0%, #121228 50%, #0d0d1a 100%)",
-            border: "2px solid transparent",
-            backgroundClip: "padding-box",
-          }}
-        >
-          {/* Gradient border overlay */}
-          <div
-            className="absolute inset-0 -z-10 rounded-2xl"
-            style={{
-              margin: "-2px",
-              background: "linear-gradient(135deg, #B8B5B2, #9B8EC4, #E5E4E2, #9B8EC4, #B8B5B2)",
-              borderRadius: "inherit",
-            }}
-          />
-          <div
-            className="absolute inset-0 rounded-2xl"
-            style={{
-              background: "linear-gradient(135deg, #0d0d1a 0%, #121228 50%, #0d0d1a 100%)",
-            }}
-          />
-
-          {/* Shimmer effects */}
-          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-10" style={{ background: "linear-gradient(135deg, #E5E4E2, #9B8EC4)" }} />
-
-          <div className="relative z-10">
+        <div className="rounded-lg p-6 sm:p-8 border border-border-subtle bg-surface">
+          <div>
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">💎</span>
-              <h2 className="text-xl font-bold" style={{ color: "#E5E4E2" }}>Upgrade to Platinum</h2>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[#6e6a80]/15 text-[#6e6a80] border border-[#6e6a80]/30">Platinum</span>
+              <h2 className="text-xl font-display font-semibold text-ink">Upgrade to Platinum</h2>
             </div>
-            <p className="text-neutral-400 mb-6">Zero fees. Maximum rewards. 12% off everything.</p>
+            <p className="text-ink-muted mb-6">Zero commission on the market and at auction. Maximum rewards.</p>
 
             {/* Pricing cards */}
             <div className="grid gap-4 sm:grid-cols-2 max-w-md mb-6">
               {/* Monthly */}
-              <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-4 text-center">
-                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Monthly</p>
-                <p className="text-2xl font-bold text-white mb-1">
+              <div className="rounded-lg border border-border-subtle bg-page p-4 text-center">
+                <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Monthly</p>
+                <p className="text-2xl font-display font-semibold text-ink mb-1">
                   <Money value={monthlyPrice} />
-                  <span className="text-sm font-normal text-neutral-500"> /month</span>
+                  <span className="text-sm font-normal text-ink-faint"> /month</span>
                 </p>
                 <button
                   onClick={() => handleSubscribe("monthly")}
                   disabled={subscribing !== null}
-                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
-                  style={{
-                    background: subscribing === "monthly"
-                      ? "rgba(229, 228, 226, 0.3)"
-                      : "linear-gradient(135deg, #B8B5B2, #E5E4E2)",
-                    color: "#0d0d1a",
-                  }}
+                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
                 >
                   {subscribing === "monthly" ? "Redirecting..." : "Subscribe"}
                 </button>
               </div>
 
               {/* Annual */}
-              <div
-                className="rounded-xl p-4 text-center relative"
-                style={{
-                  background: "rgba(229, 228, 226, 0.05)",
-                  border: "1px solid rgba(229, 228, 226, 0.25)",
-                }}
-              >
-                <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "#E5E4E2" }}>Annual</p>
-                <p className="text-2xl font-bold text-white mb-1">
+              <div className="rounded-lg border border-accent/30 bg-accent-wash p-4 text-center">
+                <p className="text-xs font-medium uppercase tracking-wider mb-2 text-accent-strong">Annual</p>
+                <p className="text-2xl font-display font-semibold text-ink mb-1">
                   <Money value={annualPrice} />
-                  <span className="text-sm font-normal text-neutral-500"> /year</span>
+                  <span className="text-sm font-normal text-ink-faint"> /year</span>
                 </p>
-                <p className="text-xs text-emerald-400 font-medium">
+                <p className="text-xs text-ok font-medium">
                   Save <Money value={annualSavings} /> ({annualSavingsPercent}%)
                 </p>
                 <button
                   onClick={() => handleSubscribe("annual")}
                   disabled={subscribing !== null}
-                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-50"
-                  style={{
-                    background: subscribing === "annual"
-                      ? "rgba(229, 228, 226, 0.3)"
-                      : "linear-gradient(135deg, #B8B5B2, #E5E4E2)",
-                    color: "#0d0d1a",
-                  }}
+                  className="mt-3 w-full px-4 py-2 rounded-lg text-sm font-semibold bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
                 >
                   {subscribing === "annual" ? "Redirecting..." : "Subscribe"}
                 </button>
               </div>
             </div>
 
-            {/* Platinum perks checklist */}
+            {/* Platinum perks checklist — the shop-era perks (store
+                discount, cashback) retired 2026-07-06 with the shop. */}
             <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 "0% P2P commission",
                 "0% auction fees",
-                "12% off all purchases",
-                "8% cashback",
                 "3x Berries",
                 "Priority everything",
               ].map(perk => (
-                <div key={perk} className="flex items-center gap-2 text-sm text-neutral-300">
-                  <span className="text-emerald-400 shrink-0">&#10003;</span>
+                <div key={perk} className="flex items-center gap-2 text-sm text-ink-muted">
+                  <span className="text-ok shrink-0">&#10003;</span>
                   {perk}
                 </div>
               ))}
@@ -382,11 +321,8 @@ export default function MembershipPage() {
       )}
 
       {/* ── 1. MEMBERSHIP CARD ─────────────────────────────────────────────── */}
-      <div className={`relative rounded-2xl border ${tierColor.border} ${tierColor.bg} p-6 sm:p-8 overflow-hidden`}>
-        {/* Decorative glow */}
-        <div className={`absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl opacity-20 ${tierColor.progressBar}`} />
-
-        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+      <div className={`rounded-lg border ${tierColor.border} ${tierColor.bg} p-6 sm:p-8`}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
           <div className="space-y-3">
             {tier ? (
               <TierBadge name={tier.name} icon={tier.icon} color={tier.color} size="md" />
@@ -395,11 +331,11 @@ export default function MembershipPage() {
             )}
 
             {!tier && (
-              <p className="text-sm text-amber-600 font-medium">Start earning to unlock perks!</p>
+              <p className="text-sm text-accent-strong font-medium">Start earning to unlock perks!</p>
             )}
 
-            <div className="text-sm text-neutral-400">
-              Annual spend: <span className="text-white font-semibold"><Money value={profile.annual_spend} /></span>
+            <div className="text-sm text-ink-muted">
+              Annual spend: <span className="text-ink font-semibold"><Money value={profile.annual_spend} /></span>
             </div>
           </div>
 
@@ -412,8 +348,8 @@ export default function MembershipPage() {
             ) : (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Progress to {profile.next_tier!.icon} {profile.next_tier!.name}</span>
-                  <span className="text-neutral-300 font-medium">{profile.progress_to_next}%</span>
+                  <span className="text-ink-muted">Progress to {profile.next_tier!.icon} {profile.next_tier!.name}</span>
+                  <span className="text-ink-muted font-medium">{profile.progress_to_next}%</span>
                 </div>
                 <div className={`h-3 rounded-full ${nextTierColor.progressBg} overflow-hidden`}>
                   <div
@@ -421,7 +357,7 @@ export default function MembershipPage() {
                     style={{ width: `${profile.progress_to_next}%` }}
                   />
                 </div>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-ink-faint">
                   <Money value={profile.amount_to_next} /> more to reach {profile.next_tier!.name}
                 </p>
               </div>
@@ -432,13 +368,13 @@ export default function MembershipPage() {
 
       {/* ── 2. PERKS GRID ──────────────────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-white mb-4">Your Perks</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Your Perks</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <PerkCard
             label="Cashback"
             value={`${profile.perks.cashback_percent}%`}
-            description="cashback on purchases"
-            highlight={profile.perks.cashback_percent > 0}
+            description="cashback (shop era — retired 2026-07-06)"
+            highlight={false}
           />
           <PerkCard
             label="Berries"
@@ -461,8 +397,8 @@ export default function MembershipPage() {
           <PerkCard
             label="Store Discount"
             value={`${profile.perks.store_discount_percent}%`}
-            description={profile.perks.store_discount_percent > 0 ? "off all purchases" : "store discount"}
-            highlight={profile.perks.store_discount_percent > 0}
+            description="store discount (shop era — retired 2026-07-06)"
+            highlight={false}
           />
           {profile.perks.auction_priority_approval && (
             <PerkCard
@@ -476,12 +412,12 @@ export default function MembershipPage() {
 
         {/* Extra benefits from tier data */}
         {tier && tier.benefits.length > 0 && (
-          <div className="mt-4 bg-neutral-900/50 rounded-xl p-4 border border-neutral-800">
-            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">Additional Benefits</p>
+          <div className="mt-4 bg-surface rounded-lg p-4 border border-border-subtle">
+            <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Additional Benefits</p>
             <ul className="space-y-1.5">
               {tier.benefits.map((b, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-neutral-300">
-                  <span className="text-emerald-400 mt-0.5 shrink-0">&#10003;</span>
+                <li key={i} className="flex items-start gap-2 text-sm text-ink-muted">
+                  <span className="text-ok mt-0.5 shrink-0">&#10003;</span>
                   {b}
                 </li>
               ))}
@@ -493,85 +429,93 @@ export default function MembershipPage() {
       {/* ── 3. POINTS & CREDIT ─────────────────────────────────────────────── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Berries */}
-        <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
+        <div className="bg-surface rounded-lg border border-border-subtle p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h3 className="text-base font-semibold text-white">Berries</h3>
-            <span className="text-2xl font-bold text-amber-400">{profile.points_balance.toLocaleString()}</span>
+            <h3 className="text-base font-semibold text-ink">Berries</h3>
+            <span className="text-2xl font-bold text-accent">{profile.points_balance.toLocaleString()}</span>
           </div>
-          <p className="text-xs text-neutral-500 mb-4">
-            Lifetime earned: <span className="text-neutral-400">{profile.lifetime_points.toLocaleString()}</span>
+          <p className="text-xs text-ink-faint mb-4">
+            Lifetime earned: <span className="text-ink-muted">{profile.lifetime_points.toLocaleString()}</span>
           </p>
 
           {visiblePoints.length > 0 ? (
             <div className="space-y-2">
               {visiblePoints.map(entry => (
-                <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-neutral-800/50 last:border-0">
+                <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-border-subtle last:border-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${POINTS_TYPE_STYLE[entry.type] ?? "bg-neutral-700 text-neutral-400"}`}>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${POINTS_TYPE_STYLE[entry.type] ?? "bg-surface-subtle text-ink-muted"}`}>
                       {typeLabel(entry.type)}
                     </span>
-                    <span className="text-xs text-neutral-500 truncate">{entry.description}</span>
+                    <span className="text-xs text-ink-faint truncate">{entry.description}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-2">
-                    <span className={`text-sm font-medium ${entry.amount > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    <span className={`text-sm font-medium ${entry.amount > 0 ? "text-ok" : "text-danger"}`}>
                       {entry.amount > 0 ? "+" : ""}{entry.amount}
                     </span>
-                    <span className="text-[10px] text-neutral-600 w-14 text-right">{relativeDate(entry.created_at)}</span>
+                    <span className="text-[10px] text-ink-faint w-14 text-right">{relativeDate(entry.created_at)}</span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-neutral-600">No Berries activity yet.</p>
+            <p className="text-sm text-ink-faint">No Berries activity yet.</p>
           )}
 
           {pointsHistory.length > 5 && (
             <button
               onClick={() => setShowAllPoints(v => !v)}
-              className="mt-3 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+              className="mt-3 text-xs text-accent hover:text-accent-strong transition-colors"
             >
               {showAllPoints ? "Show less" : `View all (${pointsHistory.length})`}
             </button>
           )}
         </div>
 
-        {/* Store Credit */}
-        <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-5">
+        {/* Store Credit — history stays; the earning/spending doors closed
+            with the shop on 2026-07-06 (zero balances were outstanding). */}
+        <div className="bg-surface rounded-lg border border-border-subtle p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h3 className="text-base font-semibold text-white">Store Credit</h3>
-            <span className="text-2xl font-bold text-emerald-400"><Money value={profile.store_credit_balance} /></span>
+            <h3 className="text-base font-semibold text-ink">
+              Store Credit{" "}
+              <span className="text-[10px] font-medium uppercase tracking-wide text-ink-faint border border-border-subtle rounded px-1.5 py-0.5 align-middle">legacy</span>
+            </h3>
+            <span className="text-2xl font-bold text-ok"><Money value={profile.store_credit_balance} /></span>
           </div>
+          <p className="text-xs text-ink-faint mb-4">
+            Shop-era history. The shop closed 2026-07-06 with no balances outstanding —{" "}
+            <WhyLink href="/methodology/store-credit" tooltip="The shop era and how it closed" label="the record" />
+          </p>
 
           {visibleCredits.length > 0 ? (
             <div className="space-y-2">
               {visibleCredits.map(entry => {
                 const amt = parseFloat(entry.amount);
                 return (
-                  <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-neutral-800/50 last:border-0">
+                  <div key={entry.id} className="flex items-center justify-between py-1.5 border-b border-border-subtle last:border-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${CREDIT_TYPE_STYLE[entry.type] ?? "bg-neutral-700 text-neutral-400"}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${CREDIT_TYPE_STYLE[entry.type] ?? "bg-surface-subtle text-ink-muted"}`}>
                         {typeLabel(entry.type)}
                       </span>
-                      <span className="text-xs text-neutral-500 truncate">{entry.description}</span>
+                      <span className="text-xs text-ink-faint truncate">{entry.description}</span>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-2">
-                      <span className={`text-sm font-medium ${amt > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      <span className={`text-sm font-medium ${amt > 0 ? "text-ok" : "text-danger"}`}>
                         {amt > 0 ? "+" : ""}<Money value={Math.abs(amt)} />
                       </span>
-                      <span className="text-[10px] text-neutral-600 w-14 text-right">{relativeDate(entry.created_at)}</span>
+                      <span className="text-[10px] text-ink-faint w-14 text-right">{relativeDate(entry.created_at)}</span>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-neutral-600">No credit activity yet.</p>
+            <p className="text-sm text-ink-faint">No credit activity yet.</p>
           )}
 
           {creditHistory.length > 5 && (
             <button
               onClick={() => setShowAllCredits(v => !v)}
-              className="mt-3 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+              className="mt-3 text-xs text-ok hover:text-ok transition-colors"
             >
               {showAllCredits ? "Show less" : `View all (${creditHistory.length})`}
             </button>
@@ -582,38 +526,26 @@ export default function MembershipPage() {
       {/* ── 4. ALL TIERS COMPARISON ────────────────────────────────────────── */}
       {tiers.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-white mb-4">All Tiers</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">All Tiers</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {tiers.map(t => {
               const isCurrent = tier?.id === t.id;
               const c = tc(t.color);
-              const isPlatinumTier = t.name === "Platinum";
               return (
                 <div
                   key={t.id}
-                  className={`rounded-xl p-5 transition-all ${
-                    isPlatinumTier
-                      ? "relative"
-                      : isCurrent
-                        ? `bg-neutral-900 border ${c.border} ring-2 ${c.glow}`
-                        : "bg-neutral-900 border border-neutral-800"
+                  className={`rounded-lg p-5 bg-surface border transition ${
+                    isCurrent ? c.border : "border-border-subtle"
                   }`}
-                  style={isPlatinumTier ? {
-                    background: "linear-gradient(135deg, #0d0d1a 0%, #121228 50%, #0d0d1a 100%)",
-                    border: isCurrent ? "2px solid rgba(229, 228, 226, 0.5)" : "2px solid rgba(229, 228, 226, 0.2)",
-                    boxShadow: isCurrent
-                      ? "0 0 20px rgba(229, 228, 226, 0.15), inset 0 1px 0 rgba(229, 228, 226, 0.1)"
-                      : "0 0 12px rgba(229, 228, 226, 0.08), inset 0 1px 0 rgba(229, 228, 226, 0.05)",
-                  } : undefined}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <TierBadge name={t.name} icon={t.icon} color={t.color} />
                     {isCurrent && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Current</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-ok">Current</span>
                     )}
                   </div>
 
-                  <p className="text-xs text-neutral-500 mb-3">
+                  <p className="text-xs text-ink-faint mb-3">
                     {t.is_paid && t.monthly_price && t.annual_price
                       ? `${formatPrice(parseFloat(t.monthly_price))}/mo or ${formatPrice(parseFloat(t.annual_price))}/yr`
                       : parseFloat(t.min_annual_spend) === 0
@@ -645,10 +577,10 @@ export default function MembershipPage() {
                   </div>
 
                   {t.benefits.length > 0 && (
-                    <ul className="space-y-1.5 border-t border-neutral-800 pt-3">
+                    <ul className="space-y-1.5 border-t border-border-subtle pt-3">
                       {t.benefits.map((b, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-neutral-400">
-                          <span className="text-emerald-400 mt-0.5 shrink-0">&#10003;</span>
+                        <li key={i} className="flex items-start gap-2 text-xs text-ink-muted">
+                          <span className="text-ok mt-0.5 shrink-0">&#10003;</span>
                           {b}
                         </li>
                       ))}
@@ -672,14 +604,14 @@ function PerkCard({ label, value, description, highlight }: {
   return (
     <div className={`rounded-lg border p-4 ${
       highlight
-        ? "border-emerald-500/30 bg-emerald-500/5"
-        : "border-neutral-800 bg-neutral-900/50"
+        ? "border-ok/30 bg-ok/5"
+        : "border-border-subtle bg-surface"
     }`}>
-      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-white">
-        <span className={`text-xl font-bold ${highlight ? "text-emerald-400" : "text-neutral-300"}`}>{value}</span>
+      <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-ink">
+        <span className={`text-xl font-bold ${highlight ? "text-ok" : "text-ink-muted"}`}>{value}</span>
         {" "}
-        <span className="text-sm text-neutral-400">{description}</span>
+        <span className="text-sm text-ink-muted">{description}</span>
       </p>
     </div>
   );
@@ -688,8 +620,8 @@ function PerkCard({ label, value, description, highlight }: {
 function TierStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex justify-between text-xs">
-      <span className="text-neutral-500">{label}</span>
-      <span className={`font-medium ${highlight ? "text-emerald-400" : "text-neutral-300"}`}>{value}</span>
+      <span className="text-ink-faint">{label}</span>
+      <span className={`font-medium ${highlight ? "text-ok" : "text-ink-muted"}`}>{value}</span>
     </div>
   );
 }
