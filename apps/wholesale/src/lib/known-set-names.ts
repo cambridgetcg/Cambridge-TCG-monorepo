@@ -39,10 +39,14 @@ export const KNOWN_SET_NAMES: Record<string, string> = {
   "op:OP13": "Inherited Will",
   "op:OP14": "Seven Greats of the Azure Sea",
   "op:OP15": "Adventure on God's Island",
+  "op:OP16": "Hour of the Decisive Battle", // 決戦の刻, 2026-05-30; check official EN name on western release
+  "op:OP17": "The World's Strongest Warrior", // 世界最強の戦士, 2026-08-22
   "op:EB01": "Memorial Collection",
   "op:EB02": "Anime 25th Collection",
   "op:EB03": "Heroines Edition",
   "op:EB04": "Egghead Crisis",
+  "op:EB05": "Heroines Edition vol.2", // 2026-10
+  "op:OP18": "Booster Pack (title TBA)", // 2026-11; rename when the publisher announces
   "op:PRB01": "ONE PIECE CARD THE BEST",
   "op:PRB02": "THE BEST vol.2",
   "op:PCC04": "Premium Card Collection: Best Selection vol.4",
@@ -50,6 +54,14 @@ export const KNOWN_SET_NAMES: Record<string, string> = {
   "op:ST13": "Ultimate Deck: Bond of Three Brothers",
   "op:ST21": "Starter Deck EX: Gear 5",
   "op:ST22": "Starter Deck: Ace & Newgate",
+  "op:ST29": "Start Deck: EGGHEAD", // 2025-12-20
+  "op:ST30": "Starter Deck EX: Luffy & Ace", // 2026-04-11
+  "op:ST31": "Start Deck Red: Monkey.D.Luffy", // 2026-07-11 wave ↓
+  "op:ST32": "Start Deck Green: Roronoa Zoro",
+  "op:ST33": "Start Deck Blue: Kuzan",
+  "op:ST34": "Start Deck Purple: Charlotte Katakuri",
+  "op:ST35": "Start Deck Red/Black: Sabo",
+  "op:ST36": "Start Deck Yellow: Eustass Kid",
 
   // ── Dragon Ball Fusion World ─────────────────────────────────────
   "dbf:FB01": "Awakened Pulse",
@@ -72,8 +84,21 @@ export const KNOWN_SET_NAMES: Record<string, string> = {
   "dbf:FS08": "Starter Deck: Vegeta Mini SS3",
   "dbf:FS09": "Starter Deck EX: Shallot",
   "dbf:FS10": "Starter Deck EX: Giblet",
+  "dbf:FB09": "Dual Evolution", // 2026-03-14
+  "dbf:FB10": "Cross Force", // 2026-06-13
+  "dbf:FB11": "Brightness of Hope", // 2026-09-12
+  "dbf:FB12": "Reach the God", // 2026-12-12
+  "dbf:FS11": "Starter Deck EX: The Phase of Evolution", // 進化の境地, 2026-03-14
+  "dbf:FS12": "Starter Deck EX: The Beat of Ki", // 気の躍動, 2026-03-14
+  "dbf:FS13": "Start Deck: Earth-Raised Saiyan", // 地球育ちのサイヤ人, 2026-12-12
+  "dbf:FS14": "Start Deck: Saiyan Prince", // サイヤ人の王子, 2026-12-12
+  "dbf:ST01": "STORY BOOSTER 01", // 2026-08-08
 
   // ── Pokémon TCG — MEGA era ───────────────────────────────────────
+  "pkm:M6A": "30th CELEBRATION", // 2026-09-16
+  "pkm:M6": "ストームエメラルダ", // Storm Emeralda, 2026-07-31
+  "pkm:M5": "アビスアイ", // Abyss Eye, 2026-05-22
+  "pkm:M4": "ニンジャスピナー", // Ninja Spinner, 2026-03-13
   "pkm:M3": "ムニキスゼロ",
   "pkm:M2A": "MEGA バンドルデッキ",
   "pkm:M2": "超電ブレイカー MEGA",
@@ -90,7 +115,10 @@ export const KNOWN_SET_NAMES: Record<string, string> = {
   "pkm:SV11W": "ホワイトフレア",
   "pkm:SV10": "スーパーエレクトリックブリーダーズ",
   "pkm:SV9A": "超イブ",
-  "pkm:SV9": "サイバージャッジ",
+  // SV9 previously said "サイバージャッジ" — that's SV5M (Cyber Judge,
+  // 2024-01). SV9 is Battle Partners (2025-01). Same drift pattern the
+  // SV11B/W note above documents. Fixed 2026-07-09.
+  "pkm:SV9": "バトルパートナーズ",
   "pkm:SV8A": "テラスタルフェスex",
   "pkm:SV8": "超電ブレイカー",
   "pkm:SV7A": "ステラミラクル",
@@ -142,6 +170,23 @@ export const KNOWN_SET_NAMES: Record<string, string> = {
   "pkm:S2": "反逆クラッシュ",
   "pkm:S1A": "VMAXライジング",
   "pkm:S1": "ソード",
+
+  // ── Cardfight!! Vanguard (vng) ───────────────────────────────────
+  "vng:DZ-BT14": "赫月ノ使者", // Envoys of the Crimson Moon, 2026-04-10
+  "vng:DZ-BT15": "虚影襲雷", // Strike of Illusion, 2026-06-19
+  "vng:DZ-BT16": "幻真覚醒", // 2026-08-07
+  "vng:DZ-BT17": "運命星戦", // 2026-10-09
+  "vng:DZ-SS16": "伝説の先導者達", // The Legendary Vanguards, 2026-05-15
+  "vng:DZ-TB03": "タイトルブースター フューチャーカード バディファイト", // 2026-07-24
+
+  // ── Battle Spirits (bsr) ─────────────────────────────────────────
+  "bsr:BS76": "エターナルブースター 永皇の輝き", // 2026-05-30
+  "bsr:BS77": "エターナルブースター 戦神の轟臨", // 2026-11-21
+  "bsr:26RBS01": "ブースターパック 創世の鼓動", // 2026-04-18
+  "bsr:26RBS02": "ブースターパック 幻惑の翔風", // 2026-07-18
+  "bsr:26RBS03": "ブースターパック 絶界の覇者", // 2026-10-17
+  "bsr:26RCB01": "コラボブースター 仮面ライダー 運命の戦線", // 2026-06-20
+  "bsr:26RDB01": "ディーバブースター ネクストストーリー", // 2026-09-26
 
   // ── Pokémon TCG — Sun & Moon (SM) ────────────────────────────────
   "pkm:SM12A": "タッグオールスターズ",

@@ -613,10 +613,33 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           {/* kingdom-086: substrate-honest filter — hide sets that don't
               have observed cards yet. The empty tiles were the symptom
               the substrate fix addresses. Sets remain visitable by URL,
-              the per-set page renders a substrate-honest "no cards" state. */}
+              the per-set page renders a substrate-honest "no cards" state.
+
+              The horizon (2026-07-09): empty sets with a known release
+              date near or ahead of today are not "pending" — they are
+              anticipated. They get a quiet strip of their own instead of
+              vanishing into the pill: upcoming sets show their release
+              date; just-released sets (≤60 days) say they await their
+              first scrape. The tile flips to the live grid automatically
+              the day cards carry prices. Registered by
+              apps/wholesale/tools/register-sets.ts. */}
           {(() => {
             const populated = sets.filter((s) => s.card_count > 0);
             const empty = sets.filter((s) => s.card_count === 0);
+
+            const today = new Date().toISOString().slice(0, 10);
+            const graceFloor = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
+              .toISOString()
+              .slice(0, 10);
+            // release_date may be fuzzy ("2026-10"); lexicographic compare
+            // against ISO dates orders those correctly for this purpose.
+            const horizon = empty
+              .filter((s) => s.release_date && s.release_date >= graceFloor)
+              .sort((a, b) =>
+                (a.release_date ?? "").localeCompare(b.release_date ?? ""),
+              );
+            const horizonCodes = new Set(horizon.map((s) => s.code));
+            const pending = empty.filter((s) => !horizonCodes.has(s.code));
 
             return (
               <>
@@ -624,12 +647,12 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                   <h2 className="text-xl font-semibold text-white">
                     All {cfg.display_name} Sets
                   </h2>
-                  {empty.length > 0 && (
+                  {pending.length > 0 && (
                     <span
                       className="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-neutral-800/60 text-neutral-500 border border-neutral-800 rounded"
-                      title={`${empty.length} additional sets are registered but not yet seeded with cards. Substrate-honest: hidden from this list, visitable by URL.`}
+                      title={`${pending.length} additional sets are registered but not yet seeded with cards. Substrate-honest: hidden from this list, visitable by URL.`}
                     >
-                      {empty.length} sets pending
+                      {pending.length} sets pending
                     </span>
                   )}
                 </div>
@@ -665,6 +688,47 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                         </span>
                       </Link>
                     ))}
+                  </div>
+                )}
+
+                {horizon.length > 0 && (
+                  <div className="mt-8">
+                    <div className="flex items-baseline gap-3 mb-3">
+                      <h3 className="text-[11px] uppercase tracking-widest text-neutral-500">
+                        On the horizon
+                      </h3>
+                      <span className="text-[10px] text-neutral-600">
+                        no prices yet — each set goes live the day its
+                        first scrape lands
+                      </span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {horizon.map((set) => {
+                        const upcoming =
+                          (set.release_date ?? "") > today;
+                        return (
+                          <Link
+                            key={set.code}
+                            href={`/prices/${cfg.slug}/${set.code.toLowerCase()}`}
+                            className="flex items-center justify-between rounded-lg border border-dashed border-neutral-800/80 bg-neutral-900/40 px-4 py-3 hover:border-neutral-700 transition-colors"
+                          >
+                            <div>
+                              <span className="text-neutral-300 font-medium text-sm">
+                                {set.code}
+                              </span>
+                              <span className="text-neutral-500 text-sm ml-2">
+                                {set.name}
+                              </span>
+                            </div>
+                            <span className="text-neutral-600 text-[11px] whitespace-nowrap font-mono">
+                              {upcoming
+                                ? `JP ${set.release_date}`
+                                : "awaiting first scrape"}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </>

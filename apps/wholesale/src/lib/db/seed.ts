@@ -47,7 +47,7 @@ async function seed() {
     { code: "op", name: "One Piece", slug: "one-piece", sortOrder: 0, active: true },
     { code: "pkm", name: "Pokémon", slug: "pokemon", sortOrder: 1, active: false },
     { code: "ygo", name: "Yu-Gi-Oh!", slug: "yu-gi-oh", sortOrder: 2, active: false },
-    { code: "dbf", name: "Dragon Ball", slug: "dragon-ball", sortOrder: 3, active: false },
+    { code: "dbf", name: "Dragon Ball Fusion World", slug: "dragon-ball-fusion", sortOrder: 3, active: true },
   ];
 
   for (const g of gameData) {

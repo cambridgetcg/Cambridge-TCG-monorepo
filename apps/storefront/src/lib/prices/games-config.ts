@@ -120,7 +120,10 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
       "Complete price list for {{setName}} ({{setCode}}) from Dragon Ball Super Fusion World. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
     pricing_note:
       "Prices are sourced from the Cambridge TCG marketplace and computed daily via our @cambridge-tcg/pricing engine. UK retail in GBP. CardRush Fusion World subdomain registered as anticipated; first confirmed scrape flips coverage to ✓.",
-    cardrush: { subdomain: "cardrush-fw.jp", confirmed: false },
+    // Corrected 2026-07-09: the Fusion World source is cardrush-db.jp
+    // (re-pointed in the data-ingest registry, scraping daily), not the
+    // DNS-dead cardrush-fw.jp this row anticipated.
+    cardrush: { subdomain: "cardrush-db.jp", confirmed: true },
     display_priority: 4,
     accent: "orange",
   },
@@ -231,6 +234,42 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     cardrush: null,
     display_priority: 10,
     accent: "blue",
+  },
+  {
+    slug: "vanguard",
+    game_code: "vng",
+    display_name: "Cardfight!! Vanguard",
+    short_name: "Vanguard",
+    seo_title: "Cardfight!! Vanguard Price Guide UK — Updated Daily",
+    seo_description:
+      "Daily-updated Cardfight!! Vanguard card prices in the UK. Bushiroad's flagship — Divinez-era boosters and special series. Retail buy and trade-in credit values. Free price guide from Cambridge TCG.",
+    hero_paragraph:
+      "Daily-updated price guide for Cardfight!! Vanguard — Bushiroad's flagship card game, starting from the Divinez (DZ) era. Japanese printings first; UK retail prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
+    set_intro_template:
+      "Complete price list for {{setName}} ({{setCode}}) from Cardfight!! Vanguard. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
+    pricing_note:
+      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 starting with the DZ era; earlier eras follow as their set codes are confirmed.",
+    cardrush: { subdomain: "cardrush-vanguard.jp", confirmed: false },
+    display_priority: 11,
+    accent: "blue",
+  },
+  {
+    slug: "battle-spirits",
+    game_code: "bsr",
+    display_name: "Battle Spirits",
+    short_name: "Battle Spirits",
+    seo_title: "Battle Spirits Price Guide UK — Updated Daily",
+    seo_description:
+      "Daily-updated Battle Spirits card prices in the UK. Bandai's long-running JP game — Contract Saga eras and the 2026 renewal. Retail buy and trade-in credit values. Free price guide from Cambridge TCG.",
+    hero_paragraph:
+      "Daily-updated price guide for Battle Spirits — Bandai's long-running Japanese card game, covering the Contract Saga (契約編) eras and the 2026 renewal boosters. UK retail prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
+    set_intro_template:
+      "Complete price list for {{setName}} ({{setCode}}) from Battle Spirits. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
+    pricing_note:
+      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 from BS64 (Contract Saga) forward.",
+    cardrush: { subdomain: "cardrush-bs.jp", confirmed: false },
+    display_priority: 12,
+    accent: "emerald",
   },
 ];
 

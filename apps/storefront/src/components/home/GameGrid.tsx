@@ -8,6 +8,8 @@ const gameImages: Record<string, string> = {
   "one-piece": "/banners/game-onepiece-anime.jpg",
   dragonball: "/banners/game-dragonball-anime.jpg",
   "dragon-ball": "/banners/game-dragonball-anime.jpg",
+  // dbf slug reconciled 2026-07-09 (was dragon-ball in the games table).
+  "dragon-ball-fusion": "/banners/game-dragonball-anime.jpg",
 };
 
 const fallbackImage = "/banners/game-general-anime.jpg";

@@ -14,12 +14,20 @@
  *       0.5 rps token bucket across the whole run)
  *    b. Extract every /product/[N] URL
  *    c. Diff against cards.cardrush_url for cards in that subdomain's game
+ *       AND against the cardrush_seen_url ledger (migration 0023). The
+ *       ledger is what makes the diff drain: SKU-collapsing variant
+ *       listings never enter `cards`, so without it the same sitemap
+ *       slice re-fetched forever and starved every later subdomain
+ *       (the digimon livelock, observed 2026-07-07→09).
  *    d. For each new URL:
  *       - Fetch + parse product page
  *       - Build SKU via @cambridge-tcg/sku from parsed set_code + card_number
  *       - INSERT card with ON CONFLICT (sku) DO UPDATE SET cardrush_url
  *         (lets cards seeded by other paths get their URL filled in)
  *       - Title-parse failures → ingest_quarantine
+ *       - Every consumed URL → cardrush_seen_url (inserted /
+ *         conflict_existing / quarantined; fetch failures stay OUT so
+ *         they retry next run)
  * 3. UPDATE ingest_run with counts + events
  *
  * Substrate-honest about absence:
@@ -35,7 +43,14 @@
  */
 
 import { db } from "@/lib/db";
-import { cards, games, sets, ingestRun, ingestQuarantine } from "@/lib/db/schema";
+import {
+  cards,
+  games,
+  sets,
+  ingestRun,
+  ingestQuarantine,
+  cardrushSeenUrl,
+} from "@/lib/db/schema";
 import { eq, and, sql, like, inArray, isNotNull } from "drizzle-orm";
 import {
   KNOWN_SET_NAMES,
@@ -520,9 +535,50 @@ export async function runCardRushDiscovery(
       );
       result.existing_in_cards = existingUrls.size;
 
-      const newUrlsAll = sm.product_urls.filter(
-        (u) => !existingUrls.has(normalize(u)),
-      );
+      // 2b'. Also exclude URLs the seen-URL ledger already consumed
+      // (migration 0023). The cards-side diff alone livelocks when many
+      // listings collapse into one SKU: the conflict-update keeps the
+      // existing row's URL, the new product's URL never enters `cards`,
+      // and the same sitemap slice is re-fetched every run while other
+      // subdomains starve behind it (digimon, observed 2026-07-07→09).
+      // Fetch failures are NOT in the ledger, so they still retry.
+      const seenRows = await db
+        .select({ url: cardrushSeenUrl.url })
+        .from(cardrushSeenUrl)
+        .where(eq(cardrushSeenUrl.host, host));
+      const seenUrls = new Set(seenRows.map((r) => r.url));
+
+      // Record a processed URL. Upsert so re-walks refresh last_seen_at;
+      // sku fills in once known and is never blanked afterwards.
+      const recordSeen = async (
+        url: string,
+        outcome: "inserted" | "conflict_existing" | "quarantined",
+        sku?: string,
+      ): Promise<void> => {
+        await db
+          .insert(cardrushSeenUrl)
+          .values({
+            url: normalize(url),
+            host,
+            sku: sku ?? null,
+            outcome,
+            ingestRunId,
+          })
+          .onConflictDoUpdate({
+            target: cardrushSeenUrl.url,
+            set: {
+              outcome,
+              sku: sql`COALESCE(${cardrushSeenUrl.sku}, EXCLUDED.sku)`,
+              ingestRunId: sql`EXCLUDED.ingest_run_id`,
+              lastSeenAt: sql`now()`,
+            },
+          });
+      };
+
+      const newUrlsAll = sm.product_urls.filter((u) => {
+        const n = normalize(u);
+        return !existingUrls.has(n) && !seenUrls.has(n);
+      });
       result.new_urls = newUrlsAll.length;
       const newUrls = newUrlsAll.slice(0, maxNew);
       result.capped = newUrlsAll.length > maxNew;
@@ -530,6 +586,7 @@ export async function runCardRushDiscovery(
       event("discovery_diff", {
         host,
         existing: existingUrls.size,
+        seen_ledger: seenUrls.size,
         new_total: newUrlsAll.length,
         new_will_fetch: newUrls.length,
         capped: result.capped,
@@ -570,6 +627,7 @@ export async function runCardRushDiscovery(
             asOf: new Date(fetch_result.fetched_at),
             retrievedAt: new Date(fetch_result.fetched_at),
           });
+          await recordSeen(url, "quarantined");
           result.quarantined += 1;
           totalQuarantined += 1;
           continue;
@@ -594,6 +652,7 @@ export async function runCardRushDiscovery(
             asOf: new Date(fetch_result.fetched_at),
             retrievedAt: new Date(fetch_result.fetched_at),
           });
+          await recordSeen(url, "quarantined");
           result.quarantined += 1;
           totalQuarantined += 1;
           continue;
@@ -662,6 +721,20 @@ export async function runCardRushDiscovery(
           totalErrors += 1;
           continue;
         }
+
+        // Ledger: 'inserted' when the row now carries this product's URL
+        // (fresh insert, or conflict that filled a NULL url); otherwise
+        // 'conflict_existing' — a variant listing collapsing into an
+        // already-URL'd SKU. Either way the URL is consumed and the diff
+        // will never re-fetch it. This line is the livelock fix.
+        const keptUrl = ret[0]?.cardrushUrl
+          ? normalize(ret[0].cardrushUrl)
+          : null;
+        await recordSeen(
+          url,
+          keptUrl === normalize(url) ? "inserted" : "conflict_existing",
+          sku,
+        );
 
         // Distinguish INSERT (new row) vs UPDATE (existing row whose
         // cardrush_url just got filled in). The driver doesn't tell us

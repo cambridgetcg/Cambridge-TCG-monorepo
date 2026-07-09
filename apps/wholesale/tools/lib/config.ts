@@ -87,7 +87,8 @@ const ONEPIECE_MAP: GameMapConfig = {
 };
 
 const DRAGONBALL_PARSE: GameParseConfig = {
-  cardNumberRegex: /\{((?:FB|FS|SB)\d{2}-\d{3})/,
+  // ST added 2026-07-09 for STORY BOOSTER 01 [ST01], releasing 2026-08-08.
+  cardNumberRegex: /\{((?:FB|FS|SB|ST)\d{2}-\d{3})/,
   parallelIndicators: ["パラレル", "/P"],
   parallelRarityCheck: (rarity) => rarity.includes("P"),
   specialCards: {},
@@ -106,6 +107,76 @@ const DRAGONBALL_MAP: GameMapConfig = {
     }
     return buildSku({
       game: "dbf",
+      set: parts.set,
+      number: parts.number,
+      lang: "ja",
+    });
+  },
+};
+
+const VANGUARD_PARSE: GameParseConfig = {
+  // {DZ-BT15/001}, {DZ-BT15/FFR01}, {DZ-BT15/15thSP01} — slash-separated,
+  // number segment may carry letters incl. lowercase "th" (validated live
+  // against product-group 322 titles, 2026-07-09).
+  cardNumberRegex: /\{([A-Z]{1,3}-[A-Z]{2,4}\d{2}\/[A-Za-z0-9]{2,10})\}/,
+  parallelIndicators: ["パラレル"],
+  // VG parallels are distinct card numbers (FFR01, SEC01, 15thSP01), not
+  // same-number variants — dedup by number already keeps them apart.
+  parallelRarityCheck: () => false,
+  specialCards: {},
+};
+
+const VANGUARD_MAP: GameMapConfig = {
+  generateBaseSku: (cardNumber) => {
+    // "DZ-BT15/001" → set DZ-BT15, number 001. SKU set segments must be
+    // [a-z0-9]+ (packages/sku/src/build.ts SEGMENT), so the dash is
+    // stripped for the SKU only: vng-dzbt15-001-ja. sets.code and price
+    // guide URLs keep the dashed publisher form (DZ-BT15).
+    const parts = parseCardNumber("vng", cardNumber);
+    if (!parts) {
+      return buildSku({
+        game: "vng",
+        set: "unknown",
+        number: cardNumber.toLowerCase().replace(/[^a-z0-9]/g, ""),
+        lang: "ja",
+      });
+    }
+    return buildSku({
+      game: "vng",
+      set: parts.set.replace(/-/g, ""),
+      number: parts.number,
+      lang: "ja",
+    });
+  },
+};
+
+const BATTLESPIRITS_PARSE: GameParseConfig = {
+  // {BS75-001}, {BS75-CX04}, {BSC45-099}, {SD56-RV009}, {26RSD05-014} —
+  // hyphen-separated; number may carry a 0-2 letter prefix; 2026-era set
+  // codes carry a 26R prefix (validated live against groups 373/367,
+  // 2026-07-09). Sealed listings use literal {-} and correctly no-match.
+  cardNumberRegex: /\{((?:\d{2}R)?(?:BSC?|SD|CB)\d{2}-[A-Z]{0,2}\d{2,3})\}/,
+  parallelIndicators: ["(SECRET)", "パラレル"],
+  // BS secrets keep the base number and add -SEC to the rarity
+  // (【X】{BS75-X10} vs 【X-SEC】{BS75-X10}); rarity may contain Japanese
+  // (契約X-SEC) so only the SEC suffix is asserted.
+  parallelRarityCheck: (rarity) => rarity.includes("SEC"),
+  specialCards: {},
+};
+
+const BATTLESPIRITS_MAP: GameMapConfig = {
+  generateBaseSku: (cardNumber) => {
+    const parts = parseCardNumber("bsr", cardNumber);
+    if (!parts) {
+      return buildSku({
+        game: "bsr",
+        set: "unknown",
+        number: cardNumber.toLowerCase().replace(/[^a-z0-9]/g, ""),
+        lang: "ja",
+      });
+    }
+    return buildSku({
+      game: "bsr",
       set: parts.set,
       number: parts.number,
       lang: "ja",
@@ -145,14 +216,42 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
   dragonball: {
     code: "dragonball",
     baseUrl: "https://www.cardrush-db.jp",
-    cardNumberPrefixes: ["FB", "FS", "SB"],
+    cardNumberPrefixes: ["FB", "FS", "SB", "ST"],
     sealedListId: 0, // TODO: discover sealed list ID
     s3Bucket: "jp-db-photos",
     dbGameCode: "dbf",
     dbGameName: "Dragon Ball Fusion World",
-    dbGameSlug: "dragon-ball-fusion-world",
+    // Canonical since 2026-07-09 (was dragon-ball-fusion-world here,
+    // dragon-ball in the DB, dragon-ball-fusion on the storefront — the
+    // three-way drift 404'd the DBF guide; tools/register-sets.ts
+    // reconciles the production row).
+    dbGameSlug: "dragon-ball-fusion",
     parse: DRAGONBALL_PARSE,
     map: DRAGONBALL_MAP,
+  },
+  vanguard: {
+    code: "vanguard",
+    baseUrl: "https://www.cardrush-vanguard.jp",
+    cardNumberPrefixes: ["DZ", "D", "V"],
+    sealedListId: 0, // TODO: discover sealed list ID
+    s3Bucket: "jp-vg-photos",
+    dbGameCode: "vng",
+    dbGameName: "Cardfight!! Vanguard",
+    dbGameSlug: "vanguard",
+    parse: VANGUARD_PARSE,
+    map: VANGUARD_MAP,
+  },
+  battlespirits: {
+    code: "battlespirits",
+    baseUrl: "https://www.cardrush-bs.jp",
+    cardNumberPrefixes: ["BS", "BSC", "CB", "SD", "26R"],
+    sealedListId: 0, // TODO: discover sealed list ID
+    s3Bucket: "jp-bs-photos",
+    dbGameCode: "bsr",
+    dbGameName: "Battle Spirits",
+    dbGameSlug: "battle-spirits",
+    parse: BATTLESPIRITS_PARSE,
+    map: BATTLESPIRITS_MAP,
   },
   pokemon: {
     code: "pokemon",
@@ -240,6 +339,12 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   FB06: { code: "FB06", name: "Approaching Threat", productGroupId: 45, gameCode: "dragonball" },
   FB07: { code: "FB07", name: "Wish to Shenron", productGroupId: 95, gameCode: "dragonball" },
   FB08: { code: "FB08", name: "Proud Fighting Race", productGroupId: 97, gameCode: "dragonball" },
+  FB09: { code: "FB09", name: "Dual Evolution", productGroupId: 110, gameCode: "dragonball" }, // released 2026-03-14; added 2026-07-09
+  FB10: { code: "FB10", name: "Cross Force", productGroupId: 116, gameCode: "dragonball" }, // released 2026-06-13; added 2026-07-09
+  // NOTE (2026-07-09): group 114 リミテッドパック is NOT a Limited Pack 03 —
+  // verified live: it holds star-parallel reprints of FB09 cards keeping
+  // their {FB09-NNN} numbers. No separate set code; skipping the group
+  // (min-price dedup would surface parallels over base prints).
   // Manga boosters
   SB01: { code: "SB01", name: "Manga Booster 01", productGroupId: 53, gameCode: "dragonball" },
   SB02: { code: "SB02", name: "Manga Booster 02", productGroupId: 96, gameCode: "dragonball" },
@@ -254,6 +359,8 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   FS08: { code: "FS08", name: "Starter Deck: Vegeta Mini SS3", productGroupId: 46, gameCode: "dragonball" },
   FS09: { code: "FS09", name: "Starter Deck EX: Shallot", productGroupId: 50, gameCode: "dragonball" },
   FS10: { code: "FS10", name: "Starter Deck EX: Giblet", productGroupId: 51, gameCode: "dragonball" },
+  FS11: { code: "FS11", name: "Starter Deck EX: The Phase of Evolution", productGroupId: 111, gameCode: "dragonball" }, // 進化の境地; added 2026-07-09
+  FS12: { code: "FS12", name: "Starter Deck EX: The Beat of Ki", productGroupId: 112, gameCode: "dragonball" }, // 気の躍動; added 2026-07-09
   // Promo & event sets
   "DB-PROMO": { code: "DB-PROMO", name: "Promotion Cards", productGroupId: 22, gameCode: "dragonball", maxPages: 50 },
   "DB-STARTER-BONUS": { code: "DB-STARTER-BONUS", name: "Start Deck Bonus Pack", productGroupId: 23, gameCode: "dragonball" },
@@ -285,7 +392,10 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   SV11W: { code: "SV11W", name: "ディストピアフォール", productGroupId: 476, gameCode: "pokemon" },
   SV10: { code: "SV10", name: "スーパーエレクトリックブリーダーズ", productGroupId: 457, gameCode: "pokemon" },
   SV9A: { code: "SV9A", name: "超イブ", productGroupId: 449, gameCode: "pokemon" },
-  SV9: { code: "SV9", name: "サイバージャッジ", productGroupId: 427, gameCode: "pokemon" },
+  // SV9 previously said "サイバージャッジ" — that is SV5M's name (Cyber
+  // Judge, 2024-01). SV9 is Battle Partners (2025-01). Fixed 2026-07-09;
+  // same drift pattern the-second-witness.md caught for SV11B/W.
+  SV9: { code: "SV9", name: "バトルパートナーズ", productGroupId: 427, gameCode: "pokemon" },
   SV8A: { code: "SV8A", name: "テラスタルフェスex", productGroupId: 416, gameCode: "pokemon" },
   SV8: { code: "SV8", name: "超電ブレイカー", productGroupId: 411, gameCode: "pokemon" },
   SV7A: { code: "SV7A", name: "ステラミラクル", productGroupId: 409, gameCode: "pokemon" },
@@ -358,6 +468,48 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   "SV-PROMO": { code: "SV-PROMO", name: "SV Promo Cards", productGroupId: 260, gameCode: "pokemon", maxPages: 50 },
   "S-PROMO": { code: "S-PROMO", name: "S Promo Cards", productGroupId: 87, gameCode: "pokemon", maxPages: 50 },
   "SM-PROMO": { code: "SM-PROMO", name: "SM Promo Cards", productGroupId: 43, gameCode: "pokemon", maxPages: 50 },
+
+  // --- Cardfight!! Vanguard ---
+  // Group IDs verified live against cardrush-vanguard.jp/group 2026-07-09.
+  // Only groups with confirmed publisher codes are configured; the older
+  // uncoded groups (幻真星戦 305, 冥淵葬空 300, 武奏烈華 256, 竜魂鳴導 252,
+  // deck sets 306/301, title boosters 316/323) wait for code confirmation.
+  "DZ-BT14": { code: "DZ-BT14", name: "赫月ノ使者", productGroupId: 317, gameCode: "vanguard" }, // Envoys of the Crimson Moon, 2026-04-10
+  "DZ-BT15": { code: "DZ-BT15", name: "虚影襲雷", productGroupId: 322, gameCode: "vanguard" }, // Strike of Illusion, 2026-06-19
+  "DZ-SS16": { code: "DZ-SS16", name: "伝説の先導者達", productGroupId: 318, gameCode: "vanguard" }, // The Legendary Vanguards, 2026-05-15
+
+  // --- Battle Spirits ---
+  // Group IDs verified live against cardrush-bs.jp/group 2026-07-09.
+  // Contract Saga (契約編) eras 界/真/環 + collab/diva/anime boosters +
+  // the 2026 renewal era (26R prefix).
+  BS64: { code: "BS64", name: "契約編:界 第1章 閃刃", productGroupId: 268, gameCode: "battlespirits" },
+  BS65: { code: "BS65", name: "契約編:界 第2章 極争", productGroupId: 274, gameCode: "battlespirits" },
+  BS66: { code: "BS66", name: "契約編:界 第3章 紡約", productGroupId: 282, gameCode: "battlespirits" },
+  BS67: { code: "BS67", name: "契約編:界 第4章 界導", productGroupId: 290, gameCode: "battlespirits" },
+  BS68: { code: "BS68", name: "契約編:真 第1章 神々の戦い", productGroupId: 295, gameCode: "battlespirits" },
+  BS69: { code: "BS69", name: "契約編:真 第2章 原初の襲来", productGroupId: 319, gameCode: "battlespirits" },
+  BS70: { code: "BS70", name: "契約編:真 第3章 全天の覇神", productGroupId: 337, gameCode: "battlespirits" },
+  BS71: { code: "BS71", name: "契約編:真 第4章 神王の帰還", productGroupId: 342, gameCode: "battlespirits" },
+  BS72: { code: "BS72", name: "契約編:環 第1章 廻帰再醒", productGroupId: 355, gameCode: "battlespirits" },
+  BS73: { code: "BS73", name: "契約編:環 第2章 天地転世", productGroupId: 360, gameCode: "battlespirits" },
+  BS74: { code: "BS74", name: "契約編:環 第3章 覇極来臨", productGroupId: 363, gameCode: "battlespirits" },
+  BS75: { code: "BS75", name: "契約編:環 第4章 英雄傑集", productGroupId: 373, gameCode: "battlespirits" },
+  BS76: { code: "BS76", name: "エターナルブースター 永皇の輝き", productGroupId: 381, gameCode: "battlespirits" }, // 2026-05-30
+  BSC46: { code: "BSC46", name: "ディーバブースター 10thアフターパーティ", productGroupId: 347, gameCode: "battlespirits" },
+  BSC47: { code: "BSC47", name: "テーマブースター REBIRTH OF LEGENDS", productGroupId: 356, gameCode: "battlespirits" },
+  BSC48: { code: "BSC48", name: "アニメブースター バーニングレガシー", productGroupId: 359, gameCode: "battlespirits" },
+  BSC49: { code: "BSC49", name: "ドリームブースター 巡る星々", productGroupId: 361, gameCode: "battlespirits" },
+  BSC50: { code: "BSC50", name: "アニメブースター RESONATING STARS", productGroupId: 368, gameCode: "battlespirits" },
+  BSC51: { code: "BSC51", name: "ディーバブースター メモリアルレコード", productGroupId: 372, gameCode: "battlespirits" },
+  CB30: { code: "CB30", name: "コラボブースター 仮面ライダー 神秘なる願い", productGroupId: 293, gameCode: "battlespirits" },
+  CB31: { code: "CB31", name: "コラボブースター 仮面ライダー Exceed the limit", productGroupId: 326, gameCode: "battlespirits" },
+  CB32: { code: "CB32", name: "コラボブースター ウルトラマン イマジネーションパワー", productGroupId: 339, gameCode: "battlespirits" },
+  CB33: { code: "CB33", name: "コラボブースター ペルソナ3 リロード", productGroupId: 343, gameCode: "battlespirits" },
+  CB34: { code: "CB34", name: "コラボブースター 仮面ライダー 善悪の選択", productGroupId: 354, gameCode: "battlespirits" },
+  "26RBS01": { code: "26RBS01", name: "ブースターパック 創世の鼓動", productGroupId: 380, gameCode: "battlespirits" }, // Heartbeat of Genesis, 2026-04-18
+  "26RCB01": { code: "26RCB01", name: "コラボブースター 仮面ライダー 運命の戦線", productGroupId: 382, gameCode: "battlespirits" }, // 2026-06-20
+  "26RSD01-06": { code: "26RSD01-06", name: "バトスピエントリーデッキ (26RSD01~06)", productGroupId: 378, gameCode: "battlespirits" }, // six entry decks in one group, ST15-20 pattern
+  "26RSD07": { code: "26RSD07", name: "コラボスターター 仮面ライダー AGENT OF DREAM", productGroupId: 383, gameCode: "battlespirits" },
 };
 
 export const MIN_PRICE_JPY = 0; // Include all cards regardless of price
