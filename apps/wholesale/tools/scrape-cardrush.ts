@@ -351,7 +351,14 @@ async function upsertToDb(
       // tool's schedule was already a fossil. Removed 2026-07-07, the
       // honest ground §3.)
 
-      // Price archive — full pricing snapshot per card per day
+      // Price archive — full pricing snapshot per card per day.
+      // Migration 0014 widened the unique key to (card_id, snapshot_date,
+      // source, condition) so multiple sources coexist per card-day; the
+      // bare (card_id, snapshot_date) conflict target this tool used
+      // until 2026-07-09 stopped matching any index (42P10) — which is
+      // why manual backfills (OP16, ST30) silently became impossible.
+      // CardRush convention in production: source='cardrush',
+      // condition='nm' (249k existing rows).
       const archiveRows = batch
         .filter((card) => skuToId.has(card.sku))
         .map((card) => ({
@@ -364,15 +371,18 @@ async function upsertToDb(
           gbp_jpy_rate: gbpJpyRate,
           base_gbp: card.pricing.baseGbp,
           price: card.pricing.price,
+          source: "cardrush",
+          condition: "nm",
         }));
 
       if (archiveRows.length > 0) {
         await sql`
           INSERT INTO price_archive ${sql(archiveRows,
             "card_id", "snapshot_date", "sku", "set_code", "category",
-            "cardrush_jpy", "gbp_jpy_rate", "base_gbp", "price"
+            "cardrush_jpy", "gbp_jpy_rate", "base_gbp", "price",
+            "source", "condition"
           )}
-          ON CONFLICT (card_id, snapshot_date) DO UPDATE SET
+          ON CONFLICT (card_id, snapshot_date, source, condition) DO UPDATE SET
             cardrush_jpy = EXCLUDED.cardrush_jpy,
             gbp_jpy_rate = EXCLUDED.gbp_jpy_rate,
             base_gbp = EXCLUDED.base_gbp,
