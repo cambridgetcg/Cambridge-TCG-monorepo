@@ -51,7 +51,7 @@ export async function DELETE(
     if (!imageId) {
       return NextResponse.json({ error: "imageId is required" }, { status: 400 });
     }
-    const s3Key = await removeAuctionImage(imageId);
+    const s3Key = await removeAuctionImage(id, imageId);
     if (s3Key) {
       await deleteS3Object(s3Key);
     }

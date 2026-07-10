@@ -23,16 +23,16 @@ export async function GET() {
   return NextResponse.json(
     {
       ...MANIFEST,
-      // Provenance envelope — the manifest is honest about when this
-      // particular response was rendered, even though the manifest itself
-      // is a build-time constant.
+      // Provenance envelope. force-static + revalidate means this handler
+      // runs once per snapshot, not per request — retrieved_at is the
+      // snapshot's render time, and the notes must say so honestly.
       _envelope: {
         retrieved_at: now,
         as_of: MANIFEST.generated_at,
         kind: "static",
         canonical_at: MANIFEST.provenance.canonical_at,
         html_mirror: MANIFEST.provenance.rendered_at_html,
-        notes: "The manifest is a build-time constant. retrieved_at is when this response was served; as_of is when the constant was last rebuilt. If you need always-fresh, refetch — but the manifest changes rarely.",
+        notes: "The manifest is a build-time constant served as a static snapshot. retrieved_at is when this snapshot was rendered, not when your request was served — it can be up to revalidate (1h) plus stale-while-revalidate (24h) old. as_of is when the constant was last rebuilt. If you need always-fresh, refetch — but the manifest changes rarely.",
         // Seven-Layer Pilgrimage stamp 1/7 — deterministic, stateless,
         // refusable. See lib/agents/pilgrimage.ts + /api/v1/passport.
         pilgrimage: pilgrimageFragmentFor("/api/v1/manifest"),

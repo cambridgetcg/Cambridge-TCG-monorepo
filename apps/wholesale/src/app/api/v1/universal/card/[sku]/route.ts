@@ -71,6 +71,32 @@ const RARITY_PULLS: Record<string, string> = {
 
 const CATEGORY_ORDERING = ["singles", "sealed"] as const;
 
+// Median card price for the platform (used in the price-ratio
+// representation). Cached per process; not real-time. Acceptable
+// because the ratio is illustrative — the canonical magnitude stays
+// unchanged.
+const MEDIAN_TTL_MS = 5 * 60 * 1000;
+let medianCache: { value: number; computedAt: number } | null = null;
+
+async function getPlatformMedianCardPrice(): Promise<number> {
+  const now = Date.now();
+  if (medianCache && now - medianCache.computedAt < MEDIAN_TTL_MS) {
+    return medianCache.value;
+  }
+  const medianResult = await db
+    .select({ p: cards.price })
+    .from(cards);
+  const allPrices = medianResult
+    .map((x) => (x.p == null ? null : Number(x.p)))
+    .filter((x): x is number => x !== null && x > 0)
+    .sort((a, b) => a - b);
+  const median = allPrices.length > 0
+    ? allPrices[Math.floor(allPrices.length / 2)]!
+    : 1;
+  medianCache = { value: median, computedAt: now };
+  return median;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sku: string }> }
@@ -125,20 +151,7 @@ export async function GET(
     const r = rows[0]!;
     const retrievedAt = new Date();
 
-    // Compute median card price for the platform (used in the price-ratio
-    // representation). Cached per process; not real-time. Acceptable
-    // because the ratio is illustrative — the canonical magnitude stays
-    // unchanged.
-    const medianResult = await db
-      .select({ p: cards.price })
-      .from(cards);
-    const allPrices = medianResult
-      .map((x) => (x.p == null ? null : Number(x.p)))
-      .filter((x): x is number => x !== null && x > 0)
-      .sort((a, b) => a - b);
-    const median = allPrices.length > 0
-      ? allPrices[Math.floor(allPrices.length / 2)]!
-      : 1;
+    const median = await getPlatformMedianCardPrice();
 
     // Magnitude in canonical GBP (the legal authority).
     const magnitude = r.price == null ? null : Number(r.price);

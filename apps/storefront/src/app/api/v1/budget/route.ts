@@ -218,7 +218,7 @@ export async function GET(): Promise<Response> {
     if_a_crawl_will_take_longer_than_an_hour: [
       "Identify yourself in User-Agent so we can email if something breaks mid-crawl",
       "Cache aggressively: most endpoints honour Cache-Control and ETag",
-      "Resume from cursor (`_meta.next_link`) — every list endpoint exposes one; agents survive client restarts by checkpointing the cursor",
+      "Checkpoint the URL you last fetched and resume from it — `_meta.next_link` is reserved in the envelope but currently null on every endpoint (no list endpoint paginates by cursor yet)",
       "For full-mirror specifically: wait for /data/catalog.jsonl bulk endpoint (planned) — one fetch replaces 12_000",
     ],
 

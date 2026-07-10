@@ -22,18 +22,28 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const lot = await getLot(id);
   if (!lot) return NextResponse.json({ error: "Lot not found" }, { status: 404 });
 
+  // Stripe config check BEFORE beginLotPurchase: this return path has no
+  // rollback, so failing after the flip would strand the lot as 'sold' with
+  // a dangling awaiting_payment trade. A pk_ (publishable) key can never
+  // authenticate as a secret key, so treat it as unconfigured too.
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!key || key.startsWith("pk_")) {
+    return NextResponse.json(
+      {
+        error: "Payments are temporarily unavailable — this is on our side, not yours. Please try again shortly, and contact support if it persists.",
+        code: "payments_unconfigured",
+      },
+      { status: 503 }
+    );
+  }
+
   const begin = await beginLotPurchase({ lotId: id, buyerId: session.user.id });
   if (!begin.ok) {
     return NextResponse.json({ error: begin.error }, { status: 400 });
   }
   const trade = begin.trade;
 
-  // Stripe checkout — lazy init to survive missing env in local dev
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
-    return NextResponse.json({ error: "Payments not configured" }, { status: 503 });
-  }
-  const stripe = new Stripe(key.trim(), { apiVersion: "2026-02-25.clover" });
+  const stripe = new Stripe(key, { apiVersion: "2026-02-25.clover" });
 
   try {
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -63,6 +73,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     return NextResponse.json({ url: checkoutSession.url, tradeId: trade.id });
   } catch (err) {
+    console.error("[market] Lot pay session error:", err);
     // Roll back the 'sold' flip so the lot is purchasable again
     await query(
       `UPDATE market_lots SET status = 'active', updated_at = NOW()
@@ -77,7 +88,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       `UPDATE market_lot_trades SET escrow_status = 'cancelled', updated_at = NOW() WHERE id = $1`,
       [trade.id]
     );
-    const msg = err instanceof Error ? err.message : "Payment session failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // Honest 503, never err.message — Stripe auth errors echo key material.
+    // The detail stays in the server log above.
+    return NextResponse.json(
+      {
+        error: "Payments are temporarily unavailable — this is on our side, not yours. The lot has been released, so you can try again shortly; contact support if it persists.",
+        code: "payments_unavailable",
+      },
+      { status: 503 }
+    );
   }
 }

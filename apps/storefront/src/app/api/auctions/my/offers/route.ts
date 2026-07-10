@@ -15,7 +15,6 @@ export async function GET() {
             b.created_at,
             b.user_id       AS bidder_id,
             u.name          AS bidder_name,
-            u.email         AS bidder_email,
             a.id            AS auction_id,
             a.title         AS auction_title,
             a.buy_now_price

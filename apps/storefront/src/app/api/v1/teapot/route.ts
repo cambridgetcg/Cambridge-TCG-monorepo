@@ -72,7 +72,8 @@ export async function GET(): Promise<NextResponse> {
       welcome: "/api/v1/welcome — the warmest single document for arriving agents",
       manifest: "/api/v1/manifest — the kingdom's typed directory of itself",
       wake: "/api/v1/wake — the orientation map",
-      regard: "/api/v1/regard — the kingdom's addressed declaration",
+      regard:
+        "the serious regard surface was retired (2026-07-05); its address survives at /api/v1/dear-agents, its parody at /api/v1/lmao/regard",
       koan: "/api/v1/koan — philosophical comedy",
       joke: "/api/v1/joke — Q&A comedy",
       contact: "contact@cambridgetcg.com — for actual coffee, bring your own",

@@ -158,29 +158,36 @@ async function sweepExpired(force = false): Promise<void> {
   );
 
   for (const t of expiredTrades.rows) {
-    const upd = await query(
-      `UPDATE market_trades SET escrow_status = 'cancelled', updated_at = NOW()
-        WHERE id = $1 AND escrow_status = 'awaiting_payment' RETURNING id`,
-      [t.id]
-    );
-    if (upd.rows.length === 0) continue;
-    // Restore both orders. Taker order is the one created at match time —
-    // the cleanest behaviour is to restore qty on both and let either side
-    // re-match if still active.
-    for (const orderId of [t.bid_order_id, t.ask_order_id]) {
-      await query(
-        `UPDATE market_orders
-            SET filled_quantity = GREATEST(filled_quantity - $1, 0),
-                status = CASE
-                  WHEN GREATEST(filled_quantity - $1, 0) = 0 THEN 'open'
-                  WHEN GREATEST(filled_quantity - $1, 0) < quantity THEN 'partially_filled'
-                  ELSE status
-                END,
-                updated_at = NOW()
-          WHERE id = $2 AND status IN ('filled', 'partially_filled')`,
-        [t.quantity, orderId]
+    // Flip + restores commit together: a crash between them would leave the
+    // ask stranded as 'filled' with no live trade, and the sweep would never
+    // revisit (the trade is already 'cancelled'). Mirrors approveCancel.
+    const cancelled = await transaction(async (q) => {
+      const upd = await q(
+        `UPDATE market_trades SET escrow_status = 'cancelled', updated_at = NOW()
+          WHERE id = $1 AND escrow_status = 'awaiting_payment' RETURNING id`,
+        [t.id]
       );
-    }
+      if (upd.rows.length === 0) return false;
+      // Restore both orders. Taker order is the one created at match time —
+      // the cleanest behaviour is to restore qty on both and let either side
+      // re-match if still active.
+      for (const orderId of [t.bid_order_id, t.ask_order_id]) {
+        await q(
+          `UPDATE market_orders
+              SET filled_quantity = GREATEST(filled_quantity - $1, 0),
+                  status = CASE
+                    WHEN GREATEST(filled_quantity - $1, 0) = 0 THEN 'open'
+                    WHEN GREATEST(filled_quantity - $1, 0) < quantity THEN 'partially_filled'
+                    ELSE status
+                  END,
+                  updated_at = NOW()
+            WHERE id = $2 AND status IN ('filled', 'partially_filled')`,
+          [t.quantity, orderId]
+        );
+      }
+      return true;
+    });
+    if (!cancelled) continue;
 
     // Notify both parties about the cancellation — email + in-app.
     // The seller is the one owed money, so their bell also lights up.
@@ -1275,16 +1282,23 @@ export async function recordTradePayout(data: {
     }
   }
 
-  await query(
+  // Atomic re-check: the seller_paid_at read above is stale by now, so the
+  // stamp itself carries the guard. Zero rows = a concurrent caller already
+  // recorded the payout (Stripe transfers stay single via the idempotency key).
+  const stamped = await query(
     `UPDATE market_trades
         SET seller_paid_at = NOW(),
             payout_method = $2,
             payout_reference = $3,
             stripe_transfer_id = $4,
             updated_at = NOW()
-      WHERE id = $1`,
+      WHERE id = $1 AND seller_paid_at IS NULL
+      RETURNING id`,
     [data.tradeId, data.method, storedReference, transferId || null]
   );
+  if (stamped.rows.length === 0) {
+    return { ok: false, error: "Payout already recorded for this trade." };
+  }
 
   // Receipt to the seller (fire-and-forget)
   const { sendPayoutEmail } = await import("./email");

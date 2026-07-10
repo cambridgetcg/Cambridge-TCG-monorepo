@@ -168,16 +168,26 @@ export async function performAction(roomCode: string, userId: string, action: Ga
   const isP2 = currentState.player2.userId === userId;
   if (!isP1 && !isP2) return { error: "You're not in this game." };
 
+  // Optimistic concurrency: every mutating branch below appends exactly one
+  // entry to game_log, so its length is the room's action version. Each
+  // UPDATE re-checks it — two near-simultaneous actions both reading the
+  // same snapshot would otherwise silently erase each other's write (the
+  // same lost-update class the setup route's atomic merge fixed).
+  const version = (room.game_log || []).length;
+  const conflict = { error: "Another action landed at the same time — refresh and try again." };
+
   // Concede shortcuts the normal reducer flow because it ends the game.
   if (action.type === "concede") {
     currentState.phase = "finished";
     currentState.winner = isP1 ? currentState.player2.userId : currentState.player1.userId;
     const log = room.game_log || [];
     log.push({ ...action, timestamp: new Date().toISOString() });
-    await query(
-      `UPDATE game_rooms SET status='finished', game_state=$2, game_log=$3, phase='finished', ended_at=NOW(), last_action_at=NOW() WHERE code=$1`,
-      [roomCode, JSON.stringify(currentState), JSON.stringify(log)],
+    const result = await query(
+      `UPDATE game_rooms SET status='finished', game_state=$2, game_log=$3, phase='finished', ended_at=NOW(), last_action_at=NOW()
+       WHERE code=$1 AND jsonb_array_length(game_log)=$4`,
+      [roomCode, JSON.stringify(currentState), JSON.stringify(log), version],
     );
+    if (result.rowCount === 0) return conflict;
     return { state: currentState, conceded: userId };
   }
 
@@ -185,10 +195,12 @@ export async function performAction(roomCode: string, userId: string, action: Ga
   if (action.type === "chat") {
     const log = room.game_log || [];
     log.push({ ...action, timestamp: new Date().toISOString() });
-    await query(
-      `UPDATE game_rooms SET game_log=$2, last_action_at=NOW() WHERE code=$1`,
-      [roomCode, JSON.stringify(log)],
+    const result = await query(
+      `UPDATE game_rooms SET game_log=$2, last_action_at=NOW()
+       WHERE code=$1 AND jsonb_array_length(game_log)=$3`,
+      [roomCode, JSON.stringify(log), version],
     );
+    if (result.rowCount === 0) return conflict;
     return { state: currentState };
   }
 
@@ -201,15 +213,19 @@ export async function performAction(roomCode: string, userId: string, action: Ga
   // Save state. A natural finish (attack on a 0-life leader) closes the
   // room row too, so the lobby never advertises finished games.
   if (state.phase === "finished") {
-    await query(
-      `UPDATE game_rooms SET game_state=$2, game_log=$3, turn_number=$4, phase=$5, status='finished', ended_at=NOW(), last_action_at=NOW() WHERE code=$1`,
-      [roomCode, JSON.stringify(state), JSON.stringify(log), state.turnNumber, state.phase],
+    const result = await query(
+      `UPDATE game_rooms SET game_state=$2, game_log=$3, turn_number=$4, phase=$5, status='finished', ended_at=NOW(), last_action_at=NOW()
+       WHERE code=$1 AND jsonb_array_length(game_log)=$6`,
+      [roomCode, JSON.stringify(state), JSON.stringify(log), state.turnNumber, state.phase, version],
     );
+    if (result.rowCount === 0) return conflict;
   } else {
-    await query(
-      `UPDATE game_rooms SET game_state=$2, game_log=$3, turn_number=$4, phase=$5, last_action_at=NOW() WHERE code=$1`,
-      [roomCode, JSON.stringify(state), JSON.stringify(log), state.turnNumber, state.phase],
+    const result = await query(
+      `UPDATE game_rooms SET game_state=$2, game_log=$3, turn_number=$4, phase=$5, last_action_at=NOW()
+       WHERE code=$1 AND jsonb_array_length(game_log)=$6`,
+      [roomCode, JSON.stringify(state), JSON.stringify(log), state.turnNumber, state.phase, version],
     );
+    if (result.rowCount === 0) return conflict;
   }
 
   return { state };

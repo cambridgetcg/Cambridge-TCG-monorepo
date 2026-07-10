@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { orders, orderItems, clients, orderStatusHistory } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendOrderEmail } from "@/lib/email/send-order-email";
 import { isValidTransition, type OrderStatus } from "@/lib/order-transitions";
@@ -72,9 +72,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updatedAt: now,
     };
 
-    await db.update(orders)
-      .set(statusUpdate)
-      .where(eq(orders.id, orderId));
+    // Guard against concurrent/replayed PATCHes: the WHERE re-checks the status
+    // read above, and the paid-spend increment only applies when this request
+    // actually performed the transition — otherwise two PATCHes to "paid" would
+    // both add order.total to currentMonthSpend.
+    const transitioned = await db.transaction(async (tx) => {
+      const updatedRows = await tx.update(orders)
+        .set(statusUpdate)
+        .where(and(eq(orders.id, orderId), eq(orders.status, fromStatus)))
+        .returning({ id: orders.id });
+      if (updatedRows.length === 0) return false;
+
+      // When order becomes "paid", add its total to client's currentMonthSpend
+      if (toStatus === "paid") {
+        await tx.update(clients)
+          .set({ currentMonthSpend: sql`current_month_spend + ${order.total}` })
+          .where(eq(clients.id, order.clientId));
+      }
+      return true;
+    });
+
+    if (!transitioned) {
+      return NextResponse.json({
+        error: `Order is no longer in "${fromStatus}" status`,
+      }, { status: 409 });
+    }
 
     // Record status change in audit log (non-fatal — table may not exist yet)
     try {
@@ -88,13 +110,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       });
     } catch {
       // Audit log failure should not block status update
-    }
-
-    // When order becomes "paid", add its total to client's currentMonthSpend
-    if (toStatus === "paid") {
-      await db.update(clients)
-        .set({ currentMonthSpend: sql`current_month_spend + ${order.total}` })
-        .where(eq(clients.id, order.clientId));
     }
 
     // Send notification email for key status transitions

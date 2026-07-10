@@ -325,15 +325,24 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 204 });
   }
 
-  if (method === "tools/list" || method === "mcp.list_tools") {
-    // Both names work. mcp.list_tools returns the Cambridge-native shape
-    // (flat array of {name, description}); tools/list returns the MCP-spec
-    // shape (with inputSchema per tool).
+  if (
+    method === "tools/list" ||
+    method === "mcp.list_tools" ||
+    (method === "tools/call" && params.name === "mcp.list_tools")
+  ) {
+    // All three names work. mcp.list_tools returns the Cambridge-native
+    // shape (flat array of {name, description}); tools/list returns the
+    // MCP-spec shape (with inputSchema per tool). tools/call with
+    // name "mcp.list_tools" is the spec-conforming way strict clients
+    // invoke it — the initialize instructions promise it needs no auth,
+    // so it must be carved out here, above resolveAgentBearer.
     if (method === "tools/list") {
       return NextResponse.json(rpcResult(body.id, { tools: listMcpTools() }));
     }
     const result = await TOOLS["mcp.list_tools"]({} as AgentActor, params);
-    return NextResponse.json(rpcResult(body.id, result));
+    return NextResponse.json(
+      rpcResult(body.id, method === "tools/call" ? wrapMcpContent(result) : result),
+    );
   }
 
   if (method === "resources/list") {

@@ -12,10 +12,12 @@
  * pattern: one composer, multiple reading positions. This file applies
  * the same shape to the price-guide tree.
  *
- * **Pure-ish** — takes slug args, returns `null` on not-found, never
- * throws. Catches upstream errors and degrades to substrate-honest
- * empty arrays. The `_provenance` block on every return value names
- * what was fetched + when + with what freshness budget.
+ * **Pure-ish** — takes slug args, returns `null` on honest not-found,
+ * `"unavailable"` when the upstream substrate is down (an outage must
+ * not masquerade as not-found or an empty synced catalog — routes map
+ * it to SOURCE_UNAVAILABLE / 503), never throws. The `_provenance`
+ * block on every return value names what was fetched + when + with
+ * what freshness budget.
  *
  * **Substrate-honest about what's IN scope** — only the data needed
  * for the price-guide reading positions. Cross-source signals carry
@@ -25,7 +27,7 @@
 
 import {
   fetchPrices,
-  fetchSets,
+  fetchSetsDetailed,
   type PriceItem,
   type SetItem,
 } from "@/lib/wholesale/client";
@@ -36,6 +38,14 @@ import {
 } from "./games-config";
 
 // ── Shared primitive types ─────────────────────────────────────────
+
+/**
+ * Composer outcome: the state, `null` for honest not-found, or
+ * `"unavailable"` when an upstream outage means not-found can't be
+ * honestly claimed. Callers map `"unavailable"` to SOURCE_UNAVAILABLE
+ * (503), never NOT_FOUND.
+ */
+export type PriceStateResult<T> = T | "unavailable" | null;
 
 /**
  * A card row as the price-guide presents it. Pre-computed reference
@@ -73,12 +83,12 @@ interface ProvenanceBlock {
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function freshestUpdate(items: PriceItem[]): string | null {
-  let max: string | null = null;
+function earliestUpdate(items: PriceItem[]): string | null {
+  let min: string | null = null;
   for (const it of items) {
-    if (it.updated_at && (max === null || it.updated_at > max)) max = it.updated_at;
+    if (it.updated_at && (min === null || it.updated_at < min)) min = it.updated_at;
   }
-  return max;
+  return min;
 }
 
 function rowFromItem(item: PriceItem): PriceGuideCardRow {
@@ -109,28 +119,37 @@ export interface GameState {
 
 /**
  * Per-game composer. Returns `null` when the slug isn't in
- * PRICE_GUIDE_GAMES (substrate-honest: caller renders 404).
+ * PRICE_GUIDE_GAMES (substrate-honest: caller renders 404), or
+ * `"unavailable"` when the wholesale substrate is down (caller answers
+ * 503 — an outage is not an empty catalog).
  *
  * @param opts.top_n  How many "top valuable" cards to load. Default 20.
  */
 export async function loadGameState(
   slug: string,
   opts?: { top_n?: number },
-): Promise<GameState | null> {
+): Promise<PriceStateResult<GameState>> {
   const config = getPriceGuideConfig(slug);
   if (!config) return null;
 
   const top_n = opts?.top_n ?? 20;
   const queried_at = new Date().toISOString();
 
-  const [sets, topData] = await Promise.all([
-    fetchSets(config.slug).catch(() => [] as SetItem[]),
+  const [setsResult, topData] = await Promise.all([
+    fetchSetsDetailed(config.slug).catch(
+      () => ({ sets: [] as SetItem[], source: "unavailable" as const }),
+    ),
     fetchPrices({
       game: config.slug,
       sort: "price_desc",
       limit: top_n,
-    }).catch(() => ({ items: [], total: 0 })),
+    }).catch(() => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const })),
   ]);
+
+  if (setsResult.source === "unavailable" || topData.source === "unavailable") {
+    return "unavailable";
+  }
+  const sets = setsResult.sets;
 
   const top_cards = topData.items.map(rowFromItem);
 
@@ -143,7 +162,7 @@ export async function loadGameState(
     _provenance: {
       kind: "synced",
       queried_at,
-      as_of: freshestUpdate(topData.items),
+      as_of: earliestUpdate(topData.items),
       freshness: "price_current",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["internal-only", "internal-only"],
@@ -170,6 +189,8 @@ export interface SetState {
  * Per-set composer. Returns null on either:
  *   - unknown game slug
  *   - unknown set code within that game
+ * and `"unavailable"` when the wholesale substrate is down — a set we
+ * can't list is not a set that doesn't exist.
  *
  * Note: pulls the set's card list with limit=500 (covers every published
  * set today). For sets approaching that ceiling, the composer should
@@ -179,7 +200,7 @@ export async function loadSetState(
   slug: string,
   setCode: string,
   opts?: { limit?: number },
-): Promise<SetState | null> {
+): Promise<PriceStateResult<SetState>> {
   const config = getPriceGuideConfig(slug);
   if (!config) return null;
 
@@ -187,17 +208,23 @@ export async function loadSetState(
   const upperSetCode = setCode.toUpperCase();
   const queried_at = new Date().toISOString();
 
-  const [sets, cardsData] = await Promise.all([
-    fetchSets(config.slug).catch(() => [] as SetItem[]),
+  const [setsResult, cardsData] = await Promise.all([
+    fetchSetsDetailed(config.slug).catch(
+      () => ({ sets: [] as SetItem[], source: "unavailable" as const }),
+    ),
     fetchPrices({
       game: config.slug,
       set: upperSetCode,
       sort: "price_desc",
       limit,
-    }).catch(() => ({ items: [], total: 0 })),
+    }).catch(() => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const })),
   ]);
 
-  const set = sets.find((s) => s.code.toUpperCase() === upperSetCode);
+  if (setsResult.source === "unavailable" || cardsData.source === "unavailable") {
+    return "unavailable";
+  }
+
+  const set = setsResult.sets.find((s) => s.code.toUpperCase() === upperSetCode);
   if (!set) return null;
 
   const cards = cardsData.items.map(rowFromItem);
@@ -211,7 +238,7 @@ export async function loadSetState(
     _provenance: {
       kind: "synced",
       queried_at,
-      as_of: freshestUpdate(cardsData.items),
+      as_of: earliestUpdate(cardsData.items),
       freshness: "price_current",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["internal-only", "internal-only"],
@@ -260,6 +287,8 @@ export interface CardState {
  *   - unknown game slug
  *   - unknown set code
  *   - unknown card number within set
+ * and `"unavailable"` when the wholesale substrate is down (caller
+ * answers 503, not "card not found").
  *
  * Number matching is defensive: exact match first, then suffix-match
  * (so "001" finds "OP01-001" if needed for legacy URLs).
@@ -268,7 +297,7 @@ export async function loadCardState(
   slug: string,
   setCode: string,
   number: string,
-): Promise<CardState | null> {
+): Promise<PriceStateResult<CardState>> {
   const config = getPriceGuideConfig(slug);
   if (!config) return null;
 
@@ -276,14 +305,20 @@ export async function loadCardState(
   const numTarget = number.toLowerCase();
   const queried_at = new Date().toISOString();
 
-  const [sets, cardsData] = await Promise.all([
-    fetchSets(config.slug).catch(() => [] as SetItem[]),
+  const [setsResult, cardsData] = await Promise.all([
+    fetchSetsDetailed(config.slug).catch(
+      () => ({ sets: [] as SetItem[], source: "unavailable" as const }),
+    ),
     fetchPrices({ game: config.slug, set: upperSetCode, limit: 500 }).catch(
-      () => ({ items: [], total: 0 }),
+      () => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const }),
     ),
   ]);
 
-  const set = sets.find((s) => s.code.toUpperCase() === upperSetCode);
+  if (setsResult.source === "unavailable" || cardsData.source === "unavailable") {
+    return "unavailable";
+  }
+
+  const set = setsResult.sets.find((s) => s.code.toUpperCase() === upperSetCode);
   if (!set) return null;
 
   const item =

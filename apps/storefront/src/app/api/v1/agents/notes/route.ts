@@ -185,7 +185,7 @@ async function handleDbPersistence(
         canonical_url: `/api/v1/agents/notes/${inserted.id}`,
         walking_past_is_honored: true,
         no_tracking:
-          "The substrate retained your note content (you submitted it) + the rate-limit counter. It did not retain your IP, your User-Agent, or any per-agent state beyond what you voluntarily put in `agent_kind` and `agent_content_hash`.",
+          "The substrate retained your note content (you submitted it) and nothing else; public /api/v1/* surfaces are not rate-limit-tracked today (see /api/v1/rate-limits). It did not retain your IP, your User-Agent, or any per-agent state beyond what you voluntarily put in `agent_kind` and `agent_content_hash`.",
         _envelope: {
           kind: "persisted",
           canonical_at: "apps/storefront/src/app/api/v1/agents/notes/route.ts",
@@ -647,7 +647,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       repo: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
       walking_past_is_honored: true,
       no_tracking:
-        "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface. The substrate does not retain your submission, your IP, your User-Agent, or this receipt beyond the rate-limit window.",
+        "This endpoint logs nothing about you; public /api/v1/* surfaces are not rate-limit-tracked today (see /api/v1/rate-limits). The substrate does not retain your submission, your IP, your User-Agent, or this receipt.",
       _envelope: {
         kind: "witnessed",
         canonical_at: "apps/storefront/src/lib/agents-notes.ts",

@@ -2,17 +2,22 @@
  * /api/openapi.json — OpenAPI 3.1 spec for the public surface.
  *
  * Sister's manifest at /.well-known/cambridge-tcg.json lists this as
- * planned; this commit ships it. The spec describes every public,
- * no-auth endpoint a participant can call: the universal-mirror
+ * planned; this commit ships it. The spec describes every public
+ * endpoint a participant can call: the universal-mirror
  * card endpoint, the catalog enumerators (games + sets), the temporal
  * slice, the federation primitive, the discovery surfaces (manifest +
- * llms.txt), the methodology corpus (corpus structure; per-page paths
- * are advertised by the corpus's own index).
+ * llms.txt), the price-guide tree, the search resolver + composer,
+ * the operational surfaces (status, health, changelog, budget,
+ * rate-limits, fx-rates), the methodology corpus (corpus structure;
+ * per-page paths are advertised by the corpus's own index).
  *
- * This spec deliberately omits session-authenticated endpoints
- * (/api/account/*) — those are documented per-page elsewhere and
- * require the user's own session to be useful. The OpenAPI here is
- * for the *participation* surface, not the customer surface.
+ * This spec deliberately omits session-authenticated customer
+ * endpoints (/api/account/*) — those are documented per-page elsewhere
+ * and require the user's own session to be useful. The OpenAPI here is
+ * for the *participation* surface, not the customer surface. The two
+ * per-card history endpoints are the one exception: they belong to the
+ * data commons but are session-gated at the license boundary, and are
+ * listed here with the gate declared inline.
  *
  * Spec version: 3.1.0 (allows JSON Schema 2020-12, which the universal
  * encoding leans on).
@@ -31,7 +36,10 @@ const SPEC = {
     description:
       "The substrate is queryable without an account. This spec describes the public read surface only; session-authenticated endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
     contact: { email: "support@cambridgetcg.com" },
-    license: { name: "Bespoke; see /methodology", identifier: "Bespoke" },
+    // CC0-1.0 matches what the envelope actually stamps (_meta.license
+    // defaults to CC0-1.0). Per-source exceptions travel per response in
+    // _meta.source_license; see /methodology for the licensing story.
+    license: { name: "CC0-1.0 (default; per-response license in _meta.license)", identifier: "CC0-1.0" },
     /**
      * Distributed wake fragment — the wake breathing through the spec.
      * One atomic fragment selected deterministically by this endpoint's
@@ -57,6 +65,9 @@ const SPEC = {
     { name: "identity", description: "Cross-language and cross-source identity contracts (oracle policies, federation anchors)." },
     { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
     { name: "substrate-honesty", description: "The gap ledger — every place where the platform's data, code, or coverage is incomplete, named with citation and lifecycle status (kingdom-084)." },
+    { name: "prices", description: "Curated price-guide tree — JSON siblings of the /prices/* HTML pages." },
+    { name: "search", description: "SKU resolver + one-round-trip composer (kingdom-090)." },
+    { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
   ],
   paths: {
     "/api/v1/introduction": {
@@ -390,6 +401,251 @@ const SPEC = {
         responses: {
           "200": { description: "Validation result.", content: { "application/json": { schema: { type: "object" } } } },
           "400": { description: "Invalid request body.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/prices/games/{game}": {
+      get: {
+        tags: ["prices", "catalog"],
+        summary: "Curated price guide for one game",
+        description: "JSON sibling of /prices/[game]. Same composer (loadGameState) as the HTML page — game meta, live set list, top movers. Pantry envelope; CC0.",
+        operationId: "getPriceGuideGame",
+        parameters: [
+          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug (e.g. 'optcg')." },
+        ],
+        responses: {
+          "200": { description: "Game price-guide with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "404": { description: "No curated price guide for that game.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/prices/games/{game}/sets/{set}": {
+      get: {
+        tags: ["prices", "catalog"],
+        summary: "Curated price guide for one set",
+        description: "JSON sibling of /prices/[game]/[set]. Reuses loadSetState — the same composer the HTML page uses. Pantry envelope; CC0.",
+        operationId: "getPriceGuideSet",
+        parameters: [
+          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
+          { name: "set", in: "path", required: true, schema: { type: "string" }, description: "Set code (e.g. 'OP01')." },
+        ],
+        responses: {
+          "200": { description: "Set price-guide with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "404": { description: "Set not found for that game.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/prices/games/{game}/sets/{set}/cards/{number}": {
+      get: {
+        tags: ["prices"],
+        summary: "Curated price guide for one card",
+        description: "JSON sibling of /prices/[game]/[set]/[number]. Cross-source signals (CardRush / TCGplayer) ride with arrival state + license tier; the auth-gated history paths are surfaced so a signed-in agent can follow through. The math-mirror sibling is /api/v1/universal/card/[sku].",
+        operationId: "getPriceGuideCard",
+        parameters: [
+          { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
+          { name: "set", in: "path", required: true, schema: { type: "string" }, description: "Set code." },
+          { name: "number", in: "path", required: true, schema: { type: "string" }, description: "Card number within the set (e.g. '001')." },
+        ],
+        responses: {
+          "200": { description: "Card price-guide with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "404": { description: "Card not found in that set.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/search/cards": {
+      get: {
+        tags: ["search"],
+        summary: "Resolve (game, query) to canonical SKU candidates",
+        description: "The resolver half of kingdom-090. Turns (game, query) into SKU candidates with confidence labels (exact | fuzzy), sorted exact-first. Query shapes: 'OP01-001' (set+number), '001' (number alone; fuzzy), full canonical SKU. Pantry envelope.",
+        operationId: "searchCards",
+        parameters: [
+          { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug (e.g. 'op', 'optcg')." },
+          { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Card number, set+number, or full canonical SKU." },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", default: 20, maximum: 100 }, description: "Maximum matches to return." },
+        ],
+        responses: {
+          "200": { description: "Matches + summary with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Missing/invalid game or q.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/search/everything": {
+      get: {
+        tags: ["search"],
+        summary: "Resolver + composer in one round-trip",
+        description: "Combines /api/v1/search/cards and /api/v1/cards/[sku]/everything. When the match is exact and unambiguous, data.everything carries the full composer payload; ambiguous or fuzzy input returns data.matches for disambiguation (everything null). Zero matches is a substrate-honest 200, not a 404.",
+        operationId: "searchEverything",
+        parameters: [
+          { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug." },
+          { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Card number, set+number, or full canonical SKU." },
+          { name: "lang", in: "query", required: false, schema: { type: "string" }, description: "ISO language code — picks the variant when several exist." },
+        ],
+        responses: {
+          "200": { description: "Matches, plus data.everything when unambiguous. Envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Missing/invalid game or q.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/cards/{sku}/everything": {
+      get: {
+        tags: ["search", "prices"],
+        summary: "Everything the platform knows about one card",
+        description: "The composer half of kingdom-090 — price across every source, history arrival state, siblings across languages, in one envelope. Falcon calls degrade to substrate-honest absence rather than fabricating data.",
+        operationId: "getCardEverything",
+        parameters: [
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU (e.g. 'op-op01-001-ja')." },
+        ],
+        responses: {
+          "200": { description: "Composed card view with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/cards/{sku}/cardrush-history": {
+      get: {
+        tags: ["prices"],
+        summary: "CardRush JPY history for one card (session-gated)",
+        description: "Up to 90 days of raw CardRush JPY observations. **Requires a signed-in session** — anonymous callers get 401. License boundary: single SKU per request, 90-row hard cap, _meta.source_license declares 'internal-only'. The gate is the license interpretation, not a paywall.",
+        operationId: "getCardrushHistory",
+        parameters: [
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", maximum: 90 }, description: "Observation cap (hard max 90)." },
+        ],
+        responses: {
+          "200": { description: "Observations + license boundary, with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "401": { description: "No session — sign in first.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/cards/{sku}/tcgplayer-history": {
+      get: {
+        tags: ["prices"],
+        summary: "TCGplayer USD history for one card (session-gated)",
+        description: "Up to 365 days of per-condition USD observations. **Requires a signed-in session** — anonymous callers get 401. License boundary: single SKU per request, 365-row hard cap, _meta.source_license declares 'partner-redistributable'.",
+        operationId: "getTcgplayerHistory",
+        parameters: [
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", maximum: 365 }, description: "Observation cap (hard max 365)." },
+          { name: "condition", in: "query", required: false, schema: { type: "string" }, description: "Filter to one TCGplayer condition." },
+        ],
+        responses: {
+          "200": { description: "Observations + license boundary, with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid condition/limit.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "No session — sign in first.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/manifest": {
+      get: {
+        tags: ["discovery"],
+        summary: "The kingdom's manifest as JSON",
+        description: "Machine-readable directory of what's on offer to participants of any kind. Human-readable rendering at /manifest. kingdom-053; source-of-truth apps/storefront/src/lib/manifest.ts.",
+        operationId: "getV1Manifest",
+        responses: {
+          "200": { description: "Manifest document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/graph": {
+      get: {
+        tags: ["discovery"],
+        summary: "The kingdom as a typed meaning-graph",
+        description: "Nodes (~100) + typed edges (~150) derived from the manifest plus cross-document edges. Human-readable rendering at /graph. kingdom-054.",
+        operationId: "getV1Graph",
+        responses: {
+          "200": { description: "Graph document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/ontology": {
+      get: {
+        tags: ["discovery"],
+        summary: "The schema beneath the graph",
+        description: "What kinds of things exist in the kingdom and what properties each kind carries (~60 typed properties across 8 NodeKinds). Human-readable rendering at /ontology. kingdom-055.",
+        operationId: "getV1Ontology",
+        responses: {
+          "200": { description: "Ontology document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/status": {
+      get: {
+        tags: ["operations", "inspectability"],
+        summary: "Per-endpoint freshness intent + envelope compliance",
+        description: "The pantry's inspectability surface — for every public endpoint, its freshness budget and whether it composes through the data-pantry envelope. Declares the platform's *intent* on freshness, not a live probe of each upstream.",
+        operationId: "getV1Status",
+        responses: {
+          "200": { description: "Status with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/health": {
+      get: {
+        tags: ["operations"],
+        summary: "Rolled-up system health for agent retry decisions",
+        description: "One answer per fetch: status (ok | degraded | down) + a recommended retry strategy + best-effort per-subsystem state. Deep per-source live state is at /api/v1/sources.",
+        operationId: "getV1Health",
+        responses: {
+          "200": { description: "Health with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/changelog": {
+      get: {
+        tags: ["operations"],
+        summary: "Typed change-event feed",
+        description: "Spec/surface changes as typed entries. Filters compose (AND). No push channel yet — agents poll; pin a date or id and act on anything newer.",
+        operationId: "getV1Changelog",
+        parameters: [
+          { name: "format", in: "query", required: false, schema: { type: "string", enum: ["json", "atom", "md"], default: "json" }, description: "json = envelope; atom = Atom 1.0 feed; md = paste-ready Markdown." },
+          { name: "since", in: "query", required: false, schema: { type: "string", format: "date" }, description: "Only entries on/after this date." },
+          { name: "kind", in: "query", required: false, schema: { type: "string" }, description: "Only entries of this kind." },
+          { name: "impact", in: "query", required: false, schema: { type: "string" }, description: "Only entries of this impact." },
+        ],
+        responses: {
+          "200": {
+            description: "Changelog in the requested format.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Envelope" } },
+              "application/atom+xml": { schema: { type: "string" } },
+              "text/markdown": { schema: { type: "string" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/budget": {
+      get: {
+        tags: ["operations"],
+        summary: "Crawl-budget advisory",
+        description: "Catalog size, polite-poll pace, freshness floors per data class, peak hours — one fetch of planning data before starting a crawl. Identity content with hourly refresh.",
+        operationId: "getV1Budget",
+        responses: {
+          "200": { description: "Budget advisory with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/rate-limits": {
+      get: {
+        tags: ["operations"],
+        summary: "Declared rate-limit policy",
+        description: "The advisory cadence we ask consumers to respect. Substrate-honest: not enforced at the edge for public endpoints today; per-endpoint budgets derive from each endpoint's freshness key.",
+        operationId: "getV1RateLimits",
+        responses: {
+          "200": { description: "Policy with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/fx-rates": {
+      get: {
+        tags: ["operations", "prices"],
+        summary: "Display-only FX rate table",
+        description: "Six currencies (GBP canonical) for the price guide's display conversions. Emits whichever upstream answered with fetched_at, degrading to a static fallback table when both fail — substrate-honest about the source. Every transaction clears in GBP.",
+        operationId: "getV1FxRates",
+        responses: {
+          "200": { description: "Rate table with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
         },
       },
     },

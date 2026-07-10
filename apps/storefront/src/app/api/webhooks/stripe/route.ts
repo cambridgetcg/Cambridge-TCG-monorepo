@@ -12,6 +12,20 @@ import {
 } from "@/lib/stock/reservations";
 import { recordOrderFromStripeSession } from "@/lib/orders/record";
 
+// Checkout sessions minted by the membership/P2P flows carry a
+// metadata.type and are fulfilled by their dedicated branches in the
+// checkout.session.completed handler; the retired retail checkout's
+// sessions carry no type. The legacy retail fulfilment branch must skip
+// every tagged type, or subscription/auction/trade payments also mint
+// customer_orders rows and earn retail points/cashback.
+const NON_RETAIL_SESSION_TYPES = new Set([
+  "tier_subscription",
+  "platinum_subscription",
+  "market_trade_payment",
+  "market_lot_payment",
+  "auction_payment",
+]);
+
 export async function POST(request: Request) {
   // Order matters: gate the request on configuration + signature
   // BEFORE invoking Stripe. getStripe() throws when STRIPE_SECRET_KEY
@@ -44,13 +58,21 @@ export async function POST(request: Request) {
   // so recalculateTier() keeps the user on Platinum.
   if (event.type === "invoice.payment_succeeded") {
     try {
-      const invoice = event.data.object as Stripe.Invoice & { subscription?: string };
+      // The pinned API version (post-Basil) delivers the subscription
+      // pointer at invoice.parent.subscription_details.subscription;
+      // events queued under older versions may still carry the legacy
+      // top-level invoice.subscription. Read both — miss it and the
+      // renewal never extends subscription_expires_at, so a paying
+      // member is demoted at period end with no error anywhere.
+      const invoice = event.data.object as Stripe.Invoice & {
+        subscription?: string | { id?: string } | null;
+      };
+      const subRef =
+        invoice.subscription ??
+        invoice.parent?.subscription_details?.subscription ??
+        null;
       const subId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription
-            ? (invoice.subscription as { id?: string }).id ?? null
-            : null;
+        typeof subRef === "string" ? subRef : subRef ? subRef.id ?? null : null;
       // Skip the first invoice — that's the initial checkout; the
       // checkout.session.completed handler already stamped expires_at.
       // Renewal invoices have billing_reason='subscription_cycle'.
@@ -78,7 +100,17 @@ export async function POST(request: Request) {
             await recalculateTier(u.rows[0].id).catch(() => {});
           }
           console.log(`[webhook] Platinum renewal: subscription ${subId} extended`);
+        } else {
+          console.error(
+            `[webhook] renewal invoice ${invoice.id} (sub ${subId}) has no line period end — subscription_expires_at NOT extended`,
+          );
         }
+      } else if (invoice.billing_reason === "subscription_cycle") {
+        // Loud on purpose: a renewal we cannot map to a subscription
+        // means a paying member gets demoted when expires_at lapses.
+        console.error(
+          `[webhook] renewal invoice ${invoice.id} paid but no subscription id resolved — subscription_expires_at NOT extended`,
+        );
       }
     } catch (err) {
       console.error("[webhook] invoice.payment_succeeded error:", err);
@@ -97,7 +129,13 @@ export async function POST(request: Request) {
   if (event.type === "customer.subscription.updated") {
     try {
       const sub = event.data.object as Stripe.Subscription;
-      const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end ?? null;
+      // current_period_end moved from the subscription to its items in
+      // the pinned API version; older queued events still carry the
+      // top-level field. Read both.
+      const periodEnd =
+        (sub as unknown as { current_period_end?: number }).current_period_end ??
+        sub.items?.data?.[0]?.current_period_end ??
+        null;
       // Capture payment method brand/last4 if the default just changed.
       let pmBrand: string | null = null;
       let pmLast4: string | null = null;
@@ -440,115 +478,146 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true });
     }
 
-    try {
-      const skus: { sku: string; qty: number; price_gbp: number; name?: string }[] = session.metadata?.skus
-        ? JSON.parse(session.metadata.skus)
-        : [];
-
-      // Report sale to wholesale
-      if (skus.length > 0) {
-        const ok = await reportSale({
-          channel: "cambridgetcg",
-          order_ref: session.id,
-          items: skus.map((s) => ({
-            sku: s.sku,
-            qty: s.qty,
-            price_gbp: s.price_gbp,
-          })),
-        });
-
-        console.log(
-          `[webhook] Order ${session.id} — reportSale ${ok ? "succeeded" : "failed"}`,
-          { skus }
-        );
-      }
-
-      // Record order in customer_orders. Idempotent on stripe_session_id;
-      // /order-confirmation also calls this as a defensive backup, and the
-      // hourly reconciliation cron sweeps any that slipped past both. See
-      // apps/storefront/src/lib/orders/record.ts.
-      const recorded = await recordOrderFromStripeSession(session);
-      const { userId, email, totalGbp: total } = recorded;
-      console.log(`[webhook] Order ${session.id} ${recorded.created ? "recorded" : "already-existed"} for ${email}`);
-
-      // Commit the stock reservation into a sale movement. Idempotent on
-      // Stripe redelivery via @cambridge-tcg/stock's (cardId, referenceId)
-      // UNIQUE — duplicate events become no-ops.
-      // See docs/architecture/storefront-checkout-flow.md.
+    // Legacy retail fulfilment — pre-retirement retail sessions only
+    // (they never set metadata.type).
+    const sessionType = session.metadata?.type;
+    if (!sessionType || !NON_RETAIL_SESSION_TYPES.has(sessionType)) {
       try {
-        const commit = await commitCartToSale(
-          holderForStripeSession(session.id),
-          skus.map((s) => ({ sku: s.sku, quantity: s.qty })),
-          "cambridgetcg.com",
-        );
-        if (!commit.ok) {
-          console.error(
-            `[webhook] stock commit failed for ${session.id}: ${commit.message}`,
-          );
-        } else {
+        const skus: { sku: string; qty: number; price_gbp: number; name?: string }[] = session.metadata?.skus
+          ? JSON.parse(session.metadata.skus)
+          : [];
+
+        // Report sale to wholesale
+        if (skus.length > 0) {
+          const ok = await reportSale({
+            channel: "cambridgetcg",
+            order_ref: session.id,
+            items: skus.map((s) => ({
+              sku: s.sku,
+              qty: s.qty,
+              price_gbp: s.price_gbp,
+            })),
+          });
+
           console.log(
-            `[webhook] stock committed for ${session.id}: ${commit.committed} movement(s)`,
+            `[webhook] Order ${session.id} — reportSale ${ok ? "succeeded" : "failed"}`,
+            { skus }
           );
         }
-      } catch (e) {
-        console.error(`[webhook] stock commit threw for ${session.id}:`, e);
-      }
 
-      // Social: activity feed + achievement
-      if (userId) {
-        postActivity(userId, "card_added", "Purchased cards from the store").catch(() => {});
-        awardAchievement(userId, "first_purchase").catch(() => {});
-      }
+        // Record order in customer_orders. Idempotent on stripe_session_id;
+        // /order-confirmation also calls this as a defensive backup, and the
+        // hourly reconciliation cron sweeps any that slipped past both. See
+        // apps/storefront/src/lib/orders/record.ts.
+        const recorded = await recordOrderFromStripeSession(session);
+        const { userId, email, totalGbp: total } = recorded;
+        console.log(`[webhook] Order ${session.id} ${recorded.created ? "recorded" : "already-existed"} for ${email}`);
 
-      // Debit applied store credit. The amount is in metadata (set by
-      // the retail checkout endpoint, retired 2026-07-06 — this webhook
-      // keeps honoring sessions it minted) so we don't round-trip. Atomic via a
-      // single UPDATE that refuses to go negative; if balance changed
-      // mid-flight (concurrent debits, manual adjustments), the user
-      // sees a partial debit and a ledger entry reflects what was
-      // actually subtracted.
-      const creditAppliedGbp = session.metadata?.credit_applied_gbp
-        ? parseFloat(session.metadata.credit_applied_gbp)
-        : 0;
-      const creditUserId = session.metadata?.credit_user_id || userId;
-      if (creditUserId && creditAppliedGbp > 0) {
+        // Commit the stock reservation into a sale movement. Idempotent on
+        // Stripe redelivery via @cambridge-tcg/stock's (cardId, referenceId)
+        // UNIQUE — duplicate events become no-ops.
+        // See docs/architecture/storefront-checkout-flow.md.
         try {
-          const debitRes = await query(
-            `UPDATE users
-                SET store_credit_balance = GREATEST(0, store_credit_balance - $2),
-                    updated_at = NOW()
-              WHERE id = $1
-              RETURNING store_credit_balance::numeric AS balance`,
-            [creditUserId, creditAppliedGbp.toFixed(2)]
+          const commit = await commitCartToSale(
+            holderForStripeSession(session.id),
+            skus.map((s) => ({ sku: s.sku, quantity: s.qty })),
+            "cambridgetcg.com",
           );
-          if (debitRes.rows[0]) {
-            await query(
-              `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
-               VALUES ($1, $2, $3, 'redeemed_checkout', $4, $5)`,
-              [creditUserId, (-creditAppliedGbp).toFixed(2), debitRes.rows[0].balance,
-               `Applied at checkout`, session.id]
+          if (!commit.ok) {
+            console.error(
+              `[webhook] stock commit failed for ${session.id}: ${commit.message}`,
             );
-            console.log(`[webhook] Credit redeemed: £${creditAppliedGbp.toFixed(2)} for ${creditUserId}`);
+          } else {
+            console.log(
+              `[webhook] stock committed for ${session.id}: ${commit.committed} movement(s)`,
+            );
           }
-        } catch (creditErr) {
-          console.error("[webhook] Credit debit failed:", creditErr);
+        } catch (e) {
+          console.error(`[webhook] stock commit threw for ${session.id}:`, e);
         }
-      }
 
-      // Process membership rewards (points + cashback). `total` is the cash
-      // amount Stripe actually collected — i.e. cart subtotal minus credit
-      // and minus tier discount. So rewards naturally apply to "cash spent",
-      // matching the marketing promise.
-      if (userId && total > 0) {
-        try {
-          const rewards = await processOrderRewards(userId, total, session.id);
-          console.log(`[webhook] Rewards: ${rewards.pointsEarned} points, £${rewards.cashbackAmount} cashback for ${email}`);
-        } catch (rewardErr) {
-          console.error("[webhook] Rewards processing failed (order still recorded):", rewardErr);
+        // Social: activity feed + achievement
+        if (userId) {
+          postActivity(userId, "card_added", "Purchased cards from the store").catch(() => {});
+          awardAchievement(userId, "first_purchase").catch(() => {});
         }
+
+        // Debit applied store credit. The amount is in metadata (set by
+        // the retail checkout endpoint, retired 2026-07-06 — this webhook
+        // keeps honoring sessions it minted) so we don't round-trip. Atomic via a
+        // single UPDATE that refuses to go negative; if balance changed
+        // mid-flight (concurrent debits, manual adjustments), the user
+        // sees a partial debit and a ledger entry reflects what was
+        // actually subtracted.
+        const creditAppliedGbp = session.metadata?.credit_applied_gbp
+          ? parseFloat(session.metadata.credit_applied_gbp)
+          : 0;
+        const creditUserId = session.metadata?.credit_user_id || userId;
+        if (creditUserId && creditAppliedGbp > 0) {
+          try {
+            // Stripe redelivers this event on any non-2xx/timeout. The
+            // ledger row keyed on this session is the debit's one-shot
+            // gate — recorded.created can't be, because the
+            // /order-confirmation backup may insert the order row before
+            // this webhook runs while side effects stay webhook-only
+            // (see lib/orders/record.ts).
+            const debitRes = await query(
+              `UPDATE users
+                  SET store_credit_balance = GREATEST(0, store_credit_balance - $2),
+                      updated_at = NOW()
+                WHERE id = $1
+                  AND NOT EXISTS (
+                    SELECT 1 FROM store_credit_ledger
+                     WHERE reference_id = $3 AND type = 'redeemed_checkout'
+                  )
+                RETURNING store_credit_balance::numeric AS balance`,
+              [creditUserId, creditAppliedGbp.toFixed(2), session.id]
+            );
+            if (debitRes.rows[0]) {
+              await query(
+                `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
+                 VALUES ($1, $2, $3, 'redeemed_checkout', $4, $5)`,
+                [creditUserId, (-creditAppliedGbp).toFixed(2), debitRes.rows[0].balance,
+                 `Applied at checkout`, session.id]
+              );
+              console.log(`[webhook] Credit redeemed: £${creditAppliedGbp.toFixed(2)} for ${creditUserId}`);
+            }
+          } catch (creditErr) {
+            console.error("[webhook] Credit debit failed:", creditErr);
+          }
+        }
+
+        // Process membership rewards (points + cashback). `total` is the cash
+        // amount Stripe actually collected — i.e. cart subtotal minus credit
+        // and minus tier discount. So rewards naturally apply to "cash spent",
+        // matching the marketing promise.
+        if (userId && total > 0) {
+          try {
+            // Same redelivery gate: earnPoints/addCredit have no
+            // reference_id dedupe of their own, so check for the ledger
+            // rows a prior delivery of this session would have written.
+            const priorRewards = await query(
+              `SELECT 1 FROM points_ledger
+                WHERE reference_id = $1 AND type = 'order_earned'
+               UNION ALL
+               SELECT 1 FROM store_credit_ledger
+                WHERE reference_id = $1 AND type = 'cashback'
+               LIMIT 1`,
+              [session.id]
+            );
+            if (priorRewards.rows.length === 0) {
+              const rewards = await processOrderRewards(userId, total, session.id);
+              console.log(`[webhook] Rewards: ${rewards.pointsEarned} points, £${rewards.cashbackAmount} cashback for ${email}`);
+            } else {
+              console.log(`[webhook] Rewards for ${session.id} already granted — redelivery no-op`);
+            }
+          } catch (rewardErr) {
+            console.error("[webhook] Rewards processing failed (order still recorded):", rewardErr);
+          }
+        }
+      } catch (err) {
+        console.error("[webhook] Error processing order:", err);
       }
-    } catch (err) {
-      console.error("[webhook] Error processing order:", err);
     }
 
     // Handle Platinum subscription

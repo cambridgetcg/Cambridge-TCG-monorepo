@@ -62,6 +62,13 @@ export async function POST(request: Request) {
   );
   if (trade.rows.length === 0) return NextResponse.json({ error: "Trade not found." }, { status: 404 });
 
-  const dispute = await raiseDispute(body.tradeId, session.user.id, body.reason, body.description.trim());
-  return NextResponse.json({ dispute });
+  try {
+    const dispute = await raiseDispute(body.tradeId, session.user.id, body.reason, body.description.trim());
+    return NextResponse.json({ dispute });
+  } catch (err) {
+    // raiseDispute throws when the trade isn't disputable (unpaid, closed,
+    // past its window, or already disputed) — a client error, not a 500.
+    const message = err instanceof Error ? err.message : "Could not raise dispute.";
+    return NextResponse.json({ error: message }, { status: 409 });
+  }
 }

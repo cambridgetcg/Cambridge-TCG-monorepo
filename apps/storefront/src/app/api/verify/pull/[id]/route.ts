@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 
-// Public verification endpoint. NO AUTH — only data that's safe to
-// expose to anyone. Specifically excluded:
-//   - user_id (the pull's owner shouldn't be discoverable from a pull_id)
+// Public verification endpoint. NO AUTH required — only data that's safe
+// to expose to anyone. Specifically excluded:
+//   - user_id (the pull's owner shouldn't be discoverable from a pull_id).
+//     The client_seed embeds the owner's userId, so the full seed is
+//     revealed only to the authenticated owner; the public surface gets
+//     the anonymised suffix.
 //   - earned_from + tier are kept (they're just metadata)
 //
-// Everything else IS the proof. The seed, the commitment, the nonce,
-// the result — all needed to verify, all defensible to publish (the
-// commit-reveal scheme assumes the seed becomes public after the roll).
+// Everything else IS the proof. The server seed, the commitment, the
+// nonce, the result — all needed to verify, all defensible to publish
+// (the commit-reveal scheme assumes the seed becomes public after the
+// roll).
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,7 +24,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const r = await query(
-    `SELECT p.id, p.tier, p.earned_from,
+    `SELECT p.id, p.user_id, p.tier, p.earned_from,
             p.rng_server_seed_hash, p.rng_server_seed,
             p.rng_client_seed, p.rng_nonce,
             p.rolled_rarity, p.rolled_sku, p.rolled_spot_gbp,
@@ -43,15 +48,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const row = r.rows[0];
 
-  // Anonymise the client_seed for display: format is `${userId}:${suffix}`
+  // Anonymise the client_seed: format is `${userId}:${suffix}`
   // (post-Phase E hardening) or just `${userId}` (legacy). The userId is
-  // a UUID; the suffix is random hex. We expose only the suffix-side in
-  // the response so the public verifier doesn't leak ownership.
-  //
-  // Note: the FULL client_seed is needed for verification math. We expose
-  // it because (a) the rolling user knows it's their userId, (b) anyone
-  // mapping pull→user from the public surface would already need DB
-  // access. Documenting the trade-off here.
+  // a UUID; the suffix is random hex. The full seed is the pull_id→user
+  // mapping this endpoint promises not to provide, so the public surface
+  // gets only the suffix-side; the FULL seed (needed for verification
+  // math) is revealed only to the pull's authenticated owner.
+  const session = await auth();
+  const isOwner = !!session?.user?.id && session.user.id === row.user_id;
   const clientSeed: string | null = row.rng_client_seed;
   const clientSeedDisplay = clientSeed
     ? clientSeed.includes(":")
@@ -66,7 +70,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     commitment: row.rng_server_seed_hash,
     server_seed: row.rng_server_seed,
-    client_seed: clientSeed,
+    client_seed: isOwner ? clientSeed : null,
     client_seed_display: clientSeedDisplay,
     nonce: row.rng_nonce != null ? Number(row.rng_nonce) : null,
 

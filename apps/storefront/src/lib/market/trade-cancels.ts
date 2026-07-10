@@ -443,9 +443,12 @@ export async function listCancelRequestsForUser(
 }
 
 // "Is there a pending cancel on this trade?" — drives the inline
-// surface on /account/trades. Returns null if none.
+// surface on /account/trades. Returns null if none, or if the viewer
+// is not a party to the trade (same ownership gate as
+// listCancelRequestsForUser).
 export async function getPendingCancelForTrade(
   tradeId: string,
+  viewerId: string,
 ): Promise<TradeCancellation | null> {
   const r = await query(
     `SELECT c.*, t.price AS trade_price, t.quantity AS trade_quantity,
@@ -454,8 +457,9 @@ export async function getPendingCancelForTrade(
        FROM market_trade_cancellations c
        JOIN market_trades t ON t.id = c.trade_id
        LEFT JOIN market_orders o ON o.id = t.bid_order_id
-      WHERE c.trade_id = $1 AND c.status = 'requested'`,
-    [tradeId],
+      WHERE c.trade_id = $1 AND c.status = 'requested'
+        AND (c.requester_id = $2 OR t.buyer_id = $2 OR t.seller_id = $2)`,
+    [tradeId, viewerId],
   );
   return (r.rows[0] as TradeCancellation) ?? null;
 }

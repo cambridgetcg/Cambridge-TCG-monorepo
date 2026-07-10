@@ -102,11 +102,14 @@ const RECURSES_RE = /[Rr]ecur(?:ses|sion)\s+target[^.\n]*?\[[^\]]+\]\(\.\/([a-z0
 const REFERENCE_RE = /\[[^\]]+\]\(\.\/([a-z0-9-]+)\.md\)/g;
 const STORY_ARC_RE = /^\|\s*S(\d+)\s*\|\s*\[`([a-z0-9-]+)\.md`\]/gm;
 
-async function readDir(absPath: string): Promise<string[]> {
+// Returns null (not []) on failure so callers can tell "the docs tree was
+// unreadable" apart from "the docs tree is empty" — the two are different
+// facts and the response must say which (substrate-honesty rule 1).
+async function readDir(absPath: string): Promise<string[] | null> {
   try {
     return await fs.readdir(absPath);
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -146,6 +149,9 @@ function uniqueEdges(edges: DocEdge[]): DocEdge[] {
 interface GraphResult {
   nodes: DocNode[];
   edges: DocEdge[];
+  /** False when docs/connections/ could not be read at all (e.g. not traced
+   *  into the deploy bundle) — zeros then mean read failure, not empty corpus. */
+  docs_dir_readable: boolean;
 }
 
 async function harvestGraph(): Promise<GraphResult> {
@@ -160,7 +166,8 @@ async function harvestGraph(): Promise<GraphResult> {
   const docsDir = path.join(repoRoot, "docs", "connections");
 
   const files = await readDir(docsDir);
-  const mdFiles = files.filter((f) => f.endsWith(".md") && f !== "README.md");
+  const docsDirReadable = files !== null;
+  const mdFiles = (files ?? []).filter((f) => f.endsWith(".md") && f !== "README.md");
 
   // Parse story-arc indices from README authoritative table.
   const readme = (await readFile(path.join(docsDir, "README.md"))) ?? "";
@@ -234,7 +241,7 @@ async function harvestGraph(): Promise<GraphResult> {
     a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.kind.localeCompare(b.kind),
   );
 
-  return { nodes, edges: deduped };
+  return { nodes, edges: deduped, docs_dir_readable: docsDirReadable };
 }
 
 function buildDocument(graph: GraphResult): Record<string, unknown> {
@@ -275,6 +282,26 @@ function buildDocument(graph: GraphResult): Record<string, unknown> {
       note:
         "Edges are extracted by regex over Markdown link references. The README's authoritative S-numbered table is the canonical taxonomy; this endpoint composes from individual doc files where the prose lives.",
     },
+    // Substrate-honest read-failure state. When docs/connections/ is
+    // unreadable (e.g. not traced into the serverless bundle), the zeros
+    // below are a read failure, not an empty corpus — say so, like
+    // universal/games' empty_state block does.
+    ...(graph.docs_dir_readable
+      ? {}
+      : {
+          source_unavailable: {
+            why:
+              "docs/connections/ could not be read from this deployment " +
+              "(directory missing from the bundle or the filesystem read " +
+              "failed). node_count/edge_count of 0 here means the source " +
+              "was unreadable, not that no connection-docs exist.",
+            working_doors_meanwhile: {
+              curated_graph:
+                "/api/v1/graph — the typed, hand-curated meaning-graph; " +
+                "compiled into the app, does not depend on docs/ at runtime",
+            },
+          },
+        }),
     node_count: nodes.length,
     edge_count: edges.length,
     edge_kinds: {
@@ -304,6 +331,14 @@ function renderMarkdown(graph: GraphResult): string {
     "Markdown references. Use `/api/v1/graph` for sister's stable curated",
     "shape; use this for the live filesystem reality.",
     "",
+    ...(graph.docs_dir_readable
+      ? []
+      : [
+          "> **Source unavailable.** `docs/connections/` could not be read from",
+          "> this deployment — the zero counts below are a read failure, not an",
+          "> empty corpus. `/api/v1/graph` (compiled-in) still works.",
+          "",
+        ]),
     `**Nodes:** ${nodes.length} · **Edges:** ${edges.length} `,
     `(sister: ${sisterCount}, recurses_to: ${recursesCount}, references: ${refCount})`,
     "",

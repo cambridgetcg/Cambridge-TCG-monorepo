@@ -39,7 +39,10 @@ function parseQueryTime(q: string | null): number | null {
   const n = Number(q);
   if (Number.isFinite(n) && n > 0) {
     // Heuristic: > 10^12 means milliseconds; otherwise seconds.
-    return n > 1e12 ? n : n * 1000;
+    const ms = n > 1e12 ? n : n * 1000;
+    // ECMAScript Dates are only valid within ±8.64e15 ms; anything beyond
+    // would make toISOString() throw, so treat it as "no agent time given".
+    return ms <= 8.64e15 ? ms : null;
   }
   const t = Date.parse(q);
   return Number.isFinite(t) ? t : null;

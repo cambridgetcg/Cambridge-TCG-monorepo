@@ -80,10 +80,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   );
   const orderId: number = order.rows[0].id;
 
-  await query(
-    `UPDATE vault_items SET redemption_order_id=$2 WHERE id=$1`,
-    [item.id, orderId],
+  // Guarded attach: a concurrent redeem that won the race leaves this
+  // matching 0 rows, so the order we just created must be removed rather
+  // than orphaned in the admin fulfilment queue.
+  const attached = await query(
+    `UPDATE vault_items SET redemption_order_id=$2
+     WHERE id=$1 AND user_id=$3 AND status='reserved' AND redemption_order_id IS NULL`,
+    [item.id, orderId, session.user.id],
   );
+  if (attached.rowCount === 0) {
+    await query(
+      `DELETE FROM customer_orders WHERE id=$1 AND status='redemption_pending'`,
+      [orderId],
+    );
+    return NextResponse.json({ error: "Item already has a pending redemption." }, { status: 409 });
+  }
 
   return NextResponse.json({
     redemption_order_id: orderId,

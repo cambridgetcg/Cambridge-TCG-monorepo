@@ -46,10 +46,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const state = await loadCardState(game, set, number);
   // kingdom-091: head/body fidelity. The page handler notFound()s when state
   // is null; mirror that here so the title says "not found" + robots:noindex.
-  if (!state) {
+  // An upstream outage ("unavailable") is NOT a not-found — never let a
+  // transient outage bake a permanent "card not found" into the head.
+  if (state === "unavailable" || !state) {
     return {
-      title: `${set.toUpperCase()} ${number.toUpperCase()} — card not found · Cambridge TCG`,
-      description: `No catalog entry for ${set.toUpperCase()} ${number.toUpperCase()}.`,
+      title:
+        state === "unavailable"
+          ? `${set.toUpperCase()} ${number.toUpperCase()} — prices temporarily unavailable · Cambridge TCG`
+          : `${set.toUpperCase()} ${number.toUpperCase()} — card not found · Cambridge TCG`,
+      description:
+        state === "unavailable"
+          ? `Pricing is temporarily unavailable for ${set.toUpperCase()} ${number.toUpperCase()}.`
+          : `No catalog entry for ${set.toUpperCase()} ${number.toUpperCase()}.`,
       robots: { index: false },
     };
   }
@@ -76,6 +84,10 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
     fetchRates(),
     getDisplayCurrency(),
   ]);
+  if (state === "unavailable") {
+    // An outage must surface as a transient error, never a false 404.
+    throw new Error("Pricing substrate temporarily unavailable");
+  }
   if (!state) notFound();
 
   const { config, set: setMeta, card, cross_source_signals: signals } = state;

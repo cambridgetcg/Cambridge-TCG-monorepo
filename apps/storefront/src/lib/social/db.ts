@@ -68,14 +68,18 @@ export async function getShowcase(userId: string): Promise<ShowcaseCard[]> {
   return result.rows as ShowcaseCard[];
 }
 
-export async function addToShowcase(userId: string, portfolioCardId: string, caption?: string): Promise<void> {
+// Returns false when the portfolio card doesn't exist or isn't owned by the
+// caller — the FK alone only proves existence, not ownership.
+export async function addToShowcase(userId: string, portfolioCardId: string, caption?: string): Promise<boolean> {
   const count = await query(`SELECT COUNT(*) FROM showcase_cards WHERE user_id=$1`, [userId]);
   const order = parseInt(count.rows[0].count, 10);
-  await query(
+  const result = await query(
     `INSERT INTO showcase_cards (user_id, portfolio_card_id, display_order, caption)
-     VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, portfolio_card_id) DO UPDATE SET caption=$4`,
+     SELECT $1, id, $3, $4 FROM portfolio_cards WHERE id=$2 AND user_id=$1
+     ON CONFLICT (user_id, portfolio_card_id) DO UPDATE SET caption=$4`,
     [userId, portfolioCardId, order, caption || null]
   );
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function removeFromShowcase(userId: string, portfolioCardId: string): Promise<void> {

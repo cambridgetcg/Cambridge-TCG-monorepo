@@ -18,6 +18,12 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
   const { game, set } = await params;
 
   const state = await loadSetState(game, set);
+  if (state === "unavailable") {
+    return errorResponse({
+      code: "SOURCE_UNAVAILABLE",
+      message: `The pricing substrate is temporarily unreachable — this is an outage, not a claim that set '${set}' is absent. Retry shortly.`,
+    });
+  }
   if (!state) {
     return errorResponse({
       code: "NOT_FOUND",

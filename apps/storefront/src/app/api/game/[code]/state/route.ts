@@ -20,12 +20,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ code: s
   // tab — get BOTH sides masked, so spectating can never be a wallhack.
   const state = room.game_state;
   if (state) {
+    // Whitelist, never spread: any card field not named here (rarity — which
+    // alone identifies the Leader/archetype — and anything added later) must
+    // stay hidden from opponents and spectators.
+    const maskCard = (c: Record<string, unknown>) => ({
+      id: c.id, sku: "", name: "?", cardNumber: "?", imageUrl: null, rarity: null,
+      isRested: false, attachedDon: 0, zone: c.zone, position: c.position, faceDown: true,
+    });
     const mask = (key: "player1" | "player2") => {
       const p = state[key];
       if (!p) return;
-      p.hand = p.hand?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
-      p.deck = p.deck?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
-      p.life = p.life?.map((c: Record<string, unknown>) => ({ ...c, sku: "", name: "?", cardNumber: "?", imageUrl: null, faceDown: true })) || [];
+      p.hand = p.hand?.map(maskCard) || [];
+      p.deck = p.deck?.map(maskCard) || [];
+      p.life = p.life?.map(maskCard) || [];
     };
     if (isPlayer) {
       mask(isP1 ? "player2" : "player1");

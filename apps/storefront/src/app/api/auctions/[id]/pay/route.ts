@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { getAuction } from "@/lib/auction/db";
+import { query } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { formatDateTime } from "@/lib/format";
 
@@ -77,6 +78,40 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   try {
     const stripe = getStripe();
+
+    // Reuse the stored open Checkout session rather than minting a second
+    // one: Stripe keeps prior sessions payable (24h default), and if two
+    // get paid the webhook's `status = 'ended'` guard makes the second flip
+    // a silent no-op — a duplicate charge with no refund or alert. A stored
+    // session that already completed means the paid-flip is in flight.
+    if (auction.stripe_session_id) {
+      const prior = await stripe.checkout.sessions
+        .retrieve(auction.stripe_session_id)
+        .catch(() => null); // unknown id (mode/key rotation) — mint fresh below
+      if (prior?.status === "open" && prior.url) {
+        return NextResponse.json({ url: prior.url });
+      }
+      if (prior?.status === "complete") {
+        return NextResponse.json(
+          { error: "Payment already received — confirmation is processing. Refresh in a moment." },
+          { status: 409 },
+        );
+      }
+    }
+
+    // Cap the session's life to the winner's real payment window, within
+    // Stripe's allowed 30-minute–24-hour expires_at bounds, so an abandoned
+    // checkout can't be paid after the unpaid-auction sweep has moved on.
+    const windowRemainingMs = auction.payment_expires_at
+      ? new Date(auction.payment_expires_at).getTime() - Date.now()
+      : null;
+    const expiresAt =
+      windowRemainingMs !== null && Number.isFinite(windowRemainingMs)
+        ? Math.floor(
+            (Date.now() + Math.min(Math.max(windowRemainingMs, 30 * 60 * 1000), 24 * 60 * 60 * 1000)) / 1000,
+          )
+        : undefined;
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -104,11 +139,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       shipping_address_collection: {
         allowed_countries: GLOBAL_SHIPPING_COUNTRIES,
       },
+      ...(expiresAt ? { expires_at: expiresAt } : {}),
       metadata: {
         type: "auction_payment",
         auction_id: id,
       },
-    });
+    },
+    // Concurrent POSTs collapse to one session (Stripe replays the first
+    // response for the same key for 24h); the key rotates when the stored
+    // session went stale so a legitimate re-mint isn't served the expired
+    // session from that cache. Mirrors recordAuctionPayout's
+    // `payout-auction-<id>` convention.
+    { idempotencyKey: `auction-pay-${id}-${auction.stripe_session_id ?? "first"}` });
+
+    // Persist the session id so a repeat POST reuses it (above) and the
+    // webhook can do an idempotent lookup. The status guard means we never
+    // overwrite a session id the paid-flip has already recorded.
+    await query(
+      `UPDATE auctions SET stripe_session_id = $1, updated_at = NOW() WHERE id = $2 AND status = 'ended'`,
+      [checkoutSession.id, id],
+    );
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (err) {

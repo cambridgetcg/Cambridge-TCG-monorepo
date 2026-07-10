@@ -32,6 +32,14 @@ export function applyAction(
       const card = allCards.find((c) => c.id === cardId);
       if (!card) break;
 
+      // Only zones the branches below re-insert into. Checked before
+      // removal so a card headed for an unknown zone stays put instead
+      // of vanishing from the game.
+      const destinations: GameCard["zone"][] = [
+        "field", "hand", "trash", "life", "stage", "leader", "deck",
+      ];
+      if (!destinations.includes(toZone as GameCard["zone"])) break;
+
       // Character area caps at 5 (OPTCG rule) — also blocks deck-dump
       // cheats. Checked before removal so a rejected card stays put.
       if (toZone === "field" && card.zone !== "field" && player.field.length >= 5) break;
@@ -57,6 +65,10 @@ export function applyAction(
       } else if (toZone === "life") {
         card.faceDown = true;
         player.life.push(card);
+      } else if (toZone === "deck") {
+        // Bottom of deck, face down (OPTCG "return to bottom of deck")
+        card.faceDown = true;
+        player.deck.push(card);
       } else if (toZone === "stage") player.stage = card;
       else if (toZone === "leader") player.leader = card;
       break;

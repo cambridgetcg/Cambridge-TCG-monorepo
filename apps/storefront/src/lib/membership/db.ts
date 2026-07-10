@@ -107,7 +107,7 @@
  * lives in the *integration*, not in any one call site.
  */
 
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import type { Tier, PointsEntry, CreditEntry, MemberProfile, TierPerks } from "./types";
 import { DEFAULT_PERKS } from "./types";
 import { selectSpendingTier } from "./tier-resolution";
@@ -308,41 +308,51 @@ export async function getMemberProfile(userId: string): Promise<MemberProfile> {
 // ══════════════════════════════════════════════════════════════
 
 export async function earnPoints(userId: string, amount: number, type: string, description: string, referenceId?: string, referenceType?: string): Promise<PointsEntry> {
-  const user = await query(`SELECT points_balance FROM users WHERE id = $1`, [userId]);
-  const currentBalance = user.rows[0]?.points_balance || 0;
-  const newBalance = currentBalance + amount;
+  // Relative atomic increment inside one transaction: concurrent grants
+  // (webhook + reconciliation sweep + PVE) each RETURNING their own
+  // post-write balance, so the ledger's `balance` column can't diverge
+  // from users.points_balance the way a stale-read/compute/write did.
+  return transaction(async (q) => {
+    const updated = await q(
+      `UPDATE users SET points_balance = COALESCE(points_balance, 0) + $1,
+         lifetime_points = lifetime_points + $1, updated_at = NOW()
+       WHERE id = $2 RETURNING points_balance`,
+      [amount, userId]
+    );
+    const newBalance = updated.rows[0]?.points_balance ?? amount;
 
-  const result = await query(
-    `INSERT INTO points_ledger (user_id, amount, balance, type, description, reference_id, reference_type)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [userId, amount, newBalance, type, description, referenceId || null, referenceType || null]
-  );
-
-  await query(
-    `UPDATE users SET points_balance = $1, lifetime_points = lifetime_points + $2, updated_at = NOW() WHERE id = $3`,
-    [newBalance, amount, userId]
-  );
-
-  return result.rows[0] as PointsEntry;
+    const result = await q(
+      `INSERT INTO points_ledger (user_id, amount, balance, type, description, reference_id, reference_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [userId, amount, newBalance, type, description, referenceId || null, referenceType || null]
+    );
+    return result.rows[0] as PointsEntry;
+  });
 }
 
 export async function spendPoints(userId: string, amount: number, type: string, description: string, referenceId?: string): Promise<{ success: boolean; entry?: PointsEntry; error?: string }> {
-  const user = await query(`SELECT points_balance FROM users WHERE id = $1`, [userId]);
-  const currentBalance = user.rows[0]?.points_balance || 0;
+  return transaction(async (q) => {
+    // Balance check and debit in ONE guarded UPDATE, so two concurrent
+    // spends can't both pass a stale read and drive the balance negative.
+    const updated = await q(
+      `UPDATE users SET points_balance = COALESCE(points_balance, 0) - $1, updated_at = NOW()
+       WHERE id = $2 AND COALESCE(points_balance, 0) >= $1 RETURNING points_balance`,
+      [amount, userId]
+    );
+    if (updated.rowCount === 0) {
+      const user = await q(`SELECT points_balance FROM users WHERE id = $1`, [userId]);
+      const currentBalance = user.rows[0]?.points_balance || 0;
+      return { success: false, error: `Insufficient Berries. You have ${currentBalance}, need ${amount}.` };
+    }
 
-  if (currentBalance < amount) {
-    return { success: false, error: `Insufficient Berries. You have ${currentBalance}, need ${amount}.` };
-  }
-
-  const newBalance = currentBalance - amount;
-  const result = await query(
-    `INSERT INTO points_ledger (user_id, amount, balance, type, description, reference_id)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [userId, -amount, newBalance, type, description, referenceId || null]
-  );
-
-  await query(`UPDATE users SET points_balance = $1, updated_at = NOW() WHERE id = $2`, [newBalance, userId]);
-  return { success: true, entry: result.rows[0] as PointsEntry };
+    const newBalance = updated.rows[0].points_balance;
+    const result = await q(
+      `INSERT INTO points_ledger (user_id, amount, balance, type, description, reference_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [userId, -amount, newBalance, type, description, referenceId || null]
+    );
+    return { success: true, entry: result.rows[0] as PointsEntry };
+  });
 }
 
 export async function getPointsHistory(userId: string, limit: number = 20): Promise<PointsEntry[]> {
@@ -366,18 +376,23 @@ export const getBerriesHistory = getPointsHistory;
 // ══════════════════════════════════════════════════════════════
 
 export async function addCredit(userId: string, amount: number, type: string, description: string, referenceId?: string): Promise<CreditEntry> {
-  const user = await query(`SELECT store_credit_balance FROM users WHERE id = $1`, [userId]);
-  const currentBalance = parseFloat(user.rows[0]?.store_credit_balance || "0");
-  const newBalance = currentBalance + amount;
+  // Same shape as earnPoints: relative atomic increment, ledger row
+  // records the balance the UPDATE actually produced.
+  return transaction(async (q) => {
+    const updated = await q(
+      `UPDATE users SET store_credit_balance = COALESCE(store_credit_balance, 0) + $1, updated_at = NOW()
+       WHERE id = $2 RETURNING store_credit_balance`,
+      [amount.toFixed(2), userId]
+    );
+    const newBalance = updated.rows[0]?.store_credit_balance ?? amount.toFixed(2);
 
-  const result = await query(
-    `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [userId, amount.toFixed(2), newBalance.toFixed(2), type, description, referenceId || null]
-  );
-
-  await query(`UPDATE users SET store_credit_balance = $1, updated_at = NOW() WHERE id = $2`, [newBalance.toFixed(2), userId]);
-  return result.rows[0] as CreditEntry;
+    const result = await q(
+      `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [userId, amount.toFixed(2), newBalance, type, description, referenceId || null]
+    );
+    return result.rows[0] as CreditEntry;
+  });
 }
 
 export async function getCreditHistory(userId: string, limit: number = 20): Promise<CreditEntry[]> {

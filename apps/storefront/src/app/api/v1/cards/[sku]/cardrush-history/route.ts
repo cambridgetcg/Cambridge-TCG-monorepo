@@ -35,10 +35,12 @@
  * Phase 5.4).
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { fetchCardrushHistory } from "@/lib/wholesale/client";
-import { jsonResponse } from "@/lib/data-pantry";
+import { errorResponse, jsonResponse } from "@/lib/data-pantry";
+
+const ENDPOINT = "/api/v1/cards/[sku]/cardrush-history";
 
 export async function GET(
   req: NextRequest,
@@ -47,18 +49,14 @@ export async function GET(
   // ── Session gate (the license-aware tier-2 boundary) ────────────────
   const session = await auth();
   if (!session?.user?.email) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "UNAUTHORIZED",
-          message:
-            "Sign in to view cardrush JPY observation history. The values are " +
-            "under CardRush's internal-only license tier; signed-in personal-decision " +
-            "use is the platform's reading. Anonymous access is not authorised.",
-        },
-      },
-      { status: 401 },
-    );
+    return errorResponse({
+      code: "UNAUTHORIZED",
+      message:
+        "Sign in to view cardrush JPY observation history. The values are " +
+        "under CardRush's internal-only license tier; signed-in personal-decision " +
+        "use is the platform's reading. Anonymous access is not authorised.",
+      endpoint: ENDPOINT,
+    });
   }
 
   const { sku } = await params;
@@ -70,18 +68,14 @@ export async function GET(
 
   const upstream = await fetchCardrushHistory({ sku, limit });
   if (upstream === null) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "NOT_FOUND",
-          message:
-            "No CardRush observations for this SKU. Either the card has no " +
-            "CardRush URL in the wholesale catalog, or the snapshot pipeline " +
-            "hasn't yet recorded any successful scrapes for it.",
-        },
-      },
-      { status: 404 },
-    );
+    return errorResponse({
+      code: "NOT_FOUND",
+      message:
+        "No CardRush observations for this SKU. Either the card has no " +
+        "CardRush URL in the wholesale catalog, or the snapshot pipeline " +
+        "hasn't yet recorded any successful scrapes for it.",
+      endpoint: ENDPOINT,
+    });
   }
 
   return jsonResponse({
@@ -110,7 +104,7 @@ export async function GET(
         attribution_required: "CardRush JP (cardrush-op.jp / cardrush-pokemon.jp / cardrush-db.jp)",
       },
     },
-    endpoint: "/api/v1/cards/[sku]/cardrush-history",
+    endpoint: ENDPOINT,
     sources: ["wholesale-rds.price_archive", "cardrush"],
     source_license: ["internal-only", "internal-only"],
     freshness: "price_current",

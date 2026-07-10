@@ -122,88 +122,94 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // Create the wholesale order record
-    const [newOrder] = await db
-      .insert(ordersTable)
-      .values({
-        clientId: shopifyClientId,
-        status: "paid",
-        total: parseFloat(order.total_price),
-        channel: "shopify-cambridge",
-        externalOrderId: externalId,
-        clientOrderNumber: `#${order.order_number}`,
-      })
-      .returning({ id: ordersTable.id });
+    // Order + items + stock commit atomically: a mid-loop crash rolls the
+    // whole order back, so the dedup check above never strands a partial
+    // order. Per-item failures roll back only their savepoint (nested tx)
+    // so one bad line item can't poison the rest of the order.
+    const { orderId, details, errors } = await db.transaction(async (tx) => {
+      // Create the wholesale order record
+      const [newOrder] = await tx
+        .insert(ordersTable)
+        .values({
+          clientId: shopifyClientId,
+          status: "paid",
+          total: parseFloat(order.total_price),
+          channel: "shopify-cambridge",
+          externalOrderId: externalId,
+          clientOrderNumber: `#${order.order_number}`,
+        })
+        .returning({ id: ordersTable.id });
 
-    // Create order_items for line items that have matching cards
-    const details: Array<{ sku: string; prev: number; new: number; delta: number }> = [];
-    const errors: Array<{ sku: string; error: string }> = [];
+      // Create order_items for line items that have matching cards
+      const details: Array<{ sku: string; prev: number; new: number; delta: number }> = [];
+      const errors: Array<{ sku: string; error: string }> = [];
 
-    for (const item of order.line_items) {
-      const sku = item.sku?.trim();
-      if (!sku) {
-        errors.push({ sku: item.title || "unknown", error: "No SKU" });
-        continue;
-      }
-
-      try {
-        const [card] = await db
-          .select({ id: cards.id, stock: cards.stock })
-          .from(cards)
-          .where(eq(cards.sku, sku))
-          .limit(1);
-
-        if (!card) {
-          errors.push({ sku, error: "Not in wholesale DB" });
+      for (const item of order.line_items) {
+        const sku = item.sku?.trim();
+        if (!sku) {
+          errors.push({ sku: item.title || "unknown", error: "No SKU" });
           continue;
         }
 
-        // Create the order item
-        await db.insert(orderItems).values({
-          orderId: newOrder.id,
-          cardId: card.id,
-          quantity: item.quantity,
-          unitPrice: parseFloat(item.price),
-          lineTotal: parseFloat(item.price) * item.quantity,
-          stockStatus: "in_stock",
-        });
+        try {
+          await tx.transaction(async (itemTx) => {
+            const [card] = await itemTx
+              .select({ id: cards.id, stock: cards.stock })
+              .from(cards)
+              .where(eq(cards.sku, sku))
+              .limit(1);
 
-        // Record sale via stock service — idempotent by referenceId
-        // Uses same referenceId format as the webhook, so cron and webhook
-        // naturally deduplicate against each other
-        const prevStock = card.stock;
+            if (!card) {
+              errors.push({ sku, error: "Not in wholesale DB" });
+              return;
+            }
 
-        const movement = await db.transaction(async (tx) => {
-          const m = await stock.writer.recordSale(tx, {
-            cardId: card.id,
-            quantity: item.quantity,
-            channel: "shopify",
-            referenceId: `shopify:order:${order.id}:item:${item.id}`,
-            note: orderRef,
-          });
-
-          // Dual-write to stock_adjustments for syncUkStock backward compat
-          if (m) {
-            await tx.insert(stockAdjustments).values({
+            // Create the order item
+            await itemTx.insert(orderItems).values({
+              orderId: newOrder.id,
               cardId: card.id,
-              delta: -item.quantity,
-              reason: "count",
-              channel: "shopify-cambridge",
+              quantity: item.quantity,
+              unitPrice: parseFloat(item.price),
+              lineTotal: parseFloat(item.price) * item.quantity,
+              stockStatus: "in_stock",
+            });
+
+            // Record sale via stock service — idempotent by referenceId
+            // Uses same referenceId format as the webhook, so cron and webhook
+            // naturally deduplicate against each other
+            const prevStock = card.stock;
+
+            const movement = await stock.writer.recordSale(itemTx, {
+              cardId: card.id,
+              quantity: item.quantity,
+              channel: "shopify",
+              referenceId: `shopify:order:${order.id}:item:${item.id}`,
               note: orderRef,
             });
-          }
 
-          return m;
-        });
+            // Dual-write to stock_adjustments for syncUkStock backward compat
+            if (movement) {
+              await itemTx.insert(stockAdjustments).values({
+                cardId: card.id,
+                delta: -item.quantity,
+                reason: "count",
+                channel: "shopify-cambridge",
+                note: orderRef,
+              });
+            }
 
-        const delta = movement ? -item.quantity : 0;
-        const newStock = movement ? Math.max(0, prevStock - item.quantity) : prevStock;
+            const delta = movement ? -item.quantity : 0;
+            const newStock = movement ? Math.max(0, prevStock - item.quantity) : prevStock;
 
-        details.push({ sku, prev: prevStock, new: newStock, delta });
-      } catch (err) {
-        errors.push({ sku, error: err instanceof Error ? err.message : String(err) });
+            details.push({ sku, prev: prevStock, new: newStock, delta });
+          });
+        } catch (err) {
+          errors.push({ sku, error: err instanceof Error ? err.message : String(err) });
+        }
       }
-    }
+
+      return { orderId: newOrder.id, details, errors };
+    });
 
     allResults.push({
       order_number: order.order_number,
@@ -211,7 +217,7 @@ export async function POST(req: NextRequest) {
       items_processed: details.length,
       items_skipped: 0,
       items_errored: errors.length,
-      order_id: newOrder.id,
+      order_id: orderId,
       details,
       ...(errors.length > 0 && { errors }),
     });

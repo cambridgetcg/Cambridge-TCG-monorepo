@@ -632,13 +632,20 @@ export async function declineOffer(
     return { ok: false, reason: `Offer is ${offer.status} — can't decline.`, status: 409 };
   }
 
-  await query(
+  // Status guard on the UPDATE itself: acceptOffer's tx may have committed
+  // between the read above and here — rowCount 0 means the offer already
+  // moved (e.g. accepted with a live trade) and must not be rewritten.
+  const declined = await query(
     `UPDATE market_offers
         SET status='declined', responded_at=COALESCE(responded_at, NOW()),
             resolved_at=NOW(), updated_at=NOW()
-      WHERE id=$1`,
+      WHERE id=$1 AND status IN ('pending', 'countered')`,
     [offerId],
   );
+  if (declined.rowCount === 0) {
+    const now = await loadOffer(offerId);
+    return { ok: false, reason: `Offer is ${now?.status ?? "gone"} — can't decline.`, status: 409 };
+  }
 
   await notify({
     userId: offer.buyer_id,
@@ -692,13 +699,18 @@ export async function counterOffer(input: {
     };
   }
 
-  await query(
+  // Same race as declineOffer: only counter an offer that is still pending.
+  const countered = await query(
     `UPDATE market_offers
         SET status='countered', responded_at=NOW(),
             counter_price=$2, counter_message=$3, updated_at=NOW()
-      WHERE id=$1`,
+      WHERE id=$1 AND status='pending'`,
     [input.offerId, input.counterPrice.toFixed(2), input.counterMessage?.trim() || null],
   );
+  if (countered.rowCount === 0) {
+    const now = await loadOffer(input.offerId);
+    return { ok: false, reason: `Offer is ${now?.status ?? "gone"} — can't counter.`, status: 409 };
+  }
 
   await notify({
     userId: offer.buyer_id,
@@ -808,12 +820,18 @@ export async function withdrawOffer(
     return { ok: false, reason: `Offer is ${offer.status} — can't withdraw.`, status: 409 };
   }
 
-  await query(
+  // Same race as declineOffer: the seller may accept between the read above
+  // and this UPDATE — rowCount 0 means the offer already moved.
+  const withdrawn = await query(
     `UPDATE market_offers
         SET status='withdrawn', resolved_at=NOW(), updated_at=NOW()
-      WHERE id=$1`,
+      WHERE id=$1 AND status IN ('pending', 'countered')`,
     [offerId],
   );
+  if (withdrawn.rowCount === 0) {
+    const now = await loadOffer(offerId);
+    return { ok: false, reason: `Offer is ${now?.status ?? "gone"} — can't withdraw.`, status: 409 };
+  }
 
   // Notify the seller — they had this in their inbox; tell them it's
   // gone so they don't waste a click reviewing it.

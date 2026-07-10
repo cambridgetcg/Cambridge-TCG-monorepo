@@ -4,7 +4,7 @@
  * The composer half of kingdom-090 — given a canonical SKU, return
  * everything the platform knows about that card in one envelope:
  * price across every source, history (cardrush + tcgplayer), siblings
- * across languages, and the platform's own quote.
+ * across languages, and the platform's labelled reference price.
  *
  * Yu's directive: *"POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE
  * SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"* This route is the POOF.
@@ -12,7 +12,7 @@
  * ── What it composes ───────────────────────────────────────────────
  *
  * The route is pure-composition over existing wires:
- *   - `fetchCard(sku)`           → card meta + ctcg quote
+ *   - `fetchCard(sku)`           → card meta + reference price
  *   - `fetchPriceSources(sku)`   → today's prices across sources
  *                                  (kingdom-081 multi-source view)
  *   - `fetchCardrushHistory(sku)` (license-aware; degrades silently)
@@ -27,7 +27,7 @@
  * ── License & freshness ────────────────────────────────────────────
  *
  * Returns mixed-license data:
- *   - card meta + ctcg quote: CC0
+ *   - card meta + reference price: CC0
  *   - cardrush observations: internal-only (skipped unless auth-gated;
  *     this Phase 1 route returns only sparkline-summary stats from
  *     cardrush — no raw upstream values)
@@ -150,14 +150,17 @@ interface SiblingRow {
   effective_language: "ja" | "en" | "unknown";
 }
 
-interface CtcgQuote {
-  sell_price_gbp: number | null;
-  sell_channel_price_gbp: number | null;
-  sell_in_stock: boolean;
-  pending_stock: number;
-  /** Future hooks; null today until trade-in pricing is composed. */
-  trade_in_cash_gbp: number | null;
-  trade_in_credit_gbp: number | null;
+/** The house's spot price, surviving the collectors-first pivot
+ *  (docs/decisions/2026-07-06-collectors-first.md) only as a labelled
+ *  reference — never an offer. The shop-era quote block
+ *  (sell_price_gbp / sell_in_stock / trade_in_* hooks) is retired: the
+ *  house holds no retail position and neither sells nor buys cards. */
+interface ReferencePrice {
+  reference_price_gbp: number | null;
+  /** Where the number comes from, so downstream consumers can label it. */
+  provenance: string;
+  /** Structural guard for machine consumers: this block is not an ask. */
+  is_offer: false;
 }
 
 interface EverythingPayload {
@@ -176,9 +179,11 @@ interface EverythingPayload {
   };
   history: HistorySummary[];
   siblings: SiblingRow[];
-  ctcg: CtcgQuote;
+  reference_price: ReferencePrice;
   /** Operator-visible breadcrumb: what we tried to compose + how each
-   *  Falcon call resolved. UI can render this in a debug panel. */
+   *  Falcon call resolved. 'error' = the call failed; 'absent' = it
+   *  completed without data (for siblings, a successful call with zero
+   *  rows is 'ok'). UI can render this in a debug panel. */
   composition: {
     falcon_calls: Record<string, "ok" | "absent" | "error">;
   };
@@ -265,11 +270,11 @@ export async function GET(
   // primary SKU returns 404, retry once with case-swap (covers the
   // case where the caller normalized to lowercase but data is legacy
   // uppercase, or vice versa) — substrate-honest tolerance.
-  let [card, priceSources, cardrushHist, tcgplayerHist] = await Promise.all([
+  let [card, priceSources, cardrushRes, tcgplayerRes] = await Promise.all([
     fetchCard(sku),
     fetchPriceSources({ sku }),
-    fetchCardrushHistory({ sku, limit: 365 }).catch(() => null),
-    fetchTcgplayerHistory({ sku, limit: 365 }).catch(() => null),
+    fetchCardrushHistory({ sku, limit: 365 }).catch(() => "error" as const),
+    fetchTcgplayerHistory({ sku, limit: 365 }).catch(() => "error" as const),
   ]);
 
   if (!card) {
@@ -283,12 +288,12 @@ export async function GET(
         // Re-fire the dependents with the corrected casing.
         const [ps, ch, th] = await Promise.all([
           fetchPriceSources({ sku: altSku }),
-          fetchCardrushHistory({ sku: altSku, limit: 365 }).catch(() => null),
-          fetchTcgplayerHistory({ sku: altSku, limit: 365 }).catch(() => null),
+          fetchCardrushHistory({ sku: altSku, limit: 365 }).catch(() => "error" as const),
+          fetchTcgplayerHistory({ sku: altSku, limit: 365 }).catch(() => "error" as const),
         ]);
         priceSources = ps;
-        cardrushHist = ch;
-        tcgplayerHist = th;
+        cardrushRes = ch;
+        tcgplayerRes = th;
       }
     }
   }
@@ -300,6 +305,9 @@ export async function GET(
       details: { sku },
     });
   }
+
+  const cardrushHist = cardrushRes === "error" ? null : cardrushRes;
+  const tcgplayerHist = tcgplayerRes === "error" ? null : tcgplayerRes;
 
   // ── Siblings: same physical card, different language/variant. ────
   // Query the wholesale prices route for SET-NUMBER without lang;
@@ -314,15 +322,20 @@ export async function GET(
   // exposes game_code per set; this lets the composer be game-table-
   // case-agnostic. Falls back to trying the SKU's parsed game prefix
   // if the set lookup fails.
-  async function fetchSiblings(): Promise<PriceItem[]> {
+  async function fetchSiblings(): Promise<{ items: PriceItem[]; errored: boolean }> {
     const q = `${parsed!.set}-${parsed!.number}`;
     const tried = new Set<string>();
+    // fetchPrices stamps source='unavailable' when both substrates
+    // failed — the one Falcon call here whose outage IS distinguishable
+    // from a genuine empty result.
+    let errored = false;
     async function tryGame(g: string): Promise<PriceItem[] | null> {
       if (tried.has(g)) return null;
       tried.add(g);
       const r = await fetchPrices({ game: g, q, limit: 50 }).catch(
-        () => ({ items: [] as PriceItem[] } as { items: PriceItem[] }),
+        () => ({ items: [] as PriceItem[], source: "unavailable" as const }),
       );
+      if (r.source === "unavailable") errored = true;
       return r.items.length > 0 ? r.items : null;
     }
 
@@ -335,14 +348,14 @@ export async function GET(
     );
     if (matchedSet) {
       const r0 = await tryGame(matchedSet.game_code);
-      if (r0) return r0;
+      if (r0) return { items: r0, errored };
     }
 
     // 2. SKU-parsed game prefix + case variants.
     const r1 = await tryGame(parsed!.game);
-    if (r1) return r1;
+    if (r1) return { items: r1, errored };
     const r2 = await tryGame(parsed!.game.toUpperCase());
-    if (r2) return r2;
+    if (r2) return { items: r2, errored };
 
     // 3. fetchGames-based fallback (permissive prefix match).
     const games = await fetchGames().catch(() => []);
@@ -355,18 +368,18 @@ export async function GET(
     );
     if (match) {
       const r3 = await tryGame(match.slug);
-      if (r3) return r3;
+      if (r3) return { items: r3, errored };
       const r4 = await tryGame(match.code);
-      if (r4) return r4;
+      if (r4) return { items: r4, errored };
     }
-    return [];
+    return { items: [], errored };
   }
-  const siblingsRaw = { items: await fetchSiblings() };
+  const { items: siblingItems, errored: siblingsErrored } = await fetchSiblings();
 
   // Compare on lowercased SKUs — legacy data is uppercase, user input
   // can be either; canonicalize for the equality check.
   const selfSkuLower = (card?.sku ?? sku).toLowerCase();
-  const siblings: SiblingRow[] = siblingsRaw.items
+  const siblings: SiblingRow[] = siblingItems
     .filter((item) => {
       const ps = parseSkuShape(item.sku);
       return ps && ps.set === parsed.set && ps.number === parsed.number;
@@ -468,15 +481,13 @@ export async function GET(
     });
   }
 
-  // ── ctcg quote ────────────────────────────────────────────────────
-  const ctcg: CtcgQuote = {
-    sell_price_gbp: typeof card.price_gbp === "number" ? card.price_gbp : null,
-    sell_channel_price_gbp:
-      typeof card.channel_price === "number" ? card.channel_price : null,
-    sell_in_stock: card.stock > 0,
-    pending_stock: card.pending_stock,
-    trade_in_cash_gbp: null,
-    trade_in_credit_gbp: null,
+  // ── labelled reference price ──────────────────────────────────────
+  const reference_price: ReferencePrice = {
+    reference_price_gbp:
+      typeof card.price_gbp === "number" ? card.price_gbp : null,
+    provenance:
+      "ctcg spot-pricing pipeline (wholesale-rds.cards) — a labelled reference price, not an offer; the house neither sells nor buys cards (collectors-first, 2026-07-06)",
+    is_offer: false,
   };
 
   // ── card meta block ───────────────────────────────────────────────
@@ -496,13 +507,22 @@ export async function GET(
   };
 
   // ── composition trace (operator visibility) ───────────────────────
+  // Reachability constraint: the wholesale client degrades transport
+  // failures to null for price_sources and the two history calls, so
+  // those keys read 'absent' during an upstream outage — 'error' fires
+  // only for rejections that escape the client. Siblings is exact (the
+  // client stamps source='unavailable'). Full error-vs-absent needs an
+  // error sentinel in lib/wholesale/client.ts.
   const composition: EverythingPayload["composition"] = {
     falcon_calls: {
       card: "ok",
       price_sources: priceSources ? "ok" : "absent",
-      cardrush_history: cardrushHist ? "ok" : "absent",
-      tcgplayer_history: tcgplayerHist ? "ok" : "absent",
-      siblings: siblings.length > 0 ? "ok" : "absent",
+      cardrush_history:
+        cardrushRes === "error" ? "error" : cardrushHist ? "ok" : "absent",
+      tcgplayer_history:
+        tcgplayerRes === "error" ? "error" : tcgplayerHist ? "ok" : "absent",
+      // A successful sibling query with zero rows is 'ok', not 'absent'.
+      siblings: siblingsErrored && siblings.length === 0 ? "error" : "ok",
     },
   };
 
@@ -560,7 +580,7 @@ export async function GET(
     prices_today: pricesToday,
     history,
     siblings,
-    ctcg,
+    reference_price,
     composition,
   };
 

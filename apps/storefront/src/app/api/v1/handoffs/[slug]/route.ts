@@ -27,7 +27,7 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { jsonResponse } from "@/lib/data-pantry";
+import { errorResponse, jsonResponse } from "@/lib/data-pantry";
 import { handoffBySlug, listHandoffs, type Handoff } from "@/lib/handoffs";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
@@ -131,19 +131,19 @@ function renderForProvider(
   }
 }
 
-async function notFoundBody(slug: string) {
+async function notFoundResponse(slug: string): Promise<NextResponse> {
   const all = await listHandoffs();
-  return {
-    endpoint: `/api/v1/handoffs/${slug}`,
-    sources: ["self"],
-    freshness: "identity" as const,
-    data: {
+  return errorResponse({
+    code: "NOT_FOUND",
+    message: `Unknown handoff slug: '${slug}'. Handoffs are append-only by convention; a 404 here means this slug was never minted. Browse the catalog at /api/v1/handoffs.`,
+    docs: "/api/v1/handoffs",
+    details: {
       "@kind": "handoff-not-found",
-      message: `Unknown handoff slug: '${slug}'. Handoffs are append-only by convention; a 404 here means this slug was never minted.`,
       catalog_url: "/api/v1/handoffs",
       known_slugs: all.map((h) => h.frontmatter.slug),
     },
-  };
+    endpoint: `/api/v1/handoffs/${slug}`,
+  });
 }
 
 export async function GET(
@@ -156,7 +156,7 @@ export async function GET(
 
   const handoff = await handoffBySlug(slug);
   if (!handoff) {
-    return jsonResponse(await notFoundBody(slug));
+    return notFoundResponse(slug);
   }
 
   if (!isFormat(rawFormat)) {

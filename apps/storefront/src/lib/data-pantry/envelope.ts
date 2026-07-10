@@ -528,12 +528,14 @@ export function jsonResponse<T>(
   // For freshness-based endpoints the "quota" is conceptually "one fresh
   // response per window" — polling faster returns the same response.
   // RateLimit-Limit: 1; RateLimit-Reset: freshness_seconds.
+  // No RateLimit-Remaining: we keep no per-client counter, so a Remaining
+  // value would be a constant pretending to count down. Omitting it is the
+  // substrate-honest shape; the Policy comment carries the advisory framing.
   const rateLimitWindow = Math.max(freshness, 1);
   const rateLimitHeaders: Record<string, string> = opts.no_cache
     ? {}
     : {
         "RateLimit-Limit": "1",
-        "RateLimit-Remaining": "1",
         "RateLimit-Reset": String(rateLimitWindow),
         "RateLimit-Policy": `1;w=${rateLimitWindow};comment="advisory; one fresh response per freshness window"`,
       };
@@ -578,7 +580,7 @@ export function jsonResponse<T>(
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Expose-Headers":
-        "X-Request-Id, X-Spec-Version, X-Sophia-Says, X-Joy-Index, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, RateLimit-Policy, Link",
+        "X-Request-Id, X-Spec-Version, X-Sophia-Says, X-Joy-Index, RateLimit-Limit, RateLimit-Reset, RateLimit-Policy, Link",
       "X-Request-Id": body._meta.request_id,
       "X-Spec-Version": SPEC_VERSION,
       "x-sophia-says": nextSophiaSaysAscii(),

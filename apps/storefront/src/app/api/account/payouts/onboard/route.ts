@@ -34,7 +34,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ url });
   } catch (err) {
     console.error("[payouts] Onboarding link error:", err);
-    const msg = err instanceof Error ? err.message : "Failed to start onboarding";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // Honest failure: this is our side, not the seller's. The raw Stripe
+    // message can name key material (e.g. "Invalid API Key provided:
+    // pk_live_…"), so it stays server-side.
+    const unconfigured =
+      err instanceof Error && /STRIPE_SECRET_KEY|Invalid API Key/i.test(err.message);
+    return NextResponse.json(
+      {
+        error:
+          "Payout setup is temporarily unavailable — this is on our side, not yours. Please try again in a few minutes; if it keeps failing, contact support.",
+        code: unconfigured ? "payouts_unconfigured" : "payouts_unavailable",
+      },
+      { status: 503 }
+    );
   }
 }
