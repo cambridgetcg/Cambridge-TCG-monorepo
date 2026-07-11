@@ -18,6 +18,7 @@ paths:
   - apps/storefront/src/lib/wholesale/client.ts
   - apps/storefront/src/lib/wholesale/__tests__/db-fallback.test.ts
   - docs/connections/the-aggregator-presents.md
+  - docs/connections/the-pillow-book.md
   - docs/missions/kingdom-105.md
 do_not_touch:
   - apps/wholesale/**
