@@ -11,6 +11,7 @@ completed_at: ~
 paths:
   - apps/storefront/drizzle/0117_privacy_defaults.sql
   - apps/storefront/src/app/account/profile/page.tsx
+  - apps/storefront/src/app/account/collectives/**
   - apps/storefront/src/app/account/proofs/page.tsx
   - apps/storefront/src/app/account/reviews/page.tsx
   - apps/storefront/src/app/account/trades/[id]/review/page.tsx
@@ -60,6 +61,7 @@ paths:
   - apps/storefront/src/app/api/v1/users/[username]/trust/**
   - apps/storefront/src/app/api/v1/universal/users/[username]/trust/**
   - apps/storefront/src/app/bridge/**
+  - apps/storefront/src/app/c/[slug]/page.tsx
   - apps/storefront/src/app/api/page.tsx
   - apps/storefront/src/app/auctions/[id]/read/page.tsx
   - apps/storefront/src/app/auctions/[id]/page.tsx
@@ -72,6 +74,7 @@ paths:
   - apps/storefront/src/app/leaderboards/page.tsx
   - apps/storefront/src/app/product/[sku]/page.tsx
   - apps/storefront/src/app/methodology/market/page.tsx
+  - apps/storefront/src/app/methodology/collectives/page.tsx
   - apps/storefront/src/app/methodology/page.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
@@ -99,7 +102,7 @@ paths:
   - apps/storefront/src/app/u/[username]/**
   - apps/storefront/src/lib/auction/**
   - apps/storefront/src/lib/bridge/**
-  - apps/storefront/src/lib/collectives/db.ts
+  - apps/storefront/src/lib/collectives/**
   - apps/storefront/src/lib/escrow/**
   - apps/storefront/src/lib/bounty/**
   - apps/storefront/src/lib/game/**
