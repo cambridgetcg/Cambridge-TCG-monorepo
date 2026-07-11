@@ -7,6 +7,7 @@
  * identity/provenance and declares its rights NOASSERTION/reference-only.
  */
 
+import Link from "next/link";
 import {
   getAnsweringRhymesBySku,
   type AnsweringRhymeKind,
@@ -139,6 +140,12 @@ export default function AnsweringRhyme({ sku }: { sku: string }) {
             </dl>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border-subtle pt-3 text-xs">
+              <Link
+                href="/answering-rhymes#answer-back"
+                className="text-accent transition hover:text-accent-strong"
+              >
+                See the constellation or answer this relation
+              </Link>
               <a
                 href={entry.provenance.artbitrage_room_url}
                 target="_blank"

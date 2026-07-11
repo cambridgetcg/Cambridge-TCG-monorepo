@@ -17,6 +17,7 @@ describe("AnsweringRhyme", () => {
     expect(html).toContain("Confidence");
     expect(html).toContain("Rights");
     expect(html).toContain("not an attribution of influence");
+    expect(html).toContain("/answering-rhymes#answer-back");
   });
 
   it("does not copy either image, especially the reference-only card image", () => {

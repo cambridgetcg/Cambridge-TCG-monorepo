@@ -102,6 +102,18 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
         auth: "none",
         status: "stable",
       },
+      {
+        path: "/answering-rhymes",
+        blurb: "Accessible constellation of the curated relations, with a composer for portable replies that remain explicitly unverified and non-authoritative.",
+        auth: "none",
+        status: "stable",
+      },
+      {
+        path: "/api/v1/culture/answering-rhymes/statements",
+        blurb: "GET describes the neutral reciprocity-statement contract. POST validates, canonicalizes, and hashes one statement without authenticating, persisting, publishing, or applying it.",
+        auth: "none",
+        status: "stable",
+      },
     ],
   },
   {

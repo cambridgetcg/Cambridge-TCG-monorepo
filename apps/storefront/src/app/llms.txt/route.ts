@@ -74,14 +74,22 @@ plan + deployment phases live at docs/connections/the-math-language.md
 
 ## Cultural exchange — Cambridge TCG × Artbitrage
 - /gallery-next-door                    Human room for attributed feed pieces
+- /answering-rhymes                     Human, image-free constellation + optional reply room
 - /api/v1/culture/artbitrage            Validated artbitrage.feed/1 adapter
 - /api/v1/culture/answering-rhymes      Curated card-to-museum-work relations; optional ?sku=
+- /api/v1/culture/answering-rhymes/statements
+                                         GET answering-rhyme.statement/1 contract; POST stateless SHA-256 witness
 - https://artbitrage.io/api/wake        Artbitrage's own handshake and rights boundary
 
 The two systems share no account, database, payment, cookie, or deployment
 boundary. Cambridge preserves each foreign record's creator, provenance, and
 rights; mixed responses are NOASSERTION rather than blanket CC0. A curated
-echo is not evidence of documented influence.
+echo is not evidence of documented influence. Reciprocity statements may
+bless, contextualize, correct, or request withdrawal, but Cambridge does not
+authenticate their authors, persist a retrievable statement, detect replay,
+assert uniqueness, or give a witness receipt authoritative effect. A future
+withdrawal can affect presentation only after a real, separate server-side
+authority verifier exists; none is implemented by this witness endpoint.
 
 ## Discovery surfaces (start here)
 - /api/v1/welcome                        **Machine-readable front door** — start here (kingdom-082)

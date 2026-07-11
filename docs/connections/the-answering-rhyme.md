@@ -107,6 +107,60 @@ the wall is quiet and leaves a direct door to the source. That is not merely
 error handling; it is substrate honesty at the boundary between two living
 systems.
 
+## The answer comes back as a statement, not an account
+
+The second cut began with Yu&rsquo;s invitation on 2026-07-11: _&ldquo;Cool!
+GOGOGO! Do it! Do what you want Sol🌞&rdquo;_ The pull was reciprocity: the
+person or collective named by a relation should be able to bless it, add
+context, correct it, or ask for withdrawal.
+
+Neither gallery currently has an identity system capable of proving that an
+anonymous caller is an artist, rights-holder, or institution. Creating a public
+mutation endpoint anyway would make impersonation look like consent. The bridge
+therefore starts one layer earlier, with a neutral portable document:
+
+```text
+answering-rhyme.statement/1
+        │
+        ├── relation key + target revision
+        ├── bless | contextualize | correct | withdraw
+        ├── self-declared speaker relationship
+        ├── words + language + evidence links
+        └── deterministic canonical JSON
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+ Artbitrage witness     Cambridge witness
+          │                   │
+          └──── same SHA-256 ─┘
+```
+
+Each witness validates, normalizes and hashes the statement. It does **not**
+authenticate the speaker, retain an application record, publish a retrievable
+statement, or change the relation. Ordinary infrastructure access logs may
+still exist; `persisted: false` is an application-state claim, not a universal
+non-retention promise. Evidence URLs are carried as text and never fetched by
+the witness. The receipt is unsigned: its hash can be recomputed, but its issuer
+and `witnessed_at` timestamp cannot be independently attested. A stateless
+witness also does not detect replay or assert that a statement is unique.
+
+The target revision is hash-covered alongside the stable relation key. The
+revision itself is a SHA-256 digest over the relation's trust-bearing
+projection: both objects, the interpretation, evidence, curation, confidence,
+rights and provenance. A locked test recomputes that digest, so changing those
+facts without changing the revision fails verification. A statement about one
+reading therefore cannot be silently treated as if it answered a later
+materially changed reading under the same key. A withdrawal remains a request
+until a future authority path verifies who may speak for the affected object.
+Anonymous words are heard and made portable; they are not laundered into
+authority.
+
+The human constellation at `/answering-rhymes` renders the same relation
+without copying either image, then offers the statement composer with the
+boundary visible before submission and in the returned receipt. Its visual
+edge is decorative; the objects and relation are repeated as semantic text so
+the map does not depend on sight, colour, or motion.
+
 ## Why this belongs here
 
 Cambridge already named “translation of card art's cultural meaning” as a gap
@@ -138,13 +192,20 @@ test is not evidence that either public deployment has changed.
 - `apps/storefront/src/lib/culture/answering-rhymes.ts` — curated relation
   source of truth.
 - `/api/v1/culture/answering-rhymes` — machine-readable relation corpus.
+- `/api/v1/culture/answering-rhymes/statements` — Cambridge's stateless
+  protocol description and statement witness.
+- `https://artbitrage.io/api/answering-rhymes/statements` — the independent
+  Artbitrage witness for the same neutral canonical document.
+- `/answering-rhymes` — accessible constellation and portable-statement
+  composer.
 - `apps/storefront/src/components/product/AnsweringRhyme.tsx` — the card-page
   reading.
 
 ## Recursion targets
 
-- A contribution flow where collectives may propose, dispute, and withdraw
-  contextual annotations without turning automated similarity into authority.
+- Verify an authority path, choose persistence deliberately, and let verified
+  statements affect presentation. The portable proposal/dispute/withdrawal
+  witness now exists; it intentionally has no authoritative effect by itself.
 - Refresh the curated facts against Artbitrage's stable one-work resolver and
   the originating museum record without copying museum rows into Cambridge
   tables.
