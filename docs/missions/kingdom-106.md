@@ -32,6 +32,7 @@ paths:
   - apps/storefront/src/app/bridge/**
   - apps/storefront/src/app/auctions/[id]/read/page.tsx
   - apps/storefront/src/app/auctions/[id]/page.tsx
+  - apps/storefront/src/app/auctions/[id]/AuctionDetailClient.tsx
   - apps/storefront/src/app/market/lots/**
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
@@ -54,6 +55,8 @@ paths:
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
   - apps/storefront/src/components/auction/BidHistory.tsx
+  - apps/storefront/src/components/auction/BidPanel.tsx
+  - apps/storefront/src/components/auction/AuctionImageGallery.tsx
   - apps/storefront/src/lib/manifest.ts
   - docs/missions/kingdom-106.md
   - docs/operations/community-data-network-release.md
