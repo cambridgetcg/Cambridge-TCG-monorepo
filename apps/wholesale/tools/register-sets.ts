@@ -58,12 +58,12 @@ const SETS: SetSeed[] = [
   { gameCode: "op", code: "ST29", name: "Start Deck: EGGHEAD", releaseDate: "2025-12-20" },
   { gameCode: "op", code: "ST30", name: "Starter Deck EX: Luffy & Ace", releaseDate: "2026-04-11" },
   { gameCode: "op", code: "OP16", name: "Hour of the Decisive Battle", releaseDate: "2026-05-30" },
-  { gameCode: "op", code: "ST31", name: "Start Deck Red: Monkey.D.Luffy", releaseDate: "2026-07-11" },
-  { gameCode: "op", code: "ST32", name: "Start Deck Green: Roronoa Zoro", releaseDate: "2026-07-11" },
-  { gameCode: "op", code: "ST33", name: "Start Deck Blue: Kuzan", releaseDate: "2026-07-11" },
-  { gameCode: "op", code: "ST34", name: "Start Deck Purple: Charlotte Katakuri", releaseDate: "2026-07-11" },
-  { gameCode: "op", code: "ST35", name: "Start Deck Red/Black: Sabo", releaseDate: "2026-07-11" },
-  { gameCode: "op", code: "ST36", name: "Start Deck Yellow: Eustass Kid", releaseDate: "2026-07-11" },
+  // ST31–36 register as ONE combined set following the house precedent
+  // (ST15-20, ST23-28): CardRush groups all six decks under one
+  // product-group (125, opened on release day 2026-07-11) and the CLI
+  // stamps cards with the config code. Six individual rows were briefly
+  // registered on 2026-07-09 and consolidated on release day.
+  { gameCode: "op", code: "ST31-36", name: "Start Deck 6-Color (2026)", releaseDate: "2026-07-11" },
   { gameCode: "op", code: "OP17", name: "The World's Strongest Warrior", releaseDate: "2026-08-22" },
   { gameCode: "op", code: "EB05", name: "Heroines Edition vol.2", releaseDate: "2026-10" },
   { gameCode: "op", code: "OP18", name: "Booster Pack (title TBA)", releaseDate: "2026-11" },

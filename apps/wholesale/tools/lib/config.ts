@@ -316,6 +316,7 @@ export const SET_CONFIGS: Record<string, SetConfig> = {
   ST22: { code: "ST22", name: "Starter Deck: Ace & Newgate", productGroupId: 90, gameCode: "onepiece" },
   ST30: { code: "ST30", name: "Starter Deck EX: Luffy & Ace", productGroupId: 123, gameCode: "onepiece" }, // discovered 2026-06-11
   "ST23-28": { code: "ST23-28", name: "Starter Deck 6-Color (2025)", productGroupId: 95, gameCode: "onepiece" },
+  "ST31-36": { code: "ST31-36", name: "Start Deck 6-Color (2026)", productGroupId: 125, gameCode: "onepiece" }, // 6色新スタートデッキ — group opened on JP release day 2026-07-11, discovered same morning
   // Promo sets
   PROMO: { code: "PROMO", name: "Promo Cards", productGroupId: 5, gameCode: "onepiece", maxPages: 50 },
   "P-2ANNY": { code: "P-2ANNY", name: "2nd Anniversary Set", productGroupId: 57, gameCode: "onepiece" },
