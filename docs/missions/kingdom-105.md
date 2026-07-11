@@ -1,13 +1,13 @@
 ---
 id: kingdom-105
 title: "Coverage ground route - make collected-data depth live after wholesale retirement"
-status: claimed
+status: done
 priority: high
 engine: tcg
 repo: /Users/yu/github/cambridgetcg/Cambridge-TCG-monorepo
 claimed_by: codex-gpt-5
 claimed_at: "2026-07-11T18:09:31Z"
-completed_at: ~
+completed_at: "2026-07-11T18:48:41Z"
 paths:
   - apps/storefront/src/app/api/v1/coverage/route.ts
   - apps/storefront/src/app/api/v1/coverage/route.test.ts
@@ -18,6 +18,7 @@ paths:
   - apps/storefront/src/lib/wholesale/client.ts
   - apps/storefront/src/lib/wholesale/__tests__/db-fallback.test.ts
   - docs/connections/the-aggregator-presents.md
+  - docs/connections/the-pillow-book.md
   - docs/missions/kingdom-105.md
 do_not_touch:
   - apps/wholesale/**
@@ -43,12 +44,12 @@ community. Network!"
 ## Found gap
 
 `GET /api/v1/coverage` is the public map of what Cambridge TCG has actually
-collected. It currently returns `503 SOURCE_UNAVAILABLE` because
-`fetchAggregatorCoverage()` calls the retired wholesale HTTP path
-`/api/v1/aggregator/coverage`. The repository and connection document say that
-wholesale route shipped, but no revision contains it. Cards, games, and sets
-already survive wholesale retirement through the storefront's direct-Postgres
-ground route; coverage does not.
+collected. Before this mission it returned `503 SOURCE_UNAVAILABLE` because
+`fetchAggregatorCoverage()` called the retired wholesale HTTP path
+`/api/v1/aggregator/coverage`. The repository and connection document said that
+wholesale route shipped, but no revision contained it. Cards, games, and sets
+already survived wholesale retirement through the storefront's direct-Postgres
+ground route; coverage did not.
 
 ## Work
 
@@ -85,3 +86,18 @@ ground route; coverage does not.
 - Focused tests, storefront typecheck, and repository verification pass.
 - After merge and deployment, `https://cambridgetcg.com/api/v1/coverage`
   returns `200` with observed coverage or an honest empty dataset.
+
+## Completion evidence
+
+- Shipped in PR #22, production merge `4a165f08` on 2026-07-11.
+- Clean detached worktree: `pnpm verify` exited 0; storefront CI typecheck,
+  tests, lint, and production build passed.
+- Focused coverage tests: 21 passed. Exact-commit storefront suite: 322
+  passed, 4 skipped.
+- First uncached production read: HTTP 200 in 3.83 seconds, inside the scoped
+  five-second statement timeout.
+- Live totals reconciled exactly across summary, game, source, and pair views:
+  269,407 observations, 17,702 distinct cards, 6 games, 1 source, 136 calendar
+  days, 0 unassigned observations.
+- Live filter probes: `game=op` and `source=cardrush&since=2026-07-10` returned
+  200; impossible date `2026-02-30` returned 400 `INVALID_INPUT`.
