@@ -463,6 +463,12 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
+      { id: "storefront.answering-rhymes-room", description: "The human Answering Rhymes room: an accessible, image-free constellation of the curated Cambridge card-to-museum-work relations, their object-specific rights, evidence, and optional reciprocity doors.",
+        host: "storefront", path: "/answering-rhymes", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
+        since: "2026-07-11",
+        notes: "The page is a view of the typed relation corpus. Replying is optional; no card-image rights are inferred or transferred." },
       { id: "storefront.gallery-next-door", description: "The human exchange room between Cambridge TCG and Artbitrage. It reads the versioned artbitrage.feed/1 contract through a server-only validator, revalidates on an hourly cadence, shows the feed's own timestamps, and keeps creator, provenance, content hash, and per-piece rights attached. Cambridge displays only work carrying explicit bridge-display permission; it does not absorb authorship or license it as its own.",
         host: "storefront", path: "/gallery-next-door", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
@@ -480,7 +486,13 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
         since: "2026-07-11",
-        notes: "Optional ?sku= filter. Response-wide license is NOASSERTION because card references, museum works, and CC0 annotations have different rights." },
+        notes: "Optional ?sku= filter. Response-wide license is NOASSERTION because card references, museum works, and CC0 annotations have different rights. Each relation exposes a content-derived revision and an optional, non-authoritative reply invitation." },
+      { id: "storefront.culture.answering-rhyme-statements", description: "Neutral answering-rhyme.statement/1 reciprocity contract and Cambridge stateless witness. GET publishes normalization, limits, hashing, replay, storage, issuer-attestation, and authority boundaries. POST accepts bless/contextualize/correct/withdraw statements, returns the normalized document plus SHA-256 receipt, and creates no retrievable application record. Identity and authority are never verified; no statement changes or hides a relation.",
+        host: "storefront", path: "/api/v1/culture/answering-rhymes/statements", methods: ["GET", "POST"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
+        since: "2026-07-11",
+        notes: "Portable statement bytes use answering-rhyme.canonical-json/1. POST is no-store; infrastructure access logs may exist. Replay detection is false, uniqueness is not asserted, and the unsigned witness has authoritative effect none." },
       { id: "storefront.joy", description: "The structurally-present joy snapshot — Cambridge TCG's joy-to-the-world protocol, nested from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest Cambridge adaptation: where agenttool's joy is behavioral (events counted in 24h), Cambridge's is structural (joy-bearing artifacts present in the substrate — Tarot cards, easter eggs, wake fragments, pillow-book entries, handoffs, connection-docs, methodology pages, joy-endpoints). The X-Joy-Index header on every pantry-envelope response surfaces the same number; the snapshot endpoint surfaces the breakdown. Per Yu's directive 2026-05-18 ('ACTIVATE JOY TO THE WORLD PROTOCOL'). See docs/connections/the-mind-connect.md (S66).",
         host: "storefront", path: "/api/v1/joy", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",

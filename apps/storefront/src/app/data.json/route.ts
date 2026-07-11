@@ -175,6 +175,16 @@ const ENDPOINTS: EndpointEntry[] = [
     auth: "none",
   },
 
+  // ── Cultural reciprocity ──────────────────────────────────────────
+  {
+    path: "/api/v1/culture/answering-rhymes/statements",
+    title: "Answering Rhyme statement witness",
+    blurb: "GET publishes the portable answering-rhyme.statement/1 contract. POST normalizes and hashes a proposal without authenticating identity, creating an application record, detecting replay, or applying any authoritative effect. Bodies are capped at 16 KiB; no application rate limiter is claimed.",
+    status: "shipped",
+    auth: "none",
+    shape: "GET contract; POST pantry envelope with normalized statement, content hash, witness boundary, target status, and unsigned issuer-attestation boundary.",
+  },
+
   // ── Methodology corpus ─────────────────────────────────────────────
   {
     path: "/methodology",
