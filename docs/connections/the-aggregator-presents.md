@@ -138,15 +138,15 @@ unassigned count names the difference instead of hiding it.
 
 ## 6. Verification
 
-Kingdom-105 pre-deploy checks on 2026-07-11:
+Kingdom-105 release checks on 2026-07-11:
 
 - Focused coverage tests: 21 passed.
-- Full storefront tests: 329 passed, 4 skipped.
-- Coverage client and database source strict compile: passed.
-- Diff check: passed.
-- A live database read, production build from the isolated commit, repository
-  verification, and post-deploy probe remain release gates; the mission stays
-  claimed until those facts are true.
+- Exact-commit storefront tests: 322 passed, 4 skipped.
+- Clean detached worktree: `pnpm verify` exited 0.
+- Storefront CI lint, typecheck, tests, and production build: passed.
+- Production: HTTP 200 in 3.83 seconds on the first uncached read; 269,407
+  observations, 17,702 cards, 6 games, 1 source, 136 calendar days, and exact
+  reconciliation across the four views.
 
 Kingdom-085 designed and wired the public surface. Kingdom-105 supplied the
 missing living query after the wholesale retirement and corrected this entry's
