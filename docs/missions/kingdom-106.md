@@ -22,6 +22,7 @@ paths:
   - apps/storefront/src/app/api/market/offers/asks/route.ts
   - apps/storefront/src/app/api/messages/**
   - apps/storefront/src/app/api/rewards/raffles/[id]/proof/route.ts
+  - apps/storefront/src/app/api/rewards/raffles/route.ts
   - apps/storefront/src/app/api/social/**
   - apps/storefront/src/app/api/u/[username]/**
   - apps/storefront/src/app/api/v1/bridge/**
@@ -51,6 +52,7 @@ paths:
   - apps/storefront/src/lib/messages/**
   - apps/storefront/src/lib/decks/**
   - apps/storefront/src/lib/rewards/provable-fair.ts
+  - apps/storefront/src/lib/rewards/db.ts
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
