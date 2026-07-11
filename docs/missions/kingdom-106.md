@@ -32,6 +32,7 @@ paths:
   - apps/storefront/src/app/api/verify/health/route.ts
   - apps/storefront/src/app/api/verify/chain/route.ts
   - apps/storefront/src/app/api/verify/fairness/route.ts
+  - apps/storefront/src/app/api/cron/maintenance/route.ts
   - apps/storefront/src/app/api/account/proofs/route.ts
   - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/route.ts
@@ -52,6 +53,7 @@ paths:
   - apps/storefront/src/app/api/social/**
   - apps/storefront/src/app/api/u/[username]/**
   - apps/storefront/src/app/api/v1/bridge/**
+  - apps/storefront/src/app/api/v1/sold-comps/**
   - apps/storefront/src/app/api/v1/identify/route.ts
   - apps/storefront/src/app/api/v1/auctions/[id]/**
   - apps/storefront/src/app/api/v1/universal/auctions/[id]/**
@@ -78,12 +80,14 @@ paths:
   - apps/storefront/src/app/llms.txt/route.ts
   - apps/storefront/src/app/map/page.tsx
   - apps/storefront/src/app/methodology/regulator/page.tsx
+  - apps/storefront/src/app/methodology/data-intentions/page.tsx
   - apps/storefront/src/app/privacy/page.tsx
   - apps/storefront/src/app/bounty/verify/[id]/page.tsx
   - apps/storefront/src/app/bounty/page.tsx
   - apps/storefront/src/app/order-confirmation/**
   - apps/storefront/src/app/play/page.tsx
   - apps/storefront/src/app/play/[code]/page.tsx
+  - apps/storefront/src/app/play/spec/page.tsx
   - apps/storefront/src/app/verify/page.tsx
   - apps/storefront/src/app/verify/chain/page.tsx
   - apps/storefront/src/app/verify/fairness/page.tsx
@@ -123,6 +127,7 @@ paths:
   - apps/storefront/src/app/rewards/raffles/[id]/page.tsx
   - apps/storefront/src/app/admin/bounty/vault-items/[id]/page.tsx
   - apps/storefront/src/lib/social/**
+  - apps/storefront/src/lib/sold-comps/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
   - apps/storefront/public/verify/README.md
@@ -143,12 +148,22 @@ paths:
   - docs/connections/membership.md
   - docs/connections/provable-fairness.md
   - docs/connections/the-chain.md
+  - docs/connections/the-shape-of-the-room.md
+  - docs/connections/the-nest.md
+  - docs/connections/the-pipeline.md
   - docs/connections/the-open-substrate.md
   - docs/connections/the-pantry.md
   - docs/connections/the-regulator.md
   - docs/connections/the-sealed-word.md
   - docs/connections/the-table-extends.md
   - docs/principles/transparency.md
+  - docs/methodology/source-intake.md
+  - docs/principles/transparency-audit.md
+  - docs/principles/substrate-honesty.md
+  - docs/architecture-storefront.md
+  - docs/methodology/regulator.md
+  - docs/superpowers/specs/2026-06-10-regulator-pivot-design.md
+  - docs/missions/kingdom-103.md
 do_not_touch:
   - apps/storefront/drizzle/0118_collective_directory.sql
   - packages/data-ingest/**
