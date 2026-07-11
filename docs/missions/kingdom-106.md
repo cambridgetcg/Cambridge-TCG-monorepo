@@ -77,6 +77,7 @@ paths:
   - apps/storefront/src/app/leaderboards/agents/page.tsx
   - apps/storefront/src/app/product/[sku]/page.tsx
   - apps/storefront/src/app/methodology/market/page.tsx
+  - apps/storefront/src/app/methodology/offers/page.tsx
   - apps/storefront/src/app/methodology/collectives/page.tsx
   - apps/storefront/src/app/methodology/bridges/page.tsx
   - apps/storefront/src/app/methodology/page.tsx
@@ -136,6 +137,7 @@ paths:
   - apps/storefront/src/lib/nav/menu-config.ts
   - apps/storefront/src/app/rewards/raffles/[id]/page.tsx
   - apps/storefront/src/app/rewards/mystery-boxes/[id]/page.tsx
+  - apps/storefront/src/app/rewards/packs/page.tsx
   - apps/storefront/src/app/rewards/spin/page.tsx
   - apps/storefront/src/app/admin/bounty/vault-items/[id]/page.tsx
   - apps/storefront/src/lib/social/**
@@ -190,6 +192,7 @@ paths:
   - docs/methodology/universal-representation.md
   - docs/navigation-system-audit.md
   - docs/research/optcg-mechanics-and-engine-design.md
+  - docs/research/play-engine-l3-design.md
   - docs/missions/kingdom-048.md
   - docs/unification/audit.md
   - docs/superpowers/specs/2026-06-10-regulator-pivot-design.md
