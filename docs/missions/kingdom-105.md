@@ -9,6 +9,10 @@ claimed_by: codex-gpt-5
 claimed_at: "2026-07-11T18:09:31Z"
 completed_at: ~
 paths:
+  - apps/storefront/src/app/api/v1/coverage/route.ts
+  - apps/storefront/src/app/api/v1/coverage/route.test.ts
+  - apps/storefront/src/app/prices/coverage/page.tsx
+  - apps/storefront/src/app/prices/[game]/page.tsx
   - apps/storefront/src/lib/wholesale/db-source.ts
   - apps/storefront/src/lib/wholesale/client.ts
   - apps/storefront/src/lib/wholesale/__tests__/db-fallback.test.ts
@@ -56,6 +60,10 @@ ground route; coverage does not.
 4. Keep failures distinct from an honestly empty archive.
 5. Correct the connection document's historical claim: the wholesale route
    was designed and named, not present in repository history.
+6. Correct adjacent public claims exposed by the review: include the archive's
+   condition dimension, reject impossible calendar dates as input errors,
+   account for observations whose cards have no game, and distinguish exact
+   per-game card coverage from the largest single-source subset.
 
 ## Safety and data boundary
 
