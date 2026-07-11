@@ -155,6 +155,8 @@ paths:
   - docs/operations/community-data-network-release.md
   - docs/operations/person-publication-reset.md
   - docs/connections/the-market-mirror.md
+  - docs/connections/the-agent-surface.md
+  - docs/connections/the-unseen.md
   - docs/connections/README.md
   - docs/connections/bounty.md
   - docs/connections/the-auction-fanout.md
