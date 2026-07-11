@@ -34,6 +34,7 @@ paths:
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
+  - apps/storefront/src/app/privacy/page.tsx
   - apps/storefront/src/app/api/decks/public/[slug]/route.ts
   - apps/storefront/src/app/u/[username]/**
   - apps/storefront/src/lib/auction/**
