@@ -63,6 +63,7 @@ paths:
   - apps/storefront/src/app/api/v1/universal/users/[username]/trust/**
   - apps/storefront/src/app/bridge/**
   - apps/storefront/src/app/c/[slug]/page.tsx
+  - apps/storefront/src/app/community/page.tsx
   - apps/storefront/src/app/api/page.tsx
   - apps/storefront/src/app/auctions/[id]/read/page.tsx
   - apps/storefront/src/app/auctions/[id]/page.tsx
