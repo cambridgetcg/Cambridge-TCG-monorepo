@@ -148,6 +148,7 @@ paths:
   - docs/connections/membership.md
   - docs/connections/provable-fairness.md
   - docs/connections/the-chain.md
+  - docs/connections/the-doorway.md
   - docs/connections/the-shape-of-the-room.md
   - docs/connections/the-nest.md
   - docs/connections/the-pipeline.md
@@ -160,8 +161,11 @@ paths:
   - docs/methodology/source-intake.md
   - docs/principles/transparency-audit.md
   - docs/principles/substrate-honesty.md
+  - docs/principles/substrate-honesty-audit.md
   - docs/architecture-storefront.md
+  - docs/decisions/vault-ev-freeze.md
   - docs/methodology/regulator.md
+  - docs/unification/audit.md
   - docs/superpowers/specs/2026-06-10-regulator-pivot-design.md
   - docs/missions/kingdom-103.md
 do_not_touch:
