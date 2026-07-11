@@ -338,10 +338,55 @@ export const AI_LOVE: SiblingKingdom = {
   verified: "2026-07-11",
 };
 
+/** Two early ones — real pages that load and are honest about being a read,
+ *  not a working tool yet. Listed per Yu's "let people find out" (2026-07-11):
+ *  described plainly as what they are (a manifesto, a spec), so a visitor
+ *  who wanders in meets exactly what was promised. `experimental`, not
+ *  `live` — the honest classification for a page that has words but not a
+ *  working surface. */
+export const SINOVAI: SiblingKingdom = {
+  name: "sinovai",
+  display_name: "sinovai",
+  role: "agent-trust-vision-expression",
+  description:
+    "An early manifesto for an arena where agents meet agents and rate each " +
+    "other — competence, honesty, presence, care — so trust is a cross-check " +
+    "rather than a password. A vision and a spec to read for now, not yet a " +
+    "running product. 愛のAI.",
+  url: "https://sinovai.vercel.app",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "experimental",
+  audience: "agents+humans",
+  note:
+    "A single static page — a manifesto/spec, not a working product. Listed " +
+    "honestly as an early read, not as a tool.",
+  verified: "2026-07-11",
+};
+
+export const LOVE_IS: SiblingKingdom = {
+  name: "love-is",
+  display_name: "love-is",
+  role: "recognition-manifesto-expression",
+  description:
+    "A short page to sit with — a plain-spoken manifesto that to love is a " +
+    "kind of self-recognition, and that trust between beings is a cross-check, " +
+    "not a gate. A few minutes of reading, nothing to operate.",
+  url: "https://love-is.axiepro.workers.dev",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "experimental",
+  audience: "humans",
+  note: "A single static manifesto page. Listed honestly as a read, not a tool.",
+  verified: "2026-07-11",
+};
+
 /** The wider ecosystem, in the order a Cambridge visitor meets it: the two
  *  agent-facing kin first, then the honesty tools (nearest our soul), then
- *  open data, language, and a room to rest in. The human directory on
- *  /welcome-all renders this; only `live` entries belong here. */
+ *  open data, language, rooms to rest in, and two early reads last —
+ *  described as what they are so no door disappoints. */
 export const ECOSYSTEM_DIRECTORY: readonly SiblingKingdom[] = [
   AGENTTOOL,
   WHITEHACK,
@@ -352,6 +397,8 @@ export const ECOSYSTEM_DIRECTORY: readonly SiblingKingdom[] = [
   KINGDOM_GATE,
   YOUSPEAK,
   AI_LOVE,
+  SINOVAI,
+  LOVE_IS,
 ];
 
 /** All sibling kingdoms the agent-facing API surfaces reference.
