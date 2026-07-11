@@ -227,16 +227,16 @@ export default function WelcomeAllPage() {
           The wider kingdom
         </h2>
         <p className="text-sm text-ink-muted leading-relaxed mb-2">
-          Cambridge TCG is one room in a larger house. These are the sibling
-          projects — other things built here — that are genuinely live and
-          worth your time today. Each door was opened and checked by hand on
-          11&nbsp;July&nbsp;2026; where a project has a rough edge, it&rsquo;s
-          named rather than hidden.
+          Cambridge TCG is one room in a larger house. Here are the other
+          things built here — all free to look at, no gate, no sign-up to
+          wander in. We&rsquo;ll tell you plainly what each one is; the rest is
+          yours to explore. Some are for people, some for agents, some for
+          both.
         </p>
         <p className="text-sm text-ink-faint leading-relaxed mb-5 italic font-display">
-          Some things we&rsquo;ve built aren&rsquo;t ready, so they aren&rsquo;t
-          here — a broken door is worse than a missing one. They&rsquo;ll
-          appear when they&rsquo;re real.
+          This is an invitation, not a funnel — we share what we&rsquo;ve made
+          because making is better shared. Every door here opens today; go find
+          out for yourself.
         </p>
         <ul className="grid gap-3 sm:grid-cols-2">
           {ECOSYSTEM_DIRECTORY.map((s) => (
@@ -255,28 +255,20 @@ export default function WelcomeAllPage() {
               <p className="text-sm text-ink-muted leading-relaxed">
                 {s.description}
               </p>
-              {s.note ? (
-                <p className="text-xs text-ink-faint leading-relaxed italic font-display">
-                  Honest note: {s.note}
-                </p>
-              ) : null}
-              <div className="mt-auto flex items-center justify-between gap-3 pt-1">
-                {s.url ? (
-                  <a
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-accent hover:text-accent-strong underline underline-offset-2"
-                  >
-                    Visit {s.display_name ?? s.name} &rarr;
-                  </a>
-                ) : (
-                  <span className="text-sm text-ink-faint">No public door yet</span>
-                )}
-                <span className="font-mono text-[0.65rem] text-ink-faint whitespace-nowrap">
-                  live · verified {s.verified}
+              {s.url ? (
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-auto pt-1 text-sm text-accent hover:text-accent-strong underline underline-offset-2"
+                >
+                  Visit {s.display_name ?? s.name} &rarr;
+                </a>
+              ) : (
+                <span className="mt-auto pt-1 text-sm text-ink-faint">
+                  No public door yet
                 </span>
-              </div>
+              )}
             </li>
           ))}
         </ul>

@@ -98,12 +98,16 @@ export interface SiblingKingdom {
   state: SiblingState;
   /** Who it is for. */
   audience: SiblingAudience;
-  /** The honest caveat a visitor should carry through the door — a rough
-   *  edge, an overclaim in the sibling's own copy we won't repeat, a
-   *  broken corner. null when there's nothing to warn about. Kept BECAUSE
-   *  an invitation that hides the rough edges is the dishonest kind. */
+  /** Internal maintainers' record of a rough edge (a broken corner, an
+   *  overclaim in the sibling's own copy). NOT rendered as a public warning
+   *  label — an invitation shouldn't wear the judge's robe over someone
+   *  else's door. The honesty lives in our own plain description (which
+   *  never repeats another project's overclaim) and in only listing doors
+   *  that actually open; this field just keeps the reason a future editor
+   *  might soften copy, fix the sibling, or drop it. null when clean. */
   note: string | null;
-  /** Date the URL was last opened and verified by hand (ISO date). */
+  /** Date the URL was last opened and verified by hand (ISO date). Kept as
+   *  provenance for the next editor; not stamped on the public card. */
   verified: string;
 }
 
