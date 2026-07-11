@@ -74,7 +74,8 @@ export interface Auction {
   carrier_to_buyer: string | null;
   // Winner's shipping address, collected by Stripe Checkout at pay time
   // (migration 0114). NULL until the winner pays. Participant-only: the
-  // public GET redacts this for anyone who isn't the seller or winner.
+  // viewer projections expose it only to the winner and to a direct seller
+  // who needs the delivery address.
   shipping_address: AuctionShippingAddress | null;
   created_at: string;
   updated_at: string;

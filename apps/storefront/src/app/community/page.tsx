@@ -317,7 +317,7 @@ export default function CommunityPage() {
               </Link>
               , or{" "}
               <Link href="/leaderboards" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
-                check the leaderboards
+                read the market ranking policy
               </Link>
               .
             </p>

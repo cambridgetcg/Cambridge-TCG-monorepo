@@ -47,7 +47,7 @@ const TIER_COLOR: Record<PullTier, string> = {
 
 interface Eligibility {
   phone_verified: boolean;
-  phone_number: string | null;
+  phone_verification_available: boolean;
   first_order_paid: boolean;
   eligible: boolean;
   reasons: string[];
@@ -94,8 +94,6 @@ export default function BountyBoard() {
   const [error, setError] = useState<string | null>(null);
   const [authError, setAuthError] = useState(false);
   const [pullResult, setPullResult] = useState<PullResult | null>(null);
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [phoneInput, setPhoneInput] = useState("");
   const [showRedeemModal, setShowRedeemModal] = useState<VaultItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -230,31 +228,6 @@ export default function BountyBoard() {
     }
   }
 
-  async function handleVerifyPhone() {
-    if (!phoneInput.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/bounty/verify-phone", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneInput.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Verification failed.");
-        return;
-      }
-      setShowPhoneModal(false);
-      setPhoneInput("");
-      await refresh();
-    } catch {
-      setError("Network error.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   /* ================================================================ */
   /*  Render                                                          */
   /* ================================================================ */
@@ -339,20 +312,21 @@ export default function BountyBoard() {
         {/* Eligibility gate */}
         {eligibility && !eligibility.eligible && (
           <div className="bg-accent-wash border border-accent/50 rounded-lg p-5">
-            <h2 className="font-bold text-accent mb-2">Finish setup to open pulls</h2>
+            <h2 className="font-bold text-accent mb-2">
+              {eligibility.reasons.includes("phone_verification_unavailable")
+                ? "Pulls and redemptions are temporarily closed"
+                : "Finish setup to open pulls"}
+            </h2>
             <p className="text-ink-muted text-sm mb-4">
-              Bounty Board needs a verified phone and a prior paid order before you can redeem or resolve pulls.
+              {eligibility.reasons.includes("phone_verification_unavailable")
+                ? "Phone verification is paused while real code verification is being built. No submitted number is treated as verified."
+                : "Bounty Board requires a prior paid order before you can redeem or resolve pulls."}
             </p>
             <ul className="text-sm space-y-1.5 mb-4">
-              {eligibility.reasons.includes("phone_not_verified") && (
+              {eligibility.reasons.includes("phone_verification_unavailable") && (
                 <li className="flex items-center justify-between gap-3">
-                  <span className="text-ink-muted">Verified phone number</span>
-                  <button
-                    onClick={() => setShowPhoneModal(true)}
-                    className="text-xs bg-ink hover:bg-ink/85 text-page font-bold rounded px-3 py-1.5 transition-colors"
-                  >
-                    Verify phone
-                  </button>
+                  <span className="text-ink-muted">Phone code verification</span>
+                  <span className="text-xs text-ink-faint">Unavailable</span>
                 </li>
               )}
               {eligibility.reasons.includes("no_paid_order") && (
@@ -453,6 +427,7 @@ export default function BountyBoard() {
                   key={item.id}
                   item={item}
                   busy={busy}
+                  releaseAvailable={Boolean(eligibility?.eligible)}
                   selected={selectedIds.has(item.id)}
                   onToggleSelect={() => setSelectedIds(prev => {
                     const next = new Set(prev);
@@ -476,36 +451,6 @@ export default function BountyBoard() {
           result={pullResult}
           onClose={() => setPullResult(null)}
         />
-      )}
-
-      {/* Phone verify modal */}
-      {showPhoneModal && (
-        <Modal onClose={() => setShowPhoneModal(false)} title="Verify phone">
-          <p className="text-ink-muted text-sm mb-3">
-            Enter your phone number. (MVP: no SMS yet — submission marks verified for now.)
-          </p>
-          <input
-            value={phoneInput}
-            onChange={e => setPhoneInput(e.target.value)}
-            placeholder="+44 7..."
-            className="w-full bg-surface-subtle border border-border-subtle rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-accent mb-3"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleVerifyPhone}
-              disabled={busy}
-              className="flex-1 bg-ink hover:bg-ink/85 disabled:opacity-50 text-page font-bold rounded-lg py-2 text-sm transition-colors"
-            >
-              {busy ? "Verifying..." : "Verify"}
-            </button>
-            <button
-              onClick={() => setShowPhoneModal(false)}
-              className="bg-surface hover:bg-surface border border-border-subtle rounded-lg px-4 py-2 text-sm transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </Modal>
       )}
 
       {/* Redemption modal */}
@@ -608,10 +553,11 @@ function BulkRedeemModal({
 /* ------------------------------------------------------------------ */
 
 function VaultCard({
-  item, busy, selected, onToggleSelect, onSellBack, onRedeem,
+  item, busy, releaseAvailable, selected, onToggleSelect, onSellBack, onRedeem,
 }: {
   item: VaultItem;
   busy: boolean;
+  releaseAvailable: boolean;
   selected: boolean;
   onToggleSelect: () => void;
   onSellBack: () => void;
@@ -628,7 +574,7 @@ function VaultCard({
   useEffect(() => { setNow(Date.now()); }, []);
   const onHold = now > 0 && now < holdUntil && item.status === "reserved";
   const daysLeft = now > 0 ? Math.max(0, Math.floor((expires - now) / 86400000)) : 0;
-  const selectable = item.status === "reserved" && !item.redemption_order_id && !onHold;
+  const selectable = releaseAvailable && item.status === "reserved" && !item.redemption_order_id && !onHold;
 
   return (
     <div className={`bg-surface border rounded-lg overflow-hidden transition-colors ${selected ? "border-accent" : "border-border-subtle"}`}>
@@ -686,17 +632,23 @@ function VaultCard({
           <div className="flex gap-1.5 pt-1">
             <button
               onClick={onSellBack}
-              disabled={busy}
+              disabled={busy || !releaseAvailable}
               className="flex-1 text-[11px] bg-surface hover:bg-surface border border-border-subtle rounded px-2 py-1.5 transition-colors disabled:opacity-50"
-              title="77% of spot → store credit"
+              title={releaseAvailable
+                ? "77% of spot to store credit"
+                : "Unavailable while phone verification is paused"}
             >
               Sell £{sellBack.toFixed(2)}
             </button>
             <button
               onClick={onRedeem}
-              disabled={busy || onHold}
+              disabled={busy || onHold || !releaseAvailable}
               className="flex-1 text-[11px] bg-accent-wash hover:bg-accent/20 text-accent rounded px-2 py-1.5 transition-colors disabled:opacity-50"
-              title={onHold ? "In 48h hold period" : "Request a physical shipment"}
+              title={!releaseAvailable
+                ? "Unavailable while phone verification is paused"
+                : onHold
+                  ? "In 48h hold period"
+                  : "Request a physical shipment"}
             >
               Redeem
             </button>

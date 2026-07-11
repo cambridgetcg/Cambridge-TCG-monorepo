@@ -61,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       return NextResponse.json({ started: true });
     }
 
-    return NextResponse.json({ started: true, firstPlayer: gameState.firstPlayer });
+    return NextResponse.json({ started: true });
   }
 
   return NextResponse.json({ waiting: true, message: "Deck submitted. Waiting for opponent." });

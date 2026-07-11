@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { listVault, type VaultItem } from "@/lib/bounty/db";
 
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
+
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Sign in required." },
+      { status: 401, headers: PRIVATE_NO_STORE },
+    );
   }
   const url = new URL(request.url);
   const statusParam = url.searchParams.get("status");
@@ -14,5 +19,5 @@ export async function GET(request: Request) {
   ];
   const status = allowed.find((s) => s === statusParam);
   const items = await listVault(session.user.id, status);
-  return NextResponse.json({ items });
+  return NextResponse.json({ items }, { headers: PRIVATE_NO_STORE });
 }

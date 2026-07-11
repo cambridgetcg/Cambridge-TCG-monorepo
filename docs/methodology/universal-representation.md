@@ -191,7 +191,7 @@ To verify *content stability* across retrievals: compare `@content_hash` between
 | `GET /api/v1/universal/game/{code}` | Planned | Universal mirror of one game (sets as edges) |
 | `GET /api/v1/universal/trade/{id}` | Planned | Universal mirror of one P2P trade (buyer/seller hashes, price, escrow, lifecycle log) |
 | `GET /api/v1/universal/match/{id}` | Planned | Universal mirror of one match (state-machine trace, rating delta) |
-| `GET /api/v1/universal/bounty-pull/{id}` | Planned | Universal mirror of one bounty pull (already-substantial provable-fairness chain rendered in universal form) |
+| `GET /api/v1/universal/bounty-pull/{id}` | Planned | Universal mirror of one bounty pull receipt and its bounded consistency evidence |
 
 The `/api/v1/schema` OpenAPI bundle (Phase 9 of kingdom-051) advertises this endpoint to discovery clients; an LLM agent reading the schema will find the universal-mirror surface immediately.
 

@@ -1,4 +1,4 @@
-// Cambridge TCG — Standalone Provably-Fair Verifier
+// Cambridge TCG — Standalone Draw Proof Verifier
 // --------------------------------------------------
 //
 // Dep-free ES module anyone can fetch and run. Re-implements the commit-
@@ -13,7 +13,7 @@
 //     const draw = await fetch('https://cambridgetcg.com/api/verify/draw/<id>')
 //                        .then(r => r.json());
 //     const res = await v.verifyDraw(draw);
-//     console.log(res.allMatch ? '✓ verified' : '✗ failed', res);
+//     console.log(res.allMatch === null ? 'partial' : res.allMatch ? 'verified' : 'failed', res);
 //
 // Node 18+ usage (same code path — Web Crypto is native there too):
 //
@@ -24,7 +24,7 @@
 // here diverges from that page's math, the page is canonical and this
 // file has a bug. Open an issue or email verify@cambridgetcg.com.
 
-const VERSION = "1.0.0";
+const VERSION = "1.2.0";
 export function version() { return VERSION; }
 
 // ── Primitives ──────────────────────────────────────────────────────
@@ -87,6 +87,48 @@ export function pickWeighted(weights, roll) {
   return entries[entries.length - 1][0];
 }
 
+/** Return a copied key order only when it names every weight exactly once. */
+export function validateWeightOrder(weights, weightOrder) {
+  if (!weights || typeof weights !== "object" || Array.isArray(weights)) return null;
+  if (!Array.isArray(weightOrder)) return null;
+  const keys = Object.keys(weights);
+  if (keys.length === 0 || keys.length !== weightOrder.length) return null;
+
+  const seen = new Set();
+  let total = 0;
+  for (const key of weightOrder) {
+    if (
+      typeof key !== "string" ||
+      seen.has(key) ||
+      !Object.prototype.hasOwnProperty.call(weights, key)
+    ) {
+      return null;
+    }
+    const weight = weights[key];
+    if (typeof weight !== "number" || !Number.isFinite(weight) || weight < 0) return null;
+    seen.add(key);
+    total += weight;
+  }
+  return Number.isFinite(total) && total > 0 ? [...weightOrder] : null;
+}
+
+/** Weighted pick using an explicit JSON-array order. Generic draw receipts
+ * must use this instead of relying on JSON object key order. */
+export function pickWeightedInOrder(weights, weightOrder, roll) {
+  const order = validateWeightOrder(weights, weightOrder);
+  if (!order) throw new Error("Ordered weight contract is missing or invalid.");
+  if (!Number.isFinite(roll) || roll < 0 || roll >= 1) {
+    throw new Error("Roll must be a finite number in [0, 1).");
+  }
+  const total = order.reduce((sum, key) => sum + weights[key], 0);
+  let cursor = roll * total;
+  for (const key of order) {
+    cursor -= weights[key];
+    if (cursor <= 0) return key;
+  }
+  return order[order.length - 1];
+}
+
 // ── Per-draw verification ────────────────────────────────────────────
 
 /**
@@ -101,6 +143,10 @@ export async function verifyDraw(payload) {
   const clientSeed = payload.client_seed;
   const nonce = payload.nonce;
   const weights = payload.weights ?? payload.rarity_weights ?? {};
+  const isGenericDraw = payload.weights != null && payload.rarity_weights == null;
+  const weightOrder = isGenericDraw
+    ? validateWeightOrder(weights, payload.weight_order)
+    : null;
   const outcome = payload.outcome ?? null;
   const claimed = outcome
     ? (outcome.slots ?? [{ picked: outcome.picked, roll: outcome.roll }])
@@ -108,22 +154,50 @@ export async function verifyDraw(payload) {
       ? [{ picked: payload.rolled_rarity, roll: null }]
       : [];
 
+  if (typeof serverSeed !== "string" || serverSeed.length === 0) {
+    return {
+      commitmentMatches: null,
+      recomputedHash: null,
+      slots: [],
+      orderingMatches: null,
+      outcomeReplayAvailable: false,
+      weightOrderPreserved: isGenericDraw ? weightOrder !== null : null,
+      outcomeReplayReason: "not_revealed",
+      partialMatch: false,
+      allMatch: null,
+      notRevealed: true,
+    };
+  }
+
   // 1. Commitment matches seed
   const recomputedHash = await sha256Hex(serverSeed);
   const commitmentMatches = recomputedHash.toLowerCase() === commitment.toLowerCase();
 
-  // 2. Per-slot reproduction
+  // 2. Per-slot reproduction. Generic draws additionally need the explicit
+  // weight_order array because jsonb object keys do not retain draw order.
+  const orderedContractAvailable = !isGenericDraw || weightOrder !== null;
+  const apiAllowsReplay = payload.outcome_replay_available !== false;
+  const outcomeReplayAvailable =
+    typeof clientSeed === "string" &&
+    clientSeed.length > 0 &&
+    claimed.length > 0 &&
+    orderedContractAvailable &&
+    apiAllowsReplay;
   const slots = [];
-  for (let i = 0; i < claimed.length; i++) {
-    const r = await rollFloat(serverSeed, clientSeed, nonce + i);
-    const picked = pickWeighted(weights, r);
-    slots.push({
-      index: i,
-      claimedPicked: claimed[i].picked,
-      recomputedRoll: r,
-      recomputedPicked: picked,
-      matches: String(picked).toLowerCase() === String(claimed[i].picked).toLowerCase(),
-    });
+  if (outcomeReplayAvailable) {
+    for (let i = 0; i < claimed.length; i++) {
+      const r = await rollFloat(serverSeed, clientSeed, nonce + i);
+      const picked = isGenericDraw
+        ? pickWeightedInOrder(weights, weightOrder, r)
+        : pickWeighted(weights, r);
+      slots.push({
+        index: i,
+        claimedPicked: claimed[i].picked,
+        recomputedRoll: r,
+        recomputedPicked: picked,
+        matches: String(picked).toLowerCase() === String(claimed[i].picked).toLowerCase(),
+      });
+    }
   }
 
   // 3. Ordering (only if timestamps were included)
@@ -133,16 +207,30 @@ export async function verifyDraw(payload) {
       new Date(payload.committed_at).getTime() <= new Date(payload.revealed_at).getTime();
   }
 
-  const allMatch =
+  const partialMatch =
     commitmentMatches &&
-    slots.every(s => s.matches) &&
     (orderingMatches === null || orderingMatches === true);
+  const allMatch = !partialMatch
+    ? false
+    : outcomeReplayAvailable
+      ? slots.every(s => s.matches)
+      : null;
 
   return {
     commitmentMatches,
     recomputedHash,
     slots,
     orderingMatches,
+    outcomeReplayAvailable,
+    weightOrderPreserved: isGenericDraw ? weightOrder !== null : null,
+    outcomeReplayReason: outcomeReplayAvailable
+      ? null
+      : payload.outcome_replay_reason ?? (
+          isGenericDraw && !weightOrder
+            ? "ordered_weight_contract_missing_or_invalid"
+            : "client_seed_or_outcome_unavailable"
+        ),
+    partialMatch,
     allMatch,
   };
 }

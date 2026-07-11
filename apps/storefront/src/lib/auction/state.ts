@@ -9,8 +9,8 @@
  * functions — every caller writes its own assembly of "this auction's
  * full state" from individual queries. There's `getAuction(id)` which
  * returns `AuctionDetail` (auction + images + last-50 bids) but no
- * composer that adds counterparty trust, anonymises bidders, decides
- * what's safe to expose vs hide, computes the propagation chain.
+ * composer that decides what's safe to expose, computes public auction
+ * facts and assembles the propagation chain.
  *
  * This module is that composer — the single shape the next wave of
  * auction-facing surfaces shares:
@@ -26,8 +26,8 @@
  *   3. PRICING — starting / current / increment / buy_now / dutch params
  *   4. DUTCH COMPUTED — for dutch auctions, live-computed current price
  *   5. TIMING — time_remaining when live, actual_end_at when ended
- *   6. BIDS — last 50 anonymised (opaque ids + trust tier badges only)
- *   7. SELLER — username + trust tier IF users.is_public, else null
+ *   6. BIDS — last 50 public price events, without person identifiers
+ *   7. SELLER — username + trust only when public and not suspended
  *   8. RESERVE — boolean met/not-met; reserve value never exposed publicly
  *   9. PROPAGATION — commission rate, payout hold, escrow flow,
  *      estimated seller payout (current price × (1 - commission))
@@ -40,14 +40,12 @@
  *   chooses whether to expose drafts (admin) or only published auctions
  *   (public mirror); `auctionStateIsPublic(id)` is the gate helper.
  *
- *   Does not expose reserve price when not met. The reserve value is
- *   structurally absent from the returned shape until isReserveMet
- *   returns true. Substrate-honest about seller privacy.
+ *   Does not expose the reserve price. Only the computed met/not-met boolean
+ *   is present, so the seller's price-discovery boundary remains intact.
  *
- *   Does not expose bidder identities. Each bid carries an opaque
- *   `anonymous_id` (last 6 chars of UUID) + a trust tier badge resolved
- *   from `trust_profiles` at read time. The reader can correlate
- *   ("three bids from the same bidder") without learning who they are.
+ *   Does not expose bidder or winner identifiers. Truncated UUIDs are still
+ *   deterministic correlators, so public bids contain price and time facts
+ *   only. Best offers are private proposals and are absent.
  *
  *   Does not expose admin-only fields (approval_notes, stripe ids,
  *   payment timestamps, commission_rate raw, payout amounts).
@@ -58,7 +56,6 @@
 import { query } from "@/lib/db";
 import type {
   Auction,
-  AuctionDetail,
   AuctionImage,
   AuctionType,
   AuctionStatus,
@@ -76,7 +73,8 @@ import {
 } from "./lifecycle";
 import { TRUST_TIERS } from "@/lib/escrow/types";
 import { getTrustTier } from "@/lib/escrow/trust-engine";
-import { anonId } from "@/lib/format";
+import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
+import { auctionRecordIsPublic } from "./public";
 
 // ── Public shape ─────────────────────────────────────────────────────────
 
@@ -144,37 +142,26 @@ export interface AuctionReserve {
 }
 
 export interface AuctionBidRow {
-  /** Last 6 chars of bidder uuid — correlation aid only, not a security boundary. */
-  anonymous_bidder_id: string;
   amount: number;
-  is_best_offer: boolean;
+  is_best_offer: false;
   status: string;
   created_at: string;
-  /** Bidder's trust tier at read time. null when private profile. */
-  trust_tier: string | null;
-  trust_score: number | null;
 }
 
 export interface AuctionBids {
   /** Last 50, descending by created_at. */
   recent: AuctionBidRow[];
   bid_count: number;
-  unique_bidders_count: number;
 }
 
 export interface AuctionWinner {
-  /** Last 6 chars of winner uuid. */
-  anonymous_winner_id: string;
-  trust_tier: string | null;
-  trust_score: number | null;
   winning_bid: number;
-  /** Auction has been paid for? */
-  paid_at: string | null;
+  paid: boolean;
 }
 
 export interface AuctionSeller {
-  /** Username when public; null when private (is_consignment=false or
-   *  users.is_public=false). */
+  /** Person fields publish only with explicit profile publication and while
+   *  the seller is not suspended. */
   username: string | null;
   display_name: string | null;
   trust_tier: string | null;
@@ -184,11 +171,11 @@ export interface AuctionSeller {
 }
 
 /**
- * The auction's *current downstream effects* on the seller's economics.
- * Same pattern as the trust-state propagation block.
+ * Public standard economics at the current price. Seller-specific stored
+ * rates and actual settlement amounts are deliberately not inputs.
  */
 export interface AuctionPropagation {
-  /** Commission the seller (or CTCG) gives up on the final price. */
+  /** Published platform commission rate, not the seller's stored rate. */
   commission_rate: number;
   commission_rate_display: string;
   /** Days after delivery until the seller's payout releases. Auctions use
@@ -196,11 +183,9 @@ export interface AuctionPropagation {
   payout_hold_days: number;
   /** Auctions always route through CTCG-mediated escrow. */
   escrow_flow: "ctcg_mediated";
-  /** What the seller would receive if the auction settled at the current
-   *  price. (1 - commission) × current_price, rounded. Approximate —
-   *  shipping costs and other adjustments are seller-specific. */
+  /** Generic estimate at the published rate, not the seller's actual payout. */
   estimated_seller_payout_gbp: number;
-  /** What the platform would collect. */
+  /** Generic platform-fee estimate at the published rate. */
   estimated_commission_gbp: number;
   methodology_urls: {
     commission_rate: string;
@@ -242,8 +227,6 @@ function toNumOrNull(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// `anonId` is imported from `@/lib/format` — same contract; one source of truth.
-
 function tierForScore(score: number | null): string | null {
   if (score === null) return null;
   const tier = getTrustTier(score);
@@ -263,31 +246,28 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 
 // ── Section enrichers ───────────────────────────────────────────────────
 
-async function loadBidderTiers(
-  bidderIds: string[],
-): Promise<Map<string, { score: number; tier: string | null }>> {
-  if (bidderIds.length === 0) return new Map();
-  return safe(
-    async () => {
-      const placeholders = bidderIds.map((_, i) => `$${i + 1}`).join(", ");
-      const r = await query(
-        `SELECT user_id, trust_score
-         FROM trust_profiles
-         WHERE user_id IN (${placeholders})`,
-        bidderIds,
-      );
-      const map = new Map<string, { score: number; tier: string | null }>();
-      for (const row of r.rows) {
-        const score = toNum(row.trust_score);
-        map.set(String(row.user_id), {
-          score,
-          tier: tierForScore(score),
-        });
-      }
-      return map;
-    },
-    new Map(),
-  );
+export function projectAuctionSellerForPublic(row: {
+  username?: string | null;
+  display_name?: string | null;
+  is_public?: boolean | null;
+  profile_publication_notice_version?: string | null;
+  profile_published_at?: string | null;
+  is_suspended?: boolean | null;
+  trust_score?: unknown;
+}): AuctionSeller {
+  const canPublish =
+    row.is_public === true &&
+    row.profile_publication_notice_version === PERSON_PUBLICATION_NOTICE_VERSION &&
+    Boolean(row.profile_published_at) &&
+    row.is_suspended === false;
+  const score = canPublish ? toNumOrNull(row.trust_score) : null;
+  return {
+    username: canPublish ? (row.username ?? null) : null,
+    display_name: canPublish ? (row.display_name ?? null) : null,
+    trust_tier: canPublish ? tierForScore(score) : null,
+    trust_score: score,
+    is_consignment: true,
+  };
 }
 
 async function loadSeller(sellerId: string | null): Promise<AuctionSeller | null> {
@@ -305,7 +285,10 @@ async function loadSeller(sellerId: string | null): Promise<AuctionSeller | null
   return safe(
     async () => {
       const r = await query(
-        `SELECT u.username, u.name AS display_name, u.is_public, tp.trust_score
+        `SELECT u.username, u.name AS display_name, u.is_public,
+                u.profile_publication_notice_version, u.profile_published_at,
+                COALESCE(tp.is_suspended, FALSE) AS is_suspended,
+                tp.trust_score
          FROM users u
          LEFT JOIN trust_profiles tp ON tp.user_id = u.id
          WHERE u.id = $1
@@ -314,32 +297,9 @@ async function loadSeller(sellerId: string | null): Promise<AuctionSeller | null
       );
       const row = r.rows[0];
       if (!row) return null;
-      const score = toNumOrNull(row.trust_score);
-      const isPublic = row.is_public !== false;
-      return {
-        username: isPublic ? (row.username ?? null) : null,
-        display_name: isPublic ? (row.display_name ?? null) : null,
-        trust_tier: tierForScore(score),
-        trust_score: score,
-        is_consignment: true,
-      };
+      return projectAuctionSellerForPublic(row);
     },
     null,
-  );
-}
-
-async function loadUniqueBiddersCount(auctionId: string): Promise<number> {
-  return safe(
-    async () => {
-      const r = await query(
-        `SELECT COUNT(DISTINCT user_id)::int AS n
-         FROM auction_bids
-         WHERE auction_id = $1 AND status <> 'rejected'`,
-        [auctionId],
-      );
-      return r.rows[0]?.n ?? 0;
-    },
-    0,
   );
 }
 
@@ -362,16 +322,7 @@ export async function loadAuctionState(id: string): Promise<AuctionStateShape | 
 
   const auction: Auction = detail;
 
-  // ── Bidder enrichment (parallel with seller) ───────────────────────
-  const uniqueBidderIds = Array.from(
-    new Set(detail.bids.map((b) => b.user_id).filter(Boolean)),
-  );
-
-  const [bidderTiers, seller, uniqueBiddersCount] = await Promise.all([
-    loadBidderTiers(uniqueBidderIds),
-    loadSeller(auction.seller_user_id),
-    loadUniqueBiddersCount(id),
-  ]);
+  const seller = await loadSeller(auction.seller_user_id);
 
   // ── Reserve ────────────────────────────────────────────────────────
   const reserveMet = isReserveMet(auction);
@@ -403,37 +354,29 @@ export async function loadAuctionState(id: string): Promise<AuctionStateShape | 
   const hasEnded = tr.expired || auction.status === "ended" || auction.status === "paid" || auction.status === "cancelled";
 
   // ── Bids ───────────────────────────────────────────────────────────
-  const recentBids: AuctionBidRow[] = detail.bids.map((b) => {
-    const tierData = bidderTiers.get(String(b.user_id));
-    return {
-      anonymous_bidder_id: anonId(b.user_id),
+  const recentBids: AuctionBidRow[] = detail.bids
+    .filter((bid) => !bid.is_best_offer)
+    .map((b) => ({
       amount: toNum(b.amount),
-      is_best_offer: b.is_best_offer,
+      is_best_offer: false,
       status: b.status,
       created_at: b.created_at,
-      trust_tier: tierData?.tier ?? null,
-      trust_score: tierData?.score ?? null,
-    };
-  });
+    }));
 
   // ── Winner (when paid or ended-with-winner) ────────────────────────
   let winner: AuctionWinner | null = null;
   if (auction.winner_user_id && (auction.status === "ended" || auction.status === "paid")) {
-    const winnerTier = bidderTiers.get(auction.winner_user_id);
     winner = {
-      anonymous_winner_id: anonId(auction.winner_user_id),
-      trust_tier: winnerTier?.tier ?? null,
-      trust_score: winnerTier?.score ?? null,
       winning_bid: currentPrice,
-      paid_at: auction.paid_at,
+      paid: auction.paid_at !== null,
     };
   }
 
   // ── Propagation ────────────────────────────────────────────────────
-  // Commission: from auction row if consignment, else platform default.
-  const commissionRate = auction.seller_commission_rate
-    ? toNum(auction.seller_commission_rate)
-    : SELLER_COMMISSION_RATE;
+  // Public propagation uses the published platform rate. The stored auction
+  // rate can contain a seller-specific membership adjustment and is a private
+  // commercial term; actual settlement remains participant/admin-only.
+  const commissionRate = SELLER_COMMISSION_RATE;
   const payoutHoldDays = 3; // /methodology/payout-hold — flat for auctions
   const estimatedPayout = Math.round((currentPrice * (1 - commissionRate)) * 100) / 100;
   const estimatedCommission = Math.round((currentPrice * commissionRate) * 100) / 100;
@@ -498,7 +441,6 @@ export async function loadAuctionState(id: string): Promise<AuctionStateShape | 
     bids: {
       recent: recentBids,
       bid_count: auction.bid_count ?? 0,
-      unique_bidders_count: uniqueBiddersCount,
     },
     winner,
     seller,
@@ -507,7 +449,7 @@ export async function loadAuctionState(id: string): Promise<AuctionStateShape | 
       kind: "live",
       queried_at: new Date().toISOString(),
       notes:
-        "Composed from auctions + auction_images + auction_bids + trust_profiles + users at request time. Composes getAuction() so the writer-side sweep (transitionScheduledToLive + transitionLiveToEnded) runs first; the state is as fresh as the cron has made it. Reserve value is structurally hidden when not met (sellers retain price-discovery privacy); bidders are anonymised behind opaque ids + trust tier badges. Propagation block (commission / payout hold / escrow flow / estimated payout) describes what this auction state currently produces in the kingdom's economics.",
+        "Composed from auctions + auction_images + auction_bids + trust_profiles + users at request time. Composes getAuction() so the writer-side sweep (transitionScheduledToLive + transitionLiveToEnded) runs first; the state is as fresh as the cron has made it. The reserve value is structurally absent; only met/not-met is public. Public bid history contains regular price/time events and the total event count, never bidder counts, bidder or winner correlators, or best offers. Seller identity and trust publish only with a current profile-publication receipt and while unsuspended. The propagation block uses the published platform fee, never a seller-specific stored rate or actual payout.",
       sources: [
         "auctions",
         "auction_images",
@@ -543,10 +485,7 @@ export async function auctionStateIsPublic(id: string): Promise<boolean> {
       );
       const row = r.rows[0];
       if (!row) return false;
-      if (row.status === "draft") return false;
-      // Consignment auctions pending review or rejected stay hidden.
-      if (row.is_consignment && row.approval_status !== "approved") return false;
-      return true;
+      return auctionRecordIsPublic(row);
     },
     false,
   );

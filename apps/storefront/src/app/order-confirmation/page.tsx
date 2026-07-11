@@ -1,18 +1,23 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type Stripe from "stripe";
 import OrderDetails from "./OrderDetails";
 import GoogleAdsConversion from "./GoogleAdsConversion";
 import { getStripe } from "@/lib/stripe";
 import { recordOrderFromStripeSession } from "@/lib/orders/record";
 import { InkRule } from "@/lib/ui";
+import { auth } from "@/lib/auth";
+import { checkoutSessionBelongsToAccount } from "@/lib/privacy/checkout-session";
 
 export default async function OrderConfirmationPage({
   searchParams,
 }: {
   searchParams: Promise<{ session_id?: string }>;
 }) {
+  const account = await auth();
+  if (!account?.user?.id || !account.user.email) notFound();
+
   const { session_id } = await searchParams;
-  if (!session_id) redirect("/");
+  if (!session_id) notFound();
 
   let session: Stripe.Checkout.Session;
   try {
@@ -21,13 +26,20 @@ export default async function OrderConfirmationPage({
       expand: ["line_items", "collected_information"],
     });
   } catch {
-    redirect("/");
+    notFound();
   }
 
   // Unpaid session — nothing to confirm. The retail till this page
   // used to bounce back to is retired (collectors-first, 2026-07-06);
   // home is the honest landing.
-  if (session.payment_status !== "paid") redirect("/");
+  if (session.payment_status !== "paid") notFound();
+
+  if (!checkoutSessionBelongsToAccount(session, {
+    id: account.user.id,
+    email: account.user.email,
+  })) {
+    notFound();
+  }
 
   // Defensive backup: also record the order here. The webhook is the
   // primary writer (and the only path that commits stock + sends email

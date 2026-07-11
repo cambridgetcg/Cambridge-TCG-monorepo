@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 // Public transparency health endpoint. Summarises the state of the
-// provably-fair observability stack so anyone can see at a glance:
+// draw-proof observability stack so anyone can see at a glance:
 //
 //   1. When was the last digest published? (staleness → trouble)
 //   2. What's the current chain tip? (externally cacheable)
 //   3. How many self-audits have passed / failed lately?
 //   4. Any open drift alerts on any group?
 //
-// Everything is read-only aggregate — exposes nothing identifying.
+// Everything returned is aggregate or operational metadata. Internal draw ids
+// and alert summaries stay private because they can contain reward-row keys.
 
 const AUDIT_LOOKBACK_DAYS = 7;
 
@@ -40,7 +41,7 @@ export async function GET() {
     [AUDIT_LOOKBACK_DAYS],
   );
   const recentFailures = await query(
-    `SELECT source, subject_id, reason, run_at
+    `SELECT source, reason, run_at
        FROM fairness_audits
       WHERE NOT all_ok
       ORDER BY run_at DESC
@@ -49,7 +50,7 @@ export async function GET() {
 
   // Open drift alerts
   const openAlerts = await query(
-    `SELECT kind_group, chi_square, sample_size, alert_date, raised_at, summary
+    `SELECT kind_group, chi_square, sample_size, alert_date, raised_at
        FROM fairness_alerts
       WHERE acknowledged_at IS NULL
       ORDER BY raised_at DESC

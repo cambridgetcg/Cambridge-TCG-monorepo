@@ -444,7 +444,7 @@ Five categories. Each has specific upstream examples and a tactic for overcoming
 | **Stale data** (upstream cached longer than its declared freshness) | Most price-aggregator caches; Cardmarket weekly bulk | `_meta.as_of` declares the *upstream's* timestamp, not just when *we* fetched. Substrate-honest about staleness chains. |
 | **Adversarial data** (sellers gaming TCGplayer market price by listing-then-cancelling) | A known TCGplayer + eBay vector | Cross-source aggregation: when 3 sources agree on a price within 20%, mark `confidence: high`; when one source diverges by 5×, mark `confidence: low` and `outlier: true`; downstream display the divergence honestly. |
 | **Mislabeled records** (upstream has the wrong card image / oracle text) | Happens at publisher official sites; very common at TCGplayer for new sets | Publisher-affiliated sources (Scryfall for MTG, Pokémon TCG API for Pokémon) are the authoritative tier; commercial-aggregator sources are the secondary tier; partner-platform sources are tertiary. Conflict resolution names which tier wins. |
-| **Provable lineage** (downstream wants to verify our claim) | Auditor / archivist participants | Content-hash addressing (§11) + `ingest_run` log (§9) + `_meta.sources` (§8) = lineage is queryable. *Any record can prove its origin.* |
+| **Inspectable lineage** (downstream wants to examine our claim) | Auditor / archivist participants | Content-hash addressing (§11) + `ingest_run` log (§9) + `_meta.sources` (§8) make our recorded lineage queryable. This is platform-supplied evidence, not independent proof that an upstream source originated the value. |
 
 ### 13.5 Inclusive / cosmological barriers (the fifth question)
 

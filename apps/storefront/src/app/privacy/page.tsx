@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Callout } from "@/lib/ui";
+import { PERSON_PUBLICATION_NOTICE } from "@/lib/social/publication";
 
 /**
  * /privacy — what we collect, what we don't, in plain words.
@@ -22,7 +23,7 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Privacy</h1>
         <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 10 June 2026.
+          Plain words, no boilerplate. Last updated 11 July 2026.
         </p>
 
         <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
@@ -48,11 +49,56 @@ export default function PrivacyPage() {
                 for how that works.
               </li>
               <li>
+                <strong className="text-ink">Collector account data</strong>:
+                profile text, selected showcase cards, private collection and
+                wishlist records, follows, blocks, reviews, and account settings.
+                Private collection and wishlist records are not public offers.
+              </li>
+              <li>
+                <strong className="text-ink">Messages and trade activity</strong>:
+                direct messages, listing and trade records, disputes, and the
+                limited account data needed to operate those exchanges. Direct
+                messages are visible only to their participants and authorised
+                support tools.
+              </li>
+              <li>
+                <strong className="text-ink">Old bounty phone submissions</strong>:
+                an unfinished pilot accepted phone numbers without proving that
+                the account controlled them. We paused that endpoint, accept no
+                new numbers through it, and do not treat its existing records as
+                verified. A previously submitted number may remain with the
+                account until it is deleted.
+              </li>
+              <li>
                 <strong className="text-ink">Visit statistics, only if you say
                 yes.</strong>{" "}
                 We use Google Analytics to understand how people use the site —
                 but the script only loads after you accept the cookie banner.
                 Decline (or ignore it) and nothing is sent to Google.
+              </li>
+            </ul>
+          </section>
+
+          <section id="person-publication" className="scroll-mt-24">
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">
+              Public profiles, messages and reviews
+            </h2>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>
+                Profiles are private by default. {PERSON_PUBLICATION_NOTICE.profile}
+              </li>
+              <li>
+                Direct messages are off by default and are a separate choice. {" "}
+                {PERSON_PUBLICATION_NOTICE.messaging}
+              </li>
+              <li>
+                Each review is private by default. Its reviewer can publish or
+                unpublish it independently. {PERSON_PUBLICATION_NOTICE.review}
+              </li>
+              <li>
+                While a publication choice is on, we store its current notice
+                version and first acceptance time. Turning it off clears those
+                active receipt fields. {PERSON_PUBLICATION_NOTICE.withdrawal}
               </li>
             </ul>
           </section>
@@ -152,6 +198,12 @@ export default function PrivacyPage() {
               <li>
                 <strong className="text-ink">Your account</strong>: kept until
                 you ask us to delete it.
+              </li>
+              <li>
+                <strong className="text-ink">Publication receipts</strong>: kept
+                with the account while each choice is on so we can show which
+                version you accepted and when. Withdrawal clears that choice&apos;s
+                active receipt fields.
               </li>
               <li>
                 <strong className="text-ink">Analytics data</strong>: held by

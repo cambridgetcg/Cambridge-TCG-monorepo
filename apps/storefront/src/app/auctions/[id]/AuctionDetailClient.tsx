@@ -1,7 +1,7 @@
 "use client";
 
 // The interactive half of /auctions/[id]. The page.tsx server shell
-// resolves the auction, card identity, bidder trust tiers and the viewer's
+// resolves the auction, card identity and the viewer's
 // session, then seeds this island so the FIRST paint (SSR + hydration)
 // already carries the card, price and bids — no empty client shell, and a
 // real <title>/OG for shared links and crawlers. This island keeps the
@@ -9,9 +9,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { AuctionDetail } from "@/lib/auction/types";
+import {
+  hasParticipantAuctionDetail,
+  type InteractiveAuctionDetail,
+} from "@/lib/auction/public";
 import { isReserveMet } from "@/lib/auction/lifecycle";
-import { WhyLink } from "@/lib/ui";
 import AuctionImageGallery from "@/components/auction/AuctionImageGallery";
 import BidPanel from "@/components/auction/BidPanel";
 import BidHistory from "@/components/auction/BidHistory";
@@ -33,10 +35,8 @@ export interface AuctionCardIdentity {
 }
 
 interface Props {
-  initialAuction: AuctionDetail;
+  initialAuction: InteractiveAuctionDetail & { id: string };
   initialSessionUserId: string | null;
-  /** Bidder trust tiers keyed by user_id (resolved server-side). */
-  trustTiers: Record<string, { tier: string | null; score: number | null }>;
   /** Resolved from auctions.sku via the catalogue, when the auction carries one. */
   cardIdentity: AuctionCardIdentity | null;
 }
@@ -44,10 +44,9 @@ interface Props {
 export default function AuctionDetailClient({
   initialAuction,
   initialSessionUserId,
-  trustTiers,
   cardIdentity,
 }: Props) {
-  const [auction, setAuction] = useState<AuctionDetail>(initialAuction);
+  const [auction, setAuction] = useState<InteractiveAuctionDetail & { id: string }>(initialAuction);
   const [sessionUserId, setSessionUserId] = useState<string | null>(initialSessionUserId);
   const id = initialAuction.id;
 
@@ -69,8 +68,8 @@ export default function AuctionDetailClient({
       try {
         const res = await fetch(`/api/auctions/${id}`);
         if (res.ok) {
-          const data: AuctionDetail = await res.json();
-          setAuction(data);
+          const data: InteractiveAuctionDetail = await res.json();
+          setAuction({ ...data, id });
         }
       } catch {
         // Silently fail on poll
@@ -79,7 +78,20 @@ export default function AuctionDetailClient({
     return () => clearInterval(interval);
   }, [id, auction.status]);
 
-  const reserveStatus = isReserveMet(auction);
+  const reserveStatus = "reserve_met" in auction
+    ? auction.reserve_met
+    : isReserveMet(auction);
+  const canSeePrivateOffers =
+    auction.viewer_role === "seller" || auction.viewer_role === "admin";
+  const visibleBids = auction.bids
+    .filter((bid) => canSeePrivateOffers || !bid.is_best_offer)
+    .map((bid) => ({
+      amount: bid.amount,
+      is_best_offer: bid.is_best_offer,
+      status: bid.status,
+      created_at: bid.created_at,
+      is_own: "is_own" in bid ? bid.is_own : false,
+    }));
 
   return (
     <div className="min-h-screen bg-page">
@@ -144,12 +156,12 @@ export default function AuctionDetailClient({
             <div className="bg-surface rounded-lg border border-border-subtle p-5">
               <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 Bid History
-                <WhyLink href="/methodology/trust-score" tooltip="How bidder trust tiers are set" />
               </h2>
               <p className="text-[11px] text-ink-faint mb-3">
-                Bidders are shown as anonymised ids and trust tiers, never names.
+                Price, status and time only. Bidder identity and trust are withheld;
+                private best offers are visible only to the seller and admins.
               </p>
-              <BidHistory bids={auction.bids} trustTiers={trustTiers} />
+              <BidHistory bids={visibleBids} />
             </div>
           </div>
 
@@ -157,13 +169,17 @@ export default function AuctionDetailClient({
           <div className="lg:col-span-2">
             <div className="lg:sticky lg:top-24 space-y-4">
               <BidPanel auction={auction} sessionUserId={sessionUserId} />
-              {(auction.status === "ended" || auction.status === "paid") && (
+              {hasParticipantAuctionDetail(auction) &&
+                (auction.status === "ended" || auction.status === "paid") && (
                 <PostWinPanel
                   auction={auction}
-                  sessionUserId={sessionUserId}
+                  viewerRole={auction.viewer_role}
                   onRefresh={async () => {
                     const res = await fetch(`/api/auctions/${id}`);
-                    if (res.ok) setAuction(await res.json());
+                    if (res.ok) {
+                      const data: InteractiveAuctionDetail = await res.json();
+                      setAuction({ ...data, id });
+                    }
                   }}
                 />
               )}

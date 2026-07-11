@@ -1,5 +1,6 @@
 import { query, transaction } from "@/lib/db";
 import type { MarketOrder, MarketTrade, OrderBookEntry, OrderBookSummary, CardOrderBook } from "./types";
+import { COMPLETED_TRADE_PUBLICATION } from "./publication";
 import { COMMISSION_RATE, commissionRateForScore } from "./types";
 import { resolveCommission, computeCommissionAmount } from "@cambridge-tcg/pricing";
 import { postActivity, awardAchievement } from "@/lib/social/db";
@@ -643,18 +644,6 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
     [sku]
   );
 
-  // Recent trades — include seller's username so the detail page can link
-  // trades back to the seller profile for reputation surfacing.
-  const tradesResult = await query(
-    `SELECT t.*, bu.name as buyer_name, su.name as seller_name,
-            su.username as seller_username
-     FROM market_trades t
-     LEFT JOIN users bu ON t.buyer_id = bu.id
-     LEFT JOIN users su ON t.seller_id = su.id
-     WHERE t.sku = $1 ORDER BY t.created_at DESC LIMIT 20`,
-    [sku]
-  );
-
   const bids = bidsResult.rows.map((r) => ({
     price: r.price,
     total_quantity: parseInt(r.total_quantity, 10),
@@ -667,22 +656,17 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
     order_count: parseInt(r.order_count, 10),
   })) as OrderBookEntry[];
 
-  // Strip the buyer's shipping address — it rides along via t.* (migration
-  // 0105) but recent trades render on the public card page, and the address
-  // is for the trade's own participants only.
-  const recentTrades = (tradesResult.rows as MarketTrade[]).map((t) => {
-    const { shipping_address: _omit, ...rest } = t;
-    void _omit;
-    return rest as MarketTrade;
-  });
-
   return {
     sku,
     card_name: cardInfo.rows[0]?.card_name || null,
     image_url: cardInfo.rows[0]?.image_url || null,
     bids,
     asks,
-    recent_trades: recentTrades,
+    // Keep the response field for client compatibility while completed-trade
+    // publication is paused. Open bids and asks are deliberate public intent;
+    // completed trades are a separate publication decision.
+    trade_aggregates: [],
+    trade_publication: COMPLETED_TRADE_PUBLICATION,
     best_bid: bids.length > 0 ? bids[0].price : null,
     best_ask: asks.length > 0 ? asks[0].price : null,
   };
@@ -733,41 +717,9 @@ export async function getMarketSummaries(filters: {
     params
   );
 
-  // Resolve last-trade-price + 24h trade count for the page in a single
-  // round trip rather than 2 queries per row. Uses DISTINCT ON for last
-  // trade and a filtered COUNT for the rolling window.
-  const skus = result.rows.map((r) => r.sku);
-  const tradeStats = skus.length === 0
-    ? new Map<string, { lastPrice: string | null; count24h: number }>()
-    : await (async () => {
-        const r = await query(
-          `SELECT sku,
-                  MAX(price) FILTER (WHERE rn = 1)             AS last_price,
-                  -- audit:cadence-platform — analytics window for price-chart, not a user deadline.
-                  COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') AS count_24h
-             FROM (
-               SELECT sku, price, created_at,
-                      ROW_NUMBER() OVER (PARTITION BY sku ORDER BY created_at DESC) AS rn
-                 FROM market_trades
-                WHERE sku = ANY($1)
-             ) t
-            GROUP BY sku`,
-          [skus]
-        );
-        const m = new Map<string, { lastPrice: string | null; count24h: number }>();
-        for (const row of r.rows) {
-          m.set(row.sku, {
-            lastPrice: row.last_price,
-            count24h: parseInt(row.count_24h, 10),
-          });
-        }
-        return m;
-      })();
-
   const cards: OrderBookSummary[] = result.rows.map((row) => {
     const bestBid = row.best_bid ? parseFloat(row.best_bid) : null;
     const bestAsk = row.best_ask ? parseFloat(row.best_ask) : null;
-    const stats = tradeStats.get(row.sku);
     return {
       sku: row.sku,
       card_name: row.card_name,
@@ -779,8 +731,6 @@ export async function getMarketSummaries(filters: {
       spread: bestBid && bestAsk ? bestAsk - bestBid : null,
       bid_depth: parseInt(row.bid_depth, 10),
       ask_depth: parseInt(row.ask_depth, 10),
-      last_trade_price: stats?.lastPrice ?? null,
-      trade_count_24h: stats?.count24h ?? 0,
     };
   });
 

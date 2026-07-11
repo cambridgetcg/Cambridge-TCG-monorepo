@@ -187,7 +187,7 @@ The mirror is designed for **every first-class object**, not just cards. The enc
 - `/api/v1/universal/game/[code]` — describes a game: sets-in-game as edges, total cards, rule-system reference
 - `/api/v1/universal/trade/[id]` — describes a P2P trade: buyer/seller hashes, price magnitude, escrow tier, timestamps, lifecycle log hashes
 - `/api/v1/universal/match/[id]` — describes a play match: state-machine trace, opponent hashes, ratings before/after
-- `/api/v1/universal/bounty-pull/[id]` — already has its provable-fairness chain (S4); the universal mirror just standardises the wrapper
+- `/api/v1/universal/bounty-pull/[id]` — would standardise the existing bounded draw receipt and digest evidence, without upgrading it into fairness proof
 
 The card endpoint ships first because it is the smallest and most-touched object. The pattern generalises with one helper per kind.
 

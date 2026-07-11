@@ -3,8 +3,8 @@ import PullIdForm from "./pull-id-form";
 
 import { Audience } from "@/lib/ui";
 export const metadata = {
-  title: "Provably-Fair Verification | Cambridge TCG",
-  description: "Verify the fairness of any Bounty Pull or pack opening using public commit-reveal data.",
+  title: "Draw Proof Verification | Cambridge TCG",
+  description: "Check the published commitment, outcome replay, and digest evidence for a Bounty Pull or pack opening.",
 };
 
 export default function VerifyHome() {
@@ -12,11 +12,13 @@ export default function VerifyHome() {
     <main className="min-h-screen bg-page text-ink">
       <Audience kind="public-documentation" />
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold mb-3">Provably-Fair Verification</h1>
+        <h1 className="text-3xl font-bold mb-3">Draw Proof Verification</h1>
         <p className="text-ink-muted mb-8">
-          Every Bounty Pull is verifiable. The server commits to a hash before
-          rolling, then reveals the seed afterwards. You can re-run the math
-          in your browser to prove the result wasn&apos;t cherry-picked.
+          The application stores a seed commitment before its roll step, then
+          reveals the seed afterward. You can check that the published proof is
+          internally consistent. Because all roll inputs are server-chosen and
+          there is no external pre-roll publication, this alone cannot prove the
+          server never preselected a favorable input tuple.
         </p>
 
         <section className="bg-surface border border-border-subtle rounded-lg p-6 mb-6">
@@ -29,23 +31,22 @@ export default function VerifyHome() {
         </section>
 
         <section className="bg-surface border border-border-subtle rounded-lg p-6 mb-6">
-          <h2 className="font-bold text-lg mb-2">Aggregate fairness</h2>
+          <h2 className="font-bold text-lg mb-2">Observed distribution</h2>
           <p className="text-sm text-ink-muted mb-3">
             See the actual rarity distribution across recent pulls vs the
             published tier weights — covers bounty pulls, packs, spin, and boxes.
           </p>
           <Link href="/verify/fairness" className="text-accent hover:text-accent-strong underline text-sm">
-            View fairness dashboard →
+            View observed distribution →
           </Link>
         </section>
 
         <section className="bg-surface border border-border-subtle rounded-lg p-6 mb-6">
-          <h2 className="font-bold text-lg mb-2">The fairness chain</h2>
+          <h2 className="font-bold text-lg mb-2">The draw digest chain</h2>
           <p className="text-sm text-ink-muted mb-3">
-            Every commitment we&apos;ve ever made, hashed into a Merkle digest,
-            and every digest linked to the previous. Cache today&apos;s chain
-            tip; verify it tomorrow. The chain&apos;s job is to make any
-            post-hoc rewrite detectable.
+            Revealed draws collected by the digest job are hashed into Merkle
+            batches, and each batch links to the previous one. Cache today&apos;s
+            chain tip and compare later to detect a rewrite after your snapshot.
           </p>
           <Link href="/verify/chain" className="text-accent hover:text-accent-strong underline text-sm">
             View the chain →
@@ -78,4 +79,3 @@ export default function VerifyHome() {
     </main>
   );
 }
-

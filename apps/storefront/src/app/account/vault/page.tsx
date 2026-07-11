@@ -264,7 +264,7 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
 
           {item.bounty_pull_id && (
             <div>
-              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Provably fair</h3>
+              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Draw proof</h3>
               <Link
                 href={`/verify/pull/${item.bounty_pull_id}`}
                 target="_blank"

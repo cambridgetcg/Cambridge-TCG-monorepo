@@ -18,7 +18,6 @@ interface OpenAlert {
   sample_size: number;
   alert_date: string;
   raised_at: string;
-  summary: string | null;
 }
 
 interface AuditSeriesPoint {
@@ -29,7 +28,6 @@ interface AuditSeriesPoint {
 
 interface Failure {
   source: string;
-  subject_id: string;
   reason: string | null;
   run_at: string;
 }
@@ -132,9 +130,11 @@ function DigestSection({ data }: { data: HealthResponse["digest"] }) {
       )}
 
       <p className="text-xs text-ink-faint mt-3">
-        Cache this chain_hash. Recompute from{" "}
+        Save this chain_hash outside Cambridge TCG. Later, confirm that saved
+        tip still appears at the same point and recompute the suffix from{" "}
         <Link href="/api/verify/chain" className="text-accent hover:text-accent-strong underline">/api/verify/chain</Link>
-        {" "}later — if the new tip matches your recomputation, no historical rewrite has happened.
+        . A missing or changed saved tip exposes a conflicting history relative
+        to your copy; the live feed alone cannot rule out a coordinated rewrite.
       </p>
     </section>
   );
@@ -149,8 +149,9 @@ function AuditSection({ data }: { data: HealthResponse["self_audit"] }) {
     <section>
       <h2 className="text-lg font-bold mb-3">Self-Audit</h2>
       <p className="text-xs text-ink-faint mb-3">
-        Every maintenance tick samples 20 random revealed draws and re-runs the proof math
-        server-side. Pass rate over {data.lookback_days}d:
+        Maintenance samples revealed draws and re-runs proof-consistency math
+        server-side. This detects implementation or data drift, not biased
+        server-side input selection. Pass rate over {data.lookback_days}d:
       </p>
 
       <div className={`rounded-lg border p-4 mb-4 ${
@@ -183,7 +184,6 @@ function AuditSection({ data }: { data: HealthResponse["self_audit"] }) {
               {data.recent_failures.map((f, i) => (
                 <tr key={i} className="border-t border-border-subtle">
                   <td className="py-1.5 font-mono text-ink-muted">{f.source}</td>
-                  <td className="py-1.5 font-mono text-ink-muted truncate max-w-[220px]">{f.subject_id}</td>
                   <td className="py-1.5 text-danger">{f.reason ?? "unknown"}</td>
                   <td className="py-1.5 text-ink-faint whitespace-nowrap">
                     {new Date(f.run_at).toLocaleString()}
@@ -223,9 +223,6 @@ function DriftSection({ data }: { data: HealthResponse["drift_alerts"] }) {
                   raised {new Date(a.raised_at).toLocaleDateString()}
                 </span>
               </div>
-              {a.summary && (
-                <pre className="mt-2 text-[11px] text-ink-muted whitespace-pre-wrap font-mono">{a.summary}</pre>
-              )}
             </div>
           ))}
         </div>

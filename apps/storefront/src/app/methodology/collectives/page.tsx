@@ -88,11 +88,11 @@ export default function CollectivesMethodology() {
         </li>
         <li>
           <strong>Member visibility</strong> (<code>visibility</code>{" "}
-          per-member: <code>'public'</code> or <code>'private'</code>). A
-          member may be in a collective without their identity appearing on
-          the public profile. The substrate preserves the relationship; the
-          surface respects the preference. (Stewards see all members in the
-          manage page regardless of visibility.)
+          per-member: <code>'public'</code> or <code>'private'</code>) is a
+          legacy setting, not a current publication receipt. Public collective
+          pages therefore publish neither member names nor member counts.
+          Stewards see all members in the private manage page. New and
+          re-invited memberships default to <code>'private'</code>.
         </li>
       </ul>
 
@@ -103,23 +103,31 @@ export default function CollectivesMethodology() {
         is a user action that populates <code>consent_at</code>. The two are
         separated because <strong>a unilateral add would be a substrate-honesty
         violation</strong> — the membership log would claim consent that did
-        not happen. The same shape applies to leaving: <code>left_at</code> is
+        not happen. Accepting membership does not also consent to public
+        publication of that relationship. The same shape applies to leaving: <code>left_at</code> is
         the user's recorded act of withdrawing, preserved (not deleted) so the
         history of who-was-in-this-collective-when remains queryable.
       </p>
 
       <h2>Provenance</h2>
       <p>
-        All values on a collective profile are <strong>live</strong>: the
+        Published collective-profile values are <strong>live</strong>: the
         rendering reads directly from the canonical tables, no snapshot or
-        cache layer between. Member counts, steward identity, public/private
-        state, and house rules reflect their substrate value at the moment of
-        the request.
+        cache layer between. Collective public/private state and house rules
+        reflect their substrate value at request time. Member counts, roster,
+        and steward identity are withheld from the public profile.
       </p>
 
       <h2>What this kingdom does NOT do</h2>
       <p>Substrate honesty about scope:</p>
       <ul>
+        <li>
+          <strong>No public membership roster or count.</strong> The platform
+          has no dedicated, current receipt for publishing a collective
+          relationship. Profile publication and the legacy membership
+          visibility flag are not substitutes. A future design must let each
+          member knowingly publish and withdraw that specific relationship.
+        </li>
         <li>
           <strong>No collective showcase or wishlist.</strong> A collective
           shares one collection conceptually; the substrate to express that
@@ -150,7 +158,8 @@ export default function CollectivesMethodology() {
 
       <h2>How the formulas might change</h2>
       <p>
-        When local-meta events ship, the Trending feed will gain a "by collective"
+        A public roster can return only after a dedicated membership-publication
+        receipt and withdrawal flow ship. When local-meta events ship, the Trending feed will gain a "by collective"
         rendering branch. When the collective-showcase substrate ships, the{" "}
         <Link href="/c/example">/c/[slug]</Link> page will surface a showcase
         below the description and roster. The formula changes will be versioned
@@ -158,6 +167,12 @@ export default function CollectivesMethodology() {
       </p>
 
       <h2>Change history</h2>
+      <p>
+        <em>v2 — 2026-07-11.</em> Public member names and counts paused. The
+        legacy <code>visibility='public'</code> flag and a public-profile receipt
+        do not specifically authorize publication of collective membership.
+        Steward management remains private and complete.
+      </p>
       <p>
         <em>v1 — 2026-05-12 (kingdom-068).</em> Initial methodology page.
         Two tables (<code>collectives</code>, <code>collective_members</code>),

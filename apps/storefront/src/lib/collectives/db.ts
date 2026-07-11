@@ -14,6 +14,7 @@ import type {
   CollectiveMemberRole,
   CollectiveMemberVisibility,
   CollectiveMemberWithUser,
+  StewardCollectiveMemberWithUser,
   UserCollectiveRow,
 } from "./types";
 import { COLLECTIVE_KINDS, isValidSlug } from "./types";
@@ -43,11 +44,11 @@ type CollectiveRow = {
   updated_at: string;
 };
 
-type CollectiveRowWithCount = CollectiveRow & { active_member_count: string };
+type CollectiveRowWithCount = CollectiveRow & { active_member_count: string | null };
 
 type MemberRow = {
   collective_id: string;
-  user_id: string;
+  user_id: string | null;
   role: string;
   visibility: string;
   invited_at: string;
@@ -78,7 +79,9 @@ function shape(row: CollectiveRowWithCount): Collective {
     is_public: row.is_public,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    active_member_count: parseInt(row.active_member_count, 10),
+    active_member_count: row.active_member_count === null
+      ? null
+      : parseInt(row.active_member_count, 10),
   };
 }
 
@@ -98,13 +101,16 @@ export async function getCollectiveBySlug(
     `SELECT c.id, c.slug, c.display_name, c.kind, c.region, c.languages,
             c.description, c.house_rules, c.steward_user_id, c.is_public,
             c.created_at, c.updated_at,
-            (SELECT COUNT(*)::text FROM collective_members cm
-              WHERE cm.collective_id = c.id
-                AND cm.consent_at IS NOT NULL
-                AND cm.left_at IS NULL) AS active_member_count
+            CASE WHEN c.steward_user_id = $2 THEN
+              (SELECT COUNT(*)::text FROM collective_members cm
+                WHERE cm.collective_id = c.id
+                  AND cm.consent_at IS NOT NULL
+                  AND cm.left_at IS NULL)
+              ELSE NULL
+            END AS active_member_count
        FROM collectives c
       WHERE c.slug = $1`,
-    [slug],
+    [slug, viewerUserId],
   )) as { rows: CollectiveRowWithCount[] };
   if (r.rows.length === 0) return null;
   const row = r.rows[0]!;
@@ -120,15 +126,29 @@ export async function getCollectiveBySlug(
   return shape(row);
 }
 
-/** Active (consented, not-left) members of a collective, with user fields
- *  joined. Honors per-member visibility unless the viewer is the steward. */
+/** Active members are private management data until membership publication
+ *  has its own current receipt. Non-steward reads return no rows. */
+export function getActiveMembers(
+  collectiveId: string,
+  viewerIsSteward: true,
+): Promise<StewardCollectiveMemberWithUser[]>;
+export function getActiveMembers(
+  collectiveId: string,
+  viewerIsSteward: false,
+): Promise<CollectiveMemberWithUser[]>;
+export function getActiveMembers(
+  collectiveId: string,
+  viewerIsSteward: boolean,
+): Promise<CollectiveMemberWithUser[]>;
 export async function getActiveMembers(
   collectiveId: string,
   viewerIsSteward: boolean,
 ): Promise<CollectiveMemberWithUser[]> {
-  const visibilityFilter = viewerIsSteward ? "" : "AND cm.visibility = 'public'";
+  if (!viewerIsSteward) return [];
+
   const r = (await query(
-    `SELECT cm.collective_id, cm.user_id, cm.role, cm.visibility,
+    `SELECT cm.collective_id, cm.user_id,
+            cm.role, cm.visibility,
             cm.invited_at, cm.consent_at, cm.left_at,
             u.username, u.name, u.avatar_url
        FROM collective_members cm
@@ -136,7 +156,6 @@ export async function getActiveMembers(
       WHERE cm.collective_id = $1
         AND cm.consent_at IS NOT NULL
         AND cm.left_at IS NULL
-        ${visibilityFilter}
       ORDER BY
         CASE cm.role WHEN 'steward' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
         cm.consent_at ASC`,
@@ -242,7 +261,7 @@ export async function createCollective(
      ins_m AS (
        INSERT INTO collective_members
          (collective_id, user_id, role, visibility, invited_at, consent_at)
-       SELECT id, $8, 'steward', 'public', NOW(), NOW() FROM ins_c
+       SELECT id, $8, 'steward', 'private', NOW(), NOW() FROM ins_c
        RETURNING 1
      )
      SELECT * FROM ins_c`,
@@ -353,9 +372,10 @@ export async function inviteMember(
   await query(
     `INSERT INTO collective_members
        (collective_id, user_id, role, visibility, invited_at, consent_at, left_at)
-     VALUES ($1, $2, $3, 'public', NOW(), NULL, NULL)
+     VALUES ($1, $2, $3, 'private', NOW(), NULL, NULL)
      ON CONFLICT (collective_id, user_id) DO UPDATE
         SET role = EXCLUDED.role,
+            visibility = 'private',
             invited_at = EXCLUDED.invited_at,
             consent_at = NULL,
             left_at = NULL

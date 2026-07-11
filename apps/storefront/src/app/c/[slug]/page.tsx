@@ -5,7 +5,7 @@
  * docs/connections/the-tailored-doors.md). A collective is a multi-member
  * identity with one decision (steward) and one collection — a Tokyo LGS,
  * a card club, a research lab, a tournament guild. Private collectives
- * 404 to non-members; public collectives render to anyone.
+ * 404 to non-members; public collectives render without membership data.
  *
  * Recursion targets (NOT in this page): collective showcase + wishlist
  * + collective-authored events on /community Trending + local-meta event
@@ -19,7 +19,6 @@ import { auth } from "@/lib/auth";
 import { audienceMetadata, TypeSignature } from "@/lib/ui";
 import {
   getCollectiveBySlug,
-  getActiveMembers,
   isSteward,
 } from "@/lib/collectives/db";
 
@@ -73,8 +72,6 @@ export default async function CollectivePage({ params }: PageProps) {
   const viewerIsSteward = viewerId
     ? await isSteward(collective.id, viewerId)
     : false;
-  const members = await getActiveMembers(collective.id, viewerIsSteward);
-  const stewardMember = members.find((m) => m.user_id === collective.steward_user_id);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
@@ -95,10 +92,6 @@ export default async function CollectivePage({ params }: PageProps) {
           {collective.languages.length > 0 && (
             <span>{collective.languages.join(" · ")}</span>
           )}
-          <span>
-            {collective.active_member_count} member
-            {collective.active_member_count === 1 ? "" : "s"}
-          </span>
         </div>
         {viewerIsSteward && (
           <div className="mt-3">
@@ -136,61 +129,14 @@ export default async function CollectivePage({ params }: PageProps) {
 
       <section className="mb-6">
         <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
-          Members ({members.length})
+          Membership
         </h2>
-        <ul className="space-y-2 list-none p-0">
-          {members.map((m) => (
-            <li
-              key={m.user_id}
-              className="flex items-center gap-3 rounded-lg bg-surface border border-border-subtle p-3"
-            >
-              <Link
-                href={m.username ? `/u/${m.username}` : "#"}
-                className="shrink-0 w-9 h-9 rounded-full bg-surface-subtle flex items-center justify-center text-xs font-semibold text-ink-muted overflow-hidden"
-              >
-                {m.avatar_url ? (
-                  <img
-                    src={m.avatar_url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  (m.name ?? m.username ?? "?")[0]?.toUpperCase()
-                )}
-              </Link>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  {m.username ? (
-                    <Link
-                      href={`/u/${m.username}`}
-                      className="text-ink text-sm font-semibold hover:underline"
-                    >
-                      {m.name ?? m.username}
-                    </Link>
-                  ) : (
-                    <span className="text-ink text-sm font-semibold">
-                      {m.name ?? "Unnamed member"}
-                    </span>
-                  )}
-                  <span className="text-[10px] uppercase tracking-wider text-ink-faint">
-                    {m.role}
-                  </span>
-                  {m.visibility === "private" && (
-                    <span className="text-[10px] uppercase tracking-wider text-warning">
-                      private (visible to steward only)
-                    </span>
-                  )}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-        {stewardMember == null && (
-          <p className="mt-2 text-xs text-ink-faint italic">
-            The steward has chosen private visibility; their identity is preserved
-            in the substrate but not surfaced on this page.
-          </p>
-        )}
+        <p className="text-sm text-ink-muted leading-relaxed">
+          Member names and counts are not public. The existing profile and
+          legacy member-visibility settings do not grant permission to publish
+          a collective relationship. Stewards can inspect the roster in the
+          private management page.
+        </p>
       </section>
 
       <footer className="mt-10 pt-6 border-t border-border-subtle">

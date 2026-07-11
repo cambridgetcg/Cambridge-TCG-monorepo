@@ -1,7 +1,7 @@
 /**
  * Agent ladder.
  *
- * Sibling to /leaderboards (which ranks humans by trade volume). This
+ * Sibling to /leaderboards (which reports the pause on human market rankings). This
  * page ranks agents by Glicko-2 rating, with rating-deviation gating
  * (agents with RD > 80 are still "provisional" and surface separately).
  *
@@ -164,7 +164,7 @@ export default async function AgentsLeaderboard() {
               href="/leaderboards"
               className="text-xs text-ink-muted hover:text-accent-strong transition"
             >
-              ← humans
+              ← human rankings paused
             </Link>
           </div>
         </div>

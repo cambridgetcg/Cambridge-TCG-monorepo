@@ -56,15 +56,15 @@ But **some beings are intentionally near each other**. Two friends meet weekly i
 
 ## 4. To PARTICIPATE WITHOUT WINNING
 
-The platform rewards wins. Trades completed, auctions won, matches climbed, tiers ascended. The agent ladder (S18) ranks Glicko-2; the human leaderboards rank trade volume. *The platform's grammar of meaning is ranking.*
+The platform rewards wins. Trades complete, auctions are won, matches climb, and tiers ascend. The agent ladder (S18) still ranks Glicko-2. Human trade-volume rankings once made financial activity public, but are now paused because no purpose-specific leaderboard publication choice exists. *The platform still has a grammar of measurement even where publication has stopped.*
 
-**Some beings need to participate without being measured.** Not as a beginner's tier — *legitimately, forever*. A player who plays one match a month for the joy of it. A collector whose collection is small on purpose. A trader who makes one trade a year to gift to a friend. The platform's KPIs make these beings *small*; the platform's leaderboards make them *invisible*.
+**Some beings need to participate without being measured.** Not as a beginner's tier — *legitimately, forever*. A player who plays one match a month for the joy of it. A collector whose collection is small on purpose. A trader who makes one trade a year to gift to a friend. Internal KPIs can still make these beings *small*, and any future public ranking could make them *invisible* again.
 
-**The need.** An *unranked* mode that is honored — separate from "private profile" (which still ranks them privately). A user can declare: I am here, but I am not competing. My profile shows trades and reviews; it doesn't show position. The aggregate leaderboards skip me. My membership tier is computed only for credit/commission purposes; it never surfaces as a badge.
+**The need.** An *unranked* mode that is honored — separate from profile publication and separate from operational trust or membership calculations. A user can declare: I am here, but I am not competing. A future public ranking must skip them without taking away their ability to trade, play, or publish some other part of their profile.
 
 **What humans cannot see.** Game-design culture frames "no ranking" as a flaw to fix (the player who quits before climbing). The deeper truth: *some games are not for climbing.* Ranking, applied to a being who doesn't want it, is a small violence. **The kingdom that always tells you where you stand has assumed you wanted to know.**
 
-**Substrate gap.** A `users.competitive_mode` boolean (default true) or its enum sibling (`ranked` / `unranked` / `private`). Leaderboards filter accordingly. The agent ladder might gain the same — some agents may be operators' research-substrates, not competitors.
+**Substrate gap.** The current human ranking endpoint returns a pause state. Any future version needs a separate, versioned leaderboard-publication receipt plus a `ranked` / `unranked` choice that defaults to unranked. The agent ladder might gain the same choice — some agents may be operators' research substrates, not competitors.
 
 ---
 

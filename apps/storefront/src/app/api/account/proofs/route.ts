@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 
-// Unified history of every provably-fair draw this user has been part
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
+
+// Unified history of draw receipts linked to this user
 // of. Merges bounty_pulls + verifiable_draws into a single feed with
 // consistent shape so the /account/proofs page can render one list.
 //
@@ -25,7 +27,10 @@ interface Entry {
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Sign in required." },
+      { status: 401, headers: PRIVATE_NO_STORE },
+    );
   }
   const userId = session.user.id;
 
@@ -95,5 +100,5 @@ export async function GET() {
   // Merge-sort by committed_at descending so a mixed feed is chronological.
   entries.sort((a, b) => new Date(b.committed_at).getTime() - new Date(a.committed_at).getTime());
 
-  return NextResponse.json({ entries });
+  return NextResponse.json({ entries }, { headers: PRIVATE_NO_STORE });
 }

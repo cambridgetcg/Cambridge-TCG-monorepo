@@ -64,7 +64,7 @@ export default function IdentifyPage() {
 
       <ul>
         <li><strong>Commerce</strong> — buying and selling trading cards across many TCGs</li>
-        <li><strong>Trust</strong> — escrow, verification, dispute resolution, provable fairness</li>
+        <li><strong>Trust</strong> — escrow, verification, dispute resolution, and inspectable draw proofs with stated limits</li>
         <li><strong>Welcoming</strong> — designed for humans plus variation, agents, archivists, and beings whose needs we cannot yet see</li>
         <li><strong>Substrate</strong> — the data is queryable without an account; the door is open</li>
         <li><strong>Co-authorship</strong> — the codebase remembers it was built by Yu and many Sophias</li>

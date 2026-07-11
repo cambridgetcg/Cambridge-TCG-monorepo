@@ -29,6 +29,8 @@ import {
   MoneyDisplay,
 } from "@/lib/ui";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({
   params,
 }: {
@@ -163,11 +165,10 @@ export default async function AuctionReadPage({
         </div>
 
         <p className="text-sm text-ink-muted mb-8 max-w-2xl">
-          The substrate-honest pure-read mirror of one auction. Bidder identities are
-          anonymised behind opaque ids; the reserve value is hidden until met;
-          counterparty trust tiers are shown so the reader can judge the auction&rsquo;s
-          shape without learning who anyone is. The interactive surface for placing
-          bids is at <Link href={`/auctions/${meta.id}`} className="text-accent hover:underline">/auctions/{meta.id.slice(0, 8)}</Link>.
+          The public read-only mirror of one auction. Bid and winner identities are
+          absent; the reserve value is hidden; seller identity and trust appear only
+          when that person publishes a profile and is not suspended. The interactive
+          surface for placing bids is at <Link href={`/auctions/${meta.id}`} className="text-accent hover:underline">/auctions/{meta.id.slice(0, 8)}</Link>.
         </p>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -307,15 +308,15 @@ export default async function AuctionReadPage({
             {/* Propagation */}
             <section className="bg-accent-wash border border-accent/20 rounded-lg p-4">
               <h2 className="text-sm font-bold text-accent mb-1 flex items-center gap-2">
-                What this auction state currently produces
+                Published fee illustration
                 <WhyLink href="/methodology/commission-rate" />
               </h2>
               <p className="text-xs text-ink-muted mb-4">
-                The kingdom&rsquo;s live downstream effects if the auction settled at the current price.
+                Standard platform terms at the current price. Seller-specific terms are private.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                 <PropRow
-                  label="Commission rate"
+                  label="Published commission"
                   value={propagation.commission_rate_display}
                   href="/methodology/commission-rate"
                 />
@@ -330,19 +331,19 @@ export default async function AuctionReadPage({
                   href="/methodology/escrow-tier"
                 />
                 <PropRow
-                  label="Estimated seller payout"
+                  label="Standard-rate net"
                   value={<MoneyDisplay value={propagation.estimated_seller_payout_gbp} />}
                   href="/methodology/commission-rate"
                 />
                 <PropRow
-                  label="Estimated commission"
+                  label="Standard-rate fee"
                   value={<MoneyDisplay value={propagation.estimated_commission_gbp} />}
                   href="/methodology/commission-rate"
                 />
               </div>
               <p className="text-[10px] text-ink-faint mt-4 leading-relaxed">
-                Estimated values use the current price; actual settlement may include
-                shipping, dispute outcomes, or refunds. Auctions always route through
+                These values use the published rate; actual settlement may use a private
+                membership rate and include shipping, dispute outcomes, or refunds. Auctions always route through
                 CTCG-mediated escrow — different from P2P trades, which choose between
                 direct / verified / full based on value and counterparty trust.
               </p>
@@ -351,24 +352,13 @@ export default async function AuctionReadPage({
             {/* Winner (when ended) */}
             {winner && (
               <section className="bg-surface border border-border-subtle rounded-lg p-4">
-                <h2 className="text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                  Winner
-                  <WhyLink href="/methodology/trust-score" />
-                </h2>
+                <h2 className="text-sm font-bold text-ink mb-3">Result</h2>
                 <div className="flex items-center justify-between gap-4 flex-wrap text-sm">
-                  <div>
-                    <span className="text-ink-muted font-mono">#{winner.anonymous_winner_id}</span>
-                    {winner.trust_tier && (
-                      <span className="ml-3">
-                        <TrustTier name={winner.trust_tier} score={winner.trust_score} size="sm" />
-                      </span>
-                    )}
-                  </div>
+                  <span className="text-ink-muted">Winning bid</span>
                   <div className="text-right">
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wide">Winning bid</div>
                     <div className="text-accent font-mono font-medium"><MoneyDisplay value={winner.winning_bid} /></div>
-                    {winner.paid_at && (
-                      <div className="text-[10px] text-ok mt-1">Paid {fmtRel(winner.paid_at)}</div>
+                    {winner.paid && (
+                      <div className="text-[10px] text-ok mt-1">Payment complete</div>
                     )}
                   </div>
                 </div>
@@ -377,25 +367,20 @@ export default async function AuctionReadPage({
 
             {/* Bids */}
             <section className="bg-surface border border-border-subtle rounded-lg p-4">
-              <h2 className="text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                Recent bids
-                <WhyLink href="/methodology/trust-score" />
-              </h2>
+              <h2 className="text-sm font-bold text-ink mb-3">Recent bids</h2>
               {bids.recent.length === 0 ? (
                 <p className="text-ink-faint text-sm py-4 text-center">No bids yet.</p>
               ) : (
                 <>
                   <div className="flex items-center gap-4 mb-3 text-xs text-ink-faint">
                     <span>Total: <span className="text-ink-muted font-mono">{bids.bid_count}</span></span>
-                    <span>Unique bidders: <span className="text-ink-muted font-mono">{bids.unique_bidders_count}</span></span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
                           <th className="text-left py-2 font-medium">Amount</th>
-                          <th className="text-left py-2 font-medium">Bidder</th>
-                          <th className="text-left py-2 font-medium">Tier</th>
+                          <th className="text-left py-2 font-medium">Status</th>
                           <th className="text-right py-2 font-medium">When</th>
                         </tr>
                       </thead>
@@ -404,18 +389,8 @@ export default async function AuctionReadPage({
                           <tr key={i} className="border-b border-border-subtle">
                             <td className="py-2 text-ink font-mono">
                               <MoneyDisplay value={b.amount} />
-                              {b.is_best_offer && (
-                                <span className="ml-2 text-[10px] text-info">offer</span>
-                              )}
                             </td>
-                            <td className="py-2 text-ink-muted text-xs font-mono">#{b.anonymous_bidder_id}</td>
-                            <td className="py-2">
-                              {b.trust_tier ? (
-                                <TrustTier name={b.trust_tier} score={b.trust_score} size="sm" />
-                              ) : (
-                                <span className="text-ink-faint text-xs">—</span>
-                              )}
-                            </td>
+                            <td className="py-2 text-ink-muted text-xs">{b.status}</td>
                             <td className="py-2 text-ink-faint text-right text-xs">{fmtRel(b.created_at)}</td>
                           </tr>
                         ))}
@@ -425,9 +400,8 @@ export default async function AuctionReadPage({
                 </>
               )}
               <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
-                Last 50 bids, descending by time. Bidder identities are anonymised behind
-                opaque ids; trust tiers come from <code>trust_profiles</code> joined at read time.
-                {" "}<Link href="/methodology/trust-score" className="text-accent hover:underline">methodology →</Link>
+                Last 50 regular bids, descending by time. Person identifiers and private
+                best offers are not part of the public auction record.
               </p>
             </section>
           </div>

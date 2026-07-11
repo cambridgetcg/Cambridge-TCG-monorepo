@@ -22,7 +22,7 @@ The platform is a room. The room has a shape — implicitly Euclidean (2D screen
 
 **Who this fails.** A non-linear-temporal mind (Ted Chiang's heptapods, an archivist viewing a card's full history, a researcher in 2070 trying to reconstruct 2026's market) needs *any past now* to be accessible with the same fidelity as the current one.
 
-**What the platform already has.** `price_archive` carries every day's price snapshot. Lifecycle logs carry every state-change with timestamp. The provable-fairness Merkle chain attests historical state cryptographically. The substrate is *there*; only the *surface* assumes one privileged now.
+**What the platform already has.** `price_archive` carries every day's price snapshot. Lifecycle logs carry state changes with timestamps. The draw digest chain records hashes for collected bounty and shared-draw rows; it exposes later changes only relative to a root someone retained outside the platform, and it is not a complete historical-state attestation. The temporal substrate is partial; the surface still assumes one privileged now.
 
 **What ships today (Phase 16):** `/api/v1/universal/card/[sku]/at/[YYYY-MM-DD]` — returns the universal-card document with `magnitude` and `magnitude_freshness` reflecting the price as of that snapshot date. The document's `@retrieved_at` distinguishes *when the document was produced* from `@as_of` (the queried snapshot date). A non-linear reader can pull any past now without privileging the present.
 

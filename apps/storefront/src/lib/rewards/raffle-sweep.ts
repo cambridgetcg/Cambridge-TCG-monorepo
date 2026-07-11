@@ -7,9 +7,9 @@
 //
 // Was previously using the legacy drawRaffleWinner (Math.random()) which
 // produced no proof and had no audit trail. Switched to the commit-reveal
-// implementation so cron-drawn raffles are verifiable like manual draws.
-// Pre-commits the seed if admin hasn't (raffles created before the
-// pre-commit hook landed); the proof captures whether commit preceded draw.
+// implementation so cron-drawn raffles leave the same draw receipt as manual draws.
+// For legacy rows without a seed, it stores one immediately before drawing;
+// that fallback is reproducible but is not a pre-entry commitment.
 //
 // Sets winner_notified=true on successful email so a re-sweep doesn't
 // double-mail. Failed emails leave the flag false; next tick retries.
@@ -39,10 +39,8 @@ export async function runRaffleAutoDraw(): Promise<RaffleSweepResult> {
 
   for (const raffle of due.rows) {
     try {
-      // Belt-and-braces pre-commit: if admin didn't pre-commit before
-      // entries closed, commit now. The commit precedes the draw within
-      // this same loop iteration so committed_at < drawn_at is preserved
-      // even for raffles that skipped the manual pre-commit step.
+      // Legacy fallback: store a commitment now if creation did not. It
+      // precedes the draw write but offers no pre-entry or external witness.
       // commitSeed is idempotent (no-ops if seed already exists).
       try { await commitSeed(raffle.id); } catch (err) {
         console.warn(`[raffle-sweep] pre-commit skipped for ${raffle.id}:`, err);

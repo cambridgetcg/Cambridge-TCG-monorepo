@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { getEligibility } from "@/lib/bounty/db";
+import { BOUNTY_PHONE_VERIFICATION_MESSAGE, getEligibility } from "@/lib/bounty/db";
 import type { VaultItem } from "@/lib/bounty/db";
 
 // Bulk vault redemption — one customer_order spanning N vault items.
@@ -54,7 +54,12 @@ export async function POST(request: Request) {
   const elig = await getEligibility(session.user.id);
   if (!elig.eligible) {
     return NextResponse.json(
-      { error: "Bounty Board requires a verified phone and prior paid order.", reasons: elig.reasons },
+      {
+        error: elig.reasons.includes("phone_verification_unavailable")
+          ? BOUNTY_PHONE_VERIFICATION_MESSAGE
+          : "Bounty Board requires a prior paid order.",
+        reasons: elig.reasons,
+      },
       { status: 403 },
     );
   }

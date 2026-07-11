@@ -47,11 +47,8 @@ interface SavedDeck {
 }
 
 interface PublicRoom {
-  id: string;
   code: string;
   status: string;
-  player1Name: string | null;
-  player2Name: string | null;
   isPublic: boolean;
   createdAt: string;
 }
@@ -683,7 +680,7 @@ export default function PlayPage() {
                   <div className="space-y-1.5">
                     {publicRooms.map((room) => (
                       <div
-                        key={room.id}
+                        key={room.code}
                         className="flex items-center justify-between bg-surface border border-border-subtle rounded-lg px-3 py-2 text-sm"
                       >
                         <div className="min-w-0 flex-1">
@@ -691,11 +688,10 @@ export default function PlayPage() {
                             {room.code}
                           </span>
                           <span className="text-ink-muted text-xs">
-                            {room.player1Name || "Waiting"}
-                            {room.player2Name ? ` vs ${room.player2Name}` : " — waiting for opponent"}
+                            {room.status === "waiting" ? "Open table" : "Match in progress"}
                           </span>
                         </div>
-                        {room.status === "waiting" && !room.player2Name && (
+                        {room.status === "waiting" && (
                           <button
                             onClick={() => handleJoinRoom(room.code)}
                             className="text-xs bg-ink hover:bg-ink/85 text-page font-bold rounded px-3 py-1 transition-colors"

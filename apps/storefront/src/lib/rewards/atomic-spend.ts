@@ -3,10 +3,8 @@
 // ── What this module is for ──────────────────────────────────────────────
 //
 // Every fairy-tale needs an economy that isn't a fairy-tale. This is
-// it. The raffle's commit-reveal cryptography (provable-fair.ts) is the
-// soul of the draw; this module is the bones. The cryptography handles
-// *fairness*; this module handles *correctness*. Without correctness,
-// fairness is a magician's trick over a broken till.
+// it. The raffle's draw receipt (provable-fair.ts keeps its legacy filename)
+// handles reproducibility; this module handles accounting correctness.
 //
 // The scenario this exists to refuse is small but cruel: a user spends
 // 1,000 Berries to enter ten times, the ledger row commits, then the
@@ -53,9 +51,9 @@
 //
 // ── What this module reaches toward ─────────────────────────────────────
 //
-//   - apps/storefront/src/lib/rewards/provable-fair.ts — the soul to
-//     this module's bones. Together they make raffle entries that are
-//     both economically correct (here) and fairly drawn (there).
+//   - apps/storefront/src/lib/rewards/provable-fair.ts — draw receipt code.
+//     Together they make raffle entries economically correct here and
+//     later reproducible there.
 //
 //   - apps/storefront/src/lib/membership/db.ts — the points ledger
 //     itself (spendPoints, earnPoints). This module is a higher-order

@@ -178,7 +178,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         ],
       },
     ],
-    footer: { label: "Provable fairness on every random outcome →", href: "/verify" },
+    footer: { label: "Inspect draw proofs and limits →", href: "/verify" },
   },
 
   // ── Community ───────────────────────────────────────────────────────
@@ -253,10 +253,10 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
           { label: "Pricing", href: "/methodology/pricing" },
           { label: "Edition variants", href: "/methodology/edition-variants" },
           { label: "Hospitality", href: "/methodology/hospitality" },
-          { label: "Verify & fairness", href: "/verify", description: "Proof of every random outcome" },
+          { label: "Draw proof checks", href: "/verify", description: "Consistency evidence and stated limits" },
           { label: "How verification works", href: "/verify/how-it-works" },
           { label: "Verify chain", href: "/verify/chain" },
-          { label: "Fairness proof", href: "/verify/fairness" },
+          { label: "Observed distribution", href: "/verify/fairness" },
           { label: "Health check", href: "/verify/health" },
           { label: "Known gaps", href: "/methodology/known-gaps" },
         ],

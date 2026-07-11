@@ -55,11 +55,9 @@ export async function getRoom(code: string) {
 }
 
 export async function listPublicRooms() {
-  // camelCase aliases — the lobby UI consumes these field names directly.
   // Rooms idle for 2+ hours are hidden so the list never advertises dead games.
   const result = await query(
-    `SELECT id, code, player1_name AS "player1Name", player2_name AS "player2Name",
-            status, is_public AS "isPublic", created_at AS "createdAt"
+    `SELECT code, status, is_public AS "isPublic", created_at AS "createdAt"
      FROM game_rooms
      WHERE is_public=true AND status IN ('waiting','playing')
        AND COALESCE(last_action_at, created_at) > NOW() - interval '2 hours'

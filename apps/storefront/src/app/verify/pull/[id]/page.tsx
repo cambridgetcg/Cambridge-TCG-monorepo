@@ -12,21 +12,22 @@ interface PullData {
   tier: string;
   earned_from: string;
   commitment: string;
-  server_seed: string;
-  client_seed: string;
-  client_seed_display: string;
+  server_seed: string | null;
+  client_seed: string | null;
+  client_seed_display: string | null;
+  outcome_replay_available: boolean;
+  client_seed_withheld: boolean;
   nonce: number;
   rolled_rarity: string;
   rolled_sku: string | null;
   rolled_spot_gbp: string | null;
   rarity_weights: Record<string, number>;
   committed_at: string;
-  revealed_at: string;
+  revealed_at: string | null;
   resolved_at: string;
   merkle_digest_id: number | null;
   merkle_leaf_index: number | null;
   vault_item: {
-    id: string;
     card_name: string;
     card_number: string | null;
     image_url: string | null;
@@ -64,7 +65,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
   // This is the entire point — the user shouldn't have to trust our
   // server's "yes it's valid" claim. They re-run the math themselves.
   useEffect(() => {
-    if (!data) return;
+    if (!data?.server_seed) return;
     verifyPull({
       commitment: data.commitment,
       serverSeed: data.server_seed,
@@ -77,6 +78,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => {
     if (!data || data.merkle_digest_id == null || data.merkle_leaf_index == null || !data.revealed_at) return;
+    const revealedAt = data.revealed_at;
     (async () => {
       const res = await fetch(`/api/verify/digests/${data.merkle_digest_id}`);
       if (!res.ok) return;
@@ -85,7 +87,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
         id: data.pull_id,
         commitment: data.commitment,
         serverSeed: data.server_seed,
-        revealedAtIso: new Date(data.revealed_at).toISOString(),
+        revealedAtIso: new Date(revealedAt).toISOString(),
       });
       const claimedLeaf = digest.leaves[data.merkle_leaf_index!];
       const leafMatchesTable = claimedLeaf?.toLowerCase() === recomputedLeaf.toLowerCase();
@@ -125,6 +127,10 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
     );
   }
 
+  if (!data.server_seed || !data.revealed_at) {
+    return <Page><p className="text-ink-faint">Pull not yet revealed.</p></Page>;
+  }
+
   const committedTs = new Date(data.committed_at).getTime();
   const revealedTs = new Date(data.revealed_at).getTime();
   const orderingOk = committedTs <= revealedTs;
@@ -135,43 +141,47 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
       <header className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <Link href="/verify" className="text-xs text-ink-faint hover:text-ink">← All proofs</Link>
-          <h1 className="text-2xl font-bold mt-2 mb-1">Provably-Fair Pull Verification</h1>
+          <h1 className="text-2xl font-bold mt-2 mb-1">Pull Draw Proof Verification</h1>
           <p className="text-sm text-ink-faint">
-            Re-run the RNG math in your browser. We didn&apos;t pick the outcome —
-            we committed to a hash before rolling, and you can prove it.
+            Re-run the public proof math in your browser. Legacy account-linked
+            client seeds are visible only to their owner.
           </p>
         </div>
         <a
           href={`/api/verify/pull/${id}/certificate.svg`}
-          download={`certificate-${id.slice(0, 8)}.svg`}
+          download={`draw-receipt-${id.slice(0, 8)}.svg`}
           className="shrink-0 px-3 py-2 bg-accent-wash hover:bg-accent/20 border border-accent/30 text-accent rounded-lg text-xs font-bold transition-colors"
         >
-          ↓ Download Certificate
+          ↓ Download Receipt
         </a>
       </header>
 
       {/* Verdict banner */}
       <div className={`rounded-lg p-4 mb-6 border ${
-        verification?.ok
+        verification?.ok === true
           ? "bg-ok/10 border-ok/40"
-          : verification && !verification.ok
+          : verification?.ok === false
             ? "bg-danger/10 border-danger/40"
             : "bg-surface border-border-subtle"
       }`}>
         <div className="flex items-center gap-3">
-          <span className={`text-3xl ${verification?.ok ? "text-ok" : "text-ink-faint"}`}>
-            {verification?.ok ? "✓" : verification ? "✗" : "…"}
+          <span className={`text-3xl ${verification?.ok === true ? "text-ok" : verification?.ok === false ? "text-danger" : "text-ink-faint"}`}>
+            {verification?.ok === true ? "✓" : verification?.ok === false ? "✗" : "…"}
           </span>
           <div>
             <p className="font-bold">
-              {verification?.ok
-                ? "Verified — pull is provably fair"
-                : verification
+              {verification?.ok === true
+                ? "Verified — published proof is internally consistent"
+                : verification?.ok === false
                   ? "Verification FAILED — please contact support"
-                  : "Computing…"}
+                  : verification
+                    ? "Partial public verification"
+                    : "Computing…"}
             </p>
             <p className="text-xs text-ink-faint">
-              All checks ran in your browser using public data only.
+              {verification?.outcomeReplayAvailable
+                ? "The commitment and outcome replay ran in your browser."
+                : "The commitment remains public; sign in as the owner to replay this legacy outcome."}
             </p>
           </div>
         </div>
@@ -210,7 +220,7 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
           <CheckCard
             ok={verification?.commitmentMatches ?? null}
             title="1. Commitment matches the seed"
-            explanation="The server published this commitment hash before rolling. We re-hash the revealed seed and check it matches."
+            explanation="The application stored this commitment before its roll step. We re-hash the revealed seed and check it matches."
           >
             <Field label="commitment" value={data.commitment} mono />
             <Field label="sha256(server_seed)" value={verification?.recomputedHash ?? "—"} mono />
@@ -221,11 +231,13 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
           <CheckCard
             ok={verification?.rarityMatches ?? null}
             title="2. The seed reproduces the rolled rarity"
-            explanation="rollFloat(serverSeed, clientSeed, nonce) → roll → pickWeighted(rarity_weights, roll) → rarity."
+            explanation={data.outcome_replay_available
+              ? "rollFloat(serverSeed, clientSeed, nonce) → roll → pickWeighted(rarity_weights, roll) → rarity."
+              : "This legacy client seed contains an account identifier, so anonymous outcome replay is withheld. The owner can sign in to run it."}
           >
-            <Field label="client_seed" value={data.client_seed_display} mono />
+            <Field label="client_seed" value={data.client_seed_display ?? "(not set)"} mono />
             <Field label="nonce" value={String(data.nonce)} mono />
-            <Field label="recomputed roll" value={verification?.recomputedRoll.toFixed(15) ?? "—"} mono />
+            <Field label="recomputed roll" value={verification?.recomputedRoll?.toFixed(15) ?? "—"} mono />
             <Field label="recomputed rarity" value={verification?.recomputedRarity ?? "—"} mono />
             <Field label="claimed rarity" value={data.rolled_rarity} mono />
           </CheckCard>
@@ -233,8 +245,8 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
           {/* Check 3: ordering */}
           <CheckCard
             ok={orderingOk}
-            title="3. Commitment was published before the roll"
-            explanation="committed_at must precede revealed_at. The server can't have picked a seed AFTER seeing the desired outcome."
+            title="3. Commitment record precedes the reveal record"
+            explanation="committed_at must precede revealed_at. These database timestamps confirm the application write order; they are not an independent public timestamp."
           >
             <Field label="committed_at" value={new Date(data.committed_at).toISOString()} mono />
             <Field label="revealed_at" value={new Date(data.revealed_at).toISOString()} mono />
@@ -243,13 +255,14 @@ export default function VerifyPullPage({ params }: { params: Promise<{ id: strin
 
           <CheckCard
             ok={merkle ? (merkle.leafMatchesTable && merkle.rootMatches) : null}
-            title={`4. Pull is anchored in public digest ${data.merkle_digest_id ? `#${data.merkle_digest_id}` : "(pending)"}`}
-            explanation="Once a digest is published, rewriting any leaf changes the root. Re-hashing the digest's leaves client-side must match the published root; our leaf must sit at the claimed index."
+            title={`4. Pull is included in digest ${data.merkle_digest_id ? `#${data.merkle_digest_id}` : "(pending)"}`}
+            explanation="Re-hashing the digest's leaves client-side must match its current root and our leaf must sit at the claimed index. Rewrite detection requires comparing with an earlier root retained outside this platform."
           >
             {data.merkle_digest_id == null ? (
               <p className="text-xs text-ink-faint italic">
                 This pull has not yet been included in a digest — the maintenance
-                cron publishes roots every tick. Checks 1-3 are already verifiable.
+                cron publishes roots every tick. The commitment and ordering checks
+                are already public; outcome replay depends on client-seed availability.
               </p>
             ) : merkle ? (
               <>

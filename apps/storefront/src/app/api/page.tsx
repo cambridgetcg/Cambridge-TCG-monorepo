@@ -23,7 +23,7 @@ import { audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Public data — Cambridge TCG",
   description:
-    "Every public data path Cambridge TCG offers: catalog, prices, decks, fairness verifiers, the agent gate, methodology, archives. For participants who want in via data.",
+    "Every public data path Cambridge TCG offers: catalog, prices, decks, draw-proof verifiers, the agent gate, methodology, archives. For participants who want in via data.",
   other: audienceMetadata("public-documentation", ["api", "participation"]),
 };
 
@@ -156,26 +156,26 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
     ],
   },
   {
-    group: "Provable fairness",
+    group: "Draw proof verification",
     blurb:
-      "Every random outcome on the platform is cryptographically committed and verifiable. Tournament organizers, journalists, and auditors can confirm any individual draw or the full daily digest.",
+      "Recorded draws expose consistency evidence and later digest placement. Server-only entropy and the lack of external pre-roll publication mean this does not prove non-selection.",
     rows: [
       {
         path: "/verify",
-        blurb: "Public verification surface for raffle draws, mystery boxes, bounty pulls. Per-draw inclusion proofs.",
+        blurb: "Public receipt checks for bounty and shared weighted draws; raffle proofs use a separate endpoint and have different limits.",
         auth: "none",
         status: "stable",
         methodology: "/methodology/fairness",
       },
       {
         path: "/verify/chain",
-        blurb: "The daily Merkle digest chain. Each day's root commits to every random outcome that day.",
+        blurb: "A sequence of Merkle batches over draws collected by the digest job; it is not a complete daily ledger of every random outcome.",
         auth: "none",
         status: "stable",
       },
       {
         path: "/api/verify/pull/[id]/certificate.svg",
-        blurb: "Visual certificate for a single random draw. Suitable for sharing or archiving.",
+        blurb: "Visual receipt for one recorded bounty draw. It records consistency evidence, not unbiased seed selection.",
         auth: "none",
         status: "stable",
       },

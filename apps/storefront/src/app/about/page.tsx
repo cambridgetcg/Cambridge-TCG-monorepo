@@ -76,7 +76,7 @@ export default function AboutPage() {
             <div>
               <h3 className="font-display font-semibold text-lg text-ink mb-3">A Financial Layer, Done Right</h3>
               <p className="text-ink-muted leading-relaxed">
-                Cards have real value. We do not pretend otherwise. Our market shows real-time prices, bid/ask spreads, and trade history — like a proper exchange. Your portfolio tracks P&L. Every reference price is labelled and carries its source — and the platform holds no position in its own market, so no number here is ever our offer. The financial layer serves the community, not the other way around. The goal is not speculation — it is giving collectors the information and tools to make good decisions about the cards they love.
+                Cards have real value. We do not pretend otherwise. Our market shows live bid and ask intent that collectors deliberately publish, alongside labelled catalogue and order-book reference history. Completed-trade analytics and person-derived market intelligence are paused until they have purpose-specific publication choices and a delayed, coarse release process. The platform holds no position in its own market, so no number here is ever our offer. The financial layer serves the community, not the other way around. The goal is not speculation — it is giving collectors the information and tools to make good decisions about the cards they love.
               </p>
             </div>
 
@@ -118,7 +118,7 @@ export default function AboutPage() {
             </div>
             <div className="bg-surface border border-border-subtle rounded-lg p-5">
               <p className="text-accent font-bold mb-1">Connect</p>
-              <p className="text-sm text-ink-muted">Follow collectors. Match on wishlists. Find your people in the community feed.</p>
+              <p className="text-sm text-ink-muted">Published profiles and direct messages use explicit choices. Wishlist matching and the public activity feed are paused while their per-event consent model is rebuilt.</p>
             </div>
           </div>
         </div>

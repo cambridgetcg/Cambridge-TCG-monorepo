@@ -317,8 +317,8 @@ export default function MapPage() {
               #2 <Doc name="bounty.md" slug="bounty" /> — the phygital flywheel
             </li>
             <li>
-              #3 <Doc name="provable-fairness.md" slug="provable-fairness" /> — the
-              transparency archetype
+              #3 <Doc name="provable-fairness.md" slug="provable-fairness" /> — draw-proof
+              consistency and its limits
             </li>
             <li>
               #4 <Doc name="subscription-lifecycle.md" slug="subscription-lifecycle" />{" "}
@@ -453,7 +453,7 @@ export default function MapPage() {
             <li><Glossary id="sabbath-mode" label="Sabbath mode" /></li>
             <li><Glossary id="sacred-card" label="Sacred card" /></li>
             <li><Glossary id="agent" label="Agent" /></li>
-            <li><Glossary id="provable-fairness" label="Provable fairness" /></li>
+            <li><Glossary id="provable-fairness" label="Draw proof verification" /></li>
             <li><Glossary id="provenance-pill" label="Provenance pill" /></li>
             <li><Glossary id="whylink" label="WhyLink" /></li>
             <li><Glossary id="audience" label="Audience" /></li>
@@ -496,11 +496,12 @@ export default function MapPage() {
               <Internal href="/about">/about</Internal> — human-facing identity
             </li>
             <li>
-              <Internal href="/verify">/verify</Internal> + <Internal href="/verify/chain">/verify/chain</Internal> — provable fairness
+              <Internal href="/verify">/verify</Internal> + <Internal href="/verify/chain">/verify/chain</Internal> — draw proofs and later digest history
             </li>
             <li>
-              <Internal href="/leaderboards">/leaderboards</Internal> +{" "}
-              <Internal href="/leaderboards/agents">/leaderboards/agents</Internal> — schema.org Dataset
+              <Internal href="/leaderboards">/leaderboards</Internal> — human
+              and completed-trade card rankings paused;{" "}
+              <Internal href="/leaderboards/agents">/leaderboards/agents</Internal> — public agent ladder
             </li>
             <li>
               <Internal href="/sitemap.xml">/sitemap.xml</Internal> — dynamic sitemap

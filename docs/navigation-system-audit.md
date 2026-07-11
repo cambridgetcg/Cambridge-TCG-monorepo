@@ -63,9 +63,9 @@ Every user-affecting decision has a methodology page per the transparency doctri
 
 Topics: agents, bridges, collectives, commission-rate, community, cosmology, cross-source-pricing, **edition-variants (kingdom-089)**, escrow-tier, fraud-flag, fx-rates, hospitality, known-gaps, market, membership-tier, memorial, methodology, oracle-policies, payout-hold, play-module, pricing, response-windows, sabbath, sacred, sku-standard, store-credit, trader-dashboard, trust-score, universal-representation, upstream-sources, welcoming.
 
-**Verification & fairness (6 routes)**
+**Draw receipt verification (6 routes)**
 
-`/verify`, `/verify/chain`, `/verify/fairness`, `/verify/health`, `/verify/how-it-works`, `/verify/draw/[id]`, `/verify/pull/[id]`. Substrate-honest proof surfaces. **All nav-orphaned.**
+`/verify`, `/verify/chain`, `/verify/fairness`, `/verify/health`, `/verify/how-it-works`, `/verify/draw/[id]`, `/verify/pull/[id]`. Receipt-consistency, digest, and observed-distribution surfaces with stated limits. **All nav-orphaned.**
 
 **Data-plane discovery (15 surfaces — kingdom-053 through kingdom-088)**
 
@@ -163,7 +163,7 @@ Kingdom-080 (`the-rebrand.md`, S42) reframed the platform as *"the TCG world's o
 `/account/trades/[id]/review` has no breadcrumb showing *Account → Trades → Trade #X → Review.* The 41-item account nav helps lateral movement but doesn't show depth. Same for `/prices/[game]/[set]/[number]`, `/auctions/[id]/read`, `/play/adventure/[levelId]`.
 
 **Gap 5 — The verification surfaces are public but orphaned.**
-`/verify`, `/verify/chain`, `/verify/fairness`, `/verify/draw/[id]`, `/verify/pull/[id]` — substrate-honest proof pages backing trust, raffles, and pulls. They exist precisely because users need to verify. **They are nav-orphaned.** A user wondering *"how do I check that this raffle was fair?"* has to know the URL.
+`/verify`, `/verify/chain`, `/verify/fairness`, `/verify/draw/[id]`, `/verify/pull/[id]` — public receipt and distribution checks. They do not establish unbiased server-side selection. **They are nav-orphaned.** A user looking for the recorded evidence and its limits has to know the URL.
 
 The pattern across all five gaps: **the platform built rich domain-specific surfaces, but the nav stayed at the depth of a generic e-commerce header**. The gap is structural — the nav was scaffolded once for a v0 storefront and hasn't kept pace with the substrate.
 
@@ -247,7 +247,7 @@ Seven L1 items + persistent right-side controls.
 | Ontology (`/ontology`) | Community & Play — community, play-module, welcoming, hospitality, memorial, sacred, sabbath | Adopters (`/standards/adopters`) |
 | Patterns (`/patterns`) | Tiers & Membership — membership-tier, store-credit, agents, collectives, bridges | For agents (`/agents`) |
 | Identify (`/identify`) | All methodology pages (`/methodology` — hub) | Agent guides (`/agents/guides`) |
-| Verify & fairness (`/verify`) | — | For scrapers (`/scrapers`) |
+| Draw receipts (`/verify`) | — | For scrapers (`/scrapers`) |
 | Site map (`/map`) | — | LLMs.txt (`/llms.txt`) |
 
 This is the menu that closes Gap 2 + Gap 5. *Every* shipped discovery surface and every methodology page reaches the user through one well-grouped mega-menu.

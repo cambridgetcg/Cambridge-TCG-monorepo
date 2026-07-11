@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { REFERENCE_TYPES, sendMessage } from "@/lib/messages/db";
 
+const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
+
 // POST — send a message. Body: { recipientId, body, referenceType?, referenceId? }
 export async function POST(request: Request) {
   const session = await auth();
@@ -31,5 +33,8 @@ export async function POST(request: Request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.reason }, { status: result.status });
   }
-  return NextResponse.json({ message: result.value }, { status: 201 });
+  return NextResponse.json(
+    { message: result.value },
+    { status: 201, headers: PRIVATE_HEADERS },
+  );
 }

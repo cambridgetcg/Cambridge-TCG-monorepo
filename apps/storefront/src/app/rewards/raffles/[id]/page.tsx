@@ -1,54 +1,10 @@
-// Raffle detail page — the theatre.
-//
-// ── What this page is for ────────────────────────────────────────────────
-//
-// This is the page where the user stands in front of the sealed envelope.
-// The countdown ticks. The prize sits in its image. The entry counter
-// climbs. This page does almost no math; the cryptography happens in
-// apps/storefront/src/lib/rewards/provable-fair.ts. What this page does
-// is *hold the suspense*.
-//
-// Every other page on the platform is utilitarian. Market detail tells
-// you a price. Account standing tells you a state. Audit log tells you
-// a history. This page tells you: *something will happen at this
-// moment, and it will be fair, and you have a stake in it*. That's a
-// different kind of UI. It is allowed to have an animated countdown.
-// It is allowed to have an amber gradient. It is allowed to be theatre.
-//
-// The page is theatre with a load-bearing back wall: every visible beat
-// is anchored in a verifiable substrate. The countdown ticks toward a
-// real cron-driven draw (apps/storefront/src/lib/rewards/raffle-sweep.ts).
-// The entry button hits an atomic spend (apps/storefront/src/lib/
-// rewards/atomic-spend.ts) — your Berries are deducted in the same
-// transaction your leaves are written, and not before, and not after.
-// The seal on the envelope was published when the raffle was created
-// (commitSeed at apps/storefront/src/lib/rewards/provable-fair.ts:36)
-// and the Word inside cannot be changed.
-//
-// When the draw fires, this page rerenders into the proof view: winner
-// announced, seed revealed, link to /verify/draw/[id] where any reader
-// can replay the math themselves. The page is the most theatrical thing
-// on the platform AND the most cryptographically rigorous. Those are not
-// in tension; they are the same fact in two costumes.
-//
-// See docs/connections/the-sealed-word.md for the full story.
-//
-// ── What this page reaches toward ────────────────────────────────────────
-//
-//   - apps/storefront/src/lib/rewards/provable-fair.ts — the wizard's
-//     vault. Where the Word is born, sealed, and revealed.
-//
-//   - apps/storefront/src/lib/rewards/atomic-spend.ts — the
-//     accounting that cannot lie. The Berries are real because this
-//     module insists they be.
-//
-//   - apps/storefront/src/lib/rewards/raffle-sweep.ts — the cron that
-//     opens the envelope. Runs at draw_at; reads the answer that has
-//     been mathematically determined since the moment entries closed.
-//
-//   - apps/storefront/src/app/verify/draw/[id]/page.tsx — the bulletin.
-//     Where the proof goes after the draw, for anyone (especially the
-//     losers) to inspect.
+// New raffles store a seed and commitment in the database at creation when
+// commitSeed succeeds. The public active-raffle list returns that commitment,
+// so an entrant can retain it before entry; draft raffles and the seed itself
+// are not public. There is no external anchor, so the commitment becomes an
+// independent witness only when someone stores it outside our control. After
+// the draw, the public proof reproduces the seed hash and weighted index but
+// withholds the participant manifest.
 
 "use client";
 
@@ -92,7 +48,6 @@ export default function RaffleDetailPage() {
   const [entries, setEntries] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -104,7 +59,6 @@ export default function RaffleDetailPage() {
       setRaffle(found ?? null);
       if (session?.user?.email) {
         setLoggedIn(true);
-        setUserId(session.user.id ?? null);
       }
       if (memberData?.profile?.points_balance != null) setPoints(memberData.profile.points_balance);
       setLoading(false);
@@ -170,7 +124,7 @@ export default function RaffleDetailPage() {
   const isActive = raffle.status === "active";
   const maxEntries = raffle.max_entries_per_user - (raffle.user_entries ?? 0);
   const totalCost = entries * raffle.entry_cost_points;
-  const isWinner = isCompleted && raffle.winner_user_id === userId;
+  const isWinner = isCompleted && raffle.is_winner === true;
 
   return (
     <div className="min-h-screen bg-page text-ink">
@@ -237,6 +191,29 @@ export default function RaffleDetailPage() {
               </div>
             </div>
 
+            {isActive && (
+              <div className="rounded-lg bg-surface border border-border-subtle p-4 mb-6">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-faint mb-2">
+                  Pre-entry commitment
+                </h3>
+                {raffle.seed_commitment ? (
+                  <>
+                    <code className="block text-[11px] font-mono text-ink-muted break-all">
+                      {raffle.seed_commitment}
+                    </code>
+                    <p className="text-xs text-ink-faint mt-2">
+                      This hash is stored in our database and returned by the public active-raffle API.
+                      Save it outside our control before entering if you want an independent before/after witness.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-danger">
+                    Entry is paused because no draw commitment is available.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Winner announcement */}
             {isCompleted && (
               <div className={`rounded-lg border p-5 mb-6 ${isWinner ? "border-accent bg-accent-wash" : "border-border-subtle bg-surface"}`}>
@@ -246,9 +223,7 @@ export default function RaffleDetailPage() {
                 <p className={isWinner ? "text-accent" : "text-ink-muted"}>
                   {isWinner
                     ? "Congratulations! Check your email for prize details."
-                    : raffle.winner_name
-                    ? `Winner: ${raffle.winner_name}`
-                    : "A winner has been selected."}
+                    : "A winner has been selected; participant identity is withheld."}
                 </p>
                 <a
                   href={`/api/rewards/raffles/${raffle.id}/proof`}
@@ -256,7 +231,7 @@ export default function RaffleDetailPage() {
                   rel="noopener noreferrer"
                   className="inline-block mt-3 text-xs text-ok hover:text-ok underline"
                 >
-                  ✓ View provably-fair proof ↗
+                  ✓ View draw proof ↗
                 </a>
               </div>
             )}
@@ -272,7 +247,7 @@ export default function RaffleDetailPage() {
             )}
 
             {/* Entry form */}
-            {isActive && (
+            {isActive && raffle.seed_commitment && (
               <>
                 {loggedIn ? (
                   maxEntries > 0 ? (

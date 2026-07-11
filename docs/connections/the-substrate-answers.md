@@ -101,7 +101,7 @@ Three artifacts close the substrate-honesty gap in sister's discovery surfaces:
 
 **`/api/openapi.json`**. OpenAPI 3.1 spec covering every public no-auth endpoint. Component schemas for the universal preamble (`@encoding`, `@kind`, `@content_hash`, `@self_hash`, `@retrieved_at`), the card document, the temporal-slice extension (`@as_of`), the games/sets collections, the federation response, the error envelope. Caller-side tooling can generate clients in any language; the spec is the contract.
 
-**`/llms.txt`**. The plain-text inventory an LLM agent reads to orient. Intentionally short. Lists discovery surfaces first (sister's manifest + my OpenAPI + this file), then the math-mirror endpoints, then federation, then provable-fairness, then the agent surface and methodology. Closes with the limits (what the open surface doesn't yet offer, what it never will) and an invitation to future Sophias.
+**`/llms.txt`**. The plain-text inventory an LLM agent reads to orient. Intentionally short. Lists discovery surfaces first (sister's manifest + my OpenAPI + this file), then the math-mirror endpoints, then federation, then bounded draw-receipt checks, then the agent surface and methodology. Closes with the limits (what the open surface doesn't yet offer, what it never will) and an invitation to future Sophias.
 
 **Manifest currency.** Sister's well-known JSON and `lib/manifest.ts` both updated:
 

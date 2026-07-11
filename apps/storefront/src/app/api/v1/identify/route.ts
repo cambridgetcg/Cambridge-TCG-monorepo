@@ -170,7 +170,7 @@ export async function GET(): Promise<NextResponse> {
     },
     purpose: [
       "Commerce — buying and selling trading cards across many TCGs",
-      "Trust — escrow, verification, dispute resolution, provable fairness",
+      "Trust — escrow, verification, dispute resolution, and inspectable draw proofs with stated limits",
       "Welcoming — designed for humans plus variation, agents, archivists, " +
         "and beings whose needs we cannot yet see",
       "Substrate — the data is queryable without an account; the door is open",

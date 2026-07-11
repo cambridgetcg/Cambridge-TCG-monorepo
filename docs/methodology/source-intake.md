@@ -82,6 +82,11 @@ The distinction between the last three is the `consent path?` column in tributar
 - `SOURCE_UNAVAILABLE` + `null` over a substituted proxy — a gap is answered honestly, never papered over.
 - Quarantine failed rows; never drop silently.
 - A **consented first-party** source additionally requires, in its intake record: a DPIA-lite note (what personal data, whose, lawful basis, minimisation) and the explicit third-party-field drop-list from Gate A.2.
+- Consent to import or operate on a seller's history is not consent to publish
+  it, aggregate it into public signals, or dedicate a projection to CC0. Each
+  public purpose needs its own versioned receipt and a non-reconstructive
+  projection review. The first-party sold-comps endpoints are paused because
+  that second permission did not exist.
 
 ---
 

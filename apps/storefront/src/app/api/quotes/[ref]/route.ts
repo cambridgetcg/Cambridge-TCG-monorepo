@@ -8,20 +8,32 @@ import { sendQuoteOfferEmail, sendQuoteAcceptedAdminNotification, sendQuoteStatu
 import { query } from "@/lib/db";
 import { notify } from "@/lib/notifications/db";
 
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
+
 const QUOTE_NOTIFY_COPY: Record<string, { title: string; body: string }> = {
   received:  { title: "Quote: cards received", body: "We've received your cards and will process payment next." },
   paid:      { title: "Quote paid", body: "Your payout has been sent." },
   cancelled: { title: "Quote cancelled", body: "This quote has been cancelled." },
 };
 
-// GET — public: view quote by reference
+// GET — retired customer flow: full quote detail is admin-only.
 export async function GET(_req: Request, { params }: { params: Promise<{ ref: string }> }) {
+  if (!(await isAdmin())) {
+    return NextResponse.json(
+      { error: "Quote not found." },
+      { status: 404, headers: PRIVATE_NO_STORE },
+    );
+  }
+
   const { ref } = await params;
   const quote = await getQuoteByRef(ref);
   if (!quote) {
-    return NextResponse.json({ error: "Quote not found." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Quote not found." },
+      { status: 404, headers: PRIVATE_NO_STORE },
+    );
   }
-  return NextResponse.json(quote);
+  return NextResponse.json(quote, { headers: PRIVATE_NO_STORE });
 }
 
 // PATCH — admin: set prices and send offer, or update status
@@ -129,8 +141,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
   return NextResponse.json({ error: "Unknown action." }, { status: 400 });
 }
 
-// POST — public: customer accepts or declines offer
+// POST — the customer quote flow is retired; retain this transition for admins only.
 export async function POST(request: Request, { params }: { params: Promise<{ ref: string }> }) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "Quote not found." }, { status: 404 });
+  }
+
   const { ref } = await params;
   const body = await request.json();
 

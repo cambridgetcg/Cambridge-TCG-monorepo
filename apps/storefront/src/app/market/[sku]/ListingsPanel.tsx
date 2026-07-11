@@ -5,16 +5,16 @@
 // negotiation needs the individual ask — its id (the makeOffer target),
 // remaining quantity, the seller behind it, and its return terms.
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Icon, MessageButton, Money, TrustTier, WhyLink } from "@/lib/ui";
+import Link from "next/link";
+import { Icon, MessageButton, Money, WhyLink } from "@/lib/ui";
 import { formatPrice, formatDateTime } from "@/lib/format";
+import type { PublicAskListing } from "@/lib/market/types";
 import {
   pickOfferAnchor,
   pctDelta,
   describeDelta,
   tradeLimitWarning,
-  type FairValueInput,
 } from "./offer-guidance";
 
 export interface TrustLimits {
@@ -23,24 +23,7 @@ export interface TrustLimits {
   warnings: string[];
 }
 
-interface AskListing {
-  id: string;
-  price: string;
-  remaining: number;
-  condition: string;
-  allow_offers: boolean;
-  accepts_returns: boolean;
-  return_window_days: number;
-  created_at: string;
-  seller: {
-    id: string;
-    username: string | null;
-    trust_score: number | null;
-    tier: string | null;
-    review_count: number;
-    avg_rating: number | null;
-  };
-}
+type AskListing = PublicAskListing;
 
 // <Provenance> is a server-only async component (it reads the lang-mode
 // cookie); this whole tree is client-rendered, so this mirrors its visual
@@ -61,7 +44,6 @@ export function ListingsPanel({
   sku,
   loggedIn,
   bestBid,
-  fairValue,
   spotPrice,
   limits,
   onBuy,
@@ -69,7 +51,6 @@ export function ListingsPanel({
   sku: string;
   loggedIn: boolean | null;
   bestBid: number | null;
-  fairValue: FairValueInput | null;
   spotPrice: number | null;
   limits: TrustLimits | null;
   // Prefills the card's buy form with this ask's terms and scrolls to it
@@ -96,8 +77,8 @@ export function ListingsPanel({
         Open Asks — Negotiate or Message
       </h2>
       <p className="text-xs text-ink-faint mb-3">
-        Each row is one seller&rsquo;s listing. Make an offer below the ask, or message the
-        seller before you trade.
+        Each row is one listing. Make an offer below the ask, or use its
+        listing-scoped contact before you trade.
       </p>
       <div className="space-y-2">
         {asks.map((ask) => (
@@ -118,31 +99,10 @@ export function ListingsPanel({
                   returns · <span className="font-mono tabular-nums">{ask.return_window_days}d</span>
                 </span>
               )}
-              <span className="flex items-center gap-1.5 text-xs min-w-0">
-                {ask.seller.username ? (
-                  <Link href={`/u/${ask.seller.username}`} className="text-accent hover:underline">
-                    @{ask.seller.username}
-                  </Link>
-                ) : (
-                  <span className="text-ink-faint">seller</span>
-                )}
-                {ask.seller.tier && (
-                  <TrustTier name={ask.seller.tier} score={null} showScore={false} />
-                )}
-                {ask.seller.username && (
-                  <Link
-                    href={`/u/${ask.seller.username}/trust`}
-                    className="text-ink-faint hover:text-accent hover:underline"
-                  >
-                    <span className="font-mono tabular-nums">{ask.seller.review_count}</span>{" "}
-                    review{ask.seller.review_count !== 1 ? "s" : ""}
-                  </Link>
-                )}
-              </span>
+              <span className="text-xs text-ink-faint">seller details withheld</span>
               <span className="ml-auto flex items-center gap-2">
-                {loggedIn && (
+                {loggedIn && ask.seller.contact_available && (
                   <MessageButton
-                    otherUserId={ask.seller.id}
                     referenceType="market_order"
                     referenceId={ask.id}
                     label="Message"
@@ -186,7 +146,6 @@ export function ListingsPanel({
                 sku={sku}
                 ask={ask}
                 bestBid={bestBid}
-                fairValue={fairValue}
                 spotPrice={spotPrice}
                 loggedIn={loggedIn}
                 limits={limits}
@@ -203,7 +162,6 @@ function OfferComposer({
   sku,
   ask,
   bestBid,
-  fairValue,
   spotPrice,
   loggedIn,
   limits,
@@ -211,7 +169,6 @@ function OfferComposer({
   sku: string;
   ask: AskListing;
   bestBid: number | null;
-  fairValue: FairValueInput | null;
   spotPrice: number | null;
   loggedIn: boolean | null;
   limits: TrustLimits | null;
@@ -229,7 +186,9 @@ function OfferComposer({
   const priceValid = Number.isFinite(parsedPrice) && parsedPrice > 0;
   const offerValue = priceValid ? parsedPrice * parsedQty : 0;
 
-  const anchor = pickOfferAnchor(fairValue, spotPrice);
+  // Completed-trade anchors are not part of the public offer composer.
+  // The only secondary anchor is the labelled catalogue reference.
+  const anchor = pickOfferAnchor(spotPrice);
   const deltaAsk = priceValid ? describeDelta(pctDelta(parsedPrice, askPrice)) : null;
   const deltaAnchor = priceValid && anchor ? describeDelta(pctDelta(parsedPrice, anchor.value)) : null;
   const limitWarning = tradeLimitWarning(offerValue, limits);
@@ -267,7 +226,7 @@ function OfferComposer({
       <div className="mt-3 pt-3 border-t border-border-subtle">
         <div className="bg-ok/10 border border-ok/30 rounded-lg p-3 text-sm text-ok">
           <p className="font-semibold">
-            Offer sent{ask.seller.username ? ` to @${ask.seller.username}` : ""}.
+            Offer sent to the listing owner.
           </p>
           <p className="text-xs text-ink-muted mt-1">
             The seller can accept, counter, or decline
@@ -387,10 +346,8 @@ function OfferComposer({
   );
 }
 
-// The pricing anchors, honestly sourced: the card's own 30-day tape when
-// it exists; the CTCG catalogue spot as a labelled reference when the
-// tape is cold (different source, different meaning — our retail price,
-// not a P2P clearing price).
+// Open bid and ask terms are public intent. The optional secondary anchor is
+// a labelled catalogue reference, not a completed-trade statistic or offer.
 function ComposerGuidance({
   askPrice,
   bestBid,
@@ -416,23 +373,12 @@ function ComposerGuidance({
           {bestBid !== null ? <Money value={bestBid} /> : "—"}
         </span>
       </div>
-      {anchor && anchor.kind === "own-tape" && (
+      {anchor && (
         <div className="flex items-center justify-between gap-2 text-xs">
           <span className="text-ink-muted">
-            Fair value (30d){" "}
-            <SourceLabel title="Computed from this card's own completed trades on this market over the last 30 days.">
-              computed · own trades · {anchor.basis}
-            </SourceLabel>
-          </span>
-          <span className="font-mono tabular-nums text-ink"><Money value={anchor.value} /></span>
-        </div>
-      )}
-      {anchor && anchor.kind === "ctcg-spot" && (
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-ink-muted">
-            CTCG spot{" "}
-            <SourceLabel title="No P2P trades on this card yet, so there is no own-tape fair value. This is Cambridge TCG's own catalogue price — a different source: our retail price, not what peers paid each other.">
-              reference · ctcg catalogue, no p2p tape
+            Catalogue reference{" "}
+            <SourceLabel title="A labelled catalogue reference observation. It is not a completed-trade statistic and not anyone's offer.">
+              reference · catalogue, not an offer
             </SourceLabel>
           </span>
           <span className="font-mono tabular-nums text-accent"><Money value={anchor.value} /></span>
@@ -445,7 +391,7 @@ function ComposerGuidance({
             Your offer is {deltaAsk && <>{deltaAsk} the ask</>}
             {deltaAsk && deltaAnchor && " · "}
             {deltaAnchor && anchor && (
-              <>{deltaAnchor} {anchor.kind === "own-tape" ? "fair value" : "CTCG spot"}</>
+              <>{deltaAnchor} the catalogue reference</>
             )}
             .
           </span>

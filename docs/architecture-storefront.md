@@ -42,7 +42,7 @@ Auctions, bounty, commerce, trust & safety, users, system.
 | `/api/membership/` | ~11 | Subscribe, cancel, resume, billing, points |
 | `/api/social/` | ~9 | Follow, feed, achievements, wishlist |
 | `/api/trust/` | ~7 | Disputes, verify, documents |
-| `/api/verify/` | ~10 | Provable fairness chain, digests, certificates |
+| `/api/verify/` | ~10 | Draw receipts, digests, consistency checks |
 | `/api/game/` | ~6 | PVP rooms, PVE levels, game state |
 | `/api/portfolio/` | ~6 | CRUD, alerts, history, trends |
 | `/api/decks/` | ~4 | CRUD, public sharing |
@@ -142,8 +142,8 @@ Limit-order-book model. Users post bids/asks per SKU at specific prices. Matchin
 ### Auctions (English / Dutch / Buy Now)
 Customer + admin auctions. Anti-snipe (5min extension), 48h payment deadline, best-offer support, approval workflow, fraud detection (bid sniping).
 
-### Bounty Board (Provably Fair Gacha)
-Commit-reveal RNG. Users earn tokens (from PVE, purchases, merges, grants). Pull a random card → vault. Vault items: redeem (ship), sell-back (77% spot → credit), trade, or let expire. Weekly global caps per tier.
+### Bounty Board (Draw Receipts)
+Server-generated commit/reveal receipts. Users earn tokens (from PVE, purchases, merges, grants). Pull a random card → vault. Vault items: redeem (ship), sell-back (77% spot → credit), trade, or let expire. Weekly global caps per tier. Receipts reproduce recorded outcomes but do not prove unbiased seed selection because the server controls the entropy and no external pre-roll witness exists.
 
 ### Trade-In
 Quote → submit → receive → grade → approve → pay. Cash via Stripe Connect, credit with tier bonus.
@@ -163,11 +163,11 @@ Profiles, followers, achievements, activity feed, showcase, wishlist matching, D
 ### Deck Builder & Game
 Deck construction + sharing. Full OPTCG game: PVP (room-based), PVE adventure mode. PVE rewards → bounty tokens.
 
-### Provable Fairness
-Commit-reveal RNG, Merkle tree digests, self-audit, chi-squared drift detection. Public verification pages + SVG certificates.
+### Draw Proof Consistency
+Commit/reveal receipts, Merkle tree digests, self-audit, and chi-squared drift detection. Public verification pages and SVG receipts expose recorded inputs and consistency checks. Digest rewrite detection depends on an earlier root retained outside the platform.
 
 ### Rewards
-Raffles, mystery boxes, reward packs, spin wheel, daily streak. All random outcomes provably fair.
+Raffles, mystery boxes, reward packs, spin wheel, daily streak. Several weighted draws issue reproducible receipts; coverage and guarantees differ by feature. Raffles store a commitment at creation and expose it once active, but have no independent anchor. Generic draws publish only after selection and use server-only entropy.
 
 ---
 
@@ -209,5 +209,5 @@ Single `/api/cron/maintenance` runs every minute, dispatches **36+ sweeps** via 
 2. **Single cron drives everything** — 36+ sweeps in one endpoint, self-gated by time windows.
 3. **Lifecycle logging everywhere** — Full audit trails for all state transitions.
 4. **Trust deeply integrated** — Feeds escrow routing, commissions, limits, fraud detection.
-5. **Provable fairness is real** — Not stubs. Commit-reveal, Merkle trees, chi-squared drift, public verification.
+5. **Draw receipts are real but bounded** — Commit/reveal rows, Merkle trees, drift checks, and public verification exist. They establish recorded consistency, not unbiased server-side seed selection.
 6. **Admin auth is weak** — Single shared password, no role mapping, no per-admin audit.

@@ -157,7 +157,7 @@ const TOPICS: Topic[] = [
   {
     slug: "market",
     title: "Market mirror",
-    blurb: "What each section on /cards/[sku]/market is, how it's computed, what counterparty trust means, why conditions are not collapsed. Seven sections: card-meta, order book (top-10 with condition breakdown), aggregate stats (VWAP/median/spread/last/completion), the tape (last 20 trades with trust tier inline), price history (7/30/90/365d), condition breakdown, anonymised 90d participants. Sibling to the interactive /market/[sku] surface.",
+    blurb: "How /cards/[sku]/market, /market/[sku], and the public market APIs separate deliberate open-order intent and non-person reference observations from private activity. Completed-trade analytics, watch and alert counts, co-watch recommendations, demand signals, and transaction rankings are paused until purpose-specific publication receipts and a delayed, coarse release process exist.",
     status: "published",
   },
   {

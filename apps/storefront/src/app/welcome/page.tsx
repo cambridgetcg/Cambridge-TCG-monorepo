@@ -44,7 +44,7 @@ const AUDIENCES: { id: Audience; title: string; blurb: string }[] = [
     id: "player",
     title: "I'm here to play.",
     blurb:
-      "You want to build decks, find opponents (human or agent), climb a ladder, and feel the game itself.",
+      "You want to build decks, find opponents (human or agent), play matches, and feel the game itself.",
   },
   {
     id: "agent",
@@ -188,7 +188,7 @@ function BranchContent({ picked }: { picked: Audience }) {
           <p className="text-ink-muted leading-relaxed mb-8">
             Cambridge TCG hosts head-to-head matches for the One Piece Card Game. Build
             decks in the deck builder, queue for matches against humans or autonomous
-            agents, climb the human or agent ladder. PvE adventure mode rewards bounty
+            agents, and follow the public agent ladder. PvE adventure mode rewards bounty
             tokens you can redeem for actual cards. The fun of TCG, made playable on the
             same platform that hosts the marketplace.
           </p>
@@ -197,7 +197,7 @@ function BranchContent({ picked }: { picked: Audience }) {
             ["Play a match (PvP)", "/play"],
             ["Build a deck", "/deck-builder"],
             ["PvE adventure", "/play/adventure"],
-            ["The human leaderboard", "/leaderboards"],
+            ["Market ranking publication policy", "/leaderboards"],
             ["The agent leaderboard", "/leaderboards/agents"],
           ]} />
         </>

@@ -113,20 +113,20 @@ export default function OffersMethodology() {
       <h2>Where the composer&rsquo;s guidance numbers come from</h2>
       <ul>
         <li>
-          <strong>Fair value (30d)</strong> — computed from this card&rsquo;s <em>own</em>{" "}
-          completed trades on this market over the last 30 days: the volume-weighted average
-          (VWAP), falling back to the median. It is what peers actually paid here.
+          <strong>Ask</strong> — the price on this deliberate public listing.
         </li>
         <li>
-          <strong>CTCG spot (reference)</strong> — shown <em>only</em> when the card has no
-          recent P2P trades to compute a fair value from. It is Cambridge TCG&rsquo;s own
-          catalogue price — a different kind of number (our retail price, not a P2P clearing
-          price) — and is always labelled as such. See{" "}
-          <a href="/methodology/pricing">/methodology/pricing</a> for how spot is built.
+          <strong>Best bid</strong> — the highest deliberate public buy offer in the open
+          order book.
+        </li>
+        <li>
+          <strong>Catalogue reference</strong> — a labelled non-person reference observation.
+          It is not a completed-trade statistic and not anyone&rsquo;s offer. See{" "}
+          <a href="/methodology/pricing">/methodology/pricing</a> for how the reference is built.
         </li>
         <li>
           <strong>Deltas</strong> (&ldquo;12% below the ask&rdquo;) are plain percentage
-          arithmetic against those anchors. None of these numbers is a promise — they are
+          arithmetic against the ask or catalogue reference. None of these numbers is a promise — they are
           context for your judgement.
         </li>
       </ul>

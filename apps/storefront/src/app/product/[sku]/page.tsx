@@ -72,7 +72,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
     : { items: [] };
   const relatedCards = related.items.filter((c) => c.sku !== card.sku).slice(0, 6);
 
-  // Collector market pulse for this card (asks/bids/tape only — the
+  // Collector market pulse for this card (open asks and bids only — the
   // platform holds no position, so nothing here is ours to sell or buy)
   const market = await getUnifiedMarketView(sku).catch(() => null);
 
@@ -108,13 +108,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
 
   const bestAsk = market && market.asks.length > 0 ? parseFloat(market.asks[0].price) : null;
   const bestBid = market?.best_bid ?? null;
-  const recentTrades24h = market
-    ? market.recent_trades.filter((t) => {
-        const tradeTime = new Date(t.created_at).getTime();
-        return Date.now() - tradeTime < 24 * 60 * 60 * 1000;
-      })
-    : [];
-  const hasPulse = bestAsk !== null || bestBid !== null || recentTrades24h.length > 0;
+  const hasPulse = bestAsk !== null || bestBid !== null;
 
   return (
     <>
@@ -240,11 +234,6 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                     Sell yours
                   </Link>
                 </div>
-              )}
-              {recentTrades24h.length > 0 && (
-                <p className="text-sm text-ink-faint">
-                  {recentTrades24h.length} collector trade{recentTrades24h.length !== 1 ? "s" : ""} in the last 24h
-                </p>
               )}
               <Link
                 href={`/market/${sku}`}

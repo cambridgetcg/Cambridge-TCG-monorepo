@@ -1,4 +1,4 @@
-// Daily fairness drift check.
+// Daily observed-distribution drift check.
 //
 // Computes χ² per (kind, group) over a rolling 7-day window. When a
 // group's score crosses the threshold with enough samples, we land an
@@ -238,7 +238,7 @@ async function emailDriftSummary(alerts: Array<{ kindGroup: string; chiSquare: n
     ).join("");
 
     const bodyHtml = `
-      <p style="margin:0 0 12px;">Fairness drift detected in the last 24h window:</p>
+      <p style="margin:0 0 12px;">Recorded draw distribution drift detected in the last 24h window:</p>
       <table style="width:100%;border-collapse:collapse;background:#18181b;border-radius:8px;">
         <thead>
           <tr style="color:#737373;font-size:11px;text-transform:uppercase;letter-spacing:2px;">
@@ -251,15 +251,15 @@ async function emailDriftSummary(alerts: Array<{ kindGroup: string; chiSquare: n
       </table>
       <p style="margin:16px 0 0;font-size:13px;color:#a3a3a3;">
         Review the per-group breakdown at
-        <a href="https://cambridgetcg.com/admin/fairness" style="color:#fbbf24;">the fairness admin</a>
+        <a href="https://cambridgetcg.com/admin/fairness" style="color:#fbbf24;">the draw distribution admin</a>
         or inspect raw counts at
         <a href="https://cambridgetcg.com/verify/fairness" style="color:#fbbf24;">/verify/fairness</a>.
       </p>
     `;
 
     const html = renderLayout({
-      preheader: `${alerts.length} fairness alert${alerts.length === 1 ? "" : "s"}`,
-      heading: "Fairness drift detected",
+      preheader: `${alerts.length} draw distribution alert${alerts.length === 1 ? "" : "s"}`,
+      heading: "Draw distribution drift detected",
       bodyHtml,
       footer: "This alert fires once per UTC day per affected group.",
     });
@@ -267,7 +267,7 @@ async function emailDriftSummary(alerts: Array<{ kindGroup: string; chiSquare: n
     await sendEmail({
       to: adminEmail,
       from: "noreply",
-      subject: `[Fairness] ${alerts.length} drift alert${alerts.length === 1 ? "" : "s"}`,
+      subject: `[Draw distribution] ${alerts.length} drift alert${alerts.length === 1 ? "" : "s"}`,
       html,
     });
   } catch (err) {

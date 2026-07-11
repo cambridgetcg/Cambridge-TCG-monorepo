@@ -119,6 +119,7 @@ export const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/time",
   "/api/v1/today",
   "/api/v1/tools",
+  "/api/v1/universal/users/[username]/trust",
   "/api/v1/users/[username]/trust",
   "/api/v1/vibes",
   "/api/v1/wake",

@@ -21,7 +21,6 @@ export async function GET() {
       tags: d.tags,
       view_count: d.view_count,
       updated_at: d.updated_at,
-      user_name: d.user_name,
     })),
   });
 }

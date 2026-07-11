@@ -213,7 +213,7 @@ Cambridge TCG is two independent businesses sharing a database server. Wholesale
 | Trust / Escrow | 3,324 lines, 15+ files | No |
 | Rewards (raffles, mystery boxes, spin) | 2,092 lines, 12+ files | No |
 | Portfolio Tracker | ~1,500 lines, 8 files | No |
-| Provable Fairness | ~800 lines, 10 files | No |
+| Draw Receipts (legacy `provable-*` names) | ~800 lines, 10 files | No |
 | Deck Builder | ~400 lines, 6 files | No |
 | Social (follows, DMs, achievements) | ~1,200 lines, 12+ files | No |
 | Membership & Loyalty | ~1,000 lines, 10 files | No |

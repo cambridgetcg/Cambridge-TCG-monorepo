@@ -122,7 +122,7 @@ export const CATEGORY_LABELS: Record<EmailCategory, string> = {
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<EmailCategory, string> = {
-  pull_resolved: "The card you rolled and its provably-fair proof.",
+  pull_resolved: "The card you rolled and its reproducible draw receipt.",
   vault_redeemed: "Your physical card is on its way — tracking + address.",
   vault_sold_back: "A sell-back from your vault is confirmed.",
   vault_expired: "A vault item passed its 180-day expiry — we converted it to store credit.",

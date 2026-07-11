@@ -3,8 +3,8 @@
 // Previously a pure client shell: the SSR HTML carried no card, price or
 // bids, so shared links and crawlers got an empty page and there was no
 // generateMetadata. This server shell now resolves the auction, its card
-// identity (resolveCardIdentity via auctions.sku), and the bidders' trust
-// tiers, then hands them to the client island (AuctionDetailClient) as a
+// identity (resolveCardIdentity via auctions.sku), then hands an allowlisted
+// public record or authorised participant record to AuctionDetailClient as a
 // seed — the first paint carries the auction, and the live bid/poll stays
 // interactive. Mirrors the market card page's server-shell + client-island
 // split and the /auctions/[id]/read metadata pattern.
@@ -14,10 +14,15 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getAuction } from "@/lib/auction/db";
+import { isAdmin } from "@/lib/admin/auth";
+import {
+  auctionRecordIsPublic,
+  projectAuctionForAdmin,
+  projectAuctionForParticipant,
+  projectAuctionForPublic,
+} from "@/lib/auction/public";
 import { getCardIdentity } from "@/lib/market/catalog-card";
-import type { AuctionDetail } from "@/lib/auction/types";
 import AuctionDetailClient, { type AuctionCardIdentity } from "./AuctionDetailClient";
-import { loadBidderTiers } from "./bidder-tiers";
 
 // getAuction runs the scheduled→live / live→ended sweeps and the order book
 // is live-polled, so this page is inherently dynamic. force-dynamic keeps a
@@ -36,6 +41,9 @@ export async function generateMetadata({
   const { id } = await params;
   const auction = await loadAuction(id);
   if (!auction) return { title: "Auction not found — Cambridge TCG" };
+  if (!auctionRecordIsPublic(auction)) {
+    return { title: "Auction not found — Cambridge TCG" };
+  }
   const title = `${auction.title} — Auction · Cambridge TCG`;
   const description =
     auction.description?.trim() ||
@@ -81,23 +89,30 @@ export default async function AuctionDetailPage({
     }
   }
 
-  const bidderIds = Array.from(new Set(auction.bids.map((b) => b.user_id).filter(Boolean)));
-  const trustTiers = await loadBidderTiers(bidderIds);
-
-  // Privacy: the winner's shipping_address rides on the row (SELECT *), but
-  // it's participant-only. Strip it from the seed for anyone who isn't the
-  // seller so it never lands in the SSR HTML or a non-seller's props.
-  const isSeller = sessionUserId != null && auction.seller_user_id === sessionUserId;
-  const seed: AuctionDetail = { ...auction };
-  if (!isSeller) {
-    (seed as { shipping_address?: unknown }).shipping_address = null;
+  const admin = sessionUserId != null && await isAdmin().catch(() => false);
+  const role = admin
+    ? "admin"
+    : sessionUserId !== null && sessionUserId === auction.seller_user_id
+      ? "seller"
+      : sessionUserId !== null && sessionUserId === auction.winner_user_id
+        ? "winner"
+        : "public";
+  if (role === "public" && !auctionRecordIsPublic(auction)) {
+    notFound();
   }
+  const seed = role === "admin"
+    ? projectAuctionForAdmin(auction)
+    : role === "seller" || role === "winner"
+      ? projectAuctionForParticipant(auction, role, sessionUserId!)
+      : projectAuctionForPublic(auction, {
+          includeAuctionId: true,
+          viewerUserId: sessionUserId,
+        }) as ReturnType<typeof projectAuctionForPublic> & { id: string };
 
   return (
     <AuctionDetailClient
       initialAuction={seed}
       initialSessionUserId={sessionUserId}
-      trustTiers={trustTiers}
       cardIdentity={cardIdentity}
     />
   );

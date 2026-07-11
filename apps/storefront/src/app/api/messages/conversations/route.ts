@@ -4,8 +4,13 @@ import {
   listConversations,
   unreadConversationCount,
   openConversation,
+  resolveReferenceRecipient,
   validateReference,
 } from "@/lib/messages/db";
+import { query } from "@/lib/db";
+import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
+
+const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
 
 // GET — inbox. Returns list + unreadCount in one round trip so the
 // page header and rows are consistent.
@@ -16,7 +21,7 @@ export async function GET() {
     listConversations(session.user.id),
     unreadConversationCount(session.user.id),
   ]);
-  return NextResponse.json({ conversations, unreadCount });
+  return NextResponse.json({ conversations, unreadCount }, { headers: PRIVATE_HEADERS });
 }
 
 // POST — open a thread with a specific user (no message yet). Used
@@ -34,19 +39,57 @@ export async function POST(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   const body = (await request.json().catch(() => ({}))) as {
     otherUserId?: string;
+    otherUsername?: string;
     referenceType?: string;
     referenceId?: string;
   };
-  if (!body.otherUserId) {
-    return NextResponse.json({ error: "otherUserId required." }, { status: 400 });
+  let otherUserId: string | undefined;
+  if (!otherUserId && body.otherUsername?.trim()) {
+    const target = await query(
+      `SELECT u.id
+         FROM users u
+         LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+        WHERE LOWER(u.username)=$1
+          AND u.is_public=TRUE
+          AND u.profile_publication_notice_version=$2
+          AND u.profile_published_at IS NOT NULL
+          AND COALESCE(tp.is_suspended,FALSE)=FALSE
+        LIMIT 1`,
+      [body.otherUsername.trim().toLowerCase(), PERSON_PUBLICATION_NOTICE_VERSION],
+    );
+    otherUserId = target.rows[0]?.id as string | undefined;
   }
-  const ref = await validateReference(session.user.id, body.referenceType, body.referenceId, body.otherUserId);
+  if (!otherUserId && body.referenceType && body.referenceId) {
+    const resolved = await resolveReferenceRecipient(
+      session.user.id,
+      body.referenceType,
+      body.referenceId,
+    );
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.reason }, { status: resolved.status });
+    }
+    otherUserId = resolved.value;
+  }
+  if (!otherUserId && body.otherUserId) {
+    // A bare id can only reopen an existing authorised conversation. The
+    // library gate below refuses it for new contact.
+    otherUserId = body.otherUserId;
+  }
+  if (!otherUserId) {
+    return NextResponse.json({ error: "Public recipient not found." }, { status: 404 });
+  }
+  const ref = await validateReference(session.user.id, body.referenceType, body.referenceId, otherUserId);
   if (!ref.ok) {
     return NextResponse.json({ error: ref.reason }, { status: ref.status });
   }
-  const result = await openConversation(session.user.id, body.otherUserId);
+  const result = await openConversation(session.user.id, otherUserId, {
+    hasValidatedContext: Boolean(body.referenceType && body.referenceId),
+  });
   if (!result.ok) {
     return NextResponse.json({ error: result.reason }, { status: result.status });
   }
-  return NextResponse.json({ conversation: result.value });
+  return NextResponse.json(
+    { conversation: result.value },
+    { headers: PRIVATE_HEADERS },
+  );
 }

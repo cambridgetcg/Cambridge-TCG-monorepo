@@ -105,7 +105,7 @@ export async function sendVaultExpiredEmail(args: VaultExpiredEmailArgs): Promis
 //
 // Fires when a user opens a token and the RNG resolves to a card. The email
 // shows the rolled card, the EV-at-cost breakdown, AND the commit-reveal proof
-// values so the user can verify the draw was fair after the fact.
+// values so the user can reproduce the recorded draw after the fact.
 
 export interface PullResolvedEmailArgs {
   userId: string;
@@ -156,7 +156,7 @@ export async function sendPullResolvedEmail(args: PullResolvedEmailArgs): Promis
       </p>
     </div>
 
-    <p style="margin:16px 0 8px;color:#fff;font-weight:600;font-size:13px;">Provably fair</p>
+    <p style="margin:16px 0 8px;color:#fff;font-weight:600;font-size:13px;">Draw proof</p>
     <div style="background:#0f0f0f;border:1px solid #262626;border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#a3a3a3;line-height:1.6;word-break:break-all;">
       <div><span style="color:#737373;">commit:</span> ${escapeHtml(args.rngCommitment)}</div>
       <div><span style="color:#737373;">seed:</span>   ${escapeHtml(args.rngServerSeed)}</div>
@@ -166,7 +166,8 @@ export async function sendPullResolvedEmail(args: PullResolvedEmailArgs): Promis
     <p style="margin:8px 0 0;font-size:12px;color:#737373;">
       Verify: <code style="color:#a3a3a3;">sha256(seed) == commit</code>.
       The first hex digits of <code style="color:#a3a3a3;">sha256(seed:client:nonce)</code>
-      determined the rarity and the SKU — independent of us.
+      reproduce the recorded rarity and SKU. These server-chosen inputs verify consistency,
+      not independent seed selection.
     </p>
     <p style="margin:8px 0 0;font-size:12px;">
       <a href="https://cambridgetcg.com/bounty/verify/${escapeHtml(args.pullId)}" style="color:#a3a3a3;text-decoration:underline;">

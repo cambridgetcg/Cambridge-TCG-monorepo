@@ -12,6 +12,7 @@
 import { query, transaction } from "@/lib/db";
 import { notify } from "@/lib/notifications/db";
 import { dispatchDmUnreadEmail } from "@/lib/email/handlers/dm-unread";
+import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
 
 export interface DmConversation {
   id: string;
@@ -87,25 +88,31 @@ export async function isBlockedEither(a: string, b: string): Promise<boolean> {
 // existed at thread-open, anyone could park empty threads in a blocked
 // user's inbox via POST /api/messages/conversations.
 export async function assertCanMessage(
-  senderId: string, recipientId: string,
+  senderId: string,
+  recipientId: string,
+  options: { hasValidatedContext?: boolean } = {},
 ): Promise<Result<void>> {
   if (senderId === recipientId) {
     return { ok: false, reason: "You can't message yourself.", status: 400 };
   }
 
-  const rcpt = await query(
-    `SELECT id, accepts_messages FROM users WHERE id = $1`,
-    [recipientId],
+  const people = await query(
+    `SELECT u.id, u.is_public, u.profile_publication_notice_version,
+            u.profile_published_at, u.accepts_messages,
+            u.messaging_notice_version, u.messaging_enabled_at,
+            COALESCE(tp.is_suspended,FALSE) AS is_suspended
+       FROM users u
+       LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+      WHERE u.id=ANY($1::uuid[])`,
+    [[senderId, recipientId]],
   );
-  if (rcpt.rows.length === 0) {
-    return { ok: false, reason: "Recipient not found.", status: 404 };
+  const sender = people.rows.find((row) => row.id === senderId);
+  const recipient = people.rows.find((row) => row.id === recipientId);
+  if (!sender || sender.is_suspended) {
+    return { ok: false, reason: "Messaging is unavailable.", status: 403 };
   }
-  if (!rcpt.rows[0].accepts_messages) {
-    return {
-      ok: false,
-      reason: "This user isn't accepting messages.",
-      status: 403,
-    };
+  if (!recipient || recipient.is_suspended) {
+    return { ok: false, reason: "Recipient not available.", status: 404 };
   }
 
   if (await isBlockedEither(senderId, recipientId)) {
@@ -114,6 +121,26 @@ export async function assertCanMessage(
       reason: "Cannot send — block list prevents this conversation.",
       status: 403,
     };
+  }
+
+  const [a, b] = sortPair(senderId, recipientId);
+  const existing = await query(
+    `SELECT 1 FROM dm_conversations WHERE user_a_id=$1 AND user_b_id=$2 LIMIT 1`,
+    [a, b],
+  );
+  if (existing.rows.length > 0 || options.hasValidatedContext) {
+    return { ok: true, value: undefined };
+  }
+
+  const acceptsNewPublicConversation =
+    recipient.is_public === true &&
+    recipient.profile_publication_notice_version === PERSON_PUBLICATION_NOTICE_VERSION &&
+    recipient.profile_published_at != null &&
+    recipient.accepts_messages === true &&
+    recipient.messaging_notice_version === PERSON_PUBLICATION_NOTICE_VERSION &&
+    recipient.messaging_enabled_at != null;
+  if (!acceptsNewPublicConversation) {
+    return { ok: false, reason: "Recipient not available.", status: 404 };
   }
 
   return { ok: true, value: undefined };
@@ -142,6 +169,76 @@ export type ReferenceType = (typeof REFERENCE_TYPES)[number];
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export async function resolveReferenceRecipient(
+  senderId: string,
+  referenceType?: string,
+  referenceId?: string,
+): Promise<Result<string>> {
+  if (!referenceType || !referenceId) {
+    return { ok: false, reason: "A listing or trade reference is required.", status: 400 };
+  }
+  if (!(REFERENCE_TYPES as readonly string[]).includes(referenceType)) {
+    return { ok: false, reason: "Unknown referenceType.", status: 400 };
+  }
+  if (!UUID_RE.test(referenceId)) {
+    return { ok: false, reason: "Invalid referenceId.", status: 400 };
+  }
+
+  let result;
+  if (referenceType === "market_trade") {
+    result = await query(
+      `SELECT CASE WHEN buyer_id=$2 THEN seller_id ELSE buyer_id END AS recipient_id
+         FROM market_trades
+        WHERE id=$1 AND (buyer_id=$2 OR seller_id=$2)`,
+      [referenceId, senderId],
+    );
+  } else if (referenceType === "market_lot") {
+    result = await query(
+      `SELECT seller_user_id AS recipient_id
+         FROM market_lots
+        WHERE id=$1 AND status='active' AND seller_user_id<>$2`,
+      [referenceId, senderId],
+    );
+  } else if (referenceType === "offer") {
+    result = await query(
+      `SELECT CASE WHEN buyer_id=$2 THEN seller_id ELSE buyer_id END AS recipient_id
+         FROM market_offers
+        WHERE id=$1 AND (buyer_id=$2 OR seller_id=$2)`,
+      [referenceId, senderId],
+    );
+  } else if (referenceType === "auction") {
+    result = await query(
+      `SELECT seller_user_id AS recipient_id
+         FROM auctions
+        WHERE id=$1
+          AND seller_user_id IS NOT NULL
+          AND seller_user_id<>$2
+          AND status IN ('scheduled','live','ended','paid')
+          AND (is_consignment=FALSE OR approval_status='approved')`,
+      [referenceId, senderId],
+    );
+  } else {
+    result = await query(
+      `SELECT user_id AS recipient_id
+         FROM market_orders
+        WHERE id=$1
+          AND status IN ('open','partially_filled')
+          AND user_id<>$2`,
+      [referenceId, senderId],
+    );
+  }
+
+  const recipientId = result.rows[0]?.recipient_id as string | undefined;
+  if (!recipientId) {
+    return {
+      ok: false,
+      reason: "That reference does not identify a conversation counterparty.",
+      status: 400,
+    };
+  }
+  return { ok: true, value: recipientId };
+}
+
 export async function validateReference(
   senderId: string, referenceType?: string, referenceId?: string,
   otherUserId?: string,
@@ -154,56 +251,12 @@ export async function validateReference(
       status: 400,
     };
   }
-  if (!(REFERENCE_TYPES as readonly string[]).includes(referenceType)) {
-    return { ok: false, reason: "Unknown referenceType.", status: 400 };
-  }
-  // All reference ids are UUID PKs — pre-check the shape so a garbage
-  // id is a clean 400, not a pg uuid-cast 500.
-  if (!UUID_RE.test(referenceId)) {
-    return { ok: false, reason: "Invalid referenceId.", status: 400 };
-  }
-
-  let r;
-  if (referenceType === "market_trade") {
-    r = await query(
-      `SELECT 1 FROM market_trades
-        WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)`,
-      [referenceId, senderId],
-    );
-  } else if (referenceType === "market_lot") {
-    r = await query(
-      `SELECT 1 FROM market_lots WHERE id = $1 AND status = 'active'`,
-      [referenceId],
-    );
-  } else if (referenceType === "offer") {
-    r = await query(
-      `SELECT 1 FROM market_offers
-        WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)`,
-      [referenceId, senderId],
-    );
-  } else if (referenceType === "auction") {
-    r = await query(`SELECT 1 FROM auctions WHERE id = $1`, [referenceId]);
-  } else {
-    // market_order — an OPEN listing may be cited by EITHER participant in
-    // the conversation, mirroring the market_trade / offer checks above
-    // (which already accept both parties). The primary pre-trade flow is a
-    // BUYER clicking "Message" on a SELLER's ask row: the buyer is the
-    // sender but the order belongs to the seller (the other participant),
-    // so a sender-only ownership check wrongly rejected it.
-    r = await query(
-      `SELECT 1 FROM market_orders
-        WHERE id = $1
-          AND status IN ('open', 'partially_filled')
-          AND user_id = ANY($2)`,
-      [referenceId, [senderId, otherUserId].filter(Boolean)],
-    );
-  }
-  if (r.rows.length === 0) {
+  const resolved = await resolveReferenceRecipient(senderId, referenceType, referenceId);
+  if (!resolved.ok) return resolved;
+  if (otherUserId && resolved.value !== otherUserId) {
     return {
       ok: false,
-      reason: referenceType === "market_order"
-        ? "That listing can't be attached: it has to be an open listing that belongs to you or the person you're messaging. Open it from a card page and try again — or just message them without attaching a listing."
-        : "That reference can't be attached: it must be a trade, offer, listing or auction that involves you. Send the message without it, or open the item and try again.",
+      reason: "That reference belongs to a different counterparty.",
       status: 400,
     };
   }
@@ -246,17 +299,19 @@ export async function sendMessage(input: {
     return { ok: false, reason: `Daily message cap of ${RATE_LIMIT_PER_DAY} reached.`, status: 429 };
   }
 
-  // Self / recipient-exists / accepts_messages / block gate — shared
-  // with openConversation so both inbox-entry paths refuse identically.
-  const guard = await assertCanMessage(input.senderId, input.recipientId);
-  if (!guard.ok) return guard;
-
   // Trade-context reference (if any) — allowlist + sender-relationship
   // check before the chip is stored. See validateReference above.
   const ref = await validateReference(
     input.senderId, input.referenceType, input.referenceId, input.recipientId,
   );
   if (!ref.ok) return ref;
+
+  // Public-profile reach, an existing thread, or the validated shared
+  // reference above is required. A bare guessed account UUID is never enough.
+  const guard = await assertCanMessage(input.senderId, input.recipientId, {
+    hasValidatedContext: Boolean(input.referenceType && input.referenceId),
+  });
+  if (!guard.ok) return guard;
 
   const [aId, bId] = sortPair(input.senderId, input.recipientId);
 
@@ -552,9 +607,11 @@ export async function unreadConversationCount(userId: string): Promise<number> {
 // creation counts against THREAD_OPENS_PER_HOUR.
 
 export async function openConversation(
-  initiatorId: string, otherUserId: string,
+  initiatorId: string,
+  otherUserId: string,
+  options: { hasValidatedContext?: boolean } = {},
 ): Promise<Result<DmConversation>> {
-  const guard = await assertCanMessage(initiatorId, otherUserId);
+  const guard = await assertCanMessage(initiatorId, otherUserId, options);
   if (!guard.ok) return guard;
 
   const [a, b] = sortPair(initiatorId, otherUserId);

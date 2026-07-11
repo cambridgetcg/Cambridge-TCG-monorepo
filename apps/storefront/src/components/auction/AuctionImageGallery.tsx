@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { AuctionImage } from "@/lib/auction/types";
-
 interface AuctionImageGalleryProps {
-  images: AuctionImage[];
+  images: Array<{ id?: string; url: string; display_order: number }>;
 }
 
 export default function AuctionImageGallery({ images }: AuctionImageGalleryProps) {
@@ -37,7 +35,7 @@ export default function AuctionImageGallery({ images }: AuctionImageGalleryProps
         <div className="flex gap-2 overflow-x-auto pb-1">
           {sorted.map((img, i) => (
             <button
-              key={img.id}
+              key={img.id ?? `${img.url}:${img.display_order}`}
               onClick={() => setActiveIndex(i)}
               className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition ${
                 i === activeIndex

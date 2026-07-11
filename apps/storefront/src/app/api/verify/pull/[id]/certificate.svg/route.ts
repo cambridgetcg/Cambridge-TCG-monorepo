@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 
-// Server-rendered SVG "Certificate of Authenticity" for a single pull.
+// Server-rendered SVG draw receipt for a single pull.
 // Shareable, saveable, embeddable — acts as a shareable proof token a
 // user can post alongside their card flex without linking directly to
 // our site (the verify URL + commitment are printed in the SVG).
@@ -21,7 +21,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
             v.card_name, v.card_number, v.image_url, v.spot_price_gbp
        FROM bounty_pulls p
        LEFT JOIN vault_items v ON v.id = p.vault_item_id
-      WHERE p.id = $1`,
+      WHERE p.id = $1 AND p.resolved_at IS NOT NULL`,
     [id],
   );
   if (r.rows.length === 0) {
@@ -108,10 +108,10 @@ function renderCertificate(a: CertificateArgs): string {
 
   <!-- Header -->
   <text x="${WIDTH / 2}" y="60" text-anchor="middle" fill="#737373" font-family="ui-monospace,monospace" font-size="10" letter-spacing="3">
-    CAMBRIDGE TCG · PROVABLY FAIR
+    CAMBRIDGE TCG · DRAW PROOF
   </text>
   <text x="${WIDTH / 2}" y="100" text-anchor="middle" fill="#fafafa" font-family="serif" font-size="24" font-weight="bold">
-    Certificate of Authenticity
+    Draw Receipt
   </text>
   <rect x="180" y="115" width="240" height="2" fill="url(#tone)" />
 

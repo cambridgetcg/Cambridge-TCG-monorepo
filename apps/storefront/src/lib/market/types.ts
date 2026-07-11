@@ -43,6 +43,45 @@ export interface MarketOrder {
   user_name?: string | null;
 }
 
+/** Public lot facts. Seller account identifiers and profile data stay out. */
+export interface PublicMarketLot {
+  id: string;
+  title: string;
+  description: string | null;
+  price: string;
+  image_url: string | null;
+  status: "active" | "sold" | "cancelled";
+  created_at: string;
+  updated_at: string;
+  item_count?: number;
+  total_quantity?: number;
+  items?: Array<{
+    sku: string;
+    card_name: string | null;
+    quantity: number;
+  }>;
+}
+
+/**
+ * A public ask is an offer to trade a card, not permission to publish a
+ * seller dossier. Contact is a listing-scoped capability resolved by the
+ * server from the listing id, never a reusable account id sent to the client.
+ */
+export interface PublicAskListing {
+  id: string;
+  price: string;
+  remaining: number;
+  condition: string;
+  allow_offers: boolean;
+  accepts_returns: boolean;
+  return_window_days: number;
+  created_at: string;
+  is_own: boolean;
+  seller: {
+    contact_available: boolean;
+  };
+}
+
 export interface MarketTrade {
   id: string;
   bid_order_id: string;
@@ -108,8 +147,16 @@ export interface OrderBookSummary {
   spread: number | null;
   bid_depth: number;
   ask_depth: number;
-  last_trade_price: string | null;
-  trade_count_24h: number;
+}
+
+/** Deprecated compatibility shape. Public completed-trade rows are paused. */
+export interface PublicTradeAggregate {
+  period_start: string;
+  trade_count: number;
+  quantity: number;
+  low_price: string;
+  average_price: string;
+  high_price: string;
 }
 
 export interface CardOrderBook {
@@ -118,7 +165,13 @@ export interface CardOrderBook {
   image_url: string | null;
   bids: OrderBookEntry[];
   asks: OrderBookEntry[];
-  recent_trades: MarketTrade[];
+  /** Kept empty while completed-trade publication is paused. */
+  trade_aggregates: PublicTradeAggregate[];
+  trade_publication?: {
+    status: "paused";
+    reason: string;
+    resumeConditions: readonly string[];
+  };
   best_bid: string | null;
   best_ask: string | null;
 }

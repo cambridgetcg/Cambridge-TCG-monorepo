@@ -8,21 +8,18 @@
  * Why this page exists alongside /market/[sku]:
  *   /market/[sku] is the *interactive* surface (place bids, sell for
  *     credit, set alerts, watch). Logged-in users go there to act.
- *   /cards/[sku]/market is the *reading* surface (depth, tape, price
- *     history, condition breakdown, counterparty trust badges). Public,
+ *   /cards/[sku]/market is the *reading* surface (depth, reference-price
+ *     history and condition breakdown). Public,
  *     no auth, server-rendered, screen-reader-readable, agent-ingestable.
  *
  * Same pattern as the S26 math-mirror / product page split: one substrate,
  * two readings, different audiences. Verify, don't overwrite.
  *
- * Seven sections render:
+ * Four public-data sections render:
  *   1. Card meta (image + name + set + first-seen)
  *   2. Order book — top 10 bids + top 10 asks with per-row condition breakdown
- *   3. Aggregate stats — spread, VWAP, median, range, last trade, completion rate
- *   4. The tape — last 20 completed trades with counterparty trust tier
- *   5. Price history — 7d / 30d / 90d / 365d windows
- *   6. Condition breakdown — ask count + best price per condition
- *   7. Participants — distinct buyers/sellers + repeat-pair fraction (90d)
+ *   3. Price history — non-person reference observations over 7 / 30 / 90 / 365d
+ *   4. Condition breakdown — ask count + best price per condition
  *
  * Plus a <Provenance kind="live"> pill, <WhyLink> to /methodology/market,
  * and an <Audience kind="consumer"> declaration.
@@ -33,7 +30,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { loadCardMarket } from "@/lib/market/card-market";
 import { Provenance, WhyLink, Audience, audienceMetadata, EmptyState } from "@/lib/ui";
-import { MoneyDisplay, DateDisplay } from "@/lib/ui";
+import { MoneyDisplay } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { fetchCardrushHistory } from "@/lib/wholesale/client";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
@@ -49,7 +46,7 @@ export async function generateMetadata({
   return {
     title: `${sku} — Market`,
     description:
-      "Public read-only mirror of one card's market activity — order book, recent trades, price history, condition breakdown, counterparty trust. No auth required.",
+      "Public read-only mirror of one card's deliberate order intent and non-person reference history. Completed-trade analytics are paused. No auth required.",
     other: audienceMetadata("consumer", ["market", "card", "public-read"]),
   };
 }
@@ -59,39 +56,10 @@ function fmtCount(n: number | null): string {
   return n.toLocaleString("en-GB");
 }
 
-function fmtPct(n: number | null): string {
-  if (n === null) return "—";
-  return `${Math.round(n * 100)}%`;
-}
-
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function fmtRelative(iso: string | null): string {
-  if (!iso) return "—";
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const sec = Math.floor((now - then) / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  if (sec < 86400 * 30) return `${Math.floor(sec / 86400)}d ago`;
-  return fmtDate(iso);
-}
-
-// Trust tier → tone palette. Same vocabulary as escrow tiers.
-function tierTone(tier: string | null): string {
-  switch (tier) {
-    case "Elite": return "bg-accent-wash text-accent border-accent/30";
-    case "Veteran": return "bg-ok/15 text-ok border-ok/30";
-    case "Trusted": return "bg-info/15 text-info border-info/30";
-    case "Starter": return "bg-surface-elevated text-ink-muted border-border-strong";
-    case "New": return "bg-surface-subtle text-ink-faint border-border-subtle";
-    default: return "bg-surface-subtle text-ink-faint border-border-subtle";
-  }
 }
 
 function ConditionBadge({ code, qty }: { code: string; qty: number }) {
@@ -167,7 +135,7 @@ export default async function CardMarketReadPage({
     loadCardMarket(sku),
     auth(),
   ]);
-  const { meta, book, tape, stats, price_history, conditions, participants } = market;
+  const { meta, book, price_history, conditions } = market;
 
   // Wardrobe migration (spec §3.3): this page lives outside the /market
   // route group, so it dresses itself — cookie-read appearance on its own
@@ -231,7 +199,7 @@ export default async function CardMarketReadPage({
 
         {/* Layout grid */}
         <div className="grid md:grid-cols-3 gap-6">
-          {/* Left: image + condition breakdown + participants */}
+          {/* Left: image + condition breakdown */}
           <div className="space-y-6">
             {meta.image_url ? (
               <div className="wardrobe-mat rounded-lg p-2 mb-2">
@@ -281,39 +249,15 @@ export default async function CardMarketReadPage({
             </section>
 
             {/* Participants */}
-            <section className="wardrobe-mat rounded-lg p-4">
-              <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                Participants (90d)
-                <WhyLink href="/methodology/market#participants" />
-              </h2>
-              <dl className="text-sm space-y-1.5">
-                <div className="flex justify-between">
-                  <dt className="text-ink-muted">Distinct buyers</dt>
-                  <dd className="text-ink font-mono tabular-nums">{fmtCount(participants.distinct_buyers_90d)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-ink-muted">Distinct sellers</dt>
-                  <dd className="text-ink font-mono tabular-nums">{fmtCount(participants.distinct_sellers_90d)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-ink-muted">Repeat-pair share</dt>
-                  <dd className="text-ink font-mono tabular-nums">{fmtPct(participants.repeat_pair_fraction_90d)}</dd>
-                </div>
-              </dl>
-              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
-                Anonymised counts. The platform doesn&rsquo;t publish trader identities on this page.
-                Repeat-pair share = fraction of trades whose buyer-seller pair appeared more than once.
-              </p>
-            </section>
           </div>
 
-          {/* Center: Order book + Stats + Tape */}
+          {/* Center: deliberate order intent + non-person reference history */}
           <div className="md:col-span-2 space-y-6">
-            {/* Stats row */}
+            {/* Open-order snapshot */}
             <section className="wardrobe-mat rounded-lg p-4">
               <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                Aggregate stats
-                <WhyLink href="/methodology/market#stats" />
+                Open-order snapshot
+                <WhyLink href="/methodology/market#orderbook" />
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                 {/* Phase C of kingdom-077: the math-language toggle now
@@ -325,20 +269,6 @@ export default async function CardMarketReadPage({
                 <Stat label="Best bid" value={<MoneyDisplay value={book.best_bid} />} tone="emerald" />
                 <Stat label="Best ask" value={<MoneyDisplay value={book.best_ask} />} tone="red" />
                 <Stat label="Spread" value={<MoneyDisplay value={book.spread} />} />
-                <Stat label="30d VWAP" value={<MoneyDisplay value={stats.vwap_30d} />} />
-                <Stat label="30d median" value={<MoneyDisplay value={stats.median_30d} />} />
-                <Stat label="30d volume" value={fmtCount(stats.volume_30d)} />
-                <Stat label="30d range" value={
-                  stats.price_min_30d !== null && stats.price_max_30d !== null
-                    ? <><MoneyDisplay value={stats.price_min_30d} />–<MoneyDisplay value={stats.price_max_30d} /></>
-                    : "—"
-                } />
-                <Stat
-                  label="Last trade"
-                  value={<MoneyDisplay value={stats.last_trade_price} />}
-                  sub={<DateDisplay value={stats.last_trade_at} mode="relative" />}
-                />
-                <Stat label="Completion (90d)" value={fmtPct(stats.completion_rate_90d)} />
               </div>
             </section>
 
@@ -419,63 +349,18 @@ export default async function CardMarketReadPage({
               </p>
             </section>
 
-            {/* Tape */}
+            {/* Completed-trade publication pause */}
             <section className="wardrobe-mat rounded-lg p-4">
               <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                The tape — last 20 trades
-                <WhyLink href="/methodology/market#tape" />
+                Completed-trade analytics paused
+                <WhyLink href="/methodology/market#trade-history" />
               </h2>
-              {tape.entries.length === 0 ? (
-                <EmptyState title="No completed trades yet." />
-              ) : (
-                <>
-                  <div className="flex items-center gap-4 mb-3 text-xs text-ink-faint">
-                    <span>24h: <span className="text-ink-muted font-mono tabular-nums">{fmtCount(tape.trade_count_24h)}</span></span>
-                    <span>7d: <span className="text-ink-muted font-mono tabular-nums">{fmtCount(tape.trade_count_7d)}</span></span>
-                    <span>30d: <span className="text-ink-muted font-mono tabular-nums">{fmtCount(tape.trade_count_30d)}</span></span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
-                          <th className="text-left py-2 font-medium">Price</th>
-                          <th className="text-left py-2 font-medium">Qty</th>
-                          <th className="text-left py-2 font-medium">Seller tier</th>
-                          <th className="text-right py-2 font-medium">When</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tape.entries.map((t) => (
-                          <tr key={t.trade_id} className="border-b border-border-subtle/50">
-                            <td className="py-2 text-ink font-mono tabular-nums"><MoneyDisplay value={t.price} /></td>
-                            <td className="py-2 text-ink-muted font-mono tabular-nums">{t.quantity}</td>
-                            <td className="py-2">
-                              {t.seller_trust_tier ? (
-                                <span className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 border rounded ${tierTone(t.seller_trust_tier)}`}>
-                                  <span className="font-semibold">{t.seller_trust_tier}</span>
-                                  {t.seller_trust_score !== null && (
-                                    <span className="font-mono tabular-nums opacity-70">{t.seller_trust_score}</span>
-                                  )}
-                                </span>
-                              ) : (
-                                <span className="text-ink-faint text-xs">—</span>
-                              )}
-                              <span className="text-ink-faint text-[10px] ml-2 font-mono">#{t.seller_anon_id}</span>
-                            </td>
-                            <td className="py-2 text-ink-faint text-right text-xs font-mono tabular-nums">
-                              {fmtRelative(t.completed_at || t.created_at)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
-                Counterparty trust tier resolved from <code className="text-ink-muted">trust_profiles.trust_score</code>{" "}
-                at read time. Tiers: Elite ≥95, Veteran ≥80, Trusted ≥50, Starter ≥20, New &lt;20.{" "}
-                <Link href="/methodology/trust-score" className="text-accent hover:underline">methodology →</Link>
+              <p className="text-xs text-ink-muted leading-relaxed">
+                Completed-trade statistics are not published on this page. A
+                small-record threshold did not establish publication consent
+                or prevent reconstruction. These values can return only with a
+                separate publication choice and a delayed, coarse release
+                process.
               </p>
             </section>
 
@@ -557,8 +442,8 @@ export default async function CardMarketReadPage({
                     buy/sell decisions, save to your own notes, and compare against your portfolio.
                     You <strong className="text-danger">must not</strong> bulk re-export, redistribute
                     as a paid product, or publish to a public archive. The wholesale-derived GBP
-                    values above (in the Price history section) are Cambridge TCG&rsquo;s own retail
-                    offers — those are CC0.
+                    values in the public Price history section are Cambridge TCG&rsquo;s own catalogue
+                    reference observations — those are CC0.
                   </p>
                 </div>
                 <p className="text-[10px] text-ink-faint mt-2">

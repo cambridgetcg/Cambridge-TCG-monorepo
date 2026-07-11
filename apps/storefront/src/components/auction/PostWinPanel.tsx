@@ -1,14 +1,13 @@
 "use client";
 
-// Post-end panel for auctions. Handles every role × state combination
-// past auction.status='ended': winner paying, winner tracking, seller
-// shipping, seller waiting, losing bidder, paid-but-not-yet-shipped, etc.
+// Post-end panel for the seller and winner: payment, shipping, tracking and
+// receipt confirmation from a role-scoped projection.
 //
-// Reads the auction row directly — no extra API calls — so the bid
-// panel polling above it already keeps this fresh.
+// Reads a role-scoped participant projection — no raw auction row reaches
+// the winner or seller browser.
 
 import { useState } from "react";
-import type { Auction } from "@/lib/auction/types";
+import type { ParticipantAuctionDetail as Auction } from "@/lib/auction/public";
 import { formatPrice } from "@/lib/format";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
 import {
@@ -18,24 +17,19 @@ import {
 } from "@/lib/auction/fulfilment-timeline";
 import { addressLines } from "./shipping-address";
 
-// The winner's shipping address rides on the auction row as `shipping_address`
-// (migration 0114, participant-only). It isn't on the shared Auction type
-// (Area A owns that), so read it through a narrow accessor rather than
-// widening the type here.
 function shippingAddressOf(auction: Auction): unknown {
-  return (auction as { shipping_address?: unknown }).shipping_address ?? null;
+  return auction.shipping_address;
 }
 
 interface Props {
   auction: Auction;
-  sessionUserId: string | null;
+  viewerRole: Auction["viewer_role"];
   onRefresh: () => void;
 }
 
-export default function PostWinPanel({ auction, sessionUserId, onRefresh }: Props) {
-  // Derived role — buyer/seller/other — determines what the panel says.
-  const isWinner = !!sessionUserId && auction.winner_user_id === sessionUserId;
-  const isSeller = !!sessionUserId && auction.seller_user_id === sessionUserId;
+export default function PostWinPanel({ auction, viewerRole, onRefresh }: Props) {
+  const isWinner = viewerRole === "winner";
+  const isSeller = viewerRole === "seller";
 
   const terminal = isFulfilmentTerminal(auction);
   const currentActor = getCurrentActor(auction);
@@ -58,13 +52,6 @@ export default function PostWinPanel({ auction, sessionUserId, onRefresh }: Prop
       {isSeller && auction.status === "ended" && (
         <SellerAwaitingBuyer />
       )}
-      {!isWinner && !isSeller && auction.status === "ended" && sessionUserId && (
-        <LosingBidderEnded />
-      )}
-      {!isWinner && !isSeller && auction.status === "paid" && (
-        <NonPartyPaid auction={auction} />
-      )}
-
       {/* Timeline — visible to buyer and seller once status=paid */}
       {(isWinner || isSeller) && auction.status === "paid" && (
         <FulfilmentTimelineDisplay auction={auction} />
@@ -328,34 +315,21 @@ function SellerAwaitingBuyer() {
   );
 }
 
-function LosingBidderEnded() {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-wider text-ink-faint font-bold mb-1">Auction ended</p>
-      <p className="text-sm text-ink-muted">You were outbid. Better luck on the next one.</p>
-    </div>
-  );
-}
-
-function NonPartyPaid({ auction }: { auction: Auction }) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-wider text-ink-faint font-bold mb-1">Sold</p>
-      <p className="text-sm text-ink-muted">Final price: {formatPrice(parseFloat(auction.current_price))}</p>
-    </div>
-  );
-}
-
 function FulfilmentTimelineDisplay({ auction }: { auction: Auction }) {
   const steps = getTimelineSteps(auction);
   return (
     <div className="bg-page border border-border-subtle rounded-lg p-3">
       <div className="flex items-center gap-0 overflow-x-auto">
         {steps.map((step, i) => {
-          const ts = auction[step.tsField] as string | null | undefined;
+          const ts = (auction as unknown as Record<string, unknown>)[step.tsField] as
+            | string
+            | null
+            | undefined;
           const done = !!ts;
           const next = steps[i + 1];
-          const nextTs = next ? (auction[next.tsField] as string | null | undefined) : null;
+          const nextTs = next
+            ? (auction as unknown as Record<string, unknown>)[next.tsField]
+            : null;
           const isCurrent = done && !nextTs && !isFulfilmentTerminal(auction);
           return (
             <div key={step.key} className="flex items-center">

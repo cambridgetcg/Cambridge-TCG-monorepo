@@ -15,9 +15,9 @@ interface TierReport {
   tier: string;
   display_name: string;
   enabled: boolean;
-  total_pulls: number;
+  total_pulls: number | null;
   rarities: TierRarity[];
-  chi_square: number;
+  chi_square: number | null;
   enough_samples: boolean;
 }
 
@@ -31,10 +31,10 @@ interface DrawKindRow {
 
 interface DrawKindReport {
   kind: string;
-  draw_count: number;
-  slot_total: number;
+  draw_count: number | null;
+  slot_total: number | null;
   rows: DrawKindRow[];
-  chi_square: number;
+  chi_square: number | null;
   enough_samples: boolean;
 }
 
@@ -69,12 +69,12 @@ export default function FairnessPage() {
       <Audience kind="public-documentation" />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Link href="/verify" className="text-xs text-ink-faint hover:text-ink">← Verification home</Link>
-        <h1 className="text-2xl font-bold mt-2 mb-1">Aggregate Fairness</h1>
+        <h1 className="text-2xl font-bold mt-2 mb-1">Observed Draw Distribution</h1>
         <p className="text-sm text-ink-faint mb-8">
           Rolled-rarity distribution over the last {data?.window_days ?? 30} days
-          vs the published tier weights. Large deviations with small sample
-          sizes are normal (shown in grey); we highlight a tier only when
-          samples cross {data?.min_samples_for_signal ?? 30}.
+          vs the published tier weights. Exact low-volume counts and distributions
+          are withheld; analysis starts only when samples reach{" "}
+          {data?.min_samples_for_signal ?? 30}.
         </p>
 
         {!data ? (
@@ -105,8 +105,9 @@ export default function FairnessPage() {
                 </h2>
                 <p className="text-xs text-ink-faint mb-4">
                   Packs / boxes / spins have per-draw weights (different pools, different
-                  wheels). Expected counts are summed across draws — so a key&apos;s
-                  expected total = Σ weight × slots across all draws that contained it.
+                  wheels). Expected counts are summed across draws. Internal reward-row
+                  keys are replaced with response-local <code>option_N</code> labels and
+                  cannot be joined back to a reward record from this response.
                 </p>
                 <div className="space-y-6">
                   {data.per_draw_kind.map((k) => (
@@ -127,7 +128,8 @@ export default function FairnessPage() {
           <p>
             Weights can drift over the window (config changes); this dashboard
             reports current weights. For per-pull verification of historic
-            rolls, use the per-pull verifier.
+            rolls, use the per-pull consistency checker. Distribution fit does
+            not prove how the server selected any individual seed tuple.
           </p>
         </div>
       </div>
@@ -156,15 +158,17 @@ function TierCard({ tier }: { tier: TierReport }) {
           )}
         </h2>
         <div className="text-xs text-ink-faint">
-          {tier.total_pulls} pull{tier.total_pulls === 1 ? "" : "s"}
-          {tier.enough_samples && (
+          {tier.enough_samples && tier.total_pulls !== null
+            ? `${tier.total_pulls} pull${tier.total_pulls === 1 ? "" : "s"}`
+            : "below public sample threshold"}
+          {tier.enough_samples && tier.chi_square !== null && (
             <span className="ml-2 text-ink-faint">χ² = {tier.chi_square.toFixed(2)}</span>
           )}
         </div>
       </div>
 
-      {tier.total_pulls === 0 ? (
-        <p className="text-xs text-ink-faint italic">No pulls in the window.</p>
+      {!tier.enough_samples ? (
+        <p className="text-xs text-ink-faint italic">Exact counts are withheld until the public sample threshold is met.</p>
       ) : (
         <table className="w-full text-xs">
           <thead>
@@ -221,15 +225,17 @@ function DrawKindCard({ report }: { report: DrawKindReport }) {
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
         <h3 className="font-bold">{KIND_LABEL[report.kind] ?? report.kind}</h3>
         <div className="text-xs text-ink-faint">
-          {report.draw_count} draw{report.draw_count === 1 ? "" : "s"} · {report.slot_total} slot{report.slot_total === 1 ? "" : "s"}
-          {report.enough_samples && (
+          {report.enough_samples && report.draw_count !== null && report.slot_total !== null
+            ? `${report.draw_count} draw${report.draw_count === 1 ? "" : "s"} · ${report.slot_total} slot${report.slot_total === 1 ? "" : "s"}`
+            : "below public sample threshold"}
+          {report.enough_samples && report.chi_square !== null && (
             <span className="ml-2 text-ink-faint">χ² = {report.chi_square.toFixed(2)}</span>
           )}
         </div>
       </div>
 
-      {report.rows.length === 0 ? (
-        <p className="text-xs text-ink-faint italic">No draws in the window.</p>
+      {!report.enough_samples ? (
+        <p className="text-xs text-ink-faint italic">Exact counts are withheld until the public sample threshold is met.</p>
       ) : (
         <table className="w-full text-xs">
           <thead>

@@ -5,6 +5,10 @@ import { postActivity, awardAchievement } from "@/lib/social/db";
 import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
+import {
+  normalizeAuctionListStatus,
+  PUBLIC_AUCTION_SQL_PREDICATE,
+} from "./public";
 
 // Anti-sniping: a bid placed in the last ANTI_SNIPE_WINDOW_MS extends the
 // auction so the previous high bidder always has a chance to respond. No
@@ -24,7 +28,7 @@ export async function listAuctions(filters: {
   type?: string;
   limit?: number;
   offset?: number;
-}): Promise<{ auctions: AuctionSummary[]; total: number }> {
+}, options: { includeUnpublished?: boolean } = {}): Promise<{ auctions: AuctionSummary[]; total: number }> {
   // Lazy status transitions first
   await transitionScheduledToLive();
   await transitionLiveToEnded();
@@ -34,11 +38,16 @@ export async function listAuctions(filters: {
   const params: unknown[] = [];
   let idx = 1;
 
-  if (filters.status === "live") {
+  if (!options.includeUnpublished) {
+    conditions.push(`(${PUBLIC_AUCTION_SQL_PREDICATE})`);
+  }
+
+  const status = normalizeAuctionListStatus(filters.status);
+  if (status === "live") {
     conditions.push(`a.status = 'live'`);
-  } else if (filters.status === "upcoming") {
+  } else if (status === "scheduled") {
     conditions.push(`a.status = 'scheduled'`);
-  } else if (filters.status === "ended") {
+  } else if (status === "ended") {
     conditions.push(`a.status IN ('ended', 'paid')`);
   }
 
@@ -56,7 +65,7 @@ export async function listAuctions(filters: {
     params
   );
 
-  const orderBy = filters.status === "ended" ? "a.ends_at DESC" : "a.ends_at ASC";
+  const orderBy = status === "ended" ? "a.ends_at DESC" : "a.ends_at ASC";
   const result = await query(
     `SELECT a.id, a.title, a.sku, a.condition, a.auction_type, a.status, a.current_price, a.starting_price,
             a.buy_now_price, a.bid_count, a.starts_at, a.ends_at,
@@ -108,33 +117,6 @@ export async function getAuction(id: string): Promise<AuctionDetail | null> {
     bids: bids.rows as Bid[],
     server_time: new Date().toISOString(),
   };
-}
-
-// Participant-only redaction for the public detail surfaces. getAuction()
-// is SELECT * because the settlement paths (pay, webhook, state composer)
-// need the full row — but Stripe ids, payout financials, ops notes and
-// fulfilment tracking must only reach the seller, the winner, or an admin.
-// Public GET /api/auctions/[id] and the public auction page apply this
-// before serialising for anyone else.
-export function redactAuctionForPublic(auction: AuctionDetail): AuctionDetail {
-  const redacted: AuctionDetail = {
-    ...auction,
-    stripe_session_id: null,
-    stripe_payment_intent: null,
-    payment_expires_at: null,
-    approval_notes: null,
-    seller_payout: null,
-    seller_paid_at: null,
-    tracking_to_ctcg: null,
-    tracking_to_buyer: null,
-    shipping_address: null,
-  };
-  // SELECT * also carries payout columns the Auction type doesn't declare;
-  // strip them so they can't ride along untyped.
-  for (const k of ["payout_method", "payout_reference", "stripe_transfer_id"]) {
-    delete (redacted as unknown as Record<string, unknown>)[k];
-  }
-  return redacted;
 }
 
 // ── Create auction (admin) ──

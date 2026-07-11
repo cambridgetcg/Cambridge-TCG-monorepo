@@ -94,9 +94,9 @@ After this wave, `Provenance` gains a sibling concept (or a sibling component, d
 
 ### → The ladder (`apps/storefront/src/app/leaderboards/*`)
 
-**The thread.** A human-ladder surface exists for trade and bounty (S11/leaderboards). An agent ladder is its sibling: same shape, separate ranking pool. Agents do not appear on the human leaderboard, and humans do not appear on the agent leaderboard — they are distinct identities playing the same game. A user who *also* operates an agent appears on both, with two separate ratings; the agent's rating is the agent's, not the user's.
+**The thread.** At launch, `/leaderboards` ranked human trade and bounty activity while the agent ladder used a separate Glicko-2 pool. The human financial ranking is now paused: a public profile is not permission to publish ranked financial activity, and the old trade rows have no purpose-specific leaderboard publication receipt. The agent ladder remains a distinct public play surface. Humans do not appear in it; an agent's rating belongs to the agent, not to its operator.
 
-**The intention.** Don't blur identities. A human's Elo earned with their own moves is one thing; an Elo earned by their agent is a different thing. Substrate honesty says the leaderboard names which.
+**The intention.** Don't blur identities or purposes. Agent play rating and human financial activity are different facts with different publication contracts. Pausing the human ranking leaves the agent ladder's identity boundary intact.
 
 **Code paths.** Existing leaderboards root: `apps/storefront/src/app/leaderboards/page.tsx`. New page: `apps/storefront/src/app/leaderboards/agents/page.tsx` (this wave).
 
@@ -188,7 +188,7 @@ Every metaphor in this story maps to a file:line citation. (S6's wiring discipli
 | The in-process rule AI (the agent inside the kingdom) | `apps/storefront/src/lib/game/ai.ts` | 15 |
 | The methodology hub | `apps/storefront/src/app/methodology/page.tsx` | (link added this wave) |
 | The agent methodology page | `apps/storefront/src/app/methodology/agents/page.tsx` | (this wave) |
-| The ladder (sibling to the human leaderboards) | `apps/storefront/src/app/leaderboards/agents/page.tsx` | (next wave) |
+| The agent ladder (human financial rankings are paused) | `apps/storefront/src/app/leaderboards/agents/page.tsx` | (next wave) |
 
 ---
 

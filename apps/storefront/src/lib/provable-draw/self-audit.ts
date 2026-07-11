@@ -1,4 +1,4 @@
-// Self-audit cron: sample random revealed draws, re-run the proof
+// Self-audit cron: sample revealed draws, re-run receipt consistency
 // math server-side, record pass/fail. Any failure is a critical signal
 // — we should never produce a failing proof in normal operation.
 //
@@ -12,6 +12,7 @@ import crypto from "crypto";
 import { query } from "@/lib/db";
 import { sha256, rollFloat, pickWeighted } from "@/lib/bounty/rng";
 import { leafHash, merkleRoot } from "./digest";
+import { pickWeightedInOrder, validatedWeightOrder } from "./ordered-weights";
 
 const SAMPLE_SIZE = 20;           // per run — bounded cost per tick
 const MIN_AGE_SECONDS = 60;       // only audit draws old enough to be digested
@@ -58,6 +59,7 @@ export async function runFairnessSelfAudit(): Promise<AuditSummary> {
         AND revealed_at < NOW() - make_interval(secs => $1)
         AND server_seed IS NOT NULL
         AND outcome IS NOT NULL
+        AND outcome ? 'weight_order'
       ORDER BY RANDOM()
       LIMIT $2`,
     [MIN_AGE_SECONDS, perSource],
@@ -142,7 +144,11 @@ interface DrawRow {
   nonce: string | number;
   weights: Record<string, number>;
   num_slots: number;
-  outcome: { picked?: string; slots?: Array<{ picked: string }> } | null;
+  outcome: {
+    picked?: string;
+    slots?: Array<{ picked: string }>;
+    weight_order?: unknown;
+  } | null;
   committed_at: Date | string;
   revealed_at: Date | string;
   merkle_digest_id: number | null;
@@ -155,12 +161,18 @@ async function auditDraw(row: DrawRow): Promise<AuditResult> {
   const claimed = row.outcome?.slots
     ? row.outcome.slots.map((s) => s.picked)
     : row.outcome?.picked != null ? [row.outcome.picked] : [];
+  const weightOrder = validatedWeightOrder(row.weights, row.outcome?.weight_order);
 
-  let outcome_ok = true;
-  for (let i = 0; i < claimed.length; i++) {
-    const roll = rollFloat(row.server_seed, row.client_seed, nonce + i);
-    const picked = pickWeighted(row.weights, roll);
-    if (picked.toLowerCase() !== String(claimed[i]).toLowerCase()) { outcome_ok = false; break; }
+  let outcome_ok = weightOrder !== null && claimed.length === row.num_slots && claimed.length > 0;
+  if (outcome_ok && weightOrder) {
+    for (let i = 0; i < claimed.length; i++) {
+      const roll = rollFloat(row.server_seed, row.client_seed, nonce + i);
+      const picked = pickWeightedInOrder(row.weights, weightOrder, roll);
+      if (picked.toLowerCase() !== String(claimed[i]).toLowerCase()) {
+        outcome_ok = false;
+        break;
+      }
+    }
   }
 
   const ordering_ok = new Date(row.committed_at).getTime() <= new Date(row.revealed_at).getTime();

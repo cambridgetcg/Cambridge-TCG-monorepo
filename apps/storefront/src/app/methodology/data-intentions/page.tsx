@@ -110,37 +110,28 @@ export default function DataIntentionsMethodology() {
         </li>
       </ul>
 
-      <h2>The one dataset we give: sold comps</h2>
+      <h2>Sold comps are paused</h2>
       <p>
-        The framework proves what we cannot lawfully take. Its positive
-        counterpart is the one sold-price dataset we fully own and publish
-        under <strong>CC0-1.0</strong>: the kingdom&apos;s own realised
-        transactions. It lives at{" "}
+        The former sold-comps surface grouped the platform&apos;s own realised
+        transactions and labelled the result CC0. That publication is paused at{" "}
         <Link href="/api/v1/sold-comps">
           <code>/api/v1/sold-comps</code>
         </Link>{" "}
-        (and per-card at <code>/api/v1/sold-comps/[sku]</code>).
+        and <code>/api/v1/sold-comps/[sku]</code>. Both endpoints now return
+        policy status only, with no prices or counts.
       </p>
       <p>
-        <strong>Exactly what it publishes:</strong> anonymised aggregate sold
-        prices — for each <code>(sku, condition)</code> bucket, the count and
-        the min / median / max price and last-sold date — drawn from our
-        completed peer-to-peer escrow trades and settled auctions. It is
-        aggregate-only, and it is <strong>K-anonymous at K≥5</strong>: a bucket
-        is published only once it holds at least five realised sales, so no
-        single seller&apos;s individual price is recoverable. Buckets thinner
-        than that are suppressed entirely — revealed only as a coarse
-        &ldquo;below coverage threshold&rdquo; count, never as a price. At
-        today&apos;s low volume most buckets fall below the bar, and we say so
-        plainly rather than pad the dataset. It is safe by construction, not by
-        our restraint.
+        Five sales did not mean five distinct people, and count plus minimum,
+        median, maximum, and latest time could disclose exact observations.
+        More importantly, a completed trade has no versioned receipt for
+        public-domain price publication. Removing names is not permission to
+        repurpose the transaction.
       </p>
       <p>
-        <strong>What it will never carry:</strong> identities (buyer or seller),
-        anything about payment, shipping, tracking, commission, or payout, and
-        no thin-volume rows. These fields are not merely filtered — the
-        underlying database view cannot select them at all. What the query does
-        not name cannot leak.
+        A future release needs purpose-specific receipts, delayed closed
+        periods, coarse non-reconstructive bands, distinct-person safeguards,
+        and a fresh rights decision before any projected output receives a
+        public-domain licence.
       </p>
 
       <h2>The honest blocks</h2>
@@ -203,9 +194,10 @@ export default function DataIntentionsMethodology() {
           <code>docs/methodology/source-intake.md</code>
         </a>
         . The declared sources, each with its tier and terms, are inspectable
-        at <Link href="/api/v1/sources">/api/v1/sources</Link>. The CC0 dataset
-        is <Link href="/api/v1/sold-comps">/api/v1/sold-comps</Link>. This page
-        is CC0, like all our methodology text — mirror it freely.
+        at <Link href="/api/v1/sources">/api/v1/sources</Link>. Sold comps are
+        visibly paused at <Link href="/api/v1/sold-comps">/api/v1/sold-comps</Link>.
+        This methodology text remains CC0; transaction data does not inherit
+        that licence.
       </blockquote>
 
       <TypeSignature

@@ -49,5 +49,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
   });
 
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
-  return NextResponse.json(result);
+  // The client polls the viewer-specific state route after every action.
+  // Never mirror the engine's internal state here: it contains both account
+  // ids and both players' hidden zones.
+  return NextResponse.json({ ok: true });
 }

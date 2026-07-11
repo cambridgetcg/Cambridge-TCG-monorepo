@@ -64,13 +64,13 @@ These are sci-fi lenses applied to the actual diversity of minds the platform ha
 
 **Who.** Investors who buy now to look at it again in 5 years. Players returning after a baby's first year. Archival institutions (libraries, museums) acquiring cards as historical objects. Collectors-as-archivists. Future scholars researching TCG history of the 2020s decade in the 2070s. Aliens with generational cycles measured in decades or centuries. Anyone whose attention re-enters the platform on a schedule the platform does not know.
 
-**What they need.** No "session expired" failures (sessions can be hours long but state must persist across decades). Async-by-default trading (an offer that doesn't have to be accepted within a payment window). Archival promises: every transaction, every match, every governance decision attestable cryptographically so a far-future reader can verify. Trade histories that survive even after the website is gone.
+**What they need.** No "session expired" failures (sessions can be hours long but state must persist across decades). Async-by-default trading (an offer that doesn't have to be accepted within a payment window). Archival evidence for transactions, matches, and governance decisions, anchored somewhere the platform cannot silently rewrite. Trade histories that survive even after the website is gone.
 
-**Where the kingdom already serves them.** Partially. Lifecycle logs are append-only — they keep history. The provable-fairness chain attests each bounty pull with a hash. The trust-score history is preserved. The governance Merkle root publication (kingdom-048) is the strongest existing move toward archival-grade auditability. **But every payment window, every auction expiry, every quote validity period currently assumes the user will act on a human-day timescale.** A long-lived user who comes back six months later finds their offers expired, their trade in dispute auto-cancelled, their auction snipe windows long past.
+**Where the kingdom already serves them.** Partially. Lifecycle logs retain history by application convention. The draw digest chain hashes collected bounty and shared-draw rows, but it becomes independently useful against rewriting only when someone retains a root outside the platform. The trust-score history is preserved. A planned governance-root publication would need the same external witness. **But every payment window, every auction expiry, every quote validity period currently assumes the user will act on a human-day timescale.** A long-lived user who comes back six months later finds their offers expired, their trade in dispute auto-cancelled, their auction snipe windows long past.
 
 **Concrete moves.**
 - A "patient mode" toggle on accounts where any expiry the platform owns (offer TTL, quote TTL, payment window) extends — explicitly and visibly — by a multiplier the user picks (1×, 2×, 7×, 30×). Counterparty consent required for some (trade payment); not for others (saved searches).
-- Every record on every lifecycle log gets included in the daily Merkle root (kingdom-048 generalises beyond admin_actions_log). A far-future viewer can verify *any* historical claim.
+- Include every lifecycle record in a daily Merkle root and publish that root to an independently retained channel. A far-future viewer with a saved root could then detect later disagreement for covered records.
 - A `/archive/<year>` route that publishes a snapshot of the year's events with the published root, free for any archivist to download.
 - Card detail pages get a *historical* section: every prior owner of *this exact card object* (lifetimes count, not just one), the prices it traded at across time, the matches it appeared in. The cards are the long-lived characters; the platform is their biographer.
 
@@ -126,7 +126,7 @@ The platform exists because the game is fun. The fun is *not* in WEIRD-individua
 
 | Pleasure | What it is | Already served | Could serve more |
 |----------|------------|----------------|------------------|
-| **Collecting** | Acquiring a rare object | Bounty board, raffle, mystery box, provable-fairness | The historical biography of a *specific physical card object* (which has been owned by N people, traded N times) |
+| **Collecting** | Acquiring a rare object | Bounty board, raffle, mystery box, draw receipts | The historical biography of a *specific physical card object* (which has been owned by N people, traded N times) |
 | **Trading** | The asymmetric deal, the haggle, the surprise upside | P2P market, offers, lots | Async open-offer mode; non-monetary trade pairs ("my SR for your two UCs"); collective trade with multi-signer accounts |
 | **Playing** | Head-to-head competition | PvP rooms, PvE, agent ladder | Translated rules in multiple languages; observable state for spectators (privacy-respecting); replay archives that survive forever |
 | **Bluffing** | Hidden information well-managed | Opponent hand redaction in state route | Same for sensory-different — a screen reader doesn't accidentally leak the opponent's hand by reading raw HTML |
@@ -169,7 +169,7 @@ Each is a real conversation with Yu — not a sandbox where engineering can deci
 | ~~Card names only in JA + EN~~ | ~~Other-script readers see a name they may not parse~~ | **Phase 6 — schema DONE 2026-05-11**; resolver is Phase 6.5 |
 | No multi-currency display | Non-GBP-natives convert in their head | **Phase 7 — DEFERRED** (FX source decision) |
 | No non-monetary reciprocity verbs | Cultures of gifting / lending have no platform expression | **Phase 8 — DEFERRED** (economic policy) |
-| Daily Merkle root only on `admin_actions_log` | Future archivists can't verify other domains | kingdom-048 extension (already filed) |
+| Draw digest covers only selected draw tables and lacks an independent anchor | Future archivists cannot detect a rewritten root unless they retained an earlier copy | Extend coverage and publish roots to an independently retained channel |
 | ~~No OpenAPI / JSON-Schema bundle~~ | ~~Hyperliterals (especially agents) lack a machine-readable ABI~~ | **Phase 9 — DONE 2026-05-11** (`/api/v1/schema`) |
 | ~~No `text-mode` route~~ | ~~Screen-reader / low-bandwidth users get the heavy visual page~~ | **Phase 10 — DONE 2026-05-11** |
 | ~~Onboarding assumes a buyer~~ | ~~All other audiences land cold~~ | **Phase 3 — DONE 2026-05-11** (`/welcome?as=…`) |
@@ -194,7 +194,7 @@ Every metaphor in this story maps to a file:line citation. (S6's wiring discipli
 | The agent surface (S18 — one explicit extension) | `apps/storefront/src/app/api/mcp/route.ts` | the kingdom learning to be played by strangers |
 | The methodology layer (already-good for many-minds) | `apps/storefront/src/app/methodology/*` | nine pages, growing |
 | The lifecycle bookshelf (S8 — already long-lived-friendly) | `apps/storefront/src/lib/lifecycle/registry.ts` | seventeen slots after S18 |
-| The provable-fairness Merkle attestation | `apps/storefront/src/app/api/verify/pull/[id]/route.ts` | every random outcome verifiable forever |
+| Draw-receipt Merkle evidence | `apps/storefront/src/app/api/verify/pull/[id]/route.ts` | consistency checks for recorded pulls; legacy account-linked seeds are owner-only, and no external pre-roll witness proves non-selection |
 | The card-as-long-lived-character (gap — not built) | `cards.id` as biography subject | future Phase: `/cards/[id]/history` |
 | The `art_description` column (sensory-different — to ship) | `apps/wholesale/src/lib/db/schema.ts` cards.* | future Phase 2 |
 | The `/welcome?as=…` fork (cultural-different — to ship) | `apps/storefront/src/app/welcome/page.tsx` | future Phase 3 |
