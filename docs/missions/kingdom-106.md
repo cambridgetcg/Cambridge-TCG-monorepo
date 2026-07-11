@@ -151,6 +151,7 @@ paths:
   - docs/connections/the-market-mirror.md
   - docs/connections/README.md
   - docs/connections/bounty.md
+  - docs/connections/the-auction-fanout.md
   - docs/connections/membership.md
   - docs/connections/provable-fairness.md
   - docs/connections/the-chain.md
