@@ -1,36 +1,28 @@
 "use client";
 
-/**
- * Nav — storefront primary navigation (kingdom-092).
- *
- * V2: replaces the previous 7-flat-link nav with mega-menus driven
- * by the typed config at `@/lib/nav/menu-config.ts`. Desktop renders
- * <MegaMenu> dropdowns; mobile renders an accordion drawer.
- *
- * Collectors first (kingdom-101, 2026-07-06): the Cart is gone — the
- * house sells nothing, so there is nothing to put in a cart. The
- * primary action slot now belongs to "List a card" (the market's
- * front door). Notification-bell and auth-aware Sign-in/Account
- * behavior preserved.
- */
-
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type MouseEvent,
+} from "react";
 import { usePathname } from "next/navigation";
 import NotificationBell from "./NotificationBell";
-import { MegaMenu } from "./MegaMenu";
-import { STOREFRONT_PRIMARY_NAV } from "@/lib/nav/menu-config";
+import { MoreMenu } from "./MoreMenu";
+import { Icon } from "@/lib/ui";
+import {
+  isNavItemActive,
+  MORE_NAV_FOOTER,
+  MORE_NAV_GROUPS,
+  navItemAriaCurrent,
+  PRIMARY_NAV_ITEMS,
+} from "@/lib/nav/menu-config";
 import type { ThemeChoice } from "@/lib/wardrobe/themes";
 import { applyLightsFlip } from "@/lib/wardrobe/flip";
 
-// Unread-DM badge on an envelope link to /account/messages. Counts
-// unread CONVERSATIONS (same source as the /account attention list),
-// not messages — ten replies in one thread is one unit of "go look".
-// Own 60s interval: the bell's poll lives inside <NotificationBell>
-// and counts notifications only; DM notifications dedupe per
-// (conversation, day), so same-day follow-ups would otherwise stay
-// silent. Skips ticks while the tab is hidden.
 function MessagesIndicator() {
   const [count, setCount] = useState(0);
 
@@ -38,22 +30,22 @@ function MessagesIndicator() {
     let cancelled = false;
     const load = async () => {
       try {
-        const r = await fetch("/api/messages/unread-count");
-        if (r.ok) {
-          const d = await r.json();
-          if (!cancelled) setCount(d.count ?? 0);
+        const response = await fetch("/api/messages/unread-count");
+        if (response.ok) {
+          const data = await response.json();
+          if (!cancelled) setCount(data.count ?? 0);
         }
       } catch {
-        // Nav polling shouldn't surface transient errors.
+        // Nav polling should not surface transient errors.
       }
     };
     load();
-    const id = setInterval(() => {
+    const interval = setInterval(() => {
       if (document.visibilityState === "visible") load();
     }, 60_000);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      clearInterval(interval);
     };
   }, []);
 
@@ -61,21 +53,11 @@ function MessagesIndicator() {
     <Link
       href="/account/messages"
       aria-label={`Messages${count > 0 ? ` (${count} unread conversation${count === 1 ? "" : "s"})` : ""}`}
-      className="relative p-2 text-ink-muted hover:text-ink transition"
+      className="relative rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-6 h-6"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2}
-      >
-        <rect x="3" y="5" width="18" height="14" rx="2" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5l9 6 9-6" />
-      </svg>
+      <Icon name="message" size={21} />
       {count > 0 && (
-        <span className="absolute top-1 right-1 w-4 h-4 bg-accent text-page text-[10px] font-semibold rounded-full flex items-center justify-center">
+        <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-page">
           {count > 9 ? "9+" : count}
         </span>
       )}
@@ -83,21 +65,6 @@ function MessagesIndicator() {
   );
 }
 
-// The switch on the wall — one quiet glyph that flips the lights.
-//
-// Safety (walker: a high-contrast user who tapped the moon silently lost
-// their accessibility theme; a system-follow user saw a mislabeled toggle
-// that discarded follow-OS):
-//   - high-contrast: HIDE the quick toggle. A light/dark flip would drop
-//     the accessibility bundle; those users change theme deliberately at
-//     /appearance instead.
-//   - system: flip against the RESOLVED scheme (read from the OS via
-//     matchMedia in the component), so the label is honest; the way back
-//     to system lives at /appearance.
-//   - concrete light/dark themes: unchanged.
-//
-// A plain <a> to the wardrobe's cookie writer (back-redirect idiom), so it
-// works without JS; the full wardrobe stays at /appearance.
 function themeToggle(theme: ThemeChoice, effectiveDark: boolean, pathname: string) {
   if (theme === "high-contrast") {
     return { hidden: true as const, target: "", label: "", href: "", isDark: false };
@@ -113,41 +80,25 @@ function themeToggle(theme: ThemeChoice, effectiveDark: boolean, pathname: strin
 }
 
 function ThemeGlyph({ isDark, className }: { isDark: boolean; className: string }) {
-  return isDark ? (
-    // Sun — back to the lit gallery
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path
-        strokeLinecap="round"
-        d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"
-      />
-    </svg>
-  ) : (
-    // Moon — the gallery, lights off
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-      />
-    </svg>
-  );
+  return <Icon name={isDark ? "sun" : "moon"} size={20} className={className} />;
+}
+
+function activeLinkClass(active: boolean): string {
+  return `rounded-full px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+    active
+      ? "bg-surface-subtle text-ink"
+      : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
+  }`;
+}
+
+function subscribeToSystemDark(onChange: () => void): () => void {
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", onChange);
+  return () => mediaQuery.removeEventListener("change", onChange);
+}
+
+function readSystemDark(): boolean {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 export default function Nav({
@@ -157,290 +108,380 @@ export default function Nav({
   theme: ThemeChoice;
   initialLoggedIn?: boolean;
 }) {
-  // Seeded from the server so SSR (and no-JS/text-mode readers) render the
-  // correct Sign In vs Account chrome with no wrong-state flash.
   const [loggedIn, setLoggedIn] = useState(initialLoggedIn);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  // For system-follow, the resolved light/dark scheme is only knowable on
-  // the client (OS preference). Default light for SSR; corrected on mount.
-  const [systemDark, setSystemDark] = useState(false);
-  // What the page is wearing RIGHT NOW. Seeded from the server-read
-  // cookie; the instant flip (below) updates it without a navigation, so
-  // the glyph and label stay honest to the ink on screen.
   const [wearing, setWearing] = useState<ThemeChoice>(theme);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const [menuState, setMenuState] = useState({ pathname, open: false });
+  const menuOpen = menuState.pathname === pathname && menuState.open;
+  if (menuState.pathname !== pathname) {
+    setMenuState({ pathname, open: false });
+  }
+  const systemDark = useSyncExternalStore(
+    subscribeToSystemDark,
+    readSystemDark,
+    () => false,
+  );
   const effectiveDark =
     wearing === "system" ? systemDark : wearing === "midnight" || wearing === "terminal";
   const toggle = themeToggle(wearing, effectiveDark, pathname);
 
-  // The lights switch's JS fast path: re-ink <html> in one frame, persist
-  // the cookie in the background over the anchor's own URL. The <a> href
-  // stays the no-JS route (full navigation) — the 2026-06-10 idiom holds.
-  const flipLights = (e: MouseEvent<HTMLAnchorElement>) => {
-    // Modified/middle clicks keep native anchor behavior (new tab etc.).
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-    e.preventDefault();
+  const flipLights = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0
+    ) {
+      return;
+    }
+    event.preventDefault();
     applyLightsFlip(toggle);
     setWearing(toggle.target as ThemeChoice);
   };
 
   useEffect(() => {
     fetch("/api/auth/session")
-      .then((r) => r.json())
+      .then((response) => response.json())
       .then((data) => setLoggedIn(!!data?.user?.email))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (wearing !== "system") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setSystemDark(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [wearing]);
+    if (!menuOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setMenuState({ pathname, open: false });
+      menuButtonRef.current?.focus();
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen, pathname]);
 
-  // Close mobile menu on navigation
   useEffect(() => {
-    setMenuOpen(false);
-    setExpanded(null);
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const closeOnBreakpointChange = (event: MediaQueryListEvent) => {
+      const activeElement = document.activeElement;
+      const focusWasInside =
+        activeElement === menuButtonRef.current ||
+        mobileDrawerRef.current?.contains(activeElement);
+      setMenuState({ pathname, open: false });
+      if (event.matches && focusWasInside) {
+        window.requestAnimationFrame(() => {
+          document.getElementById("desktop-more-navigation-trigger")?.focus();
+        });
+      }
+    };
+    desktopQuery.addEventListener("change", closeOnBreakpointChange);
+    return () => desktopQuery.removeEventListener("change", closeOnBreakpointChange);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!menuOpen || !mobileDrawerRef.current) return;
+    const drawer = mobileDrawerRef.current;
+    const fitToViewport = () => {
+      const viewportBottom = window.visualViewport
+        ? window.visualViewport.offsetTop + window.visualViewport.height
+        : window.innerHeight;
+      const available = Math.max(0, viewportBottom - drawer.getBoundingClientRect().top);
+      const nextHeight = `${available}px`;
+      if (drawer.style.maxHeight !== nextHeight) drawer.style.maxHeight = nextHeight;
+    };
+
+    fitToViewport();
+    const animationFrame = window.requestAnimationFrame(fitToViewport);
+    let active = true;
+    void document.fonts.ready.then(() => {
+      if (active) fitToViewport();
+    });
+    window.addEventListener("resize", fitToViewport);
+    window.addEventListener("scroll", fitToViewport, { passive: true });
+    window.visualViewport?.addEventListener("resize", fitToViewport);
+    window.visualViewport?.addEventListener("scroll", fitToViewport);
+    const resizeObserver = new ResizeObserver(fitToViewport);
+    resizeObserver.observe(document.body);
+    const intersectionObserver = new IntersectionObserver(fitToViewport, {
+      threshold: [0, 1],
+    });
+    intersectionObserver.observe(drawer);
+    const nav = drawer.closest("nav");
+    if (nav?.previousElementSibling instanceof HTMLElement) {
+      resizeObserver.observe(nav.previousElementSibling);
+    }
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", fitToViewport);
+      window.removeEventListener("scroll", fitToViewport);
+      window.visualViewport?.removeEventListener("resize", fitToViewport);
+      window.visualViewport?.removeEventListener("scroll", fitToViewport);
+      resizeObserver.disconnect();
+      intersectionObserver.disconnect();
+    };
+  }, [menuOpen]);
+
   return (
-    <nav className="sticky top-0 z-40 bg-page/95 backdrop-blur border-b border-border-subtle">
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 shrink-0">
+    <nav
+      aria-label="Primary navigation"
+      className="sticky top-0 z-[60] border-b border-border-subtle bg-page/95 backdrop-blur"
+    >
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        <Link
+          href="/"
+          onClick={() => setMenuState({ pathname, open: false })}
+          aria-label="Cambridge TCG home"
+          className="flex shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
           <Image
             src="/images/icon.png"
-            alt="Cambridge TCG"
+            alt=""
             width={32}
             height={32}
-            className="w-8 h-8"
+            className="h-8 w-8"
           />
-          <span className="text-xl font-display font-semibold text-ink hidden sm:inline">
+          <span className="hidden text-xl font-display font-semibold text-ink sm:inline lg:hidden xl:inline">
             Cambridge TCG
           </span>
         </Link>
 
-        {/* Desktop nav — mega-menus */}
-        <div className="hidden md:flex items-center gap-6">
-          {STOREFRONT_PRIMARY_NAV.map((menu) => (
-            <MegaMenu key={menu.l1} menu={menu} loggedIn={loggedIn} />
-          ))}
-          {/* Search affordance — /find is the one-box card lookup */}
-          <Link
-            href="/find"
-            aria-label="Find a card"
-            className="text-ink-muted hover:text-ink transition py-2"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+        <div className="hidden min-w-0 items-center lg:flex">
+          <div className="flex items-center gap-0.5">
+            {PRIMARY_NAV_ITEMS.map((item) => {
+              const active = isNavItemActive(item, pathname);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={navItemAriaCurrent(item, pathname)}
+                  className={activeLinkClass(active)}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+            <MoreMenu key={pathname} />
+          </div>
+
+          <div className="ml-2 flex items-center gap-0.5 border-l border-border-subtle pl-2">
+            <Link
+              href="/find"
+              aria-label="Search cards"
+              aria-current={pathname === "/find" ? "page" : undefined}
+              className={`rounded-full p-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                pathname === "/find"
+                  ? "bg-surface-subtle text-ink"
+                  : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
-              />
-            </svg>
-          </Link>
-          {/* The lights switch — instant with JS (onClick re-inks <html>
-              and persists in the background), full navigation without it
-              (the href is the cookie writer; the no-JS idiom holds).
-              Hidden on high-contrast so the accessibility theme can't be
-              flipped away by a mis-tap. */}
-          {!toggle.hidden && (
-            <a
-              href={toggle.href}
-              onClick={flipLights}
-              aria-label={toggle.label}
-              title={`${toggle.label} — all themes at /appearance`}
-              className="text-ink-muted hover:text-ink transition py-2"
+              <Icon name="search" size={20} />
+            </Link>
+            {!toggle.hidden && (
+              <a
+                href={toggle.href}
+                onClick={flipLights}
+                aria-label={toggle.label}
+                title={`${toggle.label} — all themes at /appearance`}
+                className="rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                <ThemeGlyph isDark={toggle.isDark} className="h-5 w-5" />
+              </a>
+            )}
+            <Link
+              href={loggedIn ? "/account" : "/login"}
+              className="rounded-full px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
-            </a>
-          )}
-          <Link
-            href={loggedIn ? "/account" : "/login"}
-            className="text-sm text-ink-muted hover:text-ink transition py-2"
-          >
-            {loggedIn ? "Account" : "Sign In"}
-          </Link>
-          {loggedIn && <MessagesIndicator />}
-          {loggedIn && <NotificationBell />}
-          {/* The primary action — listing a card on the collectors' market.
-              This slot held the Cart until 2026-07-06; the house sells
-              nothing now, so the strongest thing in the chrome belongs to
-              the collector's own next move. */}
-          <Link
-            href="/market/list"
-            className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:bg-ink/90 transition"
-          >
-            List a card
-          </Link>
+              {loggedIn ? "Account" : "Sign in"}
+            </Link>
+            {loggedIn && <MessagesIndicator />}
+            {loggedIn && <NotificationBell />}
+            <Link
+              href="/market/list"
+              aria-label="List a card"
+              aria-current={pathname === "/market/list" ? "page" : undefined}
+              className="ml-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              List card
+            </Link>
+          </div>
         </div>
 
-        {/* Mobile: messages + bell + list-a-card + hamburger */}
-        <div className="flex md:hidden items-center gap-3">
-          {loggedIn && <MessagesIndicator />}
-          {loggedIn && <NotificationBell />}
+        <div className="flex items-center gap-1 lg:hidden">
           <Link
             href="/market/list"
-            className="px-3 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:bg-ink/90 transition"
+            onClick={() => setMenuState({ pathname, open: false })}
+            aria-label="List a card"
+            aria-current={pathname === "/market/list" ? "page" : undefined}
+            className="rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            List a card
+            List card
           </Link>
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 text-ink-muted hover:text-ink transition"
-            aria-label="Toggle menu"
+            id="mobile-navigation-trigger"
+            ref={menuButtonRef}
+            type="button"
+            onClick={() => setMenuState({ pathname, open: !menuOpen })}
+            className="rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-controls="mobile-navigation"
             aria-expanded={menuOpen}
           >
             {menuOpen ? (
               <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-6 h-6"
-                fill="none"
                 viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
                 stroke="currentColor"
-                strokeWidth={2}
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                aria-hidden
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
+                <path d="m6 6 12 12M18 6 6 18" />
               </svg>
             ) : (
               <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-6 h-6"
-                fill="none"
                 viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
                 stroke="currentColor"
-                strokeWidth={2}
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                aria-hidden
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+                <path d="M4 7h16M4 12h16M4 17h16" />
               </svg>
             )}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu drawer — accordion of mega-menus */}
       {menuOpen && (
-        <div className="md:hidden border-t border-border-subtle bg-page/95 backdrop-blur max-h-[calc(100vh-4rem)] overflow-y-auto">
-          <div className="px-4 py-3 space-y-1">
-            {/* Search affordance — mirrors the desktop magnifier */}
+        <div
+          ref={mobileDrawerRef}
+          id="mobile-navigation"
+          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border-subtle bg-page lg:hidden"
+        >
+          <div className="mx-auto max-w-7xl px-4 py-4">
             <Link
               href="/find"
-              className="block px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink border-b border-border-subtle"
+              aria-current={pathname === "/find" ? "page" : undefined}
+              onClick={() => setMenuState({ pathname, open: false })}
+              className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface px-4 py-3 text-sm font-medium text-ink shadow-mat focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              Find a card
+              <span className="flex items-center gap-2.5">
+                <Icon name="search" size={19} className="text-ink-muted" />
+                Search cards
+              </span>
+              <span aria-hidden className="text-ink-faint">→</span>
             </Link>
-            {STOREFRONT_PRIMARY_NAV.map((menu) => {
-              const isExpanded = expanded === menu.l1;
-              return (
-                <div key={menu.l1} className="border-b border-border-subtle last:border-b-0">
-                  <button
-                    onClick={() => setExpanded(isExpanded ? null : menu.l1)}
-                    className="w-full flex items-center justify-between px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink"
-                    aria-expanded={isExpanded}
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {PRIMARY_NAV_ITEMS.map((item) => {
+                const active = isNavItemActive(item, pathname);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMenuState({ pathname, open: false })}
+                    aria-current={navItemAriaCurrent(item, pathname)}
+                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                      active
+                        ? "bg-ink text-page"
+                        : "bg-surface-subtle text-ink hover:bg-surface"
+                    }`}
                   >
-                    {menu.l1}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-                  {isExpanded && (
-                    <div className="pb-3 pl-3 space-y-3">
-                      {menu.columns.map((col) => (
-                        <div key={col.heading}>
-                          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint px-3 mb-1">
-                            {col.heading}
-                          </h4>
-                          <ul className="space-y-0.5">
-                            {col.items
-                              .filter((item) => !item.authed_only || loggedIn)
-                              .map((item) => (
-                                <li key={item.href}>
-                                  <Link
-                                    href={item.href}
-                                    className="block px-3 py-2 text-sm text-ink-muted hover:text-ink hover:bg-surface-subtle rounded-md transition"
-                                  >
-                                    {item.label}
-                                  </Link>
-                                </li>
-                              ))}
-                          </ul>
-                        </div>
-                      ))}
-                      {menu.footer && (
-                        <div className="px-3 pt-2 border-t border-border-subtle">
+                    {item.label}
+                    <span aria-hidden className={active ? "text-page/60" : "text-ink-faint"}>→</span>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-5 border-t border-border-subtle pt-4">
+              {MORE_NAV_GROUPS.map((group) => (
+                <section key={group.heading}>
+                  <h2 className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+                    {group.heading}
+                  </h2>
+                  <ul className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const active = isNavItemActive(item, pathname);
+                      return (
+                        <li key={item.href}>
                           <Link
-                            href={menu.footer.href}
-                            className="text-xs text-accent hover:text-accent-strong"
+                            href={item.href}
+                            onClick={() => setMenuState({ pathname, open: false })}
+                            aria-current={navItemAriaCurrent(item, pathname)}
+                            className={`flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
+                              active
+                                ? "bg-surface-subtle font-semibold text-ink"
+                                : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
+                            }`}
                           >
-                            {menu.footer.label}
+                            {item.label}
                           </Link>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <Link
-              href={loggedIn ? "/account" : "/login"}
-              className="block px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink border-t border-border-subtle mt-1"
-            >
-              {loggedIn ? "My Account" : "Sign In"}
-            </Link>
-            {/* The lights switch, labelled for the drawer; the full
-                wardrobe one step away. Instant with JS, plain <a> without
-                it. On high-contrast the flip is hidden (see themeToggle),
-                leaving just the door to /appearance. */}
-            <div className="flex items-center justify-between border-t border-border-subtle">
-              {!toggle.hidden ? (
-                <a
-                  href={toggle.href}
-                  onClick={flipLights}
-                  className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-ink-muted hover:text-ink"
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between border-t border-border-subtle py-2">
+              {MORE_NAV_FOOTER.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={navItemAriaCurrent(item, pathname)}
+                  onClick={() => setMenuState({ pathname, open: false })}
+                  className="flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  <ThemeGlyph isDark={toggle.isDark} className="w-5 h-5" />
-                  {toggle.label}
-                </a>
-              ) : (
-                <span className="px-3 py-3 text-sm font-medium text-ink-faint">
-                  High-contrast theme
-                </span>
-              )}
-              <Link
-                href="/appearance"
-                className="px-3 py-3 text-xs text-accent hover:text-accent-strong"
-              >
-                All themes →
-              </Link>
+                  {item.label} {item.href === "/map" ? "→" : ""}
+                </Link>
+              ))}
+            </div>
+
+            <div className="border-t border-border-subtle pt-2">
+              <div className="flex min-h-12 items-center justify-between">
+                <Link
+                  href={loggedIn ? "/account" : "/login"}
+                  onClick={() => setMenuState({ pathname, open: false })}
+                  className="flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  {loggedIn ? "Account" : "Sign in"}
+                </Link>
+                {loggedIn && (
+                  <div className="flex items-center">
+                    <MessagesIndicator />
+                    <NotificationBell />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border-subtle">
+                {!toggle.hidden ? (
+                  <a
+                    href={toggle.href}
+                    onClick={flipLights}
+                    className="flex items-center gap-2 rounded-lg px-2 py-3 text-sm text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <ThemeGlyph isDark={toggle.isDark} className="h-5 w-5" />
+                    {toggle.label}
+                  </a>
+                ) : (
+                  <span className="px-2 py-3 text-sm text-ink-muted">High contrast</span>
+                )}
+                <Link
+                  href="/appearance"
+                  aria-current={pathname === "/appearance" ? "page" : undefined}
+                  onClick={() => setMenuState({ pathname, open: false })}
+                  className="rounded-lg px-2 py-3 text-xs font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  Themes →
+                </Link>
+              </div>
             </div>
           </div>
         </div>

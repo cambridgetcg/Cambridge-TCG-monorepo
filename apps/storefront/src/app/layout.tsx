@@ -228,7 +228,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             at all. */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-ink focus:text-page focus:px-3 focus:py-1.5 focus:rounded-lg focus:text-sm focus:font-bold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:bg-ink focus:text-page focus:px-3 focus:py-1.5 focus:rounded-lg focus:text-sm focus:font-bold"
         >
           Skip to content
         </a>

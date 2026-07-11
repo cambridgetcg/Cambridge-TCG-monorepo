@@ -3,28 +3,27 @@
 export {};
 
 /**
- * nav-coverage.ts — drift detector for the storefront navigation
- * substrate (kingdom-091).
+ * nav-coverage.ts — drift detector for the storefront navigation substrate.
  *
  * Seventeenth in the audit family. Walks `apps/storefront/src/app/`
- * for every `page.tsx`, compares against the typed nav source-of-truth
+ * for every `page.tsx`, compares against the compact typed header config
  * at `apps/storefront/src/lib/nav/menu-config.ts` + the account nav at
  * `apps/storefront/src/app/account/_nav.tsx` + the breadcrumb registry,
  * and reports orphans (routes not reachable from any nav).
  *
  * Six checks:
  *
- *   1. Route → nav coverage: every public page.tsx is either
- *      (a) linked from a mega-menu column, OR
+ *   1. Direct-nav coverage (informational): reports public pages that are not
+ *      named directly in one of these compact navigation surfaces:
+ *      (a) linked from the global header, OR
  *      (b) listed in ACCOUNT_NAV_ITEMS (for /account/* routes), OR
- *      (c) listed in an allow-list of orphan-by-design routes.
+ *      (c) listed in an allow-list of deep or hub-reachable routes.
  *
- *   2. Nav → route validity: every URL in STOREFRONT_PRIMARY_NAV
+ *   2. Nav → route validity: every URL promised by the header config
  *      resolves to a real route (no broken nav links).
  *
- *   3. Methodology completeness: every /methodology/* page is
- *      reachable from Discover ▾ or About ▾ (either directly or via
- *      the /methodology hub link).
+ *   3. Methodology completeness: every /methodology/* page remains
+ *      reachable through the /methodology hub linked from More.
  *
  *   4. Breadcrumb registry coverage: every deep dynamic route (depth
  *      > 2 with at least one [slug]) should have a breadcrumb pattern.
@@ -326,18 +325,17 @@ function resolvesToRoute(url: string, routeSet: Set<string>, routes: string[]): 
  * Naively parse the menu config + account nav to extract every URL.
  * Avoids importing the TS modules so this script stays standalone.
  */
-function parseNavUrls(): { mega: Set<string>; account: Set<string> } {
-  const mega = new Set<string>();
+function parseNavUrls(): { primary: Set<string>; account: Set<string> } {
+  const primary = new Set<string>();
   const account = new Set<string>();
 
   try {
-    const { readFileSync } = require("fs");
     const cfg = readFileSync(MENU_CONFIG, "utf-8");
     // Extract every href: "..." literal
     const hrefRe = /href:\s*"([^"]+)"/g;
     let m: RegExpExecArray | null;
     while ((m = hrefRe.exec(cfg)) !== null) {
-      mega.add(m[1]);
+      primary.add(m[1]);
     }
 
     const acc = readFileSync(ACCOUNT_NAV, "utf-8");
@@ -348,7 +346,7 @@ function parseNavUrls(): { mega: Set<string>; account: Set<string> } {
     console.warn(`  Warning — could not parse nav configs: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  return { mega, account };
+  return { primary, account };
 }
 
 function discoverMethodologyTopics(): string[] {
@@ -381,27 +379,27 @@ function main() {
   const pendingMerged = PENDING_ROUTES.filter((p) => !discovered.includes(p));
   const routes = [...discovered, ...pendingMerged].sort();
   const routeSet = new Set(routes);
-  const { mega, account } = parseNavUrls();
+  const { primary, account } = parseNavUrls();
   const methodologyTopics = discoverMethodologyTopics();
 
   console.log(`Discovered ${discovered.length} page.tsx routes under apps/storefront/src/app/`);
   if (pendingMerged.length > 0) {
     console.log(`Pending routes merged: ${pendingMerged.length} (${pendingMerged.join(", ")}) — see PENDING_ROUTES`);
   }
-  console.log(`Mega-menu URLs:       ${mega.size}`);
+  console.log(`Global-nav URLs:      ${primary.size}`);
   console.log(`Account-nav URLs:     ${account.size}`);
   console.log(`Methodology topics:   ${methodologyTopics.length}`);
   console.log("");
 
   // ── Check 1: route → nav coverage ───────────────────────────────────
-  console.log("Check 1: route → nav coverage (orphan routes)");
+  console.log("Check 1: direct-nav coverage (informational)");
   console.log("─".repeat(72));
   const orphans: string[] = [];
   for (const route of routes) {
     // Account routes covered by account nav
     if (route.startsWith("/account") && (account.has(route) || isOrphanAllowed(route))) continue;
-    // Routes referenced by mega-menu
-    if (mega.has(route)) continue;
+    // Routes referenced directly by the compact global nav
+    if (primary.has(route)) continue;
     // Methodology routes always allowed (reachable via /methodology hub)
     if (route.startsWith("/methodology")) continue;
     // Allow-listed
@@ -409,9 +407,9 @@ function main() {
     orphans.push(route);
   }
   if (orphans.length === 0) {
-    console.log("  ✓ Every public route is reachable from a nav surface.");
+    console.log("  ✓ Every public route is named directly in a nav surface.");
   } else {
-    console.log(`  ${orphans.length} orphan route(s):`);
+    console.log(`  ${orphans.length} route(s) not named directly (review hub reachability):`);
     for (const o of orphans.slice(0, 30)) {
       console.log(`    · ${o}`);
     }
@@ -425,7 +423,7 @@ function main() {
   console.log("Check 2: nav → route validity (broken links)");
   console.log("─".repeat(72));
   const broken: string[] = [];
-  for (const url of mega) {
+  for (const url of primary) {
     // Skip external / API URLs
     if (url.startsWith("http") || url.startsWith("/api/")) continue;
     // Skip URLs that target dynamic routes (we can't statically resolve)
@@ -445,7 +443,7 @@ function main() {
   // ── Check 3: methodology completeness ───────────────────────────────
   console.log("Check 3: methodology completeness");
   console.log("─".repeat(72));
-  const methHubLinked = mega.has("/methodology") || mega.has("/methodology/");
+  const methHubLinked = primary.has("/methodology") || primary.has("/methodology/");
   if (methHubLinked) {
     console.log(`  ✓ /methodology hub linked from primary nav. ${methodologyTopics.length} topics reachable via hub.`);
   } else {
