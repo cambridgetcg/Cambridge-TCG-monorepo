@@ -52,16 +52,10 @@ export interface CreateDbOptions {
   max?: number;
 
   /**
-   * SSL mode or Node TLS options. Defaults to "require" for RDS.
+   * SSL mode. Defaults to "require" for RDS.
    * Set to false for local development without SSL.
    */
-  ssl?:
-    | boolean
-    | "require"
-    | "prefer"
-    | "allow"
-    | "verify-full"
-    | Record<string, unknown>;
+  ssl?: boolean | "require" | "prefer" | "allow";
 
   /**
    * Drizzle schema object. Pass this to enable `db.query.*` relational

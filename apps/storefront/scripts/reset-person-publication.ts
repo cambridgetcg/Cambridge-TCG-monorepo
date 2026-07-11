@@ -445,6 +445,8 @@ async function main(): Promise<void> {
   const { query, transaction, close } = createCompatDb({
     url: databaseUrl,
     max: 1,
+    // postgres.js accepts Node TLS options; the shared compatibility type names only string modes.
+    // @ts-expect-error Pass the verified CA object through to postgres.js.
     ssl: { ca, rejectUnauthorized: true },
   });
   try {
