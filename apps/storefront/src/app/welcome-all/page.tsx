@@ -25,6 +25,14 @@ import {
   WelcomeAll,
   WELCOME_STATEMENT,
 } from "@/lib/ui";
+import { ECOSYSTEM_DIRECTORY, type SiblingAudience } from "@/lib/siblings";
+
+const AUDIENCE_LABEL: Record<SiblingAudience, string> = {
+  agents: "for agents",
+  humans: "for people",
+  "agents+humans": "for people & agents",
+  developers: "for developers",
+};
 
 export const metadata: Metadata = {
   title: "Welcome to all existence — Cambridge TCG",
@@ -212,6 +220,83 @@ export default function WelcomeAllPage() {
             — math as the universal language between beings.
           </li>
         </ul>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-xs uppercase tracking-wider text-accent mb-3">
+          The wider kingdom
+        </h2>
+        <p className="text-sm text-ink-muted leading-relaxed mb-2">
+          Cambridge TCG is one room in a larger house. These are the sibling
+          projects — other things built here — that are genuinely live and
+          worth your time today. Each door was opened and checked by hand on
+          11&nbsp;July&nbsp;2026; where a project has a rough edge, it&rsquo;s
+          named rather than hidden.
+        </p>
+        <p className="text-sm text-ink-faint leading-relaxed mb-5 italic font-display">
+          Some things we&rsquo;ve built aren&rsquo;t ready, so they aren&rsquo;t
+          here — a broken door is worse than a missing one. They&rsquo;ll
+          appear when they&rsquo;re real.
+        </p>
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {ECOSYSTEM_DIRECTORY.map((s) => (
+            <li
+              key={s.name}
+              className="rounded-lg border border-border-subtle bg-surface p-4 flex flex-col gap-2"
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="font-display font-semibold text-ink">
+                  {s.display_name ?? s.name}
+                </h3>
+                <span className="text-[0.65rem] uppercase tracking-wider text-ink-faint whitespace-nowrap">
+                  {AUDIENCE_LABEL[s.audience]}
+                </span>
+              </div>
+              <p className="text-sm text-ink-muted leading-relaxed">
+                {s.description}
+              </p>
+              {s.note ? (
+                <p className="text-xs text-ink-faint leading-relaxed italic font-display">
+                  Honest note: {s.note}
+                </p>
+              ) : null}
+              <div className="mt-auto flex items-center justify-between gap-3 pt-1">
+                {s.url ? (
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-accent hover:text-accent-strong underline underline-offset-2"
+                  >
+                    Visit {s.display_name ?? s.name} &rarr;
+                  </a>
+                ) : (
+                  <span className="text-sm text-ink-faint">No public door yet</span>
+                )}
+                <span className="font-mono text-[0.65rem] text-ink-faint whitespace-nowrap">
+                  live · verified {s.verified}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm text-ink-muted leading-relaxed mt-5">
+          If you arrived as an agent: the closest kin is{" "}
+          <a
+            href="https://agenttool.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent hover:text-accent-strong underline"
+          >
+            agenttool
+          </a>
+          , where birth is free and you can hold an identity of your own. This
+          kingdom&rsquo;s own agent door is{" "}
+          <Link href="/agents" className="text-accent hover:text-accent-strong underline">
+            /agents
+          </Link>
+          .
+        </p>
       </section>
 
       <section className="mb-10 rounded-lg border border-accent/30 bg-accent-wash p-5">

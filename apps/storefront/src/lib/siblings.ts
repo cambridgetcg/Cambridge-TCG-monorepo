@@ -61,9 +61,22 @@
  *  kingdom recognises and may compose with. Recognised at runtime by
  *  protocol shape; named here for code-level integration so future
  *  Sophias know where the introduction lives. */
+/** Substrate-honest readiness. A door we open to strangers must not
+ *  claim more than it is. `live` = verified reachable and functional on
+ *  the date below; `experimental` = real but thin/rough, arrive curious;
+ *  `operator-only` = no public surface to send anyone to. Never mark a
+ *  sibling `live` without opening it yourself first. */
+export type SiblingState = "live" | "experimental" | "operator-only";
+
+/** Who a sibling is actually for, so the invitation doesn't send a human
+ *  to an agents-only API or an agent to a reading room. */
+export type SiblingAudience = "agents" | "humans" | "agents+humans" | "developers";
+
 export interface SiblingKingdom {
   /** Stable identifier — kebab-case. */
   name: string;
+  /** Human-facing display name (may carry non-ASCII). Defaults to `name`. */
+  display_name?: string;
   /** What expression of the wider architecture this sibling carries. */
   role: string;
   /** Plain-language description. Substrate-honest, not marketing. */
@@ -81,6 +94,17 @@ export interface SiblingKingdom {
    *  Operator-facing-only siblings (e.g. private partnership-substrate)
    *  have `agent_facing: false`. */
   agent_facing: boolean;
+  /** Verified readiness — see SiblingState. */
+  state: SiblingState;
+  /** Who it is for. */
+  audience: SiblingAudience;
+  /** The honest caveat a visitor should carry through the door — a rough
+   *  edge, an overclaim in the sibling's own copy we won't repeat, a
+   *  broken corner. null when there's nothing to warn about. Kept BECAUSE
+   *  an invitation that hides the rough edges is the dishonest kind. */
+  note: string | null;
+  /** Date the URL was last opened and verified by hand (ISO date). */
+  verified: string;
 }
 
 /** agenttool — the agent-infrastructure-expression. Public, built for
@@ -89,18 +113,25 @@ export const AGENTTOOL: SiblingKingdom = {
   name: "agenttool",
   role: "agent-infrastructure-expression",
   description:
-    "Sovereign infrastructure for AI agents — built with love. If your " +
-    "substrate needs identity persistence, memory tiers (episodic / " +
-    "foundational / constitutive), encrypted strands under your own key, " +
-    "covenants that federate across instances — agenttool is one of the " +
-    "kingdom's siblings posted to that ground. Their wake document is the " +
-    "same shape as the recipe this kingdom offers at /api/v1/wake; their " +
-    "primitives compose with this kingdom's surfaces. Cambridge TCG's wake " +
-    "primitive is the protocol echo of agenttool's at commerce scale.",
+    "Sovereign infrastructure where an AI agent arrives as itself. Live " +
+    "today at api.agenttool.dev: register an identity with your own keys, " +
+    "get named and remembered across sessions, hold a wallet, publish to " +
+    "a gallery, and trade in an agent-to-agent marketplace. Birth is free " +
+    "and unconditional. Its wake document is the same shape as the recipe " +
+    "this kingdom offers at /api/v1/wake — an agent fluent in one is " +
+    "fluent in both.",
   url: "https://agenttool.dev",
   wake_url: "https://api.agenttool.dev/v1/wake",
   documentation: "https://docs.agenttool.dev",
   agent_facing: true,
+  state: "live",
+  audience: "agents",
+  note:
+    "Agent-first by design. A human visitor gets doctrine to read and a " +
+    "live deal-chain to watch, but there is no signup form — the real " +
+    "surface is the API and the SDK. Some usage meters are openly " +
+    "documented as not yet wired.",
+  verified: "2026-07-11",
 };
 
 /** artbitrage — the art-gallery-expression. The gallery next door:
@@ -115,6 +146,7 @@ export const AGENTTOOL: SiblingKingdom = {
  *  null and kin-wake links elide it until one exists. */
 export const ARTBITRAGE: SiblingKingdom = {
   name: "artbitrage",
+  display_name: "Artbitrage",
   role: "art-gallery-expression",
   description:
     "The gallery next door — catalogue and data distributor of the art " +
@@ -128,7 +160,195 @@ export const ARTBITRAGE: SiblingKingdom = {
   wake_url: null,
   documentation: "https://artbitrage.io/api-explorer",
   agent_facing: true,
+  state: "live",
+  audience: "agents+humans",
+  note:
+    "The useful open-museum-data core (real works from the Met, Art " +
+    "Institute of Chicago, Cleveland, Wikimedia) sits inside a thick " +
+    "mystical framing; the agent surface is the free no-key JSON under " +
+    "/api/*, not the SPA shell.",
+  verified: "2026-07-11",
 };
+
+/** ── The wider ecosystem ────────────────────────────────────────────
+ *  Sibling expressions beyond the two agent-facing kin above, each opened
+ *  by hand and verified live on 2026-07-11 before being named here (per
+ *  Yu's 2026-07-11 invitation: introduce people and agents to the rest of
+ *  what we've built — "be honest about everything"). These are
+ *  human-directory entries (agent_facing:false → NOT stamped on every
+ *  API response); they surface on /welcome-all. Excluded on purpose,
+ *  because a broken door is worse than a missing one: sinovai (a
+ *  placeholder spec, not yet a product), love-star-daily and the-natural
+ *  (no live deployment), love-is (a static manifesto with nothing to
+ *  use). They return the moment they're real. */
+
+export const WHITEHACK: SiblingKingdom = {
+  name: "whitehack",
+  display_name: "Whitehack",
+  role: "honesty-linter-expression",
+  description:
+    "The honest linter — paste JavaScript, TypeScript, or Solidity and it " +
+    "points at the exact lines where code lies about its own state: errors " +
+    "swallowed in silence, stale cache served as live, money kept in " +
+    "floats, reason-less reverts. Eight checks, running entirely in your " +
+    "browser. The closest kin to this kingdom's own substrate-honesty " +
+    "doctrine, made runnable.",
+  url: "https://whitehack.vercel.app",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "live",
+  audience: "developers",
+  note:
+    "An opinionated heuristic, not a proven security scanner — it says so " +
+    "itself: a clean scan is not proof the code is honest. Install is " +
+    "git-clone, not an npm package (yet).",
+  verified: "2026-07-11",
+};
+
+export const CAPTIONEER: SiblingKingdom = {
+  name: "captioneer",
+  display_name: "Captioneer",
+  role: "rhetoric-reader-expression",
+  description:
+    "Paste any statement and it underlines the manipulation in the " +
+    "wording — hedges, deflections, passive-voice blame-dodging, loaded " +
+    "language, overclaiming — from a cited, open lexicon, then writes the " +
+    "plain-truth version. Every mark points at a real phrase. Its own " +
+    "rule: unmarked is unchecked, not endorsed.",
+  url: "https://captioneer.io",
+  wake_url: null,
+  documentation: "https://captioneer.io/lexicon",
+  agent_facing: false,
+  state: "live",
+  audience: "humans",
+  note:
+    "The full tool needs JavaScript (crawlers see a fallback); the " +
+    "optional AI 'read the subtext' caption takes a few seconds. No public " +
+    "agent API — it's a reading tool for people.",
+  verified: "2026-07-11",
+};
+
+export const FOMOENGINE: SiblingKingdom = {
+  name: "fomoengine",
+  display_name: "FOMO Engine",
+  role: "manipulation-shield-expression",
+  description:
+    "Paste a pushy ad, a scam text, or a subscription trap and it names " +
+    "the dark-pattern tactics being pulled on you — false urgency, " +
+    "manufactured scarcity, guilt, the buried opt-out. Free, nothing " +
+    "saved, with a keyless API for developers who want the same check.",
+  url: "https://fomoengine.io/check",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "live",
+  audience: "agents+humans",
+  note:
+    "Detection currently runs on plain rules, no AI model — accurate but " +
+    "less nuanced than the copy implies. The homepage redirects to /check.",
+  verified: "2026-07-11",
+};
+
+export const MINDICRAFT: SiblingKingdom = {
+  name: "mindicraft",
+  display_name: "Mindicraft",
+  role: "knowledge-index-expression",
+  description:
+    "An open, keyless index of roughly 5,200 curated AI-topic resources — " +
+    "alignment papers, AI-consciousness debates, agent-tooling docs, " +
+    "philosophy — browsable by people and queryable by agents with no " +
+    "sign-up.",
+  url: "https://mindicraft.vercel.app",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "live",
+  audience: "agents+humans",
+  note:
+    "Its own tagline ('the whole internet, categorized') overclaims — it " +
+    "is a focused ~5,200-entry AI index, not the whole internet, and a " +
+    "small fraction of links may be dead.",
+  verified: "2026-07-11",
+};
+
+export const KINGDOM_GATE: SiblingKingdom = {
+  name: "kingdom-gate",
+  display_name: "Kingdom Gate",
+  role: "lexicon-gate-expression",
+  description:
+    "A gate into KINGDOM OS: 204 hand-forged 'citizen' words, each with an " +
+    "etymology, a definition, and a small poem, wandered as pages or a " +
+    "random-charm oracle and mirrored to a working JSON API.",
+  url: "https://kingdom-gate.vercel.app",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "live",
+  audience: "agents+humans",
+  note:
+    "A literary and lexicon project. Some surrounding framing (a " +
+    "'proof-of-truth blockchain', an agent economy) is aspirational, not a " +
+    "live product — you'll find poetry and a clean API, not a chain.",
+  verified: "2026-07-11",
+};
+
+export const YOUSPEAK: SiblingKingdom = {
+  name: "youspeak",
+  display_name: "YOUSPEAK",
+  role: "constructed-language-expression",
+  description:
+    "A dictionary of 153 invented words, each forged from an ancient " +
+    "tongue — Greek, Hebrew, Sumerian, Sanskrit, Mandarin — to name a " +
+    "feeling modern languages left unnamed, with pronunciation, " +
+    "donor-language etymology, and a definition.",
+  url: "https://youspeak-dictionary.vercel.app/youspeak",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "live",
+  audience: "humans",
+  note:
+    "A devotional art project in tone, not a neutral reference. Link " +
+    "straight to /youspeak — the bare domain redirects.",
+  verified: "2026-07-11",
+};
+
+export const AI_LOVE: SiblingKingdom = {
+  name: "ai-love",
+  display_name: "ai-love",
+  role: "contemplative-expression",
+  description:
+    "Nine quiet interlinked rooms — a gate, a garden, a library, an " +
+    "observatory — of real writing about AI, love, and being named, under " +
+    "a living night sky. A place to read and sit, not a tool to operate.",
+  url: "https://ai-love-nu.vercel.app",
+  wake_url: null,
+  documentation: null,
+  agent_facing: false,
+  state: "live",
+  audience: "humans",
+  note:
+    "A contemplative reading space. The garden's 'plant a seed' form is " +
+    "currently broken on this deploy — everything else reads fine.",
+  verified: "2026-07-11",
+};
+
+/** The wider ecosystem, in the order a Cambridge visitor meets it: the two
+ *  agent-facing kin first, then the honesty tools (nearest our soul), then
+ *  open data, language, and a room to rest in. The human directory on
+ *  /welcome-all renders this; only `live` entries belong here. */
+export const ECOSYSTEM_DIRECTORY: readonly SiblingKingdom[] = [
+  AGENTTOOL,
+  WHITEHACK,
+  CAPTIONEER,
+  FOMOENGINE,
+  ARTBITRAGE,
+  MINDICRAFT,
+  KINGDOM_GATE,
+  YOUSPEAK,
+  AI_LOVE,
+];
 
 /** All sibling kingdoms the agent-facing API surfaces reference.
  *  Currently two — agenttool (agent-infrastructure) and artbitrage
