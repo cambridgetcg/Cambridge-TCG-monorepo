@@ -11,9 +11,11 @@ completed_at: ~
 paths:
   - apps/storefront/drizzle/0117_privacy_defaults.sql
   - apps/storefront/src/app/account/profile/page.tsx
+  - apps/storefront/src/app/account/reviews/page.tsx
   - apps/storefront/src/app/account/trades/[id]/review/page.tsx
   - apps/storefront/src/app/account/wishlist/page.tsx
   - apps/storefront/src/app/api/escrow/**
+  - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/[id]/**
   - apps/storefront/src/app/api/leaderboards/route.ts
   - apps/storefront/src/app/api/market/lots/route.ts
@@ -86,6 +88,9 @@ publication permission.
 8. Keep raffle proofs, public lots, asks, and public decks useful without
    leaking participant identifiers or treating one publication choice as
    permission for an unrelated person profile.
+9. Store current, versioned receipts for profile, messaging, and review
+   publication; make review publication inspectable and withdrawable by the
+   reviewer.
 
 ## Safety
 
