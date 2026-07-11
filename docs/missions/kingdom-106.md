@@ -16,7 +16,10 @@ paths:
   - apps/storefront/src/app/api/escrow/**
   - apps/storefront/src/app/api/auctions/[id]/**
   - apps/storefront/src/app/api/leaderboards/route.ts
+  - apps/storefront/src/app/api/market/lots/route.ts
+  - apps/storefront/src/app/api/market/offers/asks/route.ts
   - apps/storefront/src/app/api/messages/**
+  - apps/storefront/src/app/api/rewards/raffles/[id]/proof/route.ts
   - apps/storefront/src/app/api/social/**
   - apps/storefront/src/app/api/u/[username]/**
   - apps/storefront/src/app/api/v1/bridge/**
@@ -29,6 +32,7 @@ paths:
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
+  - apps/storefront/src/app/api/decks/public/[slug]/route.ts
   - apps/storefront/src/app/u/[username]/**
   - apps/storefront/src/lib/auction/**
   - apps/storefront/src/lib/bridge/**
@@ -36,7 +40,10 @@ paths:
   - apps/storefront/src/lib/journey/public-stats.ts
   - apps/storefront/src/lib/format.ts
   - apps/storefront/src/lib/market/card-market.ts
+  - apps/storefront/src/lib/market/lots.ts
   - apps/storefront/src/lib/messages/**
+  - apps/storefront/src/lib/decks/**
+  - apps/storefront/src/lib/rewards/provable-fair.ts
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
@@ -76,6 +83,9 @@ publication permission.
    as anonymous or unlinkable.
 7. Require a published, non-suspended recipient or a validated shared trade
    context before a new conversation can be opened.
+8. Keep raffle proofs, public lots, asks, and public decks useful without
+   leaking participant identifiers or treating one publication choice as
+   permission for an unrelated person profile.
 
 ## Safety
 
