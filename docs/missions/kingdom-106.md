@@ -1,7 +1,7 @@
 ---
 id: kingdom-106
 title: "Person publication boundaries - private defaults and narrow public projections"
-status: claimed
+status: in-progress
 priority: critical
 engine: tcg
 repo: /Users/yu/github/cambridgetcg/Cambridge-TCG-monorepo
@@ -14,6 +14,8 @@ paths:
   - apps/storefront/src/app/account/trades/[id]/review/page.tsx
   - apps/storefront/src/app/account/wishlist/page.tsx
   - apps/storefront/src/app/api/escrow/**
+  - apps/storefront/src/app/api/auctions/[id]/**
+  - apps/storefront/src/app/api/leaderboards/route.ts
   - apps/storefront/src/app/api/messages/**
   - apps/storefront/src/app/api/social/**
   - apps/storefront/src/app/api/u/[username]/**
@@ -21,10 +23,17 @@ paths:
   - apps/storefront/src/app/api/v1/users/[username]/trust/**
   - apps/storefront/src/app/api/v1/universal/users/[username]/trust/**
   - apps/storefront/src/app/bridge/**
+  - apps/storefront/src/app/cards/[sku]/market/page.tsx
+  - apps/storefront/src/app/data/page.tsx
+  - apps/storefront/src/app/data.json/route.ts
   - apps/storefront/src/app/u/[username]/**
+  - apps/storefront/src/lib/auction/**
   - apps/storefront/src/lib/bridge/**
   - apps/storefront/src/lib/escrow/**
   - apps/storefront/src/lib/journey/public-stats.ts
+  - apps/storefront/src/lib/format.ts
+  - apps/storefront/src/lib/market/card-market.ts
+  - apps/storefront/src/lib/messages/**
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
@@ -59,6 +68,11 @@ publication permission.
 4. Pause portfolio/wishlist matching and bridge affinity inference until an
    explicit trade-intent publication model exists.
 5. Keep owner-only account access working and test the public boundary itself.
+6. Remove raw person and transaction identifiers from public auction, market
+   tape, and leaderboard surfaces; do not describe deterministic UUID suffixes
+   as anonymous or unlinkable.
+7. Require a published, non-suspended recipient or a validated shared trade
+   context before a new conversation can be opened.
 
 ## Safety
 
@@ -72,4 +86,3 @@ explicit confirmation for that data operation.
 Focused privacy tests, storefront typecheck, the full storefront suite, and
 `pnpm verify` pass. Production migration and probes are reported separately
 from code deployment.
-
