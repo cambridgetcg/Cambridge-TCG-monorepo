@@ -20,9 +20,12 @@ paths:
   - apps/storefront/src/app/api/social/**
   - apps/storefront/src/app/api/u/[username]/**
   - apps/storefront/src/app/api/v1/bridge/**
+  - apps/storefront/src/app/api/v1/auctions/[id]/**
+  - apps/storefront/src/app/api/v1/universal/auctions/[id]/**
   - apps/storefront/src/app/api/v1/users/[username]/trust/**
   - apps/storefront/src/app/api/v1/universal/users/[username]/trust/**
   - apps/storefront/src/app/bridge/**
+  - apps/storefront/src/app/auctions/[id]/read/page.tsx
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
