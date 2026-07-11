@@ -32,6 +32,7 @@ paths:
   - apps/storefront/src/app/bridge/**
   - apps/storefront/src/app/auctions/[id]/read/page.tsx
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
+  - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
   - apps/storefront/src/app/privacy/page.tsx
