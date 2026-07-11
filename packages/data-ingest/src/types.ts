@@ -31,6 +31,7 @@ export type SourceId =
   | "cardmarket"
   | "cardtrader"
   | "ebay"
+  | "vinted"
   | "pokemon-tcg-api"
   | "ygoprodeck"
   | "limitless-tcg"

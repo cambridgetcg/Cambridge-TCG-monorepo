@@ -16,6 +16,7 @@ import { tcgplayer } from "./tcgplayer/index";
 import { tcgcollector } from "./tcgcollector/index";
 import { cardmarket } from "./cardmarket/index";
 import { ebay } from "./ebay/index";
+import { vinted } from "./vinted/index";
 
 /**
  * Every registered source. Indexed by id for O(1) lookup. The union
@@ -39,6 +40,7 @@ export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
   tcgcollector,              // partial — sitemap+JSON-LD discovery; wholesale cron wires the writer
   cardmarket,                // planned (stub)
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
+  vinted,                    // blocked (ToS + UK GDPR; consented first-party normalizer ready) — the honest block
   // ── unregistered (no module yet — slot reserved) ──
   cardtrader: undefined,
   "limitless-tcg": undefined,

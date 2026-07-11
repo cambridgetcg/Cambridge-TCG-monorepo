@@ -200,6 +200,15 @@ export {
   type TcgplayerWatchlistEntry,
 } from "./tcgplayer/index";
 export { cardmarket } from "./cardmarket/index";
+// The honest block — a source we decided NOT to scrape, declared in code
+// with its verdict. Consented first-party normalizer is the usable export.
+// Doctrine: docs/methodology/source-intake.md.
+export {
+  vinted,
+  normalizeVintedSale,
+  type VintedConsentedSale,
+  type VintedCanonicalObservation,
+} from "./vinted/index";
 // kingdom: sitemap+JSON-LD discovery — first vendor TCGCollector.
 // Public sitemap-index → per-page Schema.org Product/Offer JSON-LD →
 // typed TcgCollectorProduct shape. Mirrors the cardrush discovery

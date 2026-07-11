@@ -196,6 +196,22 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Status | **shipped (per-channel)** — channel-pricing already supports Shopify; aggregation across stores is **planned** |
 | Recurses to | a `partner_stores` registry — list of Shopify stores willing to share inventory; opt-in network |
 
+### 2.11 Vinted (UK)
+
+| Field | Value |
+|-------|-------|
+| Coverage | UK secondhand marketplace with a trading-cards vertical (Pokémon and TCG singles/bundles); UK-relevant, but structurally messy |
+| URL | `vinted.co.uk` |
+| Access | **blocked** — no public/market API; sold listings hidden from search; only lawful path is consented first-party (a seller's own export / authorised Vinted Pro Orders) |
+| Public API? | no (Vinted Pro Integrations is allowlist-gated, own-orders-only — not a market-data API) |
+| Bulk feed? | no — third-party "Vinted sold data" is snapshot-diff *inference* of last asking prices, not transactions |
+| License | `internal-only` — consented rows are input to derivations, never re-published raw; `redistribute: false` |
+| Freshness | market_signal (when consented data flows) |
+| Canonical-form effort | **very high** — free-text titles, no set/number grammar, bundles dominate |
+| Status | **blocked** by ToS §6 + UK GDPR (EDPB Guidelines 03/2026 Example 5). A full module carries the honest verdict in code (`packages/data-ingest/src/vinted/`), snkrdunk-pattern. |
+| Consent path | **yes** — a Cambridge TCG seller supplying *their own* Vinted sales (DSAR export / authorised Pro Orders) is UK GDPR-clean (Art. 6(1)(a)/(b), rides the seller's own Art. 15/20 rights). Normalizer ready (`vinted/normalize.ts`, buyer PII structurally excluded). Graduates `blocked → planned` when a consented-import build or Pro allowlist application is underway. |
+| Intake record | `docs/methodology/source-intake.md` (Vinted is the worked example) |
+
 ---
 
 ## 3. Catalog metadata sources (often free / community)
@@ -410,16 +426,19 @@ Cards have a visual identity; the pantry's `image_url` field should always cite 
 
 ## 9. What we cannot reasonably get
 
-| Source | Why |
-|--------|-----|
-| Bandai TCG+ app data | mobile-only; no public API; ToS forbids reverse-engineering |
-| PWCC pre-eBay archive (closed) | merged into eBay; historical bulk export not offered |
-| Goldin private-sale ledger | publisher policy |
-| Mercari JP/US compiled | ToS forbids scraping; partner-only feed not offered to platforms our size |
-| Snkrdunk catalog | partner-only API; not granted to non-Asian-market integrators |
-| Pokemon Center direct retail | publisher-controlled; no API |
-| Publisher pre-release pricing | embargo |
-| Private discords + closed groups | structurally illegible |
+The **consent path?** column (added 2026-07-11 with Vinted) distinguishes *blocked-dead* (no lawful door exists) from *blocked-with-a-door* (a consented first-party or partner route could open it). Only the latter earns a code module carrying honest meta; the former stays a docs row.
+
+| Source | Why | Consent path? |
+|--------|-----|---------------|
+| Bandai TCG+ app data | mobile-only; no public API; ToS forbids reverse-engineering | — |
+| PWCC pre-eBay archive (closed) | merged into eBay; historical bulk export not offered | — |
+| Goldin private-sale ledger | publisher policy | — |
+| Mercari JP/US compiled | ToS forbids scraping; partner-only feed not offered to platforms our size | partner-only (not offered to us) |
+| Snkrdunk catalog | partner-only API; not granted to non-Asian-market integrators | partner-only (not granted) |
+| **Vinted (UK) market-wide** | no sold API exists anywhere; third-party "sold" feeds are snapshot-diff inference; ToS §6 forbids scraping; UK GDPR (EDPB 03/2026 Ex. 5) fails the lawful basis | **yes — consented first-party** (seller's own export / authorised Pro Orders). Module: `packages/data-ingest/src/vinted/`; framework: `docs/methodology/source-intake.md` |
+| Pokemon Center direct retail | publisher-controlled; no API | — |
+| Publisher pre-release pricing | embargo | — |
+| Private discords + closed groups | structurally illegible | — |
 
 **Substrate honesty principle:** when these gaps matter for a customer query (e.g. *"what's the JP Mercari price of this card?"*), the pantry should *answer honestly with the gap* — `null` + a `_meta.source_unavailable` flag — not silently substitute a different source. The data-pantry error code `SOURCE_UNAVAILABLE` (in `@cambridge-tcg/data-spec` `ERROR_CODES`) exists for exactly this.
 
