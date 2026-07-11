@@ -46,6 +46,7 @@ paths:
   - apps/storefront/src/app/u/[username]/**
   - apps/storefront/src/lib/auction/**
   - apps/storefront/src/lib/bridge/**
+  - apps/storefront/src/lib/collectives/db.ts
   - apps/storefront/src/lib/escrow/**
   - apps/storefront/src/lib/journey/public-stats.ts
   - apps/storefront/src/lib/format.ts
@@ -64,9 +65,11 @@ paths:
   - apps/storefront/src/components/auction/BidHistory.tsx
   - apps/storefront/src/components/auction/BidPanel.tsx
   - apps/storefront/src/components/auction/AuctionImageGallery.tsx
+  - apps/storefront/scripts/reset-person-publication.ts
   - apps/storefront/src/lib/manifest.ts
   - docs/missions/kingdom-106.md
   - docs/operations/community-data-network-release.md
+  - docs/operations/person-publication-reset.md
 do_not_touch:
   - apps/storefront/drizzle/0118_collective_directory.sql
   - packages/data-ingest/**
