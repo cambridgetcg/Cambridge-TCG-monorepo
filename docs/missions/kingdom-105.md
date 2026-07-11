@@ -56,8 +56,9 @@ ground route; coverage does not.
    `price_archive`, `cards`, and `games`.
 2. Preserve the existing public response shape and `source`, `game`, and
    `since` filters.
-3. Make `fetchAggregatorCoverage()` try HTTP only when configured to do so,
-   then fall back to the same wholesale Postgres used by catalog reads.
+3. Make `fetchAggregatorCoverage()` read the same wholesale Postgres used by
+   catalog reads directly; the historical HTTP route never shipped and must
+   not be probed.
 4. Keep failures distinct from an honestly empty archive.
 5. Correct the connection document's historical claim: the wholesale route
    was designed and named, not present in repository history.
@@ -77,8 +78,8 @@ ground route; coverage does not.
 ## Acceptance
 
 - Direct-DB mode does not call the retired wholesale HTTP route.
-- HTTP failure falls back to Postgres; Postgres failure returns the existing
-  unavailable state rather than a fabricated empty result.
+- Coverage never probes the nonexistent wholesale HTTP route; Postgres failure
+  returns the existing unavailable state rather than a fabricated empty result.
 - Empty archive and unavailable database remain different results.
 - Existing response types and filters stay compatible.
 - Focused tests, storefront typecheck, and repository verification pass.

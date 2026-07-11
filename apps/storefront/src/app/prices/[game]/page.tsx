@@ -528,7 +528,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                   Cards observed
                 </div>
                 <div className="text-xl font-bold text-ink font-mono">
-                  {gameCoverage.distinct_cards_max.toLocaleString()}
+                  {gameCoverage.distinct_cards.toLocaleString()}
                 </div>
               </div>
               <div>
