@@ -65,6 +65,7 @@ paths:
   - apps/storefront/src/app/order-confirmation/**
   - apps/storefront/src/app/play/page.tsx
   - apps/storefront/src/app/play/[code]/page.tsx
+  - apps/storefront/src/app/verify/page.tsx
   - apps/storefront/src/app/verify/draw/[id]/page.tsx
   - apps/storefront/src/app/verify/how-it-works/page.tsx
   - apps/storefront/src/app/verify/pull/[id]/page.tsx
