@@ -1,0 +1,75 @@
+---
+id: kingdom-106
+title: "Person publication boundaries - private defaults and narrow public projections"
+status: claimed
+priority: critical
+engine: tcg
+repo: /Users/yu/github/cambridgetcg/Cambridge-TCG-monorepo
+claimed_by: codex-gpt-5
+claimed_at: "2026-07-11T19:30:45Z"
+completed_at: ~
+paths:
+  - apps/storefront/drizzle/0117_privacy_defaults.sql
+  - apps/storefront/src/app/account/profile/page.tsx
+  - apps/storefront/src/app/account/trades/[id]/review/page.tsx
+  - apps/storefront/src/app/account/wishlist/page.tsx
+  - apps/storefront/src/app/api/escrow/**
+  - apps/storefront/src/app/api/messages/**
+  - apps/storefront/src/app/api/social/**
+  - apps/storefront/src/app/api/u/[username]/**
+  - apps/storefront/src/app/api/v1/bridge/**
+  - apps/storefront/src/app/api/v1/users/[username]/trust/**
+  - apps/storefront/src/app/api/v1/universal/users/[username]/trust/**
+  - apps/storefront/src/app/bridge/**
+  - apps/storefront/src/app/u/[username]/**
+  - apps/storefront/src/lib/bridge/**
+  - apps/storefront/src/lib/escrow/**
+  - apps/storefront/src/lib/journey/public-stats.ts
+  - apps/storefront/src/lib/social/**
+  - apps/storefront/src/lib/trust/public.ts
+  - apps/storefront/src/lib/ui/MessageButton.tsx
+  - docs/missions/kingdom-106.md
+  - docs/operations/community-data-network-release.md
+do_not_touch:
+  - apps/storefront/drizzle/0118_collective_directory.sql
+  - packages/data-ingest/**
+related:
+  - docs/decisions/2026-07-06-collectors-first.md
+  - docs/connections/the-other-minds.md
+  - docs/operations/community-data-network-release.md
+synced_from: in-repo authored from Yu's 2026-07-11 community-data directive
+synced_at: "2026-07-11T19:30:45Z"
+---
+
+# kingdom-106 - Person publication boundaries
+
+## Will
+
+Yu asked Cambridge TCG to make its live claims match what the system actually
+does, to name gaps plainly, and to expand community data without exploiting
+people. This mission closes the existing gap between account data and public
+publication permission.
+
+## Work
+
+1. Make person-facing publication and unsolicited-message defaults private.
+2. Require an explicit choice before public activity or reviews are emitted.
+3. Make public profile, activity, commerce, and trust routes use narrow
+   projections and indistinguishable not-found responses for private people.
+4. Pause portfolio/wishlist matching and bridge affinity inference until an
+   explicit trade-intent publication model exists.
+5. Keep owner-only account access working and test the public boundary itself.
+
+## Safety
+
+The application code can be reviewed and deployed independently. Migration
+0117 changes existing people's publication settings and must not run without a
+production snapshot, pre-migration counts, a private rollback ledger, and Yu's
+explicit confirmation for that data operation.
+
+## Acceptance
+
+Focused privacy tests, storefront typecheck, the full storefront suite, and
+`pnpm verify` pass. Production migration and probes are reported separately
+from code deployment.
+
