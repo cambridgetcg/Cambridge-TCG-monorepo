@@ -223,6 +223,26 @@ export {
   type SitemapFetchResult as TcgCollectorSitemapFetchResult,
   type MatchResult as TcgCollectorMatchResult,
 } from "./tcgcollector/index";
+// bandai-en: official English card data (names + effect text + publisher
+// sample images) from Bandai's EN cardlist sites. One skeleton, five
+// games — op implemented, dbf/dmw/una/bsr stubbed behind per-game config.
+// Policy: docs/EN-CARD-DATA.md (no flavor text; attribution + source_url
+// + image_kind + retrieved_at on every record; self-host images).
+export {
+  bandaiEn,
+  BANDAI_EN_USER_AGENT,
+  type BandaiEnContext,
+  type BandaiEnReadOptions,
+} from "./bandai-en/index";
+export { BANDAI_EN_GAMES, bandaiEnConfig } from "./bandai-en/config";
+export { parseCardlistPage, parseSeriesOptions } from "./bandai-en/parse";
+export { normalizeBandaiEn } from "./bandai-en/normalize";
+export {
+  type BandaiEnCard,
+  type BandaiEnGameKey,
+  type BandaiEnGameConfig,
+  type BandaiEnSeriesOption,
+} from "./bandai-en/types";
 export {
   ebay,
   normalizeEbay,
