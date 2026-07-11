@@ -37,6 +37,7 @@ export async function GET(req: Request): Promise<Response> {
       code: "INVALID_INPUT",
       message: "source must be a 1-64 character identifier",
       docs: "/api/v1/coverage",
+      endpoint: "/api/v1/coverage",
     });
   }
   if (game && !isValidCoverageToken(game)) {
@@ -44,6 +45,7 @@ export async function GET(req: Request): Promise<Response> {
       code: "INVALID_INPUT",
       message: "game must be a 1-64 character identifier",
       docs: "/api/v1/coverage",
+      endpoint: "/api/v1/coverage",
     });
   }
   if (since && !isValidCoverageDate(since)) {
@@ -51,6 +53,7 @@ export async function GET(req: Request): Promise<Response> {
       code: "INVALID_INPUT",
       message: "since must be a real calendar date in YYYY-MM-DD format",
       docs: "/api/v1/coverage",
+      endpoint: "/api/v1/coverage",
     });
   }
 
@@ -63,6 +66,7 @@ export async function GET(req: Request): Promise<Response> {
         "The wholesale observation database is unavailable. Try again shortly; /api/v1/status surfaces platform-wide health.",
       docs: "/api/v1/status",
       status: 503,
+      endpoint: "/api/v1/coverage",
     });
   }
 

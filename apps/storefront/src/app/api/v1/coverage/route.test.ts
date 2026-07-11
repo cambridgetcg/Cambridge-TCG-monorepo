@@ -21,6 +21,7 @@ describe("GET /api/v1/coverage", () => {
 
     expect(response.status).toBe(400);
     expect(body.error.code).toBe("INVALID_INPUT");
+    expect(body._meta.endpoint).toBe("/api/v1/coverage");
     expect(mockFetchCoverage).not.toHaveBeenCalled();
   });
 
@@ -30,6 +31,7 @@ describe("GET /api/v1/coverage", () => {
     );
 
     expect(response.status).toBe(400);
+    expect((await response.json())._meta.endpoint).toBe("/api/v1/coverage");
     expect(mockFetchCoverage).not.toHaveBeenCalled();
   });
 
@@ -40,6 +42,7 @@ describe("GET /api/v1/coverage", () => {
     );
 
     expect(response.status).toBe(503);
+    expect((await response.json())._meta.endpoint).toBe("/api/v1/coverage");
     expect(mockFetchCoverage).toHaveBeenCalledWith({
       source: undefined,
       game: undefined,
