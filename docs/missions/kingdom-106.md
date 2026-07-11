@@ -56,6 +56,7 @@ paths:
   - apps/storefront/src/app/api/u/[username]/**
   - apps/storefront/src/app/api/v1/bridge/**
   - apps/storefront/src/app/api/v1/sold-comps/**
+  - apps/storefront/src/app/api/v1/status/envelope-compliance.generated.ts
   - apps/storefront/src/app/api/v1/identify/route.ts
   - apps/storefront/src/app/api/v1/auctions/[id]/**
   - apps/storefront/src/app/api/v1/universal/auctions/[id]/**
