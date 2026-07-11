@@ -58,6 +58,7 @@ paths:
   - apps/storefront/src/app/privacy/page.tsx
   - apps/storefront/src/app/bounty/verify/[id]/page.tsx
   - apps/storefront/src/app/order-confirmation/**
+  - apps/storefront/src/app/play/page.tsx
   - apps/storefront/src/app/play/[code]/page.tsx
   - apps/storefront/src/app/verify/draw/[id]/page.tsx
   - apps/storefront/src/app/verify/how-it-works/page.tsx
