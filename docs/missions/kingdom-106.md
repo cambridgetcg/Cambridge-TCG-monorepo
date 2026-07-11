@@ -53,6 +53,8 @@ paths:
   - apps/storefront/src/lib/decks/**
   - apps/storefront/src/lib/rewards/provable-fair.ts
   - apps/storefront/src/lib/rewards/db.ts
+  - apps/storefront/src/lib/rewards/types.ts
+  - apps/storefront/src/app/rewards/raffles/[id]/page.tsx
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
