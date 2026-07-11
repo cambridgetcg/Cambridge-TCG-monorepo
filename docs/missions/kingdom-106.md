@@ -17,6 +17,7 @@ paths:
   - apps/storefront/src/app/about/page.tsx
   - apps/storefront/src/app/api/escrow/**
   - apps/storefront/src/app/api/account/reviews/route.ts
+  - apps/storefront/src/app/api/auctions/route.ts
   - apps/storefront/src/app/api/auctions/[id]/**
   - apps/storefront/src/app/api/leaderboards/route.ts
   - apps/storefront/src/app/api/market/[sku]/**
@@ -39,6 +40,7 @@ paths:
   - apps/storefront/src/app/auctions/[id]/read/page.tsx
   - apps/storefront/src/app/auctions/[id]/page.tsx
   - apps/storefront/src/app/auctions/[id]/AuctionDetailClient.tsx
+  - apps/storefront/src/app/auctions/[id]/bidder-tiers.ts
   - apps/storefront/src/app/market/lots/**
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
@@ -73,6 +75,7 @@ paths:
   - apps/storefront/src/components/auction/BidHistory.tsx
   - apps/storefront/src/components/auction/BidPanel.tsx
   - apps/storefront/src/components/auction/AuctionImageGallery.tsx
+  - apps/storefront/src/components/auction/PostWinPanel.tsx
   - apps/storefront/src/components/market/**
   - apps/storefront/scripts/reset-person-publication.ts
   - apps/storefront/src/lib/manifest.ts
