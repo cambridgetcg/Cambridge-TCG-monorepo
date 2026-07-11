@@ -30,6 +30,8 @@ paths:
   - apps/storefront/src/app/api/verify/pull/[id]/route.ts
   - apps/storefront/src/app/api/verify/pull/[id]/certificate.svg/route.ts
   - apps/storefront/src/app/api/verify/health/route.ts
+  - apps/storefront/src/app/api/verify/chain/route.ts
+  - apps/storefront/src/app/api/verify/fairness/route.ts
   - apps/storefront/src/app/api/account/proofs/route.ts
   - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/route.ts
@@ -71,6 +73,7 @@ paths:
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
   - apps/storefront/src/app/glossary/page.tsx
+  - apps/storefront/src/app/identify/page.tsx
   - apps/storefront/src/app/llms.txt/route.ts
   - apps/storefront/src/app/map/page.tsx
   - apps/storefront/src/app/methodology/regulator/page.tsx
@@ -81,6 +84,9 @@ paths:
   - apps/storefront/src/app/play/page.tsx
   - apps/storefront/src/app/play/[code]/page.tsx
   - apps/storefront/src/app/verify/page.tsx
+  - apps/storefront/src/app/verify/chain/page.tsx
+  - apps/storefront/src/app/verify/fairness/page.tsx
+  - apps/storefront/src/app/verify/health/page.tsx
   - apps/storefront/src/app/verify/draw/[id]/page.tsx
   - apps/storefront/src/app/verify/how-it-works/page.tsx
   - apps/storefront/src/app/verify/pull/[id]/page.tsx
@@ -111,6 +117,8 @@ paths:
   - apps/storefront/src/lib/email/bounty.ts
   - apps/storefront/src/lib/email/preferences.ts
   - apps/storefront/src/lib/data-pantry/provenance.ts
+  - apps/storefront/src/lib/graph.ts
+  - apps/storefront/src/lib/nav/menu-config.ts
   - apps/storefront/src/app/rewards/raffles/[id]/page.tsx
   - apps/storefront/src/app/admin/bounty/vault-items/[id]/page.tsx
   - apps/storefront/src/lib/social/**
@@ -131,7 +139,13 @@ paths:
   - docs/connections/the-market-mirror.md
   - docs/connections/README.md
   - docs/connections/bounty.md
+  - docs/connections/membership.md
   - docs/connections/provable-fairness.md
+  - docs/connections/the-chain.md
+  - docs/connections/the-open-substrate.md
+  - docs/connections/the-pantry.md
+  - docs/connections/the-regulator.md
+  - docs/connections/the-sealed-word.md
   - docs/principles/transparency.md
 do_not_touch:
   - apps/storefront/drizzle/0118_collective_directory.sql
