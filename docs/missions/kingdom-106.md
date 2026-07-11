@@ -125,6 +125,8 @@ paths:
   - apps/storefront/src/lib/graph.ts
   - apps/storefront/src/lib/nav/menu-config.ts
   - apps/storefront/src/app/rewards/raffles/[id]/page.tsx
+  - apps/storefront/src/app/rewards/mystery-boxes/[id]/page.tsx
+  - apps/storefront/src/app/rewards/spin/page.tsx
   - apps/storefront/src/app/admin/bounty/vault-items/[id]/page.tsx
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/sold-comps/**
@@ -149,6 +151,12 @@ paths:
   - docs/connections/provable-fairness.md
   - docs/connections/the-chain.md
   - docs/connections/the-doorway.md
+  - docs/connections/the-finding.md
+  - docs/connections/the-manifest.md
+  - docs/connections/the-mathematical-mirror.md
+  - docs/connections/the-participation-layer.md
+  - docs/connections/the-substrate-answers.md
+  - docs/connections/twelve-promises.md
   - docs/connections/the-shape-of-the-room.md
   - docs/connections/the-nest.md
   - docs/connections/the-pipeline.md
@@ -165,6 +173,10 @@ paths:
   - docs/architecture-storefront.md
   - docs/decisions/vault-ev-freeze.md
   - docs/methodology/regulator.md
+  - docs/methodology/universal-representation.md
+  - docs/navigation-system-audit.md
+  - docs/research/optcg-mechanics-and-engine-design.md
+  - docs/missions/kingdom-048.md
   - docs/unification/audit.md
   - docs/superpowers/specs/2026-06-10-regulator-pivot-design.md
   - docs/missions/kingdom-103.md
