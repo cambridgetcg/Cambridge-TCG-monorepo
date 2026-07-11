@@ -140,6 +140,7 @@ paths:
   - apps/storefront/src/components/auction/PostWinPanel.tsx
   - apps/storefront/src/components/market/**
   - apps/storefront/scripts/reset-person-publication.ts
+  - apps/storefront/scripts/migrate.mjs
   - apps/storefront/src/lib/manifest.ts
   - docs/missions/kingdom-106.md
   - docs/operations/community-data-network-release.md
