@@ -17,6 +17,10 @@ paths:
   - apps/storefront/src/app/about/page.tsx
   - apps/storefront/src/app/api/escrow/**
   - apps/storefront/src/app/api/bounty/pulls/[id]/proof/route.ts
+  - apps/storefront/src/app/api/bounty/eligibility/route.ts
+  - apps/storefront/src/app/api/bounty/resolve-pull/route.ts
+  - apps/storefront/src/app/api/bounty/verify-phone/route.ts
+  - apps/storefront/src/app/api/bounty/vault/**
   - apps/storefront/src/app/api/game/**
   - apps/storefront/src/app/api/quotes/**
   - apps/storefront/src/app/api/verify/draw/[id]/route.ts
@@ -57,6 +61,7 @@ paths:
   - apps/storefront/src/app/data.json/route.ts
   - apps/storefront/src/app/privacy/page.tsx
   - apps/storefront/src/app/bounty/verify/[id]/page.tsx
+  - apps/storefront/src/app/bounty/page.tsx
   - apps/storefront/src/app/order-confirmation/**
   - apps/storefront/src/app/play/page.tsx
   - apps/storefront/src/app/play/[code]/page.tsx
@@ -144,6 +149,8 @@ publication permission.
 10. Retire predictable quote-reference reads, require ownership before an old
     checkout confirmation renders, keep private game rooms participant-only,
     and remove account identifiers from public game and randomness proofs.
+11. Stop calling an unverified phone submission verified, and keep bounty
+    redemption closed until a real verification method records evidence.
 
 ## Safety
 
