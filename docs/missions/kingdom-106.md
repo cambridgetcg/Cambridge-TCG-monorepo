@@ -72,6 +72,7 @@ paths:
   - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
   - apps/storefront/src/app/market/**
   - apps/storefront/src/app/leaderboards/page.tsx
+  - apps/storefront/src/app/leaderboards/agents/page.tsx
   - apps/storefront/src/app/product/[sku]/page.tsx
   - apps/storefront/src/app/methodology/market/page.tsx
   - apps/storefront/src/app/methodology/collectives/page.tsx
@@ -82,6 +83,7 @@ paths:
   - apps/storefront/src/app/identify/page.tsx
   - apps/storefront/src/app/llms.txt/route.ts
   - apps/storefront/src/app/map/page.tsx
+  - apps/storefront/src/app/welcome/page.tsx
   - apps/storefront/src/app/methodology/regulator/page.tsx
   - apps/storefront/src/app/methodology/data-intentions/page.tsx
   - apps/storefront/src/app/privacy/page.tsx
