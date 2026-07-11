@@ -35,6 +35,29 @@ without printing it or putting it in shell history. The command also reads an
 untracked `apps/storefront/.env.local` when that is the deployment tool's secure
 output. Confirm the variable or file exists without displaying its value.
 
+Download the current AWS RDS trust bundle to a temporary file. The migration
+and reset commands refuse to connect without it, so TLS verifies both the
+certificate chain and the database endpoint name. The file contains no secret.
+
+```sh
+RDS_CA_FILE="$(mktemp -t cambridgetcg-rds-ca)"
+export RDS_CA_FILE
+trap 'rm -f "$RDS_CA_FILE"' EXIT
+node -e '
+  fetch("https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem")
+    .then((response) => {
+      if (!response.ok) throw new Error(`RDS CA download failed: ${response.status}`);
+      return response.text();
+    })
+    .then((body) => {
+      if (!body.includes("-----BEGIN CERTIFICATE-----")) {
+        throw new Error("RDS CA download was not a PEM bundle");
+      }
+      require("node:fs").writeFileSync(process.env.RDS_CA_FILE, body, { mode: 0o600 });
+    });
+'
+```
+
 Set the cutoff once in the release shell. Replace the placeholder with the UTC
 timestamp recorded in step 2; the guard stops the release if it is unchanged.
 
@@ -49,9 +72,11 @@ missing an older migration or if another migration has appeared.
 
 ```sh
 pnpm --filter cambridgetcg-storefront exec node scripts/migrate.mjs \
+  --ca-file "$RDS_CA_FILE" \
   --plan --expect-only 0117_privacy_defaults.sql
 
 pnpm --filter cambridgetcg-storefront exec node scripts/migrate.mjs \
+  --ca-file "$RDS_CA_FILE" \
   --expect-only 0117_privacy_defaults.sql
 ```
 
@@ -60,6 +85,7 @@ Do not use the unrestricted migration command for this release.
 ```sh
 pnpm --filter cambridgetcg-storefront exec tsx \
   scripts/reset-person-publication.ts \
+  --ca-file="$RDS_CA_FILE" \
   --legacy-before="$LEGACY_CUTOFF"
 ```
 
@@ -78,6 +104,7 @@ pnpm --filter cambridgetcg-storefront exec tsx \
   scripts/reset-person-publication.ts \
   --apply \
   --gated-app-live \
+  --ca-file="$RDS_CA_FILE" \
   --legacy-before="$LEGACY_CUTOFF" \
   --confirm='APPLY-PERSON-PUBLICATION-RESET-20260711'
 ```
@@ -94,7 +121,9 @@ After apply, run the read-only reconciliation:
 
 ```sh
 pnpm --filter cambridgetcg-storefront exec tsx \
-  scripts/reset-person-publication.ts --reconcile
+  scripts/reset-person-publication.ts \
+  --ca-file="$RDS_CA_FILE" \
+  --reconcile
 ```
 
 `ledger` is what the reset captured. `still_reset` is the subset currently at

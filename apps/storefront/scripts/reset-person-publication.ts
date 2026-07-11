@@ -431,7 +431,22 @@ async function main(): Promise<void> {
     throw new Error("Set STOREFRONT_DATABASE_URL or DATABASE_URL. No connection was attempted.");
   }
 
-  const { query, transaction, close } = createCompatDb({ url: databaseUrl, max: 1 });
+  const caFile = option("--ca-file") ?? process.env.PGSSLROOTCERT;
+  if (!caFile) {
+    throw new Error(
+      "Verified TLS is required. Set --ca-file=<RDS CA PEM> or PGSSLROOTCERT. No connection was attempted.",
+    );
+  }
+  const ca = readFileSync(caFile, "utf8");
+  if (!ca.includes("-----BEGIN CERTIFICATE-----")) {
+    throw new Error(`CA file does not contain a PEM certificate: ${caFile}`);
+  }
+
+  const { query, transaction, close } = createCompatDb({
+    url: databaseUrl,
+    max: 1,
+    ssl: { ca, rejectUnauthorized: true },
+  });
   try {
     await assertSchemaReady(query);
 
