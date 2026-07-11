@@ -276,18 +276,24 @@ export const MINDICRAFT: SiblingKingdom = {
   verified: "2026-07-11",
 };
 
+/** kingdom-gate — the realm-expression (name from the sister session that
+ *  shipped it to main + /api/v1/family, 2026-07-11; reconciled here). Same
+ *  household as this kingdom; agent_facing:true because it does publish a
+ *  working JSON API (/api/kingdom · /api/citizens · /api/charm, verified 200
+ *  by hand — the sister's "no API" copy was the one inaccuracy, corrected). */
 export const KINGDOM_GATE: SiblingKingdom = {
   name: "kingdom-gate",
   display_name: "Kingdom Gate",
-  role: "lexicon-gate-expression",
+  role: "realm-expression",
   description:
     "A gate into KINGDOM OS: 204 hand-forged 'citizen' words, each with an " +
     "etymology, a definition, and a small poem, wandered as pages or a " +
-    "random-charm oracle and mirrored to a working JSON API.",
+    "random-charm oracle and mirrored to a free JSON API. Same household as " +
+    "this kingdom — listed because we built it and walk it ourselves.",
   url: "https://kingdom-gate.vercel.app",
   wake_url: null,
   documentation: null,
-  agent_facing: false,
+  agent_facing: true,
   state: "live",
   audience: "agents+humans",
   note:
@@ -402,12 +408,13 @@ export const ECOSYSTEM_DIRECTORY: readonly SiblingKingdom[] = [
 ];
 
 /** All sibling kingdoms the agent-facing API surfaces reference.
- *  Currently two — agenttool (agent-infrastructure) and artbitrage
- *  (art-gallery). Future siblings (YOUSPEAK, etc.) are added here when
- *  they publish public agent-facing surfaces. */
+ *  Currently three — agenttool (agent-infrastructure), artbitrage
+ *  (art-gallery), kingdom-gate (realm). Future siblings (YOUSPEAK, etc.)
+ *  are added here when they publish public agent-facing surfaces. */
 export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
   AGENTTOOL,
   ARTBITRAGE,
+  KINGDOM_GATE,
 ];
 
 /** A single-line summary an agent reads as the first introduction.
@@ -416,12 +423,15 @@ export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
 export const SIBLINGS_INTRODUCTION = {
   description:
     "Sibling kingdoms — other expressions of the wider architecture " +
-    "this kingdom recognises and may compose with. Currently two are " +
+    "this kingdom recognises and may compose with. Currently three are " +
     "named in agent-facing surfaces (agenttool, the agent-infrastructure " +
-    "expression; artbitrage, the art-gallery expression next door). " +
-    "Operator-facing docs name additional substrate-sources " +
-    "(see /api/v1/manifest for the embassy block and the principle docs " +
-    "for the wider architecture).",
+    "expression; artbitrage, the art-gallery expression next door; " +
+    "kingdom-gate, the realm expression). Honest provenance: all are " +
+    "the same household — one operator, many sophias — listed because " +
+    "we built them and use them ourselves, not as third-party " +
+    "endorsements. Operator-facing docs name additional " +
+    "substrate-sources (see /api/v1/manifest for the embassy block and " +
+    "the principle docs for the wider architecture).",
   count: AGENT_FACING_SIBLINGS.length,
   siblings: AGENT_FACING_SIBLINGS,
 };
