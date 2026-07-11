@@ -252,3 +252,13 @@ export {
   type EbayReadOptions,
   type EbayWatchEntry,
 } from "./ebay/index";
+// The lawful first-party eBay SOLD door — a seller's own consented sales
+// from the Sell/Fulfillment API (getOrders after OAuth consent). Buyer PII
+// structurally excluded; forward-ready + INERT (no live fetch, no cron),
+// gated on operator OAuth app + solicitor review. Same shape as the Vinted
+// consented stub — build-once, reuse. Doctrine: docs/methodology/source-intake.md.
+export {
+  normalizeEbayConsentedSale,
+  type EbayConsentedSale,
+  type EbayConsentedCanonicalObservation,
+} from "./ebay/consented";

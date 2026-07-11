@@ -31,11 +31,13 @@
  *
  * ── Runtime dependencies ────────────────────────────────────────────────
  *
- * Requires migration `apps/wholesale/drizzle/0024_ebay_observations.sql`
- * (promoted from drafts/0016 on 2026-07-05; renumbered because the 0016
- * slot was already taken twice). Until it is applied to a given database,
- * this code compiles but the first INSERT against ebay_listing_observation
- * / ebay_watch_list fails at runtime — substrate-honest about the dependency.
+ * Depends on migration `apps/wholesale/drizzle/0024_ebay_observations.sql`,
+ * which is APPLIED — it is a committed, numbered migration (promoted out of
+ * drafts/0016 on 2026-07-05; renumbered because the 0016 slot was already
+ * taken twice) that defines `ebay_listing_observation`, `ebay_watch_list`,
+ * and the eBay `ingest_quarantine` kinds this file writes. The schema is
+ * present; what keeps this pipeline INERT is credentials + a schedule, not a
+ * missing table — see Activation status below.
  *
  * Requires EBAY_CLIENT_ID + EBAY_CLIENT_SECRET env vars (already present
  * for the sell-side push; the read-side reuses the same app credentials
@@ -44,13 +46,14 @@
  * ── Activation status (honest, 2026-07-05 investigation) ────────────────
  *
  * This pipeline is code-complete but INERT in production: price_archive
- * contains only source='cardrush' rows, and the existing 'ebay-sync' cron
- * in vercel.json is the sales-channel ORDER sync, not this comp pipeline.
- * Activating it — the operator's call, because it involves credentials —
- * needs exactly:
+ * contains only source='cardrush' rows, and the sibling `ebay-sync` route
+ * (`/api/cron/ebay-sync`) is the sales-channel ORDER sync — route-live but
+ * unscheduled (no entry in vercel.json), and in any case not this comp
+ * pipeline. Activating this comp pipeline — the operator's call, because it
+ * involves credentials — needs exactly:
  *
- *   1. Apply drizzle/0024_ebay_observations.sql (creates + seeds
- *      ebay_watch_list from cards.cardrush_url IS NOT NULL).
+ *   1. (Done) Migration 0024_ebay_observations.sql is applied —
+ *      ebay_watch_list exists, seeded from cards.cardrush_url IS NOT NULL.
  *   2. Set EBAY_CLIENT_ID + EBAY_CLIENT_SECRET in the wholesale
  *      deployment env.
  *   3. Verify with a manual `/api/cron/ingest/ebay?tier=top&dryRun=1`.

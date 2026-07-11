@@ -21,6 +21,7 @@
     "inclusion": "tsx scripts/inclusion.ts",
     "nesting": "tsx scripts/nesting.ts",
     "tributaries": "tsx scripts/tributaries.ts",
+    "redistribution": "tsx scripts/redistribution.ts",
     "sku": "tsx scripts/sku.ts",
     "play-resources": "tsx scripts/play-resources.ts",
     "math-lang": "tsx scripts/math-lang.ts",
