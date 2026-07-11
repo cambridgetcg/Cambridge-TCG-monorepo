@@ -88,6 +88,8 @@ paths:
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
+  - apps/storefront/public/verify/README.md
+  - apps/storefront/public/verify/cambridgetcg-verifier.js
   - apps/storefront/src/components/auction/BidHistory.tsx
   - apps/storefront/src/components/auction/BidPanel.tsx
   - apps/storefront/src/components/auction/AuctionImageGallery.tsx
