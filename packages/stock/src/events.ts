@@ -2,7 +2,13 @@
  * @module @cambridge-tcg/stock/events
  *
  * Synchronous event emitter for stock changes.
- * Consumers register handlers; they fire after each mutation.
+ *
+ * NOT YET WIRED to the mutation paths: writer/reserver do not emit,
+ * so registered handlers only fire when a caller invokes
+ * emitStockChanged/emitLowStock explicitly. Do not rely on
+ * onStockChanged/onLowStock for alerting until emission is wired
+ * into the mutation paths (writer.ts / reserver.ts via index.ts).
+ *
  * If a handler throws, the stock mutation is NOT rolled back
  * (fire-and-forget with error logging).
  */

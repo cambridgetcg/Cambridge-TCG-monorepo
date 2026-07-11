@@ -8,8 +8,17 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Customer-facing order list. Privacy-conscious — no stripe_session_id,
+  // no stripe_payment_intent, no admin fulfilment notes.
   const result = await query(
-    `SELECT * FROM customer_orders WHERE customer_email = $1 ORDER BY created_at DESC`,
+    `SELECT id, status, total_gbp, currency, customer_name,
+            shipping_name, shipping_address, items,
+            tracking_number, carrier, shipped_at, delivered_at,
+            created_at
+       FROM customer_orders
+      WHERE lower(customer_email) = lower($1)
+      ORDER BY created_at DESC
+      LIMIT 100`,
     [session.user.email]
   );
 

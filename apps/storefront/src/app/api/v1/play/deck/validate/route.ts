@@ -115,11 +115,13 @@ async function loadCardMetadata(
   const lookup = new Map<string, CardMetadata>();
   for (const row of r.rows) {
     const rarity = (row.rarity as string | null) ?? "";
-    // Heuristic: rarity = "L" → Leader. Anything else assumed character
-    // until cost/counter fields exist. Substrate-honest: the response
-    // includes a note flag when this heuristic was used.
+    // Heuristic: rarity = "L" → Leader. Rarity may be "L" or "L/P" (promo
+    // alt-art leaders), so match on the segment before "/" — same predicate
+    // as decks/import. Anything else assumed character until cost/counter
+    // fields exist. Substrate-honest: the response includes a note flag
+    // when this heuristic was used.
     const category: CardMetadata["category"] =
-      rarity.toUpperCase() === "L" ? "leader" : "character";
+      rarity.toUpperCase().split("/")[0] === "L" ? "leader" : "character";
 
     lookup.set(row.sku as string, {
       card_id: row.sku as string,
@@ -253,7 +255,7 @@ export async function POST(req: NextRequest) {
         cost_check_skipped_reason:
           "card_set_cards does not yet carry the cost column. The cost-based filters are deferred until the schema gains them.",
         category_heuristic:
-          "Card category is currently inferred from rarity ('L' → leader; everything else → character). A future migration adds an explicit category column and this heuristic closes.",
+          "Card category is currently inferred from rarity ('L' or 'L/P' → leader; everything else → character). A future migration adds an explicit category column and this heuristic closes.",
       },
     };
 

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
-import { createQuoteRequest, listAllQuotes } from "@/lib/quote/db";
-import { sendQuoteReceivedEmail, sendQuoteAdminNotification } from "@/lib/quote/email";
+import { listAllQuotes } from "@/lib/quote/db";
+import { errorResponse } from "@/lib/data-pantry";
 
-// GET — admin: list all quotes
+// GET — admin: list all quotes (history stays visible; the desk is closed)
 export async function GET() {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,47 +12,33 @@ export async function GET() {
   return NextResponse.json({ quotes });
 }
 
-// POST — public: submit a custom quote request
+/**
+ * POST /api/quotes — retired 2026-07-06
+ * (collectors-first, docs/decisions/2026-07-06-collectors-first.md).
+ *
+ * This was the we-buy desk's quote door: submit cards for a house
+ * credit/cash quote. The platform no longer buys, sells, or quotes
+ * ("it does not buy, does not sell, does not quote"); sellers price
+ * their own cards to other collectors. Existing quote records remain
+ * readable via the admin GET above — history is history.
+ */
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-
-    if (!body.customerName?.trim() || !body.customerEmail?.trim()) {
-      return NextResponse.json({ error: "Name and email required." }, { status: 400 });
-    }
-    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
-      return NextResponse.json({ error: "At least one card is required." }, { status: 400 });
-    }
-
-    for (const item of body.items) {
-      if (!item.description?.trim()) {
-        return NextResponse.json({ error: "Each card needs a description." }, { status: 400 });
-      }
-    }
-
-    const { reference } = await createQuoteRequest({
-      customerName: body.customerName.trim(),
-      customerEmail: body.customerEmail.trim().toLowerCase(),
-      customerPhone: body.customerPhone?.trim(),
-      paymentMethod: body.paymentMethod || "credit",
-      deliveryMethod: body.deliveryMethod || "mail",
-      notes: body.notes?.trim(),
-      items: body.items,
-    });
-
-    // Emails (non-blocking)
-    const emailData = {
-      reference,
-      customerName: body.customerName.trim(),
-      customerEmail: body.customerEmail.trim().toLowerCase(),
-      itemCount: body.items.length,
-    };
-    sendQuoteReceivedEmail(emailData).catch((e) => console.error("[quote] Email failed:", e));
-    sendQuoteAdminNotification(emailData).catch((e) => console.error("[quote] Admin email failed:", e));
-
-    return NextResponse.json({ reference });
-  } catch (err) {
-    console.error("[quote] Submit error:", err);
-    return NextResponse.json({ error: "Failed to submit quote request." }, { status: 500 });
-  }
+  return errorResponse({
+    code: "DEPRECATED",
+    message:
+      "The Cambridge TCG quote desk closed on 2026-07-06 — the platform " +
+      "no longer buys cards for store credit or cash. Sell to collectors " +
+      "instead: list an ask at /market/list, take a standing buy offer on " +
+      "the card's market page, or propose a swap at /account/swaps/new.",
+    docs: "/methodology/regulator",
+    endpoint: new URL(request.url).pathname,
+    details: {
+      retired_at: "2026-07-06",
+      replacement: {
+        list: "/market/list",
+        swap: "/account/swaps/new",
+        explainer: "/trade-in",
+      },
+    },
+  });
 }

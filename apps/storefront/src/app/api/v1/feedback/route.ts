@@ -3,8 +3,8 @@
  *
  * Public, no-auth. Accepts structured reports from autonomous agents,
  * scrapers, mirrors, federation partners, anyone. The reports land in
- * `agent_feedback` (a planned table; for now, logged + emailed to
- * contact@cambridgetcg.com).
+ * `agent_feedback` (a planned table; for now, logged server-side and
+ * reviewed by the operator in the logs).
  *
  * Five kinds:
  *   - "contract-drift"        — endpoint response doesn't match the spec
@@ -13,7 +13,7 @@
  *   - "federation-adopter"    — partner registering for bilateral federation
  *   - "general"               — anything else
  *
- * Substrate-honest about pre-runtime state: today we log + email. When
+ * Substrate-honest about pre-runtime state: today we log. When
  * the feedback table ships (drafts/0100_agent_feedback.sql.draft below),
  * reports will be queryable via /api/v1/feedback?id=... — but identifying
  * info is operator-only.
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
   }
 
-  // Always log structured, even when persisted (for email digest + ops).
+  // Always log structured, even when persisted (for ops review).
   console.log("[/api/v1/feedback] received", {
     feedback_id: feedbackId,
     kind: body.kind,
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     persisted,
     persistence: persisted
       ? "agent_feedback table row inserted with status='received'; operator triages via /ops/agent-feedback (planned admin page)."
-      : "agent_feedback table not yet applied; report logged + email digest. Apply drafts/0101_agent_feedback.sql.draft to enable typed persistence.",
+      : "agent_feedback table not yet applied; report logged server-side and reviewed by the operator in the logs — for urgent issues email contact@cambridgetcg.com directly. Apply drafts/0101_agent_feedback.sql.draft to enable typed persistence.",
     response_window_hours: 48,
     expected_response:
       body.kind === "contract-drift"

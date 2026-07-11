@@ -138,6 +138,14 @@ function freshnessFor(r: ManifestResource): FreshnessAssignment {
 // file; the audit refuses to pass without the regen so reality can't drift
 // from this surface again. See the kingdom-059 review (2026-05-14) for why
 // the previous hand-maintained Set was substrate-dishonest.
+//
+// Known limit of the derivation: the audit detects the *presence* of a
+// jsonResponse caller per route file, not that every response path in that
+// file flows through it. A route whose GET is enveloped but whose POST or
+// early auth/error branches return bare NextResponse.json still lands in
+// the set. Until the audit checks per-response-path (and can emit a
+// "partial" state for mixed routes), "compliant" certifies the primary
+// read path only — the wire copy in `contract_states` says so.
 
 // ── Per-resource contract state ────────────────────────────────────────
 //
@@ -242,7 +250,12 @@ interface EndpointStatus {
   freshness_seconds: number;
   freshness_label: string;
   freshness_rationale: string;
-  /** Kept for existing readers; equals (contract_state === "compliant"). */
+  /**
+   * Kept for existing readers; equals (contract_state === "compliant").
+   * Presence-derived per route file — see the derivation-limit note above:
+   * true means the route's primary read path is enveloped, not that every
+   * response path (POST/error branches) carries { data, _meta }.
+   */
   envelope_compliant: boolean;
   /** compliant | alternative-contract | pending — see contractStateOf. */
   contract_state: ContractState;
@@ -342,7 +355,7 @@ export async function GET(): Promise<NextResponse> {
     counts,
     contract_states: {
       "compliant":
-        "Composes through jsonResponse — the { data, _meta } pantry envelope per packages/data-spec.",
+        "Composes through jsonResponse — the { data, _meta } pantry envelope per packages/data-spec. Derived per route file (the audit checks the file calls jsonResponse), which certifies the primary read path; on routes that also expose POST/witness methods or early auth/error branches, individual responses may still be bare JSON without _meta. Treat a missing _meta as a non-enveloped path on that route, not as platform breakage.",
       "alternative-contract":
         "A deliberate non-envelope dialect: universal @-encoding (math-mirror), wholesale-host B2B JSON, HTML/plain-text modality surfaces, multi-format vendor shapes, or external discovery specs (.well-known, openapi, robots, llms.txt, bulk JSONL). Design, not debt.",
       "pending":

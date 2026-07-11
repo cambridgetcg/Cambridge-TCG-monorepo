@@ -18,8 +18,9 @@
  *     `_note_opaque` so decoders don't ground meaning on them
  *
  * Federation: the @content_hash is stable across retrievals when the
- * underlying auction state is unchanged (modulo time_remaining which
- * is in @retrieved_at, not in the content body).
+ * underlying auction state is unchanged — retrieval-time fields (@as_of,
+ * timing.time_remaining_seconds) stay in the body but are excluded from
+ * the hashed content, like @retrieved_at.
  *
  * Public-no-auth, gated on auctionStateIsPublic.
  */
@@ -281,7 +282,17 @@ export async function GET(
     },
   };
 
-  const contentHash = sha256(canonicalize(body));
+  // @as_of carries the per-request queried_at and time_remaining_seconds
+  // ticks every second — retrieval-time facts, not auction state. Hash a
+  // copy without them so @content_hash keeps the federation promise above:
+  // stable across retrievals while the underlying auction is unchanged.
+  const hashableBody: Record<string, unknown> = {
+    ...body,
+    timing: { ...(body.timing as Record<string, unknown>) },
+  };
+  delete hashableBody["@as_of"];
+  delete (hashableBody.timing as Record<string, unknown>).time_remaining_seconds;
+  const contentHash = sha256(canonicalize(hashableBody));
   const withHash = { ...body, "@content_hash": contentHash };
   const selfHash = sha256(canonicalize({ ...withHash, "@retrieved_at": retrieved_iso }));
 

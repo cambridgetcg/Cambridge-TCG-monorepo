@@ -24,6 +24,12 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
   const { game, set, number } = await params;
 
   const state = await loadCardState(game, set, number);
+  if (state === "unavailable") {
+    return errorResponse({
+      code: "SOURCE_UNAVAILABLE",
+      message: `The pricing substrate is temporarily unreachable — this is an outage, not a claim that card '${number}' is absent. Retry shortly.`,
+    });
+  }
   if (!state) {
     return errorResponse({
       code: "NOT_FOUND",

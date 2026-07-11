@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/admin/auth";
+import { requireAdmin } from "@/lib/admin/auth";
 import { addExternalRep, verifyExternalRep } from "@/lib/escrow/trust-engine";
 import { query } from "@/lib/db";
 
@@ -25,8 +25,9 @@ export async function POST(request: Request) {
 
   // Admin verification
   if (body.action === "verify") {
-    if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    await verifyExternalRep(body.userId, body.platform, body.userId, body.notes);
+    const admin = await requireAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await verifyExternalRep(body.userId, body.platform, admin.id, body.notes);
     return NextResponse.json({ verified: true });
   }
 

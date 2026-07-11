@@ -22,7 +22,15 @@ import { NextResponse } from "next/server";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const on = url.searchParams.get("on") === "1";
-  const back = url.searchParams.get("back") || "/";
+  const backParam = url.searchParams.get("back") || "/";
+  // Same-site paths only: "//host" and "/\host" resolve to a foreign origin
+  // under new URL(), so a single leading "/" is required.
+  const back =
+    backParam.startsWith("/") &&
+    !backParam.startsWith("//") &&
+    !backParam.startsWith("/\\")
+      ? backParam
+      : "/";
 
   const res = NextResponse.redirect(new URL(back, url.origin));
   if (on) {

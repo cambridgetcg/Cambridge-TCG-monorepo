@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
-import { getAuction, updateAuction, deleteAuction } from "@/lib/auction/db";
+import { getAuction, updateAuction, deleteAuction, redactAuctionForPublic } from "@/lib/auction/db";
 
 export async function GET(
   _req: NextRequest,
@@ -14,16 +14,17 @@ export async function GET(
   }
 
   // Card identity (sku/condition) is public — like a market listing. But
-  // the winner's shipping_address (migration 0114) is participant-only:
-  // this GET is unauthenticated and public, so redact the address for
-  // anyone who isn't the seller, the winner, or an admin. Otherwise a
-  // public auction page would leak a home address.
+  // getAuction() is SELECT *, so the winner's shipping_address (0114),
+  // seller payout financials, Stripe ids and fulfilment tracking all ride
+  // along. This GET is unauthenticated and public: anyone who isn't the
+  // seller, the winner, or an admin gets the participant-only fields
+  // stripped (redactAuctionForPublic), not just the address.
   const session = await auth();
   const uid = session?.user?.id ?? null;
   const isParticipant =
     !!uid && (uid === auction.seller_user_id || uid === auction.winner_user_id);
   if (!isParticipant && !(await isAdmin().catch(() => false))) {
-    return NextResponse.json({ ...auction, shipping_address: null });
+    return NextResponse.json(redactAuctionForPublic(auction));
   }
   return NextResponse.json(auction);
 }

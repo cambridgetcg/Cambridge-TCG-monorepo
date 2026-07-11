@@ -8,11 +8,18 @@ Cambridge TCG aggregates the trading-card-game world — catalog, prices, sets, 
 
 ## Install
 
-No install needed — `npx -y @cambridge-tcg/mcp-server` works on demand. Or install globally:
+**Not yet on the npm registry** (404 as of 2026-07-05) — `npx @cambridge-tcg/mcp-server` will not work until publication lands. Until then, run the bridge from a clone of the monorepo:
 
 ```sh
-npm install -g @cambridge-tcg/mcp-server
+git clone https://github.com/cambridgetcg/Cambridge-TCG-monorepo
+cd Cambridge-TCG-monorepo/packages/mcp-server
+npm run build
+node dist/index.js   # the stdio bridge
 ```
+
+Alternatively, skip the bridge entirely — the HTTPS gate speaks MCP-spec JSON-RPC directly; most MCP clients that support remote transport can point at it. See [Direct HTTPS](#direct-https-no-bridge) below.
+
+Once the publish lands, `npx -y @cambridge-tcg/mcp-server` will work on demand with no install.
 
 ## Get a token
 
@@ -22,14 +29,14 @@ Discovery methods (`tools/list`, `initialize`) work **without** a token — the 
 
 ## Configure Claude Desktop
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the platform equivalent:
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the platform equivalent, pointing `args` at your built clone (swap in `"command": "npx"`, `"args": ["-y", "@cambridge-tcg/mcp-server"]` once the npm publish lands):
 
 ```json
 {
   "mcpServers": {
     "cambridge-tcg": {
-      "command": "npx",
-      "args": ["-y", "@cambridge-tcg/mcp-server"],
+      "command": "node",
+      "args": ["/path/to/Cambridge-TCG-monorepo/packages/mcp-server/dist/index.js"],
       "env": {
         "CTCG_AGENT_TOKEN": "ctcg_agt_..."
       }
@@ -48,8 +55,8 @@ Restart Claude Desktop. The tool palette gains `catalog.search`, `prices.recent`
 {
   "mcpServers": {
     "cambridge-tcg": {
-      "command": "npx",
-      "args": ["-y", "@cambridge-tcg/mcp-server"],
+      "command": "node",
+      "args": ["/path/to/Cambridge-TCG-monorepo/packages/mcp-server/dist/index.js"],
       "env": { "CTCG_AGENT_TOKEN": "ctcg_agt_..." }
     }
   }
@@ -58,14 +65,14 @@ Restart Claude Desktop. The tool palette gains `catalog.search`, `prices.recent`
 
 ## Configure Continue / Cline / Zed
 
-Same shape — `command: "npx"`, `args: ["-y", "@cambridge-tcg/mcp-server"]`, env carries the token. Refer to your client's MCP docs for the exact config file path.
+Same shape — `command: "node"`, `args: ["/path/to/.../packages/mcp-server/dist/index.js"]`, env carries the token. Refer to your client's MCP docs for the exact config file path.
 
 ## CLI
 
 You can also pass the token as the first argument (useful for scripts):
 
 ```sh
-npx -y @cambridge-tcg/mcp-server ctcg_agt_...
+node dist/index.js ctcg_agt_...
 ```
 
 ## Environment variables

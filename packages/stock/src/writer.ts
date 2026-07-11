@@ -39,6 +39,33 @@ async function insertMovementAndUpdateBalance(
 ): Promise<StockMovement | null> {
   const { cardsTable, enforceNonNegative } = opts;
 
+  // Oversell detection: with enforceNonNegative the balance update below
+  // clamps at 0 while the movement keeps the full delta, so ledger and
+  // cache would diverge silently. Read the balance FOR UPDATE (the same
+  // row lock the update takes) so the check can't race, and surface the
+  // clamp in the movement note and the log.
+  let stockBefore: number | null = null;
+  if (enforceNonNegative) {
+    const [current] = await tx
+      .select({ stock: cardsTable.stock })
+      .from(cardsTable)
+      .where(eq(cardsTable.id, params.cardId))
+      .for("update");
+    if (current && current.stock + params.delta < 0) {
+      stockBefore = current.stock;
+    }
+  }
+
+  const note =
+    stockBefore !== null
+      ? [
+          params.note,
+          `[oversell: delta ${params.delta} against stock ${stockBefore}; balance clamped to 0]`,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : params.note;
+
   // 1. Insert movement — ON CONFLICT DO NOTHING for idempotency
   const rows = await tx
     .insert(stockMovements)
@@ -48,7 +75,7 @@ async function insertMovementAndUpdateBalance(
       channel: params.channel,
       delta: params.delta,
       referenceId: params.referenceId,
-      note: params.note,
+      note,
       condition: params.condition,
     })
     .onConflictDoNothing({
@@ -62,6 +89,12 @@ async function insertMovementAndUpdateBalance(
   }
 
   const movement = rows[0]!;
+
+  if (stockBefore !== null) {
+    console.error(
+      `[stock] Oversell on card ${params.cardId}: delta ${params.delta} against stock ${stockBefore} (kind=${params.kind}, channel=${params.channel}, ref=${params.referenceId}) — balance clamped to 0, ledger records full delta`
+    );
+  }
 
   // 2. Update cards.stock
   if (enforceNonNegative) {
@@ -238,11 +271,14 @@ export function createStockWriter(deps: StockWriterDeps) {
         throw new Error("Desired stock must be non-negative");
       }
 
-      // Read current stock within the transaction
+      // Read current stock FOR UPDATE so a concurrent movement can't
+      // land between this read and the relative update below — the
+      // computed delta must still hold when it is applied.
       const [current] = await tx
         .select({ stock: cardsTable.stock })
         .from(cardsTable)
-        .where(eq(cardsTable.id, params.cardId));
+        .where(eq(cardsTable.id, params.cardId))
+        .for("update");
 
       if (!current) {
         throw new Error(`Card ${params.cardId} not found`);

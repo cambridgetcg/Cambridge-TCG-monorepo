@@ -3,6 +3,13 @@ import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
 import { sendMail } from "@cambridge-tcg/email";
 
+// Public-claim throttles — every accepted submission inserts a row and
+// emails the store, so both must be bounded. og_claims carries no IP
+// column; the bounds are per-email + global (DB-count discipline, same
+// as reviews/gates.ts), which holds across serverless instances.
+const MAX_CLAIMS_PER_EMAIL_PER_DAY = 3;
+const MAX_CLAIMS_PER_HOUR = 20;
+
 // POST — submit OG claim (public) or approve/reject (admin)
 export async function POST(request: Request) {
   const body = await request.json();
@@ -92,15 +99,31 @@ export async function POST(request: Request) {
   if (!platform) return NextResponse.json({ error: "Platform required." }, { status: 400 });
   if (!orderRef?.trim() && !username?.trim()) return NextResponse.json({ error: "Order reference or username required." }, { status: 400 });
 
-  // Check for duplicate
+  // Check for duplicate — the latest claim decides (older rows may exist)
   const existing = await query(
-    `SELECT id, status FROM og_claims WHERE email=LOWER($1)`,
+    `SELECT id, status FROM og_claims WHERE email=LOWER($1) ORDER BY created_at DESC LIMIT 1`,
     [email]
   );
   if (existing.rows.length > 0) {
     const s = existing.rows[0].status;
     if (s === "approved") return NextResponse.json({ error: "OG status is already active for this email." }, { status: 400 });
     if (s === "pending") return NextResponse.json({ error: "You already have a pending claim. We'll review it within 1-2 business days." }, { status: 400 });
+    // 'rejected' falls through: re-submission is allowed, bounded by the throttles below.
+  }
+
+  const emailRecent = await query(
+    `SELECT COUNT(*)::int AS n FROM og_claims WHERE email=LOWER($1) AND created_at > NOW() - INTERVAL '1 day'`,
+    [email]
+  );
+  if (emailRecent.rows[0].n >= MAX_CLAIMS_PER_EMAIL_PER_DAY) {
+    return NextResponse.json({ error: "Too many claims for this email today. Please try again tomorrow." }, { status: 429 });
+  }
+
+  const globalRecent = await query(
+    `SELECT COUNT(*)::int AS n FROM og_claims WHERE created_at > NOW() - INTERVAL '1 hour'`
+  );
+  if (globalRecent.rows[0].n >= MAX_CLAIMS_PER_HOUR) {
+    return NextResponse.json({ error: "We're receiving a lot of claims right now. Please try again in an hour." }, { status: 429 });
   }
 
   await query(

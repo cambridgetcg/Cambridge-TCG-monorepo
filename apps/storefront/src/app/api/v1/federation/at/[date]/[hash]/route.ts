@@ -71,7 +71,11 @@ export async function GET(
       );
     }
 
-    const normalizedHash = hash.startsWith("sha256:") ? hash : `sha256:${hash}`;
+    // Digests are computed lowercase (digest("hex")); lowercase the input so
+    // uppercase-hex callers can match, as the identify sibling does.
+    const normalizedHash = hash.startsWith("sha256:")
+      ? hash.toLowerCase()
+      : `sha256:${hash.toLowerCase()}`;
     const retrievedAt = new Date();
 
     // Walk the most-recent catalog rows; for each, fetch the historical

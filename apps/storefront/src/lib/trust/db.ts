@@ -135,14 +135,65 @@ export async function listAllVerifications(): Promise<(UserVerification & { emai
 // DISPUTES
 // ══════════════════════════════════════════════════════════════
 
+// Terminal dispute statuses. Anything else counts as a live claim —
+// same set the auto-complete sweep treats as a blocker
+// (lib/market/completion.ts), so the two never disagree about whether
+// a trade has an open dispute.
+const RESOLVED_DISPUTE_STATUSES = ["resolved_buyer", "resolved_seller", "resolved_split", "closed"];
+const RESOLVED_DISPUTE_SQL = RESOLVED_DISPUTE_STATUSES.map((s) => `'${s}'`).join(", ");
+
 export async function raiseDispute(tradeId: string, userId: string, reason: string, description: string): Promise<TradeDispute> {
+  // One live dispute per trade: a repeat POST (double-click, retry)
+  // gets the existing row back instead of stacking new ones.
+  const existing = await query(
+    `SELECT * FROM trade_disputes
+      WHERE trade_id = $1 AND status NOT IN (${RESOLVED_DISPUTE_SQL})
+      ORDER BY created_at DESC LIMIT 1`,
+    [tradeId]
+  );
+  if (existing.rows.length > 0) return existing.rows[0] as TradeDispute;
+
   // Persist the reason on the trade row (separate from escrow_status, which
   // is set by updateEscrowStatus below — that path also sends both parties
   // the "dispute opened" email via the market email module).
-  await query(
-    `UPDATE market_trades SET dispute_reason=$2, updated_at=NOW() WHERE id=$1`,
+  //
+  // The WHERE clause is the eligibility gate, checked atomically with the
+  // write (two racing POSTs can both pass the pre-read above):
+  //  - escrow state: only trades where the buyer's money is in play are
+  //    disputable. 'awaiting_payment' in particular must stay out — the
+  //    payment-timeout sweep only cancels that state, so disputing an
+  //    unpaid trade would freeze it out of the sweep with the seller's
+  //    quantity locked and no payment ever arriving.
+  //  - dispute window: on the buyer-bound leg the deadline is
+  //    dispatch + dispute_window_hours — the same eligibility shape as
+  //    the auto-complete sweep (lib/market/completion.ts). Legacy rows
+  //    without a stamped window are not window-checked here.
+  //  - no live dispute may already exist on the trade.
+  const eligible = await query(
+    `UPDATE market_trades t
+        SET dispute_reason = $2, updated_at = NOW()
+      WHERE t.id = $1
+        AND t.escrow_status IN ('paid', 'awaiting_shipment', 'shipped_to_ctcg',
+                                'received_by_ctcg', 'verified', 'shipped_to_buyer')
+        AND (NOT (t.escrow_status = 'shipped_to_buyer'
+                  OR (t.escrow_status = 'verified' AND t.escrow_tier = 'direct'))
+             OR t.dispute_window_hours IS NULL
+             OR COALESCE(t.shipped_to_buyer_at, t.seller_shipped_at) IS NULL
+             OR COALESCE(t.shipped_to_buyer_at, t.seller_shipped_at)
+                + make_interval(hours => t.dispute_window_hours) > NOW())
+        AND NOT EXISTS (
+          SELECT 1 FROM trade_disputes d
+           WHERE d.trade_id = t.id
+             AND d.status NOT IN (${RESOLVED_DISPUTE_SQL})
+        )
+      RETURNING t.id`,
     [tradeId, reason]
   );
+  if (eligible.rows.length === 0) {
+    throw new Error(
+      "Trade is not in a disputable state (unpaid, already closed, past its dispute window, or already disputed)."
+    );
+  }
 
   const result = await query(
     `INSERT INTO trade_disputes (trade_id, raised_by, reason, description) VALUES ($1,$2,$3,$4) RETURNING *`,
@@ -160,9 +211,18 @@ export async function raiseDispute(tradeId: string, userId: string, reason: stri
   return result.rows[0] as TradeDispute;
 }
 
-export async function getDispute(disputeId: string): Promise<TradeDispute | null> {
+// Counterparties can read a dispute too (userCanAccessDispute gates the
+// detail route on "any party to the trade"), so the raiser's email stays
+// out of the default select — the same no-counterparty-email rule
+// getUserTrades applies in lib/market/db.ts. Admin callers opt in via
+// includeRaiserEmail.
+export async function getDispute(
+  disputeId: string,
+  opts?: { includeRaiserEmail?: boolean },
+): Promise<TradeDispute | null> {
+  const emailCol = opts?.includeRaiserEmail ? `, u.email as raiser_email` : "";
   const result = await query(
-    `SELECT d.*, u.name as raiser_name, u.email as raiser_email,
+    `SELECT d.*, u.name as raiser_name${emailCol},
        t.price as trade_price, bu.name as buyer_name, su.name as seller_name,
        o.card_name
      FROM trade_disputes d
@@ -179,7 +239,7 @@ export async function getDispute(disputeId: string): Promise<TradeDispute | null
 
 export async function getDisputeByTrade(tradeId: string): Promise<TradeDispute | null> {
   const result = await query(
-    `SELECT d.*, u.name as raiser_name, u.email as raiser_email
+    `SELECT d.*, u.name as raiser_name
      FROM trade_disputes d JOIN users u ON d.raised_by=u.id
      WHERE d.trade_id=$1 ORDER BY d.created_at DESC LIMIT 1`,
     [tradeId]
@@ -212,8 +272,9 @@ export async function listDisputes(status?: string): Promise<TradeDispute[]> {
 // the counterparty on the trade). Powers /account/disputes and
 // /account/trades/[id]'s dispute panel.
 export async function listMyDisputes(userId: string): Promise<TradeDispute[]> {
+  // Party-facing: no raiser_email — the counterparty must not see it.
   const result = await query(
-    `SELECT d.*, u.name as raiser_name, u.email as raiser_email,
+    `SELECT d.*, u.name as raiser_name,
        t.price as trade_price, bu.name as buyer_name, su.name as seller_name,
        o.card_name
      FROM trade_disputes d
@@ -235,8 +296,9 @@ export async function getDisputeByTradeForUser(
   tradeId: string,
   userId: string,
 ): Promise<TradeDispute | null> {
+  // Party-facing: no raiser_email — the counterparty must not see it.
   const result = await query(
-    `SELECT d.*, u.name as raiser_name, u.email as raiser_email,
+    `SELECT d.*, u.name as raiser_name,
        t.price as trade_price, bu.name as buyer_name, su.name as seller_name,
        o.card_name
      FROM trade_disputes d
@@ -289,38 +351,68 @@ export async function setDisputeStatus(
   return (r.rows[0] as TradeDispute) ?? null;
 }
 
-// Dispute raiser withdraws an unresolved dispute. Trade returns to
-// whatever its escrow_status was before the dispute (the UI surfaces
-// this as "trade continues" — the buyer chose to drop the issue).
-// Safe no-op when the dispute is already resolved.
+// Dispute raiser withdraws an unresolved dispute. Trade returns to the
+// stage it had reached before the dispute (the UI surfaces this as
+// "trade continues" — the buyer chose to drop the issue). Safe no-op
+// when the dispute is already resolved.
 export async function withdrawDispute(disputeId: string, userId: string): Promise<{
   ok: boolean;
   reason?: string;
 }> {
   const dispute = await query(
-    `SELECT id, trade_id, raised_by, status FROM trade_disputes WHERE id = $1`,
+    `SELECT d.id, d.trade_id, d.raised_by, d.status,
+            t.buyer_paid_at, t.seller_shipped_at, t.ctcg_received_at,
+            t.ctcg_verified_at, t.shipped_to_buyer_at
+       FROM trade_disputes d
+       JOIN market_trades t ON t.id = d.trade_id
+      WHERE d.id = $1`,
     [disputeId]
   );
   if (dispute.rows.length === 0) return { ok: false, reason: "not found" };
   const d = dispute.rows[0];
   if (d.raised_by !== userId) return { ok: false, reason: "only the raiser can withdraw" };
-  if (["resolved_buyer", "resolved_seller", "resolved_split", "closed"].includes(d.status)) {
+  if (RESOLVED_DISPUTE_STATUSES.includes(d.status)) {
     return { ok: false, reason: "already resolved" };
   }
 
-  await query(
+  // Status re-check in the UPDATE so an admin resolving concurrently
+  // wins — same guarded-UPDATE shape as the completion sweep.
+  const closed = await query(
     `UPDATE trade_disputes SET status='closed', withdrawn_at=NOW(), updated_at=NOW()
-      WHERE id=$1`,
+      WHERE id=$1 AND status NOT IN (${RESOLVED_DISPUTE_SQL})
+      RETURNING id`,
     [disputeId]
   );
+  if (closed.rows.length === 0) return { ok: false, reason: "already resolved" };
 
-  // Flip the trade back to 'awaiting_shipment' — buyer withdrew, seller
-  // continues the chain. updateEscrowStatus also clears dispute_reason
-  // on the trade row so the UI stops showing the disputed badge.
+  // No pre-dispute status column exists, so reconstruct the stage from
+  // the trade's own stamps — the furthest stamped leg is where the
+  // trade stood when raiseDispute froze it. Hardcoding a single stage
+  // here regressed shipped trades to "seller must ship again" and took
+  // them out of the auto-complete sweep for good.
+  const resumeStatus =
+    d.shipped_to_buyer_at ? "shipped_to_buyer"
+    : d.ctcg_verified_at ? "verified"
+    : d.ctcg_received_at ? "received_by_ctcg"
+    : d.seller_shipped_at ? "shipped_to_ctcg"
+    : d.buyer_paid_at ? "awaiting_shipment"
+    : "awaiting_payment";
+
+  // updateEscrowStatus re-stamps the resumed stage's timestamp — for
+  // shipped_to_buyer that restarts the dispute window from the
+  // withdrawal, deliberately: the window shouldn't have burned down
+  // while the dispute sat open.
   const { updateEscrowStatus } = await import("@/lib/market/db");
-  await updateEscrowStatus(d.trade_id, "awaiting_shipment", {
+  await updateEscrowStatus(d.trade_id, resumeStatus, {
     adminNotes: "Buyer withdrew the dispute.",
   });
+
+  // updateEscrowStatus doesn't touch dispute_reason; raiseDispute set
+  // it, so withdrawal unsets it and the disputed badge goes away.
+  await query(
+    `UPDATE market_trades SET dispute_reason=NULL, updated_at=NOW() WHERE id=$1`,
+    [d.trade_id]
+  );
 
   return { ok: true };
 }

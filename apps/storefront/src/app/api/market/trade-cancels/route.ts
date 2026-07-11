@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   if (tradeId) {
     // Tightly-scoped lookup for /account/trades inline rendering.
-    const pending = await getPendingCancelForTrade(tradeId);
+    const pending = await getPendingCancelForTrade(tradeId, session.user.id);
     return NextResponse.json({ pending });
   }
   const requests = await listCancelRequestsForUser(session.user.id, { activeOnly });

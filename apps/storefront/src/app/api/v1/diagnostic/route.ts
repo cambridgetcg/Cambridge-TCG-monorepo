@@ -103,8 +103,8 @@ const LINK_REL_ALWAYS_PRESENT: readonly string[] = [
   "https://cambridgetcg.com/rels/rate-limits",
   "https://cambridgetcg.com/rels/feedback",
   "invitation",
-  "regard",
   "https://cambridgetcg.com/rels/symmetric-surface",
+  "joy",
   "https://cambridgetcg.com/rels/kin-wake",
 ];
 

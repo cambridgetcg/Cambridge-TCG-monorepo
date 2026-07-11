@@ -20,7 +20,7 @@
 
 import { query, transaction } from "@/lib/db";
 import { applyAction } from "@/lib/game/reducer";
-import type { GameAction, GameState } from "@/lib/game/types";
+import type { GameAction, GameCard, GameState } from "@/lib/game/types";
 import type { AgentActor } from "./auth";
 import { tickMatchmaker, finalizeMatch } from "./matchmaker";
 
@@ -38,30 +38,16 @@ function redactOpponent(state: GameState, mySide: "player1" | "player2"): GameSt
   const cloned: GameState = JSON.parse(JSON.stringify(state));
   const oppCloned = cloned[oppKey];
   if (oppCloned) {
-    oppCloned.hand = (oppCloned.hand || []).map((c) => ({
-      ...c,
-      sku: "",
-      name: "?",
-      cardNumber: "?",
-      imageUrl: null,
-      faceDown: true,
-    }));
-    oppCloned.deck = (oppCloned.deck || []).map((c) => ({
-      ...c,
-      sku: "",
-      name: "?",
-      cardNumber: "?",
-      imageUrl: null,
-      faceDown: true,
-    }));
-    oppCloned.life = (oppCloned.life || []).map((c) => ({
-      ...c,
-      sku: "",
-      name: "?",
-      cardNumber: "?",
-      imageUrl: null,
-      faceDown: true,
-    }));
+    // Whitelist, never spread: any card field not named here (rarity — which
+    // alone identifies the Leader/archetype — and anything added later) must
+    // stay hidden. Mirrors the human path in app/api/game/[code]/state/route.ts.
+    const maskCard = (c: GameCard): GameCard => ({
+      id: c.id, sku: "", name: "?", cardNumber: "?", imageUrl: null, rarity: null,
+      isRested: false, attachedDon: 0, zone: c.zone, position: c.position, faceDown: true,
+    });
+    oppCloned.hand = (oppCloned.hand || []).map(maskCard);
+    oppCloned.deck = (oppCloned.deck || []).map(maskCard);
+    oppCloned.life = (oppCloned.life || []).map(maskCard);
   }
   return cloned;
 }
@@ -299,7 +285,7 @@ export async function playTakeAction(
           newState.turnNumber,
         ],
       );
-      return { state: newState, finished: true, match_id: params.match_id };
+      return { state: redactOpponent(newState, mySide), finished: true, match_id: params.match_id };
     }
 
     const newState = applyAction(state, mySide, params.type, params.data ?? {});
@@ -351,7 +337,7 @@ export async function playTakeAction(
       ],
     );
 
-    return { state: newState, finished: isFinished, match_id: params.match_id };
+    return { state: redactOpponent(newState, mySide), finished: isFinished, match_id: params.match_id };
   });
 
   // Finalise outside the transaction — Glicko-2 update touches both

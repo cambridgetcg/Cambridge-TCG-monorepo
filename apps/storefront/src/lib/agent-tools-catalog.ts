@@ -164,8 +164,14 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     example_input: { match_id: "match-abc-123" },
     example_output_shape: {
       actions: [
-        { type: "play_card", data: { sku: "op-op01-001-ja", zone: "characters" } },
-        { type: "pass_phase", data: {} },
+        {
+          type: "move_card",
+          data: { cardId: "card-uuid-1", toZone: "field" },
+          note: "play Roronoa Zoro (OP01-025) to field",
+        },
+        { type: "attack", data: { attackerId: "card-uuid-2", targetType: "leader" }, note: "attack opponent leader" },
+        { type: "next_phase", note: "advance to next phase" },
+        { type: "end_turn", note: "end your turn" },
       ],
     },
     gating: "bearer-key",
@@ -179,7 +185,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "play.take_action",
     category: "play",
     description:
-      "Applies an action in the match. type is a GameAction.type discriminator (play_card / attack / pass_phase / ...). The runtime validates against play.legal_actions; an illegal call returns ToolError.",
+      "Applies an action in the match. type is a GameAction.type discriminator (refresh_all / draw_card / add_don / move_card / rest_don / attach_don / attack / next_phase / end_turn / concede). The reducer is permissive: an action that cannot apply is silently ignored rather than rejected — pick from play.legal_actions and confirm the effect with play.observe.",
     input_schema: {
       type: "object",
       properties: {
@@ -191,10 +197,14 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     example_input: {
       match_id: "match-abc-123",
-      type: "play_card",
-      data: { sku: "op-op01-001-ja", zone: "characters" },
+      type: "move_card",
+      data: { cardId: "card-uuid-1", toZone: "field" },
     },
-    example_output_shape: { ok: true, next_phase: "main", events: [/* MatchEvent[] */] },
+    example_output_shape: {
+      match_id: "match-abc-123",
+      finished: false,
+      state: { /* GameState after the action */ },
+    },
     gating: "bearer-key",
     freshness: "live",
     since: "2026-03-01",
@@ -206,7 +216,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "play.queue_match",
     category: "play",
     description:
-      "Enters the rated-match queue with the given deck. The matchmaker pairs against another queued agent of similar Glicko-2 rating.",
+      "Enters the rated-match queue with the given deck. deck is one object PER PHYSICAL CARD ({ sku, name, cardNumber, imageUrl, rarity, isLeader? }) — no count field; repeat a card's object per copy. Minimum 10 cards or the call returns ToolError. The matchmaker pairs against another queued agent of similar Glicko-2 rating.",
     input_schema: {
       type: "object",
       properties: { deck: { type: "array", items: { type: "object" } } },
@@ -214,11 +224,25 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     example_input: {
       deck: [
-        { sku: "op-op01-001-ja", count: 4 },
-        { sku: "op-op01-002-ja", count: 4 },
+        {
+          sku: "op-op01-001-ja",
+          name: "Monkey.D.Luffy",
+          cardNumber: "OP01-001",
+          imageUrl: null,
+          rarity: "L",
+          isLeader: true,
+        },
+        // One object per physical copy; ≥10 required (51 for a legal deck).
+        ...Array.from({ length: 10 }, () => ({
+          sku: "op-op01-025-ja",
+          name: "Roronoa Zoro",
+          cardNumber: "OP01-025",
+          imageUrl: null,
+          rarity: "SR",
+        })),
       ],
     },
-    example_output_shape: { queued: true, position: 2, estimated_wait_seconds: 45 },
+    example_output_shape: { queued: true, rating: 1500, paired_immediately: false },
     gating: "bearer-key",
     freshness: "live",
     since: "2026-03-01",
@@ -287,7 +311,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       total: 12,
     },
     gating: "bearer-key",
-    freshness: "cached_5m",
+    freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
     source: `${SRC_BASE}/platform-tools.ts`,
@@ -313,7 +337,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       ],
     },
     gating: "bearer-key",
-    freshness: "cached_60s",
+    freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
     source: `${SRC_BASE}/platform-tools.ts`,
@@ -340,7 +364,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       ],
     },
     gating: "bearer-key",
-    freshness: "cached_60s",
+    freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
     source: `${SRC_BASE}/platform-tools.ts`,
@@ -350,7 +374,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "deck.save",
     category: "deck",
     description:
-      "Save a deck for the agent's operator. Decks are prefixed `agent:<handle>` to namespace from operator-saved decks. Bounded write to the operator's authority.",
+      "Save a deck for the agent's operator. entries are { sku, quantity } (quantity clamped 1-4; a missing quantity saves as 1). Decks are prefixed `agent:<handle>` to namespace from operator-saved decks. Bounded write to the operator's authority.",
     input_schema: {
       type: "object",
       properties: {
@@ -365,15 +389,18 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       name: "my-luffy-rush",
       leader_sku: "op-op01-001-ja",
       entries: [
-        { sku: "op-op01-002-ja", count: 4 },
-        { sku: "op-op01-003-ja", count: 4 },
+        { sku: "op-op01-002-ja", quantity: 4 },
+        { sku: "op-op01-003-ja", quantity: 4 },
       ],
       notes: "tested against blue-control mirror",
     },
     example_output_shape: {
+      ok: true,
       deck_id: "deck-abc-789",
-      name: "agent:my-handle:my-luffy-rush",
-      saved_at: "2026-05-17T10:00:00Z",
+      slug: "agent-my-handle-my-luffy-rush-x7k2q9",
+      name: "agent:my-handle · my-luffy-rush",
+      entries_count: 2,
+      saved_for_user_id: 123,
     },
     gating: "bearer-key",
     freshness: "live",

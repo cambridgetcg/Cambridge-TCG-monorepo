@@ -60,8 +60,6 @@ export async function listAuctions(filters: {
   const result = await query(
     `SELECT a.id, a.title, a.sku, a.condition, a.auction_type, a.status, a.current_price, a.starting_price,
             a.buy_now_price, a.bid_count, a.starts_at, a.ends_at,
-            a.seller_user_id, a.seller_payout, a.seller_paid_at,
-            a.payout_method, a.payout_reference,
             (SELECT url FROM auction_images WHERE auction_id = a.id ORDER BY display_order LIMIT 1) as image_url
      FROM auctions a ${where}
      ORDER BY ${orderBy}
@@ -110,6 +108,33 @@ export async function getAuction(id: string): Promise<AuctionDetail | null> {
     bids: bids.rows as Bid[],
     server_time: new Date().toISOString(),
   };
+}
+
+// Participant-only redaction for the public detail surfaces. getAuction()
+// is SELECT * because the settlement paths (pay, webhook, state composer)
+// need the full row — but Stripe ids, payout financials, ops notes and
+// fulfilment tracking must only reach the seller, the winner, or an admin.
+// Public GET /api/auctions/[id] and the public auction page apply this
+// before serialising for anyone else.
+export function redactAuctionForPublic(auction: AuctionDetail): AuctionDetail {
+  const redacted: AuctionDetail = {
+    ...auction,
+    stripe_session_id: null,
+    stripe_payment_intent: null,
+    payment_expires_at: null,
+    approval_notes: null,
+    seller_payout: null,
+    seller_paid_at: null,
+    tracking_to_ctcg: null,
+    tracking_to_buyer: null,
+    shipping_address: null,
+  };
+  // SELECT * also carries payout columns the Auction type doesn't declare;
+  // strip them so they can't ride along untyped.
+  for (const k of ["payout_method", "payout_reference", "stripe_transfer_id"]) {
+    delete (redacted as unknown as Record<string, unknown>)[k];
+  }
+  return redacted;
 }
 
 // ── Create auction (admin) ──
@@ -313,8 +338,18 @@ export async function placeBid(auctionId: string, userId: string, amount: number
       // emails on the next read. We pre-emptively set actual_end_at and winner
       // so the next transition sweep picks it up correctly.
       // Winner-aware payment deadline: response_window_hours (migration 0092)
-      // overrides the 48h auction default when the winner has declared a cadence.
-      const paymentExpiresAt = await paymentExpiresAtForBuyer(userId, DEFAULT_AUCTION_PAYMENT_WINDOW_HOURS);
+      // overrides the 48h auction default when the winner has declared a
+      // cadence. Read through the tx handle — paymentExpiresAtForBuyer
+      // queries the root pool, and a root query inside this held FOR UPDATE
+      // transaction self-deadlocks at max:1 (same pattern as acceptOffer).
+      const winRes = await q(
+        `SELECT response_window_hours FROM users WHERE id = $1`,
+        [userId]
+      );
+      const windowHours =
+        (winRes.rows[0]?.response_window_hours as number | null | undefined) ??
+        DEFAULT_AUCTION_PAYMENT_WINDOW_HOURS;
+      const paymentExpiresAt = new Date(Date.now() + windowHours * 60 * 60 * 1000).toISOString();
       const r = await q(
         `UPDATE auctions
             SET current_price = $1, bid_count = bid_count + 1,
@@ -485,6 +520,13 @@ export async function getBidHistory(auctionId: string): Promise<Bid[]> {
 // ── Images ──
 
 export async function addAuctionImage(auctionId: string, url: string, s3Key: string, order: number): Promise<AuctionImage> {
+  // The upload route mints keys as `${auctionId}/${uuid}.${ext}` — a key
+  // outside this auction's prefix is a client fabricating an attachment
+  // (and would later aim removeAuctionImage's S3 delete at another
+  // auction's object).
+  if (!s3Key.startsWith(`${auctionId}/`)) {
+    throw new Error("s3Key does not belong to this auction");
+  }
   const result = await query(
     `INSERT INTO auction_images (auction_id, url, s3_key, display_order)
      VALUES ($1, $2, $3, $4) RETURNING *`,
@@ -493,10 +535,13 @@ export async function addAuctionImage(auctionId: string, url: string, s3Key: str
   return result.rows[0] as AuctionImage;
 }
 
-export async function removeAuctionImage(imageId: string): Promise<string | null> {
+export async function removeAuctionImage(auctionId: string, imageId: string): Promise<string | null> {
+  // Scoped to the auction the route authorised — a bare imageId delete
+  // lets any seller who owns *an* auction destroy another seller's image
+  // row and its S3 object.
   const result = await query(
-    `DELETE FROM auction_images WHERE id = $1 RETURNING s3_key`,
-    [imageId]
+    `DELETE FROM auction_images WHERE id = $1 AND auction_id = $2 RETURNING s3_key`,
+    [imageId, auctionId]
   );
   return result.rows[0]?.s3_key ?? null;
 }

@@ -12,18 +12,34 @@
  * Appraiser (`retailPrice`) stamps each row before it leaves the
  * Embassy gate, so the user sees retail and never wholesale.
  *
- * On any wholesale failure, returns `{ results: [] }` rather than 500 —
- * an empty dropdown is a recoverable user experience; a server error
- * isn't.
+ * On wholesale failure, returns an honest 503 (`search_unavailable`)
+ * rather than `{ results: [] }` — an outage must never be
+ * indistinguishable from "no matches". Success bodies carry the
+ * `source` the Falcon stamped (`wholesale-api` | `wholesale-db`) so
+ * the UI can label provenance.
  *
  * The full fairy-tale, with cast: `docs/connections/two-letters-and-a-falcon.md`.
  */
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { fetchPrices } from "@/lib/wholesale/client";
+import { fetchPrices, type WholesaleSource } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { gameFromSku } from "@/lib/games/sku-game";
+
+function searchUnavailable() {
+  return NextResponse.json(
+    {
+      error: {
+        code: "search_unavailable",
+        message:
+          "Card search can't be served right now: the wholesale API is unreachable and the direct database read also failed. This is a source outage, not an empty result — please try again shortly.",
+      },
+      source: "unavailable" as const,
+    },
+    { status: 503 },
+  );
+}
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -54,6 +70,12 @@ export async function GET(request: Request) {
 
   try {
     const data = await fetchPrices({ game, q: q.trim(), limit: 20 });
+    // fetchPrices swallows failures internally and stamps
+    // source: 'unavailable' — an outage must not render as "no matches".
+    const source: WholesaleSource = data.source ?? "unavailable";
+    if (source === "unavailable") {
+      return searchUnavailable();
+    }
     const results = data.items.map((item) => ({
       sku: item.sku,
       card_name: item.name_en || item.name || item.card_number,
@@ -66,8 +88,8 @@ export async function GET(request: Request) {
       stock: item.stock,
     }));
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, source });
   } catch {
-    return NextResponse.json({ results: [] });
+    return searchUnavailable();
   }
 }

@@ -39,14 +39,17 @@ export function createStockReserver(deps: StockReserverDeps) {
       const ttl = params.ttlMinutes ?? defaultTtlMinutes;
       const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
 
-      // Check available stock
+      // Check available stock. FOR UPDATE locks the card row so two
+      // concurrent reservations can't both pass the availability check
+      // before either increments reserved_stock.
       const [card] = await tx
         .select({
           stock: cardsTable.stock,
           reserved: sql<number>`coalesce(${cardsTable.reservedStock}, 0)`,
         })
         .from(cardsTable)
-        .where(eq(cardsTable.id, params.cardId));
+        .where(eq(cardsTable.id, params.cardId))
+        .for("update");
 
       if (!card) {
         throw new Error(`Card ${params.cardId} not found`);

@@ -219,6 +219,12 @@ export async function beginLotPurchase(data: {
   if (LOT_PURCHASES_PAUSED) {
     return { ok: false, error: LOT_PURCHASES_PAUSED_MESSAGE };
   }
+  // Buyer-aware payment deadline. response_window_hours overrides the
+  // 24h platform default when the buyer has declared a cadence.
+  // Computed before the transaction opens: this reads through the root
+  // pool, and awaiting it while the tx holds the pool's only prod
+  // connection would self-deadlock.
+  const paymentExpiresAt = await paymentExpiresAtForBuyer(data.buyerId, DEFAULT_PAYMENT_WINDOW_HOURS);
   const result = await transaction(async (q) => {
     const lotRes = await q(
       `SELECT * FROM market_lots WHERE id = $1 FOR UPDATE`,
@@ -262,9 +268,6 @@ export async function beginLotPurchase(data: {
     // discount. See /methodology/fees.
     const commission = computeCommissionAmount(price, rate).amount;
     const sellerPayout = price - commission;
-    // Buyer-aware payment deadline. response_window_hours overrides the
-    // 24h platform default when the buyer has declared a cadence.
-    const paymentExpiresAt = await paymentExpiresAtForBuyer(data.buyerId, DEFAULT_PAYMENT_WINDOW_HOURS);
 
     const tradeRes = await q(
       `INSERT INTO market_lot_trades

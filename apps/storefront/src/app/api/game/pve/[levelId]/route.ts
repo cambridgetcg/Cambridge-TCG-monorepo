@@ -5,7 +5,7 @@ import "@/lib/game/registry-bootstrap"; // side-effect: registers engines
 import { postActivity } from "@/lib/social/db";
 import { grantPveRewardsIdempotent } from "@/lib/game/rewards";
 import { resolveActor } from "@/lib/game/pve-actor";
-import type { GameState } from "@/lib/game/types";
+import type { GameCard, GameState } from "@/lib/game/types";
 
 // Fallback for pve_levels rows that pre-date the game_code migration
 // (drizzle/drafts/0102_pve_game_code.sql.draft, unapplied). Once it lands
@@ -54,6 +54,34 @@ async function loadGame(gameId: string, userId: string) {
   return result.rows[0] ?? null;
 }
 
+// PVE mirror of the hidden-zone mask in game/[code]/state — hidden zones
+// never cross the wire. The human is always player1, so the AI's hand,
+// deck, and life stay hidden; the player's OWN life is masked too (life
+// is face-down in OPTCG, unknown even to its owner). Rarity is dropped as
+// well — an "L" rarity in a masked zone would identify the Leader. Works
+// on a copy; the persisted state keeps the real cards.
+function maskHiddenZones(state: GameState): GameState {
+  const s = JSON.parse(JSON.stringify(state)) as GameState;
+  const hide = (c: GameCard): GameCard => ({
+    ...c,
+    sku: "",
+    name: "?",
+    cardNumber: "?",
+    imageUrl: null,
+    rarity: null,
+    faceDown: true,
+  });
+  if (s.player2) {
+    s.player2.hand = (s.player2.hand ?? []).map(hide);
+    s.player2.deck = (s.player2.deck ?? []).map(hide);
+    s.player2.life = (s.player2.life ?? []).map(hide);
+  }
+  if (s.player1) {
+    s.player1.life = (s.player1.life ?? []).map(hide);
+  }
+  return s;
+}
+
 function opponentPayload(level: PVELevel) {
   return {
     name: level.opponent_name,
@@ -84,7 +112,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ leve
   return NextResponse.json({
     gameId: game.id,
     status: game.status,
-    state: game.game_state,
+    state: maskHiddenZones(game.game_state),
     opponent: opponentPayload(level),
     isGuest: actor.isGuest,
   });
@@ -186,7 +214,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
 
     return NextResponse.json({
       gameId: created.rows[0].id,
-      state: gameState,
+      state: maskHiddenZones(gameState as GameState),
       opponent: opponentPayload(level),
       isGuest: actor.isGuest,
       gameCode,
@@ -222,6 +250,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       return NextResponse.json({ error: "Not your turn." }, { status: 409 });
     }
 
+    // The reducer leaves two side doors around the upkeep block above:
+    // toggle_rest can un-rest an attacker mid-turn (attack → un-rest →
+    // attack, unlimited), and move_card can lift cards out of the deck
+    // (free draws). Both reopen the farming loop the set closes, so the
+    // server rejects them; resting a card and every other move stay legal.
+    if (type === "toggle_rest") {
+      const cardId = (data as { cardId?: string } | undefined)?.cardId;
+      const board = [
+        currentState.player1.leader,
+        ...currentState.player1.field,
+        currentState.player1.stage,
+      ].filter(Boolean) as GameCard[];
+      const card = board.find((c) => c.id === cardId);
+      if (card?.isRested) {
+        return NextResponse.json(
+          { error: "Rested cards refresh at the start of your next turn." },
+          { status: 409 },
+        );
+      }
+    }
+    if (type === "move_card") {
+      const cardId = (data as { cardId?: string } | undefined)?.cardId;
+      if (currentState.player1.deck.some((c) => c.id === cardId)) {
+        return NextResponse.json(
+          { error: "Cards leave the deck only via the start-of-turn draw." },
+          { status: 409 },
+        );
+      }
+    }
+
     const newState = engine.applyAction(currentState, "player1", type, data ?? {}) as GameState;
 
     await query(
@@ -229,7 +287,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
       [gameId, JSON.stringify(newState), newState.turnNumber],
     );
 
-    return NextResponse.json({ state: newState });
+    return NextResponse.json({ state: maskHiddenZones(newState) });
   }
 
   // ── AI turn — generated + applied server-side ──
@@ -265,7 +323,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     return NextResponse.json({
       actions: appliedActions,
       thinking: decision.thinking,
-      state: nextState,
+      state: maskHiddenZones(nextState),
     });
   }
 
@@ -290,10 +348,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ lev
     // for OPTCG; other games can reinterpret or skip it.
     const lifeRemaining = (result.summary.lifeRemaining as number | undefined) ?? null;
 
-    await query(
-      `UPDATE pve_games SET status='won', result='win', ended_at=NOW() WHERE id=$1`,
+    // Status guard makes concurrent victory POSTs race-safe: exactly one
+    // request flips the row and proceeds to grant rewards; the rest take
+    // the idempotent alreadyClaimed exit (the status read above is stale
+    // by the time we get here).
+    const flipped = await query(
+      `UPDATE pve_games SET status='won', result='win', ended_at=NOW() WHERE id=$1 AND status='playing'`,
       [gameId],
     );
+    if (flipped.rowCount === 0) {
+      return NextResponse.json({ victory: true, alreadyClaimed: true });
+    }
 
     const progressResult = await query(
       `SELECT * FROM pve_progress WHERE user_id=$1 AND level_id=$2`,
