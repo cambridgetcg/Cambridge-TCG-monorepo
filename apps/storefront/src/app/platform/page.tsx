@@ -31,9 +31,9 @@ import {
 } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, a collectors' market and open data commons",
+  title: "Platform — Cambridge TCG, a collectors' market and public data commons",
   description:
-    "Cambridge TCG is a collectors' market and an open data commons. Two operations, one substrate: peer-to-peer trade the platform facilitates without holding a position, and open TCG data — twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; anyone builds on top without negotiating.",
+    "Cambridge TCG is a collectors' market and a data commons. Peer-to-peer trade sits beside a provenance-aware catalog: Cambridge-authored standards and first-party aggregates are open, while upstream card fields retain their source rights.",
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -108,20 +108,20 @@ export default function PlatformPage() {
             <CoverageCard
               label="Games declared"
               value={String(COVERAGE_FACTS.games.declared)}
-              sub={`${COVERAGE_FACTS.games.confirmed_codes} confirmed · ${COVERAGE_FACTS.games.catch_all_codes} anticipated`}
+              sub={`${COVERAGE_FACTS.games.confirmed_codes} confirmed · ${COVERAGE_FACTS.games.anticipated_codes} anticipated`}
               note={COVERAGE_FACTS.games.note}
             />
             <CoverageCard
               label="Set formats"
               value={String(COVERAGE_FACTS.set_formats.total)}
-              sub={`${COVERAGE_FACTS.set_formats.confirmed} confirmed · ${COVERAGE_FACTS.set_formats.catch_all} catch-all`}
+              sub={`${COVERAGE_FACTS.set_formats.confirmed} confirmed · ${COVERAGE_FACTS.set_formats.unconfirmed} unconfirmed`}
               note={COVERAGE_FACTS.set_formats.note}
             />
             <CoverageCard
               label="Upstream sources"
-              value={`${COVERAGE_FACTS.sources.shipped} shipped`}
-              sub={`+ ${COVERAGE_FACTS.sources.planned} planned in registry`}
-              note="Each source: typed SourceModule contract, rate-limited fetcher, lineage in every record."
+              value={`${COVERAGE_FACTS.sources.with_observed_rows} live source`}
+              sub={`${COVERAGE_FACTS.sources.registered} adapters registered · ${COVERAGE_FACTS.sources.planned_slots} open slots`}
+              note="Nine registered modules share the typed SourceModule contract. Active readers use the shared rate limiter; observed rows, publication rights, and field-level lineage are separate facts."
             />
             <CoverageCard
               label="Math-mirror kinds"
@@ -132,8 +132,8 @@ export default function PlatformPage() {
             <CoverageCard
               label="License default"
               value={COVERAGE_FACTS.envelope.license_default}
-              sub="every public response"
-              note="Partners can build on top without negotiating. Some upstream-derived data carries the upstream's license; the envelope declares it per-response."
+              sub="Cambridge-authored envelope default"
+              note="Upstream-derived and mixed exports override this default; NOASSERTION means field-level rights are not yet known."
             />
             <CoverageCard
               label="Federation primitive"
@@ -153,7 +153,7 @@ export default function PlatformPage() {
         {/* Upstream sources list */}
         <section className="mt-12">
           <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
-            Upstream sources · shipped
+            Upstream sources · registered
           </h2>
           <div className="rounded-lg border border-border-subtle bg-surface overflow-x-auto">
             <table className="w-full text-sm">
@@ -165,7 +165,7 @@ export default function PlatformPage() {
                 </tr>
               </thead>
               <tbody>
-                {COVERAGE_FACTS.sources.shipped_list.map((s) => (
+                {COVERAGE_FACTS.sources.registered_list.map((s) => (
                   <tr key={s.id} className="border-b border-border-subtle">
                     <td className="px-4 py-2 font-mono text-ink">{s.id}</td>
                     <td className="px-4 py-2 text-ink-muted text-xs">{s.status}</td>

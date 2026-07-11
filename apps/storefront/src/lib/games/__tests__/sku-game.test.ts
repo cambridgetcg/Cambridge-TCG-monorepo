@@ -36,11 +36,14 @@ describe("gameFromSku — one truth for SKU → game", () => {
   });
 
   it("keeps slugs aligned with the wholesale catalog", () => {
-    // Verified against prod games.slug on 2026-07-05.
+    // Verified against the live production coverage route on 2026-07-11.
     expect(SKU_GAMES.map((g) => g.slug)).toEqual([
       "one-piece",
       "pokemon",
       "dragon-ball",
+      "vanguard",
+      "digimon",
+      "battle-spirits",
     ]);
     expect(isSkuGameSlug("pokemon")).toBe(true);
     expect(isSkuGameSlug("yugioh")).toBe(false);
@@ -66,6 +69,9 @@ describe("the Atlas derivation contract (spec 2026-07-07 the-atlas §3)", () => 
       "one-piece",
       "pokemon",
       "dragon-ball",
+      "vanguard",
+      "digimon",
+      "battle-spirits",
     ];
     const atlasSlugs = CONFIRMED_GAME_SLUGS.filter((s) => s !== GAMES.tst.slug);
     expect([...atlasSlugs].sort()).toEqual([...pinned].sort());
@@ -77,6 +83,9 @@ describe("the Atlas derivation contract (spec 2026-07-07 the-atlas §3)", () => 
       "one-piece": "One Piece",
       pokemon: "Pokémon",
       "dragon-ball": "Dragon Ball",
+      vanguard: "Vanguard",
+      digimon: "Digimon",
+      "battle-spirits": "Battle Spirits",
     });
   });
 

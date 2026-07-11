@@ -78,6 +78,7 @@ export async function GET(
         // federation reconcilers) can fetch directly.
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "X-Content-License": "NOASSERTION",
       },
     });
   } catch (err) {

@@ -94,7 +94,8 @@ async function main(): Promise<void> {
   console.log(`  sources with modules:    ${metas.length}`);
   console.log(`    shipped:               ${partition.shipped.length}`);
   console.log(`    partial:               ${partition.partial.length}`);
-  console.log(`    planned (slot-only):   ${partition.planned.length}`);
+  console.log(`    planned modules:       ${partition.planned.length}`);
+  console.log(`    reserved slots:        ${partition.reserved_slots.length}`);
   console.log(`    blocked:               ${partition.blocked.length}`);
   console.log(`  sister WELCOMES corpus:  ${sister.available ? `${sister.byId.size} source-id entries` : "not loadable (composition check skipped)"}`);
   console.log("");
@@ -132,8 +133,7 @@ async function main(): Promise<void> {
   }
 
   // The planned-slot-only ids (no module at all) — sister's territory
-  for (const id of partition.planned) {
-    if (metas.find((m) => m.id === id)) continue; // it's a planned-with-module case, handled by Check B above
+  for (const id of partition.reserved_slots) {
     if (sister.available && !sister.byId.has(id)) {
       findings.push({
         check: "B",

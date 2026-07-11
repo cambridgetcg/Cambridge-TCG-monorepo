@@ -710,10 +710,8 @@ export async function fetchPriceSources(opts: {
 
 // ── TCGplayer history (kingdom-080 follow-up) ────────────────────────
 //
-// Per-condition USD observation history. Partner-redistributable license —
-// display + computation OK per partner agreement; bulk re-export restricted.
-// The storefront-side proxy at /api/v1/cards/[sku]/tcgplayer-history adds
-// a session gate and license-aware envelope.
+// Retained response types for compatibility. The client and both serving
+// routes are blocked and expose no observations without written approval.
 
 export interface TcgplayerObservation {
   snapshot_date: string;
@@ -739,7 +737,7 @@ export interface TcgplayerHistoryResponse {
   tcgplayer_product_id: number | null;
   tcgplayer_sub_type: string | null;
   source: "tcgplayer";
-  source_license: "partner-redistributable";
+  source_license: "proprietary";
   filter_condition: string | null;
   count: number;
   conditions_present: string[];
@@ -748,41 +746,16 @@ export interface TcgplayerHistoryResponse {
 }
 
 /**
- * Fetch TCGplayer observation history for one card. License-sensitive:
- * the values are partner-tier USD observations. Storefront callers must
- * enforce a session gate before exposing.
+ * Dormant TCGplayer observation client. The public storefront route is
+ * blocked; do not expose values unless written approval changes SourceMeta.
  */
 export async function fetchTcgplayerHistory(opts: {
   sku: string;
   limit?: number;
   condition?: string;
 }): Promise<TcgplayerHistoryResponse | null> {
-  const u = new URL(
-    WHOLESALE_URL + "/api/v1/tcgplayer/history/" + encodeURIComponent(opts.sku),
-  );
-  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
-  if (opts.condition) u.searchParams.set("condition", opts.condition);
-  let res: Response;
-  try {
-    res = await wholesaleFetch(u.toString(), {
-      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-      next: { revalidate: 300 },
-    });
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-history fetch error", err);
-    return null;
-  }
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    console.error("[wholesale] tcgplayer-history error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as TcgplayerHistoryResponse;
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-history parse error", err);
-    return null;
-  }
+  void opts;
+  return null;
 }
 
 // ── TCGplayer federation resolve (kingdom-080 follow-up) ──────────────
@@ -816,31 +789,8 @@ export async function fetchTcgplayerResolve(opts: {
   sub_type?: string;
   sku_id?: number;
 }): Promise<TcgplayerResolveResponse | null> {
-  const u = new URL(WHOLESALE_URL + "/api/v1/tcgplayer/resolve");
-  if (opts.product_id !== undefined) u.searchParams.set("product_id", String(opts.product_id));
-  if (opts.sub_type !== undefined) u.searchParams.set("sub_type", opts.sub_type);
-  if (opts.sku_id !== undefined) u.searchParams.set("sku_id", String(opts.sku_id));
-  let res: Response;
-  try {
-    res = await wholesaleFetch(u.toString(), {
-      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-      next: { revalidate: 3600 },
-    });
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-resolve fetch error", err);
-    return null;
-  }
-  // 409 (ambiguous) returns a useful body; pass it through
-  if (!res.ok && res.status !== 409) {
-    console.error("[wholesale] tcgplayer-resolve error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as TcgplayerResolveResponse;
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-resolve parse error", err);
-    return null;
-  }
+  void opts;
+  return null;
 }
 
 /**

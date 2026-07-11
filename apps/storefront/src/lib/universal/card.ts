@@ -218,17 +218,20 @@ export async function buildUniversalCard(
       iso8601: retrievedAt.toISOString(),
       unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
     },
-    // Per-record provenance (kingdom-081 Phase 2.1). The price magnitude is
-    // Cambridge TCG's retail offer in GBP, computed by `@cambridge-tcg/pricing`
-    // from the wholesale base price. The substrate read here is the
-    // storefront's own ledger (`card_price_history`) — that table is our
-    // own observation discipline, CC0. The upstream wholesale chain may
-    // include CardRush JP retail (license: internal-only); the wholesale
-    // B2B endpoint at /api/v1/universal/card/[sku] (Bearer-gated) declares
-    // that lineage per-snapshot. This endpoint reports only what *this RDS*
-    // owns. See docs/connections/the-license-propagation.md.
-    "@sources": ["storefront-rds.card_price_history"],
-    "@source_license": ["CC0-1.0"],
+    // Storage provenance is not ownership. This document mixes names,
+    // rarity, image references, set fields, and derived price observations;
+    // the mirror does not retain field-level upstream rights lineage yet.
+    "@sources": [
+      "storefront-rds.card_set_cards",
+      "storefront-rds.card_sets",
+      "storefront-rds.card_price_history",
+    ],
+    "@source_license": ["proprietary", "proprietary", "proprietary"],
+    rights: {
+      aggregate: "NOASSERTION",
+      cambridge_original_structure: "CC0-1.0",
+      field_level_lineage_available: false,
+    },
     "_note_opaque": [
       "name",
       "art_description",

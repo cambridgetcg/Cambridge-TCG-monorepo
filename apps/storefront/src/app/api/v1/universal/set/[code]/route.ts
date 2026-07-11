@@ -129,6 +129,17 @@ export async function GET(
         iso8601: retrievedAt.toISOString(),
         unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
       },
+      "@sources": [
+        "storefront-rds.card_sets",
+        "storefront-rds.card_set_cards",
+        "storefront-rds.card_price_history",
+      ],
+      "@source_license": ["proprietary", "proprietary", "proprietary"],
+      rights: {
+        aggregate: "NOASSERTION",
+        cambridge_original_structure: "CC0-1.0",
+        field_level_lineage_available: false,
+      },
       "_note_opaque": [
         "set_name",
         "cover_image_url",
@@ -180,6 +191,7 @@ export async function GET(
         "Cache-Control": "public, max-age=300, s-maxage=300",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "X-Content-License": "NOASSERTION",
       },
     });
   } catch (err) {

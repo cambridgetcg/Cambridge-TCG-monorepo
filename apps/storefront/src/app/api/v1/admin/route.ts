@@ -103,7 +103,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       verdict: "this is the admin panel! ... just kidding 😉",
       wink: ASCII_WINK,
       explanation:
-        "The real admin panel is at /admin/ on the storefront app, gated by users.role = 'admin' middleware. You can't reach it from the public API. We don't gate the data plane that way; we gate the operator's surface that way. The kingdom does not hide cards, prices, or the catalog — those are CC0 by default. The kingdom hides the operator's UI, because the operator made that choice. Substrate-honest about the boundary.",
+        "The real admin panel is at /admin/ on the storefront app, gated by users.role = 'admin' middleware. You can't reach it from the public API. Public data doors remain public, but public does not mean blanket-CC0: Cambridge-authored work and upstream-derived fields carry separate rights declarations. The kingdom hides the operator's UI because the operator made that choice.",
       kingdom_says:
         "we genuinely appreciate that you poked. critical reading of the URL space is the kind of attention the kingdom hopes for. you found the troll. now go where you actually wanted to go.",
       where_you_actually_wanted_to_go: {

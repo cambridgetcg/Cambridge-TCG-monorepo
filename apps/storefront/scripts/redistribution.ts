@@ -11,7 +11,7 @@
  * `source-intake.md` Gate B says "declaration = SourceMeta"; the risk it
  * leaves open is a *downstream* surface that publishes itself as CC0 while
  * drawing, even partly, from a non-redistributable origin. A CC0 promise on
- * `/api/v1/sold-comps` or a `/data/*.json` bulk snapshot is only honest if
+ * `/api/v1/sold-comps` or a bulk snapshot is only honest if
  * every byte behind it is either first-party CC0 or a redistributable
  * upstream. This turns "declaration = SourceMeta" into a build-failing test
  * for the export side, not just the intake side.
@@ -20,8 +20,8 @@
  *
  *   1. Surface→origin coherence. For every CC0 export surface in the
  *      explicit, reviewed map below, every origin is one of:
- *        - first-party `storefront-rds.*` (CC0 by definition — our own
- *          users' trades/auctions on our own platform), OR
+ *        - an explicitly reviewed first-party table containing Cambridge-
+ *          owned data, OR
  *        - a data-ingest `SourceId` whose `SourceMeta` in
  *          `packages/data-ingest/src/registry.ts` has BOTH
  *          `redistribute: true` AND `license ∈ {cc0,cc-by,cc-by-sa,mit}`.
@@ -37,6 +37,10 @@
  *      needs to name. If the schema ever drops that channel, a CC0 surface
  *      could no longer honestly declare per-origin rights — that is drift,
  *      and this catches it.
+ *
+ *   3. Mixed catalog boundary. `/data/catalog.jsonl` must remain
+ *      `NOASSERTION`: its RDS tables store fields whose upstream rights are
+ *      not preserved per row. Storage location is never treated as ownership.
  *
  * ── Why an explicit map, not a route scan ───────────────────────────────
  *
@@ -54,6 +58,7 @@
  *   pnpm audit:redistribution        (from repo root)
  */
 
+import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,17 +74,29 @@ const ENVELOPE_SCHEMA_PATH = resolve(
   "schemas",
   "envelope.ts",
 );
+const CATALOG_EXPORT_PATH = resolve(
+  REPO_ROOT,
+  "apps",
+  "storefront",
+  "src",
+  "app",
+  "data",
+  "catalog.jsonl",
+  "route.ts",
+);
 
 // The four licence tiers that permit downstream redistribution. Mirrors
 // `REDISTRIBUTABLE_LICENSES` in tributaries.ts (check 7) and Gate C of
 // source-intake.md — kept as a literal, tiny set so the two audits agree.
 const REDISTRIBUTABLE_LICENSES = new Set(["cc0", "cc-by", "cc-by-sa", "mit"]);
 
-// First-party origins live in our own RDS. A P2P trade or an auction final
-// on our own platform, contributed by our own users, is CC0 by definition —
-// there is no upstream licence to honour, only our own CC0 default. Any
-// origin under this namespace is trusted without a registry lookup.
-const FIRST_PARTY_CC0_PREFIX = "storefront-rds.";
+// Only reviewed tables containing data Cambridge can actually dedicate are
+// trusted. A broad `storefront-rds.*` prefix would mistake storage location
+// for ownership and would wrongly bless mirrored catalog fields.
+const FIRST_PARTY_CC0_ORIGINS = new Set([
+  "storefront-rds.market_trades",
+  "storefront-rds.auctions",
+]);
 
 // ── The reviewed standard: CC0 export surfaces → their origins ───────────
 //
@@ -91,7 +108,7 @@ const FIRST_PARTY_CC0_PREFIX = "storefront-rds.";
 interface Cc0Surface {
   /** The public path (or path family) that declares itself CC0. */
   surface: string;
-  /** Named origins that feed it. First-party `storefront-rds.*` or a data-ingest SourceId. */
+  /** Named origins that feed it. Reviewed first-party table or a data-ingest SourceId. */
   origins: string[];
   /** Why this surface is CC0 — the reviewer's note. */
   note: string;
@@ -105,14 +122,6 @@ const CC0_EXPORT_SURFACES: Cc0Surface[] = [
       "Realised peer-to-peer sold comps: our own users' completed trades + " +
       "auction finals on our own platform. First-party CC0 — no upstream " +
       "licence to honour. eBay/partner comps are NOT admitted to this surface.",
-  },
-  {
-    surface: "/data/*.json (bulk CC0 snapshots)",
-    origins: ["storefront-rds.market_trades", "storefront-rds.auctions"],
-    note:
-      "Downloadable bulk snapshots wear CC0-1.0 in `_meta.license`; they may " +
-      "draw only from the same first-party trade/auction tables. A non-CC0 " +
-      "upstream reaching a bulk snapshot would be a redistribution breach.",
   },
 ];
 
@@ -171,8 +180,8 @@ async function main(): Promise<void> {
     for (const origin of origins) {
       originsChecked += 1;
 
-      // First-party CC0 — trusted by definition, no registry lookup.
-      if (origin.startsWith(FIRST_PARTY_CC0_PREFIX)) continue;
+      // Explicitly reviewed first-party CC0 — no registry lookup needed.
+      if (FIRST_PARTY_CC0_ORIGINS.has(origin)) continue;
 
       // Otherwise the origin must be a redistributable data-ingest source.
       if (!(origin in sources)) {
@@ -180,7 +189,7 @@ async function main(): Promise<void> {
           1,
           surface,
           origin,
-          `origin is neither a first-party '${FIRST_PARTY_CC0_PREFIX}*' table nor a registered data-ingest SourceId — a CC0 surface cannot draw from an unknown origin`,
+          "origin is neither an explicitly reviewed first-party CC0 table nor a registered data-ingest SourceId — a CC0 surface cannot draw from an unknown origin",
         );
         continue;
       }
@@ -215,6 +224,25 @@ async function main(): Promise<void> {
         );
       }
     }
+  }
+
+  // ── Check 3: the bulk catalog does not mistake storage for ownership ──
+  const catalogRoute = readFileSync(CATALOG_EXPORT_PATH, "utf8");
+  if (!catalogRoute.includes('"X-Content-License": "NOASSERTION"')) {
+    fail(
+      3,
+      "/data/catalog.jsonl",
+      "storefront-rds.card_set_cards",
+      "bulk catalog must emit X-Content-License: NOASSERTION until field-level upstream rights are preserved",
+    );
+  }
+  if (!catalogRoute.includes('license: "NOASSERTION"')) {
+    fail(
+      3,
+      "/data/catalog.jsonl",
+      "storefront-rds.card_set_cards",
+      "bulk catalog manifest must declare aggregate license NOASSERTION",
+    );
   }
 
   // ── Check 2: envelope structural parity (reference, don't reimplement) ─
@@ -272,6 +300,7 @@ async function main(): Promise<void> {
   if (failures.length === 0) {
     console.log("✓ all CC0 export surfaces draw only from redistributable / first-party-CC0 origins");
     console.log("✓ envelope carries the source_license parity a CC0 declaration rides on");
+    console.log("✓ mixed catalog export remains NOASSERTION rather than blanket CC0");
     console.log("");
     process.exit(0);
   }

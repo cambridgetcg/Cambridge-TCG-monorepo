@@ -17,6 +17,15 @@ describe("the game weather (spec 2026-07-07 §3)", () => {
     expect(weatherClass("dragon-ball")).toBe(
       "wardrobe-weather wardrobe-weather--dragon-ball",
     );
+    expect(weatherClass("vanguard")).toBe(
+      "wardrobe-weather wardrobe-weather--vanguard",
+    );
+    expect(weatherClass("digimon")).toBe(
+      "wardrobe-weather wardrobe-weather--digimon",
+    );
+    expect(weatherClass("battle-spirits")).toBe(
+      "wardrobe-weather wardrobe-weather--battle-spirits",
+    );
   });
 
   it("leaves a room without game context bare", () => {

@@ -376,8 +376,8 @@ export default function BuyingGuidePage() {
               <p className="text-ink font-bold mb-1">A price beside every card</p>
               <p className="text-sm text-ink-muted leading-relaxed">
                 Each card carries a labelled reference price next to its live
-                order book. That price is open data, never our offer — the house
-                holds no position and sells nothing.
+                order book. That policy-bound reference is never our offer or
+                an open-data grant — the house holds no position and sells nothing.
               </p>
             </Card>
           </div>
@@ -547,7 +547,7 @@ export default function BuyingGuidePage() {
                   <span className="text-accent">&bull;</span>
                   We link to CardRush, but we never republish their yen prices —
                   those are theirs. The reference price you see on our card pages
-                  is our own open data.
+                  is a derived, rights-labelled guide—not a reuse grant.
                 </li>
                 <li className="flex gap-2">
                   <span className="text-accent">&bull;</span>
@@ -861,7 +861,7 @@ export default function BuyingGuidePage() {
               <li className="flex gap-2">
                 <span className="text-accent shrink-0">&bull;</span>
                 Cambridge TCG doesn&apos;t buy or sell these cards. We publish
-                reference prices as open data (never an offer) and route you to
+                policy-bound reference prices (never offers or open-data grants) and route you to
                 where cards actually trade — including our own collectors&apos;
                 market.
               </li>

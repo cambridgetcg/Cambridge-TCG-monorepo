@@ -213,14 +213,14 @@ const ENDPOINTS: EndpointEntry[] = [
   // ── This endpoint, naming itself ───────────────────────────────────
   {
     path: "/data.json",
-    title: "Open data index (machine-readable)",
-    blurb: "This endpoint. The substrate-of-openness as itself an open endpoint. Self-referential closure: the index of open endpoints includes itself.",
+    title: "Public data index (machine-readable)",
+    blurb: "This endpoint. Publicly reachable, with response-specific reuse rights. Self-referential closure: the index of public endpoints includes itself.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/data",
-    title: "Open data index (human-readable)",
+    title: "Public data index (human-readable)",
     blurb: "Public, no-auth, comprehensive HTML index. The sign on the door.",
     status: "shipped",
     auth: "none",

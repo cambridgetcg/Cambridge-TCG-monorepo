@@ -49,4 +49,56 @@ describe("GET /api/v1/coverage", () => {
       since: undefined,
     });
   });
+
+  it("maps observed sources to their reviewed rights tier and defaults unknown ids closed", async () => {
+    mockFetchCoverage.mockResolvedValueOnce({
+      summary: {
+        total_observations: 2,
+        distinct_cards: 1,
+        distinct_games: 1,
+        distinct_sources: 2,
+        unassigned_observations: 0,
+        earliest_snapshot: "2026-07-10",
+        latest_snapshot: "2026-07-11",
+        days_of_coverage: 2,
+      },
+      by_game_source: [],
+      by_game: [],
+      by_source: [
+        {
+          source: "cardrush",
+          games: ["op"],
+          observations: 1,
+          distinct_cards: 1,
+          earliest_snapshot: "2026-07-10",
+          latest_snapshot: "2026-07-11",
+        },
+        {
+          source: "legacy-unregistered-source",
+          games: ["op"],
+          observations: 1,
+          distinct_cards: 1,
+          earliest_snapshot: "2026-07-10",
+          latest_snapshot: "2026-07-11",
+        },
+      ],
+      filter: { source: null, game: null, since: null },
+      queried_at: "2026-07-11T12:00:00.000Z",
+    });
+
+    const response = await GET(new Request("https://example.test/api/v1/coverage"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body._meta.sources).toEqual([
+      "cambridge-tcg.coverage-aggregation",
+      "cardrush",
+      "legacy-unregistered-source",
+    ]);
+    expect(body._meta.source_license).toEqual([
+      "cc0",
+      "internal-only",
+      "proprietary",
+    ]);
+  });
 });

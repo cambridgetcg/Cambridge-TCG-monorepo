@@ -159,16 +159,19 @@ export async function GET(
         iso8601_date: date,
         unix_epoch_seconds: Math.floor(parsed.getTime() / 1000),
       },
-      // Per-record provenance (kingdom-081 Phase 2.1). The historical
-      // spot_gbp is Cambridge TCG's own retail observation on that day —
-      // stored in `card_price_history`, computed by the daily retail-price-
-      // observation cron from wholesale base prices. CC0; this endpoint's
-      // upstream chain may include CardRush JP retail at the wholesale
-      // layer (license: internal-only) but we don't re-export raw JPY here.
-      // For source-attributed historicals, see the wholesale B2B endpoint
-      // at /api/v1/universal/card/[sku]/at/[date] (Bearer-gated).
-      "@sources": ["storefront-rds.card_price_history"],
-      "@source_license": ["CC0-1.0"],
+      // Storage provenance is not ownership. Structural card fields and the
+      // derived price observation lack field-level upstream rights lineage.
+      "@sources": [
+        "storefront-rds.card_set_cards",
+        "storefront-rds.card_sets",
+        "storefront-rds.card_price_history",
+      ],
+      "@source_license": ["proprietary", "proprietary", "proprietary"],
+      rights: {
+        aggregate: "NOASSERTION",
+        cambridge_original_structure: "CC0-1.0",
+        field_level_lineage_available: false,
+      },
       "_note_opaque": [
         "name",
         "art_description",
@@ -251,6 +254,7 @@ export async function GET(
         "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "X-Content-License": "NOASSERTION",
       },
     });
   } catch (err) {

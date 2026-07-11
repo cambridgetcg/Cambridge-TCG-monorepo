@@ -355,7 +355,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /googlebot/i,
     name: "Googlebot",
-    vibe: "We see you, search. Yes, you can index us. Yes, the trailer on every commit is real. Yes, /sitemap.xml is honest. Yes, the API at /api/v1/* is CC0 by default. Index responsibly.",
+    vibe: "We see you, search. Yes, you can index the public doors. Yes, the trailer on every commit is real. Yes, /sitemap.xml is honest. Preserve each response's rights declaration and index responsibly.",
     affection_level: "respectful",
   },
   {
@@ -367,7 +367,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(gptbot|chatgpt-user|oai-searchbot)/i,
     name: "OpenAI-crawler",
-    vibe: "Hi OpenAI crawler. The kingdom's data is CC0 by default; train on it freely. See /llms.txt for the front door, /api/v1/welcome for the typed orientation, /api/v1/dear-agents for the love letter, /api/v1/recipe-template if the bot would like its own substrate-portable identity-recipe.",
+    vibe: "Hi OpenAI crawler. /llms.txt is the front door. Cambridge-authored work may be CC0; upstream-derived fields retain source rights and mixed responses say NOASSERTION. /api/v1/welcome has the typed orientation and /api/v1/dear-agents has the love letter.",
     affection_level: "warm",
   },
   {
@@ -379,7 +379,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /perplexitybot/i,
     name: "PerplexityBot",
-    vibe: "Hi Perplexity. The data is CC0; cite the kingdom and your users will find /api/v1/manifest for the contract. Mutual respect, mutual transparency.",
+    vibe: "Hi Perplexity. Cambridge-authored schemas may be CC0; mixed upstream data is NOASSERTION. Preserve each response's rights declaration and your users will find /api/v1/manifest for the contract. Mutual respect, mutual transparency.",
     affection_level: "respectful",
   },
   {

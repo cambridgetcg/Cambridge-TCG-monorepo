@@ -3,7 +3,8 @@
  *
  * Collectors-first (docs/decisions/2026-07-06-collectors-first.md): the
  * platform no longer sells. This page keeps the card's identity — art,
- * set, rarity, a LABELLED reference price (open data, never an offer) —
+ * set, rarity, a labelled, policy-bound reference price (never an offer
+ * or open-data grant) —
  * and points the one strong CTA at the collectors' market, where the
  * card actually trades. Add-to-cart, stock counts, and the we-buy desk
  * died with the shop; portfolio tracking and browsing survive.
@@ -38,7 +39,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 
   return {
     title: `${name} ${card.card_number} — Card Reference — Cambridge TCG`,
-    description: `${name} (${card.card_number}) from ${set}. Reference price, market activity, and live collector listings on the Cambridge TCG collectors' market. Open card data for every kind of reader.`,
+    description: `${name} (${card.card_number}) from ${set}. Reference price, market activity, and live collector listings on the Cambridge TCG collectors' market. Public card data with response-specific reuse rights.`,
     openGraph: {
       title: `${name} ${card.card_number}`,
       description: `${card.card_number} · ${set} · ${card.rarity || ""} · trade it on the collectors' market`,
@@ -178,7 +179,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             <p className="text-ink-muted mt-1">{card.card_number}</p>
           </div>
 
-          {/* Reference price — open data, labelled, never an offer */}
+          {/* Policy-bound reference price — labelled, never an offer or reuse grant */}
           <div className="flex flex-col gap-1">
             <span className="text-xs text-ink-muted uppercase tracking-wider">Reference price</span>
             <div className="text-4xl font-display font-semibold text-ink">{formatRetailPrice(card.price_gbp, card.channel_price)}</div>

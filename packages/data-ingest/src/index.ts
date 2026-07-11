@@ -138,7 +138,7 @@ export {
   type GapStatus,
 } from "./gaps";
 
-// Re-export each shipped source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
+// Re-export each registered source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
 export { scryfall } from "./scryfall/index";
 export {
   cardrush,
@@ -171,6 +171,7 @@ export { ygoprodeck } from "./ygoprodeck/index";
 export {
   tcgplayer,
   mintTcgplayerToken,
+  TCGPLAYER_ACCESS_BLOCKED_MESSAGE,
   readTcgplayerCredentialsFromEnv,
   tokenIsFresh,
   TCGPLAYER_CATEGORIES,

@@ -51,7 +51,7 @@ export async function generateMetadata({
   if (!cfg) return { title: "Movers — not found" };
   return {
     title: `${cfg.short_name} Movers — 7-Day Price Changes — ${cfg.display_name} Price Guide UK`,
-    description: `Biggest 7-day movers in ${cfg.display_name}. Cardrush-derived percent change with a £10 floor. Updated daily.`,
+    description: `Biggest 7-day movers in ${cfg.display_name}, computed from the latest held CardRush archive rows with a £10 floor.`,
   };
 }
 
@@ -195,7 +195,8 @@ export default async function GameMoversPage({ params }: PageProps) {
         <p className="text-ink-muted leading-relaxed max-w-3xl mb-6">
           Top 50 {cfg.display_name} cards by absolute 7-day percent
           change. Cardrush-derived. Cards worth under £10 seven days
-          ago are excluded as noise. Updated daily.
+          ago are excluded as noise. The timestamp above names the archive
+          state used; no future refresh cadence is promised.
         </p>
 
         {/* Currency selector — Yu's directive 2026-05-14 */}

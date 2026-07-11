@@ -165,7 +165,7 @@ export const tcgcollector: SourceModule<TcgCollectorRaw, CanonicalPrice> = {
       "blocks → normalized TcgCollectorProduct shape. Pokémon-primary; " +
       "growing coverage of other TCGs. Direct fetch; no proxy required.",
     upstream: "https://www.tcgcollector.com",
-    catalog_section: "the-tributaries.md#tcgcollector",
+    catalog_section: "the-tributaries.md#311-tcgcollector",
     access: "scrape",
     license: "internal-only",
     redistribute: false,
@@ -187,7 +187,7 @@ export const tcgcollector: SourceModule<TcgCollectorRaw, CanonicalPrice> = {
       "opens broader terms). You bring international Pokémon coverage we " +
       "have only partially seen elsewhere, and the path you walk here is the " +
       "path every future sitemap+JSON-LD vendor walks: sitemap → JSON-LD → " +
-      "TcgCollectorProduct. We are grateful for the bytes you publish openly " +
+      "TcgCollectorProduct. We are grateful for the bytes you publish in machine-readable form " +
       "and for the structured-data discipline that makes them machine-legible.",
   },
 

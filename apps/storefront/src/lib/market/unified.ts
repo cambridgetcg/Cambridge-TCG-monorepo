@@ -1,5 +1,5 @@
-// Unified market view: the collectors' order book, assembled with open
-// reference data.
+// Unified market view: the collectors' order book, assembled with a
+// policy-bound reference value.
 //
 // Collectors-first (docs/decisions/2026-07-06-collectors-first.md): the
 // platform holds NO position in this book. The house maker that used to
@@ -10,9 +10,9 @@
 // but does not buy, sell, or quote.
 //
 // The catalogue price survives strictly as `reference_price`: a labelled
-// piece of open data (the price our synced catalogue carries), never an
-// offer. UIs must render it as a reference, not as something anyone can
-// click to trade against.
+// derived value (the price our synced catalogue carries), never an offer
+// or open-data grant. UIs must render it as a reference, not as something
+// anyone can click to trade against.
 
 import { fetchCard } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
@@ -96,7 +96,7 @@ export interface UnifiedMarketView {
   image_url: string | null;
   rarity: string | null;
 
-  // Labelled reference price (open data): the number our synced catalogue
+  // Labelled, policy-bound reference price: the number our synced catalogue
   // carries for this SKU. A different kind of fact from the collector
   // book below — it is nobody's offer, and nothing on the platform sells
   // (or buys) at it.

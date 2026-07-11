@@ -15,7 +15,7 @@ export interface CatalogCard {
   set_name: string;
   rarity: string | null;
   image_url: string | null;
-  // Labelled reference price (open data) — the catalogue number, never
+  // Labelled, policy-bound reference price — the catalogue number, never
   // an offer. Collectors-first (2026-07-06): the trade-in credit channel
   // that used to ride alongside it is gone with the we-buy desk.
   spot_price: number;

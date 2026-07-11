@@ -25,6 +25,11 @@ import {
   isValidCoverageDate,
   isValidCoverageToken,
 } from "@/lib/wholesale/db-source";
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+
+const SOURCE_LICENSE_BY_ID: ReadonlyMap<string, string> = new Map(
+  listSourceMeta().map((source) => [source.id, source.license] as const),
+);
 
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -115,7 +120,12 @@ export async function GET(req: Request): Promise<Response> {
     data,
     endpoint: "/api/v1/coverage",
     sources: ["cambridge-tcg.coverage-aggregation", ...upstreamLineage],
-    source_license: ["cc0", ...upstreamLineage.map(() => "internal-only")],
+    source_license: [
+      "cc0",
+      ...upstreamLineage.map(
+        (source) => SOURCE_LICENSE_BY_ID.get(source) ?? "proprietary",
+      ),
+    ],
     does_not_include: [
       "No upstream price value, collector record, account, message, or inferred relationship is included.",
       "CC0 applies only to rights Cambridge holds in this compiled operational view; upstream terms still govern upstream material.",

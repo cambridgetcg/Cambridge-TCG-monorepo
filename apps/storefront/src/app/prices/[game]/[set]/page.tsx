@@ -102,10 +102,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-    description: `Full price list for ${setCode} ${setName} — every card with UK retail and trade-in prices. Updated daily by Cambridge TCG.`,
+    description: `Observed catalog rows for ${setCode} ${setName}, with policy-bound GBP reference values where held. This page does not claim a complete set or refresh cadence.`,
     openGraph: {
       title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-      description: `Full price list for ${setCode} ${setName} — every card with UK retail and trade-in prices.`,
+      description: `Observed catalog rows for ${setCode} ${setName}, with policy-bound reference values where held.`,
     },
   };
 }
@@ -498,7 +498,8 @@ export default async function SetPriceGuidePage({
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
             The <strong className="text-ink-muted">Buy Price</strong> is our
-            catalogue reference price — open data, not an offer. Cambridge TCG
+            catalogue reference price — a policy-bound derived value, not an offer
+            or an open-data grant. Cambridge TCG
             no longer buys cards itself; selling happens between collectors on
             the market.
           </p>

@@ -68,7 +68,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
     source_license: state._provenance.source_license,
     freshness: state._provenance.freshness,
     as_of: state._provenance.as_of ?? undefined,
-    license: "CC0-1.0",
+    license: "NOASSERTION",
   });
 }
 

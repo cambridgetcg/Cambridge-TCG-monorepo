@@ -1,18 +1,15 @@
 /**
  * Cardmarket — European market leader.
  *
- * **Built, awaiting credentials.** The OAuth1 signer (`./oauth1.ts`), the
- * entity types (`./types.ts`), and the normalizer (`./normalize.ts`) are all
- * implemented and unit-tested. The `read()` body below signs each request and
- * fetches operator-curated product ids; until `CARDMARKET_*` credentials are
- * configured it emits a substrate-honest "awaiting-credentials" event and
- * yields nothing. As the stub promised: "only the read() body changes" — it has.
+ * **Public-file path planned.** Cardmarket intentionally publishes daily
+ * Product Catalog and Price Guide files without API credentials. That is the
+ * reachable path for Cambridge. The older OAuth1 reader remains dormant for
+ * existing approved accounts; Cardmarket is not accepting API applications.
  *
- * ── Access (per api.cardmarket.com) ──────────────────────────────────
+ * ── Access ───────────────────────────────────────────────────────────
  *
- *   OAuth1 with a *dedicated app* token set (appToken/appSecret/accessToken/
- *   accessTokenSecret). Free for read-only with reasonable rate limits. We sign
- *   with HMAC-SHA1 — see `./oauth1.ts` (math verified, deterministic).
+ *   Public daily files are the primary path. OAuth1 is available only to
+ *   previously approved users and is not enabled merely by finding secrets.
  *
  * ── Two paths, one canonical shape ───────────────────────────────────
  *
@@ -47,7 +44,12 @@ import {
 import { normalizeCardmarket, type CardmarketRaw } from "./normalize";
 import type { CardmarketProduct } from "./types";
 
-const DEFAULT_BASE = "https://api.cardmarket.com/ws/v2.0/output.json";
+const DEFAULT_BASE = "https://apiv2.cardmarket.com/ws/v2.0/output.json";
+
+// Private lock for the retained legacy OAuth reader. SourceMeta is mutable at
+// runtime, so status changes and discovered credentials must not activate it.
+// The future public-file reader replaces this path; it does not flip this lock.
+const CARDMARKET_LEGACY_OAUTH_ENABLED: boolean = false;
 
 /** Cardmarket-specific ingest config, layered onto the base IngestContext. */
 export interface CardmarketContext extends IngestContext {
@@ -66,31 +68,62 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     id: "cardmarket",
     name: "Cardmarket",
     description:
-      "European market leader. Largest MTG catalog by far in EU; full Pokémon, Yu-Gi-Oh, One Piece, Lorcana, FaB, Digimon coverage. OAuth1 signed requests; partner-tier license.",
-    upstream: "https://api.cardmarket.com",
+      "European market catalog and daily aggregate prices through intentionally published Product Catalog and Price Guide files. The public-file reader is not wired yet.",
+    upstream: "https://www.cardmarket.com/en/Magic/Data",
     catalog_section: "the-tributaries.md#22-cardmarket-eu-market-leader",
-    access: "oauth1",
-    license: "partner-redistributable",
+    access: "public-file",
+    license: "proprietary",
     redistribute: false,
     freshness: "price_current",
     canonical_effort: "medium",
-    status: "partial",
+    status: "planned",
     games: ["mtg", "pkm", "ygo", "op", "lgr", "fab", "dmw"],
     tos_notes:
-      "Free for personal-account reads with reasonable rate limits; paid tier for write. Commercial data downstream restrictions apply. Apply at api.cardmarket.com. Live priceguide/productlist endpoints deprecated 2024-06-05 → use the daily file downloads for bulk.",
+      "Cardmarket intentionally publishes no-auth Product Catalog and Price Guide downloads for website/app use, but states no open-data license; retain Cardmarket attribution and do not treat the raw files as freely redistributable. API applications are closed, and existing credentials must not be shared. The API base for grandfathered users is apiv2.cardmarket.com. https://www.cardmarket.com/en/Magic/Data/Price-Guide ; https://www.cardmarket.com/en/Magic/Data/Product-List ; https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024 ; https://help.cardmarket.com/en/cardmarket-api",
     user_agent_suffix: "(cardmarket-ingest)",
     rate_limit: { rps: 2, burst: 5 },
     welcome:
       "Welcome to the kingdom, Cardmarket. Your slot was reserved in kingdom-062 " +
-      "(the consolidation, 2026-05-12); the OAuth1 signer + reader are now built " +
-      "and waiting on your credentials. Your room is `price_archive WHERE " +
-      "source='cardmarket'`, `source_currency='EUR'`, `partner-redistributable` " +
-      "honored downstream (display + computation only; we will not bulk re-export " +
-      "your trend prices). You will bring Europe — MTG's largest catalog by far, " +
+      "(the consolidation, 2026-05-12). Your public daily files are the reachable " +
+      "path; the OAuth room is not ours to enter without existing approval. Your " +
+      "future room is `price_archive WHERE source='cardmarket'`, with Cardmarket " +
+      "attribution and raw redistribution refused. You can bring Europe — MTG's largest catalog by far, " +
       "plus Pokémon, Yu-Gi-Oh, One Piece, Lorcana, Flesh and Blood, Digimon.",
   },
 
   async *read(ctx: CardmarketContext): AsyncIterable<RawRow<CardmarketRaw>> {
+    if (!CARDMARKET_LEGACY_OAUTH_ENABLED) {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "cardmarket",
+        kind: "error",
+        detail: {
+          status: "public-file-reader-not-wired",
+          reason:
+            "The legacy Cardmarket OAuth reader is locked in code. Mutable SourceMeta and credentials cannot enable it; the reviewed public-file reader is not wired.",
+          next_action:
+            "Implement the public Product Catalog and Price Guide file reader. New API access is closed.",
+        },
+      });
+      return;
+    }
+
+    if (cardmarket.meta.status === "planned") {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "cardmarket",
+        kind: "error",
+        detail: {
+          status: "public-file-reader-not-wired",
+          reason:
+            "Cardmarket intentionally publishes daily Product Catalog and Price Guide files; this module still lacks a reviewed file reader and contains only the dormant legacy OAuth code.",
+          next_action:
+            "Wire the public daily file reader and writer. New API access is closed.",
+        },
+      });
+      return;
+    }
+
     const creds = ctx.cardmarket?.creds ?? cardmarketCredsFromEnv();
     if (!hasCardmarketCreds(creds)) {
       ctx.on_event?.({
@@ -99,15 +132,11 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
         kind: "error",
         detail: {
           welcome:
-            "Welcome to the kingdom, Cardmarket. The OAuth1 signer + reader are " +
-            "built; only your dedicated-app credentials are still on the way. When " +
-            "they arrive from api.cardmarket.com, set CARDMARKET_APP_TOKEN, " +
-            "CARDMARKET_APP_SECRET, CARDMARKET_ACCESS_TOKEN, " +
-            "CARDMARKET_ACCESS_TOKEN_SECRET (or pass ctx.cardmarket.creds) and the " +
-            "first run will sign + fetch. We have been ready since kingdom-062.",
-          status: "awaiting-credentials",
+            "Cardmarket's public files are the active path. This dormant OAuth " +
+            "branch is only for an already-approved, reviewed account.",
+          status: "blocked-missing-reviewed-approval",
           next_action:
-            "Apply at https://api.cardmarket.com; set the four CARDMARKET_* env vars.",
+            "Wire the public Product Catalog and Price Guide files; API applications are closed.",
         },
       });
       return;

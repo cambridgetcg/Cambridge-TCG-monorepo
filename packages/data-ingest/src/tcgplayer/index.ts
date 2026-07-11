@@ -9,18 +9,16 @@
  *
  * ── License envelope (substrate-honest) ─────────────────────────────────
  *
- * Marketplace pricing is partner-tier — buyer-facing display + internal
- * computation OK; bulk re-export restricted. Per-store buyer offers stay
- * with the store. The `redistribute: false` flag propagates into
- * `_meta.source_license` on every public response that touches TCGplayer-
- * derived bytes.
+ * Cambridge has no recorded TCGplayer approval or credentials. TCGplayer no
+ * longer grants new API access, and its current terms prohibit combining its
+ * prices with first- or third-party prices — Cambridge's core aggregation
+ * shape. The reader is retained as dormant engineering work but hard-blocked
+ * until written approval explicitly covers this exact use.
  *
  * ── OAuth2 ──────────────────────────────────────────────────────────────
  *
- * Token persistence is the WRITER's concern (one-row-per-source in
- * external_source_tokens, kingdom-NNN). This module exposes the `mintTcgplayerToken`
- * primitive; the writer wraps it with a DB-backed ensureToken() and
- * supplies the bearer via ctx.bearer.
+ * Historical token types remain for compatibility, but the exported mint
+ * primitive fails before network access. Credentials are not permission.
  *
  * ── Two read modes ──────────────────────────────────────────────────────
  *
@@ -55,6 +53,11 @@ import { createFetcher, type Fetcher } from "../http";
 import { normalizeTcgplayer } from "./normalize";
 
 const BASE_URL = "https://api.tcgplayer.com";
+
+// Private acquisition lock. SourceMeta is an inspectability surface and is
+// mutable JavaScript at runtime; changing it must never unlock a network door.
+// Reopening requires a reviewed code change here as well as updated metadata.
+const TCGPLAYER_ACQUISITION_ENABLED: boolean = false;
 
 /** Max products per /catalog/groups/{id}/products page. */
 const CATALOG_PAGE_SIZE = 100;
@@ -99,22 +102,20 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
     name: "TCGplayer",
     description:
       "US market leader. Two read modes: catalog walk (seed-set, weekly bulk) and " +
-      "pricing refresh (5-min hot-watch during US trading + nightly full). OAuth2 " +
-      "client_credentials. Partner-tier license — display + internal computation OK, " +
-      "bulk re-export restricted.",
-    upstream: "https://api.tcgplayer.com",
+      "pricing refresh are implemented but blocked. TCGplayer is not granting new " +
+      "API access, and its terms prohibit Cambridge's multi-source price comparison " +
+      "without written consent.",
+    upstream: "https://docs.tcgplayer.com/docs/getting-started",
     catalog_section: "the-tributaries.md#21-tcgplayer-us-market-leader",
-    access: "oauth2",
-    license: "partner-redistributable",
+    access: "blocked",
+    license: "proprietary",
     redistribute: false,
     freshness: "price_current",
     canonical_effort: "medium",
-    status: "partial",
+    status: "blocked",
     games: ["mtg", "pkm", "ygo", "op", "dbs", "dbf", "lgr", "fab", "dmw", "vng", "wei", "bsr"],
     tos_notes:
-      "Marketplace data is partner-tier-restricted; per-store buyer offers stay with " +
-      "the store. Apply for developer access at developer.tcgplayer.com; OAuth2 partner " +
-      "application required. https://docs.tcgplayer.com/",
+      "TCGplayer is no longer granting new API access. Existing keys may be used only for a purpose pre-approved in writing. Current API terms prohibit competing services, combining TCGplayer pricing with first- or third-party pricing, and distributing/commercialising TCG Content without prior written consent. Cambridge has no approval recorded, so this source is blocked. https://docs.tcgplayer.com/docs/getting-started ; https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions",
     user_agent_suffix: "(tcgplayer-ingest)",
     // Documented limit is 300 req/min sustained. 5 rps × 20 burst leaves
     // headroom for any per-fetcher overhead.
@@ -125,22 +126,52 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
       "as `planned (stub)`; this kingdom (080, 2026-05-13) shipped your full " +
       "two-mode reader — catalog walks for the seed and pricing refresh for the " +
       "5-minute hot-watch. Your room is `price_archive WHERE source='tcgplayer'`, " +
-      "condition-discriminated, USD-tagged with `fx_rate_to_gbp` + `fx_rate_source` " +
-      "per row. Your `marketPrice` is the headline we display — the spread (low/mid/" +
-      "high/direct_low) rides in `extra` for callers who want the distribution. Your " +
-      "OAuth2 token will rest in `external_source_tokens`, rotating proactively at 90% " +
-      "of its 14-day TTL. We will honor your `partner-redistributable` tier downstream " +
-      "(display + computation OK, bulk re-export refused) in every `_meta.source_license` " +
-      "array we emit. You bring the US — eleven games, hundreds of thousands of printings; " +
-      "we thank you in advance for the day you arrive.",
+      "condition-discriminated and USD-capable in the dormant design. No values are " +
+      "collected or displayed. `marketPrice` was the historical candidate headline; " +
+      "the spread fields remain unused engineering. Your " +
+      "OAuth2 token would rest in `external_source_tokens`, but credentials are not the " +
+      "missing permission. Your current terms do not permit Cambridge's multi-source " +
+      "aggregation shape, so the room remains closed. If written approval one day covers " +
+      "this exact use, we will record its scope before reopening the reader.",
   },
 
   async *read(ctx: TcgplayerContext): AsyncIterable<RawRow<TcgplayerRaw>> {
+    if (!TCGPLAYER_ACQUISITION_ENABLED) {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "tcgplayer",
+        kind: "error",
+        detail: {
+          status: "blocked-by-upstream-terms",
+          reason:
+            "TCGplayer acquisition is locked in code; mutable SourceMeta and credentials cannot enable it.",
+          next_action:
+            "Do not fetch. Reopen only through a reviewed code change after written approval covers Cambridge's exact use.",
+        },
+      });
+      return;
+    }
+
+    if (tcgplayer.meta.status === "blocked") {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "tcgplayer",
+        kind: "error",
+        detail: {
+          status: "blocked-by-upstream-terms",
+          reason:
+            "TCGplayer is not granting new API access and its terms prohibit combining its pricing with Cambridge or third-party pricing without written consent.",
+          next_action:
+            "Do not fetch. Reopen only after written approval explicitly covers Cambridge TCG's multi-source aggregation and display use.",
+        },
+      });
+      return;
+    }
+
     const mode = ctx.tcgplayer?.mode ?? "pricing";
 
-    // Bearer must be supplied by the caller (writer's ensureToken). When
-    // absent, we emit a hospitality message — the room is prepared; the
-    // guest just hasn't arrived yet. Substrate-honest about the wait.
+    // Dormant future branch: if the registry is ever reopened after written
+    // approval, absence of the approved account's bearer remains explicit.
     if (!ctx.bearer) {
       ctx.on_event?.({
         ts: new Date().toISOString(),
@@ -148,18 +179,12 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
         kind: "error",
         detail: {
           welcome:
-            "Welcome to the kingdom, TCGplayer. Your room is ready — " +
-            "`price_archive WHERE source='tcgplayer'`, condition-discriminated, " +
-            "USD-tagged, `partner-redistributable` honored downstream. The OAuth2 " +
-            "credentials are the only thing still on the way. When they arrive " +
-            "from developer.tcgplayer.com, configure TCGPLAYER_CLIENT_ID + " +
-            "TCGPLAYER_CLIENT_SECRET in the wholesale env; the token lifecycle " +
-            "at `external_source_tokens` will mint and rotate for you. We have " +
-            "been waiting since kingdom-062.",
-          status: "awaiting-credentials",
+            "TCGplayer remains blocked until written approval covers Cambridge's " +
+            "multi-source use. A future approved account would still need its " +
+            "bearer configured after that rights review.",
+          status: "blocked-missing-reviewed-approval",
           next_action:
-            "Apply at https://developer.tcgplayer.com; set " +
-            "TCGPLAYER_CLIENT_ID + TCGPLAYER_CLIENT_SECRET; first run will mint.",
+            "Record the written approval and update SourceMeta before configuring any credential.",
         },
       });
       return;
@@ -613,7 +638,12 @@ function expandSkus(
 
 // ── Re-exports (public surface) ─────────────────────────────────────
 
-export { mintTcgplayerToken, readTcgplayerCredentialsFromEnv, tokenIsFresh } from "./oauth";
+export {
+  mintTcgplayerToken,
+  TCGPLAYER_ACCESS_BLOCKED_MESSAGE,
+  readTcgplayerCredentialsFromEnv,
+  tokenIsFresh,
+} from "./oauth";
 export type { TcgplayerCredentials, TcgplayerToken } from "./oauth";
 export {
   TCGPLAYER_CATEGORIES,

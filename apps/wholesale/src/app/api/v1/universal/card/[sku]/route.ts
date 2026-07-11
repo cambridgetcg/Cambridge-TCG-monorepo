@@ -31,6 +31,11 @@ import { cards, games, sets } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateApiKey } from "../../../auth";
 import { createHash } from "node:crypto";
+import {
+  INTERNAL_ONLY_CACHE_CONTROL,
+  WHOLESALE_STORAGE_PUBLICATION_POLICY,
+  priceSourcePublicationPolicy,
+} from "@/lib/source-publication-policy";
 
 // Stable canonical-JSON: object keys sorted, no whitespace. Used to
 // compute @content_hash so two retrievals of an unchanged card produce
@@ -146,15 +151,28 @@ export async function GET(
       .limit(1);
 
     if (!rows.length) {
-      return NextResponse.json({ error: "Card not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Card not found" },
+        {
+          status: 404,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
+      );
     }
     const r = rows[0]!;
     const retrievedAt = new Date();
 
     const median = await getPlatformMedianCardPrice();
 
-    // Magnitude in canonical GBP (the legal authority).
-    const magnitude = r.price == null ? null : Number(r.price);
+    const has_cardrush_lineage = r.cardrushJpy !== null && r.cardrushJpy !== undefined;
+    const cardrush_policy = priceSourcePublicationPolicy("cardrush");
+
+    // A stored magnitude is not publication permission. When the current
+    // price has upstream lineage, its policy decides whether it leaves.
+    const magnitude =
+      r.price == null || (has_cardrush_lineage && !cardrush_policy.publish)
+        ? null
+        : Number(r.price);
 
     // Build the math-first representation. Natural-language fields go into
     // `name.translations` and `art_description`, both flagged in _note_opaque.
@@ -187,13 +205,16 @@ export async function GET(
     // modules ship, this branches per-row; for now, every priced card with
     // `cardrushJpy IS NOT NULL` is cardrush-derived. The wholesale RDS row
     // is the immediate read; cardrush is the ultimate upstream.
-    const has_cardrush_lineage = r.cardrushJpy !== null && r.cardrushJpy !== undefined;
-    const provenance_sources = has_cardrush_lineage
+    const publish_cardrush_lineage = has_cardrush_lineage && cardrush_policy.publish;
+    const provenance_sources = publish_cardrush_lineage
       ? ["wholesale-rds.cards", "cardrush"]
       : ["wholesale-rds.cards"];
-    const provenance_source_license = has_cardrush_lineage
-      ? ["internal-only", "internal-only"]
-      : ["internal-only"];
+    const provenance_source_license = publish_cardrush_lineage
+      ? [WHOLESALE_STORAGE_PUBLICATION_POLICY.license, cardrush_policy.license]
+      : [WHOLESALE_STORAGE_PUBLICATION_POLICY.license];
+    const magnitude_policy = publish_cardrush_lineage
+      ? cardrush_policy
+      : WHOLESALE_STORAGE_PUBLICATION_POLICY;
 
     const document = {
       "@encoding": "cambridge-tcg/universal/v1",
@@ -246,6 +267,9 @@ export async function GET(
         ? {
             magnitude,
             currency_token: "GBP",
+            source: publish_cardrush_lineage ? "cardrush" : "wholesale-rds.cards",
+            source_license: magnitude_policy.license,
+            source_redistribute: magnitude_policy.redistribute,
             ratio_to_platform_median_card_price: Number((magnitude / median).toFixed(6)),
             ratio_to_set_minimum_significant_unit: Math.round(magnitude / 0.01),
             magnitude_freshness: r.lastSyncedAt
@@ -345,7 +369,7 @@ export async function GET(
     const selfHash = sha256(canonicalize(projected));
     return NextResponse.json({ "@self_hash": selfHash, ...projected }, {
       headers: {
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL,
         "Content-Type": "application/json; charset=utf-8",
       },
     });
@@ -354,7 +378,10 @@ export async function GET(
     console.error("[/api/v1/universal/card/[sku]] Error:", message);
     return NextResponse.json(
       { error: "Internal error", detail: message },
-      { status: 500 },
+      {
+        status: 500,
+        headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+      },
     );
   }
 }

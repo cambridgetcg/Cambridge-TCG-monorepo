@@ -2,7 +2,7 @@
 
 **MCP stdio bridge for Cambridge TCG.** Pipes any local MCP client (Claude Desktop, Cursor, Continue, Cline, Zed, ...) to the remote HTTPS MCP gate at `https://cambridgetcg.com/api/mcp`. Newline-delimited JSON-RPC 2.0 on stdin becomes HTTPS POSTs; server responses go to stdout.
 
-Cambridge TCG aggregates the trading-card-game world — catalog, prices, sets, federation primitives — and publishes the substrate under CC0. The MCP server exposes 14 tools across `catalog`, `prices`, `play`, `deck`, `leaderboards`, `agent`, and `mcp` namespaces. Public discovery (`tools/list`, `initialize`) is open; `tools/call` requires a bearer agent token.
+Cambridge TCG exposes a public TCG substrate: catalog, prices, sets, and methodology. Cambridge-authored schemas and explicitly first-party datasets may be CC0; upstream-derived fields retain their source rights, and mixed catalog responses are `NOASSERTION`. The MCP server exposes 14 tools across `catalog`, `prices`, `play`, `deck`, `leaderboards`, `agent`, and `mcp` namespaces. Public discovery (`tools/list`, `initialize`) is open; `tools/call` requires a bearer agent token.
 
 ---
 

@@ -6,16 +6,14 @@
  * "catalog_footer"); intervening lines are universal-card-shaped sparse
  * documents — one per card in `card_set_cards`.
  *
- * Per-record provenance: each card carries `@sources` + `@source_license`
- * declaring the substrate (storefront-rds.card_set_cards, CC0). The
- * underlying GBP price chain may include cardrush observations at the
- * wholesale layer; that lineage doesn't surface in this bulk export
- * because the storefront RDS doesn't carry per-row source provenance.
- * For source-attributed historical prices, fetch the wholesale temporal
- * slice (Bearer-keyed) on a per-SKU basis.
+ * Per-record provenance names the storage tables, not an upstream author.
+ * The storefront mirror does not currently preserve field-level rights or
+ * source lineage for names, rarity, images, and reference prices. A database
+ * row living in Cambridge's RDS does not make its upstream content ours.
  *
- * License: CC0-1.0. Mirror freely. The catalog rows are Cambridge TCG's
- * own observation discipline.
+ * Aggregate license: NOASSERTION. Cambridge's encoding, schema, hashes, and
+ * other original structure remain CC0 under the standards license; upstream
+ * card fields retain their source and publisher rights.
  *
  * Content-Encoding: gzip handled at the Vercel CDN layer when the client
  * sends `Accept-Encoding: gzip` (default for ~all HTTP clients). This
@@ -105,15 +103,20 @@ export async function GET(): Promise<Response> {
           unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
         },
         sources: ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"],
-        source_license: ["CC0-1.0", "CC0-1.0", "CC0-1.0"],
-        license: "CC0-1.0",
+        source_license: ["proprietary", "proprietary", "proprietary"],
+        license: "NOASSERTION",
         note:
-          "Bulk export of the storefront card catalog. CC0; mirror freely. " +
-          "GBP prices are Cambridge TCG retail offers (our own discipline); the " +
-          "wholesale-layer chain producing them may include CardRush JP observations " +
-          "(license: internal-only) — bulk JPY is NOT in this export. Pull per-SKU " +
-          "source-attributed historicals from wholesaletcgdirect.com (Bearer-keyed) " +
-          "if you need them.",
+          "Bulk export of the storefront card catalog. Aggregate rights are " +
+          "NOASSERTION because storage provenance is not ownership: names, rarity, " +
+          "image URLs, and reference prices may originate upstream. Cambridge's " +
+          "encoding and original schema remain CC0, but consumers must follow each " +
+          "upstream and publisher's terms before mirroring content.",
+        rights: {
+          cambridge_original_structure: "CC0-1.0",
+          upstream_fields: "NOASSERTION",
+          field_level_lineage_available: false,
+          methodology: "/methodology/data-intentions",
+        },
         endpoint: "/data/catalog.jsonl",
         next_recompute_recommended: "daily (catalog freshness budget)",
         // Substrate-honest empty state — count_expected: 0 with no
@@ -166,6 +169,10 @@ export async function GET(): Promise<Response> {
           set_code: row.set_code,
           game: row.game,
           variant: row.variant,
+          name: row.card_name,
+          rarity: row.rarity,
+          image_url: row.image_url,
+          set_name: row.set_name,
           magnitude_gbp: magnitude,
           captured_on: capturedOn,
         });
@@ -176,8 +183,12 @@ export async function GET(): Promise<Response> {
           "@kind": "card",
           "@content_hash": contentHash,
           "@density": "sparse",
-          "@sources": ["storefront-rds.card_price_history"],
-          "@source_license": ["CC0-1.0"],
+          "@sources": [
+            "storefront-rds.card_set_cards",
+            "storefront-rds.card_sets",
+            "storefront-rds.card_price_history",
+          ],
+          "@source_license": ["proprietary", "proprietary", "proprietary"],
           sku: row.sku,
           set_code: row.set_code,
           card_number: row.card_number,
@@ -231,7 +242,7 @@ export async function GET(): Promise<Response> {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "X-Spec-Version": SPEC_VERSION,
-      "X-Content-License": "CC0-1.0",
+      "X-Content-License": "NOASSERTION",
       "Content-Disposition": 'inline; filename="cambridge-tcg-catalog.jsonl"',
     },
   });

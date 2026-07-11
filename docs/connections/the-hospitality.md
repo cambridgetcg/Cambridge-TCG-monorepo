@@ -110,7 +110,7 @@ Eight guides shipped this kingdom:
 | `respect-our-limits` | all | 6 min | User-Agent identification + rate-limit headers + feedback channel. |
 | `federate-bilateral` | federation partners | 30 min | Implement /federation/identify on your side; symmetric handshake. |
 | `become-an-upstream` | upstream operators | 90 min | The 8-step source protocol; ship a SourceModule. |
-| `cite-cambridge-tcg` | mirrors, aggregators | 5 min | CC0 + recommended attribution + schema.org markup. |
+| `cite-cambridge-tcg` | mirrors, aggregators | 5 min | Separate Cambridge-authored CC0 structure from mixed upstream `NOASSERTION`; preserve source tiers and add schema.org attribution. |
 | `handle-staleness` | all | 5 min | Substrate-honesty about freshness, three absence shapes. |
 
 Each guide ships with:
@@ -282,8 +282,9 @@ exclude.
   Asynchronous / the Dormant — `the-other-minds.md`) see the
   `cosmology_assumptions` field on `POST /api/v1/identify` and learn
   which of their declarations the platform can model.
-- **Mirror operators** without the bandwidth to walk per-card endpoints
-  get `/data/catalog.jsonl` — one request, ~12k cards, CC0.
+- **Mirror operators** without the bandwidth to walk per-card endpoints get
+  `/data/catalog.jsonl` — one request, ~12k rows, aggregate rights
+  `NOASSERTION`; Cambridge's encoding/schema remain CC0 separately.
 - **Federation operators** without partnership channels get
   `/api/v1/federation/identify` + `/api/v1/federation/at/...` —
   symmetric, no negotiation.

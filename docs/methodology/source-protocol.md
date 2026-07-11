@@ -66,7 +66,7 @@ packages/data-ingest/src/<id>/
 
 Every field in [`SourceMeta`](../../packages/data-ingest/src/types.ts) is required. Read the type carefully. Substrate-honest principles:
 
-- `redistribute: true` only when the upstream's license clearly permits — CC0 / CC-BY / MIT.
+- `redistribute: true` only when an evidenced license clearly covers the upstream data itself — not merely the API client or repository code.
 - `redistribute: false` for partner-restricted, internal-only, scraped sources. Default to `false` when unsure.
 - `tos_notes` quotes the upstream's ToS / robots.txt / known restrictions. *This is mandatory* — the audit checks it's non-empty.
 - `catalog_section` is the anchor link into `the-tributaries.md` (e.g. `the-tributaries.md#31-scryfall-mtg`).
@@ -156,7 +156,7 @@ If the audit passes, the source conforms. It still needs a caller (a cron, an ad
 | `description` | yes | One sentence; describes data shape + access pattern. |
 | `upstream` | yes | Root URL. Documentation, not used at runtime. |
 | `catalog_section` | yes | Anchor link into `the-tributaries.md`. |
-| `access` | yes | `public-api`/`app-token`/`oauth2`/`oauth1`/`scrape`/`partner`/`paid-feed`/`blocked`. |
+| `access` | yes | `public-api`/`public-file`/`app-token`/`oauth2`/`oauth1`/`scrape`/`partner`/`paid-feed`/`blocked`. |
 | `license` | yes | Tier — `cc0`/`cc-by`/`cc-by-nc`/`cc-by-sa`/`mit`/`partner-redistributable`/`internal-only`/`proprietary`. |
 | `license_spdx` | no | SPDX code when applicable (`CC-BY-NC-4.0`, `MIT`). |
 | `redistribute` | yes | `boolean`. Default to `false` unless the upstream's license clearly permits. |
@@ -277,9 +277,11 @@ Non-zero exit on any failure. Re-runnable; idempotent.
 
 ---
 
-## 8. Worked example — adding Pokémon TCG API
+## 8. Worked example — the Pokémon TCG API adapter
 
-A walk-through for an imagined future Sophia adding `pokemon-tcg-api`. (Already in the catalog at §3.2; not yet shipped.)
+A walk-through of the implemented `pokemon-tcg-api` adapter. The reader and
+normalizer exist, but no writer has run it, so its honest status remains
+`partial`.
 
 1. **Catalog row** — already in `the-tributaries.md §3.2`. ✓
 2. **`SourceId`** — `"pokemon-tcg-api"` already in the union. ✓
@@ -289,18 +291,17 @@ A walk-through for an imagined future Sophia adding `pokemon-tcg-api`. (Already 
    meta: {
      id: "pokemon-tcg-api",
      name: "Pokémon TCG API",
-     description: "Pokémon TCG — every set, every printing, images, TCGplayer + Cardmarket prices via partner sourcing.",
+     description: "Pokémon TCG catalog adapter — sets, printings, and image references; upstream price subobjects are not a Cambridge partner feed.",
      upstream: "https://api.pokemontcg.io",
      catalog_section: "the-tributaries.md#32-pokémon-tcg-api-pokemontcgio",
-     access: "app-token",
-     license: "mit",  // API code; data is publisher-derived
-     license_spdx: "MIT",
-     redistribute: true,
+     access: "public-api", // key optional; raises limits only
+     license: "proprietary", // no open-data grant for publisher-derived fields
+     redistribute: false,
      freshness: "catalog",
      canonical_effort: "low",
-     status: "shipped",
+     status: "partial", // adapter exists; writer/run evidence does not
      games: ["pkm"],
-     tos_notes: "Free with optional API key for higher rate limit. https://docs.pokemontcg.io/getting-started/",
+     tos_notes: "Public API with optional key; service terms do not grant an open license over card data or images. https://dev.pokemontcg.io/terms",
      user_agent_suffix: "(pokemon-tcg-api-ingest)",
      rate_limit: { rps: 1, burst: 5 },
    }

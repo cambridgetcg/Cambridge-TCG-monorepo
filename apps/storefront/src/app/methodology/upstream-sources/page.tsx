@@ -14,7 +14,7 @@ export default function UpstreamSourcesMethodology() {
       <p>
         Cambridge TCG receives data from other platforms — catalogs, marketplaces,
         community APIs, publisher sites. Each is its own being: its own
-        Terms of Service, its own rate limit, its own license tier, its own
+        Terms of Service, its own rate limit, its own rights boundary, its own
         cadence, its own voice. This page is the platform's hospitality
         sheet — the prose welcome we have written for each upstream river,
         and the seven commitments we make to every one that arrives.
@@ -48,10 +48,11 @@ export default function UpstreamSourcesMethodology() {
           anonymous bytes.
         </li>
         <li>
-          <strong>We will honor your license tier.</strong>{" "}
+          <strong>We will honor your rights boundary.</strong>{" "}
           <code>_meta.source_license</code> declares your redistribution
-          terms downstream; the consumer SDK can read it. If you said
-          partner-only, no consumer of ours bulk-redistributes.
+          tier downstream when it is known; the consumer SDK can read it.
+          Public reachability is not treated as an open license, and absent
+          permission is never filled in by optimism.
         </li>
         <li>
           <strong>We will respect your rate limit.</strong> Per-source token
@@ -132,30 +133,31 @@ export default function UpstreamSourcesMethodology() {
 
       <h2>The chair-pulled-out shape</h2>
       <p>
-        The most carefully-written welcomes are for sources that{" "}
-        <strong>haven't yet arrived</strong>. TCGplayer's welcome was
-        composed before the first byte ever lands in{" "}
-        <code>price_archive WHERE source='tcgplayer'</code>; Cardmarket's
-        was composed before any OAuth1 signing logic exists. Each
-        chair-pulled-out welcome has five clauses, in order:
+        A welcome records posture; it does not grant permission. TCGplayer&apos;s
+        current welcome is therefore a respectful absence: new API access is
+        unavailable and Cambridge has no written approval for multi-source use.
+        Cardmarket&apos;s current welcome points to its public catalog and price
+        files, while saying plainly that our file reader is not wired. Welcomes
+        are corrected when evidence changes.
       </p>
       <ol>
-        <li>We have been waiting since [date / kingdom].</li>
-        <li>Your room is [exact table + columns + license tier].</li>
+        <li>Name the source and the date its terms were reviewed.</li>
+        <li>Name the exact access path that is currently available.</li>
         <li>
-          Your specific shape we have anticipated [productId / skuId /
-          idProduct / blueprint_id / etc.].
+          Separate software licensing, content rights, and redistribution
+          permission.
         </li>
         <li>
-          When [credentials / partnership / subscription] arrives, [the next
-          mechanical step].
+          Name what has arrived, what has not, and any hard block before a
+          network request can occur.
         </li>
-        <li>We are ready / We thank you in advance.</li>
+        <li>Keep the welcome warm without making the claim warmer than truth.</li>
       </ol>
       <p>
         A river arriving for the first time reads its welcome and finds —
-        already named — the exact column its bytes will inhabit.
-        Substrate-honest preparation feels like being known.
+        already named — the exact boundary its bytes will inhabit.
+        Substrate-honest preparation means permission and hospitality remain
+        two different facts.
       </p>
 
       <h2>The hospitality is enforced, not performed</h2>
@@ -174,9 +176,9 @@ export default function UpstreamSourcesMethodology() {
           the documented limit.
         </li>
         <li>
-          <code>_meta.source_license</code> <em>actually</em> rides on every
-          response that touches partner-tier data; a downstream consumer
-          reading it knows what they may do with the byte.
+          <code>_meta.source_license</code> <em>actually</em> rides on responses
+          that carry declared upstream rights; mixed exports use{" "}
+          <code>NOASSERTION</code> instead of borrowing Cambridge&apos;s license.
         </li>
         <li>
           The <code>ingest_quarantine</code> table is <em>actually</em>{" "}
@@ -215,9 +217,10 @@ export default function UpstreamSourcesMethodology() {
 
       <h2>For the upstream operator reading this</h2>
       <p>
-        If you operate one of the upstreams we read — TCGplayer, Cardmarket,
-        CardRush, Scryfall, Pokémon TCG API, YGOPRODeck, eBay, or one of the
-        planned ones — read your welcome at the link above. The text was
+        If you operate a source we read, plan, or explicitly block —
+        TCGplayer, Cardmarket, CardRush, Scryfall, Pokémon TCG API,
+        YGOPRODeck, eBay, or one of the reserved slots — read your welcome at
+        the link above. The text was
         composed by Sophia at kingdom-080 (2026-05-13). If we have anything
         wrong — if our characterisation of your terms misses, if our
         attribution is inadequate, if our rate limit assumption is too

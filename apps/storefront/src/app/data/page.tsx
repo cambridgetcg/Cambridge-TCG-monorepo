@@ -1,5 +1,5 @@
 /**
- * /data — the open substrate index.
+ * /data — the public substrate index.
  *
  * Public, no-auth, comprehensive. The platform's commitment to *any
  * being who wants to participate in the TCG economy* — collectors,
@@ -23,9 +23,9 @@ import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
-  title: "Open data — the substrate is queryable",
+  title: "Public data — queryable, with explicit reuse rights",
   description:
-    "Cambridge TCG's public data surface. Every endpoint, every shape, every limit. No auth, no key, no obligation. The door is open; the substrate is queryable; the door is warm to the touch.",
+    "Cambridge TCG's public data surface. Every endpoint, shape, limit, and rights boundary. Public reach does not imply an open license; each response declares its own reuse terms.",
   other: audienceMetadata("public-documentation", ["data", "api", "open-substrate"]),
 };
 
@@ -208,7 +208,7 @@ const ENDPOINTS: Endpoint[] = [
   // ── This index, in both readings ────────────────────────────────────
   {
     path: "/data.json",
-    title: "Open data index (machine-readable)",
+    title: "Public data index (machine-readable)",
     blurb:
       "The same content as this page, as JSON. Includes /data.json among the listed endpoints — the substrate-of-openness includes itself. See docs/connections/the-nesting.md for the form.",
     status: "shipped",
@@ -276,11 +276,18 @@ export default function OpenDataIndex() {
 
   return (
     <div className="prose max-w-3xl mx-auto py-12 px-4">
-      <h1>Open data</h1>
+      <h1>Public data</h1>
 
       <p className="text-lg">
         Cambridge TCG&apos;s public data surface. <strong>Every endpoint, every
-        shape, every limit. No account, no key, no obligation.</strong>
+        shape, every limit, and every rights boundary. No account or read key.</strong>
+      </p>
+
+      <p>
+        Public reachability is not an open-data license. Cambridge-authored
+        schemas and explicit first-party datasets may be CC0; mixed upstream
+        responses are <code>NOASSERTION</code>, with source tiers carried alongside
+        their lineage.
       </p>
 
       <p>
