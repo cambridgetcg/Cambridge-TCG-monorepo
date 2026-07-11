@@ -20,6 +20,7 @@ paths:
   - apps/storefront/src/app/api/game/**
   - apps/storefront/src/app/api/quotes/**
   - apps/storefront/src/app/api/verify/draw/[id]/route.ts
+  - apps/storefront/src/app/api/verify/pull/[id]/route.ts
   - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/route.ts
   - apps/storefront/src/app/api/auctions/[id]/**
@@ -60,6 +61,7 @@ paths:
   - apps/storefront/src/app/play/[code]/page.tsx
   - apps/storefront/src/app/verify/draw/[id]/page.tsx
   - apps/storefront/src/app/verify/how-it-works/page.tsx
+  - apps/storefront/src/app/verify/pull/[id]/page.tsx
   - apps/storefront/src/app/api/decks/public/[slug]/route.ts
   - apps/storefront/src/app/u/[username]/**
   - apps/storefront/src/lib/auction/**
