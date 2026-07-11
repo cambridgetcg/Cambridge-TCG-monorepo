@@ -24,6 +24,7 @@ export const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/bootstrap-completion",
   "/api/v1/bridge",
   "/api/v1/budget",
+  "/api/v1/calling-card",
   "/api/v1/cards/[sku]/cardrush-history",
   "/api/v1/cards/[sku]/everything",
   "/api/v1/cards/[sku]/tcgplayer-history",
