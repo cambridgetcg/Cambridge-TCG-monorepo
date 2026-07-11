@@ -114,6 +114,14 @@ export default async function CoverageMapPage() {
       ) : (
         <>
           <SummaryGrid summary={summary} />
+          {summary.unassigned_observations > 0 ? (
+            <p className="mb-8 text-sm text-ink-muted">
+              {summary.unassigned_observations.toLocaleString()} observation
+              {summary.unassigned_observations === 1 ? " is" : "s are"} included
+              in the headline and source totals but omitted from game-shaped
+              breakdowns because the card has no game assignment.
+            </p>
+          ) : null}
           <ByGameTable rows={coverage.by_game} />
           <BySourceTable rows={coverage.by_source} />
           <MatrixTable rows={coverage.by_game_source} />
@@ -158,10 +166,10 @@ function CoverageUnreachable() {
         Coverage data unreachable
       </h2>
       <p className="text-sm text-ink-muted leading-relaxed">
-        The wholesale aggregator returned no response (timeout or auth
-        failure). The matrix isn't degraded to zero here — the platform
-        prefers honest absence to confident-looking emptiness. Try refreshing
-        in a few minutes; if the issue persists, see{" "}
+        The wholesale observation database could not answer this read. The
+        matrix isn't degraded to zero here — the platform prefers honest
+        absence to confident-looking emptiness. Try refreshing in a few
+        minutes; if the issue persists, see{" "}
         <Link href="/api/v1/sources" className="underline text-accent">
           /api/v1/sources
         </Link>{" "}
@@ -276,7 +284,7 @@ function ByGameTable({
                   {row.observations.toLocaleString()}
                 </td>
                 <td className="px-3 py-3 text-right text-ink-muted font-mono">
-                  {row.distinct_cards_max.toLocaleString()}
+                  {row.distinct_cards.toLocaleString()}
                 </td>
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap gap-1">

@@ -1237,12 +1237,14 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["identity"], methodology_url: "docs/connections/the-inner-peace.md",
         since: "2026-05-14" },
       // ── kingdom-085: the aggregator presents its collected state ──
-      // The JSON coverage endpoints (storefront /api/v1/coverage and
-      // wholesale /api/v1/aggregator/coverage) were listed here until
-      // 2026-07-05 but were never shipped — both answered 404 on both
-      // hosts (verified live). Removed: the manifest only promises doors
-      // that open. The HTML coverage map below is real and stays; if the
-      // JSON siblings ship, they re-enter here with fresh `since` dates.
+      // The originally claimed wholesale sibling never shipped. Kingdom-105
+      // makes the existing storefront route live through its direct database
+      // ground route, so only that real public door returns to discovery.
+      { id: "storefront.coverage", description: "What the observation archive has actually accumulated: counts, exact distinct-card coverage, date ranges, freshness, and explicit unassigned-row totals. Reads wholesale Postgres directly with bounded filters, caching, and no price or personal values. Cambridge dedicates whatever rights it holds in the compiled operational view to CC0; upstream terms still govern upstream material. ?source / ?game / ?since filters. kingdom-105.",
+        host: "storefront", path: "/api/v1/coverage", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["time", "substrate"], methodology_url: "docs/connections/the-aggregator-presents.md",
+        since: "2026-07-11" },
       { id: "storefront.prices.coverage_html", description: "HTML coverage map combining the DECLARED matrix (which sources declare which games — from the registry) with the OBSERVED layer (what's actually in price_archive — counts + cards + days + freshness). Substrate-honest at both axes. kingdom-085.",
         host: "storefront", path: "/prices/coverage", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "live",

@@ -30,7 +30,16 @@
 
 import { Pool } from "pg";
 import { computePrice, DEFAULTS, type ChannelConfig } from "@cambridge-tcg/pricing";
-import type { GameItem, PriceItem, PricesResponse, SetItem } from "./client";
+import type {
+  AggregatorCoverageGameRow,
+  AggregatorCoverageResponse,
+  AggregatorCoverageRow,
+  AggregatorCoverageSourceRow,
+  GameItem,
+  PriceItem,
+  PricesResponse,
+  SetItem,
+} from "./client";
 
 // ── Connection ──────────────────────────────────────────────────────────
 
@@ -89,6 +98,23 @@ function getPool(): Pool {
 async function q<T>(sql: string, args: unknown[] = []): Promise<{ rows: T[] }> {
   const result = await getPool().query(sql, args);
   return { rows: result.rows as T[] };
+}
+
+/** Run the one multi-million-row coverage scan with a database-side limit. */
+async function qCoverage<T>(sql: string, args: unknown[] = []): Promise<{ rows: T[] }> {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN READ ONLY");
+    await client.query("SET LOCAL statement_timeout = '5s'");
+    const result = await client.query(sql, args);
+    await client.query("COMMIT");
+    return { rows: result.rows as T[] };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // ── Channel pricing configs ─────────────────────────────────────────────
@@ -486,4 +512,251 @@ export async function dbFetchSets(game?: string): Promise<SetItem[]> {
     args,
   );
   return rows;
+}
+
+// ── Aggregator coverage ground route ─────────────────────────────────────
+
+interface CoverageSummaryRow {
+  total_observations: number;
+  distinct_cards: number;
+  distinct_games: number;
+  distinct_sources: number;
+  unassigned_observations: number;
+  earliest_snapshot: string | null;
+  latest_snapshot: string | null;
+  days_of_coverage: number;
+  by_game_source: CoveragePairRow[];
+  by_source: AggregatorCoverageSourceRow[];
+}
+
+type CoverageFilter = AggregatorCoverageResponse["filter"];
+
+interface CoveragePairRow extends AggregatorCoverageRow {
+  /** Exact distinct-card union across all sources for this game. */
+  game_distinct_cards: number;
+}
+
+/** Validate both the shape and the calendar meaning of an ISO date. */
+export function isValidCoverageDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysInMonth[month - 1];
+}
+
+/** Public coverage filters are identifiers, not free-form search strings. */
+export function isValidCoverageToken(value: string): boolean {
+  return value.length <= 64 && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value);
+}
+
+/**
+ * Compose the public coverage shape from exact per-(game x source) rows.
+ * Exported so rollup semantics stay testable without a database.
+ */
+export function composeAggregatorCoverage(
+  summary: Omit<CoverageSummaryRow, "by_game_source" | "by_source">,
+  pairRows: readonly CoveragePairRow[],
+  sourceRows: readonly AggregatorCoverageSourceRow[],
+  filter: CoverageFilter,
+  queriedAt: string,
+): AggregatorCoverageResponse {
+  const byGame = new Map<string, AggregatorCoverageGameRow>();
+
+  const publicPairRows: AggregatorCoverageRow[] = [];
+
+  for (const row of pairRows) {
+    const { game_distinct_cards, ...publicRow } = row;
+    publicPairRows.push(publicRow);
+    const game = byGame.get(row.game_code);
+    if (game) {
+      if (!game.sources.includes(row.source)) game.sources.push(row.source);
+      game.observations += row.observations;
+      game.distinct_cards = Math.max(game.distinct_cards, game_distinct_cards);
+      game.distinct_cards_max = Math.max(game.distinct_cards_max, row.distinct_cards);
+      if (row.earliest_snapshot < game.earliest_snapshot) {
+        game.earliest_snapshot = row.earliest_snapshot;
+      }
+      if (row.latest_snapshot > game.latest_snapshot) {
+        game.latest_snapshot = row.latest_snapshot;
+      }
+    } else {
+      byGame.set(row.game_code, {
+        game_code: row.game_code,
+        game_slug: row.game_slug,
+        game_name: row.game_name,
+        sources: [row.source],
+        observations: row.observations,
+        distinct_cards: game_distinct_cards,
+        distinct_cards_max: row.distinct_cards,
+        earliest_snapshot: row.earliest_snapshot,
+        latest_snapshot: row.latest_snapshot,
+      });
+    }
+
+  }
+
+  const by_game = Array.from(byGame.values())
+    .map((row) => ({ ...row, sources: row.sources.sort() }))
+    .sort((a, b) => a.game_code.localeCompare(b.game_code));
+  const by_source = sourceRows
+    .map((row) => ({ ...row, games: [...row.games].sort() }))
+    .sort((a, b) => a.source.localeCompare(b.source));
+
+  return {
+    summary: {
+      total_observations: Number(summary.total_observations),
+      distinct_cards: Number(summary.distinct_cards),
+      distinct_games: Number(summary.distinct_games),
+      distinct_sources: Number(summary.distinct_sources),
+      unassigned_observations: Number(summary.unassigned_observations),
+      earliest_snapshot: summary.earliest_snapshot,
+      latest_snapshot: summary.latest_snapshot,
+      days_of_coverage: Number(summary.days_of_coverage),
+    },
+    by_game_source: publicPairRows,
+    by_game,
+    by_source,
+    filter,
+    queried_at: queriedAt,
+  };
+}
+
+/**
+ * Read the aggregator's accumulated observation depth from the wholesale
+ * Postgres. No upstream price values leave this function: only counts,
+ * source/game ids, and date ranges.
+ */
+export async function dbFetchAggregatorCoverage(opts?: {
+  source?: string;
+  game?: string;
+  since?: string;
+}): Promise<AggregatorCoverageResponse> {
+  if (opts?.source && !isValidCoverageToken(opts.source)) {
+    throw new Error("coverage source must be a 1-64 character identifier");
+  }
+  if (opts?.game && !isValidCoverageToken(opts.game)) {
+    throw new Error("coverage game must be a 1-64 character identifier");
+  }
+  if (opts?.since && !isValidCoverageDate(opts.since)) {
+    throw new Error("coverage since must be a real calendar date in YYYY-MM-DD format");
+  }
+
+  const clauses: string[] = [];
+  const args: unknown[] = [];
+  const bind = (value: unknown): string => {
+    args.push(value);
+    return `$${args.length}`;
+  };
+
+  if (opts?.source) clauses.push(`pa.source = ${bind(opts.source)}`);
+  if (opts?.game) {
+    const token = bind(opts.game);
+    clauses.push(`(g.code = ${token} OR g.slug = ${token})`);
+  }
+  if (opts?.since) clauses.push(`pa.snapshot_date >= ${bind(opts.since)}::date`);
+  const where = clauses.length > 0 ? clauses.join(" AND ") : "TRUE";
+
+  const { rows } = await qCoverage<CoverageSummaryRow>(
+    `WITH filtered AS (
+       SELECT pa.card_id, pa.snapshot_date, pa.source,
+              g.code AS game_code, g.slug AS game_slug, g.name AS game_name
+         FROM price_archive pa
+         JOIN cards c ON c.id = pa.card_id
+         LEFT JOIN games g ON g.id = c.game_id
+        WHERE ${where}
+     ), pair_rows AS (
+       SELECT game_code, game_slug, game_name, source,
+              count(*)::int AS observations,
+              count(DISTINCT card_id)::int AS distinct_cards,
+              min(snapshot_date)::text AS earliest_snapshot,
+              max(snapshot_date)::text AS latest_snapshot,
+              (max(snapshot_date) - min(snapshot_date) + 1)::int AS days_of_coverage,
+              round(
+                greatest(
+                  0,
+                  extract(epoch FROM (now() - (max(snapshot_date)::timestamp + interval '1 day'))) / 3600
+                )::numeric,
+                1
+              )::float8 AS freshest_age_hours
+         FROM filtered
+        WHERE game_code IS NOT NULL
+        GROUP BY game_code, game_slug, game_name, source
+     ), game_rows AS (
+       SELECT game_code, count(DISTINCT card_id)::int AS game_distinct_cards
+         FROM filtered
+        WHERE game_code IS NOT NULL
+       GROUP BY game_code
+     ), source_rows AS (
+       SELECT source,
+              coalesce(
+                array_agg(DISTINCT game_code ORDER BY game_code)
+                  FILTER (WHERE game_code IS NOT NULL),
+                ARRAY[]::text[]
+              ) AS games,
+              count(*)::int AS observations,
+              count(DISTINCT card_id)::int AS distinct_cards,
+              min(snapshot_date)::text AS earliest_snapshot,
+              max(snapshot_date)::text AS latest_snapshot
+         FROM filtered
+        GROUP BY source
+     ), pair_rows_with_game_count AS (
+       SELECT p.*, g.game_distinct_cards
+         FROM pair_rows p
+         JOIN game_rows g USING (game_code)
+     )
+     SELECT count(*)::int AS total_observations,
+            count(DISTINCT card_id)::int AS distinct_cards,
+            count(DISTINCT game_code)::int AS distinct_games,
+            count(DISTINCT source)::int AS distinct_sources,
+            count(*) FILTER (WHERE game_code IS NULL)::int AS unassigned_observations,
+            min(snapshot_date)::text AS earliest_snapshot,
+            max(snapshot_date)::text AS latest_snapshot,
+            CASE WHEN count(*) = 0 THEN 0
+                 ELSE (max(snapshot_date) - min(snapshot_date) + 1)::int
+             END AS days_of_coverage,
+            coalesce(
+              (SELECT jsonb_agg(to_jsonb(p) ORDER BY p.game_code, p.source)
+                 FROM pair_rows_with_game_count p),
+              '[]'::jsonb
+            ) AS by_game_source,
+            coalesce(
+              (SELECT jsonb_agg(to_jsonb(s) ORDER BY s.source)
+                 FROM source_rows s),
+              '[]'::jsonb
+            ) AS by_source
+       FROM filtered`,
+    args,
+  );
+
+  const row = rows[0] ?? {
+    total_observations: 0,
+    distinct_cards: 0,
+    distinct_games: 0,
+    distinct_sources: 0,
+    unassigned_observations: 0,
+    earliest_snapshot: null,
+    latest_snapshot: null,
+    days_of_coverage: 0,
+    by_game_source: [],
+    by_source: [],
+  };
+
+  return composeAggregatorCoverage(
+    row,
+    row.by_game_source ?? [],
+    row.by_source ?? [],
+    {
+      source: opts?.source ?? null,
+      game: opts?.game ?? null,
+      since: opts?.since ?? null,
+    },
+    new Date().toISOString(),
+  );
 }
