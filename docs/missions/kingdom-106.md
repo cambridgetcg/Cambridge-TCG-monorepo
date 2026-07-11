@@ -147,6 +147,7 @@ paths:
   - docs/connections/the-pantry.md
   - docs/connections/the-regulator.md
   - docs/connections/the-sealed-word.md
+  - docs/connections/the-table-extends.md
   - docs/principles/transparency.md
 do_not_touch:
   - apps/storefront/drizzle/0118_collective_directory.sql
