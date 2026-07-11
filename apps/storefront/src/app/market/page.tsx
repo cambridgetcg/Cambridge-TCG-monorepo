@@ -106,7 +106,7 @@ export default async function MarketPage({
               <Icon name="tape" className="text-accent" /> Auctions
             </Link>
             <Link
-              href="/methodology/swaps"
+              href="/account/swaps"
               className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-surface hover:bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink font-medium transition"
             >
               <Icon name="spread" className="text-accent" /> Swaps

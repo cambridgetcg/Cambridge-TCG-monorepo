@@ -101,7 +101,7 @@ export const MORE_NAV_GROUPS = [
 
 export const MORE_NAV_FOOTER = [
   { label: "Contact", href: "/contact" },
-  { label: "All pages", href: "/map" },
+  { label: "Platform map", href: "/map" },
 ] as const satisfies readonly NavItem[];
 
 export function isNavItemActive(item: NavItem, pathname: string): boolean {

@@ -5,7 +5,7 @@ import { Audience, audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Navigation",
   description:
-    "How Cambridge TCG keeps global navigation small, task-first, accessible, and connected to the full site map.",
+    "How Cambridge TCG keeps global navigation small, task-first, accessible, and connected to the platform map.",
   other: audienceMetadata("public-documentation", ["navigation", "methodology"]),
 };
 
@@ -19,7 +19,7 @@ export default function NavigationMethodology() {
         index. It presents the four things most visitors come to do, then a
         small <strong>More</strong> menu for help, trust, and open-platform
         material. The complete corpus stays available through its hub pages
-        and the site map.
+        and platform map.
       </p>
 
       <blockquote>
@@ -59,7 +59,7 @@ export default function NavigationMethodology() {
           </tr>
           <tr>
             <td><strong>More</strong></td>
-            <td>Where can I get help, inspect the platform, or see every page?</td>
+            <td>Where can I get help or inspect the platform&apos;s structure?</td>
           </tr>
         </tbody>
       </table>
@@ -80,11 +80,11 @@ export default function NavigationMethodology() {
         Methods &amp; fees, and Verify outcomes.
       </p>
       <p>
-        Nothing is deleted or hidden from the platform. The{" "}
+        Nothing is deleted from the platform. The{" "}
         <Link href="/map" className="text-accent hover:underline">
-          site map
+          platform map
         </Link>{" "}
-        remains the comprehensive index, while the{" "}
+        exposes the platform&apos;s structure, while the{" "}
         <Link href="/methodology" className="text-accent hover:underline">
           methodology hub
         </Link>{" "}
@@ -129,7 +129,7 @@ export default function NavigationMethodology() {
       <ul>
         <li>
           <Link href="/map" className="text-accent hover:underline">/map</Link>
-          {" "}— every public surface
+          {" "}— the platform&apos;s structure
         </li>
         <li>
           <Link href="/start" className="text-accent hover:underline">/start</Link>
