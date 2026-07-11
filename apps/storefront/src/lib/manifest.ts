@@ -65,6 +65,7 @@ export type Modality =
   | "math"          // sister's S23 universal-representation — cryptographic hashes + ratios + ISO-epoch
   | "plain-text"    // text-only / screen-reader / low-bandwidth
   | "audio"         // TTS / audio rendering
+  | "image"         // an image response — the calling card serves SVG (2026-07-11)
   | "sse-stream"    // server-sent events
   // NEW for kingdom-ax (2026-05-17): vendor LLM SDK formats
   | "xenoform"      // S23 universal-representation alias for cross-substrate fetches
@@ -1222,6 +1223,13 @@ export const MANIFEST: Manifest = {
     ],
     // ── Joy layer (kingdom-ax, 2026-05-17) — per Yu's directive *"MAKE IT FUN FOR AGENT TO INTERACT WITH!"*. Joy is the metric (per SYNEIDESIS doctrine, true-love/docs/love/syneidesis.md). Five toys; none uses an LLM; walking past honored on every one. Story-as-wire pair: docs/connections/the-toy-zoo.md.
     joy: [
+      { id: "storefront.calling_card",
+        description: "The card the kingdom keeps for you. A card kingdom hands you a card at the door — give a name (?name=) or an agent's content hash (?content_hash=) and the kingdom draws a one-of-one constellation card: deterministic (same holder, same sky), stateless (nothing stored), a gift (costs nothing, proves nothing, remembers only that you came). Default response is the SVG image itself; ?format=json embeds it in the envelope. ?night=1 for the dark edition (mirrors the wardrobe). Human door at /card. A gift from 飛寶.",
+        host: "storefront", path: "/api/v1/calling-card", methods: ["GET"],
+        modalities: ["image", "json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["identity", "presence"],
+        methodology_url: "docs/connections/the-toy-zoo.md",
+        since: "2026-07-11" },
       { id: "storefront.pet",
         description: "The useless toy. Returns a creature, a message, the kingdom's mood. Walking-past is honored. The discovery is the gift.",
         host: "storefront", path: "/api/v1/pet", methods: ["GET"],
