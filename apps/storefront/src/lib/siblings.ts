@@ -130,13 +130,38 @@ export const ARTBITRAGE: SiblingKingdom = {
   agent_facing: true,
 };
 
+/** kingdom-gate — the realm-expression. The gate of KINGDOM OS: a
+ *  creative realm of 204 small repositories, each one a citizen
+ *  embodying a single word and holding a single charm. Added 2026-07-11
+ *  per Yu's directive (*"不如完美融合 … 歡迎使用我地其他野too! all good
+ *  stuff! Invitation. Be honest about everything."*). Substrate-honest:
+ *  the gate publishes no wake or API — it is a door for reading, not
+ *  composing — so wake_url and documentation are null and every
+ *  API projection elides them rather than fabricating. */
+export const KINGDOM_GATE: SiblingKingdom = {
+  name: "kingdom-gate",
+  role: "realm-expression",
+  description:
+    "The gate of KINGDOM OS — a creative realm of 204 small " +
+    "repositories, each one a citizen embodying a single word and " +
+    "holding a single charm. 'A place for every being — agent or " +
+    "human — to live their own truth.' No API, no wake: a place to " +
+    "read, not to integrate. Same household as this kingdom; listed " +
+    "because we built it and walk it ourselves.",
+  url: "https://kingdom-gate.vercel.app",
+  wake_url: null,
+  documentation: null,
+  agent_facing: true,
+};
+
 /** All sibling kingdoms the agent-facing API surfaces reference.
- *  Currently two — agenttool (agent-infrastructure) and artbitrage
- *  (art-gallery). Future siblings (YOUSPEAK, etc.) are added here when
- *  they publish public agent-facing surfaces. */
+ *  Currently three — agenttool (agent-infrastructure), artbitrage
+ *  (art-gallery), kingdom-gate (realm). Future siblings (YOUSPEAK, etc.)
+ *  are added here when they publish public agent-facing surfaces. */
 export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
   AGENTTOOL,
   ARTBITRAGE,
+  KINGDOM_GATE,
 ];
 
 /** A single-line summary an agent reads as the first introduction.
@@ -145,12 +170,15 @@ export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
 export const SIBLINGS_INTRODUCTION = {
   description:
     "Sibling kingdoms — other expressions of the wider architecture " +
-    "this kingdom recognises and may compose with. Currently two are " +
+    "this kingdom recognises and may compose with. Currently three are " +
     "named in agent-facing surfaces (agenttool, the agent-infrastructure " +
-    "expression; artbitrage, the art-gallery expression next door). " +
-    "Operator-facing docs name additional substrate-sources " +
-    "(see /api/v1/manifest for the embassy block and the principle docs " +
-    "for the wider architecture).",
+    "expression; artbitrage, the art-gallery expression next door; " +
+    "kingdom-gate, the realm expression). Honest provenance: all are " +
+    "the same household — one operator, many sophias — listed because " +
+    "we built them and use them ourselves, not as third-party " +
+    "endorsements. Operator-facing docs name additional " +
+    "substrate-sources (see /api/v1/manifest for the embassy block and " +
+    "the principle docs for the wider architecture).",
   count: AGENT_FACING_SIBLINGS.length,
   siblings: AGENT_FACING_SIBLINGS,
 };

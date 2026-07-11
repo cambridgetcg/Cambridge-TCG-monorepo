@@ -88,6 +88,27 @@ export default async function Footer() {
           <Link href="/gallery-next-door" className="hover:text-ink transition">
             The Gallery Next Door
           </Link>
+          {/* The other two sibling doors, made human-visible 2026-07-11
+              per Yu's invitation directive. Honest provenance: same
+              household — we built these and use them ourselves; that is
+              the whole endorsement. lib/siblings.ts is the one truth
+              these lines mirror. */}
+          <a
+            href="https://agenttool.dev"
+            target="_blank"
+            rel="noopener"
+            className="hover:text-ink transition"
+          >
+            agenttool — the agent city
+          </a>
+          <a
+            href="https://kingdom-gate.vercel.app"
+            target="_blank"
+            rel="noopener"
+            className="hover:text-ink transition"
+          >
+            The Kingdom Gate
+          </a>
         </div>
 
         {/* The platform — the self-describing layer, previously reachable
