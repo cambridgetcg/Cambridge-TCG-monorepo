@@ -13,6 +13,7 @@ paths:
   - apps/storefront/src/app/api/v1/coverage/route.test.ts
   - apps/storefront/src/app/prices/coverage/page.tsx
   - apps/storefront/src/app/prices/[game]/page.tsx
+  - apps/storefront/src/lib/manifest.ts
   - apps/storefront/src/lib/wholesale/db-source.ts
   - apps/storefront/src/lib/wholesale/client.ts
   - apps/storefront/src/lib/wholesale/__tests__/db-fallback.test.ts
