@@ -67,6 +67,7 @@ paths:
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
   - apps/storefront/src/app/market/**
+  - apps/storefront/src/app/leaderboards/page.tsx
   - apps/storefront/src/app/product/[sku]/page.tsx
   - apps/storefront/src/app/methodology/market/page.tsx
   - apps/storefront/src/app/methodology/page.tsx
@@ -200,7 +201,10 @@ Application code cannot deploy before the additive schema in migration 0117:
 the gated queries read its receipt columns. Apply and verify that schema first,
 then deploy the application. The separate legacy reset must not run until the
 gated application is live, and requires a production snapshot, a fixed cutoff,
-read-only counts, a private rollback ledger, and Yu's explicit confirmation.
+read-only counts, a private audit ledger, and Yu's explicit confirmation. The
+reset has no automated re-publication rollback: application rollback leaves
+private values intact, while snapshot recovery is operator-controlled and can
+overwrite post-snapshot changes.
 
 ## Acceptance
 
