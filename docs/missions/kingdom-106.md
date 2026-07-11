@@ -18,6 +18,10 @@ paths:
   - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/[id]/**
   - apps/storefront/src/app/api/leaderboards/route.ts
+  - apps/storefront/src/app/api/market/[sku]/**
+  - apps/storefront/src/app/api/market/route.ts
+  - apps/storefront/src/app/api/market/demand-signals/route.ts
+  - apps/storefront/src/app/api/market/pulse/route.ts
   - apps/storefront/src/app/api/market/lots/route.ts
   - apps/storefront/src/app/api/market/offers/asks/route.ts
   - apps/storefront/src/app/api/messages/**
@@ -37,6 +41,8 @@ paths:
   - apps/storefront/src/app/market/lots/**
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
+  - apps/storefront/src/app/market/**
+  - apps/storefront/src/app/product/[sku]/page.tsx
   - apps/storefront/src/app/methodology/market/page.tsx
   - apps/storefront/src/app/methodology/page.tsx
   - apps/storefront/src/app/data/page.tsx
@@ -51,6 +57,7 @@ paths:
   - apps/storefront/src/lib/journey/public-stats.ts
   - apps/storefront/src/lib/format.ts
   - apps/storefront/src/lib/market/card-market.ts
+  - apps/storefront/src/lib/market/**
   - apps/storefront/src/lib/market/__tests__/card-market-privacy.test.ts
   - apps/storefront/src/lib/market/lots.ts
   - apps/storefront/src/lib/messages/**
@@ -65,6 +72,7 @@ paths:
   - apps/storefront/src/components/auction/BidHistory.tsx
   - apps/storefront/src/components/auction/BidPanel.tsx
   - apps/storefront/src/components/auction/AuctionImageGallery.tsx
+  - apps/storefront/src/components/market/**
   - apps/storefront/scripts/reset-person-publication.ts
   - apps/storefront/src/lib/manifest.ts
   - docs/missions/kingdom-106.md
