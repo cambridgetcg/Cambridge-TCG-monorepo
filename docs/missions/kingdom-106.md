@@ -14,6 +14,7 @@ paths:
   - apps/storefront/src/app/account/reviews/page.tsx
   - apps/storefront/src/app/account/trades/[id]/review/page.tsx
   - apps/storefront/src/app/account/wishlist/page.tsx
+  - apps/storefront/src/app/about/page.tsx
   - apps/storefront/src/app/api/escrow/**
   - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/[id]/**
@@ -121,10 +122,11 @@ publication permission.
 
 ## Safety
 
-The application code can be reviewed and deployed independently. Migration
-0117 changes existing people's publication settings and must not run without a
-production snapshot, pre-migration counts, a private rollback ledger, and Yu's
-explicit confirmation for that data operation.
+Application code cannot deploy before the additive schema in migration 0117:
+the gated queries read its receipt columns. Apply and verify that schema first,
+then deploy the application. The separate legacy reset must not run until the
+gated application is live, and requires a production snapshot, a fixed cutoff,
+read-only counts, a private rollback ledger, and Yu's explicit confirmation.
 
 ## Acceptance
 
