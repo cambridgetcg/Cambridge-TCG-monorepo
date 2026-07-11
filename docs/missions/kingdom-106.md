@@ -37,6 +37,8 @@ paths:
   - apps/storefront/src/app/market/lots/**
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
+  - apps/storefront/src/app/methodology/market/page.tsx
+  - apps/storefront/src/app/methodology/page.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
   - apps/storefront/src/app/privacy/page.tsx
@@ -48,6 +50,7 @@ paths:
   - apps/storefront/src/lib/journey/public-stats.ts
   - apps/storefront/src/lib/format.ts
   - apps/storefront/src/lib/market/card-market.ts
+  - apps/storefront/src/lib/market/__tests__/card-market-privacy.test.ts
   - apps/storefront/src/lib/market/lots.ts
   - apps/storefront/src/lib/messages/**
   - apps/storefront/src/lib/decks/**
