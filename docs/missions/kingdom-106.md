@@ -44,6 +44,7 @@ paths:
   - apps/storefront/src/app/api/market/demand-signals/route.ts
   - apps/storefront/src/app/api/market/pulse/route.ts
   - apps/storefront/src/app/api/market/lots/route.ts
+  - apps/storefront/src/app/api/market/lots/**
   - apps/storefront/src/app/api/market/offers/asks/route.ts
   - apps/storefront/src/app/api/messages/**
   - apps/storefront/src/app/api/rewards/raffles/[id]/proof/route.ts
@@ -76,6 +77,7 @@ paths:
   - apps/storefront/src/app/product/[sku]/page.tsx
   - apps/storefront/src/app/methodology/market/page.tsx
   - apps/storefront/src/app/methodology/collectives/page.tsx
+  - apps/storefront/src/app/methodology/bridges/page.tsx
   - apps/storefront/src/app/methodology/page.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
@@ -101,6 +103,7 @@ paths:
   - apps/storefront/src/app/verify/how-it-works/page.tsx
   - apps/storefront/src/app/verify/pull/[id]/page.tsx
   - apps/storefront/src/app/api/decks/public/[slug]/route.ts
+  - apps/storefront/src/app/api/decks/public/route.ts
   - apps/storefront/src/app/u/[username]/**
   - apps/storefront/src/lib/auction/**
   - apps/storefront/src/lib/bridge/**
@@ -116,6 +119,7 @@ paths:
   - apps/storefront/src/lib/market/lots.ts
   - apps/storefront/src/lib/messages/**
   - apps/storefront/src/lib/privacy/**
+  - apps/storefront/src/lib/portfolio/db.ts
   - apps/storefront/src/lib/provable-draw/**
   - apps/storefront/src/lib/quote/**
   - apps/storefront/src/lib/decks/**
