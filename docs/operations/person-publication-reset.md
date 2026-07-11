@@ -35,6 +35,14 @@ without printing it or putting it in shell history. The command also reads an
 untracked `apps/storefront/.env.local` when that is the deployment tool's secure
 output. Confirm the variable or file exists without displaying its value.
 
+Set the cutoff once in the release shell. Replace the placeholder with the UTC
+timestamp recorded in step 2; the guard stops the release if it is unchanged.
+
+```sh
+LEGACY_CUTOFF='<recorded-UTC-cutoff>'
+test "$LEGACY_CUTOFF" != '<recorded-UTC-cutoff>' || exit 1
+```
+
 With the secure connection exposed to the command as `DATABASE_URL`, run the
 read-only plan first. `--expect-only` makes both commands stop if production is
 missing an older migration or if another migration has appeared.
@@ -52,7 +60,7 @@ Do not use the unrestricted migration command for this release.
 ```sh
 pnpm --filter cambridgetcg-storefront exec tsx \
   scripts/reset-person-publication.ts \
-  --legacy-before='2026-07-11T20:00:00Z'
+  --legacy-before="$LEGACY_CUTOFF"
 ```
 
 The preview performs no writes. Counts cover only legacy rows before the cutoff.
@@ -70,7 +78,7 @@ pnpm --filter cambridgetcg-storefront exec tsx \
   scripts/reset-person-publication.ts \
   --apply \
   --gated-app-live \
-  --legacy-before='2026-07-11T20:00:00Z' \
+  --legacy-before="$LEGACY_CUTOFF" \
   --confirm='APPLY-PERSON-PUBLICATION-RESET-20260711'
 ```
 
