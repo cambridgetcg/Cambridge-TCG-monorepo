@@ -16,6 +16,10 @@ paths:
   - apps/storefront/src/app/account/wishlist/page.tsx
   - apps/storefront/src/app/about/page.tsx
   - apps/storefront/src/app/api/escrow/**
+  - apps/storefront/src/app/api/bounty/pulls/[id]/proof/route.ts
+  - apps/storefront/src/app/api/game/**
+  - apps/storefront/src/app/api/quotes/**
+  - apps/storefront/src/app/api/verify/draw/[id]/route.ts
   - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/route.ts
   - apps/storefront/src/app/api/auctions/[id]/**
@@ -51,12 +55,19 @@ paths:
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
   - apps/storefront/src/app/privacy/page.tsx
+  - apps/storefront/src/app/bounty/verify/[id]/page.tsx
+  - apps/storefront/src/app/order-confirmation/**
+  - apps/storefront/src/app/play/[code]/page.tsx
+  - apps/storefront/src/app/verify/draw/[id]/page.tsx
+  - apps/storefront/src/app/verify/how-it-works/page.tsx
   - apps/storefront/src/app/api/decks/public/[slug]/route.ts
   - apps/storefront/src/app/u/[username]/**
   - apps/storefront/src/lib/auction/**
   - apps/storefront/src/lib/bridge/**
   - apps/storefront/src/lib/collectives/db.ts
   - apps/storefront/src/lib/escrow/**
+  - apps/storefront/src/lib/bounty/**
+  - apps/storefront/src/lib/game/**
   - apps/storefront/src/lib/journey/public-stats.ts
   - apps/storefront/src/lib/format.ts
   - apps/storefront/src/lib/market/card-market.ts
@@ -64,6 +75,9 @@ paths:
   - apps/storefront/src/lib/market/__tests__/card-market-privacy.test.ts
   - apps/storefront/src/lib/market/lots.ts
   - apps/storefront/src/lib/messages/**
+  - apps/storefront/src/lib/privacy/**
+  - apps/storefront/src/lib/provable-draw/**
+  - apps/storefront/src/lib/quote/**
   - apps/storefront/src/lib/decks/**
   - apps/storefront/src/lib/rewards/provable-fair.ts
   - apps/storefront/src/lib/rewards/db.ts
@@ -122,6 +136,9 @@ publication permission.
 9. Store current, versioned receipts for profile, messaging, and review
    publication; make review publication inspectable and withdrawable by the
    reviewer.
+10. Retire predictable quote-reference reads, require ownership before an old
+    checkout confirmation renders, keep private game rooms participant-only,
+    and remove account identifiers from public game and randomness proofs.
 
 ## Safety
 
