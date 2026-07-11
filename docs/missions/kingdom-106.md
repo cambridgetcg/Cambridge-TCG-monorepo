@@ -106,6 +106,8 @@ paths:
   - docs/missions/kingdom-106.md
   - docs/operations/community-data-network-release.md
   - docs/operations/person-publication-reset.md
+  - docs/connections/the-market-mirror.md
+  - docs/connections/README.md
 do_not_touch:
   - apps/storefront/drizzle/0118_collective_directory.sql
   - packages/data-ingest/**
@@ -129,7 +131,8 @@ publication permission.
 ## Work
 
 1. Make person-facing publication and unsolicited-message defaults private.
-2. Require an explicit choice before public activity or reviews are emitted.
+2. Pause public activity because no per-event publication receipt exists;
+   require an explicit reviewer choice before each review is published.
 3. Make public profile, activity, commerce, and trust routes use narrow
    projections and indistinguishable not-found responses for private people.
 4. Pause portfolio/wishlist matching and bridge affinity inference until an
