@@ -11,8 +11,11 @@ completed_at: ~
 paths:
   - apps/storefront/drizzle/0117_privacy_defaults.sql
   - apps/storefront/src/app/account/profile/page.tsx
+  - apps/storefront/src/app/account/proofs/page.tsx
   - apps/storefront/src/app/account/reviews/page.tsx
   - apps/storefront/src/app/account/trades/[id]/review/page.tsx
+  - apps/storefront/src/app/account/tools/page.tsx
+  - apps/storefront/src/app/account/vault/page.tsx
   - apps/storefront/src/app/account/wishlist/page.tsx
   - apps/storefront/src/app/about/page.tsx
   - apps/storefront/src/app/api/escrow/**
@@ -25,6 +28,9 @@ paths:
   - apps/storefront/src/app/api/quotes/**
   - apps/storefront/src/app/api/verify/draw/[id]/route.ts
   - apps/storefront/src/app/api/verify/pull/[id]/route.ts
+  - apps/storefront/src/app/api/verify/pull/[id]/certificate.svg/route.ts
+  - apps/storefront/src/app/api/verify/health/route.ts
+  - apps/storefront/src/app/api/account/proofs/route.ts
   - apps/storefront/src/app/api/account/reviews/route.ts
   - apps/storefront/src/app/api/auctions/route.ts
   - apps/storefront/src/app/api/auctions/[id]/**
@@ -37,15 +43,20 @@ paths:
   - apps/storefront/src/app/api/market/offers/asks/route.ts
   - apps/storefront/src/app/api/messages/**
   - apps/storefront/src/app/api/rewards/raffles/[id]/proof/route.ts
+  - apps/storefront/src/app/api/rewards/raffles/[id]/draw/route.ts
   - apps/storefront/src/app/api/rewards/raffles/route.ts
+  - apps/storefront/src/app/api/rewards/packs/[id]/open/route.ts
+  - apps/storefront/src/app/api/rewards/spin/route.ts
   - apps/storefront/src/app/api/social/**
   - apps/storefront/src/app/api/u/[username]/**
   - apps/storefront/src/app/api/v1/bridge/**
+  - apps/storefront/src/app/api/v1/identify/route.ts
   - apps/storefront/src/app/api/v1/auctions/[id]/**
   - apps/storefront/src/app/api/v1/universal/auctions/[id]/**
   - apps/storefront/src/app/api/v1/users/[username]/trust/**
   - apps/storefront/src/app/api/v1/universal/users/[username]/trust/**
   - apps/storefront/src/app/bridge/**
+  - apps/storefront/src/app/api/page.tsx
   - apps/storefront/src/app/auctions/[id]/read/page.tsx
   - apps/storefront/src/app/auctions/[id]/page.tsx
   - apps/storefront/src/app/auctions/[id]/AuctionDetailClient.tsx
@@ -59,6 +70,10 @@ paths:
   - apps/storefront/src/app/methodology/page.tsx
   - apps/storefront/src/app/data/page.tsx
   - apps/storefront/src/app/data.json/route.ts
+  - apps/storefront/src/app/glossary/page.tsx
+  - apps/storefront/src/app/llms.txt/route.ts
+  - apps/storefront/src/app/map/page.tsx
+  - apps/storefront/src/app/methodology/regulator/page.tsx
   - apps/storefront/src/app/privacy/page.tsx
   - apps/storefront/src/app/bounty/verify/[id]/page.tsx
   - apps/storefront/src/app/bounty/page.tsx
@@ -91,7 +106,13 @@ paths:
   - apps/storefront/src/lib/rewards/provable-fair.ts
   - apps/storefront/src/lib/rewards/db.ts
   - apps/storefront/src/lib/rewards/types.ts
+  - apps/storefront/src/lib/rewards/atomic-spend.ts
+  - apps/storefront/src/lib/rewards/raffle-sweep.ts
+  - apps/storefront/src/lib/email/bounty.ts
+  - apps/storefront/src/lib/email/preferences.ts
+  - apps/storefront/src/lib/data-pantry/provenance.ts
   - apps/storefront/src/app/rewards/raffles/[id]/page.tsx
+  - apps/storefront/src/app/admin/bounty/vault-items/[id]/page.tsx
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
@@ -109,6 +130,9 @@ paths:
   - docs/operations/person-publication-reset.md
   - docs/connections/the-market-mirror.md
   - docs/connections/README.md
+  - docs/connections/bounty.md
+  - docs/connections/provable-fairness.md
+  - docs/principles/transparency.md
 do_not_touch:
   - apps/storefront/drizzle/0118_collective_directory.sql
   - packages/data-ingest/**
