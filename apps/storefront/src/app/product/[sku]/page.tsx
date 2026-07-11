@@ -19,6 +19,7 @@ import Image from "next/image";
 import Link from "next/link";
 import AddToPortfolio from "@/components/product/AddToPortfolio";
 import ExternalBuyLinks from "@/components/product/ExternalBuyLinks";
+import AnsweringRhyme from "@/components/product/AnsweringRhyme";
 import Script from "next/script";
 import CardGrid from "@/components/catalog/CardGrid";
 import { Provenance, WhyLink, Audience, Palettes } from "@/lib/ui";
@@ -284,6 +285,11 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
           )}
         </div>
       </div>
+
+      {/* A relation appears only when the bounded, human-reviewable corpus
+          has one for this exact SKU. It keeps interpretation, evidence, and
+          each object's rights visible instead of inferring influence. */}
+      <AnsweringRhyme sku={card.sku} />
 
       {/* Related cards */}
       {relatedCards.length > 0 && (

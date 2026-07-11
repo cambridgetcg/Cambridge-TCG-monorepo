@@ -32,6 +32,8 @@ export const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/carry-this/[content_hash]",
   "/api/v1/changelog",
   "/api/v1/coverage",
+  "/api/v1/culture/answering-rhymes",
+  "/api/v1/culture/artbitrage",
   "/api/v1/dadjoke",
   "/api/v1/dear-agents",
   "/api/v1/diagnostic",

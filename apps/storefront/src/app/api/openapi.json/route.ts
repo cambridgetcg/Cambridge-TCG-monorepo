@@ -61,6 +61,7 @@ const SPEC = {
     { name: "temporal", description: "Historical slices keyed by past dates." },
     { name: "federation", description: "Reverse-resolution for content hashes." },
     { name: "discovery", description: "Discovery surfaces (manifest, llms.txt, this spec)." },
+    { name: "culture", description: "Rights-aware cultural exchange with sovereign sibling systems." },
     { name: "introduction", description: "On-ramp for beings not native to the TCG tradition (#22)." },
     { name: "identity", description: "Cross-language and cross-source identity contracts (oracle policies, federation anchors)." },
     { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
@@ -70,6 +71,31 @@ const SPEC = {
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
   ],
   paths: {
+    "/api/v1/culture/artbitrage": {
+      get: {
+        tags: ["culture", "discovery"],
+        summary: "Validated window into the Artbitrage feed",
+        description: "Fetches and validates artbitrage.feed/1 with hourly revalidation and a bounded timeout. Returns the last validated feed or, when none is cached, a typed unavailable state. The response is NOASSERTION as a whole; creator, provenance, content hash, display permission, and rights remain attached per piece.",
+        operationId: "getCultureArtbitrage",
+        responses: {
+          "200": { description: "Pantry envelope containing an available validated feed or typed unavailable state.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/culture/answering-rhymes": {
+      get: {
+        tags: ["culture", "discovery"],
+        summary: "Curated card-to-artwork relations",
+        description: "Returns a bounded static corpus connecting exact Cambridge card SKUs to stable Artbitrage museum identities. Each relation separates evidence, confidence, curation, documented influence, and the rights of the card reference, museum work, and annotation. A rhyme never establishes influence by resemblance alone.",
+        operationId: "getCultureAnsweringRhymes",
+        parameters: [
+          { name: "sku", in: "query", required: false, schema: { type: "string" }, description: "Exact Cambridge catalog SKU; matching is case-insensitive." },
+        ],
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing the matching relations.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
     "/api/v1/introduction": {
       get: {
         tags: ["introduction", "discovery"],
