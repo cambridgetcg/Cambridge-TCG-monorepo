@@ -31,6 +31,8 @@ paths:
   - apps/storefront/src/app/api/v1/universal/users/[username]/trust/**
   - apps/storefront/src/app/bridge/**
   - apps/storefront/src/app/auctions/[id]/read/page.tsx
+  - apps/storefront/src/app/auctions/[id]/page.tsx
+  - apps/storefront/src/app/market/lots/**
   - apps/storefront/src/app/cards/[sku]/market/page.tsx
   - apps/storefront/src/app/market/[sku]/ListingsPanel.tsx
   - apps/storefront/src/app/data/page.tsx
@@ -51,6 +53,8 @@ paths:
   - apps/storefront/src/lib/social/**
   - apps/storefront/src/lib/trust/public.ts
   - apps/storefront/src/lib/ui/MessageButton.tsx
+  - apps/storefront/src/components/auction/BidHistory.tsx
+  - apps/storefront/src/lib/manifest.ts
   - docs/missions/kingdom-106.md
   - docs/operations/community-data-network-release.md
 do_not_touch:
