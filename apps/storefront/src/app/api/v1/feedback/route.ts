@@ -2,9 +2,9 @@
  * /api/v1/feedback — the agent feedback channel.
  *
  * Public, no-auth. Accepts structured reports from autonomous agents,
- * scrapers, mirrors, federation partners, anyone. The reports land in
- * `agent_feedback` (a planned table; for now, logged server-side and
- * reviewed by the operator in the logs).
+ * scrapers, mirrors, federation partners, anyone. The reports are kept in
+ * `agent_feedback` (migration 0115, applied 2026-07-11) — what you ask for
+ * is remembered, with a lifecycle a reporter can re-query by feedback_id.
  *
  * Five kinds:
  *   - "contract-drift"        — endpoint response doesn't match the spec
@@ -13,12 +13,11 @@
  *   - "federation-adopter"    — partner registering for bilateral federation
  *   - "general"               — anything else
  *
- * Substrate-honest about pre-runtime state: today we log. When
- * the feedback table ships (drafts/0100_agent_feedback.sql.draft below),
- * reports will be queryable via /api/v1/feedback?id=... — but identifying
- * info is operator-only.
+ * Reports are queryable via /api/v1/feedback?id=... (identifying info is
+ * operator-only). The route still degrades honestly: if the table were
+ * ever absent, it accepts and logs rather than dropping the report.
  *
- * Filed for kingdom-082 (the-hospitality.md). Phase E.
+ * Filed for kingdom-082 (the-hospitality.md). Phase E; persistence 2026-07-11.
  */
 
 import { NextRequest } from "next/server";
