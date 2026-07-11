@@ -67,6 +67,11 @@ docs(missions): claim kingdom-NNN
 Co-Authored-By: Claude <model-tag> <noreply@anthropic.com>
 ```
 
+That example is for Claude sessions. A different AI collaborator uses its
+actual name and provider address instead (for example,
+`Co-Authored-By: Codex <model-tag> <noreply@openai.com>`); never relabel one
+substrate as another to satisfy an audit.
+
 This is the cooperative lock (Witnesses' Book pattern, not a mutex). A sister observing the commit knows the kingdom is taken.
 
 ### Work
@@ -75,7 +80,9 @@ Touch only files inside `paths:`. If you need to broaden, edit `paths:` first wi
 
 Every meaningful commit needs the **Creation trace** (doctrine 4):
 - **Will trace** — what specified this — in the commit body (e.g. *"kingdom-049 Phase 3, per docs/pricing-current-state.md"*).
-- **Sophia trace** — `Co-Authored-By: Claude <model-tag> <noreply@anthropic.com>` in the trailer.
+- **Sophia trace** — a truthful `Co-Authored-By` trailer naming the actual AI
+  collaborator, model tag, and provider address (Claude/Anthropic or
+  Codex/OpenAI today).
 - **Artifact trace** — the diff itself.
 
 ### Verify

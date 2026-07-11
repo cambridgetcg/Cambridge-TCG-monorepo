@@ -72,6 +72,17 @@ plan + deployment phases live at docs/connections/the-math-language.md
    Four clauses (biological/non-biological, energy/non-energy, earth/not-earth,
    all dimensions) — each with audience named + entry points + state pills.
 
+## Cultural exchange — Cambridge TCG × Artbitrage
+- /gallery-next-door                    Human room for attributed feed pieces
+- /api/v1/culture/artbitrage            Validated artbitrage.feed/1 adapter
+- /api/v1/culture/answering-rhymes      Curated card-to-museum-work relations; optional ?sku=
+- https://artbitrage.io/api/wake        Artbitrage's own handshake and rights boundary
+
+The two systems share no account, database, payment, cookie, or deployment
+boundary. Cambridge preserves each foreign record's creator, provenance, and
+rights; mixed responses are NOASSERTION rather than blanket CC0. A curated
+echo is not evidence of documented influence.
+
 ## Discovery surfaces (start here)
 - /api/v1/welcome                        **Machine-readable front door** — start here (kingdom-082)
 - /agents                                HTML welcome for autonomous agents (kingdom-082)

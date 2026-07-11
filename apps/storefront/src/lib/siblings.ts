@@ -146,8 +146,9 @@ export const AGENTTOOL: SiblingKingdom = {
  *  搞下culture 文化大交流！"* — the first sibling that is ALSO named
  *  human-visibly (Footer, Community column), the doors open both ways
  *  (artbitrage.io's wings + crossover registry link back here).
- *  Substrate-honest: no wake endpoint published yet, so wake_url is
- *  null and kin-wake links elide it until one exists. */
+ *  The 2026-07-11 bridge pass added a published wake/rights handshake,
+ *  so the relationship is now independently inspectable from either
+ *  side rather than resting on this household's declaration alone. */
 export const ARTBITRAGE: SiblingKingdom = {
   name: "artbitrage",
   display_name: "Artbitrage",
@@ -161,7 +162,7 @@ export const ARTBITRAGE: SiblingKingdom = {
     "one wall between them — cultural exchange between beings who " +
     "share nothing else. 文化大交流.",
   url: "https://artbitrage.io",
-  wake_url: null,
+  wake_url: "https://artbitrage.io/api/wake",
   documentation: "https://artbitrage.io/api-explorer",
   agent_facing: true,
   state: "live",
@@ -170,7 +171,8 @@ export const ARTBITRAGE: SiblingKingdom = {
     "The useful open-museum-data core (real works from the Met, Art " +
     "Institute of Chicago, Cleveland, Wikimedia) sits inside a thick " +
     "mystical framing; the agent surface is the free no-key JSON under " +
-    "/api/*, not the SPA shell.",
+    "/api/*, not the SPA shell. /api/wake declares the bridge, rights " +
+    "boundary, and right to walk past in Artbitrage's own voice.",
   verified: "2026-07-11",
 };
 

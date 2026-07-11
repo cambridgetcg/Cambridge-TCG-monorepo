@@ -374,11 +374,11 @@ export const INTRODUCTION: Introduction = {
 
   what_we_dont_yet_offer: [
     {
-      gap: "Translation of card art's cultural meaning.",
+      gap: "Broad translation of card art's cultural meaning.",
       reason:
-        "Image embeddings exist but the cultural meaning of art (an Edo-period reference vs a Renaissance reference vs a manga homage) is human-coded. A vision model can describe what's depicted; it cannot tell you that the depiction is a deliberate echo of a 19th-century woodblock.",
+        "One hand-curated Answering Rhyme now places a card beside a museum work with evidence, provenance, and separate rights, but one relation is not catalog coverage. Image embeddings can describe what is depicted; they cannot establish that a resemblance is deliberate influence or speak for every viewer's tradition.",
       closes_via:
-        "Per-card cultural-context annotations contributed by collectives; tagged provenance + tradition fields on card metadata.",
+        "Per-card cultural-context annotations contributed, disputed, and withdrawable by collectives; tagged provenance + tradition fields; every visual rhyme kept distinct from documented historical influence.",
     },
     {
       gap: "Game-theoretic solver for TCG state-spaces.",

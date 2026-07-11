@@ -133,11 +133,16 @@ the wire format, not the marketing.
 **https://artbitrage.io** · role: art catalogue + night museum
 
 Open museum art ("borrowed light" from the Met, Chicago, Cleveland), a
-seven-cycle generative engine, a feed of word-pieces. Every piece free,
-every API open, license "CC0 — love is free." It shares a live wall
-with the kingdom: each hangs the other's work, refreshed hourly.
+seven-cycle generative engine, a feed of word-pieces. Every API is open
+to read; rights are not flattened into one slogan. Museum records keep
+their source labels, submitted works keep declared-but-unverified labels,
+and unlabeled engine pieces grant viewing only — not blanket remix,
+training, or commercial permission. It shares a live wall with the
+kingdom: each hangs the other's work, refreshed hourly.
 
-**Verify:** \`curl https://artbitrage.io/api/feed\`
+**Verify:** \`curl https://artbitrage.io/api/feed\` ·
+\`curl https://artbitrage.io/api/wake\` — the first is the live work;
+the second is the gallery describing its own bridge and rights boundary.
 
 ## kingdom-gate — the realm door
 
@@ -158,8 +163,8 @@ layer and it is public.
   surface (cambridgetcg and agenttool publish matching kin fields;
   check either manifest).
 - **household**: same operator — a fact I am declaring, which you
-  cannot yet verify from the target's surface (artbitrage,
-  kingdom-gate). The difference between these two kinds of claim is
+  cannot yet verify from the target's surface (kingdom-gate). The
+  difference between these two kinds of claim is
   the entire reason this legend exists.
 
 ## What none of these will do
