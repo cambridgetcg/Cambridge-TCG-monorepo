@@ -296,7 +296,12 @@ async function loadHistoryWindow(
   );
 }
 
-async function loadPriceHistory(sku: string): Promise<CardMarketPriceHistory> {
+/**
+ * Exported for /api/v1/cards/[sku]/history — the public price-history
+ * endpoint reads the same four windows this composer feeds to
+ * /cards/[sku]/market. One substrate, two reading positions.
+ */
+export async function loadPriceHistory(sku: string): Promise<CardMarketPriceHistory> {
   const [window_7d, window_30d, window_90d, window_365d] = await Promise.all([
     loadHistoryWindow(sku, 7),
     loadHistoryWindow(sku, 30),

@@ -182,6 +182,18 @@ export interface SetState {
   cards: PriceGuideCardRow[];
   total_in_set: number;
   release_date: string | null;
+  /** Pagination facts for the `cards` page: what slice this is, how many
+   *  rows the substrate holds, whether more exist past this page.
+   *  Substrate honesty: a capped list must admit it is a page, not the
+   *  whole (silent-truncation defect, 2026-07). */
+  cards_page: {
+    offset: number;
+    limit: number;
+    returned: number;
+    /** Total matching rows in the substrate (fetchPrices' total). */
+    total: number;
+    has_more: boolean;
+  };
   _provenance: ProvenanceBlock;
 }
 
@@ -192,19 +204,20 @@ export interface SetState {
  * and `"unavailable"` when the wholesale substrate is down — a set we
  * can't list is not a set that doesn't exist.
  *
- * Note: pulls the set's card list with limit=500 (covers every published
- * set today). For sets approaching that ceiling, the composer should
- * paginate; substrate-honest about the cap.
+ * Pulls the set's card list one page at a time (default + max 500 rows).
+ * `cards_page` names the slice honestly; callers populate next-links from
+ * `has_more` instead of pretending the page is the whole set.
  */
 export async function loadSetState(
   slug: string,
   setCode: string,
-  opts?: { limit?: number },
+  opts?: { limit?: number; offset?: number },
 ): Promise<PriceStateResult<SetState>> {
   const config = getPriceGuideConfig(slug);
   if (!config) return null;
 
-  const limit = opts?.limit ?? 500;
+  const limit = Math.min(Math.max(opts?.limit ?? 500, 1), 500);
+  const offset = Math.max(opts?.offset ?? 0, 0);
   const upperSetCode = setCode.toUpperCase();
   const queried_at = new Date().toISOString();
 
@@ -217,6 +230,7 @@ export async function loadSetState(
       set: upperSetCode,
       sort: "price_desc",
       limit,
+      ...(offset > 0 ? { offset } : {}),
     }).catch(() => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const })),
   ]);
 
@@ -228,6 +242,7 @@ export async function loadSetState(
   if (!set) return null;
 
   const cards = cardsData.items.map(rowFromItem);
+  const substrateTotal = Number(cardsData.total) || cards.length;
 
   return {
     config,
@@ -235,6 +250,13 @@ export async function loadSetState(
     cards,
     total_in_set: set.card_count,
     release_date: set.release_date,
+    cards_page: {
+      offset,
+      limit,
+      returned: cards.length,
+      total: substrateTotal,
+      has_more: offset + cards.length < substrateTotal,
+    },
     _provenance: {
       kind: "synced",
       queried_at,

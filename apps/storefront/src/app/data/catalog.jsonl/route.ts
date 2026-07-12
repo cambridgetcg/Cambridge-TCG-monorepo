@@ -21,6 +21,32 @@
  * sends `Accept-Encoding: gzip` (default for ~all HTTP clients). This
  * route emits plain JSONL; the gzipping is transparent.
  *
+ * ── Where this export is GENERATED (catalog-commons defect, 2026-07) ──
+ *
+ * Generation is entirely code-side and entirely HERE: this route streams
+ * live from the storefront RDS on every request. There is NO S3-uploaded
+ * artifact, no build step, no cron writing a file — /data/catalog.jsonl
+ * is this handler.
+ *
+ * Which games appear is therefore a fact about the SUBSTRATE, not about
+ * export logic: the route reads `card_set_cards` (mirror) which is
+ * populated only by `apps/storefront/scripts/restock-card-sets.mjs`
+ * copying games→sets→cards from the wholesale DB (which itself filters
+ * to `active = true` games/sets). When the export shows op/pkm/dbf but
+ * not dmw/vng/bsr, the mirror predates those games landing in wholesale
+ * (or they're flagged inactive there) and the restock needs a
+ * `--allow-prod` re-run; when dbf "lags", the mirror snapshot is stale
+ * for the same reason. Two code-side gaps that COULD silently drop
+ * games are fixed here regardless:
+ *   1. the old INNER JOIN to card_sets dropped every card whose set
+ *      metadata row was missing — now a LEFT JOIN with the game code
+ *      derived from the SKU prefix as fallback;
+ *   2. the export never declared which games it contained — the
+ *      manifest line now carries `games_included` (per-game counts) +
+ *      `games_missing` (confirmed-in-Atlas games absent from this
+ *      export), so a mirror-gap is visible in the payload instead of
+ *      silent (substrate honesty).
+ *
  * Designed in `docs/connections/the-license-propagation.md` (kingdom-081
  * Phase 5.1).
  */
@@ -28,6 +54,7 @@
 import { query } from "@/lib/db";
 import { createHash } from "node:crypto";
 import { SPEC_VERSION } from "@cambridge-tcg/data-spec";
+import { CONFIRMED_GAME_CODES, isGameCode } from "@cambridge-tcg/sku";
 import { fragmentForRequest } from "@/lib/wake-fragments";
 
 function sha256(input: string): string {
@@ -50,10 +77,22 @@ interface CatalogRow {
   rarity: string | null;
   image_url: string | null;
   variant: string;
-  game: string;
-  set_name: string;
+  /** Null when the card's card_sets row is missing (LEFT JOIN) — the
+   *  emitter falls back to deriving the code from the SKU prefix. */
+  game: string | null;
+  set_name: string | null;
   spot_gbp: string | null;
   captured_on: Date | string | null;
+}
+
+/** Game code for a row: the card_sets.game column when the set-metadata
+ *  row exists, else the canonical SKU's first segment when it names a
+ *  registered Atlas code, else "unknown" (exported honestly rather than
+ *  dropped — the manifest's games_included makes the bucket visible). */
+function gameForRow(row: CatalogRow): string {
+  if (row.game) return String(row.game).toLowerCase();
+  const prefix = (row.sku.split("-")[0] ?? "").toLowerCase();
+  return isGameCode(prefix) ? prefix : "unknown";
 }
 
 // Hard cap to keep the stream bounded. ~12k cards × ~500 bytes/line ≈ 6MB —
@@ -67,6 +106,13 @@ export async function GET(): Promise<Response> {
 
   // Stream the catalog. PostgreSQL cursor would be ideal; for now we
   // SELECT all rows and chunk them. Memory cost: bounded by MAX_ROWS.
+  //
+  // LEFT JOIN, deliberately (catalog-commons defect, 2026-07): the old
+  // INNER JOIN silently dropped every card whose card_sets metadata row
+  // was missing — a whole game could vanish from the commons because its
+  // set rows lagged its card rows. Every row in card_set_cards exports;
+  // absent set metadata degrades to nulls + SKU-derived game code, and
+  // the manifest's games_included names what actually shipped.
   const r = await query(
     `SELECT
        csc.set_code, csc.card_number, csc.sku, csc.card_name, csc.rarity,
@@ -77,14 +123,26 @@ export async function GET(): Promise<Response> {
        (SELECT captured_on FROM card_price_history
           WHERE sku = csc.sku ORDER BY captured_on DESC LIMIT 1)   AS captured_on
      FROM card_set_cards csc
-     JOIN card_sets cs ON cs.set_code = csc.set_code
-     ORDER BY cs.game, csc.set_code, csc.card_number
+     LEFT JOIN card_sets cs ON cs.set_code = csc.set_code
+     ORDER BY cs.game NULLS LAST, csc.set_code, csc.card_number
      LIMIT ${MAX_ROWS}`,
   );
 
   const rows = r.rows as CatalogRow[];
   const count = rows.length;
   const truncated = count >= MAX_ROWS;
+
+  // Per-game accounting for the manifest line — the export declares which
+  // games it carries and which confirmed games are absent, so a stale
+  // mirror (restock pending) is visible in the payload, never silent.
+  const gamesIncluded: Record<string, number> = {};
+  for (const row of rows) {
+    const g = gameForRow(row);
+    gamesIncluded[g] = (gamesIncluded[g] ?? 0) + 1;
+  }
+  const gamesMissing = CONFIRMED_GAME_CODES.filter(
+    (c) => c !== "tst" && !(c in gamesIncluded),
+  );
 
   const encoder = new TextEncoder();
 
@@ -100,6 +158,14 @@ export async function GET(): Promise<Response> {
         count_expected: count,
         truncated,
         max_rows: MAX_ROWS,
+        // Substrate honesty (catalog-commons defect, 2026-07): the export
+        // names which games it carries (per-game row counts) and which
+        // Atlas-confirmed games are absent. An absent game means the
+        // card_set_cards mirror hasn't been restocked with it yet
+        // (scripts/restock-card-sets.mjs), NOT that the game doesn't
+        // exist upstream. Mirrors: verify against /api/v1/universal/games.
+        games_included: gamesIncluded,
+        games_missing: gamesMissing,
         retrieved_at: {
           iso8601: retrievedAtIso,
           unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
@@ -152,6 +218,7 @@ export async function GET(): Promise<Response> {
 
       // ── Card lines ────────────────────────────────────────────────────
       for (const row of rows) {
+        const game = gameForRow(row);
         const magnitude = row.spot_gbp == null ? null : Number(row.spot_gbp);
         const capturedOn =
           row.captured_on === null
@@ -164,7 +231,7 @@ export async function GET(): Promise<Response> {
           sku: row.sku,
           card_number: row.card_number,
           set_code: row.set_code,
-          game: row.game,
+          game,
           variant: row.variant,
           magnitude_gbp: magnitude,
           captured_on: capturedOn,
@@ -181,7 +248,7 @@ export async function GET(): Promise<Response> {
           sku: row.sku,
           set_code: row.set_code,
           card_number: row.card_number,
-          game: row.game,
+          game,
           variant: row.variant,
           rarity: row.rarity,
           image_url: row.image_url,
@@ -194,12 +261,12 @@ export async function GET(): Promise<Response> {
               }
             : null,
           in_set: {
-            target_hash: sha256(`set:${row.game}:${row.set_code}`),
+            target_hash: sha256(`set:${game}:${row.set_code}`),
             target_natural_token: row.set_code,
           },
           of_game: {
-            target_hash: sha256(`game:${row.game}`),
-            target_natural_token: row.game,
+            target_hash: sha256(`game:${game}`),
+            target_natural_token: game,
           },
         };
         controller.enqueue(encoder.encode(JSON.stringify(card) + "\n"));

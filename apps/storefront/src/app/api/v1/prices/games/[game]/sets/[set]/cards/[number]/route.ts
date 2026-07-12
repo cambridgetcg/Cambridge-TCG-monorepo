@@ -15,13 +15,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import { loadCardState } from "@/lib/prices/state";
+import { decodePathParam } from "@/lib/http/params";
 
 interface RouteContext {
   params: Promise<{ game: string; set: string; number: string }>;
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext): Promise<Response> {
-  const { game, set, number } = await params;
+  // Decode before lookup: card numbers legitimately contain "/"
+  // (Vanguard DZ-BT14/018, Pokémon 089/080) and arrive percent-encoded —
+  // matching the raw segment against the catalog would 404 a card the
+  // platform actually carries (slash-links defect, 2026-07).
+  const { game: rawGame, set: rawSet, number: rawNumber } = await params;
+  const game = decodePathParam(rawGame);
+  const set = decodePathParam(rawSet);
+  const number = decodePathParam(rawNumber);
 
   const state = await loadCardState(game, set, number);
   if (state === "unavailable") {
@@ -60,19 +68,27 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
         updated_at: state.card.updated_at,
       },
       cross_source_signals: state.cross_source_signals,
-      _links: {
-        self: `/api/v1/prices/games/${state.config.slug}/sets/${state.set.code.toLowerCase()}/cards/${state.card.card_number.toLowerCase()}`,
-        html: `/prices/${state.config.slug}/${state.set.code.toLowerCase()}/${state.card.card_number.toLowerCase()}`,
-        math_mirror: `/api/v1/universal/card/${state.card.sku}`,
-        product: `/product/${state.card.sku}`,
-        market: `/market/${state.card.sku}`,
-        market_mirror: `/cards/${state.card.sku}/market`,
-        parent_set: `/api/v1/prices/games/${state.config.slug}/sets/${state.set.code.toLowerCase()}`,
-        parent_set_html: `/prices/${state.config.slug}/${state.set.code.toLowerCase()}`,
-        parent_game: `/api/v1/prices/games/${state.config.slug}`,
-        methodology_cross_source: "/methodology/cross-source-pricing",
-        methodology_upstream_sources: "/methodology/upstream-sources",
-      },
+      // Every path segment percent-encoded — card numbers and the SKUs
+      // derived from them may contain "/" (slash-links defect, 2026-07).
+      _links: (() => {
+        const encSet = encodeURIComponent(state.set.code.toLowerCase());
+        const encNumber = encodeURIComponent(state.card.card_number.toLowerCase());
+        const encSku = encodeURIComponent(state.card.sku);
+        return {
+          self: `/api/v1/prices/games/${state.config.slug}/sets/${encSet}/cards/${encNumber}`,
+          html: `/prices/${state.config.slug}/${encSet}/${encNumber}`,
+          math_mirror: `/api/v1/universal/card/${encSku}`,
+          history: `/api/v1/cards/${encSku}/history`,
+          product: `/product/${encSku}`,
+          market: `/market/${encSku}`,
+          market_mirror: `/cards/${encSku}/market`,
+          parent_set: `/api/v1/prices/games/${state.config.slug}/sets/${encSet}`,
+          parent_set_html: `/prices/${state.config.slug}/${encSet}`,
+          parent_game: `/api/v1/prices/games/${state.config.slug}`,
+          methodology_cross_source: "/methodology/cross-source-pricing",
+          methodology_upstream_sources: "/methodology/upstream-sources",
+        };
+      })(),
     },
     endpoint: "/api/v1/prices/games/[game]/sets/[set]/cards/[number]",
     sources: state._provenance.sources,

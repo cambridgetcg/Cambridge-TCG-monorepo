@@ -27,13 +27,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildUniversalCard, type Density } from "@/lib/universal/card";
 import { parseAcceptLanguage } from "@/lib/cards/name";
+import { decodePathParam } from "@/lib/http/params";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sku: string }> },
 ) {
   try {
-    const { sku } = await params;
+    // Decode before lookup: SKUs inherit "/" from card numbers that carry
+    // one (Vanguard DZ-BT14/018, Pokémon 089/080) and the segment arrives
+    // percent-encoded (slash-links defect, 2026-07).
+    const { sku: rawSku } = await params;
+    const sku = decodePathParam(rawSku);
     const densityParam = req.nextUrl.searchParams.get("density");
     const density: Density = densityParam === "sparse"
       ? "sparse"

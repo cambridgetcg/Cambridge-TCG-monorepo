@@ -39,6 +39,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { fetchCardrushHistory } from "@/lib/wholesale/client";
 import { errorResponse, jsonResponse } from "@/lib/data-pantry";
+import { decodePathParam } from "@/lib/http/params";
 
 const ENDPOINT = "/api/v1/cards/[sku]/cardrush-history";
 
@@ -59,7 +60,10 @@ export async function GET(
     });
   }
 
-  const { sku } = await params;
+  // Decode before lookup — SKUs inherit "/" from slashed card numbers
+  // (Vanguard DZ-BT14/018, Pokémon 089/080); slash-links defect, 2026-07.
+  const { sku: rawSku } = await params;
+  const sku = decodePathParam(rawSku);
   const url = new URL(req.url);
   const limitParam = parseInt(url.searchParams.get("limit") ?? "", 10);
   const limit = Number.isFinite(limitParam) && limitParam > 0

@@ -21,6 +21,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { query } from "@/lib/db";
 import { buildLinks } from "@/lib/universal/links";
+import { decodePathParam } from "@/lib/http/params";
+
+/** Page ceiling for the inline card list. Requests may ask for less via
+ *  ?limit; never more. Pagination is honest: `cards_pagination` names the
+ *  slice and `next` walks to the rest (silent-truncation defect, 2026-07). */
+const MAX_CARDS_PER_PAGE = 500;
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -35,11 +41,22 @@ function canonicalize(value: unknown): string {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ code: string }> },
 ) {
   try {
-    const { code: setCode } = await params;
+    // Decode before lookup — the segment arrives percent-encoded
+    // (slash-links defect, 2026-07).
+    const { code: rawCode } = await params;
+    const setCode = decodePathParam(rawCode);
+
+    const offsetParam = parseInt(req.nextUrl.searchParams.get("offset") ?? "", 10);
+    const limitParam = parseInt(req.nextUrl.searchParams.get("limit") ?? "", 10);
+    const offset = Number.isFinite(offsetParam) && offsetParam > 0 ? offsetParam : 0;
+    const limit =
+      Number.isFinite(limitParam) && limitParam > 0
+        ? Math.min(limitParam, MAX_CARDS_PER_PAGE)
+        : MAX_CARDS_PER_PAGE;
 
     const setRow = await query(
       `SELECT
@@ -69,15 +86,26 @@ export async function GET(
 
     // Cards in the set (singleton-set carries its children inline; the
     // collection endpoint /sets/[game] returns set-level rows only).
+    // Paged honestly: LIMIT/OFFSET + a total count, so a 1000-card set
+    // arrives as declared pages instead of a silently-truncated list
+    // whose next-link lies null (silent-truncation defect, 2026-07).
     const cards = await query(
       `SELECT csc.sku, csc.card_number, csc.card_name, csc.rarity, csc.variant,
               (SELECT spot_gbp FROM card_price_history
                  WHERE sku = csc.sku ORDER BY captured_on DESC LIMIT 1) AS spot_gbp
        FROM card_set_cards csc
        WHERE csc.set_code = $1
-       ORDER BY csc.card_number, csc.variant`,
-      [setCode],
+       ORDER BY csc.card_number, csc.variant
+       LIMIT $2 OFFSET $3`,
+      [setCode, limit, offset],
     );
+
+    const cardsTotal = Number(set.imported_card_count) || 0;
+    const hasMore = offset + cards.rows.length < cardsTotal;
+    const encodedSetCode = encodeURIComponent(setCode);
+    const nextPageLink = hasMore
+      ? `/api/v1/universal/set/${encodedSetCode}?offset=${offset + cards.rows.length}&limit=${limit}`
+      : null;
 
     const retrievedAt = new Date();
     const game = set.game as string;
@@ -134,7 +162,9 @@ export async function GET(
         "cover_image_url",
         "cards[].rarity",
       ],
-      _links,
+      // `next` is null on the last page and a real URL when more cards
+      // exist — never a null that lies about truncation.
+      _links: { ..._links, next: nextPageLink },
 
       // ── Structural facts ─────────────────────────────────────────────
       set_code: setCode,
@@ -169,7 +199,14 @@ export async function GET(
         },
       },
 
-      // ── Children: the cards in this set ──────────────────────────────
+      // ── Children: the cards in this set (one honest page of them) ────
+      cards_pagination: {
+        offset,
+        limit,
+        returned: cardEntries.length,
+        total: cardsTotal,
+        next_link: nextPageLink,
+      },
       cards: cardEntries,
     };
 
