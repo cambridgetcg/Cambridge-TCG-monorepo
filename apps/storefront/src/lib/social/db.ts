@@ -5,20 +5,32 @@ import type { PublicProfile, ShowcaseCard, WishlistItem, ActivityEvent, Achievem
 // PROFILES
 // ══════════════════════════════════════════════════════════════
 
-export async function getPublicProfile(identifier: string): Promise<PublicProfile | null> {
+export async function getPublicProfile(
+  identifier: string,
+  viewerUserId?: string,
+): Promise<PublicProfile | null> {
   // Look up by username or user ID
   const result = await query(
     `SELECT u.id as user_id, u.username, u.name, u.bio, u.avatar_url, u.is_public,
+       u.accepts_messages,
        u.pronouns, u.preferred_address,
        t.name as tier_name, t.icon as tier_icon, t.color as tier_color,
        u.trust_score, u.trade_count, u.follower_count, u.following_count,
        u.created_at as member_since,
        (SELECT COUNT(*) FROM portfolio_cards WHERE user_id=u.id) as portfolio_count,
-       (SELECT AVG(rating) FROM trade_reviews WHERE reviewee_id=u.id AND admin_hidden=false) as avg_rating,
-       (SELECT COUNT(*) FROM trade_reviews WHERE reviewee_id=u.id AND admin_hidden=false) as total_reviews
-     FROM users u LEFT JOIN tiers t ON u.tier_id=t.id
-     WHERE u.username=$1 OR u.id::text=$1`,
-    [identifier]
+       (SELECT AVG(rating) FROM trade_reviews
+         WHERE reviewee_id=u.id AND is_public=true AND admin_hidden=false) as avg_rating,
+       (SELECT COUNT(*) FROM trade_reviews
+         WHERE reviewee_id=u.id AND is_public=true AND admin_hidden=false) as total_reviews
+     FROM users u
+     LEFT JOIN tiers t ON u.tier_id=t.id
+     LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+     WHERE (u.username=$1 OR u.id::text=$1)
+       AND (
+         COALESCE(tp.is_suspended,FALSE)=FALSE
+         OR u.id::text=$2
+       )`,
+    [identifier, viewerUserId ?? null]
   );
   if (result.rows.length === 0) return null;
   const r = result.rows[0];
@@ -170,7 +182,11 @@ export async function getFollowers(userId: string): Promise<PublicProfile[]> {
     `SELECT u.id as user_id, u.username, u.name, u.avatar_url, u.trust_score, u.trade_count,
        t.icon as tier_icon FROM follows f
      JOIN users u ON f.follower_id=u.id LEFT JOIN tiers t ON u.tier_id=t.id
-     WHERE f.following_id=$1 ORDER BY f.created_at DESC`,
+     LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+     WHERE f.following_id=$1
+       AND u.is_public=TRUE
+       AND COALESCE(tp.is_suspended,FALSE)=FALSE
+     ORDER BY f.created_at DESC`,
     [userId]
   );
   return result.rows as PublicProfile[];
@@ -181,7 +197,11 @@ export async function getFollowing(userId: string): Promise<PublicProfile[]> {
     `SELECT u.id as user_id, u.username, u.name, u.avatar_url, u.trust_score, u.trade_count,
        t.icon as tier_icon FROM follows f
      JOIN users u ON f.following_id=u.id LEFT JOIN tiers t ON u.tier_id=t.id
-     WHERE f.follower_id=$1 ORDER BY f.created_at DESC`,
+     LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+     WHERE f.follower_id=$1
+       AND u.is_public=TRUE
+       AND COALESCE(tp.is_suspended,FALSE)=FALSE
+     ORDER BY f.created_at DESC`,
     [userId]
   );
   return result.rows as PublicProfile[];
@@ -204,7 +224,7 @@ export async function postActivity(userId: string, eventType: string, title: str
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [userId, eventType, title, data?.description || null, data?.imageUrl || null,
      data?.linkUrl || null, data?.referenceId || null, data?.referenceType || null,
-     data?.isPublic !== false]
+     data?.isPublic === true]
   );
 }
 
@@ -213,24 +233,36 @@ export async function getCommunityFeed(options: {
   limit?: number;
   offset?: number;
 }): Promise<ActivityEvent[]> {
-  const limit = options.limit || 30;
-  const offset = options.offset || 0;
+  const limit = Math.min(Math.max(options.limit ?? 30, 1), 30);
+  const offset = 0;
 
-  let where = "WHERE f.is_public=true";
+  let where = `WHERE f.is_public=TRUE
+    AND u.is_public=TRUE
+    AND COALESCE(tp.is_suspended,FALSE)=FALSE`;
   const params: unknown[] = [];
 
   if (options.followingUserId) {
     params.push(options.followingUserId);
-    where = `WHERE f.is_public=true AND (f.user_id IN (SELECT following_id FROM follows WHERE follower_id=$1) OR f.user_id=$1)`;
+    where = `WHERE f.is_public=TRUE
+      AND u.is_public=TRUE
+      AND COALESCE(tp.is_suspended,FALSE)=FALSE
+      AND (f.user_id IN (SELECT following_id FROM follows WHERE follower_id=$1) OR f.user_id=$1)
+      AND NOT EXISTS (
+        SELECT 1 FROM user_blocks b
+         WHERE (b.blocker_id=$1 AND b.blocked_id=f.user_id)
+            OR (b.blocker_id=f.user_id AND b.blocked_id=$1)
+      )`;
   }
 
   params.push(limit, offset);
   const result = await query(
-    `SELECT f.*, u.name as user_name, u.username as user_username, u.avatar_url as user_avatar,
-       t.icon as tier_icon
+    `SELECT f.event_type, f.title, f.description, f.image_url, f.created_at,
+       u.name as user_name, u.username as user_username,
+       u.avatar_url as user_avatar, t.icon as tier_icon
      FROM activity_feed f
      JOIN users u ON f.user_id=u.id
      LEFT JOIN tiers t ON u.tier_id=t.id
+     LEFT JOIN trust_profiles tp ON tp.user_id=u.id
      ${where}
      ORDER BY f.created_at DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -239,11 +271,16 @@ export async function getCommunityFeed(options: {
   return result.rows as ActivityEvent[];
 }
 
-export async function getUserActivity(userId: string, limit: number = 20): Promise<ActivityEvent[]> {
+export async function getUserActivity(
+  userId: string,
+  limit: number = 20,
+  includePrivate: boolean = false,
+): Promise<ActivityEvent[]> {
+  const visibility = includePrivate ? "" : "AND f.is_public=TRUE";
   const result = await query(
     `SELECT f.*, u.name as user_name, u.username as user_username, u.avatar_url as user_avatar
      FROM activity_feed f JOIN users u ON f.user_id=u.id
-     WHERE f.user_id=$1 ORDER BY f.created_at DESC LIMIT $2`,
+     WHERE f.user_id=$1 ${visibility} ORDER BY f.created_at DESC LIMIT $2`,
     [userId, limit]
   );
   return result.rows as ActivityEvent[];
@@ -289,75 +326,10 @@ export async function awardAchievement(userId: string, code: string): Promise<bo
 // ══════════════════════════════════════════════════════════════
 
 export async function findTradeMatches(userId: string): Promise<TradeMatch[]> {
-  // Find users whose wishlists match your portfolio
-  const yourCards = await query(
-    `SELECT sku, card_name, image_url FROM portfolio_cards WHERE user_id=$1`,
-    [userId]
-  );
-  const yourWishlist = await query(
-    `SELECT sku, card_name, image_url FROM wishlists WHERE user_id=$1 AND fulfilled=false AND sku IS NOT NULL`,
-    [userId]
-  );
-
-  if (yourCards.rows.length === 0 && yourWishlist.rows.length === 0) return [];
-
-  const yourSkus = yourCards.rows.map((c: { sku: string }) => c.sku);
-  const yourWantSkus = yourWishlist.rows.map((w: { sku: string }) => w.sku);
-
-  // Users who want your cards
-  const wanters = yourSkus.length > 0 ? await query(
-    `SELECT DISTINCT w.user_id, w.sku, w.card_name, w.image_url
-     FROM wishlists w WHERE w.sku=ANY($1) AND w.user_id!=$2 AND w.fulfilled=false`,
-    [yourSkus, userId]
-  ) : { rows: [] };
-
-  // Users who have cards you want
-  const havers = yourWantSkus.length > 0 ? await query(
-    `SELECT DISTINCT p.user_id, p.sku, p.card_name, p.image_url
-     FROM portfolio_cards p WHERE p.sku=ANY($1) AND p.user_id!=$2`,
-    [yourWantSkus, userId]
-  ) : { rows: [] };
-
-  // Merge matches
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const matchMap = new Map<string, { yours: any[]; theirs: any[] }>();
-
-  for (const w of wanters.rows) {
-    if (!matchMap.has(w.user_id)) matchMap.set(w.user_id, { yours: [], theirs: [] });
-    matchMap.get(w.user_id)!.yours.push(w);
-  }
-  for (const h of havers.rows) {
-    if (!matchMap.has(h.user_id)) matchMap.set(h.user_id, { yours: [], theirs: [] });
-    matchMap.get(h.user_id)!.theirs.push(h);
-  }
-
-  // Fetch user info for matches
-  const matchUserIds = [...matchMap.keys()];
-  if (matchUserIds.length === 0) return [];
-
-  const users = await query(
-    `SELECT id, username, name, avatar_url, trust_score FROM users WHERE id=ANY($1)`,
-    [matchUserIds]
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userMap = new Map(users.rows.map((u: any) => [u.id, u]));
-
-  return matchUserIds
-    .map(uid => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const user = userMap.get(uid) as any;
-      const match = matchMap.get(uid)!;
-      if (!user) return null;
-      return {
-        user_id: uid,
-        username: user.username,
-        name: user.name,
-        avatar_url: user.avatar_url,
-        trust_score: user.trust_score,
-        your_cards: match.yours,
-        their_cards: match.theirs,
-      } as TradeMatch;
-    })
-    .filter(Boolean)
-    .sort((a, b) => (b!.your_cards.length + b!.their_cards.length) - (a!.your_cards.length + a!.their_cards.length)) as TradeMatch[];
+  // Paused until an explicit trade_intents projection exists. A portfolio is
+  // private inventory, not an offer; a wishlist is private planning, not
+  // permission to scan it into a people graph. Keep the typed seam so the UI
+  // can say why matching is unavailable without reviving the unsafe query.
+  void userId;
+  return [];
 }

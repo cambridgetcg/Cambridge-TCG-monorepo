@@ -259,6 +259,7 @@ export async function submitReview(data: {
   shippingSpeed?: number;
   communication?: number;
   comment?: string;
+  isPublic?: boolean;
 }): Promise<TradeReview> {
   // Integrity gates: must have actually traded with reviewee, terminal
   // trade state, daily rate limit, no duplicate. Throws ReviewGateError
@@ -271,11 +272,13 @@ export async function submitReview(data: {
   });
 
   const result = await query(
-    `INSERT INTO trade_reviews (trade_id, reviewer_id, reviewee_id, role, rating, card_accuracy, shipping_speed, communication, comment)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    `INSERT INTO trade_reviews
+       (trade_id, reviewer_id, reviewee_id, role, rating, card_accuracy,
+        shipping_speed, communication, comment, is_public)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
     [data.tradeId, data.reviewerId, data.revieweeId, data.role, data.rating,
      data.cardAccuracy || null, data.shippingSpeed || null,
-     data.communication || null, data.comment || null]
+     data.communication || null, data.comment || null, data.isPublic === true]
   );
 
   // Audit the submission so the lifecycle log carries every transition
@@ -301,28 +304,32 @@ export async function submitReview(data: {
   // prevents re-inserts anyway, but this keeps the notification idempotent
   // even if someone were to re-submit via a future edit flow).
   const reviewerRow = await query(
-    `SELECT username, name FROM users WHERE id=$1`,
+    `SELECT username, name, is_public FROM users WHERE id=$1`,
     [data.reviewerId],
   );
   const r = reviewerRow.rows[0];
   const who = r?.username ? `@${r.username}` : (r?.name || "A trader");
+  const publicWho = r?.is_public ? who : "A trader";
   const stars = "★".repeat(data.rating) + "☆".repeat(5 - data.rating);
   await notify({
     userId: data.revieweeId,
     kind: "review.received",
     title: `${who} left you a review — ${stars}`,
     body: data.comment ? data.comment.slice(0, 160) : undefined,
-    linkUrl: r?.username ? `/u/${r.username}` : `/u/${data.reviewerId}`,
+    linkUrl: r?.is_public && r?.username ? `/u/${r.username}` : "/account/reviews",
     referenceType: "trade_review",
     referenceId: result.rows[0].id,
   });
   await postActivity(data.revieweeId, "review_received",
-    `Got a ${data.rating}-star review from ${who}`, {
+    `Got a ${data.rating}-star review from ${publicWho}`, {
       description: data.comment ? data.comment.slice(0, 200) : undefined,
-      linkUrl: r?.username ? `/u/${r.username}` : undefined,
+      linkUrl: r?.is_public && r?.username ? `/u/${r.username}` : undefined,
       referenceId: result.rows[0].id,
       referenceType: "trade_review",
-      isPublic: true,
+      // The reviewer may publish the review itself; they cannot publish a
+      // separate activity item on the reviewee's behalf. Activity remains
+      // private until the reviewee has an item-level publication control.
+      isPublic: false,
     }).catch(() => {});
 
   return result.rows[0] as TradeReview;
@@ -337,16 +344,29 @@ interface TradeReview {
   rating: number;
 }
 
-export async function getUserReviews(userId: string): Promise<TradeReview[]> {
+export async function getUserReviews(
+  userId: string,
+  includePrivate = false,
+): Promise<TradeReview[]> {
   const result = await query(
-    `SELECT r.*, u.name as reviewer_name, o.card_name, t.price as trade_price
+    `SELECT r.*,
+            CASE WHEN $2::boolean OR (
+              u.is_public AND COALESCE(reviewer_tp.is_suspended, FALSE) = FALSE
+            )
+              THEN COALESCE(u.username, u.name)
+              ELSE NULL
+            END AS reviewer_name,
+            o.card_name, t.price as trade_price
      FROM trade_reviews r
      JOIN users u ON r.reviewer_id=u.id
+     LEFT JOIN trust_profiles reviewer_tp ON reviewer_tp.user_id=u.id
      JOIN market_trades t ON r.trade_id=t.id
      LEFT JOIN market_orders o ON t.bid_order_id=o.id
-     WHERE r.reviewee_id=$1 AND r.is_public=true AND r.admin_hidden=false
+     WHERE r.reviewee_id=$1
+       AND ($2::boolean OR r.is_public=true)
+       AND r.admin_hidden=false
      ORDER BY r.created_at DESC`,
-    [userId]
+    [userId, includePrivate]
   );
   return result.rows as TradeReview[];
 }

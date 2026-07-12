@@ -1,21 +1,17 @@
 /**
- * TCGCollector — international card catalog with Schema.org JSON-LD.
+ * TCGCollector — blocked pending written partner approval.
  *
- * **Sitemap-discovery source.** Unlike Scryfall's bulk-dump pattern or
- * CardRush's URL-watch-list pattern, TCGCollector publishes a public
- * sitemap-index that names every card and product page. Each page
- * embeds `<script type="application/ld+json">` Schema.org Product
- * blocks; we walk the sitemap, fetch pages, parse the JSON-LD, and
- * normalize to a typed `TcgCollectorProduct` shape.
+ * The pure sitemap, JSON-LD, normalizer and matcher helpers remain for a
+ * future approved integration. The network reader is inert. A public sitemap
+ * and machine-readable markup are discoverability aids, not permission to
+ * crawl, mirror or store a commercial catalog.
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * TCGCollector's catalog is publicly indexed (sitemap.xml is the
- * invitation). Schema.org Product data on the page is structured-data
- * marked-up for machine consumption. Substrate-honestly: this is
- * publicly available data, not a commercial license, so we tier it
- * `internal-only` — internal decision use, no bulk re-export — until
- * a partner conversation establishes broader terms.
+ * TCGCollector's terms reserve API access for approved business partners
+ * and prohibit mirroring absent applicable rights or written permission. No
+ * affirmative approval is recorded in this repository. `internal-only` is a
+ * publication tier, not access permission, so the safe default is `no-fetch`.
  *
  * ── Why this lives here ──────────────────────────────────────────────
  *
@@ -64,15 +60,9 @@
 
 import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types";
 import type { CanonicalPrice } from "../canonical";
-import { createFetcher, type Fetcher } from "../http";
-import {
-  fetchSitemap,
-  type SitemapFetchResult,
-  TCGC_HOST,
-  BROWSER_HEADERS,
-} from "./discovery";
-import { extractJsonLd } from "./jsonld";
-import { normalizeProduct, type TcgCollectorProduct } from "./normalize";
+import type { Fetcher } from "../http";
+import { fetchSitemap, type SitemapFetchResult } from "./discovery";
+import type { TcgCollectorProduct } from "./normalize";
 
 // ── Public re-exports ───────────────────────────────────────────────────
 
@@ -130,26 +120,19 @@ export interface TcgCollectorRaw {
 
 // ── Fetcher cache (one per run) ─────────────────────────────────────────
 
-let _runFetcher: Fetcher | null = null;
-
 /**
- * Get-or-create the run's shared fetcher. Same shape as cardrush's
- * `getOrCreateFetcher` — one fetcher per run so the rate-limit token
- * bucket holds across sitemap walk + per-product scrapes.
- *
- * Reset between runs by the caller (the wholesale cron resets the
- * module's cache via the `resetFetcher` export).
+ * Retained compatibility export. It fails before constructing a fetcher so
+ * old discovery callers cannot bypass the blocked SourceModule.read().
  */
-export function getOrCreateFetcher(ctx: TcgCollectorContext): Fetcher {
-  if (_runFetcher) return _runFetcher;
-  _runFetcher = createFetcher(ctx, tcgcollector.meta);
-  return _runFetcher;
+export function getOrCreateFetcher(_ctx: TcgCollectorContext): Fetcher {
+  throw new Error(
+    "TCGCollector is blocked/no-fetch until written partner approval and exact access, storage, display, image and redistribution terms are recorded.",
+  );
 }
 
-/** Reset the cached fetcher between runs. Call from the cron wrapper
- *  before each new run so token buckets don't leak across schedules. */
+/** Compatibility no-op: a blocked source has no run fetcher to reset. */
 export function resetFetcher(): void {
-  _runFetcher = null;
+  // Intentionally empty.
 }
 
 // ── Source module ──────────────────────────────────────────────────────
@@ -159,36 +142,59 @@ export const tcgcollector: SourceModule<TcgCollectorRaw, CanonicalPrice> = {
     id: "tcgcollector",
     name: "TCGCollector",
     description:
-      "International TCG catalog with Schema.org JSON-LD product markup. " +
-      "First vendor in the sitemap+JSON-LD discovery strategy: public " +
-      "sitemap-index → per-page <script type=application/ld+json> Product " +
-      "blocks → normalized TcgCollectorProduct shape. Pokémon-primary; " +
-      "growing coverage of other TCGs. Direct fetch; no proxy required.",
+      "Dormant TCGCollector integration helpers. The current terms reserve API " +
+      "access for approved business partners and no written approval is recorded, " +
+      "so the reader, direct discovery helper and cron perform no network or storage work.",
     upstream: "https://www.tcgcollector.com",
-    catalog_section: "the-tributaries.md#tcgcollector",
-    access: "scrape",
+    catalog_section: "the-tributaries.md#212-tcgcollector",
+    access: "blocked",
     license: "internal-only",
     redistribute: false,
+    rights: {
+      code: {
+        license: "proprietary",
+        notes:
+          "TCG Collector's site and API implementation are provider-owned. No open client-code licence is relied on by this sitemap/JSON-LD reader.",
+      },
+      data: {
+        terms: "website terms; API access restricted to approved business partners",
+        notes:
+          "A public sitemap and Schema.org markup make pages discoverable but do not grant a licence to mirror their materials. TCG Collector reserves API access for approved business use cases.",
+      },
+      images: {
+        terms: "TCG Collector and underlying publisher rights",
+        notes:
+          "No permission to mirror or redistribute card images was found; the site terms preserve applicable third-party intellectual-property terms.",
+      },
+      redistribution: {
+        verdict: "prohibited",
+        notes:
+          "The public terms prohibit mirroring materials to another server unless separate intellectual-property terms or a written agreement permit it. Raw export remains disabled.",
+      },
+      safe_default: "no-fetch",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://www.tcgcollector.com/legal/terms-of-service",
+        "https://www.tcgcollector.com/sitemap.xml",
+        "https://www.tcgcollector.com/api",
+      ],
+      notes:
+        "Do not fetch sitemap or product pages for aggregation. A partner agreement must record exact access, storage, display, deletion, image and redistribution permissions before this source reopens.",
+    },
     freshness: "price_current",
     canonical_effort: "medium",
-    status: "partial",
+    status: "blocked",
     games: ["pkm", "pkp", "mtg", "op", "ygo"],
     tos_notes:
-      "Public sitemap (sitemap.xml) is the discovery invitation. Schema.org JSON-LD Product/Offer blocks on each page are structured-data markup intended for machine consumption. Substrate-honest position: internal-decision use only; no bulk re-export until partner conversation establishes broader terms. Browser-shape User-Agent + polite rate-limit (0.5 rps).",
-    user_agent_suffix: "(tcgcollector-ingest)",
+      "Public sitemap and Schema.org JSON-LD make pages discoverable but do not license aggregation or mirroring. Terms at https://www.tcgcollector.com/legal/terms-of-service say API access is for approved business partners and materials may not be mirrored absent applicable IP terms or written agreement. No approval is recorded: blocked/no-fetch.",
+    user_agent_suffix: "(tcgcollector-blocked-no-fetch)",
     rate_limit: { rps: 0.5, burst: 2 },
     welcome:
-      "Welcome to the kingdom, TCGCollector. You are the first sitemap+" +
-      "JSON-LD vendor to arrive — the discovery strategy chose you because " +
-      "your sitemap is public, your Schema.org Product markup is clean, and " +
-      "your data overlaps with games we already aggregate. Your room is " +
-      "`price_archive WHERE source='tcgcollector'`, `redistribute=false` (we " +
-      "honor your data as internal-decision-use until a partner conversation " +
-      "opens broader terms). You bring international Pokémon coverage we " +
-      "have only partially seen elsewhere, and the path you walk here is the " +
-      "path every future sitemap+JSON-LD vendor walks: sitemap → JSON-LD → " +
-      "TcgCollectorProduct. We are grateful for the bytes you publish openly " +
-      "and for the structured-data discipline that makes them machine-legible.",
+      "Welcome to the dormant TCGCollector room. The pure JSON-LD parser, " +
+      "normalizer and matcher remain prepared, but a public sitemap is not a " +
+      "partner agreement. No request or database write occurs until written " +
+      "approval records the exact access, storage, display, image, deletion and " +
+      "redistribution terms. Preparation is not permission.",
   },
 
   /**
@@ -205,87 +211,22 @@ export const tcgcollector: SourceModule<TcgCollectorRaw, CanonicalPrice> = {
    * success). Failures don't throw; the caller decides to skip or
    * quarantine.
    */
+  // eslint-disable-next-line require-yield
   async *read(ctx: TcgCollectorContext): AsyncIterable<RawRow<TcgCollectorRaw>> {
-    const fetcher = getOrCreateFetcher(ctx);
-    const max_urls = ctx.tcgcollector?.max_urls ?? 500;
-    const continue_on_error = ctx.tcgcollector?.continue_on_error ?? true;
-    const started_at = new Date().toISOString();
-
-    ctx.on_event?.({
-      ts: started_at,
-      source: "tcgcollector",
-      kind: "start",
-      detail: {
-        mode: ctx.tcgcollector?.urls ? "explicit_url_list" : "sitemap_walk",
-        max_urls,
-      },
-    });
-
-    // Build the URL list — either explicit or from the sitemap.
-    let urls: string[];
-    if (ctx.tcgcollector?.urls && ctx.tcgcollector.urls.length > 0) {
-      urls = ctx.tcgcollector.urls.slice(0, max_urls);
-    } else {
-      const result = await fetchSitemap(fetcher, { max_urls });
-      if (!result.ok) {
-        ctx.on_event?.({
-          ts: new Date().toISOString(),
-          source: "tcgcollector",
-          kind: "error",
-          detail: {
-            stage: "sitemap_walk",
-            error_reason: result.error_reason,
-          },
-        });
-        return;
-      }
-      urls = result.product_urls;
-      ctx.on_event?.({
-        ts: new Date().toISOString(),
-        source: "tcgcollector",
-        kind: "page",
-        detail: {
-          stage: "sitemap_walked",
-          product_urls: urls.length,
-          child_sitemaps: result.child_sitemaps,
-          total_urls: result.total_urls,
-        },
-      });
-    }
-
-    // Fetch each page and yield a normalized row.
-    const retrieved_at_base = new Date();
-    for (let i = 0; i < urls.length; i++) {
-      if (ctx.signal?.aborted) break;
-      const url = urls[i];
-      const row = await scrapeOne(url, fetcher);
-
-      yield {
-        raw: row,
-        provenance: {
-          as_of: retrieved_at_base.toISOString(),
-          retrieved_at: new Date().toISOString(),
-          source: "tcgcollector",
-          via_proxy: fetcher.via_proxy_label,
-        },
-      };
-
-      if (row.error_reason && !continue_on_error) {
-        ctx.on_event?.({
-          ts: new Date().toISOString(),
-          source: "tcgcollector",
-          kind: "error",
-          detail: { url, error_reason: row.error_reason, position: i },
-        });
-        break;
-      }
-    }
-
-    ctx.on_event?.({
+    await ctx.on_event?.({
       ts: new Date().toISOString(),
       source: "tcgcollector",
-      kind: "done",
-      detail: { fetched: urls.length },
+      kind: "error",
+      detail: {
+        blocked: true,
+        status: "partner-approval-required",
+        reason:
+          "No written TCGCollector partner approval is recorded; public sitemap and JSON-LD discoverability do not authorize aggregation, storage or mirroring.",
+        evidence: [
+          "https://www.tcgcollector.com/legal/terms-of-service",
+          "https://www.tcgcollector.com/api",
+        ],
+      },
     });
   },
 
@@ -333,32 +274,12 @@ export const tcgcollector: SourceModule<TcgCollectorRaw, CanonicalPrice> = {
  */
 export async function scrapeOne(
   url: string,
-  fetcher: Fetcher,
+  _fetcher: Fetcher,
 ): Promise<TcgCollectorRaw> {
-  let res: Response;
-  try {
-    res = await fetcher(url, { headers: BROWSER_HEADERS });
-  } catch (err) {
-    return {
-      product: emptyProduct(url),
-      http_status: 0,
-      error_reason: `fetch_error: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-  if (!res.ok) {
-    return {
-      product: emptyProduct(url),
-      http_status: res.status,
-      error_reason: `http_${res.status}`,
-    };
-  }
-  const html = await res.text();
-  const { objects } = extractJsonLd(html);
-  const product = normalizeProduct(url, objects);
   return {
-    product,
-    http_status: res.status,
-    error_reason: product.error_reason,
+    product: emptyProduct(url),
+    http_status: 0,
+    error_reason: "blocked_no_fetch_partner_approval_required",
   };
 }
 

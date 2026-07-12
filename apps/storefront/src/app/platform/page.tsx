@@ -15,7 +15,7 @@
  *   - /manifest (the typed list of every public resource)
  *   - /api/v1/manifest (machine-readable)
  *   - /methodology/universal-representation (the math-mirror encoding)
- *   - /standards (CC0 + adopter info)
+ *   - /standards (Cambridge-authored CC0 schemas + adopter info)
  *   - the math-language toggle (kingdom-077)
  *   - the welcome-all statement (kingdom-076)
  */
@@ -31,9 +31,9 @@ import {
 } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, a collectors' market and open data commons",
+  title: "Platform — Cambridge TCG collectors' market and public data interface",
   description:
-    "Cambridge TCG is a collectors' market and an open data commons. Two operations, one substrate: peer-to-peer trade the platform facilitates without holding a position, and open TCG data — twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; anyone builds on top without negotiating.",
+    "A peer-to-peer collectors' market plus a rights-aware public data interface for first-party market facts, observed coverage, source boundaries, schemas, and methodology.",
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -119,9 +119,9 @@ export default function PlatformPage() {
             />
             <CoverageCard
               label="Upstream sources"
-              value={`${COVERAGE_FACTS.sources.shipped} shipped`}
-              sub={`+ ${COVERAGE_FACTS.sources.planned} planned in registry`}
-              note="Each source: typed SourceModule contract, rate-limited fetcher, lineage in every record."
+              value={`${COVERAGE_FACTS.sources.reviewed} reviewed`}
+              sub={`${COVERAGE_FACTS.sources.public_exact_value_sources} currently permit public exact-value redistribution`}
+              note="Blocked and conditional sources remain visible in the registry but fail closed at fetch and publication boundaries."
             />
             <CoverageCard
               label="Math-mirror kinds"
@@ -133,7 +133,7 @@ export default function PlatformPage() {
               label="License default"
               value={COVERAGE_FACTS.envelope.license_default}
               sub="every public response"
-              note="Partners can build on top without negotiating. Some upstream-derived data carries the upstream's license; the envelope declares it per-response."
+              note="No reuse grant is inferred. Explicit Cambridge-authored CC0 and any upstream rights travel separately in the response."
             />
             <CoverageCard
               label="Federation primitive"
@@ -153,7 +153,7 @@ export default function PlatformPage() {
         {/* Upstream sources list */}
         <section className="mt-12">
           <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
-            Upstream sources · shipped
+            Source-rights reviews
           </h2>
           <div className="rounded-lg border border-border-subtle bg-surface overflow-x-auto">
             <table className="w-full text-sm">
@@ -161,15 +161,15 @@ export default function PlatformPage() {
                 <tr>
                   <th className="text-left px-4 py-2 font-medium">Source</th>
                   <th className="text-left px-4 py-2 font-medium">Status</th>
-                  <th className="text-left px-4 py-2 font-medium">License tier</th>
+                  <th className="text-left px-4 py-2 font-medium">Publication boundary</th>
                 </tr>
               </thead>
               <tbody>
-                {COVERAGE_FACTS.sources.shipped_list.map((s) => (
+                {COVERAGE_FACTS.sources.reviewed_list.map((s) => (
                   <tr key={s.id} className="border-b border-border-subtle">
                     <td className="px-4 py-2 font-mono text-ink">{s.id}</td>
                     <td className="px-4 py-2 text-ink-muted text-xs">{s.status}</td>
-                    <td className="px-4 py-2 text-ink-faint text-[11px] font-mono">{s.license}</td>
+                    <td className="px-4 py-2 text-ink-faint text-[11px] font-mono">{s.rights}</td>
                   </tr>
                 ))}
               </tbody>

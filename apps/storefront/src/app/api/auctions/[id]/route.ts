@@ -1,32 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
-import { getAuction, updateAuction, deleteAuction, redactAuctionForPublic } from "@/lib/auction/db";
+import { updateAuction, deleteAuction } from "@/lib/auction/db";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  _context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const auction = await getAuction(id);
-  if (!auction) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  // Card identity (sku/condition) is public — like a market listing. But
-  // getAuction() is SELECT *, so the winner's shipping_address (0114),
-  // seller payout financials, Stripe ids and fulfilment tracking all ride
-  // along. This GET is unauthenticated and public: anyone who isn't the
-  // seller, the winner, or an admin gets the participant-only fields
-  // stripped (redactAuctionForPublic), not just the address.
-  const session = await auth();
-  const uid = session?.user?.id ?? null;
-  const isParticipant =
-    !!uid && (uid === auction.seller_user_id || uid === auction.winner_user_id);
-  if (!isParticipant && !(await isAdmin().catch(() => false))) {
-    return NextResponse.json(redactAuctionForPublic(auction));
-  }
-  return NextResponse.json(auction);
+  // Fail closed until this mixed public/participant/admin endpoint is split
+  // into explicit allowlisted projections. In particular, do not call
+  // getAuction(): it reads SELECT * plus raw bids and settlement fields.
+  return NextResponse.json(
+    {
+      error: {
+        code: "AUCTION_DETAIL_PAUSED",
+        message:
+          "Public auction detail is paused while separate public and participant-safe projections are completed.",
+      },
+      does_not_include: [
+        "draft or pending-review auctions",
+        "bidder, winner, or seller identifiers",
+        "best offers or raw bids",
+        "payment, payout, shipping, or fulfilment fields",
+      ],
+    },
+    {
+      status: 503,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": "300",
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    },
+  );
 }
 
 export async function PATCH(

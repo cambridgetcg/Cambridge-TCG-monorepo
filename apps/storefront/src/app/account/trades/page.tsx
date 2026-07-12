@@ -68,12 +68,10 @@ function PaymentCountdown({ expiresAt, sellerView = false }: { expiresAt: string
   );
 }
 
-// Photos must be uploaded before the seller ships for verified / full_escrow
-// tiers. We render one card per trade that qualifies; admin reviews server-side.
+// Existing trade photos remain visible. New intake is paused while the shared
+// object store is public, so qualifying trades get a clear support path.
 function TradePhotoUploader({ trade }: { trade: TradeWithRole }) {
   const [photos, setPhotos] = useState<TradePhoto[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/market/trades/${trade.id}/photos`)
@@ -81,42 +79,6 @@ function TradePhotoUploader({ trade }: { trade: TradeWithRole }) {
       .then((d) => { if (d) setPhotos(d.photos || []); })
       .catch(() => {});
   }, [trade.id]);
-
-  async function handleFiles(files: FileList) {
-    setUploading(true);
-    setError(null);
-    try {
-      for (const file of Array.from(files)) {
-        const presign = await fetch(`/api/market/trades/${trade.id}/photos/upload`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contentType: file.type }),
-        });
-        if (!presign.ok) throw new Error((await presign.json()).error || "Upload URL failed");
-        const { uploadUrl, imageUrl, s3Key } = await presign.json();
-
-        const put = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-        if (!put.ok) throw new Error("S3 upload failed");
-
-        const reg = await fetch(`/api/market/trades/${trade.id}/photos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: imageUrl, s3Key }),
-        });
-        if (!reg.ok) throw new Error("Photo register failed");
-        const { photo } = await reg.json();
-        setPhotos((prev) => [...prev, photo]);
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   return (
     <div className="bg-surface border border-accent/30 rounded-lg p-4 mb-3">
@@ -127,9 +89,8 @@ function TradePhotoUploader({ trade }: { trade: TradeWithRole }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-ink truncate">{trade.card_name || trade.sku}</p>
           <p className="text-xs text-ink-muted mt-0.5">
-            {trade.escrow_tier === "full_escrow"
-              ? "Upload card photos before shipping to Cambridge TCG"
-              : "Upload card photos for CTCG review before shipping to the buyer"}
+            New card-photo uploads are paused while private storage and file
+            limits are verified.
           </p>
         </div>
       </div>
@@ -155,20 +116,11 @@ function TradePhotoUploader({ trade }: { trade: TradeWithRole }) {
         </div>
       )}
 
-      <label className="inline-block">
-        <span className={`px-3 py-1.5 text-xs font-semibold rounded-md cursor-pointer transition ${uploading ? "bg-surface-subtle text-ink-muted" : "bg-ink text-page hover:opacity-90"}`}>
-          {uploading ? "Uploading..." : "Upload Photos"}
-        </span>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          disabled={uploading}
-          onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }}
-          className="hidden"
-        />
-      </label>
-      {error && <p className="text-xs text-danger mt-2">{error}</p>}
+      <p className="text-xs text-ink-muted">
+        Existing photos remain visible. If this trade requires a photo before
+        shipping, <Link href="/contact" className="text-accent underline">contact support</Link> so the
+        transaction is not left waiting.
+      </p>
     </div>
   );
 }

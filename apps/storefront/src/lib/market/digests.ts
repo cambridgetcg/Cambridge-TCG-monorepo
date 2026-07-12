@@ -62,7 +62,7 @@ export async function runSellerRestockDigest(opts?: { force?: boolean }): Promis
     `SELECT DISTINCT t.seller_id, u.email, u.name
        FROM market_trades t
        JOIN users u ON u.id = t.seller_id
-      WHERE t.escrow_status <> 'cancelled'
+      WHERE t.escrow_status = 'completed'
         AND t.created_at > NOW() - INTERVAL '90 days' -- audit:cadence-platform
         AND u.email IS NOT NULL`
   );
@@ -203,7 +203,7 @@ export async function runBuyerWatchlistDigest(opts?: { force?: boolean }): Promi
            FROM market_trades
           WHERE sku IN (SELECT sku FROM me)
             AND created_at > NOW() - INTERVAL '7 days' -- audit:cadence-platform
-            AND escrow_status <> 'cancelled'
+            AND escrow_status = 'completed'
           GROUP BY sku
        ),
        meta AS (

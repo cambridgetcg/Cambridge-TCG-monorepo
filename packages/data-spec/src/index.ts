@@ -19,7 +19,7 @@
  *     FRESHNESS,         // Numeric freshness budgets per data kind
  *     ERROR_CODES,       // Stable error code enum
  *     SPEC_VERSION,      // "1" — bump on breaking changes
- *     DEFAULT_LICENSE,   // "CC0-1.0"
+ *     DEFAULT_LICENSE,   // "NOASSERTION" — routes opt into a grant
  *   } from "@cambridge-tcg/data-spec";
  *
  * ── Versioning ──────────────────────────────────────────────────────
@@ -40,5 +40,6 @@ export {
   META_SCHEMA,
   ERROR_BODY_SCHEMA,
   PROVENANCE_SCHEMA,
+  COMMUNITY_ORGANISATION_SCHEMA,
   ERROR_CODE_VALUES,
 } from "./schemas/index";

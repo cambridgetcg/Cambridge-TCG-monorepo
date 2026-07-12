@@ -52,6 +52,7 @@
  */
 
 import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+import { requireScriptSourceApproval } from "./source-approval";
 
 const INCLUDE_CONFIRMED = process.argv.includes("--include-confirmed");
 
@@ -186,6 +187,14 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  try {
+    requireScriptSourceApproval("cardrush", "subdomain-probe");
+  } catch (error) {
+    console.error("cardrush-probe BLOCKED — zero network work");
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    return;
+  }
   const all_entries = Object.entries(CARDRUSH_SUBDOMAINS);
   const to_probe = INCLUDE_CONFIRMED
     ? all_entries

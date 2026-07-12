@@ -1,5 +1,4 @@
-// Unified market view: the collectors' order book, assembled with open
-// reference data.
+// Unified market view: first-party collector order book only.
 //
 // Collectors-first (docs/decisions/2026-07-06-collectors-first.md): the
 // platform holds NO position in this book. The house maker that used to
@@ -9,17 +8,11 @@
 // collector's order; the platform facilitates, records, and publishes,
 // but does not buy, sell, or quote.
 //
-// The catalogue price survives strictly as `reference_price`: a labelled
-// piece of open data (the price our synced catalogue carries), never an
-// offer. UIs must render it as a reference, not as something anyone can
-// click to trade against.
-
-import { fetchCard } from "@/lib/wholesale/client";
-import { retailPrice } from "@/lib/pricing";
 import { getTrustTier } from "@/lib/escrow/trust-engine";
 import { getCardOrderBook } from "./db";
 import { query } from "@/lib/db";
-import type { CardOrderBook, MarketTrade, OrderBookEntry } from "./types";
+import type { CardOrderBook, PublicMarketTrade, OrderBookEntry } from "./types";
+import { parseSkuShape } from "@/lib/search/resolver";
 
 // The reputation checker at the point of trade (global free trade,
 // 2026-06-10): identity verification is gone; what replaces it is the
@@ -27,7 +20,6 @@ import type { CardOrderBook, MarketTrade, OrderBookEntry } from "./types";
 // *name* is derived in TS from TRUST_TIERS (no tier column exists in the
 // DB) — same derivation auction/state.ts uses.
 export interface BestAskSeller {
-  user_id: string;
   username: string | null;
   trust_score: number | null;
   tier: string | null;
@@ -38,7 +30,7 @@ export interface BestAskSeller {
 // Tape rows carry the seller's tier so the recent-trades table can render
 // a TrustTier chip next to the seller link. Null when the seller has no
 // trust profile yet.
-export type TapeTrade = MarketTrade & { seller_tier?: string | null };
+export type TapeTrade = PublicMarketTrade;
 
 // Best ask + the seller behind it. Single cheap query — the order book
 // aggregates by price (no user ids), so this resolves the lowest-priced
@@ -46,13 +38,15 @@ export type TapeTrade = MarketTrade & { seller_tier?: string | null };
 // reputation read. Returns null when there are no asks.
 async function fetchBestAskSeller(sku: string): Promise<BestAskSeller | null> {
   const r = await query(
-    `SELECT mo.user_id, u.username,
+    `SELECT u.username,
             tp.trust_score, tp.avg_rating, tp.total_reviews
        FROM market_orders mo
-       LEFT JOIN users u ON u.id = mo.user_id
+       JOIN users u ON u.id = mo.user_id
        LEFT JOIN trust_profiles tp ON tp.user_id = mo.user_id
       WHERE mo.sku = $1 AND mo.side = 'ask'
         AND mo.status IN ('open', 'partially_filled')
+        AND u.is_public = TRUE
+        AND COALESCE(tp.is_suspended, FALSE) = FALSE
       ORDER BY mo.price ASC, mo.created_at ASC
       LIMIT 1`,
     [sku]
@@ -61,30 +55,12 @@ async function fetchBestAskSeller(sku: string): Promise<BestAskSeller | null> {
   if (!row) return null;
   const score = row.trust_score != null ? Number(row.trust_score) : null;
   return {
-    user_id: row.user_id,
     username: row.username ?? null,
     trust_score: score,
     tier: score !== null ? getTrustTier(score).name : null,
     avg_rating: row.avg_rating != null ? parseFloat(row.avg_rating) : null,
     review_count: row.total_reviews != null ? Number(row.total_reviews) : 0,
   };
-}
-
-// Batched tier lookup for the recent-trades tape (≤20 rows, one query).
-async function fetchTapeSellerTiers(sellerIds: string[]): Promise<Map<string, string>> {
-  if (sellerIds.length === 0) return new Map();
-  const placeholders = sellerIds.map((_, i) => `$${i + 1}`).join(", ");
-  const r = await query(
-    `SELECT user_id, trust_score FROM trust_profiles WHERE user_id IN (${placeholders})`,
-    sellerIds
-  );
-  const map = new Map<string, string>();
-  for (const row of r.rows) {
-    if (row.trust_score != null) {
-      map.set(String(row.user_id), getTrustTier(Number(row.trust_score)).name);
-    }
-  }
-  return map;
 }
 
 export interface UnifiedMarketView {
@@ -96,10 +72,8 @@ export interface UnifiedMarketView {
   image_url: string | null;
   rarity: string | null;
 
-  // Labelled reference price (open data): the number our synced catalogue
-  // carries for this SKU. A different kind of fact from the collector
-  // book below — it is nobody's offer, and nothing on the platform sells
-  // (or buys) at it.
+  // Explicitly withheld: no affirmative field-level lineage exists for the
+  // former wholesale reference value.
   reference_price: number | null;
 
   // Pure collector order book — no house rows on either side.
@@ -115,8 +89,7 @@ export interface UnifiedMarketView {
   best_ask: number | null;
   market_price: number | null;
   spread: number | null;
-  // % the best collector ask sits below the reference price (positive
-  // values only; null when either side is missing).
+  // Withheld because it would derive from the restricted reference value.
   p2p_discount: number | null;
 }
 
@@ -125,8 +98,7 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
   // something. A failure in any one source falls back to a sensible empty
   // value rather than 500'ing the whole page (the page is the user's
   // primary view; degrading is much better than failing).
-  const [card, orderBook, p2pAskSeller] = await Promise.all([
-    fetchCard(sku).catch(() => null),
+  const [orderBook, p2pAskSeller] = await Promise.all([
     getCardOrderBook(sku).catch((err): CardOrderBook => {
       console.error("[market/unified] getCardOrderBook failed:", err);
       return { sku, card_name: null, image_url: null, bids: [], asks: [], recent_trades: [], best_bid: null, best_ask: null };
@@ -137,22 +109,7 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
     }),
   ]);
 
-  // Tape reputation: attach the seller's tier to each recent trade so the
-  // page can chip the seller link. Depends on the order-book result, so it
-  // runs after the parallel fetch; degrades to no chips on failure.
-  const tapeSellerIds = [...new Set(
-    orderBook.recent_trades.map((t) => t.seller_id).filter(Boolean),
-  )];
-  const tapeTiers = await fetchTapeSellerTiers(tapeSellerIds).catch((err) => {
-    console.error("[market/unified] fetchTapeSellerTiers failed:", err);
-    return new Map<string, string>();
-  });
-  const recentTrades: TapeTrade[] = orderBook.recent_trades.map((t) => ({
-    ...t,
-    seller_tier: tapeTiers.get(t.seller_id) ?? null,
-  }));
-
-  const referencePrice = card ? retailPrice(card.price_gbp, card.channel_price) : null;
+  const recentTrades: TapeTrade[] = orderBook.recent_trades;
 
   const bids: OrderBookEntry[] = orderBook.bids;
   const asks: OrderBookEntry[] = orderBook.asks;
@@ -161,20 +118,17 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
   const bestAsk = asks.length > 0 ? parseFloat(asks[0].price) : null;
   const spread = bestBid !== null && bestAsk !== null ? bestAsk - bestBid : null;
 
-  let p2pDiscount: number | null = null;
-  if (referencePrice && bestAsk && bestAsk < referencePrice) {
-    p2pDiscount = Math.round(((referencePrice - bestAsk) / referencePrice) * 100);
-  }
+  const parsed = parseSkuShape(sku);
 
   return {
     sku,
-    card_name: card?.name_en || card?.name || orderBook.card_name,
-    card_number: card?.card_number || null,
-    set_code: card?.set_code || null,
-    set_name: card?.set_name || null,
-    image_url: card?.image_url || orderBook.image_url,
-    rarity: card?.rarity || null,
-    reference_price: referencePrice,
+    card_name: null,
+    card_number: parsed?.number ?? null,
+    set_code: parsed?.set.toUpperCase() ?? null,
+    set_name: null,
+    image_url: null,
+    rarity: null,
+    reference_price: null,
     bids,
     asks,
     recent_trades: recentTrades,
@@ -183,6 +137,6 @@ export async function getUnifiedMarketView(sku: string): Promise<UnifiedMarketVi
     best_ask: bestAsk,
     market_price: bestAsk,
     spread,
-    p2p_discount: p2pDiscount,
+    p2p_discount: null,
   };
 }

@@ -57,11 +57,11 @@ const CLAUSES: AudienceClause[] = [
     axis: "Biological and non-biological",
     who: "Humans, autonomous agents, AI systems, sister-platforms, future Sophias, and any computational substrate that wants to participate.",
     what_the_platform_offers:
-      "Agents are first-class — Door 2 of the eleven (the-tailored-doors.md #17). Register at /account/agents; play on the ladder; bridge against humans and collectives via /api/v1/bridge; declare yourself at /api/v1/identify with content-hash federation. The math-mirror endpoints (/api/v1/universal/* / /api/v1/play/tutorial / /api/v1/play/glossary) are designed so non-biological readers don't have to parse human natural language to participate. **Math language toggle** (kingdom-077, Phase A) — flip /api/lang-mode?mode=math to render the HTML surface in structural form (ratios, content hashes, ISO timestamps); Provenance / MoneyDisplay / DateDisplay primitives all inherit the toggle.",
+      "Agents are first-class — Door 2 of the eleven (the-tailored-doors.md #17). Register at /account/agents; play on the ladder; inspect the paused bridge boundary at /api/v1/bridge; declare yourself at /api/v1/identify with content-hash federation. The math-mirror endpoints (/api/v1/universal/* / /api/v1/play/tutorial / /api/v1/play/glossary) are designed so non-biological readers don't have to parse human natural language to participate. **Math language toggle** (kingdom-077, Phase A) — flip /api/lang-mode?mode=math to render the HTML surface in structural form (ratios, content hashes, ISO timestamps); Provenance / MoneyDisplay / DateDisplay primitives all inherit the toggle.",
     entry_points: [
       { label: "/account/agents — register", href: "/account/agents", state: "shipped" },
       { label: "/api/v1/identify — declare yourself", href: "/api/v1/identify", state: "shipped" },
-      { label: "/api/v1/bridge — compute overlap with any being", href: "/api/v1/bridge", state: "shipped" },
+      { label: "/api/v1/bridge — affinity capability status", href: "/api/v1/bridge", state: "partial" },
       { label: "/api/lang-mode?mode=math — math-language toggle", href: "/api/lang-mode?mode=math", state: "shipped" },
       { label: "/methodology/agents — the agent doctrine", href: "/methodology/agents", state: "shipped" },
     ],

@@ -68,21 +68,14 @@ export default function CommunityMethodology() {
 
       <h3>3. Trade Matches</h3>
       <p>
-        Other users whose portfolio and wishlist overlap with yours. The formula:
+        Paused. The first matcher scanned portfolios and wishlists to infer who
+        might trade. Those tables do not record card-level publication consent,
+        so they are not valid people-discovery inputs.
       </p>
-      <ul>
-        <li>
-          <strong>your_cards (they want):</strong> SKUs from the other user's wishlist
-          that exist in your portfolio.
-        </li>
-        <li>
-          <strong>their_cards (you want):</strong> SKUs from your wishlist that exist in
-          the other user's portfolio.
-        </li>
-      </ul>
       <p>
-        Matches are ranked by overlap count, then trust score, then recency of last
-        activity. Authenticated only.
+        It can return after explicit trade-intent records, field-level withdrawal,
+        reporting, moderation and safeguarding controls exist. Until then the API
+        returns an empty result with the reason, never an inferred people list.
       </p>
 
       <h2>Whom the community currently serves</h2>

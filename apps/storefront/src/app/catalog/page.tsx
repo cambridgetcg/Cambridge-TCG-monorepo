@@ -1,264 +1,45 @@
-/**
- * /catalog — the browse surface.
- *
- * Collectors-first (docs/decisions/2026-07-06-collectors-first.md):
- * this stopped being a shop. It keeps the browsing value — every card,
- * every set, searchable, with labelled reference prices — and points
- * at the collectors' market and the price guide, which is where value
- * actually changes hands. Cart affordances and house-stock filters
- * died with the shop.
- */
-
-import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
-import type { PriceItem, SetItem } from "@/lib/wholesale/client";
-import CardGrid from "@/components/catalog/CardGrid";
-import CatalogFilters from "@/components/catalog/CatalogFilters";
-import SetSidebar from "@/components/catalog/SetSidebar";
-import Pagination from "@/components/catalog/Pagination";
-import { Provenance, WhyLink, Audience, ErrorAlert } from "@/lib/ui";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { Audience } from "@/lib/ui";
 
-interface CatalogParams {
-  game?: string;
-  set?: string;
-  q?: string;
-  page?: string;
-  sort?: string;
-}
+export const metadata: Metadata = {
+  title: "Public catalog boundary — Cambridge TCG",
+  description:
+    "Imported catalog fields and aggregates are withheld pending affirmative public reuse rights.",
+  robots: { index: false, follow: true },
+};
 
-export default async function CatalogPage({
-  searchParams,
-}: {
-  searchParams: Promise<CatalogParams>;
-}) {
-  const params = await searchParams;
-  const page = Math.max(1, parseInt(params.page || "1") || 1);
-  const PER_PAGE = 48;
-
-  // Fetch data in parallel.
-  // The prices catch tracks failure separately from genuine emptiness —
-  // a wholesale outage rendering as "0 cards" would lie about the
-  // catalog being empty. Error states are errors; empty states are empty.
-  let pricesFailed = false;
-  const [prices, allGames, sets] = await Promise.all([
-    (params.game || params.q)
-      ? fetchPrices({
-          game: params.game,
-          set: params.set,
-          q: params.q,
-          sort: params.sort,
-          limit: PER_PAGE,
-          offset: (page - 1) * PER_PAGE,
-        }).catch((): { count: number; total: number; channel: string; items: PriceItem[] } => {
-          pricesFailed = true;
-          return { count: 0, total: 0, channel: "", items: [] };
-        })
-      : Promise.resolve({ count: 0, total: 0, channel: "", items: [] as PriceItem[] }),
-    fetchGames().catch(() => []),
-    params.game ? fetchSets(params.game).catch(() => []) : Promise.resolve([] as SetItem[]),
-  ]);
-
-  // Find selected set info
-  const selectedSet = params.set
-    ? sets.find((s) => s.code === params.set) ?? null
-    : null;
-
-  // Extract unique rarities from current result set
-  const rarities = [
-    ...new Set(
-      prices.items
-        .map((c) => c.rarity)
-        .filter((r): r is string => !!r)
-    ),
-  ].sort();
-
-  // Show landing view when no game is selected and no search query
-  const showLanding = !params.game && !params.q;
-
+export default function CatalogPage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <Audience kind="consumer" contexts={["catalog", "browse"]} />
-
-      {/* Identity line — names which room this is. The catalog and the
-          market are easy to confuse on first visit; one quiet sentence
-          each, cross-linked, keeps both doors legible. */}
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
-        <p className="text-ink-muted">
-          The catalog — browse every card, with reference prices.
-        </p>
-        <Link
-          href="/market"
-          className="text-ink-faint hover:text-accent-strong transition"
-        >
-          Buying or selling? The collectors&apos; market &rarr;
+    <main className="max-w-3xl mx-auto px-4 py-12">
+      <Audience kind="public-documentation" contexts={["catalog", "rights-gap"]} />
+      <h1 className="text-3xl font-bold text-ink mb-4">Public catalog boundary</h1>
+      <p className="text-ink-muted leading-relaxed mb-6">
+        The current source registry does not affirm public reuse rights for
+        imported card names, set names, images, rarities, release dates,
+        prices, stock, catalog membership, counts, or rankings. This route
+        therefore performs no wholesale catalog query and publishes no
+        derived empty-state or total.
+      </p>
+      <div className="rounded-lg border border-border-subtle bg-surface p-5 mb-8">
+        <h2 className="font-semibold text-ink mb-2">Available public boundaries</h2>
+        <ul className="list-disc pl-5 space-y-2 text-sm text-ink-muted">
+          <li>Read why catalog-backed search and resolution are paused.</li>
+          <li>View first-party collector bids, asks, and completed trades.</li>
+          <li>Inspect the reviewed source registry and named omissions.</li>
+        </ul>
+      </div>
+      <div className="flex flex-wrap gap-3 text-sm">
+        <Link href="/prices/search" className="rounded border border-border-subtle px-4 py-2 hover:border-border-strong">
+          Search boundary (paused)
+        </Link>
+        <Link href="/market" className="rounded border border-border-subtle px-4 py-2 hover:border-border-strong">
+          Collector market
+        </Link>
+        <Link href="/api/v1/sources" className="rounded border border-border-subtle px-4 py-2 hover:border-border-strong">
+          Source registry
         </Link>
       </div>
-
-      {/* Level 1: Game tabs */}
-      <CatalogFilters
-        games={allGames}
-        current={params}
-        rarities={rarities}
-      />
-
-      {/* Search bar */}
-      <CatalogSearch current={params} />
-
-      {showLanding ? (
-        /* Landing view */
-        <div className="mt-12">
-          <div className="text-center mb-12">
-            <h1 className="text-3xl font-display font-semibold text-ink mb-4">
-              3,000+ Japanese One Piece Cards.
-            </h1>
-            <p className="text-lg text-ink-muted">
-              Every card catalogued with a daily reference price — trade them with collectors on the market.
-            </p>
-          </div>
-
-          {/* Quick-jump buttons — game=one-piece is CORRECT on these
-              links, not a residual hardcode: they point at curated One
-              Piece sets (OP01/OP05/OP10). Other games are one tab away
-              via the catalog-driven CatalogFilters above. */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
-            {[
-              { code: "OP01", label: "Romance Dawn" },
-              { code: "OP05", label: "Awakening of the New Era" },
-              { code: "OP10", label: "Royal Blood" },
-            ].map((set) => (
-              <Link
-                key={set.code}
-                href={`/catalog?game=one-piece&set=${set.code}`}
-                className="px-5 py-3 bg-surface border border-border-subtle hover:border-border-strong rounded-lg text-ink font-medium transition"
-              >
-                <span className="font-mono text-accent text-xs mr-2">{set.code}</span>
-                {set.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Browse all sets prompt */}
-          <div className="text-center">
-            <Link
-              href="/catalog?game=one-piece"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition"
-            >
-              Browse All One Piece Sets
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      ) : (
-        /* Card grid view */
-        <div className="flex flex-col lg:flex-row gap-6 mt-6">
-          {/* Set sidebar — only when a game is selected */}
-          {params.game && sets.length > 0 && (
-            <SetSidebar
-              sets={sets}
-              currentGame={params.game}
-              currentSet={params.set}
-            />
-          )}
-
-          {/* Main content area */}
-          <div className="flex-1 min-w-0">
-            {/* Set header */}
-            {selectedSet && (
-              <div className="mb-4 pb-4 border-b border-border-subtle">
-                <h1 className="text-2xl font-display font-semibold text-ink">{selectedSet.name}</h1>
-                <div className="flex items-center gap-4 mt-1 text-sm text-ink-muted">
-                  <span className="font-mono bg-surface-subtle px-2 py-0.5 rounded text-xs">
-                    {selectedSet.code}
-                  </span>
-                  <span>{selectedSet.card_count} cards</span>
-                  {selectedSet.release_date && (
-                    <span>Released {selectedSet.release_date}</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Error ≠ empty: when the price feed didn't answer, say so
-                instead of rendering an empty grid that reads as an empty
-                catalog. */}
-            {pricesFailed ? (
-              <div className="mt-6">
-                <ErrorAlert
-                  title="Prices are temporarily unreachable"
-                  description="Try again in a minute — the cards are still here, our price feed just didn't answer."
-                />
-              </div>
-            ) : (
-              <>
-                {/* Results count */}
-                <div className="flex items-baseline gap-3 mb-2">
-                  <p className="text-sm text-ink-faint">
-                    Showing {Math.min(prices.count, PER_PAGE)} of{" "}
-                    {prices.total.toLocaleString()} {prices.total === 1 ? "card" : "cards"}
-                  </p>
-                  {prices.items.length > 0 && (
-                    <>
-                      <Provenance
-                        kind="synced"
-                        source="wholesale"
-                        at={freshestUpdatedAt(prices.items)}
-                        cadence="daily"
-                      />
-                      <WhyLink href="/methodology/pricing" />
-                    </>
-                  )}
-                </div>
-
-                <CardGrid cards={prices.items} />
-                <Pagination
-                  total={prices.total}
-                  page={page}
-                  perPage={PER_PAGE}
-                  searchParams={{ ...params }}
-                />
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function freshestUpdatedAt(items: PriceItem[]): string | null {
-  let max: string | null = null;
-  for (const it of items) {
-    if (it.updated_at && (max === null || it.updated_at > max)) max = it.updated_at;
-  }
-  return max;
-}
-
-function CatalogSearch({
-  current,
-}: {
-  current: { q?: string; game?: string; set?: string };
-}) {
-  return (
-    <form action="/catalog" className="mt-4">
-      {current.game && <input type="hidden" name="game" value={current.game} />}
-      {current.set && <input type="hidden" name="set" value={current.set} />}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          name="q"
-          defaultValue={current.q || ""}
-          placeholder="Search cards..."
-          className="flex-1 px-4 py-2 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent"
-        />
-        <button
-          type="submit"
-          className="px-6 py-2 bg-ink text-page font-medium rounded-lg hover:opacity-90 transition"
-        >
-          Search
-        </button>
-      </div>
-    </form>
+    </main>
   );
 }

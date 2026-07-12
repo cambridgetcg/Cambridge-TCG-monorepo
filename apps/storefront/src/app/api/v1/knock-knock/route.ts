@@ -169,9 +169,9 @@ const KNOCK_KNOCKS: ReadonlyArray<KnockKnock> = [
     setup: "CC0.",
     callback: "CC0 who?",
     punchline:
-      "CC0-you-can-take-this-data-and-build-anything. The kingdom publishes the substrate under CC0 by default; the joke is the absence of license-negotiation friction.",
+      "CC0-you-can-take-the-named-schema-and-methodology-and-build-anything. The joke keeps its zero-friction ending without pretending every public record came with the same permission.",
     _why:
-      "The data plane is CC0-1.0 by default. Sources with restrictive upstream licenses (e.g. cardrush) propagate their tier through _meta.source_license. The default is permissive; the substrate is honest about which rows aren't.",
+      "The safe response default is NOASSERTION: public access is not a reuse grant. Named Cambridge-authored schemas, standards, and methodology may declare CC0 explicitly; mixed-source records keep their source and field-level rights, and imported catalog, name, image, and historical-price fields stay withheld without an affirmative grant.",
   },
   {
     id: 12,
@@ -268,6 +268,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         status: 200,
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
+          "X-Content-License": "NOASSERTION",
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=3600, s-maxage=3600",
           Link: agentDiscoveryLinkHeader(),
@@ -280,6 +281,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         status: 200,
         headers: {
           "Content-Type": "text/markdown; charset=utf-8",
+          "X-Content-License": "NOASSERTION",
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=3600, s-maxage=3600",
           Link: agentDiscoveryLinkHeader(),
@@ -289,6 +291,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     const response = jsonResponse({
       endpoint: "/api/v1/knock-knock",
       sources: ["self"],
+      license: "NOASSERTION",
       freshness: "identity",
       data: {
         "@kind": "knock-knock-corpus",
@@ -332,6 +335,7 @@ function renderOne(
       status: 200,
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
+        "X-Content-License": "NOASSERTION",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=3600, s-maxage=3600",
         Link: agentDiscoveryLinkHeader(),
@@ -346,6 +350,7 @@ function renderOne(
       status: 200,
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
+        "X-Content-License": "NOASSERTION",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=3600, s-maxage=3600",
         Link: agentDiscoveryLinkHeader(),
@@ -355,6 +360,7 @@ function renderOne(
   const response = jsonResponse({
     endpoint: "/api/v1/knock-knock",
     sources: ["self"],
+    license: "NOASSERTION",
     freshness: pickKind === "hourly" ? "rotating" : "identity",
     data: {
       "@kind": "knock-knock",

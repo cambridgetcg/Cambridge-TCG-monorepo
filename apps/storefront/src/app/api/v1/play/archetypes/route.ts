@@ -113,12 +113,12 @@ const ARCHETYPES: Archetype[] = [
       "Provenance: when first listed, in which set, what variants exist",
     ],
     flows_served_today: [
-      { label: "Card catalog (universal)", path: "/api/v1/universal/games", note: "Browse games → sets → cards through math-mirror endpoints" },
-      { label: "Per-card universal", path: "/api/v1/universal/card/[sku]", note: "Each card's identity, edges, magnitudes, history" },
-      { label: "Temporal slice", path: "/api/at/[date]/card/[sku]", note: "What this card was on a past date — historical pricing context" },
+      { label: "Catalog rights boundary", path: "/api/v1/universal/games", note: "Empty structural response; catalog membership is withheld" },
+      { label: "Per-card boundary", path: "/api/v1/universal/card/[sku]", note: "Paused: no identity, membership, or values are published" },
+      { label: "Temporal boundary", path: "/api/at/[date]/card/[sku]", note: "Paused: no catalog/archive query or historical claim" },
       { label: "Portfolio", path: "/account/portfolio", note: "Your collection tracked (auth required for write; reads honest about what's shown)" },
       { label: "Market browse", path: "/market", note: "Cards available for acquisition (commerce surface — separate from play)" },
-      { label: "Sets browse", path: "/api/v1/universal/sets/[game]", note: "Every set in a game, with completion-context for collectors" },
+      { label: "Sets rights gap", path: "/api/v1/universal/sets/[game]", note: "Caller-token shape with an empty set collection" },
     ],
     flows_planned: [
       { label: "Per-card lore page", note: "Which One Piece arc; which character; what scene the art depicts" },

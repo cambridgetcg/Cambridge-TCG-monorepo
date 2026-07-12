@@ -1,56 +1,24 @@
-// /auctions/[id] — the interactive auction detail page.
-//
-// Previously a pure client shell: the SSR HTML carried no card, price or
-// bids, so shared links and crawlers got an empty page and there was no
-// generateMetadata. This server shell now resolves the auction, its card
-// identity (resolveCardIdentity via auctions.sku), and the bidders' trust
-// tiers, then hands them to the client island (AuctionDetailClient) as a
-// seed — the first paint carries the auction, and the live bid/poll stays
-// interactive. Mirrors the market card page's server-shell + client-island
-// split and the /auctions/[id]/read metadata pattern.
-
 import type { Metadata } from "next";
-import { cache } from "react";
-import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { getAuction } from "@/lib/auction/db";
-import { getCardIdentity } from "@/lib/market/catalog-card";
-import type { AuctionDetail } from "@/lib/auction/types";
-import AuctionDetailClient, { type AuctionCardIdentity } from "./AuctionDetailClient";
-import { loadBidderTiers } from "./bidder-tiers";
+import Link from "next/link";
 
-// getAuction runs the scheduled→live / live→ended sweeps and the order book
-// is live-polled, so this page is inherently dynamic. force-dynamic keeps a
-// missing auction a real 404 rather than a soft-200.
+/**
+ * Temporary fail-closed public boundary.
+ *
+ * The former server page loaded a SELECT * auction, raw bid rows, trust
+ * profiles and settlement fields, then spread that object into a client
+ * component. A partial redaction is not a safe public contract. Keep the
+ * interactive detail page closed until public and participant projections
+ * are separate strict allowlists.
+ */
+
 export const dynamic = "force-dynamic";
 
-// Request-cached so generateMetadata and the page body share one query
-// (getAuction also runs the lifecycle sweeps — dedupe them per request).
-const loadAuction = cache((id: string) => getAuction(id).catch(() => null));
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id } = await params;
-  const auction = await loadAuction(id);
-  if (!auction) return { title: "Auction not found — Cambridge TCG" };
-  const title = `${auction.title} — Auction · Cambridge TCG`;
-  const description =
-    auction.description?.trim() ||
-    `Live auction for ${auction.title} at Cambridge TCG — bid directly with other collectors.`;
-  const image = auction.images?.[0]?.url;
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      ...(image ? { images: [{ url: image }] } : {}),
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: "Auction detail temporarily unavailable — Cambridge TCG",
+  description:
+    "Auction detail is paused while separate public and participant-safe views are completed.",
+  robots: { index: false, follow: false },
+};
 
 export default async function AuctionDetailPage({
   params,
@@ -58,47 +26,24 @@ export default async function AuctionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const auction = await loadAuction(id);
-  if (!auction) notFound();
-
-  const session = await auth().catch(() => null);
-  const sessionUserId = session?.user?.id ?? null;
-
-  // Card identity from the catalogue (auctions.sku). Enrichment only — a
-  // missing sku (pre-pivot demo auctions) simply omits the strip.
-  const sku = (auction as { sku?: string | null }).sku ?? null;
-  let cardIdentity: AuctionCardIdentity | null = null;
-  if (sku) {
-    const c = await getCardIdentity(sku).catch(() => null);
-    if (c) {
-      cardIdentity = {
-        sku: c.sku,
-        card_name: c.card_name,
-        card_number: c.card_number,
-        set_name: c.set_name,
-        set_code: c.set_code,
-      };
-    }
-  }
-
-  const bidderIds = Array.from(new Set(auction.bids.map((b) => b.user_id).filter(Boolean)));
-  const trustTiers = await loadBidderTiers(bidderIds);
-
-  // Privacy: the winner's shipping_address rides on the row (SELECT *), but
-  // it's participant-only. Strip it from the seed for anyone who isn't the
-  // seller so it never lands in the SSR HTML or a non-seller's props.
-  const isSeller = sessionUserId != null && auction.seller_user_id === sessionUserId;
-  const seed: AuctionDetail = { ...auction };
-  if (!isSeller) {
-    (seed as { shipping_address?: unknown }).shipping_address = null;
-  }
 
   return (
-    <AuctionDetailClient
-      initialAuction={seed}
-      initialSessionUserId={sessionUserId}
-      trustTiers={trustTiers}
-      cardIdentity={cardIdentity}
-    />
+    <main className="min-h-screen bg-page px-4 py-16 text-ink">
+      <section className="mx-auto max-w-2xl rounded-xl border border-border-subtle bg-surface p-8">
+        <p className="text-xs uppercase tracking-wider text-ink-faint">Auction {id.slice(0, 8)}</p>
+        <h1 className="mt-2 text-2xl font-semibold">Auction detail is temporarily paused</h1>
+        <p className="mt-4 leading-relaxed text-ink-muted">
+          We are separating the public listing from bidder, seller, winner,
+          payment and fulfilment records. No auction or participant data is
+          loaded by this page while that boundary is being completed.
+        </p>
+        <Link
+          href="/auctions"
+          className="mt-6 inline-flex rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page"
+        >
+          Back to the public auction directory
+        </Link>
+      </section>
+    </main>
   );
 }

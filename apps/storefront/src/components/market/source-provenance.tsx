@@ -1,5 +1,5 @@
 /**
- * Server-only provenance nodes for the catalog's three substrates.
+ * Server-only provenance nodes for the first-party market browse.
  *
  * <Provenance> is an async server component (it reads the lang-mode
  * cookie), so client surfaces can't render it directly. The /market and
@@ -17,14 +17,7 @@ import type { CatalogSource } from "./catalog";
 
 export function catalogSourceBadges(): Record<CatalogSource, ReactNode> {
   return {
-    // The wholesale pricing API is read through Next's Data Cache —
-    // fetchPrices revalidates at 300s (client.ts), so a response can be
-    // minutes old with no HTTP request during this render. "cached",
-    // never "live".
-    "wholesale-api": <Provenance kind="cached" source="wholesale api" ttl="5m" />,
-    // Direct read of the wholesale Postgres — prices there are synced
-    // from upstream on a daily cadence, so this must not claim "live".
-    "wholesale-db": <Provenance kind="synced" source="wholesale db" cadence="daily" />,
+    "market-orders": <Provenance kind="live" source="collector order book" />,
     unavailable: <Provenance kind="unavailable" />,
   };
 }

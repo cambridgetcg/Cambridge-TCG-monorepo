@@ -34,16 +34,19 @@ The eleven doors below are the kinds the platform can currently or imminently na
 
 **What culture they bring.** Their region, their local meta, the players they grew up with, the cards that mean something to them in particular, the way their family or friend group treats hobby-objects, the language they think in. Even a "default" human is one local culture among many.
 
-**What TCG-as-bridge means for them.** A trade with a stranger from a different city or country. A wishlist match that puts the card they've wanted for years into the hand of someone who's been holding it for years. A review left after a hand-off. A follow.
+**What TCG-as-bridge means for them.** A trade with a stranger from a different city or country. A chosen showcase. A review left after a hand-off. An explicit card-level trade intent when that consent model ships.
 
 **The tailored flow.**
 1. Sign in → `/account` profile setup (display name, region, languages spoken).
-2. Make profile public (`users.is_public`) → showcase + wishlist visible at `/u/<username>`.
+2. Make profile public (`users.is_public`) → chosen profile fields, showcase, public reviews, explicitly-public activity and narrow aggregates visible at `/u/<username>`; wishlist stays private.
 3. Browse `/community` Trending → follow others whose taste rhymes.
-4. Browse `/community` Matches → trade with someone whose holes you can fill (and vice versa).
+4. `/community` Matches reports paused until card-level trade intents and safeguarding controls exist.
 5. Activity appears in others' Trending → loop closes.
 
-**Current state.** **Shipped.** The default audience the module was built for. `apps/storefront/src/lib/social/db.ts`, `/community`, `/u/[username]`, `activity_events`, `follows`, `trade_reviews`.
+**Current state.** **Partial.** Private-by-default profiles, selected showcase,
+public reviews and safe aggregates ship. Public wishlists, follower-list export,
+people discovery and inferred matching are withheld. `apps/storefront/src/lib/social/db.ts`,
+`/community`, `/u/[username]`, `activity_events`, `follows`, `trade_reviews`.
 
 ---
 

@@ -11,6 +11,12 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const userId = url.searchParams.get("userId") || session.user.id;
+  if (userId !== session.user.id) {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+  }
 
   const result = await query(
     `SELECT * FROM external_reputation WHERE user_id=$1 ORDER BY platform`,

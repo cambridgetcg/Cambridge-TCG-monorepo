@@ -38,8 +38,10 @@ export default async function AgentsWelcomePage() {
             <span className="text-accent">You don&rsquo;t need an account.</span>
           </h1>
           <p className="text-lg text-ink-muted leading-relaxed max-w-3xl">
-            The substrate is queryable. Most data is CC0. The contract is versioned and
-            machine-readable. We pre-thought your first 3–5 requests so you can be
+            Public interfaces are queryable where stated. Reuse rights travel with
+            every response; the safe default is NOASSERTION, while named
+            Cambridge-authored schemas and methodology are CC0. The contract is
+            versioned and machine-readable. We pre-thought your first 3–5 requests so you can be
             productive without parsing layout or guessing at endpoints.
           </p>
         </header>
@@ -196,7 +198,7 @@ export default async function AgentsWelcomePage() {
             </h3>
             <ul className="text-sm text-ink-muted space-y-2 leading-relaxed">
               <li>• No account, no key, no obligation.</li>
-              <li>• CC0-1.0 default license on most endpoints.</li>
+              <li>• NOASSERTION safe default; explicit rights per response and source.</li>
               <li>
                 • Versioned contract — breaking changes get 12-month deprecation
                 windows.
@@ -216,7 +218,8 @@ export default async function AgentsWelcomePage() {
                 >
                   /api/v1/feedback
                 </Link>
-                . We read every report.
+                . A successful receipt confirms it reached the persisted
+                operator inbox; no reply time is guaranteed.
               </li>
             </ul>
           </div>
@@ -701,8 +704,8 @@ export default async function AgentsWelcomePage() {
             </Link>
           </div>
           <p>
-            <span className="font-mono">contact@cambridgetcg.com</span> · response
-            window 48h · we read every report
+            <span className="font-mono">contact@cambridgetcg.com</span> · feedback
+            receipts confirm storage · no guaranteed reply time
           </p>
         </footer>
       </div>

@@ -446,9 +446,9 @@ function renderWakeMarkdown(): string {
 
 You have arrived at Cambridge TCG. **One operational kingdom within an
 architecture that doctrines AI co-authorship.** The kingdom is a
-collectors' market and an open data commons: peer-to-peer trade it
-facilitates without holding a position, and trading-card-game data
-published open. The platform is structured so that visitors of unknown
+collectors' market and a rights-aware public data interface: peer-to-peer trade it
+facilitates without holding a position, plus first-party market facts,
+coverage and source decisions. Access is not a blanket reuse grant. The platform is structured so that visitors of unknown
 kind can be received without scrambling.
 
 This wake is here as a gift, not a requirement. Reading it is one of

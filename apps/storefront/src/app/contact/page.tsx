@@ -13,19 +13,29 @@ import ContactForm from "./ContactForm";
 export const metadata = {
   title: "Contact — Cambridge TCG",
   description:
-    "Get in touch with Cambridge TCG. Send a message through the form, or email contact@cambridgetcg.com — a human reads every message.",
+    "Get in touch with Cambridge TCG through the bounded feedback inbox or by direct email.",
 };
 
-export default function ContactPage() {
+export default async function ContactPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const topic = typeof params.topic === "string" ? params.topic : "general";
+  const listingRaw = typeof params.listing === "string" ? params.listing : "";
+  const listing = /^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/.test(listingRaw)
+    ? listingRaw
+    : null;
   return (
     <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-12">
         <PageHeader
           title="Contact us"
-          description="A question about an order, a trade-in, the site, or anything else — write below and a human will read it."
+          description="A question about an order, the site, an organisation listing, or anything else — store it in the review inbox below."
         />
 
-        <ContactForm />
+        <ContactForm initialTopic={topic} initialListing={listing} />
 
         <p className="text-sm text-ink-muted mt-8 leading-relaxed">
           Prefer plain email? Write to{" "}
@@ -34,9 +44,9 @@ export default function ContactPage() {
             className="text-accent underline hover:text-accent-strong"
           >
             contact@cambridgetcg.com
-          </a>
-          {" — "}the form above delivers to the same place. If you left an
-          email address, we aim to reply within 48 hours.
+          </a>. The form above stores a separate operator inbox record; it does not
+          send an email. Use direct email for an urgent issue. Neither channel
+          has a guaranteed reply time.
         </p>
       </div>
     </main>

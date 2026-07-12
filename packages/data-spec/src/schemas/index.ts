@@ -13,3 +13,4 @@
 export { ENVELOPE_SCHEMA, META_SCHEMA, ERROR_CODE_VALUES } from "./envelope";
 export { ERROR_BODY_SCHEMA } from "./error";
 export { PROVENANCE_SCHEMA } from "./provenance";
+export { COMMUNITY_ORGANISATION_SCHEMA } from "./community-directory";

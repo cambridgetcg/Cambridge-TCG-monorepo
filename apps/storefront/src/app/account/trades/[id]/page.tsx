@@ -176,11 +176,9 @@ function EscrowTermsSection({ trade, role }: { trade: any; role: TradeRole }) {
   );
 }
 
-// Seller's card-photo step. The direct/verified/full-escrow tiers that set
-// requires_photos promise the buyer "photos before shipping"; this is the
-// UI that keeps that promise, and the mark-shipped control is gated on it.
-// Uses a real <input> inside a <label> (keyboard reachable) and surfaces the
-// server's own message — never a raw "Unexpected end of JSON input".
+// Seller's card-photo step. Existing photos still fulfil the stored trade
+// term. New intake is paused while the shared object store is public, so a
+// trade with no photo stays gated and offers a clear support path.
 interface TradePhoto {
   id: string;
   url: string;
@@ -196,8 +194,6 @@ function TradePhotoStep({
   onCountChange: (n: number) => void;
 }) {
   const [photos, setPhotos] = useState<TradePhoto[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/market/trades/${tradeId}/photos`)
@@ -208,69 +204,14 @@ function TradePhotoStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tradeId]);
 
-  // Read a fetch response's error message defensively: JSON body → its
-  // `error`, otherwise a friendly line (never the raw parse exception).
-  async function readError(res: Response, fallback: string): Promise<string> {
-    try {
-      const data = await res.json();
-      return data?.error || fallback;
-    } catch {
-      return fallback;
-    }
-  }
-
-  async function handleFiles(files: FileList) {
-    setUploading(true);
-    setError(null);
-    try {
-      for (const file of Array.from(files)) {
-        const presign = await fetch(`/api/market/trades/${tradeId}/photos/upload`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contentType: file.type }),
-        });
-        if (!presign.ok) {
-          throw new Error(await readError(presign, "Photo upload isn't available right now — try again shortly."));
-        }
-        const { uploadUrl, imageUrl, s3Key } = await presign.json();
-
-        const put = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-        if (!put.ok) throw new Error("Couldn't upload the image to storage — try again shortly.");
-
-        const reg = await fetch(`/api/market/trades/${tradeId}/photos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: imageUrl, s3Key }),
-        });
-        if (!reg.ok) {
-          throw new Error(await readError(reg, "Uploaded, but saving the record failed — try again."));
-        }
-        const { photo } = await reg.json();
-        setPhotos((prev) => {
-          const next = [...prev, photo];
-          onCountChange(next.length);
-          return next;
-        });
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Upload failed — try again shortly.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
     <div className="mt-4 pt-4 border-t border-border-subtle">
       <p className="text-xs font-semibold text-ink uppercase tracking-wide mb-1">
         Card photos <span className="text-ink-faint font-normal normal-case">— required before you ship</span>
       </p>
       <p className="text-xs text-ink-muted mb-3">
-        Upload clear photos of the card (front and back help). The buyer sees these, and
-        the ship button unlocks once at least one is uploaded.
+        New uploads are paused while private storage and file limits are
+        verified. Existing photos remain visible to the trade parties.
       </p>
 
       {photos.length > 0 && (
@@ -293,22 +234,10 @@ function TradePhotoStep({
         </div>
       )}
 
-      <label className="inline-flex">
-        <span className={`px-3 py-1.5 text-xs font-semibold rounded-md cursor-pointer transition ${
-          uploading ? "bg-surface-subtle text-ink-muted cursor-not-allowed" : "bg-ink text-page hover:opacity-90"
-        }`}>
-          {uploading ? "Uploading..." : photos.length > 0 ? "Add another photo" : "Upload photos"}
-        </span>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          disabled={uploading}
-          onChange={(e) => { if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; } }}
-          className="sr-only"
-        />
-      </label>
-      {error && <p className="text-xs text-danger mt-2">{error}</p>}
+      <p className="text-xs text-ink-muted">
+        If this trade still needs a photo before shipping, <Link href="/contact" className="text-accent underline">contact support</Link> so
+        it is not left waiting.
+      </p>
     </div>
   );
 }
@@ -1073,7 +1002,8 @@ export default function TradeDetailPage() {
                 </button>
                 {trade.requires_photos && photoCount === 0 && (
                   <p className="w-full text-xs text-ink-faint">
-                    Upload at least one card photo above before marking this as shipped.
+                    New photo uploads are paused. Contact support before shipping
+                    so this trade can be handled safely.
                   </p>
                 )}
                 {shipError && <p className="w-full text-xs text-danger">{shipError}</p>}
@@ -1315,63 +1245,28 @@ export default function TradeDetailPage() {
               </h2>
               {evidence.length === 0 && (
                 <p className="text-sm text-ink-faint mb-4">
-                  Upload photos of the card, packaging, tracking screenshots — anything relevant.
+                  Evidence uploads are paused while private file storage and
+                  upload limits are completed. Describe the evidence in the
+                  dispute thread or contact support meanwhile.
                 </p>
               )}
               {evidence.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
                   {evidence.map((ev) => (
-                    <a
-                      key={ev.id}
-                      href={ev.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={ev.url}
-                        alt={ev.label || "Evidence"}
-                        className="aspect-square w-full object-cover rounded-lg border border-border-subtle group-hover:border-accent/40 transition"
-                      />
+                    <div key={ev.id} className="rounded-lg border border-border-subtle bg-surface-subtle p-3">
                       {ev.label && (
                         <p className="text-[11px] text-ink-muted mt-1 truncate">{ev.label}</p>
                       )}
                       <p className="text-[10px] text-ink-faint">{formatDate(ev.created_at)}</p>
-                    </a>
+                      <p className="mt-1 text-[10px] text-ink-faint">File preview withheld pending private storage.</p>
+                    </div>
                   ))}
                 </div>
               )}
 
               {/* Upload — only while dispute is still open */}
               {!isDisputeTerminal(dispute.status) && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <input
-                    type="text"
-                    value={evidenceLabel}
-                    onChange={(e) => setEvidenceLabel(e.target.value)}
-                    placeholder="Label (optional, e.g. 'front of card')"
-                    className="flex-1 min-w-[180px] px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent/50"
-                  />
-                  <label className={`cursor-pointer px-4 py-2 rounded-lg font-bold text-sm transition ${
-                    uploadingEvidence
-                      ? "bg-surface-subtle text-ink-faint cursor-not-allowed"
-                      : "bg-ink text-page hover:opacity-90"
-                  }`}>
-                    {uploadingEvidence ? "Uploading..." : "Upload photo"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingEvidence}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleEvidenceUpload(file);
-                        e.target.value = "";
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+                <p className="text-xs text-ink-faint">Upload control paused; the message thread remains available.</p>
               )}
               {evidenceError && (
                 <p className="text-xs text-danger mt-2">{evidenceError}</p>

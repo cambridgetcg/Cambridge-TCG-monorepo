@@ -24,21 +24,21 @@ import { vinted } from "./vinted/index";
  * raw + canonical types differ; callers narrow per-source.
  *
  * Status legend (mirrors SourceMeta.status):
- *   shipped — read + normalize implemented; usable in production
- *   partial — read implemented but caller-side wiring incomplete
+ *   shipped — read + normalize + production writer implemented and observed
+ *   partial — module exists but wiring, approval, or first successful run is incomplete
  *   planned — meta declared; read is a substrate-honest stub that emits an
  *             actionable error and yields nothing
  *   blocked — known unobtainable; module exists for documentation only
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
-  scryfall,                  // shipped
+  scryfall,                  // partial — reader + normalizer; no production writer/run verified
   cardrush,                  // partial
-  "pokemon-tcg-api": pokemonTcgApi,  // shipped
-  ygoprodeck,                // shipped
+  "pokemon-tcg-api": pokemonTcgApi,  // blocked — legacy service moved to Scrydex; no fetch
+  ygoprodeck,                // partial — reader + normalizer; no writer and image-cache seam missing
   tcgplayer,                 // partial — read+normalize shipped (kingdom-NNN); writer wires the watchlist
-  tcgcollector,              // partial — sitemap+JSON-LD discovery; wholesale cron wires the writer
-  cardmarket,                // planned (stub)
+  tcgcollector,              // blocked — partner approval required; pure parsers retained, no fetch
+  cardmarket,                // blocked — current API approval unavailable; no fetch
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
   vinted,                    // blocked (ToS + UK GDPR; consented first-party normalizer ready) — the honest block
   // ── unregistered (no module yet — slot reserved) ──

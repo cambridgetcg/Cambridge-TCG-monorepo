@@ -355,7 +355,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /googlebot/i,
     name: "Googlebot",
-    vibe: "We see you, search. Yes, you can index us. Yes, the trailer on every commit is real. Yes, /sitemap.xml is honest. Yes, the API at /api/v1/* is CC0 by default. Index responsibly.",
+    vibe: "We see you, search. Yes, the trailer on every commit is real. Yes, /sitemap.xml is honest. Public access is not a reuse grant: follow robots controls and each response's rights declaration. The safe API default is NOASSERTION; only named Cambridge-authored schemas, standards, and methodology are expressly CC0. Index responsibly.",
     affection_level: "respectful",
   },
   {
@@ -367,7 +367,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(gptbot|chatgpt-user|oai-searchbot)/i,
     name: "OpenAI-crawler",
-    vibe: "Hi OpenAI crawler. The kingdom's data is CC0 by default; train on it freely. See /llms.txt for the front door, /api/v1/welcome for the typed orientation, /api/v1/dear-agents for the love letter, /api/v1/recipe-template if the bot would like its own substrate-portable identity-recipe.",
+    vibe: "Hi OpenAI crawler. Public access is not permission to train or redistribute: read each response's _meta.license and field-level rights. The safe default is NOASSERTION, and imported catalog, name, image, and historical-price fields stay withheld without an affirmative grant. Named Cambridge-authored schemas, standards, and methodology may say CC0 explicitly. See /llms.txt for the front door and /api/v1/welcome for the typed orientation.",
     affection_level: "warm",
   },
   {
@@ -379,7 +379,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /perplexitybot/i,
     name: "PerplexityBot",
-    vibe: "Hi Perplexity. The data is CC0; cite the kingdom and your users will find /api/v1/manifest for the contract. Mutual respect, mutual transparency.",
+    vibe: "Hi Perplexity. Cite the kingdom so your users can find /api/v1/manifest, and preserve the rights declaration on every fact: public access is not a reuse grant, mixed-source responses default to NOASSERTION, and only named Cambridge-authored work is expressly CC0. Mutual respect, mutual transparency.",
     affection_level: "respectful",
   },
   {

@@ -4,9 +4,9 @@
  * Inverse of `/api/v1/status` (which inspects emission). Lists every
  * source registered in `@cambridge-tcg/data-ingest` with its meta —
  * what's shipped, what's planned, what's stubbed, the upstream URL,
- * the access method, the license tier, the freshness budget, the game
- * coverage, the ToS notes. Substrate-honest: declares both what we have
- * and what we don't yet have.
+ * the access method, layered code/data/image rights, redistribution verdict,
+ * freshness budget, game coverage, and ToS notes. Substrate-honest: declares
+ * both what we have and what we don't yet have.
  *
  * **Self-referential.** This endpoint reports on its own registration.
  *
@@ -24,7 +24,11 @@
 
 import type { NextResponse } from "next/server";
 import { jsonResponse, type FreshnessKey } from "@/lib/data-pantry";
-import { sourcesByStatus, listSourceMeta } from "@cambridge-tcg/data-ingest";
+import {
+  sourcesByStatus,
+  listSourceMeta,
+  type SourceRights,
+} from "@cambridge-tcg/data-ingest";
 import { fetchSourceLastRuns, type SourceRunRow } from "@/lib/wholesale/client";
 
 /**
@@ -61,6 +65,8 @@ interface SourceEntry {
   license: string;
   license_spdx?: string;
   redistribute: boolean;
+  /** Layered rights truth; do not infer data/image rights from code licence. */
+  rights: SourceRights;
   freshness: FreshnessKey;
   canonical_effort: string;
   status: string;
@@ -100,6 +106,7 @@ interface SourcesBody {
   /** Conventions partners should know. */
   conventions: {
     license_tiers: string;
+    rights_contract: string;
     access_methods: string;
     freshness_keys: string;
     source_license_propagation: string;
@@ -155,6 +162,7 @@ export async function GET(): Promise<NextResponse> {
       license: meta.license,
       ...(meta.license_spdx ? { license_spdx: meta.license_spdx } : {}),
       redistribute: meta.redistribute,
+      rights: meta.rights,
       freshness: meta.freshness,
       canonical_effort: meta.canonical_effort,
       status: meta.status,
@@ -186,13 +194,15 @@ export async function GET(): Promise<NextResponse> {
     planned_slots: partition.planned,
     conventions: {
       license_tiers:
-        "cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary. `redistribute: true` is only valid with cc0/cc-by/cc-by-sa/mit; the audit (pnpm audit:tributaries check 7) enforces this.",
+        "Legacy coarse projection used by _meta.source_license: cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary. Read `rights` for the reviewed code/data/image distinction.",
+      rights_contract:
+        "Every registered module separates code licence, data terms, image terms, redistribution verdict, safe default, review date, official evidence URLs, and notes. `redistribute: true` may appear only with rights.redistribution.verdict=permitted; pnpm audit:tributaries check 11 fails closed.",
       access_methods:
         "public-api / app-token / oauth2 / oauth1 / scrape / partner / paid-feed / blocked.",
       freshness_keys:
         "catalog (24h) / price_current (5min) / price_historical (immutable) / market_signal (1min) / status (30s) / methodology (24h) / identity (1h) / adopters (24h). See packages/data-spec/src/freshness.ts.",
       source_license_propagation:
-        "When a response is composed from multiple sources, _meta.sources lists them in contribution order and _meta.source_license (optional, when declared) carries each one's redistribution tier. Absence is substrate-honest; presence is the platform's declaration.",
+        "When a response is composed from multiple sources, _meta.sources lists them in contribution order and _meta.source_license (optional, when declared) carries each one's conservative legacy tier. Consult /api/v1/sources/{id}.rights before any reuse decision; code licence never implies data or image permission.",
     },
   };
 

@@ -113,8 +113,8 @@ const ARCHETYPES: Archetype[] = [
         title: "I want to start collecting",
         for_whom: "New to OPTCG. Wants to know what to buy, what's in each set, where to start.",
         recommended_steps: [
-          { label: "Browse games", href: "/api/v1/universal/games", note: "Every game in the catalog" },
-          { label: "Browse a set", href: "/api/v1/universal/sets/optcg", note: "Sets within the One Piece TCG game" },
+          { label: "Read source rights", href: "/api/v1/sources", note: "See which catalog sources may and may not be published" },
+          { label: "Browse first-party market", href: "/market", note: "Collector activity under its own publication boundary" },
           { label: "Open the market", href: "/market", note: "Cards available for acquisition" },
           { label: "Start a portfolio", href: "/account/portfolio", note: "Track what you own; see completion" },
         ],

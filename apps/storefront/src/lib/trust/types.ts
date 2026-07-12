@@ -87,9 +87,10 @@ export interface DisputeEvidence {
   id: string;
   dispute_id: string;
   uploaded_by: string;
-  url: string;
+  url?: string;
   label: string | null;
   created_at: string;
+  access?: "withheld_pending_private_storage";
 }
 
 export interface EscrowPayment {

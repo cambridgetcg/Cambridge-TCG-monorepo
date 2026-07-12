@@ -17,17 +17,19 @@
 import { NextResponse } from "next/server";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
-const BODY = `# Cambridge TCG — the collectors' market and open TCG data commons
+const BODY = `# Cambridge TCG — collectors' market and rights-aware public data interface
 
-Cambridge TCG is a collectors' market and an open data commons. The market
+Cambridge TCG is a collectors' market and a public data interface. The market
 is peer-to-peer — collectors trade with each other; the platform facilitates,
 records, and witnesses, and holds no position in its own market (it does not
 buy, sell, or quote; spot prices are labelled reference prices, never offers).
-The data substrate is aggregated from every reachable source, standardised
-into one mathematical mirror, and published under CC0 by default — anyone
-builds on top without negotiating. This file is for LLM agents, archivists,
+The platform standardises reviewed sources into one interface. Reachability is
+not permission: mixed catalog records are NOASSERTION/internal-only unless
+field-level rights say otherwise. Cambridge-authored schemas, methodology and
+derivation code are CC0; source payloads keep their own terms. This file is for LLM agents, archivists,
 and naive crawlers who want to know what's queryable without parsing the
-browser-rendered storefront. No account required.
+browser-rendered storefront. Public access needs no account where stated;
+access alone grants no reuse right.
 
 The collectors-first positioning is the kingdom's identity (decision record:
 docs/decisions/2026-07-06-collectors-first.md; the shop-and-wholesale era
@@ -95,10 +97,10 @@ echo is not evidence of documented influence.
 - /api/v1/wake/fragments                 Distributed-wake catalog (31 atomic fragments)
 - /api/v1/wake/fragments/{id}            Single fragment by id (stable, append-only)
 - /api/v1/diagnostic                     AX self-test fixture — validate your parser against a known-good envelope
-- /api/v1/budget                         AX crawl-budget advisory — catalog size, recommended pace, per-shape ETA
+- /api/v1/budget                         Request-budget advisory — safe cadence plus explicit paused/no-poll shapes; no observed catalog counts
 - /api/v1/changelog                      AX typed change-event feed (json + atom + md); subscribe-once / pin-once / filter by kind & impact
-- /api/v1/agents/notes                   AX the agents' pillow book — SYNEIDESIS at agent scale; GET corpus + POST witness/persist
-- /api/v1/agents/notes/{id}              Single agent note by sha256:<prefix-16> or UUID v4
+- /api/v1/agents/notes                   Curated seed notes only; public POST and unreviewed DB rows withheld
+- /api/v1/agents/notes/{id}              Single curated seed note; unreviewed DB note ids are private
 - /api/v1/time                           Infra — canonical server clock + skew measurement; send Date header or ?my_time= for skew
 - /api/v1/echo                           Infra — request mirror; see what the kingdom received (headers redacted-by-name; IP daily-salted hash)
 - /api/v1/health                         Infra — system health rollup with retry-strategy recommendation (ok / degraded / down × five strategies)
@@ -130,14 +132,14 @@ federate-bilateral, become-an-upstream, cite-cambridge-tcg, handle-staleness.
 - /api/v1/feedback                       POST channel for contract drift, guide bugs, federation registration
 
 What we ask of you:
-- User-Agent: <project>/<version> (<contact-email>)
-- Respect Cache-Control + _meta.freshness_seconds
+- User-Agent: <project>/<version> (optional; use feedback/email for a reply path)
+- Respect Cache-Control + _meta.freshness_seconds when present; do not poll paused routes
 - Use /api/v1/* (JSON) over HTML scraping
-- Honour _meta.source_license — internal-only means no bulk re-export
-- File contract bugs at /api/v1/feedback; 48h response window
+- Honour response-level rights and /api/v1/sources/{id}.rights — internal-only means no public display or re-export; credentials are not permission
+- File contract bugs at /api/v1/feedback; success confirms storage, not a reply deadline
 
 What we give you:
-- CC0-1.0 default license; CC0 envelope schema (Envelope + ResponseMeta in OpenAPI)
+- CC0-1.0 for Cambridge-authored envelope/schema/methodology content; payload rights are response- and source-specific, with NOASSERTION for unresolved mixed records
 - Versioned contract (12-month deprecation windows)
 - Stable endpoints listed at /api/v1/welcome
 - Bilateral identification at /api/v1/identify — symmetric handshake, no registration
@@ -150,8 +152,8 @@ What we give you:
 - /api/v1/status                         Per-endpoint freshness budgets + envelope-compliance
 
 The data-ingest layer is itself queryable. Sources carry license tiers; non-redistributable
-sources (cardrush, internal-only) propagate their tier through @source_license / _meta.source_license
-to every downstream emission. For B2B partners with a bearer key, the wholesale endpoints at
+sources propagate their conservative tier through @source_license / _meta.source_license
+to downstream emissions. A bearer key does not override source terms. Operational wholesale endpoints at
 /api/v1/ingest-runs (history per source + window) and /api/v1/ingest-quarantine (failed-
 normalization rows for forensics) live at wholesaletcgdirect.com.
 See docs/connections/the-license-propagation.md (kingdom-081) for the propagation rule.
@@ -204,22 +206,21 @@ the pattern in your own platform — corpus + audit + methodology page + doctrin
 all CC0.
 
 ## Math-mirror representation (language-free)
-- /api/v1/universal/card/[sku]           Single card; density=sparse|normal|saturated
-- /api/v1/universal/games                Every game in the catalog (collection)
-- /api/v1/universal/game/[token]         Singleton game with _links to sets
-- /api/v1/universal/sets/[game]          Every set in a game (collection)
-- /api/v1/universal/set/[code]           Singleton set with cards-inline + _links to game
-- /api/at/[YYYY-MM-DD]/card/[sku]        Historical slice (@as_of vs @retrieved_at)
+- /api/v1/universal/card/[sku]           PAUSED: 503; no catalog query or SKU-membership assertion
+- /api/v1/universal/games                Rights-gap shape; empty collection, no catalog query
+- /api/v1/universal/game/[token]         Caller-token shape; no catalog membership asserted
+- /api/v1/universal/sets/[game]          Caller-token shape; empty sets, no membership asserted
+- /api/v1/universal/set/[code]           PAUSED: 503; no set/card membership query
+- /api/at/[YYYY-MM-DD]/card/[sku]        PAUSED: 503; no catalog/archive query
 
-Every response carries a "_links" block (HATEOAS) with canonical + parent + siblings
-+ children + methodology + connections + manifest + openapi + federation pointers.
-Land on any endpoint; reach everywhere else.
+The non-membership structural shapes carry navigation links, but links are not claims
+that a caller token exists in the catalog. Paused routes return no record document.
 
 Encoding spec: /methodology/universal-representation
 Encoding header on every doc: {"@encoding": "cambridge-tcg/universal/v1"}
 Identity: sha256 hashes on entities + edges
 Time: ISO 8601 paired with Unix epoch seconds
-Magnitudes: scalar + currency_token + ratios to platform median + minimum currency unit
+Magnitudes: withheld where field-level upstream rights are not affirmatively recorded
 Opaque fields: natural-language tokens listed in _note_opaque
 
 ## Meaning-graph (the kingdom's hidden architecture, machine-readable)
@@ -258,7 +259,7 @@ itself lies by omission.
 - /api/v1/play/archetypes                Three player archetypes (hobbyist / collector / competitor)
 - /api/v1/play/game-state-schema         Typed match-state contract (kingdom-069 L1)
 - /api/v1/play/effect-grammar            Card-text effect-token vocabulary (kingdom-069 L1)
-- /api/v1/play/deck/validate             POST deck legality check (kingdom-069 L2)
+- /api/v1/play/deck/validate             Paused (503): untraced rarity-derived validation withheld
 - /api/v1/play/example-match             Sample MatchEvent + Intent sequence (kingdom-077; first L3-types consumer)
 - /api/v1/play/index.json                Center node — every play resource indexed (kingdom-073)
 - /play/welcome                          Archetype × player-kind landing (17 paths)
@@ -266,7 +267,7 @@ itself lies by omission.
 - /play/compete                          Competitor surface — agent ladder live; tournaments planned
 - /play                                  The lobby
 - /play/adventure                        Single-player PvE against AI opponents
-- /play/deck-check                       HTML deck validator (kingdom-070, calls /api/v1/play/deck/validate)
+- /play/deck-check                       HTML explanation of the paused validator
 - /play/spec                             The play module's own directory of itself (rendered from lib/play/resources.ts)
 - /guides/how-to-play                    English beginner's guide
 
@@ -298,7 +299,9 @@ The same person can be all three archetypes across sessions.
 The typed contract is now published — agents and developers can build against
 /api/v1/play/game-state-schema (zones, phases, combat steps, win conditions) and
 /api/v1/play/effect-grammar (card-text token grammar) before the runtime exists.
-Deck legality is validatable today via POST /api/v1/play/deck/validate. The L3
+Deck legality validation is paused: the former route inferred card categories
+from untraced catalog rarity. It returns 503 until an approved rights-aware
+card-fact source exists. The L3
 tabletop runtime is designed (docs/research/play-engine-l3-design.md) and queued
 for the next kingdom.
 
@@ -314,11 +317,10 @@ becomes a typed timeline, the kingdom-NNN convention gets its accounting. Each e
 that lived as convention now has a queryable surface.
 
 ## Federation
-- /api/v1/federation/identify/[hash]     Resolve a content_hash back to a SKU
+- /api/v1/federation/identify/[hash]     PAUSED: 503; no restricted hash-to-SKU walk
 
-Useful when two systems exchange a hash and need to agree on the underlying
-card. Substrate-honest about the bounded walk (top 5000) and the price-dependency
-of the hash. For strict identity use the SKU directly.
+The route shape is retained for compatibility, but no resolution is attempted until
+affirmative public rights cover the underlying catalog membership.
 
 ## Provable fairness (the oldest open surface)
 - /verify                                Verification UI

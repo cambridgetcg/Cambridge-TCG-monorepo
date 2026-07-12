@@ -41,6 +41,7 @@ export async function GET() {
     const contentSeed = canonicalize({
       resource_ids: PLAY_RESOURCES.map((r) => r.id).sort(),
       shipped_count: counts.shipped,
+      paused_count: counts.paused,
       designed_count: counts.designed,
       planned_count: counts.planned,
     });
@@ -81,6 +82,7 @@ export async function GET() {
       resource_count: PLAY_RESOURCES.length,
       counts: {
         shipped: counts.shipped,
+        paused: counts.paused,
         designed: counts.designed,
         planned: counts.planned,
       },
@@ -96,6 +98,14 @@ export async function GET() {
       archetypes: ["hobbyist", "collector", "competitor"],
       fun_first_stance:
         "The play module carries no commerce affordances. Ratings are skill, not money. Prize pools live under future play-to-earn opt-in (L4+, separate kingdom).",
+      availability_notes: {
+        deck_validate:
+          "paused — returns HTTP 503; no card category or legality result is emitted",
+        deck_check:
+          "paused status page — submits no deck to the validator",
+        starters:
+          "paused — collection withholds membership; detail and game-ready loading return HTTP 503",
+      },
       resources: PLAY_RESOURCES,
     };
 

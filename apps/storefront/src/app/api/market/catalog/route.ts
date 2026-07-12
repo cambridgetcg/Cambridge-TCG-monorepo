@@ -1,33 +1,36 @@
 import { NextResponse } from "next/server";
-import {
-  fetchPrices,
-  fetchGamesDetailed,
-  fetchSetsDetailed,
-  type WholesaleSource,
-} from "@/lib/wholesale/client";
-import { retailPrice } from "@/lib/pricing";
 import { query } from "@/lib/db";
+import { gameFromSku } from "@/lib/games/sku-game";
+import { parseSkuShape } from "@/lib/search/resolver";
 
-// GET /api/market/catalog — all cards with spot + P2P data for Cardmarket-style browse
-//
-// Source provenance: every response carries a `source` field and an
-// `x-catalog-source` header — 'wholesale-api' (live HTTP), 'wholesale-db'
-// (direct read of the wholesale Postgres; the API is retired), or a 503
-// when both substrates failed. The UI keys its <Provenance> label off
-// this; a database read must never pass itself off as a live API, and an
-// outage must never render as an empty catalog.
+// Public market browse is first-party only. It enumerates SKUs that collectors
+// have actually placed on Cambridge's order book; it never walks the restricted
+// wholesale catalog to manufacture a browse list.
 
-function sourceHeaders(source: WholesaleSource) {
-  return { "x-catalog-source": source };
+type MarketCatalogSource = "market-orders" | "unavailable";
+
+interface ActiveSkuRow {
+  sku: string;
+  best_bid: string | null;
+  best_ask: string | null;
+  bid_count: string | number | null;
+  ask_count: string | number | null;
 }
 
-function catalogUnavailable() {
+function sourceHeaders(source: MarketCatalogSource) {
+  return {
+    "x-catalog-source": source,
+    "x-content-license": source === "market-orders" ? "CC0-1.0" : "NOASSERTION",
+  };
+}
+
+function unavailable() {
   return NextResponse.json(
     {
       error: {
-        code: "catalog_unavailable",
+        code: "market_orders_unavailable",
         message:
-          "The card catalog can't be loaded right now: the wholesale API is unreachable and the direct database read also failed. This is a source outage, not an empty catalog — please try again shortly.",
+          "The first-party collector order book cannot be read right now. This is an outage, not an empty market.",
       },
       source: "unavailable" as const,
     },
@@ -35,122 +38,150 @@ function catalogUnavailable() {
   );
 }
 
+async function activeSkuRows(): Promise<ActiveSkuRow[] | null> {
+  try {
+    const result = await query(
+      `SELECT sku,
+         MAX(CASE WHEN side = 'bid' THEN price END)::text AS best_bid,
+         MIN(CASE WHEN side = 'ask' THEN price END)::text AS best_ask,
+         SUM(CASE WHEN side = 'bid' THEN quantity - filled_quantity ELSE 0 END)::int AS bid_count,
+         SUM(CASE WHEN side = 'ask' THEN quantity - filled_quantity ELSE 0 END)::int AS ask_count
+       FROM market_orders
+       WHERE status IN ('open', 'partially_filled')
+         AND quantity > filled_quantity
+       GROUP BY sku
+       ORDER BY sku
+       LIMIT 5000`,
+    );
+    return result.rows as ActiveSkuRow[];
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const game = url.searchParams.get("game") || "one-piece";
-  const set = url.searchParams.get("set") || undefined;
-  const search = url.searchParams.get("q") || undefined;
-  const sort = url.searchParams.get("sort") || "name_asc";
-  const limit = parseInt(url.searchParams.get("limit") || "48", 10);
-  const offset = parseInt(url.searchParams.get("offset") || "0", 10);
-  const view = url.searchParams.get("view"); // "sets" = list sets, "games" = list games
+  const set = url.searchParams.get("set")?.trim().toUpperCase() || null;
+  const searchInput = url.searchParams.get("q")?.trim() || "";
+  const search = searchInput.toLowerCase();
+  const limit = Math.max(1, Math.min(parseInt(url.searchParams.get("limit") || "48", 10) || 48, 100));
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
+  const view = url.searchParams.get("view");
 
-  // List games
+  const rows = await activeSkuRows();
+  if (!rows) return unavailable();
+
   if (view === "games") {
-    const { games, source } = await fetchGamesDetailed();
-    if (source === "unavailable") return catalogUnavailable();
-    return NextResponse.json({ games, source }, { headers: sourceHeaders(source) });
-  }
-
-  // List sets for a game
-  if (view === "sets") {
-    const { sets, source } = await fetchSetsDetailed(game);
-    if (source === "unavailable") return catalogUnavailable();
-    return NextResponse.json({ sets, game, source }, { headers: sourceHeaders(source) });
-  }
-
-  // Fetch cards from wholesale catalog
-  const sortMap: Record<string, string> = {
-    name_asc: "name_asc",
-    name_desc: "name_desc",
-    price_asc: "price_asc",
-    price_desc: "price_desc",
-    number_asc: "number_asc",
-  };
-
-  const data = await fetchPrices({
-    game,
-    set,
-    q: search,
-    sort: sortMap[sort] || "name_asc",
-    limit,
-    offset,
-  });
-
-  // fetchPrices always stamps a source; if the invariant ever breaks we
-  // fail loud (503) rather than fabricate a "live" label.
-  const source: WholesaleSource = data.source ?? "unavailable";
-  if (source === "unavailable") return catalogUnavailable();
-
-  // Enrich with P2P market data (best bid/ask for each SKU)
-  const skus = data.items.map(i => i.sku);
-  let p2pData = new Map<string, { best_bid: string | null; best_ask: string | null; bid_count: number; ask_count: number }>();
-
-  if (skus.length > 0) {
-    try {
-      const p2pResult = await query(
-        `SELECT sku,
-           MAX(CASE WHEN side='bid' AND status IN ('open','partially_filled') THEN price END) as best_bid,
-           MIN(CASE WHEN side='ask' AND status IN ('open','partially_filled') THEN price END) as best_ask,
-           SUM(CASE WHEN side='bid' AND status IN ('open','partially_filled') THEN quantity - filled_quantity ELSE 0 END) as bid_count,
-           SUM(CASE WHEN side='ask' AND status IN ('open','partially_filled') THEN quantity - filled_quantity ELSE 0 END) as ask_count
-         FROM market_orders WHERE sku = ANY($1)
-         GROUP BY sku`,
-        [skus]
-      );
-      for (const row of p2pResult.rows) {
-        p2pData.set(row.sku, {
-          best_bid: row.best_bid,
-          best_ask: row.best_ask,
-          bid_count: parseInt(row.bid_count || "0", 10),
-          ask_count: parseInt(row.ask_count || "0", 10),
-        });
-      }
-    } catch {
-      // P2P data enrichment is optional
+    const games = new Map<string, { code: string; slug: string }>();
+    for (const row of rows) {
+      const slug = gameFromSku(row.sku);
+      if (!slug) continue;
+      const parsed = parseSkuShape(row.sku);
+      games.set(slug, { code: parsed?.game ?? slug, slug });
     }
+    return NextResponse.json(
+      {
+        games: [...games.values()].sort((left, right) => left.slug.localeCompare(right.slug)),
+        source: "market-orders",
+        record_license: "CC0-1.0",
+        scope: "first-party-active-order-book",
+      },
+      { headers: sourceHeaders("market-orders") },
+    );
   }
 
-  // Collectors-first (2026-07-06): the tradein-credit channel enrichment
-  // (the house's standing we-buy bids) is gone — one less price channel
-  // to compute. Every bid/ask below is a collector's; spot_price survives
-  // as a labelled reference (open data), never as an offer.
-  const cards = data.items.map(item => {
-    const spot = retailPrice(item.price_gbp, item.channel_price);
-    const p2p = p2pData.get(item.sku);
-    const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
-    const marketPrice = bestAsk && bestAsk < spot ? bestAsk : spot;
+  if (view === "sets") {
+    const codes = new Set<string>();
+    for (const row of rows) {
+      if (gameFromSku(row.sku) !== game) continue;
+      const parsed = parseSkuShape(row.sku);
+      if (parsed?.set) codes.add(parsed.set.toUpperCase());
+    }
+    return NextResponse.json(
+      {
+        sets: [...codes].sort().map((code) => ({ code })),
+        game,
+        source: "market-orders",
+        record_license: "CC0-1.0",
+        scope: "first-party-active-order-book",
+      },
+      { headers: sourceHeaders("market-orders") },
+    );
+  }
 
+  const filtered = rows.filter((row) => {
+    if (gameFromSku(row.sku) !== game) return false;
+    const parsed = parseSkuShape(row.sku);
+    if (set && parsed?.set.toUpperCase() !== set) return false;
+    if (search && !row.sku.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  // Manual first-listing path: echo a caller-supplied canonical SKU even when
+  // no order exists yet. This asserts only the string's structural grammar,
+  // never that the card belongs to a restricted catalog.
+  const suppliedShape = parseSkuShape(searchInput);
+  if (
+    searchInput &&
+    suppliedShape &&
+    gameFromSku(searchInput) === game &&
+    (!set || suppliedShape.set.toUpperCase() === set) &&
+    !filtered.some((row) => row.sku.toLowerCase() === search)
+  ) {
+    filtered.unshift({
+      sku: searchInput,
+      best_bid: null,
+      best_ask: null,
+      bid_count: 0,
+      ask_count: 0,
+    });
+  }
+  const page = filtered.slice(offset, offset + limit);
+  const cards = page.map((row) => {
+    const parsed = parseSkuShape(row.sku);
+    const bestAsk = row.best_ask == null ? null : Number(row.best_ask);
     return {
-      sku: item.sku,
-      card_number: item.card_number,
-      name: item.name_en || item.name || item.card_number,
-      set_code: item.set_code,
-      set_name: item.set_name,
-      rarity: item.rarity,
-      image_url: item.image_url,
-      // Prices — spot_price is the catalogue reference (labelled "(ref)"
-      // in the UI), not something anyone sells at.
-      spot_price: spot,
-      market_price: marketPrice,
-      stock: item.stock,
-      // Pure collector book
-      best_bid: p2p?.best_bid ? parseFloat(p2p.best_bid) : null,
+      sku: row.sku,
+      card_number: parsed?.number ?? row.sku,
+      name: row.sku,
+      set_code: parsed?.set.toUpperCase() ?? null,
+      set_name: null,
+      rarity: null,
+      image_url: null,
+      spot_price: null,
+      market_price: bestAsk,
+      stock: null,
+      best_bid: row.best_bid == null ? null : Number(row.best_bid),
       best_ask: bestAsk,
-      p2p_sellers: p2p?.ask_count || 0,
-      p2p_buyers: p2p?.bid_count || 0,
-      has_p2p: (p2p?.bid_count || 0) > 0 || (p2p?.ask_count || 0) > 0,
+      p2p_sellers: Number(row.ask_count) || 0,
+      p2p_buyers: Number(row.bid_count) || 0,
+      has_p2p: true,
+      catalog_publication:
+        Number(row.bid_count) > 0 || Number(row.ask_count) > 0
+          ? "first-party-active-order-book"
+          : "caller-supplied-structural-sku",
     };
   });
 
   return NextResponse.json(
     {
       cards,
-      total: data.total,
+      returned_count: cards.length,
+      has_more: offset + cards.length < filtered.length,
       game,
-      set: set || null,
-      source,
+      set,
+      source: "market-orders",
+      rights: {
+        record_license: "CC0-1.0",
+        scope: "first-party-active-order-book-and-caller-supplied-structural-sku",
+        does_not_include: [
+          "wholesale catalog membership",
+          "imported card or set names",
+          "images or rarity",
+          "reference prices or stock",
+        ],
+      },
     },
-    { headers: sourceHeaders(source) },
+    { headers: sourceHeaders("market-orders") },
   );
 }

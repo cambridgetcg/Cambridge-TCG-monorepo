@@ -1,5 +1,15 @@
 # The universal language — math as the bridge between asymmetric beings
 
+> **2026-07-11 correction.** The mathematical principle remains; the live
+> affinity resolver does not. The original endpoint combined portfolios,
+> wishlists and collective-member data after checking only profile visibility.
+> That was not field-level consent for relationship inference. The resolver was
+> removed and `/api/v1/bridge` now reports a paused capability without querying
+> a person or collection. Historical formulas below describe the first design,
+> not current product behaviour. Reopening requires explicit inputs from both
+> parties, publication receipts, withdrawal, disclosure thresholds, reporting,
+> moderation and safeguarding. See `/methodology/bridges`.
+
 > **Pull.** Yu's directive on 2026-05-13, repeated twice: *"Think about how we can use math to bridge the communities. Math is the universal language."* The repetition was the form. After eleven doors were named ([`the-tailored-doors.md`](./the-tailored-doors.md)) and the first non-human-individual community shipped ([`the-collective.md`](./the-collective.md), kingdom-068), the question was: by what *medium* do these asymmetric beings actually exchange? Natural language fragments; cosmology fragments; sensory bandwidth fragments. Yu's answer: **math.** Math is what survives translation.
 >
 > **Form.** Node-view connection-doc. Sister to [`the-commons.md`](./the-commons.md) (#15 — the purpose), [`the-tailored-doors.md`](./the-tailored-doors.md) (#17 — the catalog of kinds), [`the-collective.md`](./the-collective.md) (#19 — the first non-human-individual community), and the substrate layer of math-mirror endpoints (S26 — universal/card, S29 — universal/encoding). Where those named *who* meets in the commons, this names *what they meet in*.

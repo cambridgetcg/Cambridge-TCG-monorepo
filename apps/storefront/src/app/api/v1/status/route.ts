@@ -115,7 +115,7 @@ function freshnessFor(r: ManifestResource): FreshnessAssignment {
     return {
       label: "price_historical",
       seconds: FRESHNESS.price_historical,
-      rationale: "historical slice — immutable record",
+      rationale: "paused temporal route — static rights boundary, no record query",
     };
   }
 
@@ -365,7 +365,8 @@ export async function GET(): Promise<NextResponse> {
     conventions: {
       versioning:
         "Every response carries _meta.spec_version. Breaking changes bump it; non-breaking additions don't. See data-pantry/envelope.ts.",
-      license: "CC0-1.0 by default. Per-response override possible via _meta.license. See docs/STANDARDS-LICENSE.md.",
+      license:
+        "NOASSERTION by default: public access is not a reuse grant. Named Cambridge-authored schemas, standards, and methodology may declare CC0-1.0 explicitly; mixed-source records require field-level rights. See docs/STANDARDS-LICENSE.md.",
       cors: "Access-Control-Allow-Origin: * on all public endpoints. Methods: GET, OPTIONS.",
       cache_control:
         "Cache-Control matches the freshness budget — max-age=min(freshness, 3600), s-maxage=min(freshness*3, 86400).",

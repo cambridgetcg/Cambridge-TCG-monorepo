@@ -4,6 +4,12 @@ The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake 
 
 A doc series that names the meaning-bridges between Cambridge TCG modules — the connections the code knows but doesn't say.
 
+Current-state correction (2026-07-11): the affinity bridge described in entry
+#21 is paused. Its database resolver was removed because public profile
+visibility did not grant field-level permission to combine portfolios,
+wishlists or member data. The historical entry remains in the series; current
+behaviour is documented at `/methodology/bridges`.
+
 ---
 
 ## What this is

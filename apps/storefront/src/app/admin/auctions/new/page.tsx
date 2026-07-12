@@ -1,17 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { Audience } from "@/lib/ui";
 type AuctionType = "english" | "dutch" | "buy_now";
-
-interface UploadedImage {
-  id?: string;
-  url: string;
-  s3Key: string;
-  order: number;
-}
 
 const TYPE_OPTIONS: { value: AuctionType; label: string; desc: string }[] = [
   { value: "english", label: "English", desc: "Ascending bids, highest wins" },
@@ -21,7 +14,6 @@ const TYPE_OPTIONS: { value: AuctionType; label: string; desc: string }[] = [
 
 export default function NewAuctionPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
@@ -52,10 +44,8 @@ export default function NewAuctionPage() {
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
 
-  // Post-create image upload
+  // Post-create confirmation
   const [createdAuctionId, setCreatedAuctionId] = useState<string | null>(null);
-  const [images, setImages] = useState<UploadedImage[]>([]);
-  const [uploading, setUploading] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -138,71 +128,6 @@ export default function NewAuctionPage() {
     }
   }
 
-  async function handleImageUpload(files: FileList) {
-    if (!createdAuctionId) return;
-    setUploading(true);
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-
-        // 1. Get presigned URL
-        const presignRes = await fetch("/api/auctions/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            auctionId: createdAuctionId,
-            contentType: file.type,
-          }),
-        });
-
-        if (!presignRes.ok) throw new Error("Failed to get upload URL");
-        const { uploadUrl, imageUrl, s3Key } = await presignRes.json();
-
-        // 2. Upload to S3
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-
-        if (!uploadRes.ok) throw new Error("Failed to upload to S3");
-
-        // 3. Register image in DB
-        const order = images.length + i;
-        const imgRes = await fetch(`/api/auctions/${createdAuctionId}/images`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: imageUrl, s3Key, order }),
-        });
-
-        if (!imgRes.ok) throw new Error("Failed to register image");
-        const img = await imgRes.json();
-
-        setImages((prev) => [...prev, { id: img.id, url: imageUrl, s3Key, order }]);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Image upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleRemoveImage(imageId: string, auctionId: string) {
-    try {
-      const res = await fetch(`/api/auctions/${auctionId}/images`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageId }),
-      });
-      if (res.ok) {
-        setImages((prev) => prev.filter((img) => img.id !== imageId));
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   // ── Login Screen ──
   if (!authed) {
     return (
@@ -232,7 +157,7 @@ export default function NewAuctionPage() {
     );
   }
 
-  // ── Post-create: Image upload ──
+  // ── Post-create confirmation ──
   if (createdAuctionId) {
     return (
       <main className="min-h-screen bg-neutral-950">
@@ -250,52 +175,11 @@ export default function NewAuctionPage() {
           </div>
 
           <div className="bg-neutral-900 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">Upload Images</h3>
-
-            {/* Uploaded images */}
-            {images.length > 0 && (
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {images.map((img) => (
-                  <div key={img.s3Key} className="relative group">
-                    <img
-                      src={img.url}
-                      alt=""
-                      className="w-full aspect-square object-cover rounded-lg"
-                    />
-                    {img.id && (
-                      <button
-                        onClick={() => handleRemoveImage(img.id!, createdAuctionId)}
-                        className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full opacity-0 group-hover:opacity-100 transition"
-                      >
-                        &#10005;
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  handleImageUpload(e.target.files);
-                  e.target.value = "";
-                }
-              }}
-            />
-
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full py-3 border-2 border-dashed border-neutral-700 rounded-lg text-neutral-400 hover:border-amber-500/50 hover:text-amber-400 transition disabled:opacity-50"
-            >
-              {uploading ? "Uploading..." : "Click to upload images"}
-            </button>
+            <h3 className="text-lg font-bold text-white mb-2">Image uploads are paused</h3>
+            <p className="text-sm text-neutral-400">
+              The auction was created successfully. New uploads stay off until
+              private storage and file limits are verified together.
+            </p>
           </div>
 
           <div className="flex gap-3 mt-6">

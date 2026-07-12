@@ -2,7 +2,7 @@
  * GET /api/cron/price-snapshot
  *
  * Vercel cron handler — runs daily at 02:00 UTC (see vercel.json).
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  ?secret={CRON_SECRET}
+ * Auth: Authorization: Bearer {CRON_SECRET}
  */
 
 import { NextRequest, NextResponse } from "next/server";

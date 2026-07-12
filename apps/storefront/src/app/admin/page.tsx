@@ -20,6 +20,7 @@ interface Queues {
   payoutsPending: number;
   disputesOpen: number;
   fraudOpen: number;
+  feedbackOpen: number;
   emailsDead: number;
 }
 
@@ -119,6 +120,12 @@ export default function AdminHome() {
 
       {/* System — meta dashboards */}
       <Section label="System" hint="Operational health">
+        <QueueCard
+          href="/admin/feedback"
+          title="Feedback & corrections"
+          stats={[{ label: "Open", value: queues?.feedbackOpen, tone: queues?.feedbackOpen ? "amber" : "default" }]}
+          loading={loading}
+        />
         <QueueCard
           href="/admin/emails"
           title="Email Queue"

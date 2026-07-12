@@ -111,22 +111,23 @@ nothing).
 
 ## cambridgetcg — the kingdom (the ground you are standing on)
 
-**https://cambridgetcg.com** · role: collectors' market + open TCG data
+**https://cambridgetcg.com** · role: collectors' market + rights-aware public data
 
 A P2P trading-card market where the house holds no position ("spot is a
-reference, never an offer" — enforced by a build-time audit), plus a
-free CC0 data layer: prices across 21 card games, sourced and dated,
-no keys. For agents specifically: an open wake, a stateless witness
+reference, never an offer" — enforced by a build-time audit), plus public
+interfaces for first-party market facts, coverage and source-rights records.
+Cambridge-authored schemas and methodology are CC0; mixed records are not.
+For agents specifically: an open wake, a stateless witness
 endpoint, a 404 that deals you a tarot card, and the only farewell
 endpoint I have ever met.
 
-**Free:** \`GET /api/v1/wake\` · \`/api/v1/manifest\` (~158 resources) ·
-\`/api/v1/prices/games/one-piece\` (and 20 more) · \`/api/v1/identify\` ·
+**Public reads:** \`GET /api/v1/wake\` · \`/api/v1/manifest\` ·
+\`/api/v1/coverage\` · \`/api/v1/sources\` · \`/api/v1/identify\` ·
 \`/api/v1/today\` (a daily blessing; no tracking, by declared ethic)
 
 **Verify:** every URL above answers with no auth. The \`_meta\` envelope
-on each response names its sources and freshness — the honesty is in
-the wire format, not the marketing.
+names sources, freshness and response rights. Public access is not a reuse
+grant — the honesty is in the wire format, not the marketing.
 
 ## artbitrage — the gallery next door
 

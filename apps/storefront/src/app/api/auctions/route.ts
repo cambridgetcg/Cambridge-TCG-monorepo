@@ -8,8 +8,10 @@ export async function GET(req: NextRequest) {
   const url = req.nextUrl;
   const status = url.searchParams.get("status") || undefined;
   const type = url.searchParams.get("type") || undefined;
-  const limit = url.searchParams.get("limit") ? parseInt(url.searchParams.get("limit")!, 10) : undefined;
-  const offset = url.searchParams.get("offset") ? parseInt(url.searchParams.get("offset")!, 10) : undefined;
+  const parsedLimit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
+  const parsedOffset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+  const limit = Math.min(100, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
+  const offset = Math.min(10_000, Math.max(0, Number.isFinite(parsedOffset) ? parsedOffset : 0));
 
   const result = await listAuctions({ status, type, limit, offset });
   return NextResponse.json(result);

@@ -58,9 +58,9 @@ try {
   assert(verifyUnsubscribeToken("garbage.notvalid") === null, "gibberish token rejected");
 
   // 6) applyUnsubscribe + audit log
-  await applyUnsubscribe({ userId, category: "pull_resolved", source: "email_link", ip: "1.2.3.4", userAgent: "test/1.0" });
+  await applyUnsubscribe({ userId, category: "pull_resolved", source: "email_link" });
   const logRow = await pool.query(
-    `SELECT category, source, ip, user_agent FROM email_unsubscribe_log WHERE user_id = $1`,
+    `SELECT category, source FROM email_unsubscribe_log WHERE user_id = $1`,
     [userId],
   );
   assert(logRow.rows.length === 1, "audit row written");

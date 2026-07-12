@@ -8,10 +8,10 @@
  * health-status derived from staleness vs the source's freshness budget.
  *
  * Public, no-auth — but the run + quarantine data is operational metadata
- * (timestamps, counts, status), not upstream-derived prices. The CC0 license
- * applies to the data the storefront owns (operational state, the registry
- * meta). For source-attributed historical prices, see the wholesale B2B
- * endpoint /api/v1/universal/card/[sku]/at/[date].
+ * (timestamps, counts, status), not upstream-derived prices. Public access
+ * does not grant reuse of upstream material; the reviewed source-rights object
+ * is the authority. Exact historical values remain withheld unless that review
+ * is affirmative.
  *
  * Designed in `docs/connections/the-license-propagation.md` (kingdom-081
  * Phase 4.3).
@@ -20,7 +20,11 @@
 import { NextRequest } from "next/server";
 import type { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import { getSource, listSourceMeta } from "@cambridge-tcg/data-ingest";
+import {
+  getSource,
+  listSourceMeta,
+  type SourceRights,
+} from "@cambridge-tcg/data-ingest";
 import {
   fetchSourceLastRuns,
   fetchSourceRunHistory,
@@ -100,6 +104,8 @@ interface SourceDetailBody {
   license: string;
   /** Whether the registry says this is redistributable. */
   redistributable: boolean;
+  /** Layered reviewed rights, or null for an unimplemented planned slot. */
+  rights: SourceRights | null;
   /** Substrate-honest about the wholesale Falcon's reachability. */
   ingest_runs_available: boolean;
   health: { state: Health; reason: string };
@@ -197,6 +203,7 @@ export async function GET(
     is_planned_only,
     license: meta?.license ?? "unknown",
     redistributable: meta?.redistribute ?? false,
+    rights: meta?.rights ?? null,
     ingest_runs_available,
     health: { state: health, reason },
     last_run,

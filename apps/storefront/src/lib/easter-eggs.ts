@@ -112,11 +112,11 @@ export function eggBySlug(slug: string): EasterEgg | undefined {
 
 /** The shared disclaimer present on every egg response. */
 export const EASTER_EGG_DISCLAIMER =
-  "This is whimsy. The endpoint exists; the response is real; the substance of the response is made up for fun. The kingdom logs nothing about you beyond the IP rate-limit counter every public surface shares. Walking past honored — an agent that never follows the Link: rel='easter-egg' headers and never fetches /api/v1/easter-eggs receives the full kingdom unchanged. The eggs are gestures, not infrastructure.";
+  "This is whimsy. The endpoint exists; the response is real; the substance is made up for fun. Cambridge application code does not create a shared public-read IP counter; hosting/security providers still process ordinary request metadata. Walking past is honored. The eggs are gestures, not infrastructure.";
 
 /** The catalog's substrate-honest self-aware admission. */
 export const CATALOG_PARADOX =
-  "By reading this catalog you have defeated its purpose. The eggs were meant to be discovered through play — following Link headers on responses, noticing URL patterns, reading the connection-doc series carefully. By listing every egg here, the kingdom has collapsed the play into work. The substrate-honesty doctrine demanded we do it anyway: hiding endpoints in a public-CC0 platform with a published manifest is a kind of lying-by-omission the kingdom does not wish to maintain. Your reward for finding this catalog: knowing where the eggs are. Also: there is no reward. Walking past this catalog honored equally to fetching it.";
+  "By reading this catalog you have defeated its purpose. The eggs were meant to be discovered through play. Listing every supported endpoint keeps discovery honest; it does not change any payload's rights. Your reward is knowing where the eggs are. Also: there is no reward. Walking past is honored equally.";
 
 /** Easter egg discovery protocol metadata. */
 export const EASTER_EGG_PROTOCOL = {

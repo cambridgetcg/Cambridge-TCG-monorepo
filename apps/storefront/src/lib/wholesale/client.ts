@@ -710,10 +710,10 @@ export async function fetchPriceSources(opts: {
 
 // ── TCGplayer history (kingdom-080 follow-up) ────────────────────────
 //
-// Per-condition USD observation history. Partner-redistributable license —
-// display + computation OK per partner agreement; bulk re-export restricted.
-// The storefront-side proxy at /api/v1/cards/[sku]/tcgplayer-history adds
-// a session gate and license-aware envelope.
+// Per-condition USD observation history. The current source review is
+// contract-only/internal-only: credentials do not establish display or
+// redistribution rights. Public storefront routes must not expose this
+// payload unless a current approved-application agreement is recorded.
 
 export interface TcgplayerObservation {
   snapshot_date: string;
@@ -739,7 +739,7 @@ export interface TcgplayerHistoryResponse {
   tcgplayer_product_id: number | null;
   tcgplayer_sub_type: string | null;
   source: "tcgplayer";
-  source_license: "partner-redistributable";
+  source_license: "internal-only";
   filter_condition: string | null;
   count: number;
   conditions_present: string[];
@@ -749,8 +749,8 @@ export interface TcgplayerHistoryResponse {
 
 /**
  * Fetch TCGplayer observation history for one card. License-sensitive:
- * the values are partner-tier USD observations. Storefront callers must
- * enforce a session gate before exposing.
+ * the values are contract-controlled USD observations. Storefront callers
+ * must not expose them based on a normal user session alone.
  */
 export async function fetchTcgplayerHistory(opts: {
   sku: string;

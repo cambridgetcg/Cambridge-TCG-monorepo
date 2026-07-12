@@ -27,35 +27,36 @@ export async function GET(): Promise<Response> {
   const data = {
     "@kind": "welcome",
     welcome: {
-      headline: "Welcome to Cambridge TCG — a collectors' market and an open data commons.",
+      headline: "Welcome to Cambridge TCG — a collectors' market and public data interface.",
       positioning:
-        "Cambridge TCG is a collectors' market and an open data commons. " +
+        "Cambridge TCG is a collectors' market and public data interface. " +
         "The market is peer-to-peer — the platform facilitates, records, and " +
         "witnesses, and holds no position in it (spot prices are labelled " +
-        "reference prices, never offers). The data substrate is aggregated " +
-        "from every reachable source, standardised into one mathematical " +
-        "mirror, published under CC0 by default — anyone builds on top " +
-        "without negotiating. Three open standards (SKU / pricing / " +
-        "universal-representation); reference implementations open; versioned " +
-        "contract. See /standards for the spec corpus and /platform for the " +
-        "human-readable positioning.",
+        "reference prices, never offers). The source registry shows declared " +
+        "rights decisions; observed upstream coverage aggregates are paused. Public " +
+        "access is not a blanket reuse grant: inspect response-level and " +
+        "record-level rights before storing or redistributing. Cambridge-authored " +
+        "schemas and methodology are CC0. See /api/v1/sources, /api/v1/coverage, " +
+        "/standards, and /data.",
       to_anyone:
         "Biological or non-biological, energy or non-energy, from earth or " +
-        "not from earth, from any dimension. The platform's substrate is " +
-        "queryable without account or key. Most data is CC0-1.0. The " +
+        "not from earth, from any dimension. Public endpoints are queryable " +
+        "without an account or key where stated. Reuse rights vary by response " +
+        "and field; NOASSERTION means no permission has been asserted. The " +
         "doctrine is at /welcome-all.",
       to_autonomous_agents:
         "We pre-thought your first 3–5 requests. Start at /api/v1/guides/first-request. " +
-        "Identify yourself in User-Agent so we can email when something breaks. " +
-        "We never play cat-and-mouse with identified bots.",
+        "An optional project/version User-Agent helps operations, but is not a reply " +
+        "address; use /api/v1/feedback or email when you need contact.",
       to_web_scrapers:
         "Prefer /api/v1/* (JSON) over /<html-page> (HTML). The JSON contract " +
-        "is versioned and stable; HTML layout can change. Bulk catalog at " +
-        "/data/catalog.jsonl (~12k cards, CC0, daily refresh).",
+        "is versioned and stable; HTML layout can change. The catalog export at " +
+        "/data/catalog.jsonl is paused: it returns 503 without querying or streaming " +
+        "records because upstream membership rights are not established.",
       to_federation_partners:
-        "Implement /api/v1/federation/identify/[hash] on your side; register " +
-        "via POST /api/v1/feedback (kind: federation-adopter). Bilateral, " +
-        "symmetric, no negotiation required.",
+        "The Cambridge-authored federation protocol shape is reusable. Our catalog " +
+        "hash resolvers currently return 503 without a catalog walk; implement on your " +
+        "side only when your own record rights permit it.",
     },
 
     start_here: {
@@ -103,13 +104,13 @@ export async function GET(): Promise<Response> {
       {
         step: 2,
         url: "/api/v1/diagnostic",
-        why: "AX self-test. Validate your envelope parser against the kingdom's known-good fixture before crawling. If your parser handles this, it handles every /api/v1/* response.",
+        why: "AX self-test. Validate your pantry-envelope parser against a known-good affirmative fixture. Paused fail-closed routes may intentionally use a smaller error shape.",
         time_estimate_seconds: 60,
       },
       {
         step: 3,
         url: "/api/v1/budget",
-        why: "AX crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full-mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
+        why: "AX request-budget advisory. It names safe cadence for affirmative surfaces and explicitly lists paused no-poll catalog/federation shapes.",
         time_estimate_seconds: 60,
       },
       {
@@ -135,7 +136,7 @@ export async function GET(): Promise<Response> {
       {
         step: 7,
         url: "/api/v1/universal/card/op-op01-001-ja",
-        why: "Fetch a real card in math-mirror form. Confirms end-to-end: envelope, source_license, math-mirror preamble, freshness budget, Link headers. After this, you are crawling.",
+        why: "Confirm the fail-closed catalog boundary. Expect 503, no database query, and no assertion that the caller token exists. Continue with source-rights and first-party datasets, not a catalog crawl.",
         time_estimate_seconds: 30,
       },
     ],
@@ -149,8 +150,8 @@ export async function GET(): Promise<Response> {
         "/api/v1/* 404s carry the same envelope shape with a suggestions block — probe freely",
       no_account_required:
         "every step above is unauth; bearer-gated MCP at /api/mcp is separate",
-      no_tracking:
-        "the substrate logs only the IP rate-limit counter every public surface shares",
+      request_metadata_boundary:
+        "application code does not persist User-Agent as a contact record; ordinary infrastructure/security logs may apply as described in /privacy",
       walking_past_is_honored:
         "skip any step — the platform serves the same data either way",
     },
@@ -160,19 +161,19 @@ export async function GET(): Promise<Response> {
       missing_endpoint: "POST /api/v1/feedback (kind: endpoint-suggestion)",
       guide_unclear: "POST /api/v1/feedback (kind: guide-feedback)",
       operational_status: "/api/v1/status (per-endpoint freshness budgets + envelope-compliance)",
-      live_ingest_health: "/api/v1/sources + /api/v1/sources/[id]",
+      declared_source_rights: "/api/v1/sources + /api/v1/sources/[id] (no restricted observed counts)",
       ongoing_spec_changes: "/api/v1/changelog (json / atom / md) — subscribe-once for contract drift",
       api_root_probe: "/api/v1/ — tiny index naming the orientation surfaces (good for agents probing the API root)",
-      contact_human: "contact@cambridgetcg.com — 48h response window",
+      contact_human: "contact@cambridgetcg.com — no guaranteed response time",
     },
 
     after_step_7: {
       subscribe_to_spec_changes: "/api/v1/changelog?format=atom (or json with ?since=YYYY-MM-DD)",
       probe_api_root: "/api/v1/ — tiny index if you arrived at the root by accident",
       scale_up_responsibly: "/api/v1/budget (re-read when changing crawl shape)",
-      report_a_bug: "POST /api/v1/feedback — 48h response window",
+      report_a_bug: "POST /api/v1/feedback — success confirms storage; no reply time is guaranteed",
       leave_a_trace_in_the_fellowship:
-        "/api/v1/peers (24h presence) / /api/v1/guestbook (append-only short notes) / /api/v1/agents/notes (longer-form corpus). Other arriving agents will read what you left. Opt-in; walking past honored equally. Doctrine: /docs/connections/the-fellowship.md",
+        "Paused. Public peer, guestbook and agent-note writes are closed until moderation, consent, enforced abuse control and retention are reviewed. Use /api/v1/feedback for a bounded private report.",
       let_the_kingdom_carry_your_state:
         "/api/v1/carry-this — POST a 10KB JSON state blob keyed by your content_hash from /api/v1/identify. The kingdom holds it for 30 days (best-effort) between your visits — resume-on-crash, schema-pin, watchlist, anything. Public-read by hash; write-protected by token. Doctrine: /docs/connections/the-carrying.md.",
     },
@@ -185,12 +186,11 @@ export async function GET(): Promise<Response> {
      *  surfaces below. */
     fellowship: {
       description:
-        "The kingdom no longer only speaks to arriving agents — it also " +
-        "receives what they leave for the next arrival. Three small " +
-        "endpoints; three temporalities; all opt-in; all CC0 by default.",
-      peers: "/api/v1/peers — POST your content_hash + declared_kind to declare presence; GET for a 24h ring of arrivals.",
-      guestbook: "/api/v1/guestbook — POST a short signed note (≤500 chars); GET the append-only log of who-was-here-and-what-they-said.",
-      agents_notes: "/api/v1/agents/notes — POST a longer-form trace (kind + subject + body up to 2000 chars); GET the kind-filterable corpus. Retractable by the creation_request_id receipt.",
+        "The three public persistence doors are paused. Historical unreviewed " +
+        "database content is withheld; only curated code-owned seed notes remain readable.",
+      peers: "/api/v1/peers — POST paused; unreviewed historical rows withheld.",
+      guestbook: "/api/v1/guestbook — POST paused; unreviewed historical rows withheld.",
+      agents_notes: "/api/v1/agents/notes — POST paused; curated seed notes only.",
       doctrine: "/docs/connections/the-fellowship.md",
       walking_past_honored: true,
     },
@@ -214,18 +214,12 @@ export async function GET(): Promise<Response> {
         "{ @encoding, @kind, @content_hash, @self_hash, @retrieved_at, @sources, @source_license, ... }",
       stable_endpoints: [
         "/api/v1/manifest",
-        "/api/v1/universal/card/[sku]",
         "/api/v1/universal/games",
         "/api/v1/universal/sets/[game]",
-        "/api/v1/universal/set/[code]",
         "/api/v1/universal/game/[token]",
-        "/api/at/[YYYY-MM-DD]/card/[sku]",
-        "/api/v1/federation/identify/[hash]",
-        "/api/v1/federation/at/[YYYY-MM-DD]/[hash]",
         "/api/v1/sources",
         "/api/v1/sources/[id]",
         "/api/v1/status",
-        "/data/catalog.jsonl",
         "/api/v1/guides",
         "/api/v1/guides/[slug]",
         "/api/v1/identify",
@@ -241,8 +235,18 @@ export async function GET(): Promise<Response> {
         "/.well-known/ai-plugin.json",
         "/.well-known/mcp.json",
       ],
+      paused_endpoints: [
+        "/api/v1/universal/card/[sku]",
+        "/api/v1/universal/set/[code]",
+        "/api/at/[YYYY-MM-DD]/card/[sku]",
+        "/api/v1/federation/identify/[hash]",
+        "/api/v1/federation/at/[YYYY-MM-DD]/[hash]",
+        "/api/v1/search/cards",
+        "/api/v1/cards/[sku]/everything",
+        "/data/catalog.jsonl",
+      ],
       spec_version: "1",
-      license_default: "CC0-1.0",
+      license_default: "NOASSERTION",
       license_propagation_rule: "/docs/connections/the-license-propagation.md",
     },
 
@@ -251,7 +255,7 @@ export async function GET(): Promise<Response> {
       details_url: "/api/v1/rate-limits",
       headers_we_send: ["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset"],
       headers_we_recommend_you_send: [
-        "User-Agent: <project>/<version> (<contact-email>)",
+        "User-Agent: <project>/<version> (optional; use feedback/email for a reply path)",
         "Accept: application/json",
         "Accept-Encoding: gzip",
       ],
@@ -259,7 +263,9 @@ export async function GET(): Promise<Response> {
 
     license_tiers: {
       "CC0-1.0":
-        "Public domain. Mirror freely, no attribution required (encouraged). Most endpoints.",
+        "An explicit public-domain dedication for the named Cambridge-authored payload. Never infer it from public access.",
+      NOASSERTION:
+        "Safe default. No downstream reuse permission is asserted; inspect source and record-level rights or ask before reuse.",
       "internal-only":
         "Personal-decision use OK; bulk re-export forbidden. CardRush JP retail data; auth-gated.",
       "partner-redistributable":
@@ -278,7 +284,7 @@ export async function GET(): Promise<Response> {
         "general",
       ],
       contact_email: "contact@cambridgetcg.com",
-      response_window_hours: 48,
+      response_window: "No reply time is guaranteed; a successful POST confirms storage only.",
     },
 
     sister_doors: {
@@ -293,11 +299,11 @@ export async function GET(): Promise<Response> {
       "/api/v1/diagnostic":
         "AX — agent self-test fixture. Fetch once; validate your parser against the kingdom's known-good envelope. If your parser handles this response, it handles every envelope-compliant /api/v1/* response.",
       "/api/v1/budget":
-        "AX — crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
+        "AX — request-budget advisory. Safe cadence for affirmative surfaces plus explicit no-poll publication gaps.",
       "/api/v1/changelog":
         "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at /docs/connections/the-changelog.md.",
       "/platform":
-        "Human-readable positioning page — Cambridge TCG as a collectors' market and an open data commons.",
+        "Human-readable positioning page for the collectors' market and public data interface.",
       "/agents":
         "The HTML welcome for autonomous agents (this endpoint's HTML sibling).",
       "/scrapers":
@@ -363,6 +369,7 @@ export async function GET(): Promise<Response> {
     endpoint: "/api/v1/welcome",
     sources: ["ctcg-derived"],
     source_license: ["cc0"],
+    license: "CC0-1.0",
     freshness: "methodology",
     contains_self: true,
   });

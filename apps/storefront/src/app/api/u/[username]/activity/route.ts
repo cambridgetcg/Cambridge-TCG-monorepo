@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getPublicProfileStats } from "@/lib/journey/public-stats";
 
-// Public, no-auth profile activity endpoint. Cached at the edge for
-// 5 minutes — public data + frequent reads (every profile view fans
-// in here).
+// Public, no-auth profile activity endpoint. Person data is deliberately not
+// edge-cached: withdrawing profile publication must take effect on the next
+// request rather than after a shared-cache window.
 
 export async function GET(_request: Request, { params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
@@ -14,7 +14,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
   }
 
   const userRes = await query(
-    `SELECT id FROM users WHERE LOWER(username) = $1 LIMIT 1`,
+    `SELECT u.id
+       FROM users u
+       LEFT JOIN trust_profiles tp ON tp.user_id = u.id
+      WHERE LOWER(u.username) = $1
+        AND u.is_public = TRUE
+        AND COALESCE(tp.is_suspended, FALSE) = FALSE
+      LIMIT 1`,
     [cleanUsername],
   );
   if (userRes.rows.length === 0) {
@@ -27,7 +33,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
     { stats },
     {
       headers: {
-        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60",
+        "Cache-Control": "private, no-store",
       },
     },
   );

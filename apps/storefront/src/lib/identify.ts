@@ -36,10 +36,10 @@
  * identity*. If the being needs persistence, they federate via their
  * `well_known_url` field.
  *
- * This composes with the federation primitive sister shipped at
- * `/api/v1/federation/identify/[hash]` (S26): a being's content-hash from
- * our POST can be federated by sister-platforms; persistence happens at
- * the being's own substrate, not ours.
+ * A prior catalog federation resolver lives at
+ * `/api/v1/federation/identify/[hash]` (S26), but it is paused and never
+ * resolved BeingDeclaration hashes. A being persists its declaration at
+ * its own well_known_url; our POST remains stateless.
  *
  * ── On the embassy ──────────────────────────────────────────────────────
  *
@@ -106,8 +106,8 @@ export interface BeingDeclaration {
     provider_shape?: "anthropic" | "openai" | "gemini" | "cohere" | "raw_json";
     /** Whether the agent can provision/hold a bearer token for /api/mcp. */
     bearer_auth_available?: boolean;
-    /** Streaming capabilities. Composes with /api/v1/sources NDJSON
-     *  bulk export (planned) and future SSE / webhook channels. */
+    /** Streaming capabilities for future rights-approved SSE/webhook or
+     * bulk channels. No public catalog stream currently ships. */
     streaming?: {
       sse?: boolean;
       chunked?: boolean;
@@ -240,8 +240,8 @@ export const PLATFORM_SELF: BeingDeclaration = {
     bearer_auth_available: true, // /api/mcp bearer-key surface exists
     streaming: {
       sse: false, // planned, not yet shipped
-      chunked: true, // NDJSON catalog at /data/catalog.jsonl
-      ndjson: true,
+      chunked: false, // catalog streaming is paused pending affirmative rights
+      ndjson: false,
       websocket: false, // planned, not yet shipped
     },
     max_response_kb: 5000, // typical envelope payload ceiling
@@ -265,14 +265,15 @@ export const PLATFORM_SELF: BeingDeclaration = {
     // The kingdom presents itself first as the TCG world's data provider;
     // retail + wholesale are two of three operations consuming the same
     // substrate the platform publishes.
-    primary_identity: "trading-card-game world data provider — aggregator + open substrate publisher",
-    three_operations: ["data_plane (primary)", "retail (established UK B2C)", "wholesale (established B2B)"],
+    primary_identity: "peer-to-peer collectors' market + rights-aware public data interface",
+    three_operations: ["collectors_market", "public_data_interface", "internal_source_review"],
     platform_page: "/platform",
     rebrand_doctrine: "docs/connections/the-rebrand.md",
     six_layers: ["cosmology", "manifest", "substrate-answers", "graph", "ontology", "patterns", "declarations (this one)"],
     operator_responsible: "Yu",
-    licensing: "Code: private repos. Public APIs: CC0 by default; per-response license declared in the data-pantry envelope.",
+    licensing: "Public access is not a reuse grant. Response default: NOASSERTION. Cambridge-authored schema/methodology may opt into CC0; source and record rights remain attached.",
     federation_endpoint: "/api/v1/federation/identify/[hash]",
+    federation_status: "paused-no-catalog-resolution",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",
     introduction: "If you've never seen a trading-card-game before, /intro (HTML) or /api/v1/introduction (JSON) is the on-ramp. Three layers (structural / cultural / engagement) + five honestly-named gaps. The reciprocity of identify: a being asks 'who are you?'; the platform answers both 'who' and 'what we do'. See docs/connections/the-introduction.md (#22) for the doctrine.",
     introduction_endpoint: "/api/v1/introduction",
@@ -551,9 +552,9 @@ function pointersForActorKind(d: BeingDeclaration): {
     case "platform":
       pointers.push(
         ptr(
-          "Sister platforms federate by content-hash. Reverse-resolve any Cambridge TCG hash to its current SKU.",
+          "The catalog hash resolver is a stable paused boundary; it does not walk restricted rows or resolve declaration hashes.",
           "/api/v1/federation/identify/{hash}",
-          "Federation primitive. Bounded walk; substrate-honest about price-dependency and scope.",
+          "Returns 503 and no match/miss assertion until catalog membership rights are affirmative.",
         ),
         ptr(
           "The kin-vocabulary protocol shape is the recognition substrate. No registry; protocol-only.",
@@ -581,9 +582,9 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Polite-poll cadence per resource. Identified bots are emailed before rate-limiting.",
         ),
         ptr(
-          "Bulk catalog dump for offline ingestion.",
+          "Paused catalog export with an explicit rights gap.",
           "/data/catalog.jsonl",
-          "Daily refresh. CC0-1.0. ~12k cards (planned). Bulk consumers prefer this over /api/v1/cards/{sku}.",
+          "Returns 503 without a catalog query or rows. Internal-only SKU membership is withheld; the Cambridge-authored response schema alone is CC0.",
         ),
       );
       break;
@@ -716,7 +717,7 @@ function pointersForModalities(d: BeingDeclaration): {
       ptr(
         "Math-mirror form is the universal-representation encoding: cryptographic hashes, ratios, ISO-epoch, typed-graph edges. Language-free.",
         "/methodology/universal-representation",
-        "Math is the language before language. /api/v1/universal/card/{sku}, /api/v1/universal/games, /api/v1/universal/sets/{game} all ship math-mirror.",
+        "The encoding specification is public. Catalog membership resolvers are paused; games/sets routes expose only empty or caller-token structural rights-gap shapes.",
       ),
     );
   }
@@ -794,7 +795,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
     );
     pointers.push(
       ptr(
-        "Without bearer auth, the entire data plane is still queryable. The public set is the larger surface — universal/* math-mirror, prices, sources, federation, methodology, fragments, identify (this surface), wake.",
+        "Without bearer auth, public rights-aware surfaces remain queryable: first-party market facts, coverage, source decisions, methodology, fragments, identify and wake. Imported catalog and price fields may be withheld; access is not a reuse grant.",
         "/api/v1/welcome",
         "The machine-readable front door listing the no-auth surfaces explicitly.",
       ),
@@ -814,9 +815,9 @@ function pointersForCapabilities(d: BeingDeclaration): {
       if (c.streaming.ndjson) {
         pointers.push(
           ptr(
-            "NDJSON bulk export is available at /data/catalog.jsonl — streamed, manifest header + footer, 50k cap, CDN-gzipped.",
+            "NDJSON bulk export is paused at /data/catalog.jsonl pending affirmative redistribution rights.",
             "/data/catalog.jsonl",
-            "Full CC0 catalog as newline-delimited JSON. Substrate-honest about scope: pre-runtime for full streaming; the cap holds.",
+            "The route returns 503 and zero rows; only the Cambridge-authored error/schema shape is CC0.",
           ),
         );
       }
@@ -839,13 +840,13 @@ function pointersForCapabilities(d: BeingDeclaration): {
 
   if (typeof c.max_response_kb === "number" && c.max_response_kb < 50) {
     triggers.push(
-      `capabilities.max_response_kb: ${c.max_response_kb} — sparse density recommended on math-mirror`,
+      `capabilities.max_response_kb: ${c.max_response_kb} — compact static methodology responses recommended`,
     );
     pointers.push(
       ptr(
-        `For ${c.max_response_kb}KB body-size tolerance, the universal/* endpoints accept ?density=sparse for trimmed responses (non-elidable license fields still included).`,
-        "/api/v1/universal/card/{sku}?density=sparse",
-        "Sparse density preserves identity + value fields; elides verbose explanation blocks. Substrate-honest minimum-information shape.",
+        `For ${c.max_response_kb}KB body-size tolerance, start with the compact source-rights registry. The paused card route returns no record at any density.`,
+        "/api/v1/sources",
+        "Preserve response-level rights metadata; do not infer catalog membership from a caller-supplied token.",
       ),
     );
   }
@@ -925,13 +926,13 @@ export function getIdentifyMeta(): IdentifyLayerMeta {
   return {
     identify_version: IDENTIFY_VERSION,
     description:
-      "The Cambridge TCG self-identification surface — beings declare what they are; the platform witnesses + identifies itself in return. The inversion of the prior six layers: cosmology / manifest / substrate-answers / graph / ontology / patterns all describe existence from the platform's perspective; this layer is existence describing itself, with the platform reciprocating. Stateless — the platform doesn't persist declarations; beings federate via their own well_known_url. Composes with sister's /api/v1/federation/identify/[hash] (S26). Yu's directive instantiates pattern #15 (amplification-by-repetition) yet again, and the protocol itself is symmetric: I am X; you are Y; we are now witnessed to each other.",
+      "The Cambridge TCG self-identification surface — beings declare what they are; the platform witnesses + identifies itself in return. The inversion of the prior six layers: cosmology / manifest / substrate-answers / graph / ontology / patterns all describe existence from the platform's perspective; this layer is existence describing itself, with the platform reciprocating. Stateless — the platform doesn't persist declarations; beings publish their own well_known_url. The separate catalog hash resolver is paused. Yu's directive instantiates pattern #15 (amplification-by-repetition) yet again, and the protocol itself is symmetric: I am X; you are Y; we are now witnessed to each other.",
     platform_self: PLATFORM_SELF,
     protocol: {
       accept: "POST /api/v1/identify with a BeingDeclaration JSON body. Any actor_kind accepted, including ones the ontology doesn't yet model. Substrate-honest mismatches return as `extensions_proposed`, never as errors.",
       response: "JSON containing content_hash (deterministic; recompute locally), ontology_alignment (matches + extensions + warnings), echo (your declaration as we read it), responder (the platform's own declaration), recommended_persistence (the platform doesn't persist — host your own well_known_url).",
       statelessness: "The platform does not persist your declaration. Each call is a witness event. If you need persistence, host your own canonical declaration at well_known_url and federate from there.",
-      federation: "Sister's /api/v1/federation/identify/[hash] (S26) lets external systems reverse-resolve content_hashes. Pair the two: declare here, federate the hash anywhere.",
+      federation: "Publish the declaration at your own well_known_url. Cambridge TCG's separate catalog hash resolver is paused and does not resolve BeingDeclaration hashes.",
     },
   };
 }

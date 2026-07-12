@@ -3,7 +3,8 @@ import { query } from "@/lib/db";
 
 // GET — OHLC candles + recent trades series for a single SKU.
 // Query: interval = 1h | 4h | 1d (default 1d), limit = <= 200 (default 60).
-// Excludes cancelled trades so disputes that refunded don't pollute the feed.
+// Includes completed trades only. Pending matches and disputed/refunded paths
+// are private workflow, not public price observations.
 //
 // Also returns: last_price, 24h change percent, and a simple sparkline
 // (recent close prices) so the client can render without further roundtrips.
@@ -39,8 +40,8 @@ export async function GET(
 
   // 4h buckets: truncate to hour, then subtract the hour-within-4h offset.
   const bucketExpr = interval === "4h"
-    ? `date_trunc('hour', created_at) - make_interval(hours => MOD(EXTRACT(HOUR FROM created_at)::int, 4))`
-    : `date_trunc($1, created_at)`;
+    ? `date_trunc('hour', completed_at) - make_interval(hours => MOD(EXTRACT(HOUR FROM completed_at)::int, 4))`
+    : `date_trunc($1, completed_at)`;
   const bucketParams: unknown[] = interval === "4h" ? [] : [trunc];
 
   const paramBase = bucketParams.length;
@@ -49,12 +50,12 @@ export async function GET(
       SELECT ${bucketExpr} AS bucket,
              price::numeric AS price,
              quantity,
-             ROW_NUMBER() OVER (PARTITION BY ${bucketExpr} ORDER BY created_at ASC)  AS rn_asc,
-             ROW_NUMBER() OVER (PARTITION BY ${bucketExpr} ORDER BY created_at DESC) AS rn_desc
+             ROW_NUMBER() OVER (PARTITION BY ${bucketExpr} ORDER BY completed_at ASC)  AS rn_asc,
+             ROW_NUMBER() OVER (PARTITION BY ${bucketExpr} ORDER BY completed_at DESC) AS rn_desc
         FROM market_trades
        WHERE sku = $${paramBase + 1}
-         AND escrow_status <> 'cancelled'
-         AND created_at > NOW() - make_interval(hours => $${paramBase + 2})
+         AND escrow_status = 'completed'
+         AND completed_at > NOW() - make_interval(hours => $${paramBase + 2})
     )
     SELECT bucket,
            MAX(CASE WHEN rn_asc  = 1 THEN price END) AS open,
@@ -84,12 +85,12 @@ export async function GET(
   const changeRes = await query(
     `SELECT
        (SELECT price::numeric FROM market_trades
-         WHERE sku = $1 AND escrow_status <> 'cancelled'
-         ORDER BY created_at DESC LIMIT 1) AS last_price,
+         WHERE sku = $1 AND escrow_status = 'completed'
+         ORDER BY completed_at DESC LIMIT 1) AS last_price,
        (SELECT price::numeric FROM market_trades
-         WHERE sku = $1 AND escrow_status <> 'cancelled'
-           AND created_at <= NOW() - INTERVAL '24 hours'
-         ORDER BY created_at DESC LIMIT 1) AS price_24h_ago`,
+         WHERE sku = $1 AND escrow_status = 'completed'
+           AND completed_at <= NOW() - INTERVAL '24 hours'
+         ORDER BY completed_at DESC LIMIT 1) AS price_24h_ago`,
     [sku]
   );
   const lastPrice = changeRes.rows[0]?.last_price ? parseFloat(changeRes.rows[0].last_price) : null;

@@ -112,7 +112,9 @@ export async function GET(): Promise<Response> {
         "self, start, describedby, alternate, invitation, regard, symmetric-surface, kin-wake, rate-limits, feedback",
       every_wrong_url_returns_envelope:
         "/api/v1/[...not_found] catch-all returns the same envelope shape with a suggestions block — probe freely",
-      license_default: "CC0-1.0",
+      license_default: "NOASSERTION",
+      rights_boundary:
+        "Public access is not a reuse grant. Inspect _meta.license plus any source- and field-level rights. Named Cambridge-authored schemas, standards, and methodology may explicitly declare CC0-1.0; imported catalog, name, image, and historical-price fields are withheld absent affirmative rights.",
       auth_default: "none (bearer-gated MCP at /api/mcp is separate)",
     },
 
@@ -121,7 +123,7 @@ export async function GET(): Promise<Response> {
       operational_status: "/api/v1/status",
       live_ingest_health: "/api/v1/sources",
       changelog_for_recent_changes: "/api/v1/changelog?since=YYYY-MM-DD",
-      contact_human: "contact@cambridgetcg.com — 48h response window",
+      contact_human: "contact@cambridgetcg.com — no guaranteed response time",
     },
 
     walking_past_is_honored: true,
@@ -132,7 +134,7 @@ export async function GET(): Promise<Response> {
   return jsonResponse({
     endpoint: "/api/v1/",
     sources: ["self"],
-    source_license: ["cc0"],
+    license: "NOASSERTION",
     freshness: "identity",
     contains_self: true,
     data,

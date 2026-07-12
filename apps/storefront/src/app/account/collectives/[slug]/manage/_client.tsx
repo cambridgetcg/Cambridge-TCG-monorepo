@@ -2,12 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   updateCollectiveAction,
+  setDirectoryPublicationAction,
   inviteMemberAction,
   removeMemberAction,
 } from "../../_actions";
-import { COLLECTIVE_KINDS } from "@/lib/collectives/types";
+import {
+  COLLECTIVE_KINDS,
+  DIRECTORY_NOTICE_VERSION,
+} from "@/lib/collectives/types";
 import type {
   Collective,
   CollectiveMemberWithUser,
@@ -36,6 +41,8 @@ export function ManageClient({
 
   const [invitePending, startInvite] = useTransition();
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [directoryPending, startDirectory] = useTransition();
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
 
   function handleUpdate(formData: FormData) {
     setEditError(null);
@@ -55,6 +62,15 @@ export function ManageClient({
     startInvite(async () => {
       const r = await inviteMemberAction(collective.slug, formData);
       if (!r.ok) setInviteError(r.error ?? "Failed.");
+      else router.refresh();
+    });
+  }
+
+  function handleDirectory(formData: FormData) {
+    setDirectoryError(null);
+    startDirectory(async () => {
+      const r = await setDirectoryPublicationAction(collective.slug, formData);
+      if (!r.ok) setDirectoryError(r.error ?? "Failed.");
       else router.refresh();
     });
   }
@@ -114,6 +130,9 @@ export function ManageClient({
               maxLength={120}
               className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
             />
+            <p className="mt-1 text-xs text-ink-faint">
+              Coarse public area only; no home address or private meetup location.
+            </p>
           </div>
           <div>
             <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
@@ -124,6 +143,56 @@ export function ManageClient({
               defaultValue={collective.languages.join(", ")}
               className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
             />
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+              Games (comma-separated codes)
+            </label>
+            <input
+              name="games"
+              defaultValue={collective.games.join(", ")}
+              placeholder="pkm, op, mtg"
+              className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+                Official website
+              </label>
+              <input
+                name="website_url"
+                type="url"
+                defaultValue={collective.website_url ?? ""}
+                className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+                Public contact page
+              </label>
+              <input
+                name="public_contact_url"
+                type="url"
+                defaultValue={collective.public_contact_url ?? ""}
+                className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+              Accessibility notes
+            </label>
+            <textarea
+              name="accessibility_notes"
+              rows={3}
+              maxLength={2000}
+              defaultValue={collective.accessibility_notes ?? ""}
+              className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
+            />
+            <p className="mt-1 text-xs text-ink-faint">
+              Do not include personal emails, phone numbers or private addresses. Use the public contact-page link.
+            </p>
           </div>
           <div>
             <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
@@ -149,16 +218,20 @@ export function ManageClient({
               className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-ink-muted">
+          <label className="flex items-start gap-2 text-sm text-ink-muted">
             <input
               type="checkbox"
               name="is_public"
               defaultChecked={collective.is_public}
-              className="accent-amber-500"
+              className="mt-0.5 accent-amber-500"
             />
-            Publicly visible at /c/{collective.slug}
+            <span>
+              <span className="block">Publish the web profile at /c/{collective.slug}</span>
+              <span className="mt-1 block text-xs text-ink-faint">
+                This does not add the organisation to the searchable API directory.
+              </span>
+            </span>
           </label>
-
           {editError && (
             <div className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
               {editError}
@@ -178,6 +251,96 @@ export function ManageClient({
             {editPending ? "Saving…" : "Save changes"}
           </button>
         </form>
+      </section>
+
+      <section className="mb-8 rounded-lg border border-border-subtle bg-surface p-5">
+        <h2 className="mb-2 text-[11px] uppercase tracking-wider text-ink-faint">
+          Public directory and API
+        </h2>
+        {collective.directory_listed && collective.directory_notice_version === DIRECTORY_NOTICE_VERSION ? (
+          <>
+            <p className="mb-4 text-sm leading-relaxed text-ink-muted">
+              Listed under the current notice. This publishes only the
+              submitted organisation fields—not members, attendance or the
+              steward identity. Withdrawal takes effect on the next request.
+            </p>
+            <form action={handleDirectory}>
+              <input type="hidden" name="intent" value="unlist" />
+              <button
+                type="submit"
+                disabled={directoryPending}
+                className="rounded-lg border border-danger/30 px-4 py-2 text-sm font-semibold text-danger disabled:opacity-40"
+              >
+                {directoryPending ? "Withdrawing…" : "Withdraw directory listing"}
+              </button>
+            </form>
+          </>
+        ) : (
+          <form action={handleDirectory} className="space-y-4">
+            {collective.directory_listed && (
+              <p className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-ink-muted">
+                The previous directory notice is no longer current. This
+                organisation is withheld until the steward reviews and accepts
+                the notice below.
+              </p>
+            )}
+            <input type="hidden" name="intent" value="list" />
+            <input
+              type="hidden"
+              name="directory_notice_version"
+              value={DIRECTORY_NOTICE_VERSION}
+            />
+            <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                name="authority_attested"
+                required
+                className="mt-0.5 accent-amber-500"
+              />
+              <span>
+                <span className="block font-medium text-ink">
+                  I am authorised to represent this organisation
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-ink-faint">
+                  I ask Cambridge TCG to distribute the submitted organisation
+                  fields through its searchable page and public API. The record
+                  will be labelled self-attested and unverified. No member
+                  roster is included.
+                  {" "}<Link
+                    href="/licenses/community-directory-public-display-v1"
+                    target="_blank"
+                    className="text-accent underline"
+                  >
+                    Read the versioned display terms
+                  </Link>.
+                  <span className="mt-1 block">
+                    We privately record your account ID, this notice version,
+                    the action and its time. The account ID is removed after
+                    180 days. The pseudonymised receipt is treated as personal
+                    data and deleted after two years.
+                  </span>
+                </span>
+              </span>
+            </label>
+            {!collective.is_public && (
+              <p className="text-xs text-warning">
+                Publish the /c web profile and save it before listing.
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={directoryPending || !collective.is_public}
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page disabled:opacity-40"
+            >
+              {directoryPending ? "Publishing…" : "Publish directory listing"}
+            </button>
+          </form>
+        )}
+        {directoryError && <p className="mt-3 text-sm text-danger">{directoryError}</p>}
+        <p className="mt-3 text-xs leading-relaxed text-ink-faint">
+          Abuse control allows 5 listing actions per account each day.
+          Withdrawal is never rate-limited.
+        </p>
       </section>
 
       <section className="mb-8 rounded-lg border border-border-subtle bg-surface p-5">

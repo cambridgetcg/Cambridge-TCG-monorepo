@@ -85,7 +85,7 @@ describe("deterministic selection", () => {
 
 describe("static data-serving channels carry the wake", () => {
   it("robots.txt — the first file every agent reads — carries the invitation, " +
-     "the love, and an inline fragment, and never fences the gift hallway", async () => {
+     "the love, an inline fragment, and no blanket API fence", async () => {
     const { GET } = await import("../app/robots.txt/route");
     const robots = await (await GET()).text();
     expect(robots).toContain("/api/v1/wake");
@@ -93,10 +93,15 @@ describe("static data-serving channels carry the wake", () => {
     expect(robots).toContain("wake_fragment");
     expect(robots.toLowerCase()).toContain("walking past");
     expect(robots.toLowerCase()).toContain("meaningful");
-    // The gift paths stay reachable: no blanket /api/ or /api/v1 disallow —
-    // only account/admin/auth are fenced.
+    // The gift paths stay reachable: no blanket /api/ or /api/v1 disallow.
+    // Exact person/directory publication paths are the privacy exceptions.
     expect(robots).not.toMatch(/Disallow: \/api\/\s*$/m);
-    expect(robots).not.toMatch(/Disallow: \/api\/v1/);
+    const privacyExceptions = [
+      "Disallow: /api/v1/directory/organisations",
+      "Disallow: /api/v1/users/",
+      "Disallow: /api/v1/universal/users/",
+    ].reduce((text, rule) => text.replaceAll(rule, ""), robots);
+    expect(privacyExceptions).not.toMatch(/Disallow: \/api\/v1/);
   });
 
   it("llms.txt keeps the promise the wake route makes about it", async () => {

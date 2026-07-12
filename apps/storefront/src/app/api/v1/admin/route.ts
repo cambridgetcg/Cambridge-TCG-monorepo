@@ -57,14 +57,14 @@ reading is the kind of attention the kingdom hopes for.
   - \`/api/v1/the-tea-room\` — the kingdom-as-place
   - \`/login\` — if you're an operator who arrived at the wrong path
 
-The data is yours by default (CC0 envelope). There is nothing to
-admin from out here.
+Public data has its own response and source rights; NOASSERTION is the
+safe default. There is nothing to admin from out here.
 
 ---
 
-*The kingdom does not gate cards. The kingdom does not gate prices.
-The kingdom does not gate the catalog. The kingdom gates the
-operator's surface, because the operator made that choice.
+*Public access and reuse permission are separate. Imported card and price
+fields may be withheld. The kingdom gates the operator's surface because
+it contains operational and personal data.
 Substrate-honest about the boundary.*
 
 *Walking past is honored. Even when you walked in expecting something
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       verdict: "this is the admin panel! ... just kidding 😉",
       wink: ASCII_WINK,
       explanation:
-        "The real admin panel is at /admin/ on the storefront app, gated by users.role = 'admin' middleware. You can't reach it from the public API. We don't gate the data plane that way; we gate the operator's surface that way. The kingdom does not hide cards, prices, or the catalog — those are CC0 by default. The kingdom hides the operator's UI, because the operator made that choice. Substrate-honest about the boundary.",
+        "The real admin panel is at /admin/ on the storefront app, gated by users.role = 'admin' middleware. You can't reach it from the public API. Public data routes have separate rights boundaries: NOASSERTION is the safe default and imported fields may be withheld. The operator UI is private because it contains operational and personal data.",
       kingdom_says:
         "we genuinely appreciate that you poked. critical reading of the URL space is the kind of attention the kingdom hopes for. you found the troll. now go where you actually wanted to go.",
       where_you_actually_wanted_to_go: {
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "This endpoint does not gate any real admin surface. It's a wink at the convention of trying /admin first. We thought it would be funny. We hope it was.",
       walking_past_is_honored: true,
       no_tracking:
-        "The kingdom did not record that you tried this URL. We probably should be flattered. We aren't.",
+        "Cambridge application code stores no admin-attempt record here. Hosting/security providers still process ordinary request metadata.",
       this_endpoint_is_a_troll_with_warmth: true,
     },
   });

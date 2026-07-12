@@ -53,6 +53,11 @@ A collective starts private. The steward flips it public when ready. Private col
 
 A member may be in a collective without their identity appearing on the collective's public profile. The substrate preserves the relationship; the surface respects the preference. Stewards (managing the collective) see all members regardless. The public `/c/<slug>` page filters members where `visibility = 'public'` only.
 
+As of 2026-07-11 the default is **private**, including the steward. Migration
+`0117_privacy_defaults.sql` also reset historic public defaults because the old
+rows carried no publication receipt. A member may choose public visibility
+again later; absence of a recorded choice is not treated as permission.
+
 The reason for the two-layer visibility: someone may be a member of a shop collective but not want it surfaced (for example, an admin of a *competing* shop). The platform's job is to host the relationship honestly and surface what the person consents to surface.
 
 ---
@@ -73,8 +78,17 @@ The reason for the two-layer visibility: someone may be a member of a shop colle
 | Glossary | `Collective` + `Steward` entries on `/glossary` | Shipped |
 | Doctrine | This doc + door-3 state shift in `the-tailored-doors.md` | Shipped |
 | Door-3 surface | State pill flipped `planned → partial` on `/community/welcome` | Shipped |
+| Privacy reset | `0117_privacy_defaults.sql` — person/community defaults private | Shipped 2026-07-11 |
+| Organisation fields | `0118_collective_directory.sql` — games, official/public links, accessibility | Shipped 2026-07-11 |
+| Human directory | `/community/directory` — explicitly-public organisations only | Shipped 2026-07-11 |
+| Directory API | `/api/v1/directory/organisations` + `/[slug]` | Shipped 2026-07-11 |
+| Coverage ledger | `/api/v1/directory/coverage` | Shipped 2026-07-11 |
+| Directory methodology | `/methodology/community-directory` | Shipped 2026-07-11 |
 
 What the kingdom **does not** ship, named honestly:
+
+- **No people directory, member-list API or social graph export.** A public
+  collective can appear in the organisation directory; its roster cannot.
 
 - **Collective showcase or wishlist.** A collective shares one collection conceptually; the substrate to express that shared collection is future work.
 - **Collective-authored events on `/community` Trending.** The schema to add `collective_id` to `activity_events` is named but not migrated. A collective cannot yet post "Tuesday night OP-04 standard, $50 prize" as an event.
@@ -97,6 +111,28 @@ What the kingdom **does not** ship, named honestly:
 8. **Collective-to-collective relationships** — a Tokyo LGS endorsing a Bristol LGS; a guild affiliated with a shop; cross-region partnerships. New table; not v2 work.
 9. **Member invite-via-link** — currently invite-by-username; an invite link with a one-time token would help collectives onboard members not yet on the platform.
 10. **Collective-authored `<Audience>` for surfaces meant only for members** — a private members-only feed inside `/c/<slug>` (separate from the public profile).
+
+---
+
+## 2026-07-11 — the network boundary
+
+Yu asked for deeper coverage for collectors and every kind of community
+participant. The tempting implementation was a people graph. The safer and
+more useful first network is an **organisation graph**: public shops, clubs,
+guilds, labs and tournament collectives, each publishing its own facts.
+
+Three separations make that choice load-bearing:
+
+1. public web visibility is not a bulk-redistribution licence;
+2. an organisation profile is not its membership roster;
+3. a portfolio or wishlist is not a trade offer.
+
+The directory endpoints encode those separations. They omit steward ids and
+rosters, use a public-display-only licence reference, and name events/venues as
+planned while people discovery stays withheld. The existing inferred matcher
+is paused until card-level `trade_intents` can record the actual opt-in. The
+next expansion is therefore public venues and events with provenance, not a
+searchable people dossier.
 
 ---
 

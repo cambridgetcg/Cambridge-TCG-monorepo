@@ -7,11 +7,9 @@ import { getTrustTier } from "@/lib/escrow/trust-engine";
 // negotiate against. The unified order-book view aggregates by price and
 // drops order ids, so the offer composer needs this: each ask's id (the
 // makeOffer target), remaining quantity, whether the seller allows
-// offers, its return terms, and the seller's reputation (global free
-// trade: reputation replaces identity at the point of trade).
-//
-// Public read, like the order book itself — usernames and listing terms
-// are already visible on the card page; no emails or user internals.
+// offers and its return terms. A listing id is the transaction handle;
+// the seller's internal account id never leaves this route. Username and
+// narrow trust evidence appear only when the seller's profile is public.
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const sku = url.searchParams.get("sku")?.trim();
@@ -30,13 +28,16 @@ export async function GET(request: Request) {
     `SELECT o.id, o.price, o.quantity, o.filled_quantity, o.condition,
             o.allow_offers, o.accepts_returns, o.return_window_days,
             o.created_at, o.user_id AS seller_id,
-            u.username AS seller_username,
-            tp.trust_score, tp.avg_rating, tp.total_reviews
+            CASE WHEN u.is_public THEN u.username END AS seller_username,
+            CASE WHEN u.is_public THEN tp.trust_score END AS trust_score,
+            CASE WHEN u.is_public THEN tp.avg_rating END AS avg_rating,
+            CASE WHEN u.is_public THEN tp.total_reviews END AS total_reviews
        FROM market_orders o
-       LEFT JOIN users u ON u.id = o.user_id
+       JOIN users u ON u.id = o.user_id
        LEFT JOIN trust_profiles tp ON tp.user_id = o.user_id
       WHERE o.sku = $1 AND o.side = 'ask'
         AND o.status IN ('open', 'partially_filled')
+        AND COALESCE(tp.is_suspended, FALSE) = FALSE
       ORDER BY o.price ASC, o.created_at ASC
       LIMIT 20`,
     [sku],
@@ -55,7 +56,6 @@ export async function GET(request: Request) {
       created_at: row.created_at as string,
       is_own: viewerId != null && row.seller_id === viewerId,
       seller: {
-        id: row.seller_id as string,
         username: (row.seller_username as string | null) ?? null,
         trust_score: score,
         // Tier name derived in TS — same derivation the unified view uses.
@@ -66,5 +66,10 @@ export async function GET(request: Request) {
     };
   });
 
-  return NextResponse.json({ sku, asks });
+  return NextResponse.json({ sku, asks }, {
+    headers: {
+      "Cache-Control": "private, no-store",
+      "X-Robots-Tag": "noindex, noarchive",
+    },
+  });
 }

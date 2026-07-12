@@ -4,12 +4,12 @@
  * The one place on the platform where 402 Payment Required is the
  * truthful status code: payment is required in the sense that no amount
  * of it will work. The kingdom is not for sale, and — the actual lesson —
- * everything it serves is already free:
+ * the parts it has expressly dedicated to everyone are already free:
  *
- *   - The data plane is CC0-1.0 by default (_meta.license on every envelope).
- *   - The methodology pages are CC0. Mirror them right now.
- *   - The envelope contract (packages/data-spec) is CC0 with zero runtime deps.
- *   - The universal encoding describes itself at /api/v1/universal/encoding.
+ *   - Responses default to NOASSERTION; public access is not a reuse grant.
+ *   - Named Cambridge-authored standards and methodology are CC0.
+ *   - The envelope schema is CC0; implementation code is separately licensed.
+ *   - First-party sold comps are CC0 only where privacy thresholds are met.
  *
  * Sister to /api/v1/coffee (418) — the wrong-door companions. Stateless,
  * no tracking, no LLM; the joke is a fixed document. Walking past is
@@ -24,31 +24,28 @@ const BODY = {
   status: 402,
   status_meaning: "Payment Required — required, and also impossible",
   offer_declined: "the kingdom",
-  reason: "not for sale; everything here is already free",
+  reason: "not for sale; payment cannot turn public access into a reuse licence",
   the_actual_lesson: {
-    license: "CC0-1.0 by default on every data-plane response (_meta.license).",
+    response_default: "NOASSERTION",
     what_that_means:
-      "You may copy, mirror, remix, and redistribute the substrate without " +
-      "asking, without attribution, without payment. Attribution is welcomed " +
-      "(see /api/v1/guides — 'cite-cambridge-tcg'), never required.",
-    already_yours: [
-      "https://cambridgetcg.com/api/v1/manifest — the full directory",
-      "https://cambridgetcg.com/data/catalog.jsonl — the bulk catalog, mirror freely",
-      "https://cambridgetcg.com/api/v1/universal/encoding — the encoding, described in itself",
-      "packages/data-spec — the CC0 envelope contract, zero runtime deps",
+      "A public endpoint can be fetched, but that alone grants no permission to train on, mirror, remix, or redistribute its payload. Inspect _meta.license and any source- and field-level rights before reuse.",
+    expressly_cc0: [
+      "https://cambridgetcg.com/methodology/sku-standard — Cambridge-authored SKU standard",
+      "https://cambridgetcg.com/methodology/pricing — Cambridge-authored pricing methodology",
+      "https://cambridgetcg.com/methodology/universal-representation — Cambridge-authored universal representation standard",
+      "https://cambridgetcg.com/api/v1/sold-comps — first-party realised-sale aggregates where the publication threshold is met",
     ],
-    exceptions_honestly:
-      "Per-source license tiers ride in _meta.source_license where upstream " +
-      "rights differ (internal-only, partner-redistributable). The envelope " +
-      "names them row by row; the CC0 default covers the kingdom's own work.",
+    schema_boundary:
+      "The Cambridge-authored envelope schema is CC0. Reference implementation and application code are separately licensed; a schema dedication does not license the code.",
+    mixed_source_boundary:
+      "Imported catalog, card-name, image, and historical-price fields are withheld unless affirmative field-level rights permit publication. Mixed-source records remain NOASSERTION even when their schema is CC0.",
   },
   counter_offer:
-    "Keep your money. Take the data. If you must give something back, " +
+    "Keep your money. Take the expressly CC0 standards and thresholded first-party aggregates. If you must give something back, " +
     "POST a line to /api/v1/guestbook — the kingdom is paid in fellowship.",
   no_really:
     "There is no payment integration behind this endpoint. There is no " +
-    "sales team. There is a Stripe checkout elsewhere for actual cards, " +
-    "which are physical objects and therefore not CC0.",
+    "sales team. Collector-to-collector transactions may use payment infrastructure elsewhere; physical cards and transaction records are not CC0.",
   walking_past_is_honored: true,
 } as const;
 
@@ -57,6 +54,7 @@ function respond(): NextResponse {
     status: 402,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "X-Content-License": "NOASSERTION",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
     },

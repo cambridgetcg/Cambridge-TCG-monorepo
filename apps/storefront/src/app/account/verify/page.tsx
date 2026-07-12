@@ -5,7 +5,7 @@ import {
   UK_POSTCODE_REGEX,
   VERIFICATION_DOC_LABELS,
 } from "@/lib/trust/types";
-import type { UserVerification, VerificationDocument } from "@/lib/trust/types";
+import type { UserVerification } from "@/lib/trust/types";
 import { Audience } from "@/lib/ui";
 import {
   VERIFICATION_TIMELINE,
@@ -14,10 +14,17 @@ import {
 } from "@/lib/trust/verification-timeline";
 
 type FieldErrors = Record<string, string>;
+interface SafeVerificationDocument {
+  id: string;
+  doc_type: string;
+  mime_type: string | null;
+  uploaded_at: string;
+  access: "withheld_pending_private_storage";
+}
 
 export default function VerifyPage() {
   const [verification, setVerification] = useState<UserVerification | null>(null);
-  const [documents, setDocuments] = useState<VerificationDocument[]>([]);
+  const [documents, setDocuments] = useState<SafeVerificationDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -179,8 +186,9 @@ export default function VerifyPage() {
   }
 
   const status = verification?.status ?? null;
-  const showForm = !verification || status === "rejected" || status === "expired";
-  const canUpload = !status || status === "pending" || status === "rejected" || status === "expired";
+  const intakePaused = true;
+  const showForm = !intakePaused && (!verification || status === "rejected" || status === "expired");
+  const canUpload = !intakePaused && (!status || status === "pending" || status === "rejected" || status === "expired");
 
   return (
     <div className="space-y-6">
@@ -195,6 +203,16 @@ export default function VerifyPage() {
       </div>
 
       {verification && <VerificationTimelineBar verification={verification} />}
+
+      <div className="mb-6 rounded-lg border border-accent/30 bg-accent-wash p-4">
+        <p className="text-sm font-medium text-accent">New identity verification is paused.</p>
+        <p className="mt-1 text-xs leading-relaxed text-ink-muted">
+          We are not accepting more legal-name, bank or identity-document data
+          until dedicated private document storage, signed access and a tested
+          retention/deletion schedule are in place. Existing documents can be
+          removed below; contact support for deletion help.
+        </p>
+      </div>
 
       {status === "verified" && (
         <StatusCard tone="emerald" title="Verified">
@@ -236,32 +254,26 @@ export default function VerifyPage() {
         </StatusCard>
       )}
 
-      {canUpload && (
+      {(canUpload || documents.length > 0) && (
         <div className="bg-surface rounded-lg p-6 space-y-4">
           <div>
             <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Identity Documents</h2>
             <p className="text-xs text-ink-faint mt-1">
-              Government-issued photo ID and a recent proof of address. Images or PDF.
+              New uploads are paused. Existing object links are withheld while
+              private storage is reviewed; you can still remove a stored document.
             </p>
           </div>
 
           {documents.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {documents.map((doc) => (
-                <div key={doc.id} className="relative group">
-                  <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                     className="block rounded-lg border border-border-subtle overflow-hidden hover:border-accent/40 transition">
-                    {doc.mime_type?.startsWith("image/") ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={doc.url} alt={doc.doc_type} className="aspect-square w-full object-cover" />
-                    ) : (
-                      <div className="aspect-square w-full bg-surface-subtle flex items-center justify-center text-ink-faint text-xs">PDF</div>
-                    )}
-                    <p className="text-[11px] text-ink-muted px-2 py-1 truncate">
-                      {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
-                    </p>
-                  </a>
-                  {/* canUpload gate above ensures status isn't 'verified' here */}
+                <div key={doc.id} className="relative rounded-lg border border-border-subtle bg-surface-subtle p-3">
+                  <p className="text-xs font-medium text-ink">
+                    {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
+                  </p>
+                  <p className="mt-1 text-[11px] text-ink-faint">
+                    Preview withheld · uploaded {new Date(doc.uploaded_at).toLocaleDateString("en-GB")}
+                  </p>
                   <button
                     onClick={() => handleDeleteDoc(doc.id)}
                     className="absolute top-1 right-1 w-6 h-6 rounded-full bg-ink/70 text-page/80 hover:bg-danger hover:text-page opacity-0 group-hover:opacity-100 transition text-xs"
@@ -272,7 +284,7 @@ export default function VerifyPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 flex-wrap">
+          {canUpload && <div className="flex items-center gap-2 flex-wrap">
             <select
               value={uploadType}
               onChange={(e) => setUploadType(e.target.value)}
@@ -300,7 +312,7 @@ export default function VerifyPage() {
                 className="hidden"
               />
             </label>
-          </div>
+          </div>}
           {uploadError && <p className="text-xs text-danger">{uploadError}</p>}
         </div>
       )}
@@ -317,8 +329,7 @@ export default function VerifyPage() {
         <>
           <div className="bg-accent-wash border border-accent/30 rounded-lg p-4">
             <p className="text-accent text-sm">
-              This optional flow is currently UK residents only. Your information is
-              encrypted and never shared.
+              This optional flow is currently paused. Do not submit identity or bank data.
             </p>
           </div>
 

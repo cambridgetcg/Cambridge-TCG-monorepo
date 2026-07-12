@@ -32,7 +32,7 @@ function makeDraft(): ListingDraft {
   return {
     v: 1,
     game: "one-piece",
-    card: draftCardFromCatalog(card, "wholesale-db"),
+    card: draftCardFromCatalog(card, "market-orders"),
     condition: "NM",
     price: "10.50",
     quantity: "2",

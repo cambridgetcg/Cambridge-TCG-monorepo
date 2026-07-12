@@ -71,6 +71,7 @@ import {
   type CardRushContext,
 } from "@cambridge-tcg/data-ingest";
 import { buildSku, type GameCode } from "@cambridge-tcg/sku";
+import { requireSourceApproval } from "@/lib/source-approval";
 
 export interface DiscoveryRunOptions {
   triggeredBy?: "cron" | "admin" | "webhook";
@@ -286,6 +287,9 @@ const DEFAULT_MAX_NEW_PER_SUBDOMAIN = 500;
 export async function runCardRushDiscovery(
   options: DiscoveryRunOptions = {},
 ): Promise<DiscoveryRunResult> {
+  // Gate before clocks, database reads/writes, fetcher creation, or network.
+  // A reachable sitemap (or configured WAF proxy) is not permission to crawl.
+  const sourceApproval = requireSourceApproval("cardrush", "sitemap-discovery");
   const startMs = Date.now();
   const triggeredBy = options.triggeredBy ?? "cron";
   const maxNew = options.maxNewPerSubdomain ?? DEFAULT_MAX_NEW_PER_SUBDOMAIN;
@@ -429,6 +433,7 @@ export async function runCardRushDiscovery(
     // subdomain is skipped with a visible reason — kingdom-088.
     const fetcherCache = createDiscoveryCache();
     const ctx: CardRushContext = {
+      source_approval: sourceApproval,
       cardrush: {
         bright_data_proxy_url: process.env.CARDRUSH_BRIGHT_DATA_PROXY_URL,
       },
@@ -524,7 +529,7 @@ export async function runCardRushDiscovery(
       });
 
       // 2a. Fetch sitemap
-      const sm = await fetchSitemap(host, fetcher);
+      const sm = await fetchSitemap(host, fetcher, ctx);
       result.sitemap_ok = sm.ok;
       result.sitemap_total_urls = sm.total_urls;
       result.sitemap_product_urls = sm.product_urls.length;
@@ -641,7 +646,7 @@ export async function runCardRushDiscovery(
           result.capped = true;
           break; // the rest resumes next tick — diff re-finds them
         }
-        const fetch_result = await fetchAndParseProduct(url, fetcher);
+        const fetch_result = await fetchAndParseProduct(url, fetcher, ctx);
         result.fetched += 1;
 
         if (!fetch_result.ok || !fetch_result.metadata) {

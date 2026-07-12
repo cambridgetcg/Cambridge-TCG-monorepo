@@ -21,9 +21,9 @@ import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
-  title: "Public data — Cambridge TCG",
+  title: "Public APIs & data rights — Cambridge TCG",
   description:
-    "Every public data path Cambridge TCG offers: catalog, prices, decks, fairness verifiers, the agent gate, methodology, archives. For participants who want in via data.",
+    "Public API paths for first-party market facts, coverage, source-rights decisions, schemas, and methodology. Access does not imply reuse permission.",
   other: audienceMetadata("public-documentation", ["api", "participation"]),
 };
 
@@ -33,40 +33,43 @@ interface DataPath {
   blurb: string;
   /** none | session-cookie | bearer-key */
   auth: "none" | "session" | "bearer-key";
-  /** stable | experimental | planned (not-yet-built but named) */
-  status: "stable" | "experimental" | "planned";
+  /** stable | experimental | paused (stable off-switch) | planned */
+  status: "stable" | "experimental" | "paused" | "planned";
   /** Methodology page that documents the rule, if any. */
   methodology?: string;
+  /** Access is not a redistribution grant; name exceptions inline. */
+  rights?: string;
 }
 
 const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
   {
     group: "Card catalog & prices",
     blurb:
-      "What cards exist, what they look like, what they have cost over time. The data most participants come for first.",
+      "Mixed-source catalog publication is paused. First-party aggregate market alternatives remain available under their own response contracts.",
     rows: [
       {
         path: "/api/v1/universal/card/[sku]",
-        blurb: "A single card's data in language-free, substrate-free encoding (cryptographic hashes, ratios, ISO timestamps, typed-graph edges). For machine intelligences regardless of evolutionary history.",
+        blurb: "Paused: 503 with no catalog query or SKU-membership assertion.",
         auth: "none",
-        status: "stable",
+        status: "paused",
         methodology: "/methodology/universal-representation",
       },
       {
         path: "/api/at/[YYYY-MM-DD]/card/[sku]",
-        blurb: "A card's state as it was on a specific date. `@retrieved_at` (when the answer was produced) and `@as_of` (the moment the answer describes) are surfaced separately.",
+        blurb: "Paused: 503 with no catalog/archive query or current/historical membership disclosure.",
         auth: "none",
-        status: "stable",
+        status: "paused",
       },
       {
-        path: "/api/v1/cards.ndjson",
-        blurb: "Bulk catalog dump as newline-delimited JSON. Streamable; daily refresh. One card per line.",
+        path: "/data/catalog.jsonl",
+        blurb: "Paused rights boundary: 503, no catalog query, no rows. Internal-only SKU membership is withheld; only the Cambridge-authored response schema is CC0.",
         auth: "none",
-        status: "planned",
+        status: "paused",
+        rights: "Record content and membership: NOASSERTION/internal-only. Response schema only: CC0-1.0.",
       },
       {
         path: "/api/v1/prices/[sku]/history.json",
-        blurb: "Per-SKU time-series price observations from `price_archive`. Optional `?from=...&to=...` range. JPY, GBP base, retail-by-channel, FX rate per day.",
+        blurb: "Planned only. Any future history route requires affirmative field-level source rights; current public history values are withheld.",
         auth: "none",
         status: "planned",
         methodology: "/methodology/pricing",
@@ -74,6 +77,43 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
       {
         path: "/sitemap.xml",
         blurb: "Standard sitemap for the storefront. Reads as canonical inventory of public pages.",
+        auth: "none",
+        status: "stable",
+      },
+    ],
+  },
+  {
+    group: "Community organisations",
+    blurb:
+      "Self-attested organisation discovery with a separate, versioned publication receipt. No people search, roster, attendance or membership aggregate.",
+    rows: [
+      {
+        path: "/api/v1/directory/organisations",
+        blurb: "No-store snapshot list with filters for kind, game, region and language. Records are unverified and carry their own correction and rights links.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/community-directory",
+        rights: "Current display only — /licenses/community-directory-public-display-v1",
+      },
+      {
+        path: "/api/v1/directory/organisations/[slug]",
+        blurb: "One roster-free organisation record. Private, withdrawn, stale-consent and unknown records share the same 404 shape.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/community-directory",
+        rights: "Current display only — /licenses/community-directory-public-display-v1",
+      },
+      {
+        path: "/api/v1/directory/coverage",
+        blurb: "Coverage ledger separating implementation status from current runtime availability and naming deliberately withheld lanes.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/community-directory",
+        rights: "Current display only — /licenses/community-directory-public-display-v1",
+      },
+      {
+        path: "/schemas/v1/community-organisation.json",
+        blurb: "Raw JSON Schema 2020-12 for each organisation object; directly dereferenceable by validators.",
         auth: "none",
         status: "stable",
       },
@@ -101,6 +141,21 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
         blurb: "Curated card-to-museum-work relations with evidence, confidence, documented-influence boundary, and separate card, artwork, and annotation rights.",
         auth: "none",
         status: "stable",
+      },
+    ],
+  },
+  {
+    group: "Participation and corrections",
+    blurb:
+      "A bounded write path for reporting errors, correcting organisation records and proposing useful API coverage.",
+    rows: [
+      {
+        path: "/api/v1/feedback",
+        blurb: "GET describes five strict request shapes; POST stores one report in the private operator inbox. Enforced limits are 5 attempts/hour and 20/day using short-lived HMAC request buckets. Content and contact are removed after 180 days; no reply time is guaranteed.",
+        auth: "none",
+        status: "stable",
+        methodology: "/privacy",
+        rights: "Submitted privately for operator review; not a public dataset.",
       },
     ],
   },
@@ -237,7 +292,7 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
         path: "/api/openapi.json",
         blurb: "OpenAPI / JSON-Schema bundle for every public endpoint. Generator-friendly.",
         auth: "none",
-        status: "planned",
+        status: "stable",
       },
     ],
   },
@@ -270,6 +325,7 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
 const STATUS_TONE: Record<DataPath["status"], string> = {
   stable: "text-ok",
   experimental: "text-warning",
+  paused: "text-danger",
   planned: "text-ink-faint",
 };
 
@@ -302,12 +358,15 @@ export default function PublicDataPage() {
           </p>
         </header>
 
-        <div className="mb-8 grid grid-cols-3 gap-2 text-[11px] text-ink-faint">
+        <div className="mb-8 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-ink-faint">
           <div>
             <span className="text-ok">●</span> stable — production
           </div>
           <div>
             <span className="text-warning">●</span> experimental — may change
+          </div>
+          <div>
+            <span className="text-danger">●</span> paused — no records published
           </div>
           <div>
             <span className="text-ink-faint">●</span> planned — named, not yet built
@@ -346,6 +405,11 @@ export default function PublicDataPage() {
                         </Link>
                       </p>
                     )}
+                    {row.rights && (
+                      <p className="mt-1 text-[11px] text-ink-faint">
+                        Rights: {row.rights}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -361,12 +425,15 @@ export default function PublicDataPage() {
             may change at any time; use them for prototyping, not production.
           </p>
           <p>
-            <strong>Rate limits.</strong> Unauthenticated reads: 60/minute per IP.
-            Bearer-key authenticated: per agent's tier (see{" "}
+            <strong>Rate limits.</strong> General read headers describe advisory cadence,
+            not an enforced edge quota. Sensitive write routes name and enforce their
+            own HMAC-backed limits or fail closed. Bearer-key authenticated tools use
+            the agent&apos;s tier (see{" "}
             <Link href="/methodology/agents" className="text-accent underline">
               /methodology/agents
             </Link>
-            ). Session-authenticated: 600/minute per user.
+            ). Do not infer an enforced 60/minute IP or 600/minute session budget where
+            the endpoint does not explicitly say so.
           </p>
           <p>
             <strong>Why this page exists.</strong> So that a being arriving at Cambridge TCG

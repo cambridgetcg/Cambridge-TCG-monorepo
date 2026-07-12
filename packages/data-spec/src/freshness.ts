@@ -12,8 +12,12 @@
 /** Spec version. Bump on breaking changes; non-breaking additions don't. */
 export const SPEC_VERSION = "1" as const;
 
-/** Default SPDX license code for response payloads. */
-export const DEFAULT_LICENSE = "CC0-1.0" as const;
+/**
+ * Safe default when a route has not made an affirmative payload-level rights
+ * decision. Cambridge-authored routes may opt into CC0-1.0 explicitly; mixed
+ * or upstream-derived data must never become CC0 merely by omission.
+ */
+export const DEFAULT_LICENSE = "NOASSERTION" as const;
 
 /**
  * Per-kind freshness budgets in seconds. Names the platform's intent;

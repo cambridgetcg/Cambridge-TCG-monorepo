@@ -25,7 +25,8 @@ export default function EditProfilePage() {
   // Profile fields
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [isPublic, setIsPublic] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
+  const [acceptsMessages, setAcceptsMessages] = useState(false);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
 
   // Showcase
@@ -106,7 +107,8 @@ export default function EditProfilePage() {
         setProfile(p);
         setUsername(p?.username ?? session.user.username ?? "");
         setBio(p?.bio ?? "");
-        setIsPublic(p?.is_public ?? true);
+        setIsPublic(p?.is_public ?? false);
+        setAcceptsMessages(p?.accepts_messages ?? false);
         setShowcase(data.showcase ?? []);
         setWishlist(data.wishlist ?? []);
         setPortfolioCards(portfolio.cards ?? []);
@@ -168,7 +170,12 @@ export default function EditProfilePage() {
       const res = await fetch("/api/social/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, bio, is_public: isPublic }),
+        body: JSON.stringify({
+          username,
+          bio,
+          is_public: isPublic,
+          accepts_messages: acceptsMessages,
+        }),
       });
       if (res.ok) {
         setSaved(true);
@@ -363,6 +370,42 @@ export default function EditProfilePage() {
             {isPublic ? "Public profile" : "Private profile"}
           </span>
         </label>
+        <p className="text-xs text-ink-faint mt-2 max-w-xl">
+          Public means your profile, selected showcase cards, explicitly-public
+          activity, and narrow trust evidence (score, tier, completed-trade
+          count and public-review aggregates) can be viewed by anyone. Public
+          access does not grant a downstream reuse licence. Your collection
+          costs, wishlist ceilings, private notes, messages and account identity
+          stay private.
+        </p>
+      </div>
+
+      <div className="mb-8">
+        <label className="flex cursor-pointer items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={acceptsMessages}
+            onClick={() => setAcceptsMessages(!acceptsMessages)}
+            className={`relative h-6 w-10 rounded-full transition ${
+              acceptsMessages ? "bg-accent" : "bg-surface-subtle"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-transform ${
+                acceptsMessages ? "left-[18px]" : "left-0.5"
+              }`}
+            />
+          </button>
+          <span className="text-sm text-ink-muted">
+            {acceptsMessages ? "Direct messages allowed" : "Direct messages off"}
+          </span>
+        </label>
+        <p className="mt-2 max-w-xl text-xs text-ink-faint">
+          Off by default. Turning this on lets signed-in public-profile visitors
+          start a conversation. Blocks and rate limits still apply. Trade and
+          dispute system messages use their own participant-only channels.
+        </p>
       </div>
 
       {/* Preferences — Wave 1.1: pronouns + preferred_address.

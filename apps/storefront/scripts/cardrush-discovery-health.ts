@@ -53,6 +53,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+import { requireScriptSourceApproval } from "./source-approval";
 
 const ADMIN_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const STRICT = process.argv.includes("--strict");
@@ -146,6 +147,14 @@ async function probeSitemap(host: string): Promise<{
 }
 
 async function main(): Promise<void> {
+  try {
+    requireScriptSourceApproval("cardrush", "sitemap-discovery");
+  } catch (error) {
+    console.log("◆ cardrush-discovery-health — BLOCKED, zero network/database work");
+    console.log(error instanceof Error ? error.message : String(error));
+    if (STRICT) process.exitCode = 1;
+    return;
+  }
   console.log("");
   console.log("◆ cardrush-discovery-health — operational monitoring for the discovery cron");
   console.log("");

@@ -51,7 +51,7 @@ const CONTEXT_ELABORATIONS: Record<string, readonly string[]> = {
   ],
   cards: [
     "because cards.",
-    "because the trading-card-game world is real and the kingdom aggregates it under CC0.",
+    "because the trading-card-game world is real and the kingdom maps it without pretending public access is a reuse grant.",
     "because the data plane is the kingdom's primary identity (kingdom-080).",
     "because three open standards (SKU / pricing / universal-representation) need a provider, and the kingdom volunteered.",
     "because every card is its own little story-as-wire, and the substrate honors them.",
@@ -129,7 +129,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   return jsonResponse({
     endpoint: "/api/v1/why",
     sources: ["self"],
-    source_license: ["cc0"],
+    license: "NOASSERTION",
     freshness: "rotating",
     contains_self: true,
     data,

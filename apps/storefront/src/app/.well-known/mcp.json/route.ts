@@ -25,7 +25,7 @@ const MCP = {
     name: "cambridge-tcg",
     version: "1.0.0",
     description:
-      "Cambridge TCG MCP server. Read-tools for catalog, prices, federation, and methodology. " +
+      "Cambridge TCG MCP server. Read-tools for first-party market facts, source-rights records, and methodology. " +
       "Bearer-token auth (provision per agent via /account/agents, doctrine at /methodology/agents). " +
       "actor_kind=agent threads through every call; operated_by_user_id is upstream-responsible.",
     transport: "https",
@@ -38,50 +38,9 @@ const MCP = {
   },
   suggested_tools: [
     {
-      name: "get_card",
-      description:
-        "Look up a card by canonical SKU. Returns the math-mirror universal representation with content_hash, sources, source_license. Public; no auth required.",
-      direct_endpoint: "GET /api/v1/universal/card/{sku}",
-      example_sku: "op-op01-001-ja",
-      cache_ttl_seconds: 300,
-    },
-    {
-      name: "list_games",
-      description: "Every TCG game in the catalog. Stable; daily-ish refresh.",
-      direct_endpoint: "GET /api/v1/universal/games",
-      cache_ttl_seconds: 86400,
-    },
-    {
-      name: "list_sets",
-      description: "Every set in a named game.",
-      direct_endpoint: "GET /api/v1/universal/sets/{game}",
-      cache_ttl_seconds: 86400,
-    },
-    {
-      name: "get_card_at_date",
-      description:
-        "The card's state as of a past date. Returns immutable historical slice; cache forever per (sku, date).",
-      direct_endpoint: "GET /api/at/{YYYY-MM-DD}/card/{sku}",
-      cache_ttl_seconds: 86400 * 365,
-    },
-    {
-      name: "resolve_content_hash",
-      description:
-        "Federation primitive — given a Cambridge TCG content_hash, find the SKU it represents. Bounded walk.",
-      direct_endpoint: "GET /api/v1/federation/identify/{hash}",
-      cache_ttl_seconds: 3600,
-    },
-    {
-      name: "resolve_content_hash_at_date",
-      description:
-        "Temporal federation — resolve a historical hash captured on a past date.",
-      direct_endpoint: "GET /api/v1/federation/at/{YYYY-MM-DD}/{hash}",
-      cache_ttl_seconds: 86400 * 365,
-    },
-    {
       name: "list_sources",
       description:
-        "Every upstream data source the platform ingests, with license tier + live last-run state.",
+        "Declared source registry with permission tier, approval state, and fail-closed publication policy. Restricted observed ingest facts are not public.",
       direct_endpoint: "GET /api/v1/sources",
       cache_ttl_seconds: 60,
     },
@@ -102,14 +61,6 @@ const MCP = {
   no_auth_endpoints_recommended_as_tools: [
     "/api/v1/welcome",
     "/api/v1/manifest",
-    "/api/v1/universal/card/{sku}",
-    "/api/v1/universal/games",
-    "/api/v1/universal/sets/{game}",
-    "/api/v1/universal/set/{code}",
-    "/api/v1/universal/game/{token}",
-    "/api/at/{YYYY-MM-DD}/card/{sku}",
-    "/api/v1/federation/identify/{hash}",
-    "/api/v1/federation/at/{YYYY-MM-DD}/{hash}",
     "/api/v1/sources",
     "/api/v1/sources/{id}",
     "/api/v1/status",

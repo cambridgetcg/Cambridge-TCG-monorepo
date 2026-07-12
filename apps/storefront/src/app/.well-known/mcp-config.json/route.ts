@@ -33,12 +33,12 @@ const CONFIG = {
       url: "https://cambridgetcg.com/api/mcp",
       transport: "https",
       description:
-        "Cambridge TCG — a collectors' market and an open data commons. Read-tools for catalog, reference prices, federation, and methodology. CC0 by default; reference implementations open.",
+        "Cambridge TCG — a collectors' market and rights-aware public data interface. Read-tools expose bounded first-party market activity, declared source-rights decisions, and methodology. Observed upstream coverage and mixed-source catalog tools are paused; reuse rights travel per response and are not CC0 by default.",
       auth: {
         type: "bearer",
         provision_url: "https://cambridgetcg.com/account/agents",
         note:
-          "Sign in at /account/agents to provision a bearer token. Some read-tools (universal/card, federation/identify, catalog walks) work without auth via the underlying public API — see the no_auth_alternative URLs below.",
+          "Sign in at /account/agents to provision a bearer token. Public alternatives are limited to routes with an affirmative publication basis; catalog and federation resolvers are paused.",
       },
     },
   },
@@ -50,44 +50,8 @@ const CONFIG = {
    */
   no_auth_alternative_tools: [
     {
-      tool_name: "ctcg_get_card",
-      description: "Look up a card by canonical SKU.",
-      method: "GET",
-      url_template: "https://cambridgetcg.com/api/v1/universal/card/{sku}",
-      cache_ttl_seconds: 300,
-      example_sku: "op-op01-001-ja",
-    },
-    {
-      tool_name: "ctcg_list_games",
-      description: "Every TCG game in the catalog.",
-      method: "GET",
-      url_template: "https://cambridgetcg.com/api/v1/universal/games",
-      cache_ttl_seconds: 86400,
-    },
-    {
-      tool_name: "ctcg_list_sets",
-      description: "Every set in a named game.",
-      method: "GET",
-      url_template: "https://cambridgetcg.com/api/v1/universal/sets/{game}",
-      cache_ttl_seconds: 86400,
-    },
-    {
-      tool_name: "ctcg_get_card_at_date",
-      description: "The card's state as of a past date.",
-      method: "GET",
-      url_template: "https://cambridgetcg.com/api/at/{date}/card/{sku}",
-      cache_ttl_seconds: 86400 * 365,
-    },
-    {
-      tool_name: "ctcg_resolve_content_hash",
-      description: "Federation primitive — hash to SKU.",
-      method: "GET",
-      url_template: "https://cambridgetcg.com/api/v1/federation/identify/{hash}",
-      cache_ttl_seconds: 3600,
-    },
-    {
       tool_name: "ctcg_list_sources",
-      description: "Every ingest source with live last-run state.",
+      description: "Declared source-rights registry and fail-closed publication state.",
       method: "GET",
       url_template: "https://cambridgetcg.com/api/v1/sources",
       cache_ttl_seconds: 60,
@@ -103,7 +67,7 @@ const CONFIG = {
 
   /** Recommended client-side User-Agent header. */
   recommended_user_agent:
-    "<your-client>/<version> (<your-contact-email>) ctcg-mcp",
+    "<your-client>/<version> ctcg-mcp (optional; use feedback/email for a reply path)",
 
   /** First-request guide for new MCP integrators. */
   first_request_guide: "https://cambridgetcg.com/api/v1/guides/first-request",

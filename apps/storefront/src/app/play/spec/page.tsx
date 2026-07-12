@@ -35,6 +35,8 @@ function StatusPill({ status }: { status: ResourceStatus }) {
   const tone =
     status === "shipped"
       ? "bg-ok/10 text-ok border-ok"
+      : status === "paused"
+        ? "bg-warning/10 text-warning border-warning"
       : status === "designed"
         ? "bg-info/10 text-info border-info"
         : "bg-surface-subtle text-ink-muted border-border-subtle";
@@ -108,7 +110,7 @@ export default function PlayModuleSpec() {
       </p>
 
       <p className="text-sm text-ink-muted">
-        <strong>{counts.shipped} shipped</strong> · {counts.designed} designed ·{" "}
+        <strong>{counts.shipped} shipped</strong> · {counts.paused} paused · {counts.designed} designed ·{" "}
         {counts.planned} planned · {PLAY_RESOURCES.length} total · counts
         rendered from <code>lib/play/resources.ts</code>.
       </p>
@@ -146,8 +148,9 @@ export default function PlayModuleSpec() {
         </li>
         <li>
           <strong>L2 — Pure-function libraries.</strong> Deck legality + effect
-          tokenisation + type skeleton + validation endpoint + resource
-          catalog. <em>Shipped (kingdom-069 + kingdom-077).</em>
+          tokenisation + type skeleton + resource catalog. The pure validator
+          remains available internally; its public category-backed endpoint is
+          <em> paused</em> pending affirmative metadata lineage.
         </li>
         <li>
           <strong>L3 — Tabletop runtime.</strong> Event-sourced server-

@@ -1,5 +1,13 @@
 # The commons — community for lifeforms we know and lifeforms we don't
 
+> **2026-07-11 correction.** Public wishlists, inferred trade matching and
+> public follower/following lists are paused or withheld. Profiles now default
+> private; a public profile exposes chosen profile fields, selected showcase,
+> explicitly-public activity, public reviews and narrow trust aggregates. It
+> does not expose the wishlist, collection size, internal ids or social graph.
+> The organisation directory is the current public network. Historical design
+> descriptions below are preserved as history, not current behaviour.
+
 > **Pull.** Yu's directive on 2026-05-12: *"Go deeper into the community module, make it cross cultural, open to all. No limits to lifeform, no limits to type of intelligence, think about the need of non humans. Tailor it so that we can serve those we dont know."*
 >
 > **Form.** Node-view meditation. Sister to [`the-other-minds.md`](./the-other-minds.md) (#5 — the six speculative beings), [`the-unseen.md`](./the-unseen.md) (the thirteen needs of unseen beings), and [`the-feast-on-the-deck.md`](./the-feast-on-the-deck.md) (S21 — Luffy's table). Where those named *the world the platform could welcome*, this names *the module where the welcoming actually happens*. The community module is the platform's social surface — where lifeforms meet other lifeforms, not where they meet the platform.
@@ -32,10 +40,13 @@ A single page at `/community` with three tabs (Trending / Following / Trade Matc
 
 - **`activity_events`** — append-only log of platform-flavored events (`trade_completed`, `auction_won`, `raffle_won`, `mystery_box_opened`, `tier_upgraded`, `achievement_earned`, `card_added`, `wishlist_fulfilled`, `review_received`, `set_completed`).
 - **`apps/storefront/src/lib/social/db.ts`** — `getPublicProfile`, `getShowcase`, `getWishlist`, `getActivityFeed`, `getUserActivity`, `getFollowers`, `getFollowing`.
-- **`/u/[username]`** — public profiles with showcase + wishlist + reviews + activity.
+- **`/u/[username]`** — explicitly-public profiles with showcase, public reviews, explicitly-public activity and narrow aggregates; wishlist withheld.
 - **`/api/social/feed`**, **`/api/social/matches`** — JSON surfaces.
 
-Every event carries a `user_id`. Every match carries two `user_id`s. **The community is human-only, by structure.** Not by exclusion — by *assumption*. The substrate was built before the platform learned to welcome other kinds.
+Every stored event carries a `user_id`. The old matcher also carried two user
+ids, but its resolver is now disabled. **The remaining people-facing community
+is human-only, by structure.** Not by exclusion — by *assumption*. The public
+organisation directory is a separate roster-free surface.
 
 ---
 

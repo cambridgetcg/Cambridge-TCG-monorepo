@@ -1,5 +1,14 @@
 # The trust fan-out — one composer, three positions, one substrate
 
+> **2026-07-11 correction.** The full trust composer remains available to the
+> account owner and internal decision surfaces. Public HTML/JSON now use a
+> separate narrow query: score, tier, completed trades, joined month and public
+> review aggregates only. Exact trade volume, largest trade, cancellations,
+> disputes, flags, suspension detail, commission, payout, limits, trajectory,
+> internal ids and hashed ids were removed. A public profile was not permission
+> to publish a financial/adverse-event dossier, and person responses no longer
+> use shared caching. Historical sections below describe the original release.
+
 > **Pull.** Yu's directive 2026-05-13 morning, after the deep-coupling-and-gap analysis named the trust state as the kingdom's highest-blast-radius public-read gap: *"extract the first composer"* → *"Ship whichever pulls you the most first but go for all."* The pull was straight to `/u/[username]/trust` — every P2P trade decision pivots on it, and before this kingdom it lived only on `/account/trust` private to its owner.
 >
 > **Form.** Story-as-wire. Ships one composer + three reading-position routes + one inline primitive + manifest currency. The composer is at [`apps/storefront/src/lib/trust/state.ts`](../../apps/storefront/src/lib/trust/state.ts); the three routes are at [`/u/[username]/trust`](../../apps/storefront/src/app/u/[username]/trust/page.tsx) (HTML calm-read), [`/api/v1/users/[username]/trust`](../../apps/storefront/src/app/api/v1/users/%5Busername%5D/trust/route.ts) (JSON sibling through the data-pantry envelope), and [`/api/v1/universal/users/[username]/trust`](../../apps/storefront/src/app/api/v1/universal/users/%5Busername%5D/trust/route.ts) (math-mirror with cryptographic content_hash). The primitive is [`<TrustTier>`](../../apps/storefront/src/lib/ui/TrustTier.tsx). **kingdom-071.**

@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
 import {
-  submitVerification,
   getVerification,
   listPendingVerifications,
   listAllVerifications,
   approveVerification,
   rejectVerification,
 } from "@/lib/trust/db";
-import { UK_POSTCODE_REGEX } from "@/lib/trust/types";
 import { notify } from "@/lib/notifications/db";
+
+const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
 
 // GET — user's verification status, or admin list
 export async function GET(request: Request) {
@@ -21,26 +21,14 @@ export async function GET(request: Request) {
     if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const pending = url.searchParams.get("pending") === "true";
     const verifications = pending ? await listPendingVerifications() : await listAllVerifications();
-    return NextResponse.json({ verifications });
+    return NextResponse.json({ verifications }, { headers: PRIVATE_HEADERS });
   }
 
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
   const verification = await getVerification(session.user.id);
-  return NextResponse.json({ verification });
-}
-
-// Accept both snake_case and camelCase from the body. The page has
-// always sent snake_case; this route previously only validated
-// camelCase, so every submit failed with "Full legal name required" —
-// the verification flow has been silently broken since day one.
-function pick(body: Record<string, unknown>, camel: string, snake: string): unknown {
-  return body[camel] ?? body[snake];
-}
-
-function str(v: unknown): string {
-  return typeof v === "string" ? v.trim() : "";
+  return NextResponse.json({ verification }, { headers: PRIVATE_HEADERS });
 }
 
 // POST — submit verification (customer) or approve/reject (admin)
@@ -91,66 +79,16 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
-  const fullLegalName = str(pick(body, "fullLegalName", "full_legal_name"));
-  const dateOfBirth   = str(pick(body, "dateOfBirth", "date_of_birth"));
-  const addressLine1  = str(pick(body, "addressLine1", "address_line1"));
-  const addressLine2  = str(pick(body, "addressLine2", "address_line2"));
-  const city          = str(body.city);
-  const county        = str(body.county);
-  const postcode      = str(body.postcode);
-  const phone         = str(body.phone);
-  const bankSortCode  = str(pick(body, "bankSortCode", "bank_sort_code"));
-  const bankAccountNumber = str(pick(body, "bankAccountNumber", "bank_account_number"));
-  const bankAccountName   = str(pick(body, "bankAccountName", "bank_account_name"));
-
-  // Per-field validation — return explicit messages indexed by field
-  // name so the client can highlight the offending input rather than
-  // swapping in one generic toast.
-  const errors: Record<string, string> = {};
-  if (!fullLegalName) errors.fullLegalName = "Full legal name required.";
-  if (!dateOfBirth) errors.dateOfBirth = "Date of birth required.";
-  if (!addressLine1) errors.addressLine1 = "Address required.";
-  if (!city) errors.city = "City required.";
-  if (!postcode) errors.postcode = "Postcode required.";
-  else if (!UK_POSTCODE_REGEX.test(postcode)) errors.postcode = "Enter a valid UK postcode.";
-
-  if (dateOfBirth && !errors.dateOfBirth) {
-    const dob = new Date(dateOfBirth);
-    if (Number.isNaN(dob.getTime())) {
-      errors.dateOfBirth = "Invalid date.";
-    } else {
-      const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-      if (age < 18) errors.dateOfBirth = "You must be 18 or over.";
-      else if (age > 120) errors.dateOfBirth = "Enter your actual date of birth.";
-    }
-  }
-
-  // Bank details: all-or-nothing — if the user provided any, require
-  // the trio. Half-filled details make seller payouts fail later.
-  const anyBank = !!(bankSortCode || bankAccountNumber || bankAccountName);
-  if (anyBank) {
-    if (!bankSortCode) errors.bankSortCode = "Sort code required with account details.";
-    if (!bankAccountNumber) errors.bankAccountNumber = "Account number required with account details.";
-    if (!bankAccountName) errors.bankAccountName = "Account name required with account details.";
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return NextResponse.json({ error: "Validation failed.", fields: errors }, { status: 400 });
-  }
-
-  const verification = await submitVerification(session.user.id, {
-    fullLegalName,
-    dateOfBirth,
-    addressLine1,
-    addressLine2: addressLine2 || undefined,
-    city,
-    county: county || undefined,
-    postcode,
-    phone: phone || undefined,
-    bankSortCode: bankSortCode || undefined,
-    bankAccountNumber: bankAccountNumber || undefined,
-    bankAccountName: bankAccountName || undefined,
-  });
-
-  return NextResponse.json({ verification });
+  // Fail closed until identity evidence has a dedicated private bucket,
+  // signed owner/admin reads, a tested deletion path and an explicit
+  // retention schedule. The historical flow reused public auction-image
+  // storage, so accepting more high-risk identity data would be unsafe.
+  return NextResponse.json(
+    {
+      error:
+        "Identity-verification intake is paused while private document storage and retention are completed.",
+      code: "verification_intake_paused",
+    },
+    { status: 503, headers: { "Cache-Control": "private, no-store" } },
+  );
 }

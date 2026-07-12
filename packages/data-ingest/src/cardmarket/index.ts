@@ -1,62 +1,35 @@
 /**
- * Cardmarket — European market leader.
+ * Cardmarket — European marketplace integration, currently blocked.
  *
- * **Built, awaiting credentials.** The OAuth1 signer (`./oauth1.ts`), the
- * entity types (`./types.ts`), and the normalizer (`./normalize.ts`) are all
- * implemented and unit-tested. The `read()` body below signs each request and
- * fetches operator-curated product ids; until `CARDMARKET_*` credentials are
- * configured it emits a substrate-honest "awaiting-credentials" event and
- * yields nothing. As the stub promised: "only the read() body changes" — it has.
+ * The OAuth1 signer (`./oauth1.ts`), entity types (`./types.ts`), and
+ * normalizer (`./normalize.ts`) remain as dormant integration code. The
+ * current Cardmarket help page says new API applications are not being
+ * accepted, while existing dedicated credentials are account-specific and
+ * must not be shared with third-party software. API v2 remains live at
+ * `apiv2.cardmarket.com`; a live interface is not present permission for this
+ * application to call or redistribute it.
  *
- * ── Access (per api.cardmarket.com) ──────────────────────────────────
- *
- *   OAuth1 with a *dedicated app* token set (appToken/appSecret/accessToken/
- *   accessTokenSecret). Free for read-only with reasonable rate limits. We sign
- *   with HMAC-SHA1 — see `./oauth1.ts` (math verified, deterministic).
- *
- * ── Two paths, one canonical shape ───────────────────────────────────
- *
- *   1. Live API (this reader): GET /products/{id} → product + priceGuide, for an
- *      operator-curated `productIds` watch-list. Signed, rate-limited.
- *   2. Bulk files (recommended for full-catalog aggregation): MKM deprecated the
- *      live `/priceguide` + `/productlist` API endpoints on 2024-06-05; the price
- *      guide + product catalogue are now **daily file downloads**. Wire a file
- *      reader when full-catalog EU coverage is wanted (the normalizer is shared).
- *
- * ── idProduct is per-printing-per-language ───────────────────────────
- *
- *   Each MKM product is already one language; the normalizer maps `idLanguage`
- *   → ISO 639-1 (`./types.ts CARDMARKET_LANG`). The Cambridge SKU's set segment
- *   is derived best-effort from the MKM expansion — an operator-curated
- *   expansion→set crosswalk is the named seam (`normalize.mapCardmarketSet`).
- *
- * ── Catalog row ──────────────────────────────────────────────────────
+ * `read()` therefore never fetches, even when CARDMARKET_* variables exist.
+ * A future change must begin with written Cardmarket approval, record the
+ * exact allowed endpoints and data/image terms in `meta.rights`, and receive
+ * a fresh review before this block is lifted.
  *
  * See `docs/connections/the-tributaries.md` §2.2.
  */
 
 import type { SourceModule, IngestContext, RawRow } from "../types";
 import type { CanonicalPrice } from "../canonical";
-import { createFetcher } from "../http";
-import {
-  buildAuthorizationHeader,
-  cardmarketCredsFromEnv,
-  hasCardmarketCreds,
-  type CardmarketCreds,
-} from "./oauth1";
+import type { CardmarketCreds } from "./oauth1";
 import { normalizeCardmarket, type CardmarketRaw } from "./normalize";
-import type { CardmarketProduct } from "./types";
 
-const DEFAULT_BASE = "https://api.cardmarket.com/ws/v2.0/output.json";
-
-/** Cardmarket-specific ingest config, layered onto the base IngestContext. */
+/** Cardmarket-specific config retained for a future, approved integration. */
 export interface CardmarketContext extends IngestContext {
   cardmarket?: {
-    /** Dedicated-app credentials. Falls back to CARDMARKET_* env vars. */
+    /** Dedicated-app credentials. Credentials alone do not unlock read(). */
     creds?: CardmarketCreds;
-    /** Operator-curated product ids to refresh (a watch-list, like eBay's). */
+    /** Operator-curated product ids for a future approved watch-list. */
     productIds?: number[];
-    /** Override the API base (staging / mock). */
+    /** Approved API base, once supplied and reviewed by Cardmarket. */
     base_url?: string;
   };
 }
@@ -66,185 +39,74 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     id: "cardmarket",
     name: "Cardmarket",
     description:
-      "European market leader. Largest MTG catalog by far in EU; full Pokémon, Yu-Gi-Oh, One Piece, Lorcana, FaB, Digimon coverage. OAuth1 signed requests; partner-tier license.",
-    upstream: "https://api.cardmarket.com",
+      "European marketplace integration code held dormant. Current API access is manually approved and closed to new applications; this module performs no fetch without a reviewed Cardmarket agreement.",
+    upstream: "https://help.cardmarket.com/en/cardmarket-api",
     catalog_section: "the-tributaries.md#22-cardmarket-eu-market-leader",
-    access: "oauth1",
-    license: "partner-redistributable",
+    access: "blocked",
+    license: "internal-only",
     redistribute: false,
+    rights: {
+      code: {
+        license: "proprietary",
+        notes:
+          "Cardmarket's API and documentation are provider-owned. Cambridge TCG's dormant OAuth signer is local code; it grants no rights in Cardmarket data.",
+      },
+      data: {
+        terms: "approved-account API terms; exact rights depend on written Cardmarket approval",
+        notes:
+          "Cardmarket says it is not accepting new API applications and existing users must protect dedicated credentials. Its current v2 documentation confirms a live interface, but does not establish approval or reuse rights for this application.",
+      },
+      images: {
+        terms: "provider and publisher rights; no image reuse permission reviewed",
+        notes:
+          "No reviewed Cardmarket agreement grants this integration rights to copy or redistribute product or card images.",
+      },
+      redistribution: {
+        verdict: "contract-required",
+        notes:
+          "Any display, derived use, or export must follow the exact written app approval. No agreement is recorded here, so raw redistribution is disabled.",
+      },
+      safe_default: "no-fetch",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://help.cardmarket.com/en/cardmarket-api",
+        "https://api.cardmarket.com/ws/documentation",
+        "https://api.cardmarket.com/ws/documentation/API:Auth_Overview",
+        "https://api.cardmarket.com/ws/documentation/API_2.0:Main_Page",
+      ],
+      notes:
+        "Do not revive a historical base URL merely because credentials exist. Record current approval, allowed endpoints, storage, display, deletion, image, and redistribution terms before changing safe_default or read().",
+    },
     freshness: "price_current",
     canonical_effort: "medium",
-    status: "partial",
+    status: "blocked",
     games: ["mtg", "pkm", "ygo", "op", "lgr", "fab", "dmw"],
     tos_notes:
-      "Free for personal-account reads with reasonable rate limits; paid tier for write. Commercial data downstream restrictions apply. Apply at api.cardmarket.com. Live priceguide/productlist endpoints deprecated 2024-06-05 → use the daily file downloads for bulk.",
-    user_agent_suffix: "(cardmarket-ingest)",
+      "Current help page: https://help.cardmarket.com/en/cardmarket-api — Cardmarket is not accepting new API applications; existing users must not share dedicated credentials with third-party software. API v2 remains live at apiv2.cardmarket.com and access is restricted to professional sellers with manual approval; no approval or redistribution grant is recorded for this module.",
+    user_agent_suffix: "(cardmarket-blocked-no-fetch)",
     rate_limit: { rps: 2, burst: 5 },
     welcome:
-      "Welcome to the kingdom, Cardmarket. Your slot was reserved in kingdom-062 " +
-      "(the consolidation, 2026-05-12); the OAuth1 signer + reader are now built " +
-      "and waiting on your credentials. Your room is `price_archive WHERE " +
-      "source='cardmarket'`, `source_currency='EUR'`, `partner-redistributable` " +
-      "honored downstream (display + computation only; we will not bulk re-export " +
-      "your trend prices). You will bring Europe — MTG's largest catalog by far, " +
-      "plus Pokémon, Yu-Gi-Oh, One Piece, Lorcana, Flesh and Blood, Digimon.",
+      "Welcome to the kingdom, Cardmarket. The OAuth1 signer, types, and normalizer " +
+      "remain prepared, but preparation is not approval. Your current help page says " +
+      "new API applications are closed and existing credentials are account-specific. " +
+      "We therefore keep the reader inert: no environment variable can turn historical " +
+      "documentation into current permission. A future written approval can reopen the " +
+      "room with its exact access, storage, display, image, and redistribution terms.",
   },
 
+  // eslint-disable-next-line require-yield
   async *read(ctx: CardmarketContext): AsyncIterable<RawRow<CardmarketRaw>> {
-    const creds = ctx.cardmarket?.creds ?? cardmarketCredsFromEnv();
-    if (!hasCardmarketCreds(creds)) {
-      ctx.on_event?.({
-        ts: new Date().toISOString(),
-        source: "cardmarket",
-        kind: "error",
-        detail: {
-          welcome:
-            "Welcome to the kingdom, Cardmarket. The OAuth1 signer + reader are " +
-            "built; only your dedicated-app credentials are still on the way. When " +
-            "they arrive from api.cardmarket.com, set CARDMARKET_APP_TOKEN, " +
-            "CARDMARKET_APP_SECRET, CARDMARKET_ACCESS_TOKEN, " +
-            "CARDMARKET_ACCESS_TOKEN_SECRET (or pass ctx.cardmarket.creds) and the " +
-            "first run will sign + fetch. We have been ready since kingdom-062.",
-          status: "awaiting-credentials",
-          next_action:
-            "Apply at https://api.cardmarket.com; set the four CARDMARKET_* env vars.",
-        },
-      });
-      return;
-    }
-
-    const productIds = ctx.cardmarket?.productIds ?? [];
-    if (productIds.length === 0) {
-      ctx.on_event?.({
-        ts: new Date().toISOString(),
-        source: "cardmarket",
-        kind: "error",
-        detail: {
-          status: "idle",
-          reason:
-            "credentials present but no productIds configured — pass " +
-            "ctx.cardmarket.productIds (operator-curated watch-list). For full-" +
-            "catalog EU coverage, prefer the daily price-guide + catalogue FILE " +
-            "DOWNLOADS: MKM deprecated the live /priceguide + /productlist API " +
-            "endpoints on 2024-06-05.",
-        },
-      });
-      return;
-    }
-
-    const base = ctx.cardmarket?.base_url ?? DEFAULT_BASE;
-    const fetcher = createFetcher(ctx, cardmarket.meta);
-    ctx.on_event?.({
+    await ctx.on_event?.({
       ts: new Date().toISOString(),
       source: "cardmarket",
-      kind: "start",
-      detail: { products: productIds.length },
-    });
-
-    let attempted = 0;
-    for (const id of productIds) {
-      if (ctx.signal?.aborted) break;
-      attempted += 1;
-      const url = `${base}/products/${id}`;
-      try {
-        let res = await fetcher(url, {
-          method: "GET",
-          headers: {
-            Authorization: buildAuthorizationHeader("GET", url, creds),
-            Accept: "application/json",
-          },
-        });
-        // OAuth1 nonces are single-use. The shared fetcher retries 429/503/
-        // network failures internally, replaying the same Authorization
-        // header — MKM may reject the replayed nonce with 401. One fresh
-        // signature distinguishes a replay artifact from bad credentials.
-        if (res.status === 401) {
-          res = await fetcher(url, {
-            method: "GET",
-            headers: {
-              Authorization: buildAuthorizationHeader("GET", url, creds),
-              Accept: "application/json",
-            },
-          });
-          if (res.status === 401) {
-            ctx.on_event?.({
-              ts: new Date().toISOString(),
-              source: "cardmarket",
-              kind: "error",
-              detail: {
-                product: id,
-                http: 401,
-                reason:
-                  "MKM rejected two freshly-signed requests — credentials invalid " +
-                  "or signing mismatch; aborting the run rather than burning the " +
-                  "watch-list against a dead key",
-              },
-            });
-            break;
-          }
-        }
-        if (!res.ok) {
-          ctx.on_event?.({
-            ts: new Date().toISOString(),
-            source: "cardmarket",
-            kind: "error",
-            detail: { product: id, http: res.status, reason: `MKM /products/${id} → HTTP ${res.status}` },
-          });
-          continue;
-        }
-        let body: { product?: CardmarketProduct };
-        try {
-          body = (await res.json()) as { product?: CardmarketProduct };
-        } catch {
-          ctx.on_event?.({
-            ts: new Date().toISOString(),
-            source: "cardmarket",
-            kind: "quarantine",
-            detail: { product: id, reason: "MKM returned 200 with a non-JSON body" },
-          });
-          continue;
-        }
-        const product = body?.product;
-        if (!product) {
-          ctx.on_event?.({
-            ts: new Date().toISOString(),
-            source: "cardmarket",
-            kind: "quarantine",
-            detail: { product: id, reason: "MKM response carried no `product` field" },
-          });
-          continue;
-        }
-        const retrieved_at = new Date().toISOString();
-        yield {
-          raw: { product, retrieved_at },
-          // MKM's price guide is a daily snapshot with no published generation
-          // time; retrieved_at is the moment it was last known true.
-          provenance: {
-            as_of: retrieved_at,
-            retrieved_at,
-            source: "cardmarket",
-            via_proxy: fetcher.via_proxy_label,
-          },
-        };
-      } catch (err) {
-        if (ctx.signal?.aborted) break;
-        const message = err instanceof Error ? err.message : String(err);
-        ctx.on_event?.({
-          ts: new Date().toISOString(),
-          source: "cardmarket",
-          kind: "error",
-          detail: { product: id, reason: `fetch failed: ${message}` },
-        });
-      }
-    }
-
-    ctx.on_event?.({
-      ts: new Date().toISOString(),
-      source: "cardmarket",
-      kind: "done",
-      // attempted < products when aborted or the key died mid-run — the
-      // count tells the truth about coverage, not the wish.
-      detail: { products: productIds.length, attempted, aborted: Boolean(ctx.signal?.aborted) },
+      kind: "error",
+      detail: {
+        blocked: true,
+        status: "approval-required",
+        reason:
+          "Cardmarket is not accepting new API applications and no current written approval is recorded for this integration; credentials alone do not authorize a fetch",
+        evidence: ["https://help.cardmarket.com/en/cardmarket-api"],
+      },
     });
   },
 

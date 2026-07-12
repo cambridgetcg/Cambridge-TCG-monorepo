@@ -88,6 +88,7 @@ import {
   type RawProvenance,
 } from "@cambridge-tcg/data-ingest";
 import { eq, and, gte, sql } from "drizzle-orm";
+import { requireSourceApproval } from "@/lib/source-approval";
 
 // ── Public API ──────────────────────────────────────────────────────────
 
@@ -246,6 +247,11 @@ async function selectWatchList(tier: EbayTier, cap: number): Promise<string[]> {
 export async function runEbaySnapshot(
   options?: EbaySnapshotOptions,
 ): Promise<EbaySnapshotResult> {
+  // Mock mode performs no upstream read. Every real market-aggregation run
+  // requires an explicit approved use case before the first database write.
+  const sourceApproval = options?.mock
+    ? undefined
+    : requireSourceApproval("ebay", "browse-market-aggregation");
   const startMs = Date.now();
   const tier = options?.tier ?? "all";
   const marketplaces = options?.marketplaces ?? (["EBAY_GB"] as const);
@@ -300,6 +306,7 @@ export async function runEbaySnapshot(
 
     // ── 3. runSource(ebay, ctx, writers) ──────────────────────────────────
     const ctx: EbayContext = {
+      ...(sourceApproval ? { source_approval: sourceApproval } : {}),
       ebay: {
         marketplaces,
         watch_list,

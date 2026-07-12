@@ -37,6 +37,7 @@ import {
   type HiresUploadResult,
 } from "@/lib/cardrush-hires-upload";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { requireSourceApproval } from "@/lib/source-approval";
 
 export const maxDuration = 800;
 
@@ -78,6 +79,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    // This route reads the archive queue before invoking the gated runner, so
+    // repeat the gate here to ensure missing approval causes zero DB work.
+    requireSourceApproval("cardrush", "image-archive-and-publication");
     // Cheap gate: two count queries, no ingest_run row when idle.
     const queue = await hiresQueueStatus();
     const candidateGames = (

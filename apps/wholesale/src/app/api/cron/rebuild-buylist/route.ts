@@ -2,7 +2,7 @@
  * GET /api/cron/rebuild-buylist
  *
  * Vercel cron handler — runs daily at 03:00 UTC (one hour after price-snapshot).
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  ?secret={CRON_SECRET}
+ * Auth: Authorization: Bearer {CRON_SECRET}
  *
  * Returns: { ok, generatedAt, itemCount, durationMs }
  */

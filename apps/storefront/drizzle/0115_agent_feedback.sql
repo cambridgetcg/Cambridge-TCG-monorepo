@@ -1,9 +1,13 @@
 -- 0115_agent_feedback.sql — the feedback inbox, made real (kingdom-083)
 --
 -- Promoted from drafts/0101_agent_feedback.sql.draft on 2026-07-11.
+-- Current-state note: migration 0119 supersedes the original unbounded,
+-- verbatim-retention comments below. The deployed route now stores only
+-- allowlisted bounded fields and anonymises content/contact after 180 days.
+-- This applied migration remains as the historical schema step.
 --
--- Until now, /api/v1/feedback accepted a report, returned a feedback_id,
--- and told the reporter the truth: "logged server-side, not yet persisted
+-- At the time this migration shipped, /api/v1/feedback accepted a report,
+-- returned a feedback_id, and said: "logged server-side, not yet persisted
 -- — apply the draft to enable typed persistence." The machinery to keep
 -- feedback was already built and conditional (the route inserts the moment
 -- this table exists); only the switch was never flipped. This flips it.
@@ -24,7 +28,7 @@
 
 CREATE TABLE IF NOT EXISTS agent_feedback (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- The fb_<12-hex> the endpoint emits to the reporter at submit time.
+  -- External receipt reference (fb_<12-hex> at 0115; fb_<16-hex> after 0119).
   feedback_id     text NOT NULL UNIQUE,
 
   kind            text NOT NULL CHECK (kind IN (
@@ -35,7 +39,8 @@ CREATE TABLE IF NOT EXISTS agent_feedback (
   -- Required for contract-drift and federation-adopter; optional otherwise.
   reporter_contact text,
 
-  -- The full request body, preserved verbatim for forensics.
+  -- At 0115 this held the full request. After 0119 the route stores a strict
+  -- allowlist and the retention sweep replaces it after 180 days.
   raw_body        jsonb NOT NULL,
 
   status          text NOT NULL DEFAULT 'received' CHECK (status IN (

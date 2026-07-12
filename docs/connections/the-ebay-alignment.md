@@ -358,14 +358,14 @@ Catch-all wrapping: any uncaught error closes the run row with `status: 'failed'
 
 ### 3b.2 [`apps/wholesale/src/app/api/cron/ingest/ebay/route.ts`](../../apps/wholesale/src/app/api/cron/ingest/ebay/route.ts)
 
-The HTTP entrypoint. Auth: `Authorization: Bearer ${CRON_SECRET}` OR `x-vercel-cron: true` OR `?secret=${CRON_SECRET}`. Three primary query params:
+The HTTP entrypoint. Auth: `Authorization: Bearer ${CRON_SECRET}` on every scheduled or manual call. Three primary query params:
 
 - `?tier=top|mid|all` — priority bucket (default `all`)
 - `?marketplaces=GB,US,DE` — comma-separated; accepts both `GB` and `EBAY_GB` forms
 - `?mock=1` — skips OAuth + network; useful for CI / smoke tests
 - `?dryRun=1` — caps `maxSkus` to 20 for operator review
 
-Both GET and POST hit the same handler (operator convenience: paste a URL in the browser with `?secret=…`).
+Both GET and POST hit the same handler. Manual calls send the Bearer header; secrets never travel in URLs.
 
 ### 3b.3 [`apps/storefront/scripts/ebay-coverage.ts`](../../apps/storefront/scripts/ebay-coverage.ts) — `pnpm audit:ebay-coverage`
 

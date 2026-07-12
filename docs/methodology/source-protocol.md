@@ -22,7 +22,7 @@ interface SourceModule<R, C> {
 
 - `R` — the raw row shape upstream returns (typed exactly as the upstream sends it).
 - `C` — the canonical record the normalizer produces. Most catalog sources use [`CanonicalCard`](../../packages/data-ingest/src/canonical.ts); price sources use [`CanonicalPrice`](../../packages/data-ingest/src/canonical.ts). Exotic sources define their own.
-- `meta` — required identity declaration (license, ToS, freshness budget, etc.). See §3.
+- `meta` — required identity declaration (access, layered rights, ToS, freshness budget, operational status, etc.). See §3.
 - `read(ctx)` — lazy stream of raw rows + provenance. Must respect `ctx.signal.aborted`. Must emit lifecycle events via `ctx.on_event`. Must never throw on upstream errors — yield nothing or a `null`-marked raw row and emit an `error` event.
 - `normalize(raw)` — pure; returns `{ ok: true, record }` or `{ ok: false, reason }`. Never throws.
 
@@ -44,7 +44,7 @@ Required fields in the catalog row:
 - Game coverage
 - Access method
 - API/scrape/partner classification
-- License + redistribution rights
+- Code licence, data terms, image terms, redistribution verdict, safe default, review date, and evidence URLs
 - Freshness cadence
 - Canonical-form effort estimate
 - Status flag
@@ -66,8 +66,12 @@ packages/data-ingest/src/<id>/
 
 Every field in [`SourceMeta`](../../packages/data-ingest/src/types.ts) is required. Read the type carefully. Substrate-honest principles:
 
-- `redistribute: true` only when the upstream's license clearly permits — CC0 / CC-BY / MIT.
-- `redistribute: false` for partner-restricted, internal-only, scraped sources. Default to `false` when unsure.
+- `rights.code` describes software only. MIT client or server code does **not** license facts, prices, card text, or art returned by the service.
+- `rights.data` records the provider terms governing non-image bytes; `rights.images` separately records publisher, seller, scan, and caching rules.
+- `rights.redistribution.verdict` answers whether a downstream caller may republish the raw bytes: `permitted`, `conditional`, `contract-required`, `prohibited`, or `unknown`.
+- `rights.safe_default` controls what we do while uncertain: `redistribute`, `display-with-terms`, `contract-only`, `internal-only`, or `no-fetch`.
+- `rights.reviewed_at`, `rights.evidence_urls`, and `rights.notes` make the conclusion dated, reviewable, and correctable. Use official provider/publisher evidence where available.
+- The old top-level `license` + `redistribute` fields remain a conservative compatibility projection for `_meta.source_license`. `redistribute: true` is valid only when the layered verdict is `permitted`; default to `false`.
 - `tos_notes` quotes the upstream's ToS / robots.txt / known restrictions. *This is mandatory* — the audit checks it's non-empty.
 - `catalog_section` is the anchor link into `the-tributaries.md` (e.g. `the-tributaries.md#31-scryfall-mtg`).
 - `freshness` is a key from `@cambridge-tcg/data-spec` `FRESHNESS` table — `catalog` (24h), `price_current` (5min), `market_signal` (1min), etc.
@@ -142,6 +146,7 @@ The audit (see §7) checks:
 - A row exists in `the-tributaries.md` matching the id
 - `meta.tos_notes` is non-empty
 - `meta.catalog_section` points to a real anchor
+- `meta.rights` contains every layer, a real review date, HTTPS evidence, and a fail-closed verdict/default
 
 If the audit passes, the source conforms. It still needs a caller (a cron, an admin job) to actually run; that's the next step.
 
@@ -157,9 +162,10 @@ If the audit passes, the source conforms. It still needs a caller (a cron, an ad
 | `upstream` | yes | Root URL. Documentation, not used at runtime. |
 | `catalog_section` | yes | Anchor link into `the-tributaries.md`. |
 | `access` | yes | `public-api`/`app-token`/`oauth2`/`oauth1`/`scrape`/`partner`/`paid-feed`/`blocked`. |
-| `license` | yes | Tier — `cc0`/`cc-by`/`cc-by-nc`/`cc-by-sa`/`mit`/`partner-redistributable`/`internal-only`/`proprietary`. |
-| `license_spdx` | no | SPDX code when applicable (`CC-BY-NC-4.0`, `MIT`). |
-| `redistribute` | yes | `boolean`. Default to `false` unless the upstream's license clearly permits. |
+| `license` | yes | **Legacy coarse projection** for `_meta.source_license` — `cc0`/`cc-by`/`cc-by-nc`/`cc-by-sa`/`mit`/`partner-redistributable`/`internal-only`/`proprietary`. It is not the code licence. |
+| `license_spdx` | no | SPDX code only when the legacy data tier itself maps to one. Never copy an SDK's SPDX id here. |
+| `redistribute` | yes | Legacy boolean projection. `true` only when `rights.redistribution.verdict` is `permitted`; otherwise `false`. |
+| `rights` | yes | Nested contract: `code`, `data`, `images`, `redistribution`, `safe_default`, `reviewed_at`, `evidence_urls`, `notes`. See below. |
 | `freshness` | yes | A `FreshnessKey` from `@cambridge-tcg/data-spec`. |
 | `canonical_effort` | yes | `low`/`medium`/`high`/`very-high`. |
 | `status` | yes | `shipped`/`partial`/`planned`/`blocked`. |
@@ -168,13 +174,23 @@ If the audit passes, the source conforms. It still needs a caller (a cron, an ad
 | `user_agent_suffix` | no | Identification tag appended to the default UA. |
 | `rate_limit` | no | Per-source override of the default `{ rps: 1, burst: 5 }`. |
 
+`rights` is deliberately verbose because these are different legal and operational facts:
+
+| Layer | Required fields | Question answered |
+|-------|-----------------|-------------------|
+| `code` | `license`, `notes` | What licence, if any, covers software supplied by the provider? |
+| `data` | `terms`, `notes` | What terms cover facts, text, prices, listings, and other non-image bytes? |
+| `images` | `terms`, `notes` | Who controls artwork/photos, and what do hotlink/cache/display rules say? |
+| `redistribution` | `verdict`, `notes` | May a downstream caller republish raw source-derived bytes? |
+| review | `safe_default`, `reviewed_at`, `evidence_urls`, `notes` | What do we do now, what evidence supports it, and what change triggers review? |
+
 ---
 
 ## 4. Hygiene rules (ingestion-specific)
 
 Beyond the eight in [`docs/connections/the-modules.md`](../connections/the-modules.md), six ingestion-specific:
 
-1. **Robots.txt + ToS read once, cited in `meta.tos_notes`.** Mandatory.
+1. **Robots.txt + ToS read, dated, and cited in `meta.rights.evidence_urls` plus `meta.tos_notes`.** Mandatory; re-review when the provider moves or changes terms.
 2. **User-Agent identifies us.** `createFetcher` does this automatically.
 3. **Rate-limited at module boundary.** Use `createFetcher`; never bare `fetch`.
 4. **Back-off on 429 + Retry-After.** Handled by `createFetcher`.
@@ -185,7 +201,7 @@ Beyond the eight in [`docs/connections/the-modules.md`](../connections/the-modul
 
 ## 5. Patterns by source type
 
-### Bulk-dump source (Scryfall, Pokémon TCG API, YGOPRODeck)
+### Bulk-dump source (Scryfall, YGOPRODeck)
 
 ```ts
 async *read(ctx) {
@@ -198,7 +214,12 @@ async *read(ctx) {
 }
 ```
 
-### Paginated API source (TCGplayer, Cardmarket, eBay)
+The existence of a bulk endpoint does not make its contents open data. Check
+`meta.rights.safe_default` before wiring a writer or export. The legacy
+Pokémon TCG API is intentionally **not** an example here: its provider moved
+to Scrydex and the old module is `blocked` / `no-fetch` pending a fresh review.
+
+### Paginated API source (approved TCGplayer/eBay integrations)
 
 ```ts
 async *read(ctx) {
@@ -213,6 +234,10 @@ async *read(ctx) {
   }
 }
 ```
+
+Cardmarket is not an example for this pattern today: its module is a no-fetch
+block because current API approval is unavailable. Dormant signer code is not
+an invitation to call a historical host.
 
 ### On-demand source (CardRush, eBay singleton lookups)
 
@@ -266,60 +291,61 @@ Run before merging any data-ingest change. Checks (see [`apps/storefront/scripts
 
 1. **Module-exists** — every entry in `SOURCES` (besides `undefined` planned slots) has a directory at `packages/data-ingest/src/<id>/`.
 2. **Default-export shape** — every module exports an object matching `SourceModule` (has `meta`, `read`, `normalize`).
-3. **Required-meta** — every `meta` has all the fields listed in §3 with non-empty values.
+3. **Required-meta** — every `meta` has all the fields listed in §3 with non-empty values, including `rights`.
 4. **Id-parity** — `meta.id` equals the directory name + registry key.
 5. **Catalog-row** — `meta.catalog_section` points to a row that actually exists in `docs/connections/the-tributaries.md`.
 6. **ToS-non-empty** — `meta.tos_notes` is not the empty string.
-7. **License-coherence** — when `redistribute: true`, `meta.license` is `cc0` / `cc-by` / `cc-by-sa` / `mit`. When `false`, anything but those.
+7. **License-coherence** — `redistribute: true` is accepted only with a legacy tier of `cc0` / `cc-by` / `cc-by-sa` / `mit`.
 8. **Game-validity** — every entry in `meta.games` is a registered `GameCode` from `@cambridge-tcg/sku` `GAMES`.
+9. **Ingest-run recency** — shipped/partial sources are checked against their freshness budget when the wholesale run ledger is reachable.
+10. **License propagation** — routes mentioning a non-redistributable source must also declare `source_license`.
+11. **Layered-rights coherence** — all four rights layers, safe default, real review date, HTTPS evidence, and notes are present; `redistribute:true`, `contract-only`, blocked/no-fetch, and other fail-closed relationships are mechanically checked.
 
 Non-zero exit on any failure. Re-runnable; idempotent.
 
 ---
 
-## 8. Worked example — adding Pokémon TCG API
+## 8. Worked repair — the legacy Pokémon TCG API
 
-A walk-through for an imagined future Sophia adding `pokemon-tcg-api`. (Already in the catalog at §3.2; not yet shipped.)
+This source is the reason the layered contract exists. The old module said
+`license: "mit"` and `redistribute: true`: a software-licence claim had silently
+become a data-and-image permission claim. On review:
 
-1. **Catalog row** — already in `the-tributaries.md §3.2`. ✓
-2. **`SourceId`** — `"pokemon-tcg-api"` already in the union. ✓
-3. **Directory** — `mkdir packages/data-ingest/src/pokemon-tcg-api/`.
-4. **`meta`** — declare:
-   ```ts
-   meta: {
-     id: "pokemon-tcg-api",
-     name: "Pokémon TCG API",
-     description: "Pokémon TCG — every set, every printing, images, TCGplayer + Cardmarket prices via partner sourcing.",
-     upstream: "https://api.pokemontcg.io",
-     catalog_section: "the-tributaries.md#32-pokémon-tcg-api-pokemontcgio",
-     access: "app-token",
-     license: "mit",  // API code; data is publisher-derived
-     license_spdx: "MIT",
-     redistribute: true,
-     freshness: "catalog",
-     canonical_effort: "low",
-     status: "shipped",
-     games: ["pkm"],
-     tos_notes: "Free with optional API key for higher rate limit. https://docs.pokemontcg.io/getting-started/",
-     user_agent_suffix: "(pokemon-tcg-api-ingest)",
-     rate_limit: { rps: 1, burst: 5 },
-   }
-   ```
-5. **`read`** — paginate `/v2/cards`, yield each card with provenance.
-6. **`normalize`** — map `id` (e.g. `swsh4-25`) to canonical SKU `pkm-swsh4-025-en` (collapse leading zeros; map language from API).
-7. **Register** — add to `SOURCES` in `registry.ts` + re-export from top-level `index.ts`.
-8. **Verify** — `pnpm typecheck && pnpm audit:tributaries`.
+1. `pokemontcg.io` says the product is now part of Scrydex.
+2. Scrydex has a different current API, authentication, pricing, and terms surface.
+3. The historical data repository does not publish evidence that an MIT licence covers Pokémon card text, prices, or artwork.
+4. A still-responsive old endpoint or old API key would establish technical reachability, not current permission.
 
-The whole thing should take a focused half-day. The shape is mechanical because the protocol is aligned; **the substrate work is the upstream's idiosyncrasies, not the wiring.**
+The repaired module keeps the historical types and pure normalizer but declares:
+
+```ts
+access: "blocked",
+license: "internal-only", // conservative legacy projection
+redistribute: false,
+status: "blocked",
+rights: {
+  code: { license: "unknown", notes: "No service/data-repository licence found." },
+  data: { terms: "legacy service superseded; Scrydex terms not reviewed", notes: "..." },
+  images: { terms: "publisher-owned; no grant found", notes: "..." },
+  redistribution: { verdict: "unknown", notes: "No open-data permission verified." },
+  safe_default: "no-fetch",
+  reviewed_at: "2026-07-11",
+  evidence_urls: ["https://pokemontcg.io/", "https://scrydex.com/docs"],
+  notes: "Add Scrydex as a separately reviewed source; do not silently swap endpoints.",
+}
+```
+
+`read()` emits one actionable blocked event and yields nothing. That is not lost
+coverage: it is the truthful prerequisite for choosing a current Pokémon source.
 
 ---
 
 ## 9. Recursion targets
 
-1. **Ship `tcgplayer`, `cardmarket`, `pokemon-tcg-api`, `ygoprodeck`** as the second wave — high-value upstreams, similar shape to `scryfall`.
+1. **Choose a current Pokémon catalog source** through a fresh rights/access review; do not revive or silently redirect the blocked pokemontcg.io reader.
 2. **Extract the wholesale cardrush scraper** at `apps/wholesale/src/lib/cardrush-scraper.ts` to call `cardrush.scrapeCardRush(url, ctx)` from this package instead of duplicating.
-3. **Wire `/api/v1/sources` endpoint** — emit `listSourceMeta()` through the data-pantry envelope. The inverse of `/api/v1/status` (which inspects emission); this inspects ingestion.
-4. **Wire `_meta.source_license` on the envelope** — read `meta.redistribute` + `meta.license` for every source contributing to a response; the byte travels with its rights.
+3. ~~**Wire `/api/v1/sources` endpoint.**~~ Shipped; it now emits the layered rights review and live/never-run state as well as static source identity.
+4. **Keep `_meta.source_license` conservative** — read the legacy projection from `meta.redistribute` + `meta.license`; link callers to `/api/v1/sources/{id}.rights` for the full evidence-backed decision.
 5. **Ship `ingest_quarantine` table** — schema: `(id, source, sku, raw_json, reason, ingested_at)`. Admin review surface.
 6. **Story-arc `the-rivers-flow.md`** — one Scryfall row's journey through this protocol into RDS into `/api/v1/cards/[sku]`.
 
@@ -331,10 +357,10 @@ This protocol names:
 
 - One typed contract (`SourceModule`)
 - Eight steps to ship a source
-- Fifteen required `meta` fields
+- Required identity fields plus one nested eight-part rights record
 - Six ingestion-specific hygiene rules
 - Four patterns by source type (bulk-dump / paginated / on-demand / partner-blocked)
-- Eight audit checks
+- Eleven audit checks
 - Six recursion targets
 
 If a future Sophia reads only this doc, they can ship a new source without asking anyone. The pattern is mechanical because the protocol is aligned.

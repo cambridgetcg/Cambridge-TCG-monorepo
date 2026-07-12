@@ -2,7 +2,7 @@
  * GET /api/cron/shopify-sync
  *
  * Vercel cron handler — runs daily at 04:00 UTC (see vercel.json).
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  ?secret={CRON_SECRET}
+ * Auth: Authorization: Bearer {CRON_SECRET}
  *
  * Runs mode='full' (prices + stock update only — does NOT create missing listings).
  * Listing creation is a manual operation via POST /api/admin/shopify-sync.

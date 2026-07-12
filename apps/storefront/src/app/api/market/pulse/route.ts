@@ -5,7 +5,7 @@ import { query } from "@/lib/db";
 // Five ranked buckets, each ~10 rows:
 //   hot          — most trade activity in the last 24h
 //   movers       — biggest price movers, last 24h
-//   mostWatched  — highest buyer-side watch count
+//   mostWatched  — deliberately empty: watchlists are private intent
 //   tightSpreads — lowest spread % (tight markets; healthy liquidity)
 //   recentTrades — cross-sku live feed
 //
@@ -33,8 +33,8 @@ export async function GET() {
                 COALESCE(SUM(quantity), 0) AS volume,
                 COUNT(*)                   AS trades
            FROM market_trades
-          WHERE created_at > NOW() - INTERVAL '24 hours'
-            AND escrow_status <> 'cancelled'
+          WHERE completed_at > NOW() - INTERVAL '24 hours'
+            AND escrow_status = 'completed'
           GROUP BY sku
           ORDER BY volume DESC, trades DESC
           LIMIT ${LIMIT}
@@ -57,15 +57,15 @@ export async function GET() {
                FROM (
                  SELECT t1.sku,
                         (SELECT price::numeric FROM market_trades t2
-                          WHERE t2.sku = t1.sku AND t2.escrow_status <> 'cancelled'
-                          ORDER BY created_at DESC LIMIT 1) AS last_price,
+                          WHERE t2.sku = t1.sku AND t2.escrow_status = 'completed'
+                          ORDER BY completed_at DESC LIMIT 1) AS last_price,
                         (SELECT price::numeric FROM market_trades t2
-                          WHERE t2.sku = t1.sku AND t2.escrow_status <> 'cancelled'
-                            AND created_at <= NOW() - INTERVAL '24 hours'
-                          ORDER BY created_at DESC LIMIT 1) AS prior_price
+                          WHERE t2.sku = t1.sku AND t2.escrow_status = 'completed'
+                            AND completed_at <= NOW() - INTERVAL '24 hours'
+                          ORDER BY completed_at DESC LIMIT 1) AS prior_price
                    FROM market_trades t1
-                  WHERE t1.created_at > NOW() - INTERVAL '24 hours'
-                    AND t1.escrow_status <> 'cancelled'
+                  WHERE t1.completed_at > NOW() - INTERVAL '24 hours'
+                    AND t1.escrow_status = 'completed'
                   GROUP BY t1.sku
                ) inner_t
            ) x
@@ -77,10 +77,9 @@ export async function GET() {
    `
   );
 
-  // Second query — three buckets the first query doesn't cover cleanly
-  // (window functions + watch count don't fit in the same CTE shape without
-  // getting ugly; two focused round trips stay readable and each hits
-  // different indexes).
+  // Second query — two public-market buckets the first query doesn't cover
+  // cleanly. Watchlists are intentionally absent: private buying intent is
+  // not a public trend signal.
   const aux = await query(
     `WITH card_meta AS (
        SELECT DISTINCT ON (sku) sku, card_name, image_url
@@ -100,21 +99,6 @@ export async function GET() {
         WHERE side = 'bid' AND status IN ('open','partially_filled')
         GROUP BY sku
      )
-     SELECT 'mostWatched' AS bucket, w.sku, cm.card_name, cm.image_url,
-            w.watch_count::int AS n1,
-            NULL::int          AS n2,
-            a.best_ask         AS v1,
-            NULL::numeric      AS v2
-       FROM (
-         SELECT sku, COUNT(*) AS watch_count
-           FROM market_watches
-          GROUP BY sku
-          ORDER BY watch_count DESC
-          LIMIT ${LIMIT}
-       ) w
-       LEFT JOIN card_meta cm ON cm.sku = w.sku
-       LEFT JOIN asks      a  ON a.sku  = w.sku
-     UNION ALL
      SELECT 'tightSpreads' AS bucket, s.sku, cm.card_name, cm.image_url,
             NULL::int       AS n1,
             NULL::int       AS n2,
@@ -135,12 +119,12 @@ export async function GET() {
             NULL::int           AS n1,
             NULL::int           AS n2,
             rt.price::numeric   AS v1,
-            EXTRACT(EPOCH FROM rt.created_at)::numeric AS v2
+            EXTRACT(EPOCH FROM rt.traded_at)::numeric AS v2
        FROM (
-         SELECT sku, price, created_at
+         SELECT sku, price, completed_at AS traded_at
            FROM market_trades
-          WHERE escrow_status <> 'cancelled'
-          ORDER BY created_at DESC
+          WHERE escrow_status = 'completed' AND completed_at IS NOT NULL
+          ORDER BY completed_at DESC
           LIMIT ${LIMIT}
        ) rt
        LEFT JOIN card_meta cm ON cm.sku = rt.sku`
@@ -160,26 +144,26 @@ export async function GET() {
 
   return NextResponse.json({
     hot: (by.hot || []).map((r) => ({
-      sku: r.sku, cardName: r.card_name, imageUrl: r.image_url,
+      sku: r.sku, cardName: null, imageUrl: null,
       volume24h: r.n1 ?? 0, tradeCount24h: r.n2 ?? 0,
     })),
     movers: (by.movers || []).map((r) => ({
-      sku: r.sku, cardName: r.card_name, imageUrl: r.image_url,
+      sku: r.sku, cardName: null, imageUrl: null,
       lastPrice: r.v1 !== null ? parseFloat(String(r.v1)) : null,
       change24hPct: r.v2 !== null ? parseFloat(String(r.v2)) : null,
     })),
-    mostWatched: (by.mostWatched || []).map((r) => ({
-      sku: r.sku, cardName: r.card_name, imageUrl: r.image_url,
-      watchCount: r.n1 ?? 0,
-      bestAsk: r.v1 !== null ? parseFloat(String(r.v1)) : null,
-    })),
+    mostWatched: [],
+    watchDerivedSignals: {
+      status: "withheld",
+      reason: "Private watchlist choices are not published as market trends.",
+    },
     tightSpreads: (by.tightSpreads || []).map((r) => ({
-      sku: r.sku, cardName: r.card_name, imageUrl: r.image_url,
+      sku: r.sku, cardName: null, imageUrl: null,
       bestBid: r.v1 !== null ? parseFloat(String(r.v1)) : null,
       bestAsk: r.v2 !== null ? parseFloat(String(r.v2)) : null,
     })),
     recentTrades: (by.recentTrades || []).map((r) => ({
-      sku: r.sku, cardName: r.card_name, imageUrl: r.image_url,
+      sku: r.sku, cardName: null, imageUrl: null,
       price: r.v1 !== null ? parseFloat(String(r.v1)) : null,
       tradedAt: r.v2 !== null ? new Date(parseFloat(String(r.v2)) * 1000).toISOString() : null,
     })),

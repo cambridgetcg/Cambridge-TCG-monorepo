@@ -76,12 +76,12 @@ const DOXING_PATTERNS: ReadonlyArray<{ rx: RegExp; reason: string }> = [
   {
     rx: /[A-Z][a-z]+\s+[A-Z][a-z]+\s*[,.]?\s+[\w.+-]+@[\w-]+\.[\w.-]+/,
     reason:
-      "appears to name a person with their email address. The commons is public CC0; doxing real individuals on a public surface is out of scope for the form.",
+      "appears to name a person with their email address. Publishing another person's contact detail without a lawful, necessary basis is out of scope.",
   },
   {
     rx: /[A-Z][a-z]+\s+[A-Z][a-z]+\s*[,.]?\s+\d+\s+[A-Z][a-z]+\s+(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr)\b/,
     reason:
-      "appears to name a person with a street address. The commons is public CC0; doxing real individuals on a public surface is out of scope for the form.",
+      "appears to name a person with a street address. Publishing another person's home address is out of scope.",
   },
 ];
 

@@ -80,11 +80,13 @@ export default function TradeInPage() {
           <Link href="/prices" className="text-accent hover:text-accent-strong transition">
             price guide
           </Link>{" "}
-          publishes reference prices as open data, and every card&apos;s page on the{" "}
+          explains the Cambridge-authored CC0 pricing method and labels the rights on each
+          published observation (the safe default is NOASSERTION, not a reuse grant). A
+          card&apos;s page on the{" "}
           <Link href="/market" className="text-accent hover:text-accent-strong transition">
             market
           </Link>{" "}
-          shows what collectors are actually paying.
+          shows first-party market signals where coverage and privacy thresholds permit.
         </p>
       </div>
     </main>

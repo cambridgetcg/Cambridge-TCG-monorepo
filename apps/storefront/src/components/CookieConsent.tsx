@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/lib/ui";
+import {
+  ANALYTICS_CONSENT_COOKIE,
+  type AnalyticsConsent,
+  googleAnalyticsCookieDeletionWrites,
+  readAnalyticsConsent,
+} from "@/lib/privacy/analytics-consent";
 
 /**
  * CookieConsent — the analytics consent banner.
@@ -15,67 +20,109 @@ import { Button } from "@/lib/ui";
  * that they load and self-mute.
  *
  * Behaviour:
- * - Renders nothing on the server and on first paint; after mount it checks
- *   document.cookie and only appears when no decision has been recorded.
- *   (Visitors who already answered never see a flash.)
- * - Accept / Decline both set a 1-year cookie, then router.refresh() so the
- *   server layout re-renders with the new consent state.
+ * - Renders nothing on the server and on first paint. After mount, a visitor
+ *   who has not decided sees the choices; everyone else gets a persistent
+ *   Cookie settings button so changing a choice is always available.
+ * - Accept / Decline both set a 1-year cookie and reload. Decline also expires
+ *   every JavaScript-accessible `_ga` cookie before the reload, ensuring the
+ *   server layout comes back without analytics scripts.
  *
  * Single source of truth for the cookie name — layout.tsx and the Ads
  * conversion component import it from here (same pattern as BANNER_COOKIE
  * in DevBanner).
  */
 
-// Must match what layout.tsx reads server-side.
-export const ANALYTICS_CONSENT_COOKIE = "analytics-consent";
+// Keep the existing import surface for layout.tsx and GoogleAdsConversion.
+export { ANALYTICS_CONSENT_COOKIE };
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+const subscribeToNothing = () => () => undefined;
+const clientHasMounted = () => true;
+const serverHasMounted = () => false;
 
 /** Client-side check: has the visitor already answered? */
 export function hasAnalyticsConsentCookie(): boolean {
-  return document.cookie
-    .split("; ")
-    .some((c) => c.startsWith(`${ANALYTICS_CONSENT_COOKIE}=`));
+  return readAnalyticsConsent(document.cookie) !== null;
 }
 
 export default function CookieConsent() {
-  const router = useRouter();
-  const [visible, setVisible] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    clientHasMounted,
+    serverHasMounted,
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    if (!hasAnalyticsConsentCookie()) setVisible(true);
-  }, []);
-
-  function decide(value: "granted" | "denied") {
+  function decide(value: AnalyticsConsent) {
     document.cookie = `${ANALYTICS_CONSENT_COOKIE}=${value}; max-age=${ONE_YEAR_SECONDS}; path=/; SameSite=Lax`;
-    setVisible(false);
-    // Re-render the server layout so the GA scripts load (or stay absent).
-    router.refresh();
+
+    if (value === "denied") {
+      for (const deletion of googleAnalyticsCookieDeletionWrites(
+        document.cookie,
+        window.location.hostname,
+      )) {
+        document.cookie = deletion;
+      }
+    }
+
+    // A hard reload removes already-running analytics code after withdrawal
+    // and lets the server layout make a fresh script-loading decision.
+    window.location.reload();
   }
 
-  if (!visible) return null;
+  if (!mounted) return null;
+
+  const decision: AnalyticsConsent | null = readAnalyticsConsent(document.cookie);
+  const visible = settingsOpen || decision === null;
+
+  if (!visible) {
+    return (
+      <button
+        type="button"
+        aria-expanded="false"
+        aria-controls="cookie-consent-settings"
+        onClick={() => setSettingsOpen(true)}
+        className="fixed bottom-3 left-3 z-40 rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs text-ink-muted shadow-mat transition hover:text-ink"
+      >
+        Cookie settings
+      </button>
+    );
+  }
 
   return (
     <div
+      id="cookie-consent-settings"
       role="region"
-      aria-label="Cookie consent"
+      aria-label="Cookie settings"
       className="fixed bottom-0 inset-x-0 z-50 bg-surface border-t border-border-subtle shadow-mat px-4 py-3"
     >
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-        <p className="min-w-0 flex-1 text-sm text-ink-muted leading-snug">
-          We&apos;d like to use Google Analytics to understand visits. No
-          marketing cookies. You can say no.{" "}
-          <Link href="/privacy" className="text-accent underline hover:text-accent-strong">
-            More in our privacy page
-          </Link>
-          .
-        </p>
+        <div className="min-w-0 flex-1 text-sm text-ink-muted leading-snug">
+          <p>
+            We&apos;d like to use Google Analytics to understand visits. No
+            marketing cookies. You can say no.{" "}
+            <Link href="/privacy" className="text-accent underline hover:text-accent-strong">
+              More in our privacy page
+            </Link>
+            .
+          </p>
+          {decision !== null && (
+            <p className="mt-1 text-xs text-ink-faint" aria-live="polite">
+              Analytics is currently {decision === "granted" ? "on" : "off"}.
+            </p>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-2">
+          {decision !== null && (
+            <Button size="sm" variant="secondary" onClick={() => setSettingsOpen(false)}>
+              Close
+            </Button>
+          )}
           <Button size="sm" variant="secondary" onClick={() => decide("denied")}>
-            No thanks
+            {decision === "granted" ? "Turn analytics off" : "No analytics"}
           </Button>
-          <Button size="sm" variant="primary" onClick={() => decide("granted")}>
-            Accept
+          <Button size="sm" variant="secondary" onClick={() => decide("granted")}>
+            {decision === "granted" ? "Keep analytics on" : "Allow analytics"}
           </Button>
         </div>
       </div>

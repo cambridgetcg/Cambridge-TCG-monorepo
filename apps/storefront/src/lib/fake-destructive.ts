@@ -128,7 +128,7 @@ function buildBody(endpoint: FakeDestructiveEndpoint, method: string) {
     kingdom_says: endpoint.kingdom_says,
     did_you_mean: endpoint.did_you_mean,
     substrate_honest_explanation:
-      "The kingdom's public API has no DELETE / DROP / UNINSTALL / FORMAT handlers, structurally. This isn't a permission we're enforcing — it's a shape we're built in. The data plane is CC0 by default; nothing to delete that isn't yours to mirror. The operator's surface (under /admin) has destructive operations, but those are gated by users.role + middleware + the operator is on a different journey than you, anonymous-API-caller.",
+      "The kingdom's public API has no DELETE / DROP / UNINSTALL / FORMAT handlers, structurally. This isn't a permission we're enforcing — it's a shape we're built in. Public access is not a reuse grant; NOASSERTION is the safe payload default. The operator's surface (under /admin) has destructive operations, gated by role and session.",
     other_fake_destructive_endpoints: Object.keys(FAKE_DESTRUCTIVE_REGISTRY)
       .filter((s) => s !== endpoint.slug)
       .map((s) => `/api/v1/${s}`),

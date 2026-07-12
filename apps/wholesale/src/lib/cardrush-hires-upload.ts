@@ -43,6 +43,7 @@ import {
   PutObjectCommand,
 } from "@cambridge-tcg/aws/s3";
 import { cardrush, createFetcher, type Fetcher } from "@cambridge-tcg/data-ingest";
+import { requireSourceApproval } from "./source-approval";
 
 const DEFAULT_MAX_BATCH = 100;
 
@@ -162,6 +163,12 @@ type Event = { ts: string; kind: string } & Record<string, unknown>;
 export async function runHiresUpload(
   opts: HiresUploadOptions,
 ): Promise<HiresUploadResult> {
+  // Gate before any database, S3, or upstream work. Technical access to the
+  // image URL and bucket is not permission to copy or publish the image.
+  const sourceApproval = requireSourceApproval(
+    "cardrush",
+    "image-archive-and-publication",
+  );
   const startMs = Date.now();
   const triggeredBy = opts.triggeredBy ?? "cron";
   const dryRun = opts.dryRun ?? false;
@@ -231,6 +238,7 @@ export async function runHiresUpload(
     // Created once per invocation so the whole batch shares one token bucket.
     const fetcher: Fetcher = createFetcher(
       {
+        source_approval: sourceApproval,
         on_event: (ev) => {
           event(`http_${ev.kind}`, ev.detail as Record<string, unknown>);
         },

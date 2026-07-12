@@ -36,7 +36,12 @@
  */
 
 import type { IngestContext } from "../types";
-import { createFetcher, type Fetcher } from "../http";
+import {
+  assertSourceUseApproved,
+  createFetcher,
+  sourceApprovalCovers,
+  type Fetcher,
+} from "../http";
 import {
   cardrush,
   getOrCreateFetcher,
@@ -76,7 +81,9 @@ export interface SitemapFetchResult {
 export async function fetchSitemap(
   host: string,
   fetcher: ReturnType<typeof createFetcher>,
+  ctx: IngestContext,
 ): Promise<SitemapFetchResult> {
+  assertSourceUseApproved(ctx, "cardrush", "sitemap-discovery");
   const url = `https://${host}/sitemap.xml`;
   const fetched_at = new Date().toISOString();
 
@@ -319,7 +326,9 @@ export interface FetchAndParseResult {
 export async function fetchAndParseProduct(
   url: string,
   fetcher: ReturnType<typeof createFetcher>,
+  ctx: IngestContext,
 ): Promise<FetchAndParseResult> {
+  assertSourceUseApproved(ctx, "cardrush", "sitemap-discovery");
   const fetched_at = new Date().toISOString();
   let html: string;
   try {
@@ -373,6 +382,7 @@ export { BROWSER_UA };
  * buckets.
  */
 export function createDiscoveryFetcher(ctx: IngestContext = {}): Fetcher {
+  assertSourceUseApproved(ctx, "cardrush", "sitemap-discovery");
   return createFetcher(ctx, cardrush.meta);
 }
 
@@ -397,7 +407,7 @@ export function createDiscoveryCache(): CardRushFetcherCache {
  *   for (const [host, entry] of subdomains) {
  *     const { fetcher, reason } = pickDiscoveryFetcher(host, ctx, cache);
  *     if (!fetcher) { event("subdomain_skipped", { host, reason }); continue; }
- *     const sm = await fetchSitemap(host, fetcher);
+ *     const sm = await fetchSitemap(host, fetcher, ctx);
  *     // ... per-product fetches use the SAME fetcher (so token bucket
  *     // applies to discovery + product pages of the same host)
  *   }
@@ -407,5 +417,11 @@ export function pickDiscoveryFetcher(
   ctx: CardRushContext,
   cache: CardRushFetcherCache,
 ): { fetcher: Fetcher | null; reason?: string } {
+  if (!sourceApprovalCovers(ctx, "cardrush", "sitemap-discovery")) {
+    return {
+      fetcher: null,
+      reason: "written_source_approval_required_for_sitemap-discovery",
+    };
+  }
   return getOrCreateFetcher(host, ctx, cache);
 }

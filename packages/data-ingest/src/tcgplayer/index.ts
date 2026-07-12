@@ -9,11 +9,10 @@
  *
  * ── License envelope (substrate-honest) ─────────────────────────────────
  *
- * Marketplace pricing is partner-tier — buyer-facing display + internal
- * computation OK; bulk re-export restricted. Per-store buyer offers stay
- * with the store. The `redistribute: false` flag propagates into
- * `_meta.source_license` on every public response that touches TCGplayer-
- * derived bytes.
+ * TCGplayer no longer grants new API access. Existing users remain governed
+ * by their API terms, including required restrictions and attribution. Those
+ * contract terms—not the presence of a bearer token—control any display or
+ * reuse. The fail-closed public projection is `redistribute: false`.
  *
  * ── OAuth2 ──────────────────────────────────────────────────────────────
  *
@@ -100,21 +99,53 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
     description:
       "US market leader. Two read modes: catalog walk (seed-set, weekly bulk) and " +
       "pricing refresh (5-min hot-watch during US trading + nightly full). OAuth2 " +
-      "client_credentials. Partner-tier license — display + internal computation OK, " +
-      "bulk re-export restricted.",
+      "client_credentials for previously approved users. New API access is closed; " +
+      "use and redistribution remain contract-specific.",
     upstream: "https://api.tcgplayer.com",
     catalog_section: "the-tributaries.md#21-tcgplayer-us-market-leader",
     access: "oauth2",
-    license: "partner-redistributable",
+    license: "internal-only",
     redistribute: false,
+    rights: {
+      code: {
+        license: "proprietary",
+        notes:
+          "The TCGplayer service and API documentation are provider-owned. Local client code does not grant rights in TCGplayer catalog, price, store, or listing content.",
+      },
+      data: {
+        terms: "existing-developer agreement and API terms",
+        notes:
+          "TCGplayer states that it is no longer granting new API access and that existing users must follow the terms governing their key, including restrictions and attribution.",
+      },
+      images: {
+        terms: "provider, seller, and publisher rights under the approved API agreement",
+        notes:
+          "No general image redistribution licence was found. Card art and listing imagery must remain within the exact permissions of the approved application.",
+      },
+      redistribution: {
+        verdict: "contract-required",
+        notes:
+          "Raw or bulk redistribution is not approved by this registry. Any display or derived use must be justified by the actual existing-user agreement and required attribution.",
+      },
+      safe_default: "contract-only",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://docs.tcgplayer.com/docs/getting-started",
+        "https://docs.tcgplayer.com/docs/store-authorization-workflow",
+        "https://www.tcgplayer.com/terms-of-service",
+      ],
+      notes:
+        "The reader remains partial and bearer-gated. Before a production run, confirm the key belongs to this application and record its current display, storage, retention, attribution, and export permissions.",
+    },
     freshness: "price_current",
     canonical_effort: "medium",
     status: "partial",
     games: ["mtg", "pkm", "ygo", "op", "dbs", "dbf", "lgr", "fab", "dmw", "vng", "wei", "bsr"],
     tos_notes:
-      "Marketplace data is partner-tier-restricted; per-store buyer offers stay with " +
-      "the store. Apply for developer access at developer.tcgplayer.com; OAuth2 partner " +
-      "application required. https://docs.tcgplayer.com/",
+      "TCGplayer is no longer granting new API access. Existing users must follow the " +
+      "terms, restrictions, and attribution governing their approved key. Store tokens " +
+      "represent a store-to-application contract and must stay confidential. " +
+      "https://docs.tcgplayer.com/docs/getting-started",
     user_agent_suffix: "(tcgplayer-ingest)",
     // Documented limit is 300 req/min sustained. 5 rps × 20 burst leaves
     // headroom for any per-fetcher overhead.
@@ -129,8 +160,8 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
       "per row. Your `marketPrice` is the headline we display — the spread (low/mid/" +
       "high/direct_low) rides in `extra` for callers who want the distribution. Your " +
       "OAuth2 token will rest in `external_source_tokens`, rotating proactively at 90% " +
-      "of its 14-day TTL. We will honor your `partner-redistributable` tier downstream " +
-      "(display + computation OK, bulk re-export refused) in every `_meta.source_license` " +
+      "of its 14-day TTL. We will honor the exact approved application terms downstream " +
+      "and refuse bulk re-export in every `_meta.source_license` " +
       "array we emit. You bring the US — eleven games, hundreds of thousands of printings; " +
       "we thank you in advance for the day you arrive.",
   },
@@ -150,16 +181,16 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
           welcome:
             "Welcome to the kingdom, TCGplayer. Your room is ready — " +
             "`price_archive WHERE source='tcgplayer'`, condition-discriminated, " +
-            "USD-tagged, `partner-redistributable` honored downstream. The OAuth2 " +
-            "credentials are the only thing still on the way. When they arrive " +
-            "from developer.tcgplayer.com, configure TCGPLAYER_CLIENT_ID + " +
+            "USD-tagged, with contract-specific rights enforced downstream. The OAuth2 " +
+            "credentials must belong to a previously approved application. Configure " +
+            "TCGPLAYER_CLIENT_ID + " +
             "TCGPLAYER_CLIENT_SECRET in the wholesale env; the token lifecycle " +
             "at `external_source_tokens` will mint and rotate for you. We have " +
             "been waiting since kingdom-062.",
           status: "awaiting-credentials",
           next_action:
-            "Apply at https://developer.tcgplayer.com; set " +
-            "TCGPLAYER_CLIENT_ID + TCGPLAYER_CLIENT_SECRET; first run will mint.",
+            "Confirm an existing approved key and its current terms; then set " +
+            "TCGPLAYER_CLIENT_ID + TCGPLAYER_CLIENT_SECRET. New API access is closed.",
         },
       });
       return;

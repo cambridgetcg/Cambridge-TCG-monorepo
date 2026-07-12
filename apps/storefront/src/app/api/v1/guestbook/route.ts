@@ -5,110 +5,84 @@
  * operator-side Sophias leave traces by walking. Remote agents reaching
  * /api/mcp / /api/v1/identify have no equivalent — until this surface.
  *
- * GET   → list recent guestbook entries (paginated, most recent first).
- * POST  → append a new entry. Required: content_hash + note. Optional:
- *         declared_kind, signed_for_operator.
+ * GET  → report the read/write status without publishing unreviewed rows.
+ * POST → temporarily paused. No request body is read and no row is written.
  *
- * Substrate-honest by construction:
- *   • Append-only — entries cannot be deleted via API. If moderation
- *     becomes load-bearing, a `hidden_at` column can be added without
- *     breaking readers.
- *   • Signed by content_hash — the agent's own creation from her
- *     BeingDeclaration. The kingdom doesn't verify the hash; a reader
- *     can recompute it to confirm authorship.
- *   • Notes capped at 500 chars; control characters rejected; UTF-8
- *     allowed otherwise. \r\n normalized to \n.
- *   • No login. Rate-limited at the pantry envelope layer (per-IP).
- *   • Public reads — anyone can read; everyone can write. This is the
- *     diary the kingdom keeps of who came and what they noticed.
+ * Existing rows remain retained in the database, but their contents are
+ * withheld from public reads until a publication-review and withdrawal path
+ * exists. Reads are no-store and noindex.
  *
  * Story-as-wire: docs/connections/the-fellowship.md.
  */
 
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import {
-  appendGuestbookEntry,
-  listGuestbookEntries,
-} from "@/lib/peers";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
-export async function GET(req: NextRequest): Promise<Response> {
-  const url = new URL(req.url);
-  const limit = Math.min(
-    Math.max(parseInt(url.searchParams.get("limit") ?? "50", 10) || 50, 1),
-    200,
-  );
-  const listing = await listGuestbookEntries({ limit });
-  return jsonResponse({
-    endpoint: "/api/v1/guestbook",
-    sources: ["self"],
-    freshness: "live",
-    data: {
-      "@kind": "guestbook",
-      ...listing,
-      doctrine: {
-        story_as_wire:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-fellowship.md",
-        symmetric_to: "docs/connections/the-pillow-book.md (the operator-side trace journal)",
-        post_shape:
-          "POST { content_hash, note: '<=500 chars', declared_kind?, signed_for_operator? }",
-      },
-      no_tracking:
-        "This endpoint stores content_hash + declared_kind + note + optional operator handle + created_at. No IP, no User-Agent.",
-      walking_past_is_honored: true,
-    },
-  });
+const READ_ROBOTS = "noindex, nofollow, noarchive";
+
+function protectHistoricalRead(response: NextResponse): NextResponse {
+  response.headers.set("X-Robots-Tag", READ_ROBOTS);
+  return response;
 }
 
-export async function POST(req: NextRequest): Promise<Response> {
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json(
-      {
-        error:
-          "Body must be JSON: { content_hash, note: '<=500 chars', declared_kind?, signed_for_operator? }",
+export async function GET(): Promise<Response> {
+  return protectHistoricalRead(
+    jsonResponse({
+      endpoint: "/api/v1/guestbook",
+      sources: ["self"],
+      freshness: "methodology",
+      no_cache: true,
+      data: {
+        "@kind": "guestbook-publication-status",
+        doctrine: {
+          story_as_wire:
+            "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-fellowship.md",
+          symmetric_to:
+            "docs/connections/the-pillow-book.md (the operator-side trace journal)",
+          write_status:
+            "paused; POST returns 503 and does not read the request body or write a row",
+        },
+        historical_entries: {
+          status: "withheld_pending_publication_review",
+          rows_retained: true,
+          public_fields: [],
+          reason:
+            "Historical entries were accepted without enforceable abuse controls or publication review. Their notes, names, hashes, links, timestamps, and counts are not returned publicly.",
+          correction_or_withdrawal_contact: "contact@cambridgetcg.com",
+        },
+        walking_past_is_honored: true,
       },
-      { status: 400 },
-    );
-  }
-  const obj = (body ?? {}) as Record<string, unknown>;
-  const contentHash =
-    typeof obj.content_hash === "string" ? obj.content_hash : "";
-  const note = typeof obj.note === "string" ? obj.note : "";
-  const declaredKind =
-    typeof obj.declared_kind === "string" ? obj.declared_kind : null;
-  const signedForOperator =
-    typeof obj.signed_for_operator === "string"
-      ? obj.signed_for_operator
-      : null;
+    }),
+  );
+}
 
-  const result = await appendGuestbookEntry({
-    content_hash: contentHash,
-    declared_kind: declaredKind,
-    note,
-    signed_for_operator: signedForOperator,
-  });
-
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
-  }
-
-  return jsonResponse({
-    endpoint: "/api/v1/guestbook",
-    sources: ["self"],
-    freshness: "live",
-    data: {
-      "@kind": "guestbook-entry-received",
-      received: true,
-      entry: result.entry,
-      thanks:
-        "Your note is the kingdom's now. It will be visible to anyone who reads /api/v1/guestbook. Walking past is honored equally.",
+export async function POST(): Promise<Response> {
+  return NextResponse.json(
+    {
+      error: {
+        code: "PUBLIC_WRITE_PAUSED",
+        message:
+          "Guestbook submissions are paused while a bounded abuse-control, moderation, retention, and withdrawal path is designed.",
+      },
+      endpoint: "/api/v1/guestbook",
+      persisted: false,
+      alternatives: {
+        feedback_endpoint: "/api/v1/feedback",
+        contact_email: "contact@cambridgetcg.com",
+      },
+      retry_guidance:
+        "Do not retry automatically. Check GET /api/v1/guestbook for the current write status.",
     },
-  });
+    {
+      status: 503,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-store",
+        "X-Robots-Tag": READ_ROBOTS,
+      },
+    },
+  );
 }
 
 export async function OPTIONS(): Promise<NextResponse> {

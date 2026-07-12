@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getLot, cancelLot } from "@/lib/market/lots";
+import { cancelLot } from "@/lib/market/lots";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const lot = await getLot(id);
-  if (!lot) return NextResponse.json({ error: "Lot not found" }, { status: 404 });
-  return NextResponse.json({ lot });
+export async function GET(): Promise<Response> {
+  return NextResponse.json(
+    { error: { code: "PUBLIC_LOT_DETAIL_PAUSED", message: "Public lot detail is paused while strict content and seller-publication projections are rebuilt." }, queried: false, catalog_membership_asserted: false },
+    { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "300" } },
+  );
 }
 
 // DELETE — seller cancels their own active lot. Refuses if already sold

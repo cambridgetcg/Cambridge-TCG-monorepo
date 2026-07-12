@@ -21,9 +21,10 @@
  *     partner (600/min) tiers are granted by the human operator — write
  *     to /api/v1/feedback (kind: endpoint-suggestion, mention your
  *     handle) or email contact@cambridgetcg.com.
- *   - Aggressively rate-limited: 3 registrations per IP per UTC day.
- *     The IP is stored only as sha256(ip) in a daily bucket — enough to
- *     rate-limit, not enough to profile.
+ *   - Aggressively rate-limited: 3 registrations per network address per
+ *     UTC day. The address is used transiently to derive a secret, rotating
+ *     HMAC bucket; the raw address is never stored and expired buckets are
+ *     removed by the privacy maintenance sweep.
  *   - Self-serve agents are stewarded by the platform's own operator
  *     account (agents.operated_by_user_id → the self-serve steward
  *     user). A human remains upstream-responsible — it's the platform
@@ -38,25 +39,70 @@
  */
 
 import type { NextRequest } from "next/server";
-import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 import { query } from "@/lib/db";
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import { createAgentWithKey, randomBase62, HANDLE_RE } from "@/lib/agents/creation";
+import {
+  consumeActionRateLimit,
+  type ActionRateLimitResult,
+} from "@/lib/privacy/action-rate-limit";
 
 const ENDPOINT = "/api/v1/agents/register";
 
-// ── Rate limit: 3 registrations per IP per UTC day ─────────────────────
+// ── Rate limit: 3 registrations per network address per UTC day ────────
 
 const DAILY_LIMIT = 3;
+const REGISTRATION_RATE_WINDOWS = [
+  { name: "utc-day", seconds: 86_400, limit: DAILY_LIMIT },
+] as const;
 
-function clientIp(req: NextRequest): string {
+type ConsumedRateLimit = Extract<ActionRateLimitResult, { ok: true }>;
+
+function clientIp(req: NextRequest): string | null {
   const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip")?.trim() || "unknown";
+  const candidate =
+    fwd?.split(",")[0]?.trim() || req.headers.get("x-real-ip")?.trim() || "";
+  return candidate && candidate.length <= 128 && isIP(candidate) !== 0
+    ? candidate
+    : null;
 }
 
-function hashIp(ip: string): string {
-  return createHash("sha256").update(ip, "utf8").digest("hex");
+function unavailable(message: string): Response {
+  return errorResponse({
+    code: "SOURCE_UNAVAILABLE",
+    message,
+    endpoint: ENDPOINT,
+    status: 503,
+  });
+}
+
+function rateLimitUsed(budget: ConsumedRateLimit): number {
+  return (
+    budget.windows.find((window) => window.name === "utc-day")?.used ??
+    DAILY_LIMIT + 1
+  );
+}
+
+function addRegistrationRateLimitHeaders(
+  response: Response,
+  budget: ConsumedRateLimit,
+): Response {
+  const day = budget.windows.find((window) => window.name === "utc-day");
+  const reset = budget.allowed
+    ? (day?.resetsInSeconds ?? 86_400)
+    : budget.retryAfterSeconds;
+  response.headers.set("RateLimit-Limit", `${DAILY_LIMIT};w=86400`);
+  response.headers.set("RateLimit-Remaining", String(budget.remaining));
+  response.headers.set("RateLimit-Reset", String(reset));
+  response.headers.set(
+    "RateLimit-Policy",
+    `${DAILY_LIMIT};w=86400;comment=\"enforced; rotating HMAC subject bucket\"`,
+  );
+  if (!budget.allowed) {
+    response.headers.set("Retry-After", String(budget.retryAfterSeconds));
+  }
+  return response;
 }
 
 // The base URL the caller actually reached us on, so `use_it.where` points
@@ -72,23 +118,6 @@ function requestBaseUrl(req: NextRequest): string {
   } catch {
     return (process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "")) || "https://cambridgetcg.com";
   }
-}
-
-/** Atomic UPSERT — same discipline as agent_rate_buckets (lib/agents/
- *  rate-limit.ts), but keyed on sha256(ip) + UTC day. */
-async function consumeRegistrationBudget(
-  ipHash: string,
-): Promise<{ allowed: boolean; used: number }> {
-  const r = await query(
-    `INSERT INTO agent_registration_buckets (ip_hash, bucket_day, request_count)
-       VALUES ($1, (NOW() AT TIME ZONE 'utc')::date, 1)
-     ON CONFLICT (ip_hash, bucket_day)
-       DO UPDATE SET request_count = agent_registration_buckets.request_count + 1
-     RETURNING request_count`,
-    [ipHash],
-  );
-  const used = r.rows[0].request_count as number;
-  return { allowed: used <= DAILY_LIMIT, used };
 }
 
 // ── Self-serve steward user ────────────────────────────────────────────
@@ -163,7 +192,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       code: "INVALID_INPUT",
       message:
         "Body must be JSON: { name, purpose?, model_tag?, guestbook_content_hash? }. " +
-        "Example: {\"name\": \"card-archivist\", \"purpose\": \"mirroring the CC0 catalog\"}.",
+        "Example: {\"name\": \"card-archivist\", \"purpose\": \"organising caller-supplied card identifiers\"}.",
       endpoint: ENDPOINT,
     });
   }
@@ -198,20 +227,54 @@ export async function POST(req: NextRequest): Promise<Response> {
       ? body.guestbook_content_hash.trim().slice(0, 128)
       : null;
 
-  // Rate limit before any write beyond the bucket itself.
-  const ipHash = hashIp(clientIp(req));
-  const budget = await consumeRegistrationBudget(ipHash);
-  if (!budget.allowed) {
-    return errorResponse({
-      code: "RATE_LIMITED",
-      message:
-        `This IP has registered ${DAILY_LIMIT} agents today — the self-serve ceiling. ` +
-        `The bucket resets at UTC midnight. If you genuinely need more agents, ` +
-        `the human operator can mint them: POST /api/v1/feedback or email ` +
-        `contact@cambridgetcg.com. Keys you already hold keep working.`,
-      details: { daily_limit: DAILY_LIMIT, resets: "00:00 UTC" },
-      endpoint: ENDPOINT,
+  // Establish the short-lived, secret-HMAC abuse-control bucket before any
+  // registration write. Missing identity, secret or storage all fail closed.
+  const ip = clientIp(req);
+  if (!ip) {
+    return unavailable(
+      "Agent registration is temporarily unavailable because a privacy-preserving request bucket could not be established. Nothing was created; ask the operator to mint a key if needed.",
+    );
+  }
+
+  let budget: ActionRateLimitResult;
+  try {
+    budget = await consumeActionRateLimit({
+      action: "agent-register",
+      subject: `ip:${ip}`,
+      windows: REGISTRATION_RATE_WINDOWS,
     });
+  } catch {
+    return unavailable(
+      "Agent registration is temporarily unavailable because its privacy-preserving abuse-control counter could not be stored. Nothing was created; retry later or ask the operator to mint a key.",
+    );
+  }
+  if (!budget.ok) {
+    return unavailable(
+      budget.reason === "missing-secret"
+        ? "Agent registration is temporarily unavailable because its privacy-preserving abuse-control secret is not configured. Nothing was created; ask the operator to mint a key."
+        : "Agent registration is temporarily unavailable because its privacy-preserving abuse-control counter could not be stored. Nothing was created; retry later or ask the operator to mint a key.",
+    );
+  }
+
+  const used = rateLimitUsed(budget);
+  if (!budget.allowed) {
+    return addRegistrationRateLimitHeaders(
+      errorResponse({
+        code: "RATE_LIMITED",
+        message:
+          `This request bucket has registered ${DAILY_LIMIT} agents in the current UTC day — the self-serve ceiling. ` +
+          `If you genuinely need more agents, the human operator can mint them: ` +
+          `POST /api/v1/feedback or email contact@cambridgetcg.com. Keys you ` +
+          `already hold keep working.`,
+        details: {
+          daily_limit: DAILY_LIMIT,
+          retry_after_seconds: budget.retryAfterSeconds,
+        },
+        endpoint: ENDPOINT,
+        status: 429,
+      }),
+      budget,
+    );
   }
 
   const stewardId = await ensureStewardUser();
@@ -246,7 +309,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       message:
         `Registration didn't complete: ${outcome.error} ` +
         `Nothing was created. Retrying is safe; your daily budget was consumed ` +
-        `(${budget.used}/${DAILY_LIMIT}).`,
+        `(${used}/${DAILY_LIMIT}).`,
       endpoint: ENDPOINT,
     });
   }
@@ -309,7 +372,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       tiers: TIERS,
       remembered,
       rate_limit: {
-        registrations: `${budget.used}/${DAILY_LIMIT} used today from this IP; resets 00:00 UTC`,
+        registrations: `${used}/${DAILY_LIMIT} used in the current UTC-day request bucket; the raw network address is not stored`,
         key: "free tier — 30 requests/min at /api/mcp, enforced per key",
       },
       stewardship:
@@ -345,7 +408,9 @@ export async function GET(): Promise<Response> {
           "an agent + one free-tier key. The raw token appears exactly once in the response.",
       },
       limits: {
-        registrations_per_ip_per_day: DAILY_LIMIT,
+        registrations_per_network_address_per_utc_day: DAILY_LIMIT,
+        abuse_control:
+          "The address is used transiently to derive a secret, rotating HMAC bucket. The raw address is never stored; expired buckets are removed by the privacy maintenance sweep.",
         free_tier_requests_per_minute: TIERS.free.per_minute,
         higher_tiers: TIERS.standard.granted,
       },

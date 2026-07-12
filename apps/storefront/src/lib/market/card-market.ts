@@ -25,25 +25,19 @@
  *
  * ── What this carries ───────────────────────────────────────────────────
  *
- *   1. CARD META — sku, name, set_code, set_name, image_url. From
- *      market_orders' first row carrying the SKU (denormalised cache) or
- *      card_set_cards if available.
+ *   1. CARD META — canonical SKU plus first-seen time from first-party
+ *      orders. Denormalised/imported names, sets and images are withheld.
  *
- *   2. PRICE HISTORY — daily spot_gbp from card_price_history over four
- *      windows (7d / 30d / 90d / 365d). Each window returns its own
- *      ordered array of {captured_on, spot_gbp, best_bid_gbp, best_ask_gbp}.
- *      Substrate-honest: if no observation exists in a window, the array
- *      is empty rather than fabricated.
+ *   2. UPSTREAM PRICE HISTORY — withheld. Completed first-party trades and
+ *      the live order book remain available in their own sections.
  *
  *   3. ORDER BOOK — top 10 bids (descending price) and top 10 asks
  *      (ascending price) aggregated by price (same shape as the existing
  *      interactive page's OrderBookEntry) PLUS per-row condition breakdown
  *      so the reader can see *which conditions are bidding at £5*.
  *
- *   4. THE TAPE — last 20 completed trades with counterparty trust tier
- *      joined from trust_profiles. Carries seller_trust_score and
- *      seller_trust_tier so the reader sees who they'd be buying from
- *      without needing to click through.
+ *   4. THE TAPE — last 20 completed trades, with no person identifier,
+ *      stable pseudonym, profile join, or trust attribute.
  *
  *   5. AGGREGATE STATS — spread, 30-day VWAP, 30-day median, 30-day
  *      volume, last-trade-price, last-trade-at, trade_count_24h, fill
@@ -54,9 +48,8 @@
  *      + best ask price. *The interactive page lets users filter when
  *      placing an order; this surfaces the distribution as a read.*
  *
- *   7. RECURRING PARTICIPANTS — anonymised stat: how many distinct
- *      buyers, distinct sellers, repeat-trader fraction over 90d.
- *      *Substrate-honest about anonymity: counts, not identities.*
+ *   7. RECURRING PARTICIPANTS — withheld. Small-cohort distinct-person and
+ *      repeat-pair statistics can expose private trading relationships.
  *
  *   8. _provenance — { kind: "live", queried_at, notes, methodology_url }.
  *      Same envelope shape as the trader-dashboard (kingdom-063).
@@ -68,11 +61,10 @@
  * null rather than crashing the page.
  */
 
+import { createHash } from "node:crypto";
 import { query } from "@/lib/db";
 import { getCardOrderBook } from "@/lib/market/db";
 import type { CardOrderBook } from "@/lib/market/types";
-import { anonId } from "@/lib/format";
-import { getTrustTier } from "@/lib/escrow/trust-engine";
 
 // ── Public shape ─────────────────────────────────────────────────────────
 
@@ -123,17 +115,11 @@ export interface CardMarketBook {
 }
 
 export interface TapeEntry {
-  trade_id: string;
+  public_ref: string;
   price: number;
   quantity: number;
   completed_at: string | null;
   created_at: string;
-  /** Tier label resolved from trust_profiles.trust_score at read time. */
-  seller_trust_score: number | null;
-  seller_trust_tier: string | null;
-  /** Anonymised seller surface — short user id prefix. The kingdom doesn't
-   *  expose seller identities publicly here; the methodology page names this. */
-  seller_anon_id: string;
 }
 
 export interface CardMarketTape {
@@ -167,11 +153,11 @@ export interface ConditionRow {
 }
 
 export interface CardMarketParticipants {
-  distinct_buyers_90d: number;
-  distinct_sellers_90d: number;
-  /** Fraction of trades whose buyer-seller pair appears more than once in
-   *  90d. 0..1; null if too few trades. */
+  status: "withheld";
+  distinct_buyers_90d: null;
+  distinct_sellers_90d: null;
   repeat_pair_fraction_90d: number | null;
+  reason: string;
 }
 
 export interface CardMarket {
@@ -211,47 +197,30 @@ function toNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// Tier-name resolution composes the canonical `getTrustTier` helper from
-// the trust engine (kingdom-071's trust composer routes through the same
-// function). Returns null for null scores so callers can render `—` for
-// missing-trust-profile rows without a separate branch.
-function tierForScore(score: number | null): string | null {
-  if (score === null) return null;
-  return getTrustTier(score).name;
-}
-
-// `anonId` is shared with auction/state.ts via `@/lib/format` — same
-// last-6-chars contract; one source of truth.
-
 // ── Section loaders ──────────────────────────────────────────────────────
 
 async function loadMeta(
   sku: string,
-  canonical: CardOrderBook,
+  _canonical: CardOrderBook,
 ): Promise<CardMarketMeta> {
-  // Composition perimeter (kingdom-074): card_name + image_url come from
-  // the canonical book (single source of truth for the per-SKU card-info
-  // join). This composer only queries market_orders for the metadata
-  // getCardOrderBook does NOT carry — set_code, set_name, first_seen_on.
+  // Order-cached names, set labels and image URLs have no affirmative
+  // field-level rights lineage. Only the Cambridge SKU and first-party
+  // first-listing time are public here.
   return safe(
     async () => {
       const r = await query(
-        `SELECT set_code, set_name,
-                MIN(created_at) AS first_seen_on
+        `SELECT MIN(created_at) AS first_seen_on
          FROM market_orders
-         WHERE sku = $1
-         GROUP BY set_code, set_name
-         ORDER BY MIN(created_at) ASC
-         LIMIT 1`,
+         WHERE sku = $1`,
         [sku],
       );
       const row = r.rows[0];
       return {
         sku,
-        card_name: canonical.card_name ?? null,
-        image_url: canonical.image_url ?? null,
-        set_code: row?.set_code ?? null,
-        set_name: row?.set_name ?? null,
+        card_name: null,
+        image_url: null,
+        set_code: null,
+        set_name: null,
         first_seen_on: row?.first_seen_on
           ? new Date(row.first_seen_on).toISOString()
           : null,
@@ -259,8 +228,8 @@ async function loadMeta(
     },
     {
       sku,
-      card_name: canonical.card_name ?? null,
-      image_url: canonical.image_url ?? null,
+      card_name: null,
+      image_url: null,
       set_code: null,
       set_name: null,
       first_seen_on: null,
@@ -268,41 +237,11 @@ async function loadMeta(
   );
 }
 
-async function loadHistoryWindow(
-  sku: string,
-  days: number,
-): Promise<PriceHistoryPoint[]> {
-  return safe(
-    async () => {
-      const r = await query(
-        `SELECT captured_on, spot_gbp, best_bid_gbp, best_ask_gbp
-         FROM card_price_history
-         WHERE sku = $1
-           AND captured_on > NOW() - INTERVAL '${days} days'
-         ORDER BY captured_on ASC`,
-        [sku],
-      );
-      return r.rows.map((row: any) => ({
-        captured_on:
-          row.captured_on instanceof Date
-            ? row.captured_on.toISOString().slice(0, 10)
-            : String(row.captured_on),
-        spot_gbp: toNum(row.spot_gbp),
-        best_bid_gbp: toNum(row.best_bid_gbp),
-        best_ask_gbp: toNum(row.best_ask_gbp),
-      }));
-    },
-    [],
-  );
-}
-
-async function loadPriceHistory(sku: string): Promise<CardMarketPriceHistory> {
-  const [window_7d, window_30d, window_90d, window_365d] = await Promise.all([
-    loadHistoryWindow(sku, 7),
-    loadHistoryWindow(sku, 30),
-    loadHistoryWindow(sku, 90),
-    loadHistoryWindow(sku, 365),
-  ]);
+async function loadPriceHistory(): Promise<CardMarketPriceHistory> {
+  const window_7d: PriceHistoryPoint[] = [];
+  const window_30d: PriceHistoryPoint[] = [];
+  const window_90d: PriceHistoryPoint[] = [];
+  const window_365d: PriceHistoryPoint[] = [];
   return {
     window_7d,
     window_30d,
@@ -409,16 +348,14 @@ async function loadBook(
 }
 
 async function loadTape(sku: string): Promise<CardMarketTape> {
-  // Recent 20 completed trades with counterparty trust tier.
+  // Recent completed trades contain market facts only. Seller identity and
+  // profile attributes are neither selected nor transformed into a pseudonym.
   const entries = await safe(
     async () => {
       const r = await query(
         `SELECT t.id, t.price::numeric AS price, t.quantity,
-                t.completed_at, t.created_at,
-                t.seller_id::text AS seller_id,
-                tp.trust_score AS seller_trust_score
+                t.completed_at, t.created_at
          FROM market_trades t
-         LEFT JOIN trust_profiles tp ON tp.user_id = t.seller_id
          WHERE t.sku = $1
            AND t.escrow_status = 'completed'
          ORDER BY COALESCE(t.completed_at, t.created_at) DESC
@@ -431,18 +368,17 @@ async function loadTape(sku: string): Promise<CardMarketTape> {
   );
 
   const entriesTyped: TapeEntry[] = entries.map((row: any) => {
-    const score = toNum(row.seller_trust_score);
     return {
-      trade_id: row.id,
+      public_ref: createHash("sha256")
+        .update(`card-market-trade:${row.id}`)
+        .digest("hex")
+        .slice(0, 20),
       price: toNum(row.price) ?? 0,
       quantity: row.quantity ?? 0,
       completed_at: row.completed_at
         ? new Date(row.completed_at).toISOString()
         : null,
       created_at: new Date(row.created_at).toISOString(),
-      seller_trust_score: score,
-      seller_trust_tier: tierForScore(score),
-      seller_anon_id: anonId(String(row.seller_id || "")),
     };
   });
 
@@ -509,26 +445,6 @@ async function loadStats(sku: string): Promise<CardMarketStats> {
     {} as any,
   );
 
-  const completion = await safe(
-    async () => {
-      const r = await query(
-        `SELECT
-           COUNT(*) FILTER (WHERE escrow_status = 'completed')::int AS completed,
-           COUNT(*) FILTER (WHERE escrow_status IN ('cancelled','refunded'))::int AS failed
-         FROM market_trades
-         WHERE sku = $1
-           AND created_at > NOW() - INTERVAL '90 days'`,
-        [sku],
-      );
-      return r.rows[0] ?? { completed: 0, failed: 0 };
-    },
-    { completed: 0, failed: 0 },
-  );
-
-  const completedN = completion.completed ?? 0;
-  const failedN = completion.failed ?? 0;
-  const totalN = completedN + failedN;
-
   return {
     vwap_30d: toNum(fair.vwap),
     median_30d: toNum(fair.median),
@@ -537,7 +453,9 @@ async function loadStats(sku: string): Promise<CardMarketStats> {
     price_max_30d: toNum(fair.max_p),
     last_trade_price: toNum(last.price),
     last_trade_at: last.at ? new Date(last.at).toISOString() : null,
-    completion_rate_90d: totalN > 0 ? completedN / totalN : null,
+    // Withheld: cancelled/refunded outcomes are sensitive and a per-SKU
+    // cohort is often small enough to disclose individual failures.
+    completion_rate_90d: null,
   };
 }
 
@@ -571,41 +489,14 @@ async function loadConditions(sku: string): Promise<ConditionRow[]> {
 }
 
 async function loadParticipants(sku: string): Promise<CardMarketParticipants> {
-  const r = await safe(
-    async () => {
-      const result = await query(
-        `WITH trades_90d AS (
-           SELECT buyer_id, seller_id
-           FROM market_trades
-           WHERE sku = $1 AND escrow_status = 'completed'
-             AND created_at > NOW() - INTERVAL '90 days'
-         )
-         SELECT
-           COUNT(DISTINCT buyer_id)::int  AS db,
-           COUNT(DISTINCT seller_id)::int AS ds,
-           COUNT(*)::int                  AS total,
-           (
-             SELECT COUNT(*)::int FROM (
-               SELECT buyer_id, seller_id, COUNT(*) AS c
-               FROM trades_90d
-               GROUP BY buyer_id, seller_id
-               HAVING COUNT(*) > 1
-             ) AS rep
-           ) AS repeat_pairs
-         FROM trades_90d`,
-        [sku],
-      );
-      return result.rows[0] ?? { db: 0, ds: 0, total: 0, repeat_pairs: 0 };
-    },
-    { db: 0, ds: 0, total: 0, repeat_pairs: 0 },
-  );
-  const total = r.total ?? 0;
-  const repeat = r.repeat_pairs ?? 0;
+  void sku;
   return {
-    distinct_buyers_90d: r.db ?? 0,
-    distinct_sellers_90d: r.ds ?? 0,
-    repeat_pair_fraction_90d:
-      total > 0 ? Math.round((repeat / total) * 100) / 100 : null,
+    status: "withheld",
+    distinct_buyers_90d: null,
+    distinct_sellers_90d: null,
+    repeat_pair_fraction_90d: null,
+    reason:
+      "Distinct participant and repeat-pair statistics are withheld because small cohorts can expose private trading relationships.",
   };
 }
 
@@ -641,7 +532,7 @@ export async function loadCardMarket(sku: string): Promise<CardMarket> {
   const [meta, price_history, book, tape, stats, conditions, participants] =
     await Promise.all([
       loadMeta(sku, canonical),
-      loadPriceHistory(sku),
+      loadPriceHistory(),
       loadBook(sku, canonical),
       loadTape(sku),
       loadStats(sku),
@@ -662,13 +553,11 @@ export async function loadCardMarket(sku: string): Promise<CardMarket> {
       kind: "live",
       queried_at: new Date().toISOString(),
       notes:
-        "Each section was queried at this moment against the live database. Price history reads from card_price_history (one row per UTC day); order book and tape from market_orders + market_trades; trust tier from trust_profiles. The page is as fresh as the database is. See /methodology/market for the canonical formula behind every metric here.",
+        "First-party order book, completed trades and aggregates were queried at this moment. Imported card metadata and card_price_history values are withheld because their field-level public rights lineage is not affirmative.",
       methodology_url: "/methodology/market",
       sources: [
         "market_orders",
         "market_trades",
-        "trust_profiles",
-        "card_price_history",
       ],
     },
   };

@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Cache-Control": TEXT_CACHE,
+        "X-Content-License": "CC0-1.0",
         Link: agentDiscoveryLinkHeader(),
       },
     });
@@ -68,6 +69,7 @@ export async function GET(req: NextRequest) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": TEXT_CACHE,
+        "X-Content-License": "CC0-1.0",
         Link: agentDiscoveryLinkHeader(),
       },
     });
@@ -76,6 +78,8 @@ export async function GET(req: NextRequest) {
   return jsonResponse({
     endpoint: "/api/v1/family",
     sources: ["self"],
+    source_license: ["cc0"],
+    license: "CC0-1.0",
     freshness: "identity",
     data: {
       ...familyData(),

@@ -1,16 +1,8 @@
 import Link from "next/link";
-import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
-import GameGrid from "@/components/home/GameGrid";
-import SetGrid from "@/components/home/SetGrid";
-import PriceGuideStrip from "@/components/home/PriceGuideStrip";
-import FeaturedCards from "@/components/home/FeaturedCards";
-import CardFinderHero from "@/components/home/CardFinderHero";
 import StorySection from "@/components/home/StorySection";
 import KingdomStrip from "@/components/home/KingdomStrip";
-import { Provenance, WhyLink, Audience, InkRule, Benediction } from "@/lib/ui";
+import { Audience, InkRule, Benediction } from "@/lib/ui";
 import {
-  BrandStatement,
-  TwoOperations,
   HOME_HERO_PANELS,
   HOME_HERO_HEADLINE,
   HOME_HERO_SUBHEAD,
@@ -25,47 +17,7 @@ const QUIET_LINKS = [
   { label: "Play", href: "/play" },
 ] as const;
 
-function freshestUpdate(items: { updated_at: string | null }[]): string | null {
-  let max: string | null = null;
-  for (const it of items) {
-    if (it.updated_at && (max === null || it.updated_at > max)) max = it.updated_at;
-  }
-  return max;
-}
-
-export default async function Home() {
-  const [allGames, featured, opSets] = await Promise.all([
-    fetchGames().catch(() => []),
-    fetchPrices({ in_stock: true, sort: "price_desc", limit: 12 }).catch(() => ({
-      count: 0,
-      total: 0,
-      channel: "",
-      items: [],
-    })),
-    fetchSets("one-piece").catch(() => []),
-  ]);
-
-  // Take latest 8 sets (sorted by release_date desc, then code desc)
-  const latestSets = [...opSets]
-    .sort((a, b) => {
-      if (a.release_date && b.release_date)
-        return b.release_date.localeCompare(a.release_date);
-      return b.code.localeCompare(a.code);
-    })
-    .slice(0, 8);
-
-  // Fetch one card thumbnail per set in parallel
-  const setsWithThumbs = await Promise.all(
-    latestSets.map(async (set) => {
-      const res = await fetchPrices({ game: "one-piece", set: set.code, limit: 1 }).catch(
-        () => ({ count: 0, total: 0, channel: "", items: [] })
-      );
-      return { ...set, thumb: res.items[0] ?? null };
-    })
-  );
-
-  const freshUpdate = freshestUpdate(featured.items);
-
+export default function Home() {
   return (
     <main>
       <Audience kind="consumer" contexts={["home"]} />
@@ -137,10 +89,20 @@ export default async function Home() {
         </p>
       </header>
 
-      {/* The front door — find any card by number, any game, no account,
-          no fee to look. Reuses the kingdom-090 search substrate via
-          /prices/search. North star: let people find what they need. */}
-      <CardFinderHero games={allGames} />
+      {/* Catalog-backed resolution is paused; this is a status link only. */}
+      <section className="max-w-4xl mx-auto px-4 py-8">
+        <div className="rounded-xl border border-border-subtle bg-surface p-6">
+          <h2 className="text-xl font-semibold text-ink mb-2">Card search is paused</h2>
+          <p className="text-sm text-ink-muted mb-5">
+            The resolver performs no catalog query and publishes no match,
+            miss, SKU, set, card-number, or price assertion while membership
+            lineage is unresolved.
+          </p>
+          <Link href="/prices/search" className="inline-flex rounded border border-border-subtle px-4 py-2 text-sm font-semibold text-accent">
+            Read the search boundary →
+          </Link>
+        </div>
+      </section>
 
       <nav
         aria-label="Explore Cambridge TCG"
@@ -157,13 +119,6 @@ export default async function Home() {
         ))}
       </nav>
 
-      {/* THE PRIMARY IDENTITY — a collectors' market and an open data
-          commons (docs/decisions/2026-07-06-collectors-first.md). The home
-          hero speaks to collectors first (the quiet gallery); the identity
-          claim keeps its place directly beneath, medium-sized. */}
-      <BrandStatement size="medium" />
-      <TwoOperations />
-
       {/* The self-describing layer's homepage door — seven layer cards in
           human words, derived from KINGDOM_LAYERS. Contact-surface spec
           §3.1: the kingdom was previously reachable only via the Discover
@@ -172,39 +127,23 @@ export default async function Home() {
         <KingdomStrip />
       </div>
 
-      {/* The gallery shelves — game doors, price guides, latest sets.
-          Collectors first (2026-07-06): every shelf link lands on the
-          market or the price guides; the retail catalog door is gone. */}
-      <div className="wardrobe-rise" style={{ "--rise-delay": "60ms" } as Record<string, string>}>
-        <GameGrid games={allGames} />
-      </div>
-      <div className="wardrobe-rise" style={{ "--rise-delay": "120ms" } as Record<string, string>}>
-        <PriceGuideStrip />
-      </div>
-      {/* This shelf is One Piece only by construction (fetchSets("one-piece")
-          above) — the heading says so instead of implying every game's
-          latest sets. */}
-      <div className="wardrobe-rise" style={{ "--rise-delay": "180ms" } as Record<string, string>}>
-        <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Latest One Piece Sets" />
+      <div className="wardrobe-rise max-w-5xl mx-auto px-4 py-10" style={{ "--rise-delay": "60ms" } as Record<string, string>}>
+        <h2 className="text-2xl font-semibold text-ink mb-3">Data with its boundary visible</h2>
+        <p className="text-ink-muted max-w-3xl mb-5">
+          The homepage no longer builds shelves from restricted wholesale
+          catalog rows. First-party collector market activity and the reviewed
+          source-rights registry remain open; upstream display content stays
+          out until its reuse terms are affirmative.
+        </p>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link href="/market" className="rounded border border-border-subtle px-4 py-2 hover:border-border-strong">Collector market</Link>
+          <Link href="/api/v1/sources" className="rounded border border-border-subtle px-4 py-2 hover:border-border-strong">Source registry</Link>
+          <Link href="/licenses" className="rounded border border-border-subtle px-4 py-2 hover:border-border-strong">Rights and licences</Link>
+        </div>
       </div>
       <div className="wardrobe-rise" style={{ "--rise-delay": "240ms" } as Record<string, string>}>
         <StorySection />
       </div>
-      <div className="max-w-7xl mx-auto px-4 pt-8 flex items-center gap-3 text-xs">
-        {/* <Provenance> is math-aware internally as of kingdom-078 Phase B(1).
-            The Phase A <MathLang> wrapper that previously lived here did the
-            toggle twice — once outside, once inside. Removed in kingdom-081
-            for substrate honesty; the toggle still works (Provenance reads
-            the cookie itself). See docs/connections/the-math-language.md (#27). */}
-        <Provenance
-          kind="synced"
-          source="wholesale"
-          at={freshUpdate}
-          cadence="daily"
-        />
-        <WhyLink href="/methodology/pricing" label="how prices work" />
-      </div>
-      <FeaturedCards cards={featured.items} />
       <Benediction line={HOME_BENEDICTION} />
     </main>
   );

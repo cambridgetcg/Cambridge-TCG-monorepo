@@ -126,8 +126,8 @@ export default function AdventureModePage() {
     fetchLevels();
   }, [fetchLevels]);
 
-  /* ---- Load saved decks (auto-mount the starter when there are none,
-   *      same as the /play hub — no deck-builder wall for rookies) ---- */
+  /* ---- Load saved decks. The starter compatibility helper currently
+   *      returns null without network work while publication is paused. ---- */
   useEffect(() => {
     let cancelled = false;
     const stored = loadSavedDecks();
@@ -610,12 +610,15 @@ export default function AdventureModePage() {
 
             {savedDecks.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-ink-faint mb-4">Loading a starter deck for you&hellip;</p>
+                <p className="text-ink-faint mb-4">
+                  No saved deck found. Automatic starter loading is paused
+                  while its public data lineage is rebuilt.
+                </p>
                 <Link
-                  href="/play/starters"
+                  href="/deck-builder"
                   className="inline-block bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
                 >
-                  Browse Starter Decks
+                  Open Deck Builder
                 </Link>
               </div>
             ) : (

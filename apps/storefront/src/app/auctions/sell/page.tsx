@@ -17,13 +17,6 @@ import { CONDITIONS, type Condition } from "@/components/market/listing-draft";
 
 type AuctionType = "english" | "buy_now";
 
-interface UploadedImage {
-  id?: string;
-  url: string;
-  s3Key: string;
-  order: number;
-}
-
 interface SearchState {
   status: "idle" | "loading" | "ok" | "error";
   results: CatalogCard[];
@@ -45,7 +38,6 @@ const DURATION_OPTIONS = [
 
 export default function SellAuctionPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [authed, setAuthed] = useState(false);
@@ -81,7 +73,7 @@ export default function SellAuctionPage() {
   // Duration
   const [durationDays, setDurationDays] = useState(7);
 
-  // Post-create image upload
+  // Post-create confirmation
   const [createdAuctionId, setCreatedAuctionId] = useState<string | null>(null);
   // The full auction object the API returned — its approval_status / message
   // drive the success copy (Area A owns the API branch; this page renders
@@ -89,9 +81,6 @@ export default function SellAuctionPage() {
   const [createdAuction, setCreatedAuction] = useState<
     { id: string; approval_status?: string; status?: string; message?: string } | null
   >(null);
-  const [images, setImages] = useState<UploadedImage[]>([]);
-  const [uploading, setUploading] = useState(false);
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -116,7 +105,7 @@ export default function SellAuctionPage() {
       abortRef.current = controller;
       try {
         const res = await fetch(
-          `/api/market/catalog?${buildCatalogSearch({ game: DEFAULT_GAME, q, set: null, sort: "name_asc", page: 1, view: "table" }, limit)}`,
+          `/api/market/catalog?${buildCatalogSearch({ game: DEFAULT_GAME, q, set: null, sort: "number_asc", page: 1, view: "table" }, limit)}`,
           { signal: controller.signal },
         );
         const body = await res.json().catch(() => null);
@@ -245,66 +234,6 @@ export default function SellAuctionPage() {
     }
   }
 
-  async function handleImageUpload(files: FileList) {
-    if (!createdAuctionId) return;
-    setUploading(true);
-
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-
-        // 1. Get presigned URL
-        const presignRes = await fetch("/api/auctions/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ auctionId: createdAuctionId, contentType: file.type }),
-        });
-
-        if (!presignRes.ok) {
-          // Surface the server's real message (e.g. "S3 client unavailable —
-          // AWS credentials not configured") when it sends one; fall back to a
-          // human line when the error body isn't JSON. The seller can still
-          // finish without photos — the auction is already created.
-          let msg = "Photo upload isn't available right now — you can still list without photos.";
-          try {
-            const body = await presignRes.json();
-            if (body?.error) msg = body.error;
-          } catch {
-            /* non-JSON error body — keep the friendly fallback */
-          }
-          throw new Error(msg);
-        }
-        const { uploadUrl, imageUrl, s3Key } = await presignRes.json();
-
-        // 2. Upload to S3
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-
-        if (!uploadRes.ok) throw new Error("Failed to upload to S3");
-
-        // 3. Register image in DB
-        const order = images.length + i;
-        const imgRes = await fetch(`/api/auctions/${createdAuctionId}/images`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: imageUrl, s3Key, order }),
-        });
-
-        if (!imgRes.ok) throw new Error("Failed to register image");
-        const img = await imgRes.json();
-
-        setImages((prev) => [...prev, { id: img.id, url: imageUrl, s3Key, order }]);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Image upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-page flex items-center justify-center">
@@ -315,7 +244,7 @@ export default function SellAuctionPage() {
 
   if (!authed) return null;
 
-  // ── Success: image upload ──
+  // ── Success ──
   if (createdAuctionId) {
     // Success copy is driven by whatever the API returned — a live auction
     // gets live copy, a queued one gets review copy — so the page never
@@ -328,7 +257,7 @@ export default function SellAuctionPage() {
     const successBody =
       createdAuction?.message ??
       (isLive
-        ? "Buyers can bid on it now. Add photos below to help it sell — or you're all set."
+        ? "Buyers can bid on it now."
         : "We'll email you when it's approved and goes live.");
     return (
       <div className="min-h-screen bg-page">
@@ -346,58 +275,12 @@ export default function SellAuctionPage() {
           </div>
 
           <div className="bg-surface border border-border-subtle rounded-lg p-6">
-            <h3 className="text-lg font-bold text-ink mb-2">Add photos (optional)</h3>
-            <p className="text-sm text-ink-muted mb-4">
-              Clear, well-lit images help sell faster — but they&apos;re not
-              required. Your listing is already created; you can add photos now
-              or later, or list without them.
+            <h3 className="text-lg font-bold text-ink mb-2">Photo uploads are paused</h3>
+            <p className="text-sm text-ink-muted">
+              Your auction is already created and works without a new photo.
+              Uploads will return after private storage and file limits are
+              verified together.
             </p>
-
-            {error && (
-              <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mb-4">
-                <p className="text-sm text-danger">{error}</p>
-                <p className="text-xs text-ink-muted mt-1">
-                  You can still finish without photos — the button below lists
-                  your auction as-is.
-                </p>
-              </div>
-            )}
-
-            {images.length > 0 && (
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {images.map((img) => (
-                  <div key={img.s3Key} className="relative group">
-                    <img
-                      src={img.url}
-                      alt=""
-                      className="w-full aspect-square object-cover rounded-lg"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  handleImageUpload(e.target.files);
-                  e.target.value = "";
-                }
-              }}
-            />
-
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full py-3 border-2 border-dashed border-border-subtle rounded-lg text-ink-muted hover:border-accent/50 hover:text-accent-strong transition disabled:opacity-50"
-            >
-              {uploading ? "Uploading..." : "Click to upload images"}
-            </button>
           </div>
 
           <div className="flex gap-3 mt-6">
@@ -405,7 +288,7 @@ export default function SellAuctionPage() {
               onClick={() => router.push("/account/auctions")}
               className="flex-1 py-3 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition text-center"
             >
-              {images.length > 0 ? "Done — View My Auctions" : "List without photos →"}
+              Continue — View My Auctions
             </button>
           </div>
         </div>
@@ -432,7 +315,7 @@ export default function SellAuctionPage() {
           <div className="space-y-2 text-sm text-ink-muted">
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">1</span>
-              <span>Pick the exact card from the catalogue, then set your price and photos</span>
+              <span>Pick the exact card from the catalogue, then set its condition and price</span>
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">2</span>

@@ -39,24 +39,24 @@ export const metadata: Metadata = {
   // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
   // games" count is COVERAGE_FACTS.games.declared. Collectors first
   // (2026-07-06): the shop-and-wholesale framing retired with the shop.
-  title: "Cambridge TCG — the collectors' market and open TCG data",
-  description: "Cambridge TCG is a collectors' market for trading cards — buy, sell, and swap directly with other collectors — plus a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+  title: "Cambridge TCG — collectors' market and public TCG data interface",
+  description: "Buy, sell, and swap directly with collectors, then inspect first-party market facts, observed coverage, and source-rights boundaries through public APIs.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — the collectors' market and open TCG data",
-    description: "A peer-to-peer trading-card market based in Cambridge, UK, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+    title: "Cambridge TCG — collectors' market and public TCG data interface",
+    description: "A Cambridge, UK peer-to-peer trading-card market with rights-aware public APIs for first-party market facts, coverage, and source boundaries.",
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — the collectors' market and open TCG data",
-    description: "A peer-to-peer trading-card market and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
+    title: "Cambridge TCG — collectors' market and public TCG data interface",
+    description: "A peer-to-peer trading-card market with rights-aware public APIs for first-party market facts, coverage, and source decisions.",
     images: ["/images/twitter-image.png"],
   },
   // Agent navigation hints — naive crawlers and LLM agents arriving at any

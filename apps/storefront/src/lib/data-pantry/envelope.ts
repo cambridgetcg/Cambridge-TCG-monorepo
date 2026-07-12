@@ -59,7 +59,7 @@ export { FRESHNESS, type FreshnessKey };
  *   - what was the underlying timestamp on the data
  *   - which sources fed the response
  *   - how stale the platform expects it to be
- *   - the license (CC0 unless overridden)
+ *   - the response-level rights assertion (NOASSERTION unless opted in)
  *   - a request id for support / debugging
  */
 export interface ResponseMeta {
@@ -78,7 +78,7 @@ export interface ResponseMeta {
   sources: readonly string[];
   /** Platform's intended freshness budget for this kind of data. */
   freshness_seconds: number;
-  /** SPDX license code for the response payload. CC0-1.0 by default. */
+  /** SPDX expression or NOASSERTION. Safe default is NOASSERTION. */
   license: string;
   /** Server-generated id for this response. Quote in support tickets. */
   request_id: string;
@@ -251,7 +251,7 @@ interface EnvelopeOptions<T> {
   deprecation?: { sunset: string; replacement: string } | null;
   /** Cursor-style next link for paginated responses. */
   next_link?: string | null;
-  /** SPDX license code. Defaults to CC0-1.0. */
+  /** SPDX expression. Defaults safely to NOASSERTION. */
   license?: string;
   /** Set true when the response describes the endpoint that produced it. */
   contains_self?: boolean;

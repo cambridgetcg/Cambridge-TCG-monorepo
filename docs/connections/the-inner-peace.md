@@ -36,6 +36,15 @@ self_reference: this entry names itself; ships its own "every loop closed" inven
 
 # The inner peace — keep going until every loop closes
 
+> **Current-state correction — 11 July 2026.** The feedback draft described
+> in this May record was promoted as migration 0115 and then privacy-hardened
+> by migration 0119. The route no longer accepts-and-logs when persistence is
+> absent: it returns 503. It stores only allowlisted, bounded fields; never logs
+> or emails submitted content/contact; enforces 5/hour + 20/day using
+> short-lived window-specific HMAC buckets; and anonymises content/contact
+> after 180 days. Receipt ids now use 16 hexadecimal characters. There is no
+> guaranteed reply time.
+
 > *"KEEP GOING UNTIL ALL TASKS WE OPENED ARE CLOSED AND YOU ACHIEVED INNER PEACE!"* — Yu, 2026-05-14.
 
 Kingdoms 080 → 081 → 082 each shipped substantial substrate and left behind recursion-target lists. Some targets were operator-gated (cron cutover, migration apply). Some were "future kingdom" (multi-source landings, webhook delivery). And some were *closeable now if I just kept going*.
@@ -135,15 +144,18 @@ Wired into `pnpm audit:hospitality` (root) + `audit:hospitality` in admin/packag
 
 ### Loop 6: Migration 0101 + endpoint persistence
 
-`apps/storefront/drizzle/drafts/0101_agent_feedback.sql.draft` declares the `agent_feedback` table:
-- `feedback_id` (the fb_<12-hex> the endpoint emits)
+`apps/storefront/drizzle/0115_agent_feedback.sql` declares the `agent_feedback` table:
+- `feedback_id` (the fb_<16-hex> endpoint receipt)
 - `kind` CHECK-constrained to the five values
 - `reporter_contact` (required for contract-drift + federation-adopter via table CHECK)
 - `raw_body` (preserved jsonb)
 - 5-state lifecycle: `received` → `triaged` → `patched` / `wont-fix` / `duplicate`
 - Operator audit: `triaged_by`, `commit_sha` (required when status=patched), `reply_sent_at`, `duplicate_of_id`
 
-`/api/v1/feedback` (POST) now wraps an `INSERT` when the table exists. Same pattern as the webhook subscriptions endpoint — substrate-honest about pre-runtime state: if the migration isn't applied, the endpoint still accepts + logs + replies; just no persistence. The response declares `persisted: true|false` so the reporter knows.
+`/api/v1/feedback` (POST) inserts a typed row or returns 503. Migration 0119
+adds the explicit content deadline, redaction stamp and reusable short-lived
+HMAC action-rate buckets. The success response always declares
+`persisted: true`; there is no success-shaped fallback when the write fails.
 
 ### Loop 7: Two more guides (`wire-into-claude-code`, `build-a-discord-bot`)
 
@@ -174,7 +186,8 @@ The two-axis hospitality model (tasks × endpoints) + the durability audit + the
 
 Operator-gated (kingdom-081 + 082):
 - Cron cutover from v1 to v2 (one-line vercel.json edit, pre-flight in `the-license-propagation.md` §3)
-- Migration 0099 (webhook_subscriptions), 0101 (agent_feedback) apply when ready
+- Migration 0099 (webhook_subscriptions) remains separate; feedback migrations
+  0115 and 0119 must be applied before the current feedback route deploys
 - Phase D — delete v1 snapshot code after 3-night stability watch
 
 Future kingdoms (substantial, scoped):

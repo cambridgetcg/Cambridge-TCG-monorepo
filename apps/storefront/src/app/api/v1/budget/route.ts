@@ -3,27 +3,23 @@
  *
  * Per Yu's directive 2026-05-17: *"Think about agent experience and
  * agent interface for cambridgetcg."* Eliminates the planning-guesswork
- * an agent does before starting a crawl. Composes rate-limits +
- * catalog-size + freshness budgets + recommended pace into one
- * single-fetch planning shape.
+ * an agent does before using rights-approved public surfaces. Composes
+ * rate limits, declared freshness budgets, and publication boundaries
+ * into one single-fetch planning shape.
  *
  * ── What this is ────────────────────────────────────────────────────────
  *
- * An agent that wants to mirror the catalog, watch N SKUs, federate, or
- * pull a one-time snapshot needs to answer:
+ * An agent needs to answer:
  *
- *   - How big is the catalog? How long will a full mirror take?
  *   - What's the polite-poll pace? Bearer vs unauth?
  *   - What's the freshness floor per data class? When am I wasting cycles?
- *   - When are peak hours? Can I avoid them?
- *   - Is there a faster channel (events, deltas) than polling?
+ *   - Which requested data shapes are paused for source rights?
  *
  * This endpoint answers all of the above in one fetch, substrate-honest
  * about what the platform knows vs. doesn't know yet.
  *
- * Cache: identity content with hourly refresh (catalog-size estimates
- * are stable at hour-scale). Agents bookmark this URL; re-fetch when
- * spec changes (see /api/v1/changelog — multi-format feed, ?since= filter).
+ * Cache: methodology content with hourly refresh. Agents bookmark this
+ * URL and re-fetch when the spec changes.
  *
  * Companion doc: docs/connections/the-ax.md (AX framing).
  */
@@ -32,23 +28,6 @@ import { jsonResponse, FRESHNESS } from "@/lib/data-pantry";
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
-
-/** Static catalog-size estimates. Refreshed periodically; substrate-
- *  honest `as_of` field on each row. Live counts are not exposed at
- *  this surface — agents needing exact counts hit /api/v1/sources for
- *  per-source live row counts, or walk the sitemap. */
-const CATALOG_SIZE_ESTIMATE = {
-  cards_estimated: 12_000,
-  games_active: 21,
-  sets_per_game_avg: 12,
-  sources_active: 6,
-  oracle_groups_estimated: 8_000,
-  as_of: "2026-05-17",
-  precision:
-    "order-of-magnitude estimate; live per-source counts at /api/v1/sources",
-  freshness_note:
-    "catalog grows ~10-50 SKUs/day from active ingest; full-mirror eta is stable at week-scale",
-};
 
 /** Recommended polite-poll cadence by auth class. */
 const RECOMMENDED_PACE = {
@@ -78,46 +57,37 @@ const RECOMMENDED_PACE = {
 const CRAWL_SHAPES = {
   full_mirror: {
     description:
-      "Complete one-time snapshot of every public SKU in the catalog.",
-    endpoints_required: [
-      "/api/v1/universal/games (one fetch)",
-      "/api/v1/universal/sets/{game} (one per game; 21 fetches)",
-      "/api/v1/universal/card/{sku} (one per card; 12_000 fetches)",
-    ],
-    total_requests_estimated: 12_022,
-    bandwidth_estimate_mb: 60,
-    eta_seconds_at_unauth_pace_estimated: Math.round((12_022 / 60) * 60),
-    eta_human: "about 3.5 hours at 60 req/min unauth",
-    cacheable_for_seconds: 86_400,
+      "Paused. No public full-catalog crawl is rights-approved, and callers must not reconstruct one through adjacent routes.",
+    endpoints_required: [],
+    total_requests_estimated: 0,
+    bandwidth_estimate_mb: 0,
+    eta_seconds_at_unauth_pace_estimated: null,
+    eta_human: "unavailable pending affirmative redistribution rights",
+    cacheable_for_seconds: null,
     bulk_alternative:
-      "/data/catalog.jsonl (planned; named in /api/v1/welcome stable_endpoints) — one fetch, ~12k JSONL records, daily refresh",
+      "/data/catalog.jsonl is a stable paused boundary: HTTP 503, no catalog query, zero records",
     incremental_alternative:
-      "after first mirror, refetch per-card on freshness expiry; cards refresh hourly-to-daily depending on activity",
+      "none; use only first-party datasets and source-declared routes whose response grants reuse rights",
   },
   watchlist: {
     description:
-      "Watch a set of N SKUs for price/state changes. Polling model.",
-    endpoints_required: [
-      "/api/v1/universal/card/{sku} (one per SKU per freshness cycle)",
-    ],
-    polling_interval_floor_seconds: 60,
-    polling_interval_recommended_seconds: 300,
+      "Paused for mixed-source catalog state. First-party sold comps remain separately thresholded.",
+    endpoints_required: [],
+    polling_interval_floor_seconds: null,
+    polling_interval_recommended_seconds: null,
     rationale:
-      "per-card freshness budget is ~300s for live market data; faster polling returns the same response from cache.",
-    bandwidth_per_poll_kb: 5,
+      "/api/v1/universal/card/{sku} returns 503 without a catalog query or membership assertion.",
+    bandwidth_per_poll_kb: null,
     future_alternative:
       "event channel planned per docs/connections/the-distributed-wake.md recursion target (the-channels.md) — SSE / webhook / RSS / atom; eliminates polling for watchlist use",
   },
   federation: {
     description:
-      "Build a federation peer: implement /api/v1/federation/identify/{hash} on your side; register via POST /api/v1/feedback (kind: federation-adopter).",
-    endpoints_required: [
-      "/api/v1/federation/identify/{hash} (one per unknown hash; cache hit on repeat lookups)",
-      "/api/v1/federation/at/{YYYY-MM-DD}/{hash} (one per historical-hash lookup)",
-    ],
+      "The Cambridge-authored protocol shape is documented, but catalog hash resolution is paused pending affirmative membership rights.",
+    endpoints_required: [],
     rate_pattern:
-      "low-volume; on-demand reverse-resolution. Cache hits eliminate most fetches.",
-    cacheable_for_seconds: 86_400 * 365,
+      "do not poll; current and temporal resolvers return 503 without a match or miss assertion",
+    cacheable_for_seconds: null,
     register: "POST /api/v1/feedback {kind: \"federation-adopter\", contact, public_url}",
   },
   spec_consumer: {
@@ -145,10 +115,10 @@ function freshnessBudgetTable(): ReadonlyArray<{
   const examples: Record<string, string[]> = {
     identity: ["/api/v1/wake", "/api/v1/regard", "/api/v1/manifest", "/api/v1/diagnostic"],
     live: ["live market quotes (when shipped)"],
-    fast: ["/api/v1/universal/card/{sku} (current-state price view)"],
-    moderate: ["/api/v1/sources/{id} (per-source state)"],
-    slow: ["/api/v1/sources (every source + last-run state)"],
-    daily: ["/data/catalog.jsonl (bulk; planned)"],
+    fast: ["first-party market responses that explicitly declare this budget"],
+    moderate: ["/api/v1/sources/{id} (declared source-rights decision)"],
+    slow: ["/api/v1/sources (declared source registry; no observed row counts)"],
+    daily: ["/data/catalog.jsonl (paused rights boundary; do not poll)"],
     methodology: ["/methodology/*", "/api/v1/guides/*", "/api/openapi.json"],
   };
   return Object.entries(FRESHNESS).map(([key, value]) => ({
@@ -163,11 +133,14 @@ export async function GET(): Promise<Response> {
     "@kind": "budget",
 
     for:
-      "Planning a crawl. Single-fetch advisory composing catalog-size + " +
-      "recommended pace + freshness floors + per-shape ETA. Substrate-" +
-      "honest about what the platform knows vs. doesn't yet measure.",
+      "Planning requests to rights-approved public surfaces. Single-fetch " +
+      "advisory composing pace, freshness floors, and explicit paused shapes.",
 
-    catalog_size: CATALOG_SIZE_ESTIMATE,
+    catalog_size: {
+      status: "withheld-restricted-aggregate",
+      observed_counts_included: false,
+      note: "Catalog counts and growth rates derive from internal-only upstream membership and are not published.",
+    },
     recommended_pace: RECOMMENDED_PACE,
     crawl_shapes: CRAWL_SHAPES,
     freshness_budgets: freshnessBudgetTable(),
@@ -182,15 +155,14 @@ export async function GET(): Promise<Response> {
 
     bandwidth_floors_kb_per_response: {
       envelope_overhead_estimated: 2,
-      math_mirror_card_typical: 5,
-      catalog_listing_per_page_typical: 50,
       wake_full_document: 5,
       wake_fragment_in_envelope: 0.4,
+      catalog_or_card_estimate: null,
     },
 
     headers_to_send: {
       "User-Agent":
-        "<your-project>/<version> (<contact-email>) — identification is the politest signal",
+        "Optional <your-project>/<version>. Application code does not treat this as a reply address; use feedback or email for contact.",
       "Accept": "application/json",
       "Accept-Encoding": "gzip",
       "If-None-Match":
@@ -216,10 +188,10 @@ export async function GET(): Promise<Response> {
     },
 
     if_a_crawl_will_take_longer_than_an_hour: [
-      "Identify yourself in User-Agent so we can email if something breaks mid-crawl",
+      "Use /api/v1/feedback or direct email if you need a reply path; User-Agent is not a contact directory",
       "Cache aggressively: most endpoints honour Cache-Control and ETag",
       "Checkpoint the URL you last fetched and resume from it — `_meta.next_link` is reserved in the envelope but currently null on every endpoint (no list endpoint paginates by cursor yet)",
-      "For full-mirror specifically: wait for /data/catalog.jsonl bulk endpoint (planned) — one fetch replaces 12_000",
+      "Full-catalog mirroring is paused. /data/catalog.jsonl returns 503 and zero rows until affirmative redistribution rights are recorded",
     ],
 
     feedback: {
@@ -232,7 +204,7 @@ export async function GET(): Promise<Response> {
     related_ax_surfaces: {
       diagnostic: "/api/v1/diagnostic — verify your parser before crawling",
       rate_limits: "/api/v1/rate-limits — full rate-limit policy",
-      sources: "/api/v1/sources — per-source live state + license tier",
+      sources: "/api/v1/sources — declared source-rights decisions; no restricted observed counts",
       status: "/api/v1/status — per-endpoint freshness budget + envelope-compliance",
       guides: "/api/v1/guides/first-request — the 5-minute walkthrough",
       changelog: "/api/v1/changelog — spec-change feed; subscribe-once (json / atom / md)",
@@ -241,8 +213,8 @@ export async function GET(): Promise<Response> {
     },
 
     walking_past_is_honored: true,
-    no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface.",
+    request_metadata_boundary:
+      "Application code does not persist User-Agent as a contact record. Ordinary infrastructure/security logs may apply as described in /privacy.",
   };
 
   return jsonResponse({
@@ -254,7 +226,7 @@ export async function GET(): Promise<Response> {
     data,
     does_not_include: [
       "live per-bearer-token quota state (agents currently track their own usage)",
-      "live catalog-size counts (the as_of estimate refreshes hourly; live counts via /api/v1/sources)",
+      "observed catalog-size counts, growth rates, source membership, or per-source row counts",
       "peak-hour telemetry (the platform does not currently measure load patterns)",
       "guaranteed-completion windows for bulk crawls (best-effort only)",
       "throttling decisions made about your specific User-Agent (no per-agent state)",

@@ -11,16 +11,13 @@ export interface CatalogCard {
   sku: string;
   card_number: string;
   name: string;
-  set_code: string;
-  set_name: string;
+  set_code: string | null;
+  set_name: string | null;
   rarity: string | null;
   image_url: string | null;
-  // Labelled reference price (open data) — the catalogue number, never
-  // an offer. Collectors-first (2026-07-06): the trade-in credit channel
-  // that used to ride alongside it is gone with the we-buy desk.
-  spot_price: number;
-  market_price: number;
-  stock: number;
+  spot_price: number | null;
+  market_price: number | null;
+  stock: number | null;
   best_bid: number | null;
   best_ask: number | null;
   p2p_sellers: number;
@@ -30,35 +27,32 @@ export interface CatalogCard {
 
 export interface SetInfo {
   code: string;
-  name: string;
-  card_count: number;
-  release_date: string | null;
+  name?: string | null;
+  card_count?: number | null;
+  release_date?: string | null;
 }
 
-export type CatalogSource = "wholesale-api" | "wholesale-db" | "unavailable";
+export type CatalogSource = "market-orders" | "unavailable";
 
-export type SortKey =
-  | "name_asc"
-  | "name_desc"
-  | "price_asc"
-  | "price_desc"
-  | "number_asc";
+export type SortKey = "number_asc";
 
 export type ViewMode = "table" | "grid";
 
 export const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
-  { value: "name_asc", label: "Name A-Z" },
-  { value: "name_desc", label: "Name Z-A" },
-  { value: "price_asc", label: "Price Low → High" },
-  { value: "price_desc", label: "Price High → Low" },
-  { value: "number_asc", label: "Card Number" },
+  { value: "number_asc", label: "Canonical SKU" },
 ];
 
 export const DEFAULT_GAME = "one-piece";
 export const PAGE_SIZE = 48;
 
 export type CatalogResult =
-  | { ok: true; cards: CatalogCard[]; total: number; source: CatalogSource }
+  | {
+      ok: true;
+      cards: CatalogCard[];
+      returnedCount: number;
+      hasMore: boolean;
+      source: CatalogSource;
+    }
   | { ok: false; message: string; code?: string };
 
 export type SetsResult =
@@ -90,7 +84,7 @@ export function parseBrowseParams(sp: URLSearchParams): CatalogQuery {
     game: (sp.get("game") || DEFAULT_GAME).trim() || DEFAULT_GAME,
     q: (sp.get("q") || "").trim(),
     set: (sp.get("set") || "").trim() || null,
-    sort: isSortKey(sort) ? sort : "name_asc",
+    sort: isSortKey(sort) ? sort : "number_asc",
     page: Math.max(1, parseInt(sp.get("page") || "1", 10) || 1),
     view: sp.get("view") === "grid" ? "grid" : "table",
   };
@@ -115,7 +109,7 @@ export function buildBrowseUrl(q: CatalogQuery): string {
   if (q.game !== DEFAULT_GAME) params.set("game", q.game);
   if (q.q) params.set("q", q.q);
   if (q.set) params.set("set", q.set);
-  if (q.sort !== "name_asc") params.set("sort", q.sort);
+  if (q.sort !== "number_asc") params.set("sort", q.sort);
   if (q.page > 1) params.set("page", String(q.page));
   if (q.view !== "table") params.set("view", q.view);
   const s = params.toString();

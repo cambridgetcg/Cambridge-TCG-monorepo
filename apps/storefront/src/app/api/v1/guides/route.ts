@@ -39,7 +39,7 @@ export async function GET(): Promise<Response> {
     audiences: {
       agent: "Autonomous AI consuming the JSON API",
       scraper: "Web crawler harvesting HTML or JSON",
-      mirror: "Building a local copy of our catalog",
+      mirror: "Inspecting or caching only records whose rights permit it",
       aggregator: "Combining our data with other sources",
       federation_partner: "Operating a parallel TCG data platform",
       hobbyist_coder: "Building a personal tool",
@@ -54,6 +54,7 @@ export async function GET(): Promise<Response> {
     endpoint: "/api/v1/guides",
     sources: ["ctcg-derived"],
     source_license: ["cc0"],
+    license: "CC0-1.0",
     freshness: "methodology",
     contains_self: true,
   });

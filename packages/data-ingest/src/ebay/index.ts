@@ -24,11 +24,11 @@
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * eBay's developer license permits partner-display use, not bulk
- * redistribution. The `redistribute: false` + `license: 'partner-
- * redistributable'` declaration propagates downstream via
- * `_meta.source_license` on the data-pantry envelope. Downstream
- * consumers learn from the envelope what they can re-export.
+ * eBay data is governed by the API agreement, not an open licence. It permits
+ * limited application use and display while imposing extra controls on
+ * Restricted API data. The `redistribute: false` + `license: 'internal-only'`
+ * projection keeps raw eBay bytes off bulk exports; `meta.rights` carries the
+ * fuller contract and image-rights distinction.
  *
  * ── API surface — the honest tri-surface verdict ─────────────────────
  *
@@ -36,7 +36,7 @@
  * about what each one is (source-intake.md, run against eBay):
  *
  *   1. Browse API — CURRENT ASKS ONLY (what this module's `read()`
- *      ingests in v0). `partner-redistributable`, `redistribute:false`.
+ *      ingests in v0). Contract-controlled, `redistribute:false`.
  *   2. Marketplace Insights API — true 90-day SOLD comps, but Limited
  *      Release (partner-application + category whitelist) and its licence
  *      is display / reference-only — *never CC0-redistributable*. This
@@ -68,7 +68,7 @@ import type {
   RawRow,
   NormalizeResult,
 } from "../types";
-import { createFetcher, type Fetcher } from "../http";
+import { assertSourceFetchApproved, createFetcher, type Fetcher } from "../http";
 import { getEbayAccessToken } from "./oauth";
 import { normalizeEbay, type EbayCanonicalObservation } from "./normalize";
 import type {
@@ -296,18 +296,48 @@ export const ebay: SourceModule<EbayRaw, EbayCanonicalObservation> = {
     upstream: "https://api.ebay.com",
     catalog_section: "the-tributaries.md#25-ebay-full-marketplace-not-just-order-import",
     access: "oauth2",
-    license: "partner-redistributable",
+    license: "internal-only",
     redistribute: false,
+    rights: {
+      code: {
+        license: "proprietary",
+        notes:
+          "eBay's developer tools and API are licensed under the eBay Developers Program agreement. Local OAuth and parsing code does not license eBay Content.",
+      },
+      data: {
+        terms: "eBay Developers Program Terms of Use and API License Agreement",
+        notes:
+          "The agreement allows limited intermediate copies, rearrangement, and display within an approved application, subject to extensive restrictions. Restricted API data has additional written-consent requirements.",
+      },
+      images: {
+        terms: "eBay Content and listing-owner rights under the API agreement",
+        notes:
+          "Listing photos and card images can carry seller, publisher, and other third-party rights. API access does not create a general image redistribution licence.",
+      },
+      redistribution: {
+        verdict: "contract-required",
+        notes:
+          "Bulk download or electronic redistribution of restricted API data is barred absent express written consent. Public raw re-export remains disabled.",
+      },
+      safe_default: "contract-only",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://developer.ebay.com/join/api-license-agreement",
+        "https://developer.ebay.com/api-docs/buy/browse/overview.html",
+        "https://developer.ebay.com/develop/buying-apps/research-apis",
+      ],
+      notes:
+        "Keep Browse asks distinct from sold transactions. Marketplace Insights and derived pricing tools require their own eligibility and, where applicable, eBay's prior written consent.",
+    },
     freshness: "market_signal",
     canonical_effort: "very-high",
     status: "partial",
     games: [], // game-agnostic — title parser determines per-row
     tos_notes:
-      "eBay developer license: data licensed for partner-display use, not bulk " +
-      "redistribution. PWCC (eBay Vault) data carries additional restrictions. " +
-      "See https://developer.ebay.com/develop/apis/api-license-agreement. " +
-      "Marketplace Insights API is Limited Release — partner application + " +
-      "category whitelist required.",
+      "eBay's API agreement permits limited copies and display inside an approved " +
+      "application, while barring bulk electronic distribution of Restricted API data " +
+      "without express written consent. Marketplace Insights is a restricted research " +
+      "surface. https://developer.ebay.com/join/api-license-agreement",
     user_agent_suffix: "(ebay-comps-ingest)",
     rate_limit: { rps: 5, burst: 20 },
     welcome:
@@ -379,6 +409,10 @@ export const ebay: SourceModule<EbayRaw, EbayCanonicalObservation> = {
       });
       return;
     }
+
+    // Contract-only gate must run before OAuth token acquisition. Existing
+    // sell-side credentials do not establish approval for Browse aggregation.
+    assertSourceFetchApproved(ctx, ebay.meta);
 
     // Acquire token; one fetcher across the whole run so the per-source
     // token bucket holds.

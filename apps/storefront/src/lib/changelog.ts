@@ -93,6 +93,52 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-07-11 ─────────────────────────────────────────────────────────
+  {
+    id: "community-organisation-directory-v1",
+    date: "2026-07-11",
+    kind: "endpoint-added",
+    impact: "additive",
+    surface: "/api/v1/directory/organisations + /api/v1/directory/coverage",
+    summary:
+      "Consent-receipted public organisation directory added with a raw schema, filters, pagination, per-record rights, correction links and explicit coverage gaps.",
+    detail:
+      "Only organisation-controlled, self-attested fields cross the public projection. A separate current notice receipt is required; existing web visibility never opts a collective into bulk/API publication. The list and detail omit people, rosters, member counts, attendance and internal identifiers, serve no-store, and can be withdrawn. The display-only terms do not grant indexing, permanent mirrors, profiling or training use.",
+    related_urls: [
+      "/api/v1/directory/organisations",
+      "/api/v1/directory/coverage",
+      "/schemas/v1/community-organisation.json",
+      "/methodology/community-directory",
+      "/licenses/community-directory-public-display-v1",
+    ],
+  },
+  {
+    id: "community-person-surfaces-private-defaults",
+    date: "2026-07-11",
+    kind: "discipline-shift",
+    impact: "breaking",
+    surface: "public profiles, messages, activity, collective membership and reviews",
+    summary:
+      "Person-facing community publication now defaults off and historic rows without a recorded publication receipt are unpublished.",
+    detail:
+      "Profiles, unsolicited direct messages, activity entries, membership visibility and trade reviews no longer become public by default. Migration 0117 keeps a private rollback ledger of affected internal identifiers and prior settings. People can choose current publication settings again; the migration does not infer consent from an old default.",
+    related_urls: [
+      "/methodology/community-directory",
+      "/account/profile",
+    ],
+  },
+  {
+    id: "observed-coverage-api-added",
+    date: "2026-07-11",
+    kind: "endpoint-added",
+    impact: "additive",
+    surface: "/api/v1/coverage + /prices/coverage",
+    summary:
+      "Observed catalog and price-archive coverage is now queryable by source, game and date instead of inferred from declared source support.",
+    detail:
+      "The API reports bounded counts, distinct-card coverage, date ranges, freshness and unassigned rows without exposing price observations or personal data. The human price-coverage page now separates declared source capability from what the archive has actually collected.",
+    related_urls: ["/api/v1/coverage", "/prices/coverage", "/api/v1/sources"],
+  },
   // ── 2026-05-18 ─────────────────────────────────────────────────────────
   {
     id: "mind-connect-rrr-shipped",

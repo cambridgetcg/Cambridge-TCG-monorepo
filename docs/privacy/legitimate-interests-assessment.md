@@ -1,0 +1,33 @@
+# Legitimate-interests assessment
+
+Last reviewed: 11 July 2026
+
+This record covers the narrow first-party processing named on Cambridge TCG's
+privacy page. It does not justify scraping people, publishing personal data, or
+reusing upstream data. Those activities need their own source and rights review.
+
+The three questions are: what legitimate interest is pursued, whether the
+processing is necessary for that purpose, and whether a person's interests or
+rights override it. Revisit this assessment whenever the purpose, fields,
+retention, recipients, or affected people change.
+
+| Processing | Purpose and legitimate interest | Why this amount is necessary | Balance and safeguards |
+| --- | --- | --- | --- |
+| Contact and feedback inbox | Receive, investigate, answer, and correct concrete reports about the service. | The submitted message is needed to understand the report. Contact is optional except for contract-drift and federation-adopter reports, where a reply path is needed to verify the affected integration or coordinate adoption; a reporter can use the general kind without one. | No public feed; no application-log copy; strict input limits; operator-only inbox; content/contact/free-text notes removed after 180 days; the pseudonymised lifecycle row is deleted after two years. |
+| Public-action abuse counters | Keep unauthenticated feedback and self-serve agent-registration doors open without allowing one source to flood them. | A short-lived request bucket is the smallest practical way to apply hourly or daily limits. | Raw IP is not stored by the feature; a secret, window-specific HMAC is used; buckets expire after at most two complete windows; each endpoint fails closed if protection is unavailable. |
+| Signed-in action counters | Prevent one account from flooding direct messages or mass-creating and publishing organisation records. | A short-lived counter for the action and exact time window is enough to enforce the stated limit; message text, recipient and organisation details are unnecessary. | The internal account id is transformed into a secret, window-specific HMAC before storage; raw account id is absent from the bucket; fixed buckets expire after at most two complete windows; protected actions fail closed if the counter is unavailable. |
+| Email unsubscribe receipt | Prove and troubleshoot a signed preference change without retaining request-network metadata. | User, category, source and action time are enough because the signed unsubscribe token already proves authority. | New actions store no request IP or User-Agent. Migration 0119 clears legacy fields and maintenance continuously clears compatibility-era writes. |
+| Organisation-directory action receipts | Prove that an authenticated steward saw a particular notice and listed or withdrew a record. Support disputes, correction, and withdrawal. | Account id, organisation slug, action, notice version, and time connect the publication change to the notice and authorised session. | Private to operators; no public actor id; no people directory or roster; actor id removed after 180 days or account deletion; the remaining pseudonymised receipt is deleted after two years. |
+| Trust and fraud assessment | Protect people and transactions, apply proportionate trading limits, identify patterns needing review and contain critical risk. | The score uses completed/cancelled trades, reviews, account age, volume, verified external reputation, dispute outcomes and unresolved signals. Fraud rules use only named transactional patterns; a smaller data set would not support the same checks. | Person rankings and raw adverse-event dossiers are not public; account owners see their score/flags; a signal is not proof; human review and reversal are available; trust/fraud profiles are deleted with the account while separately required transaction records follow their own six-year/legal-claim schedule. |
+| Historic identity-verification case handling | Secure, review or delete information already supplied through the old optional verification path. | Existing case fields are needed only to complete an owner request, operator review or safe deletion. No new details or documents are accepted. | Intake and previews are paused; owner/admin reads are no-store; the confirmed public-media bucket currently has zero verification objects; object URLs are withheld; owners can remove records or request deletion. Reopening requires a separate private bucket and approved schedule. |
+| Privacy-migration rollback ledger | Make the one-off privacy reset reversible if deployment checks expose a fault. | Internal row id, previous setting, and capture time are enough to restore the prior state; content is not copied. | Private; one migration only; no profile, message, collection or review text; active table deleted within 30 days; production requires snapshot/counts, recorded backup retention and explicit operator confirmation. |
+| Legacy network-identifier cleanup | Remove older agent-registration SHA-256(IP) buckets and unsubscribe IP/User-Agent copies that are no longer necessary. | Deletion or nulling is the least intrusive operation; no replacement copy is created. | Migration 0119 performs the initial purge. The maintenance sweep repeats it in bounded batches through the migration/deploy compatibility window; removed values are intentionally unrecoverable. |
+
+People can object through `/contact` or `contact@cambridgetcg.com`. An objection
+must be reviewed on its facts. Do not automatically reject it because this
+document exists. Stop or change the processing unless Cambridge TCG can record
+compelling grounds that override the person's interests, rights, and freedoms,
+or the data is needed for a legal claim.
+
+Operational owners must verify that the stated deletion jobs ran. A retention
+promise without an observed deletion is not complete.

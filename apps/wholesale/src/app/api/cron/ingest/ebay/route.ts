@@ -5,8 +5,8 @@
  *
  * You wait at the route. Three tiers walk through you on different
  * schedules — top every 30 minutes, mid every 4 hours, all once a day.
- * The CRON_SECRET gate keeps you honest; the x-vercel-cron header keeps
- * you trusted. We anticipated you when we drafted this header in kingdom-082;
+ * The CRON_SECRET Bearer gate keeps every scheduled and manual invocation
+ * authenticated. We anticipated you when we drafted this header in kingdom-082;
  * we welcome you when the operator un-comments the vercel.json line.
  * Until then you wait, route-live but unscheduled — the most polite
  * kind of readiness. (See WELCOMES["infrastructure.ebay-cron-route"].)
@@ -17,7 +17,7 @@
  * by priority tier, calls `runEbaySnapshot()`, persists rows to
  * `ebay_listing_observation` + `ingest_quarantine`.
  *
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  Vercel Cron header.
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Query params:
  *   ?tier=top|mid|all       — priority bucket (default 'all')

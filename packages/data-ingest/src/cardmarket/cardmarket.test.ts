@@ -16,7 +16,7 @@ const CREDS: CardmarketCreds = {
   accessToken: "acc-tok",
   accessTokenSecret: "acc-sec",
 };
-const URL = "https://api.cardmarket.com/ws/v2.0/output.json/products/123?x=1&y=2";
+const URL = "https://apiv2.cardmarket.com/ws/v2.0/output.json/products/123?x=1&y=2";
 const FIXED = { nonce: "fixed-nonce", timestamp: 1700000000 };
 
 describe("cardmarket/oauth1", () => {
@@ -39,7 +39,7 @@ describe("cardmarket/oauth1", () => {
   it("emits a well-formed OAuth header with all required fields", () => {
     const h = buildAuthorizationHeader("GET", URL, CREDS, FIXED);
     for (const f of [
-      'realm="https://api.cardmarket.com/ws/v2.0/output.json/products/123"',
+      'realm="https://apiv2.cardmarket.com/ws/v2.0/output.json/products/123"',
       'oauth_consumer_key="app-tok"',
       'oauth_token="acc-tok"',
       'oauth_signature_method="HMAC-SHA1"',

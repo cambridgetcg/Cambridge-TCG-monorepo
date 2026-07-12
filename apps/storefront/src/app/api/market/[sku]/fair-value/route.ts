@@ -35,7 +35,7 @@ export async function GET(
        SELECT price::numeric AS price, quantity
          FROM market_trades
         WHERE sku = $1
-          AND escrow_status <> 'cancelled'
+          AND escrow_status = 'completed'
           AND created_at > NOW() - make_interval(days => $2)
      )
      SELECT

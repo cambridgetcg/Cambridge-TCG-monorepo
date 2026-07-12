@@ -1,14 +1,34 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { placeBid, getBidHistory } from "@/lib/auction/db";
+import { placeBid } from "@/lib/auction/db";
 import { sendOutbidEmail } from "@/lib/auction/email";
 import { query } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const bids = await getBidHistory(id);
-  return NextResponse.json({ bids });
+  await params;
+  return NextResponse.json(
+    {
+      error: {
+        code: "PUBLIC_BID_HISTORY_PAUSED",
+        message:
+          "Public bid history is paused while an aggregate-only projection is completed.",
+      },
+      does_not_include: [
+        "bidder identifiers or names",
+        "best offers",
+        "raw bid rows or trust profiles",
+      ],
+    },
+    {
+      status: 503,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": "300",
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    },
+  );
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -56,7 +76,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }).catch((err) => console.error("[auction] Outbid email failed:", err));
     }
 
-    return NextResponse.json(result);
+    // placeBid's internal result carries SELECT * auction and bid rows because
+    // settlement needs them. Return a strict receipt to this bidder only;
+    // never serialize that internal object across the public route boundary.
+    return NextResponse.json({
+      success: true,
+      bid_id: result.bid?.id ?? null,
+      current_price: result.auction?.current_price ?? null,
+      bid_count: result.auction?.bid_count ?? null,
+      ends_at: result.auction?.ends_at ?? null,
+      status: result.auction?.status ?? null,
+    });
   } catch (err) {
     console.error("[auction] Bid error:", err);
     return NextResponse.json({ error: "Failed to place bid." }, { status: 500 });

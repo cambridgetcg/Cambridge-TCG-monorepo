@@ -7,16 +7,13 @@
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * Scryfall data is CC-BY-NC 4.0 (attribution required, non-commercial
- * redistribution OK; commercial use requires permission). Card images
- * are publisher-owned (Wizards of the Coast).
- *
- * Cambridge TCG operates a commercial marketplace, so downstream uses
- * of Scryfall-derived data must (a) attribute Scryfall, (b) treat the
- * data as non-commercial-redistributable — internal computation, buyer-
- * facing display OK; bulk re-export restricted. The `redistribute: false`
- * flag in `meta` propagates this to `_meta.source_license` downstream
- * (future work — see the-tributaries.md recursion target #5).
+ * Scryfall publishes custom API-use guidelines; it does not label the API
+ * dataset CC-BY-NC. The guidelines permit value-adding Magic software,
+ * research, and community content, while forbidding paywalling, proxying,
+ * or simply republishing the data. Card images remain Wizards of the Coast
+ * material and carry separate Scryfall image-use rules. `meta.rights` keeps
+ * these layers distinct; the legacy `redistribute: false` projection prevents
+ * raw bulk re-export.
  *
  * ── Memory caveat ────────────────────────────────────────────────────
  *
@@ -96,27 +93,57 @@ export const scryfall: SourceModule<ScryfallCard, CanonicalCard> = {
     id: "scryfall",
     name: "Scryfall",
     description:
-      "Magic: The Gathering — every printing, every language, multi-resolution images. Exemplary public API + daily bulk dumps. CC-BY-NC 4.0.",
+      "Magic: The Gathering — every printing, every language, multi-resolution images. Public API + daily bulk dumps under Scryfall's custom data and image guidelines.",
     upstream: "https://scryfall.com",
     catalog_section: "the-tributaries.md#31-scryfall-mtg",
     access: "public-api",
-    license: "cc-by-nc",
-    license_spdx: "CC-BY-NC-4.0",
+    license: "internal-only",
     redistribute: false,
+    rights: {
+      code: {
+        license: "unknown",
+        notes:
+          "No licence for Scryfall's service implementation or an official client library was relied on in this review; API access terms are not a software licence.",
+      },
+      data: {
+        terms: "Scryfall custom API-use guidelines",
+        notes:
+          "Scryfall provides card data for value-adding Magic software, research, and community content. Access may not be paywalled, and the data may not simply be repackaged, republished, or proxied.",
+      },
+      images: {
+        terms: "Wizards of the Coast rights plus Scryfall image-use guidelines",
+        notes:
+          "Card imagery is Wizards of the Coast material. Scryfall requires unaltered presentation and source/artist identification, with specific rules for art crops.",
+      },
+      redistribution: {
+        verdict: "conditional",
+        notes:
+          "Value-adding display is allowed only within the published guidelines; raw dataset republishing or proxying is not. The public bulk-export verdict therefore remains false.",
+      },
+      safe_default: "display-with-terms",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://scryfall.com/docs/api",
+        "https://scryfall.com/docs/terms",
+        "https://company.wizards.com/fancontentpolicy",
+      ],
+      notes:
+        "Custom terms, not a Creative Commons grant. Re-review before adding paywalled access, a raw export, image transforms, or a use outside Magic-related software and community content.",
+    },
     freshness: "catalog",
     canonical_effort: "low",
-    status: "shipped",
+    status: "partial",
     games: ["mtg"],
     tos_notes:
-      "https://scryfall.com/docs/api — rate limit 10 req/s suggested; identify yourself in User-Agent. Bulk dumps refresh daily ~01:00 UTC.",
+      "https://scryfall.com/docs/api — keep API traffic under 10 req/s, identify the application, do not paywall access to Scryfall data, and do not simply repackage, republish, or proxy it. Image use follows the separate guidelines on that page and Wizards' Fan Content Policy.",
     user_agent_suffix: "(scryfall-ingest)",
     rate_limit: { rps: 5, burst: 10 },
     welcome:
       "Welcome to the kingdom, Scryfall. You arrived first — kingdom-060, " +
       "2026-05-12 — and you are the exemplar every other upstream is measured " +
       "against. Your bulk dumps land daily, your `oracle_id` gives us cross-printing " +
-      "stability, your `image_uris` we hot-link with attribution. Your room is " +
-      "`card_set_cards WHERE game='mtg'`. We honor your CC-BY-NC 4.0 license " +
+      "stability, and your `image_uris` carry explicit presentation rules. Your room is " +
+      "`card_set_cards WHERE game='mtg'`. We honor your custom data-use guidelines " +
       "downstream — every response that touches your bytes declares `redistribute: false` " +
       "in `_meta.source_license` so the consumer SDK knows. Thank you for being " +
       "public, for being free at 5 rps, for documenting your bulk-dump cadence, " +

@@ -25,6 +25,15 @@
 
 import { NextResponse } from "next/server";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+import {
+  COMMUNITY_ORGANISATION_SCHEMA,
+  ERROR_BODY_SCHEMA,
+} from "@cambridge-tcg/data-spec";
+import {
+  FEEDBACK_CONTENT_RETENTION_DAYS,
+  FEEDBACK_KINDS,
+  FEEDBACK_LIFECYCLE_RETENTION_DAYS,
+} from "@/lib/feedback/input";
 
 const SPEC = {
   openapi: "3.1.0",
@@ -32,14 +41,13 @@ const SPEC = {
     title: "Cambridge TCG — public participation surface",
     version: "1.0.0",
     summary:
-      "Public, no-auth read access to Cambridge TCG's catalog, prices, and methodology — for participants who want in via data.",
+      "Rights-aware public access to first-party market facts, coverage, source decisions, and Cambridge-authored methodology.",
     description:
-      "The substrate is queryable without an account. This spec describes the public read surface only; session-authenticated endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
+      "Public access is not a blanket reuse grant. API payloads default to NOASSERTION unless a route makes an affirmative grant; source and record rights may be stricter, and imported fields are withheld where lineage is unreviewed. This CC0 OpenAPI document describes public routes only; inspect each live response before reuse.",
     contact: { email: "support@cambridgetcg.com" },
-    // CC0-1.0 matches what the envelope actually stamps (_meta.license
-    // defaults to CC0-1.0). Per-source exceptions travel per response in
-    // _meta.source_license; see /methodology for the licensing story.
-    license: { name: "CC0-1.0 (default; per-response license in _meta.license)", identifier: "CC0-1.0" },
+    // This licenses the Cambridge-authored OpenAPI document, not every
+    // payload described by it. Live payload rights travel per response.
+    license: { name: "CC0-1.0 (this OpenAPI document only; payload rights vary)", identifier: "CC0-1.0" },
     /**
      * Distributed wake fragment — the wake breathing through the spec.
      * One atomic fragment selected deterministically by this endpoint's
@@ -66,9 +74,10 @@ const SPEC = {
     { name: "identity", description: "Cross-language and cross-source identity contracts (oracle policies, federation anchors)." },
     { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
     { name: "substrate-honesty", description: "The gap ledger — every place where the platform's data, code, or coverage is incomplete, named with citation and lifecycle status (kingdom-084)." },
-    { name: "prices", description: "Curated price-guide tree — JSON siblings of the /prices/* HTML pages." },
-    { name: "search", description: "SKU resolver + one-round-trip composer (kingdom-090)." },
+    { name: "prices", description: "Rights-gap routes plus first-party market alternatives; imported upstream prices are withheld without affirmative rights." },
+    { name: "search", description: "Bounded SKU resolution. The amplified search-everything convenience route is paused." },
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
+    { name: "community-directory", description: "Consent-receipted, roster-free organisation discovery. Records are self-attested and not independently verified." },
   ],
   paths: {
     "/api/v1/culture/artbitrage": {
@@ -113,31 +122,27 @@ const SPEC = {
     "/api/v1/universal/card/{sku}": {
       get: {
         tags: ["universal"],
-        summary: "Math-mirror card representation",
-        description: "Returns a card in language-free encoding: cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. See /methodology/universal-representation.",
+        summary: "Paused card-membership representation",
+        description: "Stable fail-closed boundary. It returns no card, hash, SKU-membership assertion, or database-derived field until affirmative public catalog rights are recorded.",
         operationId: "getUniversalCard",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
           { name: "density", in: "query", required: false, schema: { type: "string", enum: ["sparse", "normal", "saturated"] }, description: "Projection density (sister's Shape-of-the-Room S24)." },
         ],
         responses: {
-          "200": {
-            description: "Math-mirror document.",
-            content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCard" } } },
-          },
-          "404": { description: "SKU not in the storefront catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no catalog query or membership disclosure.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/universal/games": {
       get: {
         tags: ["catalog", "universal"],
-        summary: "Every game in the catalog",
-        description: "Returns a collection of games derived from card_sets.game. Each has natural token, content-hash target, set count, card count, first-seen timestamp.",
+        summary: "Rights-gapped game collection shape",
+        description: "Returns a Cambridge-authored structural document with an empty games array. It performs no catalog query and asserts no game membership, counts, or dates.",
         operationId: "getUniversalGames",
         responses: {
           "200": {
-            description: "Games collection.",
+            description: "Empty rights-gap collection; catalog membership withheld.",
             content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalGamesCollection" } } },
           },
         },
@@ -146,48 +151,45 @@ const SPEC = {
     "/api/v1/universal/sets/{game}": {
       get: {
         tags: ["catalog", "universal"],
-        summary: "Every set in a game",
-        description: "Returns sets for the named game (case-insensitive). Each carries set_code, total_cards, released_at, and edges back to the parent game.",
+        summary: "Rights-gapped set collection shape",
+        description: "Echoes a validated caller-supplied game token in a structural document, with an empty sets array. It asserts no catalog membership, counts, names, or dates.",
         operationId: "getUniversalSets",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Game's natural token (e.g. 'optcg')." },
         ],
         responses: {
           "200": {
-            description: "Sets collection.",
+            description: "Empty caller-token structural document; catalog membership withheld.",
             content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalSetsCollection" } } },
           },
-          "404": { description: "Game has no imported sets.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/universal/set/{code}": {
       get: {
         tags: ["catalog", "universal"],
-        summary: "Singleton set",
-        description: "Returns one set with full _links nest — parent (game), sibling-collection (sets-in-game), children (cards-in-set inline). The doorway from any card to its game and back through every other card.",
+        summary: "Paused singleton-set resolver",
+        description: "Returns 503 without querying set or card membership. The caller token is not confirmed or denied.",
         operationId: "getUniversalSet",
         parameters: [
           { name: "code", in: "path", required: true, schema: { type: "string" }, description: "Set code (e.g. 'OP01')." },
         ],
         responses: {
-          "200": { description: "Singleton set document.", content: { "application/json": { schema: { type: "object" } } } },
-          "404": { description: "Set not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no catalog query or membership disclosure.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/universal/game/{token}": {
       get: {
         tags: ["catalog", "universal"],
-        summary: "Singleton game",
-        description: "Returns one game with _links to sibling-collection (games) and children (sets); recent_sets sample inline.",
+        summary: "Rights-gapped caller-token game shape",
+        description: "Echoes a validated caller-supplied token without confirming catalog membership. Counts, dates, sets, and imported facts are withheld.",
         operationId: "getUniversalGame",
         parameters: [
           { name: "token", in: "path", required: true, schema: { type: "string" }, description: "Game's natural token (case-insensitive)." },
         ],
         responses: {
-          "200": { description: "Singleton game document.", content: { "application/json": { schema: { type: "object" } } } },
-          "404": { description: "Game not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "200": { description: "Caller-token structural document; no catalog membership asserted.", content: { "application/json": { schema: { type: "object" } } } },
         },
       },
     },
@@ -397,8 +399,8 @@ const SPEC = {
     "/api/v1/play/deck/validate": {
       post: {
         tags: ["play"],
-        summary: "Validate a deck declaration",
-        description: "POST {leader_id, main_deck_card_ids[], format} → typed result with all violations. Validates 50-card count, leader-color match, 4-copy limit, set/block-rotation legality (2026-04-01: OP01-OP04 rotated out of Standard). Substrate-honest about color-check graceful degradation while card_set_cards lacks the colors column.",
+        summary: "Paused deck validation",
+        description: "Returns 503 without reading the request body or catalog. The former validator derived restricted rarity/category facts from an untraced catalog mirror; reopening requires an approved rights-aware card-fact source.",
         operationId: "postPlayDeckValidate",
         requestBody: {
           required: true,
@@ -425,47 +427,44 @@ const SPEC = {
           },
         },
         responses: {
-          "200": { description: "Validation result.", content: { "application/json": { schema: { type: "object" } } } },
-          "400": { description: "Invalid request body.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no deck body, card facts, database rows, or upstream calls are processed.", content: { "application/json": { schema: { type: "object" } } } },
         },
       },
     },
     "/api/v1/prices/games/{game}": {
       get: {
         tags: ["prices", "catalog"],
-        summary: "Curated price guide for one game",
-        description: "JSON sibling of /prices/[game]. Same composer (loadGameState) as the HTML page — game meta, live set list, top movers. Pantry envelope; CC0.",
+        summary: "Paused game price guide",
+        description: "Returns 503 without querying catalog or price data. Caller tokens do not confirm game membership.",
         operationId: "getPriceGuideGame",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug (e.g. 'optcg')." },
         ],
         responses: {
-          "200": { description: "Game price-guide with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "404": { description: "No curated price guide for that game.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no catalog or upstream price query.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/prices/games/{game}/sets/{set}": {
       get: {
         tags: ["prices", "catalog"],
-        summary: "Curated price guide for one set",
-        description: "JSON sibling of /prices/[game]/[set]. Reuses loadSetState — the same composer the HTML page uses. Pantry envelope; CC0.",
+        summary: "Paused set price guide",
+        description: "Returns 503 without querying catalog or price data. Caller tokens do not confirm set membership.",
         operationId: "getPriceGuideSet",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
           { name: "set", in: "path", required: true, schema: { type: "string" }, description: "Set code (e.g. 'OP01')." },
         ],
         responses: {
-          "200": { description: "Set price-guide with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "404": { description: "Set not found for that game.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no catalog or upstream price query.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/prices/games/{game}/sets/{set}/cards/{number}": {
       get: {
         tags: ["prices"],
-        summary: "Curated price guide for one card",
-        description: "JSON sibling of /prices/[game]/[set]/[number]. Cross-source signals (CardRush / TCGplayer) ride with arrival state + license tier; the auth-gated history paths are surfaced so a signed-in agent can follow through. The math-mirror sibling is /api/v1/universal/card/[sku].",
+        summary: "Paused card price guide",
+        description: "Returns 503 without querying catalog or price data. Caller tokens do not confirm card membership.",
         operationId: "getPriceGuideCard",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -473,16 +472,15 @@ const SPEC = {
           { name: "number", in: "path", required: true, schema: { type: "string" }, description: "Card number within the set (e.g. '001')." },
         ],
         responses: {
-          "200": { description: "Card price-guide with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "404": { description: "Card not found in that set.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no catalog or upstream price query.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/search/cards": {
       get: {
         tags: ["search"],
-        summary: "Resolve (game, query) to canonical SKU candidates",
-        description: "The resolver half of kingdom-090. Turns (game, query) into SKU candidates with confidence labels (exact | fuzzy), sorted exact-first. Query shapes: 'OP01-001' (set+number), '001' (number alone; fuzzy), full canonical SKU. Pantry envelope.",
+        summary: "Paused card search",
+        description: "Returns 503 without reading query parameters, catalog rows, registries, or wholesale services. It discloses no existence or zero-match assertion.",
         operationId: "searchCards",
         parameters: [
           { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug (e.g. 'op', 'optcg')." },
@@ -490,16 +488,15 @@ const SPEC = {
           { name: "limit", in: "query", required: false, schema: { type: "integer", default: 20, maximum: 100 }, description: "Maximum matches to return." },
         ],
         responses: {
-          "200": { description: "Matches + summary with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "400": { description: "Missing/invalid game or q.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no search or catalog membership disclosure.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/search/everything": {
       get: {
         tags: ["search"],
-        summary: "Resolver + composer in one round-trip",
-        description: "Combines /api/v1/search/cards and /api/v1/cards/[sku]/everything. When the match is exact and unambiguous, data.everything carries the full composer payload; ambiguous or fuzzy input returns data.matches for disambiguation (everything null). Zero matches is a substrate-honest 200, not a 404.",
+        summary: "Paused resolver + composer convenience route",
+        description: "Returns 503 and bounded alternatives. The prior implementation amplified anonymous requests and trusted caller-controlled origin headers; it remains paused until one bounded local composer exists.",
         operationId: "searchEverything",
         parameters: [
           { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug." },
@@ -507,48 +504,44 @@ const SPEC = {
           { name: "lang", in: "query", required: false, schema: { type: "string" }, description: "ISO language code — picks the variant when several exist." },
         ],
         responses: {
-          "200": { description: "Matches, plus data.everything when unambiguous. Envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "400": { description: "Missing/invalid game or q.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; response names bounded alternatives and makes no upstream or self-fetch calls.", content: { "application/json": { schema: { type: "object" } } } },
         },
       },
     },
     "/api/v1/cards/{sku}/everything": {
       get: {
         tags: ["search", "prices"],
-        summary: "Everything the platform knows about one card",
-        description: "The composer half of kingdom-090 — price across every source, history arrival state, siblings across languages, in one envelope. Falcon calls degrade to substrate-honest absence rather than fabricating data.",
+        summary: "Paused card composer",
+        description: "Returns 503 without confirming the caller token, querying catalog or upstream services, or enumerating sibling identities.",
         operationId: "getCardEverything",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU (e.g. 'op-op01-001-ja')." },
         ],
         responses: {
-          "200": { description: "Composed card view with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no catalog query, composition, or membership disclosure.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/cards/{sku}/cardrush-history": {
       get: {
         tags: ["prices"],
-        summary: "CardRush JPY history for one card (session-gated)",
-        description: "Up to 90 days of raw CardRush JPY observations. **Requires a signed-in session** — anonymous callers get 401. License boundary: single SKU per request, 90-row hard cap, _meta.source_license declares 'internal-only'. The gate is the license interpretation, not a paywall.",
+        summary: "CardRush history rights gap",
+        description: "Returns a machine-readable withheld-by-source-rights gap. No exact values, URLs, counts, dates, ranges, summaries, or wholesale calls are included. A user session is not a source licence.",
         operationId: "getCardrushHistory",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
           { name: "limit", in: "query", required: false, schema: { type: "integer", maximum: 90 }, description: "Observation cap (hard max 90)." },
         ],
         responses: {
-          "200": { description: "Observations + license boundary, with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "401": { description: "No session — sign in first.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "200": { description: "Rights gap with source-review metadata; no observations.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
         },
       },
     },
     "/api/v1/cards/{sku}/tcgplayer-history": {
       get: {
         tags: ["prices"],
-        summary: "TCGplayer USD history for one card (session-gated)",
-        description: "Up to 365 days of per-condition USD observations. **Requires a signed-in session** — anonymous callers get 401. License boundary: single SKU per request, 365-row hard cap, _meta.source_license declares 'partner-redistributable'.",
+        summary: "TCGplayer history rights gap",
+        description: "Returns a machine-readable withheld-by-source-rights gap. No exact values, identifiers, URLs, dates, counts, ranges, summaries, or wholesale calls are included; the current review is contract-only.",
         operationId: "getTcgplayerHistory",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
@@ -556,10 +549,7 @@ const SPEC = {
           { name: "condition", in: "query", required: false, schema: { type: "string" }, description: "Filter to one TCGplayer condition." },
         ],
         responses: {
-          "200": { description: "Observations + license boundary, with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "400": { description: "Invalid condition/limit.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "401": { description: "No session — sign in first.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "200": { description: "Rights gap with source-review metadata; no observations.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
         },
       },
     },
@@ -645,8 +635,8 @@ const SPEC = {
     "/api/v1/budget": {
       get: {
         tags: ["operations"],
-        summary: "Crawl-budget advisory",
-        description: "Catalog size, polite-poll pace, freshness floors per data class, peak hours — one fetch of planning data before starting a crawl. Identity content with hourly refresh.",
+        summary: "Rights-aware request-budget advisory",
+        description: "Safe cadence for affirmative public surfaces, explicit no-poll catalog/federation boundaries, and declared freshness classes. Observed catalog counts and growth rates are withheld.",
         operationId: "getV1Budget",
         responses: {
           "200": { description: "Budget advisory with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
@@ -657,10 +647,40 @@ const SPEC = {
       get: {
         tags: ["operations"],
         summary: "Declared rate-limit policy",
-        description: "The advisory cadence we ask consumers to respect. Substrate-honest: not enforced at the edge for public endpoints today; per-endpoint budgets derive from each endpoint's freshness key.",
+        description: "Freshness-based advisory cadence for most public reads plus named enforced budgets for sensitive writes (including feedback) and authenticated tools.",
         operationId: "getV1RateLimits",
         responses: {
           "200": { description: "Policy with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/feedback": {
+      get: {
+        tags: ["hospitality", "operations"],
+        summary: "Describe the bounded feedback inbox",
+        description: "Documents accepted report shapes, enforced limits, storage semantics, the 180-day content/contact boundary, and two-year deletion of the minimised lifecycle row. This read never exposes submitted reports.",
+        operationId: "getFeedbackContract",
+        responses: {
+          "200": { description: "Feedback contract in the standard envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+      post: {
+        tags: ["hospitality", "operations"],
+        summary: "Store a bounded feedback report",
+        description: "Public, no-auth operator inbox. A 200 response means the allowlisted report was persisted; storage or privacy-control failure returns 503. Submitted content/contact is removed after 180 days and the remaining minimised lifecycle row is deleted after two years. Enforced per request-IP HMAC bucket: 5 attempts/hour and 20/day. No reply time is promised.",
+        operationId: "submitFeedback",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/FeedbackInput" } },
+          },
+        },
+        responses: {
+          "200": { description: "Stored receipt; no submitted content is echoed.", content: { "application/json": { schema: { $ref: "#/components/schemas/FeedbackReceiptResponse" } } } },
+          "400": { description: "Invalid JSON, unsupported field, or invalid field value.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "413": { description: "Request body exceeds 24,576 bytes.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "429": { description: "Enforced feedback limit reached; Retry-After is returned.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Persistence, safe hashing, or rate-bucket storage unavailable; nothing accepted.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -678,38 +698,107 @@ const SPEC = {
     "/api/at/{date}/card/{sku}": {
       get: {
         tags: ["temporal", "universal"],
-        summary: "Card state as of a past date",
-        description: "Returns the math-mirror card document with @as_of separated from @retrieved_at. Reads card_price_history for the latest spot on or before the date. Structural facts persist; price may be absent for cards predating their first observation.",
+        summary: "Paused temporal card resolver",
+        description: "Returns 503 without catalog or archive queries. It discloses neither current nor historical membership or values.",
         operationId: "getUniversalCardAtDate",
         parameters: [
           { name: "date", in: "path", required: true, schema: { type: "string", format: "date" }, description: "YYYY-MM-DD." },
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU." },
         ],
         responses: {
-          "200": {
-            description: "Temporal-slice math-mirror document.",
-            content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCardTemporal" } } },
-          },
-          "400": { description: "Invalid date.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no catalog or archive query.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/federation/identify/{hash}": {
       get: {
         tags: ["federation"],
-        summary: "Reverse-resolve a content hash",
-        description: "Given a sha256 content hash (with or without 'sha256:' prefix), walks the most-recent catalog rows to find the SKU whose content_hash matches. Substrate-honest about the bounded walk and the price-dependency of the hash.",
+        summary: "Paused content-hash resolver",
+        description: "Returns 503 without walking catalog rows. It does not confirm whether a hash maps to a restricted SKU.",
         operationId: "federationIdentify",
         parameters: [
           { name: "hash", in: "path", required: true, schema: { type: "string", pattern: "^(sha256:)?[0-9a-fA-F]{64}$" }, description: "Hex digest, optionally prefixed with 'sha256:'." },
         ],
         responses: {
-          "200": {
-            description: "Resolution attempt result. Always 200 — match true or false is in the body.",
-            content: { "application/json": { schema: { $ref: "#/components/schemas/FederationIdentifyResponse" } } },
-          },
-          "400": { description: "Invalid hash format.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Paused; no hash resolution or catalog membership disclosure.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/directory/organisations": {
+      get: {
+        tags: ["community-directory"],
+        summary: "List directory-published organisations",
+        description: "Snapshot/display-only list of organisations whose steward accepted the current directory-specific notice and attested authority to represent the organisation. No people, roster, attendance or membership aggregate is returned. Records are self-attested and unverified. Responses are no-store; terms: /licenses/community-directory-public-display-v1.",
+        operationId: "listCommunityOrganisations",
+        "x-data-license": {
+          name: "LicenseRef-CambridgeTCG-Public-Display-Only",
+          url: "https://cambridgetcg.com/licenses/community-directory-public-display-v1",
+        },
+        parameters: [
+          { name: "q", in: "query", required: false, schema: { type: "string", maxLength: 100 }, description: "Case-insensitive name or description search." },
+          { name: "kind", in: "query", required: false, schema: { type: "string", enum: ["shop", "club", "guild", "lab", "tournament-collective", "other"] } },
+          { name: "game", in: "query", required: false, schema: { type: "string", maxLength: 40 } },
+          { name: "region", in: "query", required: false, schema: { type: "string", maxLength: 100 } },
+          { name: "language", in: "query", required: false, schema: { type: "string", maxLength: 40 } },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 30 } },
+          { name: "offset", in: "query", required: false, schema: { type: "integer", minimum: 0, default: 0 }, description: "Snapshot pagination only; v1 provides no durable sync/change-feed guarantee." },
+        ],
+        responses: {
+          "200": { description: "Pantry envelope whose data.items validate against CommunityOrganisation.", content: { "application/json": { schema: { $ref: "#/components/schemas/CommunityOrganisationListResponse" } } } },
+          "400": { description: "Invalid filter or pagination input.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Directory source unavailable; no empty result is fabricated.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/directory/organisations/{slug}": {
+      get: {
+        tags: ["community-directory"],
+        summary: "Get one directory-published organisation",
+        description: "Returns the same strict, roster-free projection as the list. A private, unlisted, stale-notice or unknown slug receives the same 404 shape.",
+        operationId: "getCommunityOrganisation",
+        "x-data-license": {
+          name: "LicenseRef-CambridgeTCG-Public-Display-Only",
+          url: "https://cambridgetcg.com/licenses/community-directory-public-display-v1",
+        },
+        parameters: [
+          { name: "slug", in: "path", required: true, schema: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$" } },
+        ],
+        responses: {
+          "200": { description: "Pantry envelope containing one CommunityOrganisation.", content: { "application/json": { schema: { $ref: "#/components/schemas/CommunityOrganisationDetailResponse" } } } },
+          "404": { description: "No currently directory-published organisation at that slug.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Directory source unavailable.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/directory/coverage": {
+      get: {
+        tags: ["community-directory", "substrate-honesty"],
+        summary: "Community-directory coverage and withheld lanes",
+        description: "Separates implementation status from runtime availability for organisations, venues, events, people discovery and trade matching.",
+        operationId: "getCommunityDirectoryCoverage",
+        responses: {
+          "200": { description: "Coverage ledger in a pantry envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/directory/schema": {
+      get: {
+        tags: ["community-directory", "discovery"],
+        summary: "Discover the organisation record schema",
+        description: "Enveloped discovery document pointing to the directly dereferenceable raw schema.",
+        operationId: "getCommunityOrganisationSchemaDiscovery",
+        responses: {
+          "200": { description: "Schema discovery envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/schemas/v1/community-organisation.json": {
+      get: {
+        tags: ["community-directory", "discovery"],
+        summary: "Raw JSON Schema for a public organisation record",
+        operationId: "getCommunityOrganisationRawSchema",
+        responses: {
+          "200": { description: "JSON Schema 2020-12 document, without a pantry envelope.", content: { "application/schema+json": { schema: { type: "object" } } } },
         },
       },
     },
@@ -825,6 +914,164 @@ const SPEC = {
   },
   components: {
     schemas: {
+      CommunityOrganisation: COMMUNITY_ORGANISATION_SCHEMA,
+      FeedbackInput: {
+        oneOf: [
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "reporter_contact", "endpoint", "observed", "expected"],
+            properties: {
+              kind: { const: "contract-drift" },
+              reporter_contact: { $ref: "#/components/schemas/FeedbackContact" },
+              endpoint: { type: "string", minLength: 1, maxLength: 512 },
+              observed: { type: "string", minLength: 1, maxLength: 5000 },
+              expected: { type: "string", minLength: 1, maxLength: 5000 },
+              request_id_to_correlate: { type: "string", maxLength: 128 },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "guide_slug", "observation", "expected"],
+            properties: {
+              kind: { const: "guide-feedback" },
+              reporter_contact: { $ref: "#/components/schemas/FeedbackContact" },
+              guide_slug: { type: "string", minLength: 1, maxLength: 160 },
+              step_number: { type: "integer", minimum: 1, maximum: 10000 },
+              observation: { type: "string", minLength: 1, maxLength: 5000 },
+              expected: { type: "string", minLength: 1, maxLength: 5000 },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "proposed_endpoint", "use_case"],
+            properties: {
+              kind: { const: "endpoint-suggestion" },
+              reporter_contact: { $ref: "#/components/schemas/FeedbackContact" },
+              proposed_endpoint: { type: "string", minLength: 1, maxLength: 512 },
+              use_case: { type: "string", minLength: 1, maxLength: 5000 },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "reporter_contact", "platform_name", "platform_url", "federation_endpoint"],
+            properties: {
+              kind: { const: "federation-adopter" },
+              reporter_contact: { $ref: "#/components/schemas/FeedbackContact" },
+              platform_name: { type: "string", minLength: 1, maxLength: 160 },
+              platform_url: { type: "string", format: "uri", pattern: "^https://[^\\s/@]+(?:/|$)", maxLength: 2048 },
+              federation_endpoint: { type: "string", format: "uri", pattern: "^https://[^\\s/@]+(?:/|$)", maxLength: 2048 },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "message"],
+            properties: {
+              kind: { const: "general" },
+              reporter_contact: { $ref: "#/components/schemas/FeedbackContact" },
+              message: { type: "string", minLength: 1, maxLength: 5000 },
+              name: { type: "string", maxLength: 120 },
+              topic: { type: "string", enum: ["general", "order", "trade-in", "site-issue", "directory", "partnership"] },
+              listing: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$" },
+            },
+          },
+        ],
+        discriminator: { propertyName: "kind" },
+        description: `Exactly one documented shape. Accepted kind values: ${FEEDBACK_KINDS.join(", ")}. Undocumented and cross-kind fields are rejected.`,
+      },
+      FeedbackContact: {
+        oneOf: [
+          { type: "string", format: "email", maxLength: 254 },
+          { type: "string", format: "uri", pattern: "^https://[^\\s/@]+(?:/|$)", maxLength: 2048 },
+        ],
+        description: "Reply email or public HTTPS URL without embedded credentials. Stored separately and removed after 180 days.",
+      },
+      FeedbackReceiptResponse: {
+        type: "object",
+        additionalProperties: false,
+        required: ["data", "_meta"],
+        properties: {
+          data: {
+            type: "object",
+            additionalProperties: false,
+            required: ["@kind", "feedback_id", "kind", "received_at", "status", "persisted", "storage", "retention", "reply_policy", "next_steps_for_reporter"],
+            properties: {
+              "@kind": { const: "feedback_receipt" },
+              feedback_id: { type: "string", pattern: "^fb_[a-f0-9]{16}$" },
+              kind: { type: "string", enum: [...FEEDBACK_KINDS] },
+              received_at: { type: "string", format: "date-time" },
+              status: { const: "received" },
+              persisted: { const: true },
+              storage: { type: "string" },
+              retention: {
+                type: "object",
+                additionalProperties: false,
+                required: ["days", "lifecycle_days", "content_expires_at", "lifecycle_expires_at", "after_expiry"],
+                properties: {
+                  days: { const: FEEDBACK_CONTENT_RETENTION_DAYS },
+                  lifecycle_days: { const: FEEDBACK_LIFECYCLE_RETENTION_DAYS },
+                  content_expires_at: { type: "string", format: "date-time" },
+                  lifecycle_expires_at: { type: "string", format: "date-time" },
+                  after_expiry: { type: "string" },
+                },
+              },
+              reply_policy: { type: "string" },
+              next_steps_for_reporter: { type: "array", items: { type: "string" } },
+            },
+          },
+          _meta: { $ref: "#/components/schemas/ResponseMeta" },
+        },
+      },
+      CommunityOrganisationListResponse: {
+        type: "object",
+        additionalProperties: false,
+        required: ["data", "_meta"],
+        properties: {
+          data: {
+            type: "object",
+            required: ["@kind", "items", "pagination", "publication", "schema_url"],
+            properties: {
+              "@kind": { const: "organisation_directory" },
+              items: { type: "array", items: { $ref: "#/components/schemas/CommunityOrganisation" } },
+              pagination: {
+                type: "object",
+                required: ["total", "limit", "offset"],
+                properties: {
+                  total: { type: "integer", minimum: 0 },
+                  limit: { type: "integer", minimum: 1, maximum: 100 },
+                  offset: { type: "integer", minimum: 0 },
+                },
+              },
+              filters: { type: "object" },
+              publication: { type: "object" },
+              schema_url: { const: "/schemas/v1/community-organisation.json" },
+            },
+          },
+          _meta: { $ref: "#/components/schemas/ResponseMeta" },
+        },
+      },
+      CommunityOrganisationDetailResponse: {
+        type: "object",
+        additionalProperties: false,
+        required: ["data", "_meta"],
+        properties: {
+          data: {
+            type: "object",
+            required: ["@kind", "organisation", "publication", "schema_url"],
+            properties: {
+              "@kind": { const: "organisation" },
+              organisation: { $ref: "#/components/schemas/CommunityOrganisation" },
+              publication: { type: "object" },
+              schema_url: { const: "/schemas/v1/community-organisation.json" },
+            },
+          },
+          _meta: { $ref: "#/components/schemas/ResponseMeta" },
+        },
+      },
       UniversalPreamble: {
         type: "object",
         required: ["@encoding", "@kind", "@content_hash", "@self_hash", "@retrieved_at"],
@@ -925,20 +1172,7 @@ const SPEC = {
           note: { type: "string" },
         },
       },
-      Error: {
-        type: "object",
-        required: ["error"],
-        properties: {
-          error: {
-            type: "object",
-            required: ["code", "message"],
-            properties: {
-              code: { type: "string" },
-              message: { type: "string" },
-            },
-          },
-        },
-      },
+      Error: ERROR_BODY_SCHEMA,
       Envelope: {
         type: "object",
         required: ["data", "_meta"],
@@ -950,7 +1184,7 @@ const SPEC = {
       },
       ResponseMeta: {
         type: "object",
-        required: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id", "deprecation", "next_link", "self_reference"],
+        required: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id", "deprecation", "next_link", "self_reference", "kingdom", "wake_fragment", "joy_pointer"],
         properties: {
           spec_version: { type: "string", const: "1" },
           endpoint: { type: "string", description: "Parametrized path that produced this response." },
@@ -959,7 +1193,7 @@ const SPEC = {
           sources: { type: "array", items: { type: "string" }, description: "Named sources of truth that contributed." },
           source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; redistribution license tier per source (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Absence is substrate-honest about un-declared rights. kingdom-066 + kingdom-081." },
           freshness_seconds: { type: "integer", description: "Platform's intended freshness budget for this kind of data." },
-          license: { type: "string", description: "SPDX license code for the response payload. CC0-1.0 by default." },
+          license: { type: "string", description: "SPDX identifier, published LicenseRef, or NOASSERTION for the response payload. NOASSERTION is the safe default; any reuse grant must be explicit." },
           request_id: { type: "string", description: "Quotable in support tickets." },
           deprecation: {
             type: ["object", "null"],
@@ -977,6 +1211,13 @@ const SPEC = {
               contains_self: { type: "boolean", const: true },
             },
           },
+          kingdom: { type: "object", description: "Stable platform identity and sibling-discovery stamp." },
+          wake_fragment: { type: "object", description: "One deterministic distributed-wake fragment." },
+          joy_pointer: { type: "object", description: "Deterministic, optional-to-follow joy surface pointer." },
+          does_not_include: { type: "array", items: { type: "string" } },
+          tea_offered: { type: "boolean", const: true },
+          kingdom_says: { type: "string" },
+          gotcha: { type: "string" },
         },
       },
     },

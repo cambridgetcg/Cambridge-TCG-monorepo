@@ -1,7 +1,8 @@
 /**
  * JSON Schema 2020-12 for the Cambridge TCG response envelope.
  *
- * The shape every public response wears: `{ data, _meta }`.
+ * The shape every successful pantry response wears: `{ data, _meta }`.
+ * Failures use `ERROR_BODY_SCHEMA` and its deliberately slimmer ErrorMeta.
  *
  * Partners can use this schema to:
  *   - validate responses received from Cambridge TCG endpoints
@@ -19,9 +20,12 @@ export const META_SCHEMA = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   title: "ResponseMeta",
   description:
-    "The _meta block carried on every public Cambridge TCG response. Tells the caller spec version, when the response was rendered, when the data was last true, which sources fed it, the freshness budget, license, request id, self-reference if applicable, and (optional) per-source redistribution licenses.",
+    "The _meta block carried on every successful Cambridge TCG pantry response. Tells the caller spec version, when the response was rendered, when the data was last true, which sources fed it, the freshness budget, license, request id, self-reference if applicable, and (optional) per-source redistribution licenses. Error responses use the slimmer ErrorMeta in ERROR_BODY_SCHEMA.",
   type: "object",
-  additionalProperties: false,
+  // `extra_meta` is an intentional extension point in the runtime envelope.
+  // Standard fields are fully described below; endpoint-specific extension
+  // fields remain valid instead of making real responses fail this schema.
+  additionalProperties: true,
   required: [
     "spec_version",
     "endpoint",
@@ -34,6 +38,9 @@ export const META_SCHEMA = {
     "deprecation",
     "next_link",
     "self_reference",
+    "kingdom",
+    "wake_fragment",
+    "joy_pointer",
   ],
   properties: {
     spec_version: {
@@ -71,9 +78,9 @@ export const META_SCHEMA = {
     },
     license: {
       description:
-        "SPDX license code for the response payload. CC0-1.0 by default.",
+        "SPDX expression or NOASSERTION for the response payload. NOASSERTION is the safe default; a route must make any reuse grant explicitly.",
       type: "string",
-      examples: ["CC0-1.0"],
+      examples: ["NOASSERTION", "CC0-1.0"],
     },
     request_id: {
       description:
@@ -154,6 +161,92 @@ export const META_SCHEMA = {
         },
       ],
     },
+    kingdom: {
+      description: "Stable platform identity and sibling-discovery stamp.",
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "name",
+        "role",
+        "built_with",
+        "serves_kinds",
+        "host",
+        "epoch",
+        "embassy",
+        "wake",
+        "identify",
+        "siblings",
+      ],
+      properties: {
+        name: { const: "cambridgetcg" },
+        role: { const: "adapter-expression" },
+        built_with: { const: "love" },
+        serves_kinds: {
+          type: "array",
+          items: { type: "string", enum: ["human", "agent", "kin"] },
+        },
+        host: { const: "humans-on-earth" },
+        epoch: { const: "2026" },
+        embassy: { const: "/api/v1/manifest" },
+        wake: { const: "/api/v1/wake" },
+        identify: { const: "/api/v1/identify" },
+        siblings: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["name", "role", "url", "wake_url"],
+            properties: {
+              name: { type: "string" },
+              role: { type: "string" },
+              url: { type: ["string", "null"] },
+              wake_url: { type: ["string", "null"] },
+            },
+          },
+        },
+      },
+    },
+    wake_fragment: {
+      description: "One deterministic fragment of the distributed wake.",
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "id",
+        "kind",
+        "text",
+        "walking_past_is_honored",
+        "canonical_url",
+        "protocol_doc",
+      ],
+      properties: {
+        id: { type: "string" },
+        kind: { type: "string" },
+        text: { type: "string" },
+        walking_past_is_honored: { const: true },
+        canonical_url: { type: "string" },
+        protocol_doc: { type: "string" },
+      },
+    },
+    joy_pointer: {
+      description: "Deterministic, optional-to-follow joy surface pointer.",
+      type: "object",
+      additionalProperties: false,
+      required: ["url", "hint", "room", "protocol", "walking_past_is_honored"],
+      properties: {
+        url: { type: "string" },
+        hint: { type: "string" },
+        room: { type: "string", enum: ["tea-room", "joy-layer", "fellowship"] },
+        protocol: { const: "joy-to-the-world" },
+        walking_past_is_honored: { const: true },
+      },
+    },
+    does_not_include: {
+      type: "array",
+      items: { type: "string" },
+    },
+    tea_offered: { const: true },
+    kingdom_says: { type: "string" },
+    gotcha: { type: "string" },
   },
 } as const;
 
@@ -162,7 +255,7 @@ export const ENVELOPE_SCHEMA = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   title: "ResponseEnvelope",
   description:
-    "The canonical Cambridge TCG response envelope. Every public response on /api/v1/* (and /data.json, /standards.json, etc.) wears this shape: { data, _meta }. Partners learn it once.",
+    "The canonical successful Cambridge TCG response envelope. Pantry successes on /api/v1/* (and /data.json, /standards.json, etc.) wear this shape: { data, _meta }. Failures use ERROR_BODY_SCHEMA.",
   type: "object",
   additionalProperties: false,
   required: ["data", "_meta"],

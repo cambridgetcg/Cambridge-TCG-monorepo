@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Badge, EmptyState, ErrorAlert, Icon, Money, Palettes, WhyLink } from "@/lib/ui";
+import { EmptyState, ErrorAlert, Icon, Money, WhyLink } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
 import { weatherClass } from "@/lib/wardrobe/weather";
 import {
@@ -12,7 +11,6 @@ import {
   derivePageStats,
   parseBrowseParams,
   parseCatalogError,
-  PAGE_SIZE,
   SORT_OPTIONS,
   DEFAULT_GAME,
   type CatalogCard,
@@ -62,11 +60,7 @@ export default function MarketBrowser({
   const [loading, setLoading] = useState(false);
 
   const sets: SetInfo[] = initialSets.ok ? initialSets.sets : [];
-  // A set registered with zero cards isn't browsable — its pill reads
-  // "SV2A 0" right next to a "no cards in this game yet" empty state, two
-  // statements that quietly disagree. Hide the empty sets so the filter
-  // never contradicts the catalogue it filters.
-  const visibleSets = sets.filter((s) => s.card_count > 0);
+  const visibleSets = sets;
 
   // The SSR pass already fetched `initial` — don't refetch it on mount.
   const lastFetchedKey = useRef(queryKey(initial));
@@ -93,7 +87,8 @@ export default function MarketBrowser({
         setCatalog({
           ok: true,
           cards: body?.cards ?? [],
-          total: body?.total ?? 0,
+          returnedCount: body?.returned_count ?? 0,
+          hasMore: body?.has_more === true,
           source: (body?.source as CatalogSource) ?? "unavailable",
         });
       }
@@ -154,9 +149,9 @@ export default function MarketBrowser({
   }, [fetchCatalog]);
 
   const cards = catalog.ok ? catalog.cards : [];
-  const total = catalog.ok ? catalog.total : 0;
+  const returnedCount = catalog.ok ? catalog.returnedCount : 0;
+  const hasMore = catalog.ok ? catalog.hasMore : false;
   const stats = derivePageStats(cards);
-  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className={weatherClass(query.game)}>
@@ -176,8 +171,8 @@ export default function MarketBrowser({
             name="q"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by card name, number, or SKU…"
-            aria-label="Search the catalog"
+            placeholder="Search active market SKUs…"
+            aria-label="Search active market SKUs"
             className="w-full pl-9 pr-9 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition text-sm"
           />
           {searchInput && (
@@ -225,7 +220,7 @@ export default function MarketBrowser({
       {catalog.ok && !loading && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-5 text-sm">
           <span className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
-            <span className="text-ink font-semibold font-mono tabular-nums">{total.toLocaleString()}</span> cards in view
+            <span className="text-ink font-semibold font-mono tabular-nums">{returnedCount.toLocaleString()}</span> active SKUs on this page
           </span>
           <span className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
             <span className="text-bid font-semibold font-mono tabular-nums">{stats.cardsWithActivity}</span> with open asks or bids
@@ -239,7 +234,7 @@ export default function MarketBrowser({
           <span className="text-[10px] text-ink-faint flex items-center gap-1.5">
             activity {statsProvenance}
             <WhyLink href="/methodology/market" tooltip="What counts as market activity?" />
-            <span aria-hidden>·</span> prices {sourceBadges[catalog.source]}
+            <span aria-hidden>·</span> source {sourceBadges[catalog.source]}
           </span>
         </div>
       )}
@@ -261,9 +256,7 @@ export default function MarketBrowser({
                 <SetButton key={s.code} active={query.set === s.code} onClick={() => apply({ set: s.code, page: 1 }, "push")}>
                   <span className="truncate">
                     <span className="text-ink-faint font-mono text-xs mr-1.5">{s.code}</span>
-                    {s.name}
                   </span>
-                  <span className="text-[10px] text-ink-faint font-mono tabular-nums ml-2 shrink-0">{s.card_count}</span>
                 </SetButton>
               ))}
             </nav>
@@ -281,7 +274,7 @@ export default function MarketBrowser({
                 </SetPill>
                 {visibleSets.map((s) => (
                   <SetPill key={s.code} active={query.set === s.code} onClick={() => apply({ set: s.code, page: 1 }, "push")}>
-                    {s.code} — {s.name}
+                    {s.code}
                   </SetPill>
                 ))}
               </div>
@@ -291,7 +284,7 @@ export default function MarketBrowser({
           {!loading && catalog.ok && (
             <p className="text-xs text-ink-faint mb-3">
               Showing <span className="font-mono tabular-nums">{cards.length}</span> of{" "}
-              <span className="font-mono tabular-nums">{total.toLocaleString()}</span> cards
+              <span className="font-mono tabular-nums">{returnedCount.toLocaleString()}</span> active SKUs on this page
             </p>
           )}
 
@@ -322,12 +315,12 @@ export default function MarketBrowser({
               title={
                 query.q || query.set
                   ? v("market.empty.catalog.title")
-                  : "No cards in this game yet"
+                  : "No active collector orders in this game"
               }
               description={
                 query.q || query.set
                   ? v("market.empty.catalog.description")
-                  : "The catalog doesn't hold any cards for this game yet — nothing failed, there's just nothing to show. Check back as coverage grows."
+                  : "The first-party order book has no open SKU in this game. This is not a claim about the restricted wholesale catalog."
               }
               action={
                 query.q || query.set ? (
@@ -354,7 +347,7 @@ export default function MarketBrowser({
           )}
 
           {/* ---- Pagination ---- */}
-          {!loading && catalog.ok && totalPages > 1 && (
+          {!loading && catalog.ok && (query.page > 1 || hasMore) && (
             <div className="flex justify-center items-center gap-2 mt-8">
               <button
                 onClick={() => apply({ page: Math.max(1, query.page - 1) }, "push")}
@@ -363,23 +356,10 @@ export default function MarketBrowser({
               >
                 Previous
               </button>
-              {pageWindow(query.page, totalPages).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => apply({ page: p }, "push")}
-                  aria-current={p === query.page ? "page" : undefined}
-                  className={`w-9 h-9 rounded-lg text-sm font-mono tabular-nums transition ${
-                    p === query.page
-                      ? "bg-accent text-page font-bold"
-                      : "bg-surface border border-border-subtle text-ink-muted hover:bg-surface-subtle"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+              <span className="text-sm text-ink-muted font-mono">page {query.page}</span>
               <button
                 onClick={() => apply({ page: query.page + 1 }, "push")}
-                disabled={query.page >= totalPages}
+                disabled={!hasMore}
                 className="px-3 py-2 bg-surface border border-border-subtle text-ink-muted rounded-lg hover:bg-surface-subtle disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
               >
                 Next
@@ -434,10 +414,6 @@ function CatalogTable({
             <th className="px-3 py-2.5 text-right text-ask">Best Ask</th>
             <th className="px-3 py-2.5 text-right text-bid">Best Bid</th>
             <th className="px-3 py-2.5 text-center hidden sm:table-cell">Activity</th>
-            <th className="px-3 py-2.5 text-right">
-              Spot <span className="normal-case text-ink-faint">(ref)</span>
-              <WhyLink href="/methodology/market" tooltip="Spot is the shop's retail reference price, not a trade price" />
-            </th>
             <th className="px-3 py-2.5 text-right" aria-label="Actions" />
           </tr>
         </thead>
@@ -455,17 +431,14 @@ function CatalogTable({
                   <span className="flex items-center gap-3 min-w-0">
                     <CardThumb card={card} />
                     <span className="min-w-0">
-                      <span className="block text-ink font-medium truncate max-w-[220px]">{card.name}</span>
+                      <span className="block text-ink font-medium truncate max-w-[220px]">{card.sku}</span>
                       <span className="flex items-center gap-1.5 text-[11px] text-ink-faint font-mono">
                         {card.card_number}
-                        {card.rarity && (
-                          <Badge status={card.rarity.toUpperCase()} palette={Palettes.RarityPalette} size="sm" />
-                        )}
                       </span>
                     </span>
                   </span>
                 </td>
-                <td className="px-3 py-2 text-ink-muted font-mono text-xs whitespace-nowrap hidden sm:table-cell" title={card.set_name}>
+                <td className="px-3 py-2 text-ink-muted font-mono text-xs whitespace-nowrap hidden sm:table-cell" title={card.set_name ?? undefined}>
                   {card.set_code}
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -501,9 +474,6 @@ function CatalogTable({
                   ) : (
                     <span className="text-ink-faint text-xs">—</span>
                   )}
-                </td>
-                <td className="px-3 py-2 text-right text-ink-muted font-mono tabular-nums whitespace-nowrap">
-                  <Money value={card.spot_price} />
                 </td>
                 <td className="px-3 py-2 text-right">
                   <Link
@@ -541,22 +511,11 @@ function CatalogGrid({
         const collectorBids = card.p2p_buyers;
         return (
           <Link key={card.sku} href={`/market/${card.sku}`} className="wardrobe-panel p-3 hover:bg-surface-subtle transition group">
-            {card.image_url ? (
-              <Image
-                src={card.image_url}
-                alt={card.name}
-                width={240}
-                height={336}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
-                className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle mb-3 group-hover:scale-[1.02] transition"
-              />
-            ) : (
-              <div className="aspect-[2.5/3.5] w-full bg-surface-subtle border border-border-subtle rounded-lg mb-3 flex items-center justify-center">
-                <span className="text-ink-faint text-xs">No Image</span>
-              </div>
-            )}
+            <div className="aspect-[2.5/3.5] w-full bg-surface-subtle border border-border-subtle rounded-lg mb-3 flex items-center justify-center p-3 text-center">
+              <span className="text-ink-faint text-xs">Upstream image withheld</span>
+            </div>
 
-            <h3 className="text-sm font-semibold text-ink truncate">{card.name}</h3>
+            <h3 className="text-sm font-semibold text-ink truncate">{card.sku}</h3>
             <p className="text-xs text-ink-faint font-mono mb-2 truncate">
               {card.card_number} · {card.set_code}
             </p>
@@ -583,10 +542,8 @@ function CatalogGrid({
             </div>
 
             <p className="text-[10px] text-ink-faint font-mono tabular-nums mt-1">
-              spot <Money value={card.spot_price} /> <span className="font-sans">(ref)</span>
               {(card.p2p_sellers > 0 || collectorBids > 0) && (
                 <>
-                  {" · "}
                   {card.p2p_sellers > 0 && <span className="text-ask">{card.p2p_sellers} seller{card.p2p_sellers !== 1 ? "s" : ""}</span>}
                   {card.p2p_sellers > 0 && collectorBids > 0 && " · "}
                   {collectorBids > 0 && <span className="text-bid">{collectorBids} buyer{collectorBids !== 1 ? "s" : ""}</span>}
@@ -605,19 +562,9 @@ function CatalogGrid({
 /* ------------------------------------------------------------------ */
 
 function CardThumb({ card }: { card: CatalogCard }) {
-  // Next/Image resizes the ~200KB card art server-side to a real thumb;
-  // a plain <img> would pull every full image on scroll.
-  return card.image_url ? (
-    <Image
-      src={card.image_url}
-      alt={card.name}
-      width={40}
-      height={56}
-      className="w-10 h-14 object-cover rounded border border-border-subtle shadow-mat shrink-0"
-    />
-  ) : (
+  return (
     <span className="w-10 h-14 bg-surface-subtle border border-border-subtle rounded flex items-center justify-center shrink-0">
-      <span className="text-ink-faint text-[8px]">N/A</span>
+      <span className="text-ink-faint text-[8px]" title={card.sku}>SKU</span>
     </span>
   );
 }
@@ -705,13 +652,4 @@ export function CatalogSkeleton({ view, caption }: { view: ViewMode; caption?: s
       </div>
     </div>
   );
-}
-
-function pageWindow(current: number, total: number): number[] {
-  const pages: number[] = [];
-  let start = Math.max(1, current - 2);
-  const end = Math.min(total, start + 4);
-  start = Math.max(1, end - 4);
-  for (let p = start; p <= end; p++) pages.push(p);
-  return pages;
 }

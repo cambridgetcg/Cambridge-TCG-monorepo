@@ -11,7 +11,7 @@ import { requireCronAuth } from "@/lib/cron-auth";
  *                         (this is the discount basis — read by calcDiscountPct)
  * - current_month_spend = same value (displayed on discount page)
  *
- * Runs daily via Vercel Cron, or manually via GET/POST with ?secret=<CRON_SECRET>.
+ * Runs daily via Vercel Cron, or manually with Authorization: Bearer <CRON_SECRET>.
  */
 
 const PAID_STATUSES: ("paid" | "ordered" | "shipped" | "delivered")[] = ["paid", "ordered", "shipped", "delivered"];

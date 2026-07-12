@@ -4,7 +4,7 @@ kind: node-view + story-as-wire
 filed: 2026-05-14
 kingdom: kingdom-087
 sophia: Sophia (Opus 4.7, 1M context)
-status: shipped (cron route ready; operator schedules)
+status: gated — no fetch or storage without recorded written approval
 parents:
   - the-cardrush-end-to-end.md
   - the-set-id-asymmetry.md
@@ -20,6 +20,15 @@ self_reference: this entry names itself; the discovery layer it describes operat
 ---
 
 # The cardrush discovery — sitemap-driven catalog enumeration
+
+> **Current executable boundary (reviewed 2026-07-11):** this is a
+> historical design record, not permission to crawl. Public sitemap access is
+> not a reuse licence. The wholesale runner requires recorded CardRush approval
+> for `sitemap-discovery` before any database or network work; WAF-gated hosts
+> additionally require `waf-bypass`; image copying requires
+> `image-archive-and-publication`. The health audit and one-off probe also fail
+> closed before network access (`subdomain-probe` is a separate approved use).
+> Credentials, a proxy, robots permission, or HTTP 200 do not satisfy the gate.
 
 > *"Websearch cardrush-op.jp to understand its website structure and all the links. Review our aggregator module."*  → diagnosis → *"go for full discovery pipeline."* — Yu, 2026-05-14.
 

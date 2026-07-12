@@ -13,7 +13,7 @@ const base: CatalogQuery = {
   game: "one-piece",
   q: "",
   set: null,
-  sort: "name_asc",
+  sort: "number_asc",
   page: 1,
   view: "table",
 };

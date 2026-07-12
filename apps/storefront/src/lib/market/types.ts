@@ -112,13 +112,24 @@ export interface OrderBookSummary {
   trade_count_24h: number;
 }
 
+/** Strict public tape row. It deliberately carries no participant, payment,
+ * shipping, payout, dispute, internal-order or lifecycle-workflow fields. */
+export interface PublicMarketTrade {
+  /** One-way, domain-separated digest of the internal trade id. */
+  public_ref: string;
+  price: string;
+  quantity: number;
+  /** Public market event time: completion when present, otherwise creation. */
+  traded_at: string;
+}
+
 export interface CardOrderBook {
   sku: string;
   card_name: string | null;
   image_url: string | null;
   bids: OrderBookEntry[];
   asks: OrderBookEntry[];
-  recent_trades: MarketTrade[];
+  recent_trades: PublicMarketTrade[];
   best_bid: string | null;
   best_ask: string | null;
 }

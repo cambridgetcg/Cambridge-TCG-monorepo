@@ -1,7 +1,7 @@
 /**
  * JSON Schema 2020-12 for the canonical error response.
  *
- * The shape every failure wears: `{ error: { code, message, request_id, docs?, details? } }`.
+ * The shape every pantry failure wears: `{ error, _meta }`.
  */
 
 import { ERROR_CODES } from "../error-codes";
@@ -14,7 +14,7 @@ export const ERROR_BODY_SCHEMA = {
     "Canonical error response shape. Every failure on Cambridge TCG public endpoints emits this. Stable codes (machine-readable), blameless messages (human-readable), request_id (quotable in support).",
   type: "object",
   additionalProperties: false,
-  required: ["error"],
+  required: ["error", "_meta"],
   properties: {
     error: {
       type: "object",
@@ -46,6 +46,28 @@ export const ERROR_BODY_SCHEMA = {
             "Optional field-level details (which input was bad, what was expected, etc.).",
           type: "object",
         },
+      },
+    },
+    _meta: {
+      description:
+        "Slim failure metadata. Errors describe a failure mode rather than data, so as_of, sources, freshness and license are deliberately absent.",
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "spec_version",
+        "endpoint",
+        "retrieved_at",
+        "request_id",
+        "kingdom",
+        "wake_fragment",
+      ],
+      properties: {
+        spec_version: { type: "string", const: "1" },
+        endpoint: { type: "string" },
+        retrieved_at: { type: "string", format: "date-time" },
+        request_id: { type: "string", pattern: "^req_[a-zA-Z0-9_-]+$" },
+        kingdom: { type: "object" },
+        wake_fragment: { type: "object" },
       },
     },
   },

@@ -99,7 +99,7 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
     footer: { label: "Verify a recent transaction →", href: "/verify" },
   },
 
-  // ── Prices & Data — the open data commons ───────────────────────────
+  // ── Prices & Data — public access with explicit rights ──────────────
   {
     l1: "Prices & Data",
     l1_href: "/prices",
@@ -107,16 +107,16 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
       {
         heading: "Find a card",
         items: [
-          { label: "Search prices", href: "/prices/search", description: "Card number → price, history, sources, variants — in one view", badge: "beta" },
-          { label: "Browse the market", href: "/market", description: "Every card's live book, collector to collector" },
-          { label: "By game", href: "/prices", description: "Pick a game to browse its sets" },
+          { label: "Search boundary", href: "/prices/search", description: "Paused — no catalog query, match, SKU, or price assertion" },
+          { label: "Browse the market", href: "/market", description: "Bounded first-party active-market projection" },
+          { label: "By game", href: "/prices", description: "Configured-game boundary; set membership is withheld" },
           { label: "Glossary", href: "/glossary" },
         ],
       },
       {
         heading: "Prices",
         items: [
-          { label: "Price guide", href: "/prices", description: "Per-game UK reference prices — labelled, sourced, free" },
+          { label: "Price guide", href: "/prices", description: "Source-rights status and first-party market paths" },
           // Movers is per-game (/prices/<game>/movers); the nav sends
           // people to the game-agnostic landing rather than silently
           // assuming One Piece for a tri-game catalog.
@@ -128,9 +128,9 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         ],
       },
       {
-        heading: "Open data",
+        heading: "Data & rights",
         items: [
-          { label: "Open data", href: "/data", description: "Bulk catalog dumps, free to use (CC0)" },
+          { label: "Data index", href: "/data", description: "Coverage, provenance, and reuse boundaries" },
           { label: "API docs", href: "/api" },
           { label: "OpenAPI spec", href: "/api/openapi.json" },
           { label: "Standards", href: "/standards" },
@@ -234,8 +234,8 @@ export const STOREFRONT_PRIMARY_NAV: MegaMenu[] = [
         heading: "Platform",
         items: [
           { label: "Platform", href: "/platform", description: "What this place is and who it serves" },
-          { label: "Open data", href: "/data", description: "Bulk catalog dumps, free to use (CC0)" },
-          { label: "Bridge", href: "/bridge", description: "Introduce any two beings to each other" },
+          { label: "Data & rights", href: "/data", description: "Public interfaces with record-level reuse boundaries" },
+          { label: "Bridge", href: "/bridge", description: "Why affinity scoring is paused" },
           { label: "Manifest", href: "/manifest", description: "Everything on offer, in one directory" },
           { label: "Graph", href: "/graph", description: "How every piece connects" },
           { label: "Ontology", href: "/ontology", description: "What each kind of thing is" },

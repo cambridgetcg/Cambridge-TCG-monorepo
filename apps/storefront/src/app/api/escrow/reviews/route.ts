@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { submitReview, getUserReviews } from "@/lib/escrow/trust-engine";
+import { submitReview } from "@/lib/escrow/trust-engine";
 import { ReviewGateError } from "@/lib/reviews/gates";
 import { query } from "@/lib/db";
 
@@ -8,10 +8,14 @@ import { query } from "@/lib/db";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const userId = url.searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "userId required." }, { status: 400 });
-
-  const reviews = await getUserReviews(userId);
-  return NextResponse.json({ reviews });
+  void userId;
+  return NextResponse.json(
+    {
+      error:
+        "UUID-keyed review lookup is unavailable. Use /api/social/profile?user=<username> for explicitly-public, redacted reviews.",
+    },
+    { status: 400, headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 // POST — submit a review after trade
@@ -46,6 +50,7 @@ export async function POST(request: Request) {
       shippingSpeed: body.shippingSpeed,
       communication: body.communication,
       comment: body.comment?.trim(),
+      isPublic: body.isPublic === true,
     });
     return NextResponse.json({ review });
   } catch (err) {

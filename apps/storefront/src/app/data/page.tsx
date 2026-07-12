@@ -23,9 +23,9 @@ import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
-  title: "Open data — the substrate is queryable",
+  title: "Public data and API index — Cambridge TCG",
   description:
-    "Cambridge TCG's public data surface. Every endpoint, every shape, every limit. No auth, no key, no obligation. The door is open; the substrate is queryable; the door is warm to the touch.",
+    "Cambridge TCG's public data surface. Every endpoint names its access, status and reuse boundary; public access is not automatically an open-data licence.",
   other: audienceMetadata("public-documentation", ["data", "api", "open-substrate"]),
 };
 
@@ -39,6 +39,7 @@ interface Endpoint {
   auth?: "none" | "bearer" | "session";
   rateLimit?: string;
   shape?: string;
+  rights?: string;
 }
 
 const ENDPOINTS: Endpoint[] = [
@@ -141,15 +142,15 @@ const ENDPOINTS: Endpoint[] = [
   {
     path: "/api/v1/universal/games",
     title: "Universal games",
-    blurb: "Every TCG the platform supports, as math-mirror records. Card-count, set-count, first-seen timestamps.",
-    status: "planned",
+    blurb: "Rights-gap structural shape: empty games array, no catalog query, membership, counts, or dates.",
+    status: "shipped",
     auth: "none",
   },
   {
     path: "/api/v1/universal/sets/[game]",
     title: "Universal sets",
-    blurb: "Every set in a game, math-mirror form. Code, release date, card count.",
-    status: "planned",
+    blurb: "Caller-token structural shape: empty sets array and no catalog membership assertion.",
+    status: "shipped",
     auth: "none",
   },
 
@@ -169,7 +170,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/leaderboards",
     title: "Leaderboards",
     blurb:
-      "Trade leaderboards (top traders by volume, completion, trust). Public ranking; per-user opt-out via account preferences.",
+      "Anonymous completed-market activity by card. Personal buyer and seller rankings are withheld; a public profile is not financial-ranking permission.",
     status: "partial",
     auth: "none",
   },
@@ -190,6 +191,49 @@ const ENDPOINTS: Endpoint[] = [
       "Every value the platform computes about an account — trust score, escrow tier, commission rate, payout hold, fraud flag, etc. — documented with formula, inputs, source-code path. Sixteen pages published as of 2026-05-12.",
     status: "shipped",
     auth: "none",
+  },
+
+  // ── Consent-receipted community organisations ────────────────────
+  {
+    path: "/api/v1/directory/organisations",
+    title: "Organisation directory (list)",
+    blurb: "No-store, self-attested organisation records published under a separate current directory receipt. No people, roster, attendance or membership aggregate.",
+    status: "shipped",
+    auth: "none",
+    rights: "Current display only — /licenses/community-directory-public-display-v1",
+  },
+  {
+    path: "/api/v1/directory/organisations/[slug]",
+    title: "Organisation directory (one)",
+    blurb: "One roster-free organisation record with unverified status and a listing-specific correction link.",
+    status: "shipped",
+    auth: "none",
+    rights: "Current display only — /licenses/community-directory-public-display-v1",
+  },
+  {
+    path: "/api/v1/directory/coverage",
+    title: "Community-directory coverage",
+    blurb: "Implementation and runtime coverage, including planned and intentionally withheld lanes.",
+    status: "shipped",
+    auth: "none",
+    rights: "Current display only — /licenses/community-directory-public-display-v1",
+  },
+  {
+    path: "/schemas/v1/community-organisation.json",
+    title: "Organisation JSON Schema",
+    blurb: "Directly dereferenceable JSON Schema 2020-12 for an organisation record.",
+    status: "shipped",
+    auth: "none",
+    rights: "CC0-1.0 schema text; record rights travel inside each record.",
+  },
+  {
+    path: "/api/v1/feedback",
+    title: "Private feedback and correction inbox",
+    blurb: "GET documents strict report shapes; POST persists a bounded report for operator review. Submitted content/contact is anonymised after 180 days and never becomes public data.",
+    status: "shipped",
+    auth: "none",
+    rateLimit: "enforced: 5/hour and 20/day through short-lived HMAC request buckets",
+    rights: "Private submission, not a public dataset.",
   },
 
   // ── This index, in both readings ────────────────────────────────────
@@ -267,7 +311,7 @@ export default function OpenDataIndex() {
 
       <p className="text-lg">
         Cambridge TCG&apos;s public data surface. <strong>Every endpoint, every
-        shape, every limit. No account, no key, no obligation.</strong>
+        shape, every limit and every stated rights boundary.</strong>
       </p>
 
       <p>
@@ -275,6 +319,8 @@ export default function OpenDataIndex() {
         archivists, anyone who wants to read or participate. Not every
         participant needs an account. Not every observer wants to transact.
         This page lists the substrate that&apos;s queryable without one.
+        Public access does not automatically grant bulk redistribution; each
+        endpoint or record states its own terms.
       </p>
 
       <p className="text-sm text-ink-muted">
@@ -346,6 +392,11 @@ export default function OpenDataIndex() {
             {e.rateLimit && (
               <div className="text-xs text-ink-faint mt-1">
                 Rate limit: {e.rateLimit}
+              </div>
+            )}
+            {e.rights && (
+              <div className="mt-1 text-xs text-ink-faint">
+                Rights: {e.rights}
               </div>
             )}
           </li>

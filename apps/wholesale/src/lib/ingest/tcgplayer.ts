@@ -65,6 +65,10 @@ import {
 } from "@cambridge-tcg/data-ingest";
 import { fetchGbpUsdRate } from "@/lib/fx";
 import { createFetcher } from "@cambridge-tcg/data-ingest";
+import {
+  requireSourceApproval,
+  type SourceApproval,
+} from "@/lib/source-approval";
 
 const BATCH_SIZE = 100;
 
@@ -121,9 +125,15 @@ export interface TcgplayerPricingResult {
  * The runner / read() doesn't know about RDS — the bearer is supplied via
  * ctx.bearer. We also wire a refresh hook on ctx so 401s mid-run can re-mint.
  */
-export async function ensureTcgplayerToken(opts?: {
+export async function ensureTcgplayerToken(opts: {
   force?: boolean;
+  use_case: "catalog" | "pricing";
+  source_approval?: SourceApproval;
 }): Promise<{ token: string; rotated: boolean }> {
+  // Must precede even a cached-token read: an existing token is not evidence
+  // that this use case remains approved.
+  const sourceApproval =
+    opts.source_approval ?? requireSourceApproval("tcgplayer", opts.use_case);
   if (!opts?.force) {
     const cached = await db
       .select()
@@ -152,7 +162,7 @@ export async function ensureTcgplayerToken(opts?: {
   }
 
   // Use the package's createFetcher for rate-limit + UA on the token mint too.
-  const fetcher = createFetcher({}, tcgplayer.meta);
+  const fetcher = createFetcher({ source_approval: sourceApproval }, tcgplayer.meta);
   const fresh = await mintTcgplayerToken(creds, fetcher);
 
   await db
@@ -181,6 +191,7 @@ export async function ensureTcgplayerToken(opts?: {
 export async function runTcgplayerCatalog(
   options?: TcgplayerCatalogOptions,
 ): Promise<TcgplayerCatalogResult> {
+  const sourceApproval = requireSourceApproval("tcgplayer", "catalog");
   const startMs = Date.now();
   const triggeredBy = options?.triggeredBy ?? "cron";
 
@@ -201,10 +212,14 @@ export async function runTcgplayerCatalog(
   let rowsQuarantined = 0;
 
   try {
-    const { token } = await ensureTcgplayerToken();
+    const { token } = await ensureTcgplayerToken({
+      use_case: "catalog",
+      source_approval: sourceApproval,
+    });
 
     const ctx: TcgplayerContext = {
       bearer: token,
+      source_approval: sourceApproval,
       tcgplayer: {
         mode: "catalog",
         categories: options?.categories,
@@ -218,7 +233,11 @@ export async function runTcgplayerCatalog(
     // request picks it up.
     (ctx as IngestContext & { refresh_token?: () => Promise<string> }).refresh_token =
       async () => {
-        const refreshed = await ensureTcgplayerToken({ force: true });
+        const refreshed = await ensureTcgplayerToken({
+          force: true,
+          use_case: "catalog",
+          source_approval: sourceApproval,
+        });
         ctx.bearer = refreshed.token;
         return refreshed.token;
       };
@@ -400,6 +419,7 @@ async function writeMapping(
 export async function runTcgplayerPricing(
   options?: TcgplayerPricingOptions,
 ): Promise<TcgplayerPricingResult> {
+  const sourceApproval = requireSourceApproval("tcgplayer", "pricing");
   const startMs = Date.now();
   const snapshotDate = options?.date ?? new Date().toISOString().slice(0, 10);
   const triggeredBy = options?.triggeredBy ?? "cron";
@@ -464,10 +484,14 @@ export async function runTcgplayerPricing(
       };
     }
 
-    const { token } = await ensureTcgplayerToken();
+    const { token } = await ensureTcgplayerToken({
+      use_case: "pricing",
+      source_approval: sourceApproval,
+    });
 
     const ctx: TcgplayerContext = {
       bearer: token,
+      source_approval: sourceApproval,
       tcgplayer: {
         mode: "pricing",
         pricing_watchlist: watchlist,
@@ -476,7 +500,11 @@ export async function runTcgplayerPricing(
     };
     (ctx as IngestContext & { refresh_token?: () => Promise<string> }).refresh_token =
       async () => {
-        const refreshed = await ensureTcgplayerToken({ force: true });
+        const refreshed = await ensureTcgplayerToken({
+          force: true,
+          use_case: "pricing",
+          source_approval: sourceApproval,
+        });
         ctx.bearer = refreshed.token;
         return refreshed.token;
       };

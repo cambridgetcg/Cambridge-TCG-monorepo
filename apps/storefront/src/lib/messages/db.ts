@@ -12,6 +12,7 @@
 import { query, transaction } from "@/lib/db";
 import { notify } from "@/lib/notifications/db";
 import { dispatchDmUnreadEmail } from "@/lib/email/handlers/dm-unread";
+import { consumeActionRateLimit } from "@/lib/privacy/action-rate-limit";
 
 export interface DmConversation {
   id: string;
@@ -93,14 +94,29 @@ export async function assertCanMessage(
     return { ok: false, reason: "You can't message yourself.", status: 400 };
   }
 
-  const rcpt = await query(
-    `SELECT id, accepts_messages FROM users WHERE id = $1`,
-    [recipientId],
+  const participants = await query(
+    `SELECT u.id, u.accepts_messages,
+            COALESCE(tp.is_suspended, FALSE) AS is_suspended
+       FROM users u
+       LEFT JOIN trust_profiles tp ON tp.user_id = u.id
+      WHERE u.id IN ($1, $2)`,
+    [senderId, recipientId],
   );
-  if (rcpt.rows.length === 0) {
+  const sender = participants.rows.find((row) => row.id === senderId);
+  const recipient = participants.rows.find((row) => row.id === recipientId);
+  if (!recipient) {
     return { ok: false, reason: "Recipient not found.", status: 404 };
   }
-  if (!rcpt.rows[0].accepts_messages) {
+  // Suspension is an account-wide containment boundary, not just a public
+  // profile filter. Refuse both opening and sending through the shared guard.
+  if (!sender || sender.is_suspended || recipient.is_suspended) {
+    return {
+      ok: false,
+      reason: "Messaging is unavailable for this account.",
+      status: 403,
+    };
+  }
+  if (!recipient.accepts_messages) {
     return {
       ok: false,
       reason: "This user isn't accepting messages.",
@@ -157,6 +173,9 @@ export async function validateReference(
   if (!(REFERENCE_TYPES as readonly string[]).includes(referenceType)) {
     return { ok: false, reason: "Unknown referenceType.", status: 400 };
   }
+  if (!otherUserId) {
+    return { ok: false, reason: "A referenced conversation needs a counterparty.", status: 400 };
+  }
   // All reference ids are UUID PKs — pre-check the shape so a garbage
   // id is a clean 400, not a pg uuid-cast 500.
   if (!UUID_RE.test(referenceId)) {
@@ -167,22 +186,30 @@ export async function validateReference(
   if (referenceType === "market_trade") {
     r = await query(
       `SELECT 1 FROM market_trades
-        WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)`,
-      [referenceId, senderId],
+        WHERE id = $1
+          AND ((buyer_id = $2 AND seller_id = $3)
+            OR (seller_id = $2 AND buyer_id = $3))`,
+      [referenceId, senderId, otherUserId],
     );
   } else if (referenceType === "market_lot") {
     r = await query(
-      `SELECT 1 FROM market_lots WHERE id = $1 AND status = 'active'`,
-      [referenceId],
+      `SELECT 1 FROM market_lots
+        WHERE id = $1 AND status = 'active' AND seller_user_id = $2`,
+      [referenceId, otherUserId],
     );
   } else if (referenceType === "offer") {
     r = await query(
       `SELECT 1 FROM market_offers
-        WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)`,
-      [referenceId, senderId],
+        WHERE id = $1
+          AND ((buyer_id = $2 AND seller_id = $3)
+            OR (seller_id = $2 AND buyer_id = $3))`,
+      [referenceId, senderId, otherUserId],
     );
   } else if (referenceType === "auction") {
-    r = await query(`SELECT 1 FROM auctions WHERE id = $1`, [referenceId]);
+    r = await query(
+      `SELECT 1 FROM auctions WHERE id = $1 AND seller_user_id = $2`,
+      [referenceId, otherUserId],
+    );
   } else {
     // market_order — an OPEN listing may be cited by EITHER participant in
     // the conversation, mirroring the market_trade / offer checks above
@@ -194,8 +221,8 @@ export async function validateReference(
       `SELECT 1 FROM market_orders
         WHERE id = $1
           AND status IN ('open', 'partially_filled')
-          AND user_id = ANY($2)`,
-      [referenceId, [senderId, otherUserId].filter(Boolean)],
+          AND user_id = $2`,
+      [referenceId, otherUserId],
     );
   }
   if (r.rows.length === 0) {
@@ -231,21 +258,6 @@ export async function sendMessage(input: {
     return { ok: false, reason: `Message body must be ≤ ${MAX_BODY_LEN} chars.`, status: 400 };
   }
 
-  // Rate limit (per-sender, simple time-window count)
-  const recent = await query(
-    `SELECT
-       COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '1 minute')::int AS minute_count,
-       COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours')::int AS day_count
-       FROM dm_messages WHERE sender_id = $1`,
-    [input.senderId],
-  );
-  if (recent.rows[0].minute_count >= RATE_LIMIT_PER_MINUTE) {
-    return { ok: false, reason: "Too many messages — slow down.", status: 429 };
-  }
-  if (recent.rows[0].day_count >= RATE_LIMIT_PER_DAY) {
-    return { ok: false, reason: `Daily message cap of ${RATE_LIMIT_PER_DAY} reached.`, status: 429 };
-  }
-
   // Self / recipient-exists / accepts_messages / block gate — shared
   // with openConversation so both inbox-entry paths refuse identically.
   const guard = await assertCanMessage(input.senderId, input.recipientId);
@@ -257,6 +269,38 @@ export async function sendMessage(input: {
     input.senderId, input.referenceType, input.referenceId, input.recipientId,
   );
   if (!ref.ok) return ref;
+
+  // Consume both limits atomically in the privacy bucket table. The earlier
+  // count-then-insert check let parallel requests all observe the same count
+  // and then fan out messages, notifications and email together. A failed
+  // message insert may consume one attempt; safety is preferable to a bypass.
+  const rate = await consumeActionRateLimit({
+    action: "dm-send",
+    subject: `user:${input.senderId}`,
+    windows: [
+      { name: "minute", seconds: 60, limit: RATE_LIMIT_PER_MINUTE },
+      { name: "day", seconds: 86_400, limit: RATE_LIMIT_PER_DAY },
+    ],
+  });
+  if (!rate.ok) {
+    return {
+      ok: false,
+      reason: "Messaging is temporarily unavailable because its abuse control is unavailable.",
+      status: 503,
+    };
+  }
+  if (!rate.allowed) {
+    const dayBlocked = rate.windows.some(
+      (window) => window.name === "day" && window.used > window.limit,
+    );
+    return {
+      ok: false,
+      reason: dayBlocked
+        ? `Daily message cap of ${RATE_LIMIT_PER_DAY} reached.`
+        : "Too many messages — slow down.",
+      status: 429,
+    };
+  }
 
   const [aId, bId] = sortPair(input.senderId, input.recipientId);
 
@@ -549,7 +593,8 @@ export async function unreadConversationCount(userId: string): Promise<number> {
 // opted-out recipient is refused BEFORE the initiator composes anything
 // — the honest error surfaces at the button, not after typing. Opening
 // an already-existing thread is never rate-limited; only genuine
-// creation counts against THREAD_OPENS_PER_HOUR.
+// creation attempts consume THREAD_OPENS_PER_HOUR. A same-pair concurrent
+// race can conservatively consume an extra attempt, but cannot exceed the cap.
 
 export async function openConversation(
   initiatorId: string, otherUserId: string,
@@ -566,12 +611,21 @@ export async function openConversation(
     return { ok: true, value: existing.rows[0] as DmConversation };
   }
 
-  const opens = await query(
-    `SELECT COUNT(*)::int AS n FROM dm_conversations
-      WHERE created_by = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
-    [initiatorId],
-  );
-  if (opens.rows[0].n >= THREAD_OPENS_PER_HOUR) {
+  const opens = await consumeActionRateLimit({
+    action: "dm-thread-open",
+    subject: `user:${initiatorId}`,
+    windows: [
+      { name: "hour", seconds: 3_600, limit: THREAD_OPENS_PER_HOUR },
+    ],
+  });
+  if (!opens.ok) {
+    return {
+      ok: false,
+      reason: "Opening a conversation is temporarily unavailable because its abuse control is unavailable.",
+      status: 503,
+    };
+  }
+  if (!opens.allowed) {
     return {
       ok: false,
       reason: `You can open at most ${THREAD_OPENS_PER_HOUR} new conversations per hour.`,

@@ -81,6 +81,77 @@ export type CanonicalEffort = "low" | "medium" | "high" | "very-high";
 export type SourceStatus = "shipped" | "partial" | "planned" | "blocked";
 
 /**
+ * The reviewed downstream-redistribution conclusion for one source.
+ * This is deliberately independent of the licence on any client code:
+ * MIT software can still return publisher-owned data and images.
+ */
+export type RedistributionVerdict =
+  | "permitted"
+  | "conditional"
+  | "contract-required"
+  | "prohibited"
+  | "unknown";
+
+/**
+ * What Cambridge TCG does when no more specific written permission exists.
+ * `contract-only` means an executed provider agreement controls the use;
+ * credentials alone are not evidence of redistribution rights.
+ */
+export type SourceRightsSafeDefault =
+  | "redistribute"
+  | "display-with-terms"
+  | "contract-only"
+  | "internal-only"
+  | "no-fetch";
+
+/** A licence claim about code supplied by, or used to call, the source. */
+export interface SourceCodeRights {
+  /** SPDX id when substantiated; `unknown` / `proprietary` otherwise. */
+  license: string;
+  /** Why this code licence does or does not apply to the returned content. */
+  notes: string;
+}
+
+/** Terms governing facts, text, prices, listings, and other non-image data. */
+export interface SourceDataRights {
+  /** Plain-language classification of the governing terms. */
+  terms: string;
+  notes: string;
+}
+
+/** Terms governing card art, scans, listing photos, logos, and other images. */
+export interface SourceImageRights {
+  /** Plain-language classification of the governing terms. */
+  terms: string;
+  notes: string;
+}
+
+/** The reviewed answer to "may a downstream caller republish the raw bytes?" */
+export interface SourceRedistributionRights {
+  verdict: RedistributionVerdict;
+  notes: string;
+}
+
+/**
+ * Layered source-rights record. Every source must carry one and the
+ * tributaries audit verifies its shape, review date, evidence, and
+ * fail-closed relationship to the legacy `redistribute` projection.
+ */
+export interface SourceRights {
+  code: SourceCodeRights;
+  data: SourceDataRights;
+  images: SourceImageRights;
+  redistribution: SourceRedistributionRights;
+  safe_default: SourceRightsSafeDefault;
+  /** ISO calendar date (`YYYY-MM-DD`) of the last human/agent review. */
+  reviewed_at: string;
+  /** First-party provider, publisher, or official documentation URLs. */
+  evidence_urls: readonly string[];
+  /** Cross-layer caveats and the next review trigger. */
+  notes: string;
+}
+
+/**
  * Per-source identity declaration. Every `SourceModule` carries one.
  * Every field is required — `pnpm audit:tributaries` rejects modules
  * with missing meta.
@@ -98,12 +169,20 @@ export interface SourceMeta {
   catalog_section: string;
   /** Access method category. */
   access: AccessMethod;
-  /** Redistribution license tier. */
+  /**
+   * Legacy coarse tier used by `_meta.source_license`. It is a conservative
+   * projection of `rights`, not a claim about API client code.
+   */
   license: LicenseTier;
-  /** SPDX code when applicable (e.g. "CC-BY-NC-4.0", "MIT"). */
+  /** SPDX code when the legacy tier itself maps to an SPDX licence. */
   license_spdx?: string;
-  /** Whether we may redistribute upstream-derived data verbatim. */
+  /**
+   * Legacy coarse verdict. `true` is valid only when
+   * `rights.redistribution.verdict === "permitted"`.
+   */
   redistribute: boolean;
+  /** Layered, evidence-backed source-rights review. Required. */
+  rights: SourceRights;
   /** Freshness budget key from `@cambridge-tcg/data-spec` FRESHNESS. */
   freshness: FreshnessKey;
   /** Canonical-form mapping effort estimate. */
@@ -191,6 +270,17 @@ export interface IngestContext {
   bearer?: string;
   /** Optional app token for sources that ask for one. */
   app_token?: string;
+  /**
+   * Explicit evidence that an application-specific contract authorises the
+   * requested source use. Required by `createFetcher` when SourceMeta's safe
+   * default is `contract-only`. Credentials alone are never evidence.
+   */
+  source_approval?: {
+    source_id: SourceId;
+    agreement_reference: string;
+    reviewed_at: string;
+    approved_use_cases: readonly string[];
+  };
   /** Optional signal for cancellation. */
   signal?: AbortSignal;
   /** Optional hook called whenever the source emits a lifecycle event. */

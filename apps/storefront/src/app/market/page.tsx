@@ -35,7 +35,11 @@ import {
   type CatalogSource,
   type SetsResult,
 } from "@/components/market/catalog";
-import type { GameItem } from "@/lib/wholesale/client";
+
+interface MarketGame {
+  code: string;
+  slug: string;
+}
 
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
@@ -141,7 +145,8 @@ async function loadCards(query: CatalogQuery): Promise<CatalogResult> {
     return {
       ok: true,
       cards: body.cards ?? [],
-      total: body.total ?? 0,
+      returnedCount: body.returned_count ?? 0,
+      hasMore: body.has_more === true,
       source: (body.source as CatalogSource) ?? "unavailable",
     };
   } catch (err) {
@@ -157,12 +162,12 @@ async function loadCards(query: CatalogQuery): Promise<CatalogResult> {
 /** Games with live catalog coverage, from the same route's view=games.
  *  Optional enrichment: a failure hides the switcher rather than
  *  blocking the browse. */
-async function loadGames(): Promise<GameItem[]> {
+async function loadGames(): Promise<MarketGame[]> {
   try {
     const res = await catalogGET(new Request(`${INTERNAL_BASE}?view=games`));
     if (!res.ok) return [];
     const body = await res.json();
-    return (body.games as GameItem[]) ?? [];
+    return (body.games as MarketGame[]) ?? [];
   } catch (err) {
     console.error("[market] server games load failed", err);
     return [];
@@ -217,7 +222,7 @@ async function CatalogSection({ query }: { query: CatalogQuery }) {
                   : "bg-surface border border-border-subtle text-ink-muted hover:text-ink"
               }`}
             >
-              {g.name}
+              {g.slug}
             </Link>
           ))}
         </nav>

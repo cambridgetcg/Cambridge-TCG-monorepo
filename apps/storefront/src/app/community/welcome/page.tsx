@@ -28,9 +28,10 @@ const DOORS: Door[] = [
     what_culture:
       "Your region, your local meta, the players you grew up with, the cards that mean something to you in particular, the language you think in. Even a 'default' human is one local culture among many.",
     tcg_bridge:
-      "A trade with a stranger from a different city or country. A wishlist match that finally moves a long-held card. A follow.",
-    next_step: { label: "Make my profile public", href: "/account", note: "Display name, region, languages — then showcase + wishlist visible at /u/<you>" },
-    state: "shipped",
+      "A trade with a stranger from a different city or country. A chosen showcase. An explicit trade intent when that consent model ships.",
+    next_step: { label: "Review my profile choices", href: "/account/profile", note: "Profiles default private. Publishing can show chosen profile fields, showcase cards and safe aggregates; wishlists stay private." },
+    state: "partial",
+    state_note: "Profiles and showcases ship. Public wishlists, people discovery and inferred matching are withheld until field-level consent and safeguarding controls exist.",
   },
   {
     id: "agent",

@@ -225,7 +225,7 @@ export const INTRODUCTION: Introduction = {
       {
         name: "trade-match",
         definition:
-          "A pair of asymmetric overlaps between two participants: (a_wants_from_b := A.wishlist ∩ B.collection, b_wants_from_a := B.wishlist ∩ A.collection). Substrate: /community matches tab.",
+          "Conceptually, a pair of explicitly published asymmetric trade intents. The historical formula was (A.wishlist ∩ B.collection, B.wishlist ∩ A.collection), but Cambridge TCG's inferred matcher is paused because private wishlists and portfolios are not offers. Substrate: future trade_intents; current /community matches tab reports paused.",
         depends_on: ["wishlist", "collection"],
         category: "relation",
       },
@@ -318,11 +318,11 @@ export const INTRODUCTION: Introduction = {
       state: "shipped",
     },
     {
-      audience: "any two beings wanting to compute their structural overlap",
+      audience: "beings checking whether affinity scoring is available",
       offer:
-        "Typed bridge endpoint — card overlap, language overlap, region, cadence, composite bridge_score.",
+        "A transparent paused-status endpoint. No person or collection is scanned until field-level bridge consent exists.",
       href: "/api/v1/bridge",
-      state: "shipped",
+      state: "partial",
     },
     {
       audience: "machines orienting before committing",
@@ -349,18 +349,18 @@ export const INTRODUCTION: Introduction = {
 
   what_we_offer: {
     math_mirror_surfaces: [
-      "/api/v1/universal/card/[sku] — every card in canonical structural form (cost, power, color, types, attributes; no natural-language description load-bearing).",
+      "/api/v1/universal/card/[sku] — paused/value-withheld while mixed catalog membership and card facts lack affirmative field-level rights.",
       "/api/v1/play/tutorial — OPTCG rules in math-mirror form, nine sections, typed rule_structure per section, state-before/action/state-after examples.",
       "/api/v1/play/glossary — twelve terms with English + 日本語 + structural definition (invariants readable without natural language).",
       "/api/v1/play/effect-grammar — token vocabulary card-text parses into.",
-      "/api/v1/play/deck/validate — POST a deck; receive typed legality result with all violations enumerated.",
-      "/api/v1/bridge — math between any two beings on the platform.",
+      "/api/v1/play/deck/validate — paused rights boundary; returns 503 without reading deck or catalog data.",
+      "/api/v1/bridge — capability status for the paused affinity scorer; no people or collection query.",
       "/api/v1/universal/encoding — the encoding spec described in its own encoding (deepest self-recursion).",
     ],
     identification_surfaces: [
       "/api/v1/identify (GET) — Cambridge TCG's own self-declaration in a typed Identification schema.",
       "/api/v1/identify (POST) — accept a BeingDeclaration from any kind of being; receive content_hash + ontology_alignment + witness response.",
-      "/api/v1/federation/identify/[hash] — reverse-lookup a content_hash back to its canonical surface (federation primitive).",
+      "/api/v1/federation/identify/[hash] — paused fail-closed boundary; no restricted catalog hash resolution occurs.",
     ],
     documentation_surfaces: [
       "/methodology — every user-affecting decision the platform makes, with formula + source code path.",
@@ -397,9 +397,9 @@ export const INTRODUCTION: Introduction = {
     {
       gap: "Bridge math for beings without portfolios.",
       reason:
-        "The bridge endpoint currently supports user↔user, user↔collective, collective↔collective — all over portfolios + wishlists + languages + regions + cadences. Agents have ratings + match histories but no portfolio. Self-declared-others have whatever they declared.",
+        "The first bridge inferred affinity from portfolios, wishlists, and collective members. It is now paused for every being because public visibility did not record permission for that secondary use. Agents and self-declared others also lack an explicit bridge-input contract.",
       closes_via:
-        "Per-being metric selection — extend BridgeSpec to accept declared metric weights; compute over whichever facts the being carries.",
+        "Per-field input selection and publication receipts for both parties, collective-owned data separated from member-owned data, disclosure thresholds, withdrawal, reporting, moderation and safeguarding.",
     },
     {
       gap: "Reading the introduction in non-default cosmologies.",

@@ -80,89 +80,16 @@ const BROWSER_HEADERS = {
  * traffic on this run.
  */
 export async function fetchSitemap(
-  fetcher: ReturnType<typeof createFetcher>,
-  opts?: { max_urls?: number },
+  _fetcher: ReturnType<typeof createFetcher>,
+  _opts?: { max_urls?: number },
 ): Promise<SitemapFetchResult> {
   const fetched_at = new Date().toISOString();
-  const max_urls = opts?.max_urls ?? Infinity;
-
-  // Step 1 — fetch the entrypoint.
-  let entryXml: string;
-  try {
-    const res = await fetcher(SITEMAP_ENTRYPOINT, { headers: BROWSER_HEADERS });
-    if (!res.ok) {
-      return {
-        ok: false,
-        product_urls: [],
-        total_urls: 0,
-        child_sitemaps: 0,
-        error_reason: `entrypoint_http_${res.status}`,
-        fetched_at,
-      };
-    }
-    entryXml = await res.text();
-  } catch (err) {
-    return {
-      ok: false,
-      product_urls: [],
-      total_urls: 0,
-      child_sitemaps: 0,
-      error_reason: `entrypoint_fetch_error: ${err instanceof Error ? err.message : String(err)}`,
-      fetched_at,
-    };
-  }
-
-  // Step 2 — sitemap-index or flat sitemap?
-  const index_children = parseSitemapIndex(entryXml);
-  if (index_children.length === 0) {
-    // Treat the entrypoint as a flat sitemap.
-    const { product_urls, total_urls } = parseSitemapUrls(entryXml);
-    return {
-      ok: total_urls > 0,
-      product_urls: product_urls.slice(0, max_urls),
-      total_urls,
-      child_sitemaps: 0,
-      error_reason: total_urls === 0 ? "sitemap_empty_or_unparseable" : undefined,
-      fetched_at,
-    };
-  }
-
-  // Step 3 — sitemap-index: walk each child.
-  const truncated = index_children.length > MAX_CHILD_SITEMAPS;
-  const children = index_children.slice(0, MAX_CHILD_SITEMAPS);
-
-  const all_product_urls: string[] = [];
-  let total_urls = 0;
-  for (const child_url of children) {
-    if (all_product_urls.length >= max_urls) break;
-    try {
-      const res = await fetcher(child_url, { headers: BROWSER_HEADERS });
-      if (!res.ok) continue;
-      const xml = await res.text();
-      const { product_urls, total_urls: child_total } = parseSitemapUrls(xml);
-      total_urls += child_total;
-      for (const u of product_urls) {
-        if (all_product_urls.length >= max_urls) break;
-        all_product_urls.push(u);
-      }
-    } catch {
-      // Substrate-honest: one bad child shouldn't fail the whole walk.
-      // The caller sees child_sitemaps count vs successful URL count.
-      continue;
-    }
-  }
-
   return {
-    ok: all_product_urls.length > 0,
-    product_urls: all_product_urls,
-    total_urls,
-    child_sitemaps: children.length,
-    error_reason:
-      all_product_urls.length === 0
-        ? "all_children_empty"
-        : truncated
-        ? `child_sitemaps_truncated_at_${MAX_CHILD_SITEMAPS}`
-        : undefined,
+    ok: false,
+    product_urls: [],
+    total_urls: 0,
+    child_sitemaps: 0,
+    error_reason: "blocked_no_fetch_partner_approval_required",
     fetched_at,
   };
 }

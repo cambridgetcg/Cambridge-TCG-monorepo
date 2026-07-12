@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { query, transaction } from "@/lib/db";
 import type { MarketOrder, MarketTrade, OrderBookEntry, OrderBookSummary, CardOrderBook } from "./types";
 import { COMMISSION_RATE, commissionRateForScore } from "./types";
@@ -643,15 +644,18 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
     [sku]
   );
 
-  // Recent trades — include seller's username so the detail page can link
-  // trades back to the seller profile for reputation surfacing.
+  // Public tape: completed market facts only. Never select t.* here. This
+  // function feeds unauthenticated routes, so participant ids, payment and
+  // shipping references, dispute/admin text, payouts and workflow timestamps
+  // must be impossible to return by construction.
   const tradesResult = await query(
-    `SELECT t.*, bu.name as buyer_name, su.name as seller_name,
-            su.username as seller_username
-     FROM market_trades t
-     LEFT JOIN users bu ON t.buyer_id = bu.id
-     LEFT JOIN users su ON t.seller_id = su.id
-     WHERE t.sku = $1 ORDER BY t.created_at DESC LIMIT 20`,
+    `SELECT t.id, t.price, t.quantity,
+            COALESCE(t.completed_at, t.created_at) AS traded_at
+       FROM market_trades t
+      WHERE t.sku = $1
+        AND t.escrow_status = 'completed'
+      ORDER BY COALESCE(t.completed_at, t.created_at) DESC
+      LIMIT 20`,
     [sku]
   );
 
@@ -667,14 +671,15 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
     order_count: parseInt(r.order_count, 10),
   })) as OrderBookEntry[];
 
-  // Strip the buyer's shipping address — it rides along via t.* (migration
-  // 0105) but recent trades render on the public card page, and the address
-  // is for the trade's own participants only.
-  const recentTrades = (tradesResult.rows as MarketTrade[]).map((t) => {
-    const { shipping_address: _omit, ...rest } = t;
-    void _omit;
-    return rest as MarketTrade;
-  });
+  const recentTrades = tradesResult.rows.map((row) => ({
+    public_ref: createHash("sha256")
+      .update(`cambridge-tcg:public-market-trade:v1:${String(row.id)}`)
+      .digest("hex")
+      .slice(0, 20),
+    price: String(row.price),
+    quantity: Number(row.quantity),
+    traded_at: new Date(row.traded_at).toISOString(),
+  }));
 
   return {
     sku,
@@ -695,96 +700,8 @@ export async function getMarketSummaries(filters: {
   limit?: number;
   offset?: number;
 }): Promise<{ cards: OrderBookSummary[]; total: number }> {
-  await sweepExpiredBestEffort();
-  const limit = filters.limit || 24;
-  const offset = filters.offset || 0;
-
-  let whereClause = "WHERE o.status IN ('open', 'partially_filled')";
-  const params: unknown[] = [];
-
-  if (filters.search) {
-    params.push(`%${filters.search}%`);
-    whereClause += ` AND (o.card_name ILIKE $${params.length} OR o.sku ILIKE $${params.length})`;
-  }
-
-  const countResult = await query(
-    `SELECT COUNT(DISTINCT o.sku) FROM market_orders o ${whereClause}`,
-    params
-  );
-  const total = parseInt(countResult.rows[0].count, 10);
-
-  params.push(limit, offset);
-  const result = await query(
-    `SELECT
-       o.sku,
-       MAX(o.card_name) as card_name,
-       MAX(o.set_code) as set_code,
-       MAX(o.set_name) as set_name,
-       MAX(o.image_url) as image_url,
-       MAX(CASE WHEN o.side = 'bid' THEN o.price END) as best_bid,
-       MIN(CASE WHEN o.side = 'ask' THEN o.price END) as best_ask,
-       SUM(CASE WHEN o.side = 'bid' THEN o.quantity - o.filled_quantity ELSE 0 END) as bid_depth,
-       SUM(CASE WHEN o.side = 'ask' THEN o.quantity - o.filled_quantity ELSE 0 END) as ask_depth
-     FROM market_orders o
-     ${whereClause}
-     GROUP BY o.sku
-     ORDER BY (SUM(o.quantity - o.filled_quantity)) DESC
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
-    params
-  );
-
-  // Resolve last-trade-price + 24h trade count for the page in a single
-  // round trip rather than 2 queries per row. Uses DISTINCT ON for last
-  // trade and a filtered COUNT for the rolling window.
-  const skus = result.rows.map((r) => r.sku);
-  const tradeStats = skus.length === 0
-    ? new Map<string, { lastPrice: string | null; count24h: number }>()
-    : await (async () => {
-        const r = await query(
-          `SELECT sku,
-                  MAX(price) FILTER (WHERE rn = 1)             AS last_price,
-                  -- audit:cadence-platform — analytics window for price-chart, not a user deadline.
-                  COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') AS count_24h
-             FROM (
-               SELECT sku, price, created_at,
-                      ROW_NUMBER() OVER (PARTITION BY sku ORDER BY created_at DESC) AS rn
-                 FROM market_trades
-                WHERE sku = ANY($1)
-             ) t
-            GROUP BY sku`,
-          [skus]
-        );
-        const m = new Map<string, { lastPrice: string | null; count24h: number }>();
-        for (const row of r.rows) {
-          m.set(row.sku, {
-            lastPrice: row.last_price,
-            count24h: parseInt(row.count_24h, 10),
-          });
-        }
-        return m;
-      })();
-
-  const cards: OrderBookSummary[] = result.rows.map((row) => {
-    const bestBid = row.best_bid ? parseFloat(row.best_bid) : null;
-    const bestAsk = row.best_ask ? parseFloat(row.best_ask) : null;
-    const stats = tradeStats.get(row.sku);
-    return {
-      sku: row.sku,
-      card_name: row.card_name,
-      set_code: row.set_code,
-      set_name: row.set_name,
-      image_url: row.image_url,
-      best_bid: row.best_bid,
-      best_ask: row.best_ask,
-      spread: bestBid && bestAsk ? bestAsk - bestBid : null,
-      bid_depth: parseInt(row.bid_depth, 10),
-      ask_depth: parseInt(row.ask_depth, 10),
-      last_trade_price: stats?.lastPrice ?? null,
-      trade_count_24h: stats?.count24h ?? 0,
-    };
-  });
-
-  return { cards, total };
+  void filters;
+  return { cards: [], total: 0 };
 }
 
 // ── User's orders ──

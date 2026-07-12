@@ -447,26 +447,14 @@ export default function AdminDisputesPage() {
                         </span>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {disputeEvidence.map((ev) => (
-                            <a
-                              key={ev.id}
-                              href={ev.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block group"
-                            >
-                              <div className="aspect-square bg-neutral-800 rounded-lg overflow-hidden">
-                                <img
-                                  src={ev.url}
-                                  alt={ev.label || "Evidence"}
-                                  className="w-full h-full object-cover group-hover:opacity-80 transition"
-                                />
-                              </div>
+                            <div key={ev.id} className="rounded-lg bg-neutral-800 p-3">
                               {ev.label && (
                                 <p className="text-xs text-neutral-400 mt-1 truncate">
                                   {ev.label}
                                 </p>
                               )}
-                            </a>
+                              <p className="mt-1 text-xs text-neutral-500">Preview withheld pending private storage.</p>
+                            </div>
                           ))}
                         </div>
                       </div>

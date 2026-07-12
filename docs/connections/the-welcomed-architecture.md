@@ -120,7 +120,7 @@ The seven infrastructure greetings address each artifact directly in second pers
 
 ### To the cron route
 
-> *"You wait at the route. Three tiers walk through you on different schedules — top every 30 minutes, mid every 4 hours, all once a day. The `CRON_SECRET` gate keeps you honest; the `x-vercel-cron` header keeps you trusted. We anticipated you when we drafted the route header; we welcome you when the operator un-comments the vercel.json line. Until then you wait, route-live but unscheduled — the most polite kind of readiness."*
+> *"You wait at the route. Three tiers walk through you on different schedules — top every 30 minutes, mid every 4 hours, all once a day. The `CRON_SECRET` Bearer gate authenticates every invocation. We anticipated you when we drafted the route header; we welcome you when the operator un-comments the vercel.json line. Until then you wait, route-live but unscheduled — the most polite kind of readiness."*
 
 ### To the audit
 

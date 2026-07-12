@@ -295,7 +295,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "catalog.search",
     category: "catalog",
     description:
-      "Search the card catalog. Free-text query against name, set, and number. Returns canonical SKUs + display fields.",
+      "Paused rights boundary. Authentication is not source permission; the tool performs no catalog query and returns no matches or display fields.",
     input_schema: {
       type: "object",
       properties: {
@@ -305,10 +305,10 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     example_input: { q: "monkey d luffy", limit: 5 },
     example_output_shape: {
-      results: [
-        { sku: "op-op01-001-ja", name: "Monkey.D.Luffy", set: "OP01", number: "001" },
-      ],
-      total: 12,
+      error: { code: "CATALOG_SEARCH_PAUSED" },
+      queried: false,
+      catalog_membership_asserted: false,
+      results: [],
     },
     gating: "bearer-key",
     freshness: "live",
@@ -347,7 +347,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "prices.recent",
     category: "prices",
     description:
-      "Recent retail-price observations for a canonical SKU. For the math-mirror universal form, use /api/v1/universal/card/{sku} (public, no-auth).",
+      "Paused rights boundary. Authentication is not source permission; the tool performs no imported price-history query. Use thresholded first-party sold comps where suitable.",
     input_schema: {
       type: "object",
       properties: {
@@ -358,10 +358,10 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     example_input: { sku: "op-op01-001-ja", days: 30 },
     example_output_shape: {
-      sku: "op-op01-001-ja",
-      observations: [
-        { date: "2026-05-17", source: "tcgrepublic", price_gbp: 4.20, license_tier: "internal-only" },
-      ],
+      error: { code: "IMPORTED_PRICE_HISTORY_PAUSED" },
+      queried: false,
+      observations: [],
+      alternative: "/api/v1/sold-comps",
     },
     gating: "bearer-key",
     freshness: "live",

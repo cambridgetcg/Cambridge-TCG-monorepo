@@ -33,7 +33,6 @@ interface AskListing {
   return_window_days: number;
   created_at: string;
   seller: {
-    id: string;
     username: string | null;
     trust_score: number | null;
     tier: string | null;
@@ -142,7 +141,6 @@ export function ListingsPanel({
               <span className="ml-auto flex items-center gap-2">
                 {loggedIn && (
                   <MessageButton
-                    otherUserId={ask.seller.id}
                     referenceType="market_order"
                     referenceId={ask.id}
                     label="Message"

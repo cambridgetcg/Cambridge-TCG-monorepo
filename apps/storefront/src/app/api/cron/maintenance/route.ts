@@ -25,6 +25,7 @@ import { runTrustScoreRecompute } from "@/lib/escrow/trust-recompute";
 import { runDisputeSlaSweep } from "@/lib/trust/dispute-sla-sweep";
 import { runTradeCompletionSweep } from "@/lib/market/completion";
 import { runSwapExpirySweep } from "@/lib/swaps/db";
+import { runFeedbackRetentionSweep } from "@/lib/feedback/retention";
 import { runFraudSweep } from "@/lib/fraud/sweep";
 import { runReviewPatternSweep } from "@/lib/reviews/sweep";
 import { runExternalRepDecaySweep } from "@/lib/external-rep/sweep";
@@ -189,9 +190,13 @@ export async function GET(request: Request) {
     // Swap proposals past their own expires_at flip to 'expired'.
     // Appended at the end to keep the positional destructuring aligned.
     runSwapExpirySweep(),
+    // Privacy retention: clear feedback content/contact, detach directory-log
+    // actor ids after their deadline, and delete expired HMAC action-rate
+    // buckets. Bounded and idempotent; runs every minute.
+    runFeedbackRetentionSweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, feedbackRetentionSweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -373,6 +378,10 @@ export async function GET(request: Request) {
     swapExpirySweep:
       swapExpirySweep.status === "fulfilled"
         ? { status: "fulfilled", ...swapExpirySweep.value }
+        : { status: "rejected" },
+    feedbackRetentionSweep:
+      feedbackRetentionSweep.status === "fulfilled"
+        ? { status: "fulfilled", ...feedbackRetentionSweep.value }
         : { status: "rejected" },
     durationMs: Date.now() - start,
   };
@@ -565,6 +574,32 @@ export async function GET(request: Request) {
   if (swapExpirySweep.status === "rejected") console.error("[cron] swap expiry sweep failed:", swapExpirySweep.reason);
   else if (swapExpirySweep.value.expired > 0) {
     console.log(`[cron] swap expiry: ${swapExpirySweep.value.expired} proposals expired`);
+  }
+  if (feedbackRetentionSweep.status === "rejected") {
+    console.error("[cron] feedback retention sweep failed", {
+      error_name:
+        feedbackRetentionSweep.reason instanceof Error
+          ? feedbackRetentionSweep.reason.name
+          : "UnknownError",
+    });
+  } else if (
+    feedbackRetentionSweep.value.redacted > 0 ||
+    feedbackRetentionSweep.value.directoryActorsRedacted > 0 ||
+    feedbackRetentionSweep.value.feedbackLifecycleRowsDeleted > 0 ||
+    feedbackRetentionSweep.value.directoryReceiptsDeleted > 0 ||
+    feedbackRetentionSweep.value.rateBucketsDeleted > 0 ||
+    feedbackRetentionSweep.value.legacyAgentIpBucketsDeleted > 0 ||
+    feedbackRetentionSweep.value.legacyUnsubscribeMetadataCleared > 0
+  ) {
+    console.log(
+      `[cron] privacy retention: ${feedbackRetentionSweep.value.redacted} report(s) redacted, ` +
+      `${feedbackRetentionSweep.value.directoryActorsRedacted} directory actor(s) detached, ` +
+      `${feedbackRetentionSweep.value.feedbackLifecycleRowsDeleted} feedback lifecycle row(s) deleted, ` +
+      `${feedbackRetentionSweep.value.directoryReceiptsDeleted} directory receipt(s) deleted, ` +
+      `${feedbackRetentionSweep.value.rateBucketsDeleted} expired rate bucket(s) deleted, ` +
+      `${feedbackRetentionSweep.value.legacyAgentIpBucketsDeleted} legacy agent IP bucket(s) deleted, ` +
+      `${feedbackRetentionSweep.value.legacyUnsubscribeMetadataCleared} unsubscribe metadata row(s) cleared`,
+    );
   }
   // Touch unused destructure to satisfy noUnusedLocals if enabled.
 

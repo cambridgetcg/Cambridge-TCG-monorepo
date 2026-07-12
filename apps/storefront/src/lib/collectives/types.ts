@@ -32,6 +32,9 @@ export type CollectiveMemberRole = "steward" | "admin" | "member";
 /** Per-member visibility. */
 export type CollectiveMemberVisibility = "public" | "private";
 
+/** Notice recorded when a steward opts into bulk/API directory publication. */
+export const DIRECTORY_NOTICE_VERSION = "community-directory-v1-2026-07-11";
+
 export interface Collective {
   id: string;
   slug: string;
@@ -39,8 +42,16 @@ export interface Collective {
   kind: CollectiveKind;
   region: string | null;
   languages: string[];
+  games: string[];
   description: string | null;
   house_rules: string | null;
+  website_url: string | null;
+  public_contact_url: string | null;
+  accessibility_notes: string | null;
+  directory_listed: boolean;
+  directory_listed_at: string | null;
+  directory_notice_version: string | null;
+  directory_authority_attested_at: string | null;
   steward_user_id: string;
   is_public: boolean;
   created_at: string;
@@ -73,6 +84,34 @@ export interface UserCollectiveRow {
   role: CollectiveMemberRole;
   consent_at: string | null;
   invited_at: string;
+}
+
+/** Exact public-directory allowlist. Adding a field to Collective never adds
+ * it here automatically. */
+export interface PublicCollective {
+  slug: string;
+  display_name: string;
+  kind: CollectiveKind;
+  region: string | null;
+  languages: string[];
+  games: string[];
+  description: string | null;
+  website_url: string | null;
+  public_contact_url: string | null;
+  accessibility_notes: string | null;
+  is_public: true;
+  verification_status: "self_attested_unverified";
+  listed_at: string;
+  created_at: string;
+  updated_at: string;
+  profile_url: string;
+  correction_url: string;
+  rights: {
+    license: "LicenseRef-CambridgeTCG-Public-Display-Only";
+    terms_url: "/licenses/community-directory-public-display-v1";
+    caching: "no-store";
+    scope: "current-display-only";
+  };
 }
 
 // ── Slug validation ──────────────────────────────────────────────────────

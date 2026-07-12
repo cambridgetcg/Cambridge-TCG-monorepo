@@ -44,7 +44,8 @@ export default function LeaderboardsPage() {
           <div>
             <h1 className="text-2xl font-display font-semibold text-ink">Leaderboards</h1>
             <p className="text-sm text-ink-muted mt-1">
-              The most active sellers, buyers, and markets on Cambridge TCG.
+              Completed, anonymous market activity. Personal buyer and seller
+              rankings are withheld.
             </p>
           </div>
           <div className="flex gap-1 bg-surface rounded-lg p-1">
@@ -68,7 +69,11 @@ export default function LeaderboardsPage() {
           <p className="text-sm text-danger mt-8">Failed to load.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <Board title="Top sellers" empty={data.topSellers.length === 0}>
+            <Board
+              title="Top sellers"
+              empty={data.topSellers.length === 0}
+              emptyMessage="Withheld: a public profile is not permission to publish a financial ranking."
+            >
               {data.topSellers.map((s, i) => (
                 <UserRow key={s.username} rank={i + 1} username={s.username} name={s.name}>
                   <div className="text-right">
@@ -79,7 +84,11 @@ export default function LeaderboardsPage() {
               ))}
             </Board>
 
-            <Board title="Top buyers" empty={data.topBuyers.length === 0}>
+            <Board
+              title="Top buyers"
+              empty={data.topBuyers.length === 0}
+              emptyMessage="Withheld: purchases stay outside public person dossiers."
+            >
               {data.topBuyers.map((b, i) => (
                 <UserRow key={b.username} rank={i + 1} username={b.username} name={b.name}>
                   <div className="text-right">
@@ -123,12 +132,17 @@ export default function LeaderboardsPage() {
   );
 }
 
-function Board({ title, empty, children }: { title: string; empty: boolean; children: React.ReactNode }) {
+function Board({ title, empty, emptyMessage = "No activity in this window.", children }: {
+  title: string;
+  empty: boolean;
+  emptyMessage?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="bg-surface rounded-lg p-4">
       <h2 className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-3">{title}</h2>
       {empty ? (
-        <p className="text-xs text-ink-faint py-6 text-center">No activity in this window.</p>
+        <p className="text-xs text-ink-faint py-6 text-center">{emptyMessage}</p>
       ) : (
         <div className="space-y-1">{children}</div>
       )}

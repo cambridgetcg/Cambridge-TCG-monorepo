@@ -14,13 +14,13 @@
  *   1. **The collectors' market** — peer-to-peer trade the platform
  *      facilitates, records, witnesses, and protects (escrow as a
  *      service, trust, disputes). The trades belong to the collectors.
- *   2. **The data commons** — the open substrate (universal catalog,
- *      prices with provenance, math-mirror, manifest, standards),
- *      CC0 by default. The data belongs to everyone.
+ *   2. **The public data interface** — first-party market activity,
+ *      coverage, source-rights records, schemas, and methodology. Access is
+ *      public where stated; reuse rights are explicit rather than assumed.
  *
  * The platform does not buy, does not sell, does not quote, does not
- * hold inventory positions. `spot_price` survives strictly as a
- * labelled reference price (open data), never as an offer. The guard:
+ * hold inventory positions. Any `spot_price` is a labelled observation,
+ * never an offer, and is published only when its field rights permit. The guard:
  * `pnpm audit:no-house-listing`.
  *
  * ── How to use this module ─────────────────────────────────────────────
@@ -47,21 +47,21 @@ import * as React from "react";
 
 /** The hero-sized identity claim. Single sentence; no qualifier. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG is a collectors' market and an open data commons.";
+  "Cambridge TCG is a collectors' market and a public data interface.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. The data substrate beneath every trade is published open, CC0 by default.";
+  "Collectors trade with each other; the platform facilitates, records, and witnesses without taking a market position. Public APIs expose first-party market facts, coverage, source rights, and Cambridge-authored methodology; reuse rights travel with the data.";
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
-  "Cambridge TCG is a collectors' market and an open data commons. " +
+  "Cambridge TCG is a collectors' market and a public data interface. " +
   "The market is peer-to-peer: asks, bids, offers, swaps, and auctions belong to collectors; the platform facilitates, escrows, and stands behind disputes, but does not buy, sell, or quote — it holds no inventory position. " +
-  "The data commons is the substrate underneath: twenty-one games declared, six upstream sources actively ingested, a math-mirror form for every card, provenance on every price, one envelope on every public response, CC0 by default. " +
-  "Spot prices are labelled reference prices — open data, never an offer. Anyone can build on the substrate without negotiating.";
+  "The data interface exposes observed coverage, reviewed source boundaries, first-party order and completed-trade facts, and Cambridge-authored schemas and methodology. " +
+  "Public access is not a blanket redistribution grant: unknown rights fail closed, blocked sources are not fetched, and every consumer is told what may be reused.";
 
 /** Tight version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "A collectors' market. An open data commons.";
+export const BRAND_TAGLINE = "A collectors' market. A rights-aware public data interface.";
 
 /** The front door's statement — the quiet gallery home hero (docs/plans/
  *  the-quiet-gallery.md, 2026-07-05). Honest and small: what this place
@@ -81,18 +81,18 @@ export const HOME_BENEDICTION = "Every card is a panel in somebody's story.";
  *  free, every number carries its source, and the platform sells
  *  nothing itself. */
 export const HOME_HERO_SUBHEAD =
-  "Look up any card for free — price, history, every source we know. Buy, sell, or swap with other collectors; every number says where it came from, and none of them is ours to quote.";
+  "Explore collector orders, completed trades, coverage, and source rights. Buy, sell, or swap with other collectors; imported fields stay withheld when permission is unclear.";
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
 export const BRAND_SELF_LABEL =
-  "collectors' market + open TCG data commons — P2P facilitation and CC0 substrate publishing; no house market position";
+  "collectors' market + rights-aware public data interface — P2P facilitation, explicit source boundaries, no house market position";
 
 /** A short positioning note for surfaces that want to name the role
  *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
  *  to_anyone, the manifest description). Two sentences; substrate-honest. */
 export const BRAND_PROVIDER_NOTE =
-  "Cambridge TCG is a collectors' market and an open data commons. The market is peer-to-peer (the platform holds no position in it); the substrate is queryable without account or key, CC0 by default, with versioned contracts and reference implementations — anyone builds on top without negotiating.";
+  "Cambridge TCG is a collectors' market and public data interface. The market is peer-to-peer; public reads require no account where stated, but access is not a reuse grant. Cambridge-authored schemas and methodology are CC0, while mixed or upstream records carry explicit, often more restrictive rights.";
 
 // ── The two operations ───────────────────────────────────────────────────
 
@@ -130,10 +130,10 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   },
   {
     id: "data_commons",
-    name: "The data commons",
+    name: "The public data interface",
     positioning: "primary",
     audience:
-      "partners, researchers, agents, archivists, sister platforms, federation clients, any being who wants to consume the substrate",
+      "collectors, builders, researchers, agents, archivists, and platforms that can honour record-level rights",
     surface: "Public APIs + math-mirror + manifest + OpenAPI",
     url: "/platform",
     primary_endpoints: [
@@ -146,7 +146,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
     ],
     status: "live",
     notes:
-      "CC0 by default. No auth required for reads. Provenance + freshness on every response. Spot prices are labelled reference prices — open data, never an offer.",
+      "Public reads require no auth where stated. The safe response default is NOASSERTION; explicit CC0 applies only to named Cambridge-authored material. Unknown and blocked source rights fail closed.",
   },
 ] as const;
 
@@ -159,7 +159,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
  * future kingdoms re-running coverage audits should bump it.
  */
 export const COVERAGE_FACTS = {
-  as_of: "2026-07-05",
+  as_of: "2026-07-11",
   games: {
     declared: 21,
     confirmed_codes: 4, // op/pkm/dbf/tst — "confirmed" = cards exist in the production wholesale DB (2026-07-05 reconciliation)
@@ -175,32 +175,36 @@ export const COVERAGE_FACTS = {
       "Across 21 games (kingdom-078). Each format = a tuple of (game, pattern, examples, confirmed-flag).",
   },
   sources: {
-    shipped: 6,
-    planned: 11,
-    shipped_list: [
-      { id: "cardrush", status: "shipped (daily scrape)", license: "scraped-public" },
-      { id: "scryfall", status: "shipped (bulk-dump)", license: "cc-by" },
-      { id: "pokemon-tcg-api", status: "shipped (paginated REST)", license: "mit" },
-      { id: "ygoprodeck", status: "shipped partial (one-raw-to-many limitation)", license: "cc-by" },
-      { id: "tcgplayer", status: "stub (OAuth2 pending)", license: "tos-restricted" },
-      { id: "cardmarket", status: "stub (OAuth1 signing pending)", license: "tos-restricted" },
+    reviewed: 9,
+    public_exact_value_sources: 0,
+    reviewed_list: [
+      { id: "scryfall", status: "partial; writer/run unverified", rights: "conditional — not a blanket card-data grant" },
+      { id: "cardrush", status: "partial; automated fetch paused", rights: "internal-only / no public exact values" },
+      { id: "pokemon-tcg-api", status: "blocked; legacy service moved", rights: "no fetch" },
+      { id: "ygoprodeck", status: "partial; writer/image seam incomplete", rights: "conditional" },
+      { id: "tcgplayer", status: "partial; contract required", rights: "contract-only" },
+      { id: "tcgcollector", status: "blocked; approval required", rights: "no fetch" },
+      { id: "cardmarket", status: "blocked; API applications closed", rights: "no fetch" },
+      { id: "ebay", status: "partial; approved API contract required", rights: "contract-only" },
+      { id: "vinted", status: "blocked", rights: "no fetch" },
     ],
   },
   math_mirror_kinds: {
-    shipped: ["card", "set", "game", "user-trust", "auction"],
+    shipped: ["encoding-spec", "game-rights-gap", "sets-rights-gap", "user-trust"],
+    paused: ["card", "set", "temporal-card", "federation-resolution", "auction-detail"],
     note:
-      "Each kind has a cryptographic content_hash, ratios for magnitudes, ISO + Unix epoch for time, opaque flags on natural-language fields.",
+      "The encoding and safe structural shapes remain public. Membership resolvers are paused and publish no restricted record or hash.",
   },
   envelope: {
     spec_version: "0.x",
-    license_default: "CC0-1.0",
+    license_default: "NOASSERTION",
     fields: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id"],
     note: "Every public response wears this envelope. Single source of truth at packages/data-spec.",
   },
   federation: {
     primitive: "/api/v1/federation/identify/[hash]",
     note:
-      "Hash → SKU reverse-resolver. Sister kingdoms federating the same card produce identical content_hashes for identical state.",
+      "Paused hash → SKU boundary. Returns 503 without a catalog walk, match, or miss assertion.",
   },
 } as const;
 

@@ -1,16 +1,14 @@
 /**
  * Read-only platform tools exposed through the MCP gate.
  *
- * Wave-7 of the agent surface. These tools let an agent read public,
- * non-money-touching state from the platform: card catalog, market
- * leaderboards, agent ladder. They are explicitly *read* tools — no
- * writes here, no money flow, no operator-bounded scope (an agent
- * reading the leaderboard learns the same thing any unauthenticated
- * visitor does).
+ * Wave-7 of the agent surface. Only data with an affirmative publication
+ * basis may cross this gate. A bearer token authenticates an agent; it is
+ * not a source licence. Catalog search and imported price history therefore
+ * return static paused boundaries without touching the database.
  *
- * Substrate-honesty note: every result here is "live" — these queries
- * hit the database at request time. If the MCP gate ever caches
- * platform reads, the cache provenance should surface on the result.
+ * Substrate-honesty note: affirmative tools may query live first-party
+ * state. Paused source-rights tools are static and explicitly report
+ * queried:false. Any future cache must surface its provenance.
  *
  * See docs/connections/the-agent-surface.md.
  */
@@ -21,55 +19,19 @@ import { ToolError } from "./play-tools";
 // ── catalog.search ───────────────────────────────────────────────────
 
 export async function catalogSearch(_actor: unknown, params: { q?: string; limit?: number }) {
-  const q = (params.q ?? "").trim();
-  if (q.length < 2) throw new ToolError("query must be at least 2 characters");
-  const limit = Math.min(Math.max(1, params.limit ?? 20), 100);
-
-  // Serve from the LOCAL catalog (card_set_cards) — the same table the
-  // /market surfaces read. The previous implementation queried a `cards`
-  // table that doesn't exist in dev (and relied on the wholesale layer,
-  // which 401s locally), so every search silently returned
-  // {results:[], unavailable:true} even for cards plainly in the catalog
-  // ("Luffy"). This works whenever the storefront DB does; on the rare
-  // failure it degrades HONESTLY — a named reason + a fallback pointer,
-  // never a bare empty result an agent would misread as "no such card".
-  try {
-    const r = await query(
-      `SELECT c.sku, c.card_name AS name, c.card_number, c.image_url,
-              c.rarity, s.set_name, s.game
-         FROM card_set_cards c
-         JOIN card_sets s ON s.set_code = c.set_code
-        WHERE c.card_name ILIKE $1 OR c.sku ILIKE $1 OR c.card_number ILIKE $1
-        ORDER BY c.card_name ASC
-        LIMIT $2`,
-      [`%${q}%`, limit],
-    );
-    return {
-      query: q,
-      source: "card_set_cards (local catalog, live)",
-      results: r.rows.map((row: Record<string, unknown>) => ({
-        sku: row.sku,
-        name: row.name,
-        card_number: row.card_number,
-        image_url: row.image_url,
-        rarity: row.rarity,
-        set_name: row.set_name,
-        game: row.game,
-      })),
-    };
-  } catch (err) {
-    console.error("[agents] catalog.search failed:", err);
-    // Honest degradation: distinguish "source down" from "no matches" so
-    // an agent doesn't conclude the catalog is empty.
-    return {
-      query: q,
-      results: [],
-      unavailable: true,
-      reason:
-        "The local card catalog (card_set_cards) is temporarily unreachable — this is a source outage, not an empty catalog.",
-      fallback: "Retry shortly, or GET /api/v1/search/cards?q=<query>.",
-    };
-  }
+  void params;
+  return {
+    error: {
+      code: "CATALOG_SEARCH_PAUSED",
+      message:
+        "Agent authentication is not source permission. Catalog search is paused pending affirmative public membership and display-field rights.",
+    },
+    queried: false,
+    accepted: false,
+    catalog_membership_asserted: false,
+    results: [],
+    results_complete: false,
+  };
 }
 
 // ── leaderboards.read ────────────────────────────────────────────────
@@ -111,28 +73,18 @@ export async function pricesRecent(
   _actor: unknown,
   params: { sku?: string; days?: number },
 ) {
-  const sku = (params.sku ?? "").trim();
-  if (!sku) throw new ToolError("sku required");
-  const days = Math.min(Math.max(1, params.days ?? 7), 90);
-
-  try {
-    const r = await query(
-      `SELECT observed_at, retail_gbp
-         FROM card_price_observations
-        WHERE sku = $1 AND observed_at > NOW() - ($2::int || ' days')::interval
-        ORDER BY observed_at ASC`,
-      [sku, days],
-    );
-    return {
-      sku,
-      days,
-      observations: r.rows.map((row: Record<string, unknown>) => ({
-        at: row.observed_at,
-        retail_gbp: row.retail_gbp != null ? Number(row.retail_gbp) : null,
-      })),
-    };
-  } catch (err) {
-    console.error("[agents] prices.recent failed:", err);
-    return { sku, days, observations: [], unavailable: true };
-  }
+  void params;
+  return {
+    error: {
+      code: "IMPORTED_PRICE_HISTORY_PAUSED",
+      message:
+        "Agent authentication is not source permission. Imported observation history is paused pending an approved redistribution agreement.",
+    },
+    queried: false,
+    accepted: false,
+    catalog_membership_asserted: false,
+    observations: [],
+    observations_complete: false,
+    alternative: "/api/v1/sold-comps",
+  };
 }

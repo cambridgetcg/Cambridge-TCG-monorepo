@@ -31,6 +31,7 @@ export async function GET() {
     payoutsPending,
     disputesOpen,
     fraudOpen,
+    feedbackOpen,
     emailsDead,
   ] = await Promise.all([
     // Trade-ins that need a quote composed
@@ -54,6 +55,8 @@ export async function GET() {
     safeCount(`SELECT count(*)::int AS n FROM trade_disputes WHERE status IN ('open','escalated')`),
     // Unresolved fraud signals
     safeCount(`SELECT count(*)::int AS n FROM fraud_signals WHERE resolved = false`),
+    // Feedback and directory corrections waiting for a human decision
+    safeCount(`SELECT count(*)::int AS n FROM agent_feedback WHERE status IN ('received','triaged')`),
     // Dead-letter email queue
     safeCount(`SELECT count(*)::int AS n FROM email_queue WHERE status='dead'`),
   ]);
@@ -70,6 +73,7 @@ export async function GET() {
       payoutsPending,
       disputesOpen,
       fraudOpen,
+      feedbackOpen,
       emailsDead,
     },
   });

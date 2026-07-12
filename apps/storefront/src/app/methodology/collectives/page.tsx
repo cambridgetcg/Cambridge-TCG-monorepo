@@ -95,6 +95,21 @@ export default function CollectivesMethodology() {
           manage page regardless of visibility.)
         </li>
       </ul>
+      <p>
+        Member visibility now defaults <strong>private</strong>. On 11 July
+        2026 the platform also reset historic public defaults because those
+        rows did not record an affirmative publication act. A current choice
+        can publish a member later; an old default cannot stand in for consent.
+      </p>
+
+      <h2>Organisation directory</h2>
+      <p>
+        Explicitly-public collectives can appear in the{" "}
+        <Link href="/community/directory">organisation directory</Link>. The
+        open API publishes organisation facts but never the steward id or member
+        roster. Public display is not treated as a CC0 dedication; see{" "}
+        <Link href="/methodology/community-directory">the directory methodology</Link>.
+      </p>
 
       <h2>Consent discipline</h2>
       <p>

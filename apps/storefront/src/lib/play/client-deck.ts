@@ -2,12 +2,10 @@
 // multiplayer room). One definition of:
 //   - the localStorage SavedDeck shape (deck-builder's output)
 //   - SavedDeck → flat PvE/PvP card-list conversion
-//   - the auto-mounted default starter (Yu 2026-05-14: "MINIMUM BARRIERS,
-//     MAXIMUM FUNNNNNN!!!" — a deckless visitor should never hit a
-//     "build your first deck" wall; they get ST-15 Red Whitebeard).
+// Starter auto-mounting is paused until the source decklist and resolved card
+// metadata have affirmative public lineage.
 
 export const DECKS_STORAGE_KEY = "ctcg-deck-builder-decks";
-export const DEFAULT_STARTER_ID = "st-15-red-newgate";
 
 export interface SavedDeckCard {
   sku: string;
@@ -72,64 +70,10 @@ export function deckToCards(deck: SavedDeck): GameDeckCard[] {
   return cards;
 }
 
-/** Fetch the default rookie starter resolved against the catalog and shape
- *  it as a SavedDeck. Returns null when the starter can't be resolved
- *  (offline, leader unresolved) — callers fall back to their empty state. */
+/** Compatibility seam for callers while starter resolution is paused.
+ *  Performs no fetch and exposes no starter identity or catalog membership. */
 export async function fetchStarterAsSavedDeck(
-  starterId: string = DEFAULT_STARTER_ID,
+  _starterId?: string,
 ): Promise<SavedDeck | null> {
-  try {
-    const res = await fetch(`/api/v1/play/starters/${starterId}`);
-    if (!res.ok) return null;
-    const env = await res.json();
-    const detail = env?.data;
-    if (!detail || !detail.leader?.resolved) return null;
-
-    const leaderCard: SavedDeckCard = {
-      sku: detail.leader.sku,
-      card_number: detail.leader.card_number,
-      name: detail.leader.name,
-      set_code: detail.leader.set_code ?? "",
-      set_name: "",
-      rarity: detail.leader.rarity,
-      image_url: detail.leader.image_url,
-      spot_price: 0,
-    };
-
-    type CardRef = {
-      sku: string | null;
-      card_number: string;
-      name: string | null;
-      set_code: string | null;
-      rarity: string | null;
-      image_url: string | null;
-      quantity: number;
-      resolved: boolean;
-    };
-    const entries = (detail.cards as CardRef[])
-      .filter((c) => c.resolved && c.sku)
-      .map((c) => ({
-        sku: c.sku as string,
-        quantity: c.quantity,
-        card: {
-          sku: c.sku as string,
-          card_number: c.card_number,
-          name: c.name ?? c.card_number,
-          set_code: c.set_code ?? "",
-          set_name: "",
-          rarity: c.rarity,
-          image_url: c.image_url,
-          spot_price: 0,
-        } satisfies SavedDeckCard,
-      }));
-
-    return {
-      name: `${detail.display_name} (starter)`,
-      leader: leaderCard,
-      entries,
-      savedAt: new Date().toISOString(),
-    };
-  } catch {
-    return null;
-  }
+  return null;
 }

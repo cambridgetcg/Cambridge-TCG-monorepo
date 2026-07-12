@@ -77,6 +77,37 @@ export const vinted: SourceModule<VintedConsentedSale, VintedCanonicalObservatio
     access: "blocked",
     license: "internal-only",
     redistribute: false,
+    rights: {
+      code: {
+        license: "proprietary",
+        notes:
+          "Vinted's site, applications, and integration APIs are proprietary. The local consented-sale normalizer is Cambridge TCG code and grants no access to Vinted market data.",
+      },
+      data: {
+        terms: "Vinted terms prohibit automated extraction; first-party exports require user consent",
+        notes:
+          "Market-wide scraping is prohibited. A seller may separately provide their own export or authorize their own Pro orders; that consent does not open other users' data.",
+      },
+      images: {
+        terms: "seller and platform rights; no market-wide image reuse permission",
+        notes:
+          "Listing photos can identify sellers and remain subject to uploader and platform rights. The consented normalizer intentionally carries no buyer PII and does not fetch images.",
+      },
+      redistribution: {
+        verdict: "prohibited",
+        notes:
+          "No market-wide redistribution is permitted. Any future first-party import needs a separate consent, purpose, retention, deletion, and output review.",
+      },
+      safe_default: "no-fetch",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://www.vinted.co.uk/terms_and_conditions",
+        "https://www.vinted.co.uk/robots.txt",
+        "https://pro-docs.svc.vinted.com/",
+      ],
+      notes:
+        "The only open path is an app-owned, consented first-party import. It must not be implemented by weakening this source reader or by scraping Vinted's public marketplace.",
+    },
     freshness: "market_signal",
     canonical_effort: "very-high",
     status: "blocked",

@@ -141,10 +141,10 @@ export default function TraderDashboardMethodology() {
           projection.
         </li>
         <li>
-          <strong>Does not show market intelligence.</strong> Demand
-          signals (under <code>/api/market/demand-signals</code> + the
-          liquidity module) exist as substrate but aren't surfaced here
-          yet — they're a separate page worth its own design.
+          <strong>Does not show private intent.</strong> The public{" "}
+          <code>/api/market/demand-signals</code> route explicitly withholds
+          watchlist and alert counts. Completed-trade and public-order
+          liquidity remain separate market data.
         </li>
         <li>
           <strong>Does not show platform-wide rankings.</strong> No

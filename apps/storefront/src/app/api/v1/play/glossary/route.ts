@@ -97,6 +97,8 @@ export async function GET() {
           game_state_schema: "/api/v1/play/game-state-schema",
           effect_grammar: "/api/v1/play/effect-grammar",
           deck_validate: "/api/v1/play/deck/validate",
+          deck_validate_status:
+            "paused — HTTP 503; category-backed legality is withheld",
           example_match: "/api/v1/play/example-match",
         },
         tutorial: "/api/v1/play/tutorial",

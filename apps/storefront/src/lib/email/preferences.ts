@@ -263,13 +263,11 @@ export async function applyUnsubscribe(args: {
   userId: string;
   category: EmailCategory;
   source: "email_link" | "preference_page" | "list_unsubscribe";
-  ip?: string | null;
-  userAgent?: string | null;
 }): Promise<void> {
   await setPreferences(args.userId, { [args.category]: false });
   await query(
-    `INSERT INTO email_unsubscribe_log (user_id, category, source, ip, user_agent)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [args.userId, args.category, args.source, args.ip ?? null, args.userAgent ?? null],
+    `INSERT INTO email_unsubscribe_log (user_id, category, source)
+     VALUES ($1, $2, $3)`,
+    [args.userId, args.category, args.source],
   );
 }

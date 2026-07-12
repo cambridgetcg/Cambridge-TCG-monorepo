@@ -8,7 +8,8 @@
     "./schemas": { "types": "./src/schemas/index.ts", "default": "./src/schemas/index.ts" },
     "./schemas/envelope": { "types": "./src/schemas/envelope.ts", "default": "./src/schemas/envelope.ts" },
     "./schemas/error": { "types": "./src/schemas/error.ts", "default": "./src/schemas/error.ts" },
-    "./schemas/provenance": { "types": "./src/schemas/provenance.ts", "default": "./src/schemas/provenance.ts" }
+    "./schemas/provenance": { "types": "./src/schemas/provenance.ts", "default": "./src/schemas/provenance.ts" },
+    "./schemas/community-directory": { "types": "./src/schemas/community-directory.ts", "default": "./src/schemas/community-directory.ts" }
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

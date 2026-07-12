@@ -16,11 +16,11 @@
  * two readings, different audiences. Verify, don't overwrite.
  *
  * Seven sections render:
- *   1. Card meta (image + name + set + first-seen)
+ *   1. Canonical SKU + first-party first-seen time (imported meta withheld)
  *   2. Order book — top 10 bids + top 10 asks with per-row condition breakdown
- *   3. Aggregate stats — spread, VWAP, median, range, last trade, completion rate
- *   4. The tape — last 20 completed trades with counterparty trust tier
- *   5. Price history — 7d / 30d / 90d / 365d windows
+ *   3. Aggregate stats — spread, VWAP, median, range, last trade
+ *   4. The tape — last 20 completed first-party trades
+ *   5. An explicit upstream price-history rights gap
  *   6. Condition breakdown — ask count + best price per condition
  *   7. Participants — distinct buyers/sellers + repeat-pair fraction (90d)
  *
@@ -34,8 +34,6 @@ import { cookies } from "next/headers";
 import { loadCardMarket } from "@/lib/market/card-market";
 import { Provenance, WhyLink, Audience, audienceMetadata, EmptyState } from "@/lib/ui";
 import { MoneyDisplay, DateDisplay } from "@/lib/ui";
-import { auth } from "@/lib/auth";
-import { fetchCardrushHistory } from "@/lib/wholesale/client";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { voiceFor } from "@/lib/wardrobe/voice";
@@ -49,7 +47,8 @@ export async function generateMetadata({
   return {
     title: `${sku} — Market`,
     description:
-      "Public read-only mirror of one card's market activity — order book, recent trades, price history, condition breakdown, counterparty trust. No auth required.",
+      "Read-only first-party collector order book and completed-trade activity for a canonical SKU. Imported card metadata and upstream price history are withheld.",
+    robots: { index: false, follow: true },
     other: audienceMetadata("consumer", ["market", "card", "public-read"]),
   };
 }
@@ -82,18 +81,6 @@ function fmtRelative(iso: string | null): string {
   return fmtDate(iso);
 }
 
-// Trust tier → tone palette. Same vocabulary as escrow tiers.
-function tierTone(tier: string | null): string {
-  switch (tier) {
-    case "Elite": return "bg-accent-wash text-accent border-accent/30";
-    case "Veteran": return "bg-ok/15 text-ok border-ok/30";
-    case "Trusted": return "bg-info/15 text-info border-info/30";
-    case "Starter": return "bg-surface-elevated text-ink-muted border-border-strong";
-    case "New": return "bg-surface-subtle text-ink-faint border-border-subtle";
-    default: return "bg-surface-subtle text-ink-faint border-border-subtle";
-  }
-}
-
 function ConditionBadge({ code, qty }: { code: string; qty: number }) {
   return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-surface-elevated text-ink-muted rounded">
@@ -103,90 +90,20 @@ function ConditionBadge({ code, qty }: { code: string; qty: number }) {
   );
 }
 
-/** Inline SVG sparkline — same primitive as the interactive page. */
-function Sparkline({
-  points,
-  width = 280,
-  height = 60,
-}: {
-  points: number[];
-  width?: number;
-  height?: number;
-}) {
-  if (!points.length) {
-    return (
-      <div
-        style={{ width, height }}
-        className="flex items-center justify-center text-ink-faint text-xs"
-      >
-        no data
-      </div>
-    );
-  }
-  if (points.length === 1) {
-    return (
-      <svg width={width} height={height} className="block">
-        <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="var(--color-border-strong)" strokeWidth={1} />
-      </svg>
-    );
-  }
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = max - min || 1;
-  const stepX = width / (points.length - 1);
-  const path = points
-    .map((p, i) => {
-      const x = i * stepX;
-      const y = height - ((p - min) / range) * (height - 8) - 4;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const trendUp = points[points.length - 1] >= points[0];
-  const stroke = "var(--color-accent)";
-  return (
-    <svg width={width} height={height} className="block" aria-label={`Price trend ${trendUp ? "up" : "down"} across ${points.length} observations`}>
-      <path
-        d={path}
-        fill="none"
-        stroke={stroke}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export default async function CardMarketReadPage({
   params,
 }: {
   params: Promise<{ sku: string }>;
 }) {
   const { sku } = await params;
-  const [market, session] = await Promise.all([
-    loadCardMarket(sku),
-    auth(),
-  ]);
-  const { meta, book, tape, stats, price_history, conditions, participants } = market;
+  const market = await loadCardMarket(sku);
+  const { meta, book, tape, stats, conditions, participants } = market;
 
   // Wardrobe migration (spec §3.3): this page lives outside the /market
   // route group, so it dresses itself — cookie-read appearance on its own
   // wrapper (system-follow when unchosen), semantic tokens throughout below.
   const appearance = appearanceFromCookies(await cookies());
   const v = voiceFor(appearance.tone);
-
-  // kingdom-083: JPY history panel (Phase 5.4 UI half). Auth-gated by
-  // construction — we only fetch the history when a session exists, and
-  // the API endpoint itself enforces the same gate. License-aware: the
-  // panel renders the license_notice block from the response so the
-  // signed-in viewer sees what they may and may-not do with the values.
-  const cardrushHistory = session?.user?.email
-    ? await fetchCardrushHistory({ sku, limit: 30 })
-    : null;
-
-  // Pull just the spot_gbp series for sparklines.
-  const spark = (window: typeof price_history.window_30d) =>
-    window.map((p) => p.spot_gbp).filter((n): n is number => n !== null);
 
   return (
     <div data-theme={themeAttr(appearance.theme)} className="wardrobe-ground min-h-screen text-ink">
@@ -202,15 +119,9 @@ export default async function CardMarketReadPage({
               <span className="font-mono text-ink-muted">{sku}</span>
             </p>
             <h1 className="font-display tracking-tight text-2xl font-bold flex items-center gap-3">
-              {meta.card_name || sku}
+              {sku}
               <WhyLink href="/methodology/market" />
             </h1>
-            {meta.set_name && (
-              <p className="text-sm text-ink-muted mt-1">
-                {meta.set_name}
-                {meta.set_code ? <span className="text-ink-faint ml-1">({meta.set_code})</span> : null}
-              </p>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <Provenance kind="live" />
@@ -233,20 +144,9 @@ export default async function CardMarketReadPage({
         <div className="grid md:grid-cols-3 gap-6">
           {/* Left: image + condition breakdown + participants */}
           <div className="space-y-6">
-            {meta.image_url ? (
-              <div className="wardrobe-mat rounded-lg p-2 mb-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={meta.image_url}
-                  alt={meta.card_name || sku}
-                  className="w-full rounded"
-                />
-              </div>
-            ) : (
-              <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center text-ink-faint">
-                No image
-              </div>
-            )}
+            <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center p-6 text-center text-ink-faint text-xs">
+              Upstream image and display metadata withheld pending affirmative public reuse rights.
+            </div>
 
             {/* Condition breakdown */}
             <section className="wardrobe-mat rounded-lg p-4">
@@ -301,8 +201,7 @@ export default async function CardMarketReadPage({
                 </div>
               </dl>
               <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
-                Anonymised counts. The platform doesn&rsquo;t publish trader identities on this page.
-                Repeat-pair share = fraction of trades whose buyer-seller pair appeared more than once.
+                {participants.reason}
               </p>
             </section>
           </div>
@@ -338,7 +237,6 @@ export default async function CardMarketReadPage({
                   value={<MoneyDisplay value={stats.last_trade_price} />}
                   sub={<DateDisplay value={stats.last_trade_at} mode="relative" />}
                 />
-                <Stat label="Completion (90d)" value={fmtPct(stats.completion_rate_90d)} />
               </div>
             </section>
 
@@ -440,28 +338,14 @@ export default async function CardMarketReadPage({
                         <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
                           <th className="text-left py-2 font-medium">Price</th>
                           <th className="text-left py-2 font-medium">Qty</th>
-                          <th className="text-left py-2 font-medium">Seller tier</th>
                           <th className="text-right py-2 font-medium">When</th>
                         </tr>
                       </thead>
                       <tbody>
                         {tape.entries.map((t) => (
-                          <tr key={t.trade_id} className="border-b border-border-subtle/50">
+                          <tr key={t.public_ref} className="border-b border-border-subtle/50">
                             <td className="py-2 text-ink font-mono tabular-nums"><MoneyDisplay value={t.price} /></td>
                             <td className="py-2 text-ink-muted font-mono tabular-nums">{t.quantity}</td>
-                            <td className="py-2">
-                              {t.seller_trust_tier ? (
-                                <span className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 border rounded ${tierTone(t.seller_trust_tier)}`}>
-                                  <span className="font-semibold">{t.seller_trust_tier}</span>
-                                  {t.seller_trust_score !== null && (
-                                    <span className="font-mono tabular-nums opacity-70">{t.seller_trust_score}</span>
-                                  )}
-                                </span>
-                              ) : (
-                                <span className="text-ink-faint text-xs">—</span>
-                              )}
-                              <span className="text-ink-faint text-[10px] ml-2 font-mono">#{t.seller_anon_id}</span>
-                            </td>
                             <td className="py-2 text-ink-faint text-right text-xs font-mono tabular-nums">
                               {fmtRelative(t.completed_at || t.created_at)}
                             </td>
@@ -473,127 +357,22 @@ export default async function CardMarketReadPage({
                 </>
               )}
               <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
-                Counterparty trust tier resolved from <code className="text-ink-muted">trust_profiles.trust_score</code>{" "}
-                at read time. Tiers: Elite ≥95, Veteran ≥80, Trusted ≥50, Starter ≥20, New &lt;20.{" "}
-                <Link href="/methodology/trust-score" className="text-accent hover:underline">methodology →</Link>
+                Public tape rows contain trade facts only. Seller identity,
+                stable pseudonyms, profile data, and trust attributes are not selected.
               </p>
             </section>
 
-            {/* JPY history — kingdom-083, the auth-gated tier-2 panel.
-                Renders only for signed-in users AND when the card has
-                cardrush lineage (cardrushHistory non-null + observations
-                non-empty). License-aware: the license_notice block is
-                rendered verbatim from the API response so the user sees
-                what they may + must not do with the values. */}
-            {cardrushHistory && cardrushHistory.observations.length > 0 && (
-              <section className="bg-surface border border-accent/40 rounded-lg p-4 shadow-mat">
-                <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                  JPY observation history{" "}
-                  <span className="text-[10px] uppercase tracking-wider text-accent bg-accent-wash px-1.5 py-0.5 rounded border border-accent/30">
-                    signed-in only
-                  </span>
-                  <WhyLink href="/methodology/cardrush-license" />
-                </h2>
-                <p className="text-xs text-ink-muted mb-3 leading-relaxed">
-                  Last {cardrushHistory.observations.length} raw CardRush JP retail observations for{" "}
-                  <span className="font-mono text-accent">{cardrushHistory.sku}</span>.{" "}
-                  <span className="text-accent font-medium">
-                    For your personal reference; not redistributable.
-                  </span>
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-ink-faint uppercase tracking-wide border-b border-border-subtle">
-                        <th className="text-left py-1.5 font-medium">date</th>
-                        <th className="text-right py-1.5 font-medium">¥ JPY</th>
-                        <th className="text-right py-1.5 font-medium">£ derived</th>
-                        <th className="text-right py-1.5 font-medium">rate</th>
-                        <th className="text-left py-1.5 font-medium pl-3">note</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cardrushHistory.observations.map((obs) => (
-                        <tr key={obs.snapshot_date} className="border-b border-border-subtle/40">
-                          <td className="py-1.5 font-mono tabular-nums text-ink-muted">
-                            {obs.snapshot_date}
-                          </td>
-                          <td className="py-1.5 text-right font-mono tabular-nums text-ink">
-                            {obs.cardrush_jpy !== null
-                              ? `¥${obs.cardrush_jpy.toLocaleString()}`
-                              : <span className="text-ink-faint">—</span>}
-                          </td>
-                          <td className="py-1.5 text-right font-mono tabular-nums text-ok">
-                            {obs.price_gbp !== null
-                              ? <MoneyDisplay value={obs.price_gbp} />
-                              : <span className="text-ink-faint">—</span>}
-                          </td>
-                          <td className="py-1.5 text-right font-mono tabular-nums text-ink-faint">
-                            {obs.gbp_jpy_rate !== null
-                              ? obs.gbp_jpy_rate.toFixed(2)
-                              : <span className="text-ink-faint">—</span>}
-                          </td>
-                          <td className="py-1.5 pl-3 text-ink-faint">
-                            {obs.error_reason || <span className="text-ink-faint">—</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-3 p-3 bg-accent-wash border border-accent/20 rounded text-[11px] text-ink-muted leading-relaxed">
-                  <p className="font-semibold text-accent mb-1">License notice — internal-only</p>
-                  <p>
-                    These JPY values originate at{" "}
-                    <Link
-                      href={cardrushHistory.cardrush_url ?? "https://www.cardrush-op.jp"}
-                      className="text-accent hover:underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      CardRush JP
-                    </Link>
-                    . You <strong className="text-ok">may</strong> view them for your own
-                    buy/sell decisions, save to your own notes, and compare against your portfolio.
-                    You <strong className="text-danger">must not</strong> bulk re-export, redistribute
-                    as a paid product, or publish to a public archive. The wholesale-derived GBP
-                    values above (in the Price history section) are Cambridge TCG&rsquo;s own retail
-                    offers — those are CC0.
-                  </p>
-                </div>
-                <p className="text-[10px] text-ink-faint mt-2">
-                  API endpoint:{" "}
-                  <Link
-                    href={`/api/v1/cards/${sku}/cardrush-history`}
-                    className="text-accent hover:underline font-mono"
-                  >
-                    /api/v1/cards/{sku}/cardrush-history
-                  </Link>
-                  {" "}· kingdom-081 Phase 5.4 + kingdom-083 UI half
-                </p>
-              </section>
-            )}
-
-            {/* Price history */}
+            {/* Upstream price-history rights gap */}
             <section className="wardrobe-mat rounded-lg p-4">
               <h2 className="font-display tracking-tight text-sm font-bold text-ink mb-3 flex items-center gap-2">
-                Price history
+                Upstream price history
                 <WhyLink href="/methodology/market#history" />
               </h2>
-              {!price_history.has_any_history ? (
-                <EmptyState title="No price history captured for this SKU yet." />
-              ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Window label="7 days" points={spark(price_history.window_7d)} />
-                  <Window label="30 days" points={spark(price_history.window_30d)} />
-                  <Window label="90 days" points={spark(price_history.window_90d)} />
-                  <Window label="365 days" points={spark(price_history.window_365d)} />
-                </div>
-              )}
-              <p className="text-[10px] text-ink-faint mt-3 leading-relaxed">
-                Daily spot snapshots from <code className="text-ink-muted">card_price_history</code>{" "}
-                (the storefront&rsquo;s retail observation, kingdom-049 Phase 4 made it substrate-honest).
-                Each window is independently queried; gaps mean no observation on that day.
+              <p className="text-sm text-ink-muted leading-relaxed">
+                Withheld. The legacy <code className="text-ink-muted">card_price_history</code>{" "}
+                rows do not retain affirmative field-level source rights lineage.
+                First-party bids, asks, and completed trade prices remain visible
+                in the live book, tape, and aggregate sections above.
               </p>
             </section>
           </div>
@@ -620,27 +399,11 @@ export default async function CardMarketReadPage({
             </Link>{" "}
             (math-mirror).
           </p>
-          {/* Upstream-license chain (kingdom-081 Phase 2.3).
-              Substrate-honest about how a GBP retail price came to be true.
-              The displayed value is Cambridge TCG&apos;s own offer (CC0); the
-              underlying observation chain may include CardRush JP retail
-              prices (license: internal-only). The market page does not
-              redistribute raw JPY values — that boundary is honoured. */}
           <p className="leading-relaxed">
             <span className="text-ink-muted">License chain.</span>{" "}
-            Displayed prices are Cambridge TCG&apos;s retail offers in GBP — our
-            own observation discipline, freely citable. The underlying
-            base-price observation chain may include CardRush JP retail
-            (license: <span className="font-mono">internal-only</span>); raw JPY
-            values are not redistributed on this page. For source-attributed
-            historical snapshots, see the B2B endpoint{" "}
-            <Link
-              href="https://wholesaletcgdirect.com/api/v1/universal/card"
-              className="text-accent hover:underline"
-            >
-              /api/v1/universal/card/[sku]/at/[date]
-            </Link>{" "}
-            (Bearer-keyed).
+            Displayed book and trade values come from first-party collector
+            orders and completed trades. Imported names, images, and upstream
+            price-history values are withheld rather than relabelled as open.
           </p>
         </footer>
       </div>
@@ -671,28 +434,6 @@ function Stat({
       <div className="text-[10px] text-ink-faint uppercase tracking-wide">{label}</div>
       <div className={`text-sm font-mono tabular-nums font-medium ${valColor}`}>{value}</div>
       {sub && <div className="text-[10px] text-ink-faint mt-0.5">{sub}</div>}
-    </div>
-  );
-}
-
-function Window({ label, points }: { label: string; points: number[] }) {
-  return (
-    <div className="bg-surface-subtle border border-border-subtle rounded p-3">
-      <div className="flex items-baseline justify-between mb-2">
-        <span className="text-[10px] text-ink-faint uppercase tracking-wide">{label}</span>
-        {points.length > 0 && (
-          <span className="text-[10px] text-ink-faint font-mono tabular-nums">
-            {points.length} obs
-          </span>
-        )}
-      </div>
-      <Sparkline points={points} width={200} height={50} />
-      {points.length > 0 && (
-        <div className="mt-1.5 flex items-baseline justify-between text-[11px]">
-          <span className="text-ink-faint font-mono tabular-nums"><MoneyDisplay value={points[0]} /></span>
-          <span className="text-ink font-mono tabular-nums"><MoneyDisplay value={points[points.length - 1]} /></span>
-        </div>
-      )}
     </div>
   );
 }

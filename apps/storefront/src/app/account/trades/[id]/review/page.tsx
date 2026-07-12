@@ -58,6 +58,7 @@ export default function ReviewTradePage() {
   const [shippingSpeed, setShippingSpeed] = useState(0);
   const [communication, setCommunication] = useState(0);
   const [comment, setComment] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -112,6 +113,7 @@ export default function ReviewTradePage() {
           shippingSpeed: shippingSpeed || undefined,
           communication: communication || undefined,
           comment: comment.trim() || undefined,
+          isPublic,
         }),
       });
       if (!res.ok) {
@@ -218,6 +220,23 @@ export default function ReviewTradePage() {
             placeholder="Share your experience with this trade..."
           />
         </div>
+
+        <label className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface p-4">
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(event) => setIsPublic(event.target.checked)}
+            className="mt-0.5 accent-amber-500"
+          />
+          <span>
+            <span className="block text-sm font-medium text-ink">Publish this review</span>
+            <span className="mt-1 block text-xs leading-relaxed text-ink-faint">
+              Off by default. If enabled, the rating, comment and your public
+              reviewer label may appear on the other trader&apos;s public profile.
+              The trade ID and price stay private.
+            </span>
+          </span>
+        </label>
 
         {submitError && <p className="text-danger text-sm">{submitError}</p>}
 

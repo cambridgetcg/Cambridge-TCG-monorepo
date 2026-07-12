@@ -2,11 +2,22 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
 import {
-  addVerificationDocument,
   listVerificationDocuments,
   deleteVerificationDocument,
 } from "@/lib/trust/db";
-import { getPresignedUploadUrl } from "@/lib/auction/s3";
+import { deleteS3Object } from "@/lib/auction/s3";
+
+const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
+
+function safeDocumentProjection(document: Record<string, unknown>) {
+  return {
+    id: document.id,
+    doc_type: document.doc_type,
+    mime_type: document.mime_type,
+    uploaded_at: document.uploaded_at,
+    access: "withheld_pending_private_storage",
+  };
+}
 
 // GET — list the current user's documents (or a specific user's docs
 // when admin passes ?user_id=). Admins can view any user's docs to
@@ -20,7 +31,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const documents = await listVerificationDocuments(targetUserId);
-    return NextResponse.json({ documents });
+    return NextResponse.json(
+      { documents: documents.map((document) => safeDocumentProjection(document as unknown as Record<string, unknown>)) },
+      { headers: PRIVATE_HEADERS },
+    );
   }
 
   const session = await auth();
@@ -28,7 +42,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
   const documents = await listVerificationDocuments(session.user.id);
-  return NextResponse.json({ documents });
+  return NextResponse.json(
+    { documents: documents.map((document) => safeDocumentProjection(document as unknown as Record<string, unknown>)) },
+    { headers: PRIVATE_HEADERS },
+  );
 }
 
 // POST — two-phase upload (same pattern as the dispute evidence route):
@@ -50,41 +67,15 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
-  const userId = session.user.id;
-  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-
-  // Phase 1 — presigned URL
-  if (typeof body.contentType === "string") {
-    if (!body.contentType.startsWith("image/") && body.contentType !== "application/pdf") {
-      return NextResponse.json(
-        { error: "Only images or PDF allowed." },
-        { status: 400 },
-      );
-    }
-    // Scope by user id so the bucket stays naturally partitioned.
-    const result = await getPresignedUploadUrl(`verifications/${userId}`, body.contentType);
-    return NextResponse.json(result);
-  }
-
-  // Phase 2 — persist the row
-  if (typeof body.s3Key === "string" && typeof body.url === "string") {
-    const docType = typeof body.docType === "string" ? body.docType : "other";
-    const allowed = ["id_front", "id_back", "passport", "proof_of_address", "other"];
-    if (!allowed.includes(docType)) {
-      return NextResponse.json({ error: "Invalid document type." }, { status: 400 });
-    }
-    const mimeType = typeof body.mimeType === "string" ? body.mimeType : null;
-
-    const doc = await addVerificationDocument(userId, {
-      docType,
-      url: body.url,
-      s3Key: body.s3Key,
-      mimeType,
-    });
-    return NextResponse.json({ document: doc });
-  }
-
-  return NextResponse.json({ error: "Missing contentType or s3Key+url." }, { status: 400 });
+  void request;
+  return NextResponse.json(
+    {
+      error:
+        "Identity-document intake is paused until dedicated private storage and retention are verified.",
+      code: "verification_document_intake_paused",
+    },
+    { status: 503, headers: PRIVATE_HEADERS },
+  );
 }
 
 // DELETE ?id=<documentId> — user removes their own document
@@ -98,7 +89,16 @@ export async function DELETE(request: Request) {
   const id = url.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Document id required." }, { status: 400 });
 
+  const documents = await listVerificationDocuments(session.user.id);
+  const document = documents.find((candidate) => candidate.id === id);
+  if (!document) {
+    return NextResponse.json({ error: "Not found or not yours." }, { status: 404 });
+  }
+
+  // Remove the object before its database pointer. If storage deletion fails,
+  // the row remains so the owner can retry instead of creating an orphan.
+  await deleteS3Object(document.s3_key);
   const ok = await deleteVerificationDocument(id, session.user.id);
   if (!ok) return NextResponse.json({ error: "Not found or not yours." }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: PRIVATE_HEADERS });
 }

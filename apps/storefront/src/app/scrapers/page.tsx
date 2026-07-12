@@ -42,7 +42,9 @@ export default async function ScrapersWelcomePage() {
             HTML scraping is a bad contract for both of us: layout can change without
             notice, your parser breaks, our compute pays ~10× the cost of serving
             JSON. The JSON API at <span className="font-mono">/api/v1/*</span> is
-            versioned, stable, CC0, and machine-readable. Start there.
+            versioned, stable, and machine-readable. Cambridge-authored schemas
+            are CC0; each response and source record states the rights for its
+            actual payload. Start there.
           </p>
         </header>
 
@@ -53,7 +55,7 @@ export default async function ScrapersWelcomePage() {
           </h2>
           <div className="grid md:grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-ink-muted mb-2">Card prices (per SKU)</p>
+              <p className="text-ink-muted mb-2">Card identity (prices withheld without lineage)</p>
               <p className="font-mono text-ink">
                 /api/v1/universal/card/[sku]
               </p>
@@ -65,11 +67,11 @@ export default async function ScrapersWelcomePage() {
               </p>
             </div>
             <div>
-              <p className="text-ink-muted mb-2">Bulk catalog (~12k cards)</p>
+              <p className="text-ink-muted mb-2">Bulk catalog (paused: 503, zero rows)</p>
               <p className="font-mono text-ink">/data/catalog.jsonl</p>
             </div>
             <div>
-              <p className="text-ink-muted mb-2">Historical prices</p>
+              <p className="text-ink-muted mb-2">Historical structural slice (prices withheld)</p>
               <p className="font-mono text-ink">
                 /api/at/[YYYY-MM-DD]/card/[sku]
               </p>
@@ -86,7 +88,9 @@ export default async function ScrapersWelcomePage() {
             </div>
           </div>
           <p className="text-xs text-ink-faint mt-4 leading-relaxed">
-            All public. No auth. CC0. See{" "}
+            These doors are public and require no account. They are not one
+            blanket-licensed dataset: inspect response-level rights and each
+            source&rsquo;s current <span className="font-mono">rights</span> record. See{" "}
             <Link
               href="/api/v1/welcome"
               className="text-accent hover:underline"
@@ -217,10 +221,11 @@ export default async function ScrapersWelcomePage() {
               Exponential back-off on repeated.
             </li>
             <li>
-              • <span className="font-semibold">Don&rsquo;t bulk re-export</span> data
+              • <span className="font-semibold">Don&rsquo;t display or re-export</span> data
               tagged <span className="font-mono">internal-only</span> in{" "}
               <span className="font-mono">_meta.source_license</span>. License
-              boundary; we honour CardRush&rsquo;s ToS even if you don&rsquo;t.
+              boundary. A login, API key, cache or derived aggregate does not
+              turn a restricted source into public data.
             </li>
           </ul>
         </section>
@@ -264,8 +269,8 @@ export default async function ScrapersWelcomePage() {
               POST /api/v1/feedback
             </Link>{" "}
             or email{" "}
-            <span className="font-mono">contact@cambridgetcg.com</span>. Response
-            window 48h.
+            <span className="font-mono">contact@cambridgetcg.com</span>. A feedback
+            receipt confirms storage; neither channel has a guaranteed reply time.
           </p>
           <p>
             Other doors:{" "}

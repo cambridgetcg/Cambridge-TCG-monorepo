@@ -10,6 +10,7 @@ interface ReceivedReview {
   role: string;
   rating: number;
   comment: string | null;
+  is_public: boolean;
   admin_hidden: boolean;
   flagged: boolean;
   appealed_at: string | null;
@@ -26,6 +27,7 @@ interface GivenReview {
   role: string;
   rating: number;
   comment: string | null;
+  is_public: boolean;
   admin_hidden: boolean;
   flagged: boolean;
   created_at: string;
@@ -43,6 +45,7 @@ export default function AccountReviewsPage() {
   const [tab, setTab] = useState<"received" | "given">("received");
   const [loading, setLoading] = useState(true);
   const [appealing, setAppealing] = useState<string | null>(null);
+  const [unpublishing, setUnpublishing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,10 +76,45 @@ export default function AccountReviewsPage() {
     } finally { setAppealing(null); }
   }
 
+  async function unpublish(reviewId: string) {
+    if (!window.confirm("Remove this review from public view? This account screen cannot republish it.")) {
+      return;
+    }
+
+    setUnpublishing(reviewId);
+    try {
+      const response = await fetch("/api/account/reviews", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewId, action: "unpublish" }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert(result.error || "Could not remove the review from public view.");
+        return;
+      }
+
+      setData((current) => current ? {
+        ...current,
+        given: current.given.map((review) =>
+          review.id === reviewId ? { ...review, is_public: false } : review
+        ),
+      } : current);
+    } catch {
+      alert("Could not remove the review from public view. Please try again.");
+    } finally {
+      setUnpublishing(null);
+    }
+  }
+
   if (loading || !data) return <div className="text-ink-faint">Loading…</div>;
 
   const list = tab === "received" ? data.received : data.given;
-  const visibleReceived = data.received.filter((r) => !r.admin_hidden);
+  const visibleReceived = data.received.filter((r) => r.is_public && !r.admin_hidden);
+  const privateReceived = data.received.filter((r) => !r.is_public);
+  const moderationHiddenReceived = data.received.filter(
+    (r) => r.is_public && r.admin_hidden,
+  );
   const avgVisible = visibleReceived.length > 0
     ? visibleReceived.reduce((s, r) => s + r.rating, 0) / visibleReceived.length
     : 0;
@@ -86,8 +124,8 @@ export default function AccountReviewsPage() {
       <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-ink mb-2">My Reviews</h1>
       <p className="text-sm text-ink-muted mb-6">
-        Reviews you&apos;ve received and given.{" "}
-        Your average rating feeds 25% of your{" "}
+        Reviews you&apos;ve received and given. Public display and internal trust
+        use are separate; completed-trade ratings help calculate your{" "}
         <Link href="/account/trust" className="text-accent underline">trust score</Link>.
       </p>
 
@@ -97,11 +135,16 @@ export default function AccountReviewsPage() {
             <p className="text-3xl font-bold text-accent">
               {avgVisible.toFixed(2)}<span className="text-ink-faint text-lg">/5</span>
             </p>
-            <p className="text-xs text-ink-faint">{visibleReceived.length} public reviews</p>
+            <p className="text-xs text-ink-faint">{visibleReceived.length} published reviews</p>
           </div>
-          {data.received.length !== visibleReceived.length && (
+          {privateReceived.length > 0 && (
             <p className="text-xs text-ink-faint">
-              {data.received.length - visibleReceived.length} hidden — appeals available below
+              {privateReceived.length} not published by the reviewer
+            </p>
+          )}
+          {moderationHiddenReceived.length > 0 && (
+            <p className="text-xs text-ink-faint">
+              {moderationHiddenReceived.length} hidden by moderation — appeals available below
             </p>
           )}
         </div>
@@ -127,6 +170,14 @@ export default function AccountReviewsPage() {
           Given ({data.given.length})
         </button>
       </div>
+
+      {tab === "given" && data.given.length > 0 && (
+        <p className="mb-4 text-xs leading-relaxed text-ink-faint">
+          Publication is your choice for each review. Removing a published
+          review from public view is immediate; this account screen does not
+          offer a republish action.
+        </p>
+      )}
 
       {list.length === 0 ? (
         <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
@@ -184,6 +235,28 @@ export default function AccountReviewsPage() {
                     </Link>
                   ) : counterparty}
                 </div>
+
+                {!isReceived && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3 text-xs">
+                    <span className={given!.is_public ? "text-ok" : "text-ink-faint"}>
+                      {given!.is_public
+                        ? r.admin_hidden
+                          ? "Publication enabled by you; hidden by moderation"
+                          : "Publication enabled for public-profile display"
+                        : "Private — not shown publicly; still used for internal trust calculations"}
+                    </span>
+                    {given!.is_public && (
+                      <button
+                        type="button"
+                        onClick={() => unpublish(r.id)}
+                        disabled={unpublishing === r.id}
+                        className="rounded border border-border-subtle bg-surface-subtle px-3 py-1.5 text-ink-muted transition hover:text-ink disabled:opacity-50"
+                      >
+                        {unpublishing === r.id ? "Removing…" : "Remove from public view"}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {isReceived && r.admin_hidden && (
                   <div className="mt-3 bg-accent-wash border border-accent/30 rounded p-3 text-xs">

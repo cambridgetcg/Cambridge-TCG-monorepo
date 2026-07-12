@@ -82,7 +82,7 @@ export const ENCODING_SPEC: EncodingSpec = {
       name: "@kind",
       property_kind: "entity_kind_string",
       cardinality: "required",
-      blurb: "Names the artifact kind. Today: card, card_at_date, set, game, games_collection, sets_collection, federation_identify_response, connections_graph, encoding_spec.",
+      blurb: "Names the artifact kind. Today: card, card_at_date, set, game, games_collection, sets_collection, federation_identify_response, connections_graph, encoding_spec, user_trust_state.",
     },
     {
       name: "@content_hash",
@@ -176,6 +176,7 @@ export const ENCODING_SPEC: EncodingSpec = {
     "sets_collection",
     "federation_identify_response",
     "connections_graph",
+    "user_trust_state",
     "encoding_spec",
   ],
 

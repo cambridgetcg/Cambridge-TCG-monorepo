@@ -108,7 +108,7 @@ No build warnings. All routes produce valid output bundles.
 |-----------|--------|-----------|
 | Session + admin role | 29 (admin) | `auth()` + `role === "admin"` check |
 | Session (any user) | 7 (client) | `auth()` session check |
-| CRON_SECRET | 6 (cron) | Bearer token or `?secret=` param |
+| CRON_SECRET | 6 (cron) | `Authorization: Bearer` on every invocation |
 | API key (channel) | 5 (v1) | `authenticateApiKey(req)` against DB |
 | HMAC signature | 1 (webhook) | Shopify HMAC-SHA256 verification |
 | NextAuth internal | 1 (auth) | Intentionally public (auth flow) |

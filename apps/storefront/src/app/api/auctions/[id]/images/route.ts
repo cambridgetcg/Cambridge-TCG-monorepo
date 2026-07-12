@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { auth } from "@/lib/auth";
-import { addAuctionImage, removeAuctionImage, getAuctionSellerId } from "@/lib/auction/db";
+import { removeAuctionImage, getAuctionSellerId } from "@/lib/auction/db";
 import { deleteS3Object } from "@/lib/auction/s3";
+import { publicUploadIntakePausedResponse } from "@/lib/uploads/public-intake";
 
 async function authorize(auctionId: string): Promise<NextResponse | null> {
   if (await isAdmin()) return null;
@@ -17,25 +18,10 @@ async function authorize(auctionId: string): Promise<NextResponse | null> {
   return null;
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const denied = await authorize(id);
-  if (denied) return denied;
-
-  try {
-    const { url, s3Key, order } = await req.json();
-    if (!url || !s3Key) {
-      return NextResponse.json({ error: "url and s3Key are required" }, { status: 400 });
-    }
-    const image = await addAuctionImage(id, url, s3Key, order ?? 0);
-    return NextResponse.json(image, { status: 201 });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to add image";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+export async function POST() {
+  // Registration is paused with signing. Otherwise anyone who reached this
+  // phase could persist a forged external URL without uploading an object.
+  return publicUploadIntakePausedResponse("auction_image");
 }
 
 export async function DELETE(

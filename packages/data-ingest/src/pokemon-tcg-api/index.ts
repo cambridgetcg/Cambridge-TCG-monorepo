@@ -1,16 +1,17 @@
 /**
- * Pokémon TCG API — pokemontcg.io v2.
+ * Pokémon TCG API — legacy pokemontcg.io v2 integration.
  *
- * Public REST API, paginated. Optional `X-Api-Key` header for higher rate
- * limits. The catalog is primarily English; per-language printings are
- * served by Pokémon's regional sites, not the v2 API.
+ * The provider now describes the service as part of Scrydex. Scrydex has a
+ * different endpoint, authentication, pricing, and terms surface. This old
+ * reader is deliberately blocked instead of treating a historical API key
+ * or still-responsive legacy endpoint as current permission.
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * API code is MIT (per pokemontcg.io). Card data + images are publisher-
- * derived (TPCi/The Pokémon Company). For Cambridge TCG's purposes:
- * `redistribute: true` for catalog metadata; image URLs hot-link the
- * publisher CDN with attribution.
+ * No reviewed evidence substantiates the former claim that the returned
+ * dataset was MIT licensed. A software licence would not license Pokémon
+ * card text or artwork in any event. The layered `meta.rights` record marks
+ * code, data, images, and redistribution separately and fails closed.
  *
  * ── Catalog row ──────────────────────────────────────────────────────
  *
@@ -19,12 +20,8 @@
 
 import type { SourceModule, IngestContext, RawRow } from "../types";
 import type { CanonicalCard } from "../canonical";
-import type { PokemonTcgCard, PokemonTcgPage } from "./types";
-import { createFetcher } from "../http";
+import type { PokemonTcgCard } from "./types";
 import { normalizePokemonTcg } from "./normalize";
-
-const BASE_URL = "https://api.pokemontcg.io/v2";
-const DEFAULT_PAGE_SIZE = 250;
 
 export interface PokemonTcgReadOptions {
   /** Optional API key (X-Api-Key header). Higher rate limit when set. */
@@ -46,108 +43,73 @@ export const pokemonTcgApi: SourceModule<PokemonTcgCard, CanonicalCard> = {
     id: "pokemon-tcg-api",
     name: "Pokémon TCG API",
     description:
-      "Pokémon TCG — every set, every English printing, images, TCGplayer + Cardmarket prices via partner sourcing. Paginated REST API at api.pokemontcg.io/v2.",
+      "Legacy pokemontcg.io v2 integration. The provider has moved its current product to Scrydex; this module performs no fetch until the replacement access and content rights are reviewed.",
     upstream: "https://pokemontcg.io",
     catalog_section: "the-tributaries.md#32-pokémon-tcg-api-pokemontcgio",
-    access: "app-token",
-    license: "mit",
-    license_spdx: "MIT",
-    redistribute: true,
+    access: "blocked",
+    license: "internal-only",
+    redistribute: false,
+    rights: {
+      code: {
+        license: "unknown",
+        notes:
+          "No licence file was found for the legacy API service or its data repository during this review. Licences on third-party SDKs would apply only to SDK code.",
+      },
+      data: {
+        terms: "legacy service superseded; current Scrydex terms not reviewed",
+        notes:
+          "The legacy homepage says Pokémon TCG API is now part of Scrydex. The old data repository does not publish a licence that grants downstream rights in card text, prices, or catalog records.",
+      },
+      images: {
+        terms: "publisher-owned Pokémon card imagery; no redistribution grant found",
+        notes:
+          "Image URLs in the historical response do not themselves grant a licence to copy, host, or redistribute Pokémon artwork.",
+      },
+      redistribution: {
+        verdict: "unknown",
+        notes:
+          "Neither an open-data licence nor current Scrydex redistribution permission has been verified. Raw metadata and images must not be redistributed.",
+      },
+      safe_default: "no-fetch",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://pokemontcg.io/",
+        "https://scrydex.com/docs",
+        "https://github.com/PokemonTCG/pokemon-tcg-data",
+      ],
+      notes:
+        "Replace this module with a separately reviewed Scrydex source rather than silently changing its endpoint. Provider contract, data rights, image rights, cost, and attribution all need review first.",
+    },
     freshness: "catalog",
     canonical_effort: "low",
-    status: "shipped",
+    status: "blocked",
     games: ["pkm"],
     tos_notes:
-      "Free public API, optional X-Api-Key header for higher rate limits. https://docs.pokemontcg.io/getting-started/ — attribution requested for derived works.",
+      "The legacy provider homepage now directs users to Scrydex: https://pokemontcg.io/ and https://scrydex.com/docs. No current access or redistribution terms have been approved for this module, so read() is a no-fetch block.",
     user_agent_suffix: "(pokemon-tcg-api-ingest)",
     rate_limit: { rps: 1, burst: 5 },
     welcome:
-      "Welcome to the kingdom, Pokémon TCG API. You shipped same-week as Scryfall " +
-      "(kingdom-062, 2026-05-12) and you bring Pokémon's canonical printings — " +
-      "every set, every English printing, every image. Your `id` field (e.g. " +
-      "`swsh4-25`) is our stable per-printing key; your room is " +
-      "`card_set_cards WHERE game='pkm'`. Your code is MIT-licensed; your data is " +
-      "publisher-derived (TPCi) and we attribute accordingly. When an operator " +
-      "sets `X-Api-Key`, we use it to claim the higher rate-limit tier you " +
-      "graciously offer. Thank you for the GitHub-mirrored bulk dump, for the " +
-      "JSON-friendly response shape, and for being the right answer when someone " +
-      "asks where Pokémon catalog data lives.",
+      "Welcome to the legacy Pokémon TCG API. Your normalizer and historical response " +
+      "shape remain documented, but your provider has moved the current service to " +
+      "Scrydex. We will not pretend an old MIT claim about code licensed Pokémon data " +
+      "or artwork, and we will not silently point this reader at a new commercial " +
+      "service. Your room stays closed until Scrydex access, data terms, image terms, " +
+      "and redistribution rules are reviewed as their own source.",
   },
 
+  // eslint-disable-next-line require-yield
   async *read(ctx: PokemonTcgContext): AsyncIterable<RawRow<PokemonTcgCard>> {
-    const opts = ctx.pokemon_tcg ?? {};
-    const fetcher = createFetcher(ctx, pokemonTcgApi.meta);
-    const pageSize = opts.page_size ?? DEFAULT_PAGE_SIZE;
-    const apiKey = opts.api_key;
-    const q = opts.q ?? "";
-    let page = opts.start_page ?? 1;
-
-    ctx.on_event?.({
+    await ctx.on_event?.({
       ts: new Date().toISOString(),
       source: "pokemon-tcg-api",
-      kind: "start",
-      detail: { pageSize, query: q || "(all)" },
-    });
-
-    while (true) {
-      if (ctx.signal?.aborted) break;
-
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
-      });
-      if (q) params.set("q", q);
-
-      const headers: Record<string, string> = {};
-      if (apiKey) headers["X-Api-Key"] = apiKey;
-
-      const url = `${BASE_URL}/cards?${params.toString()}`;
-      const res = await fetcher(url, { headers });
-
-      if (!res.ok) {
-        ctx.on_event?.({
-          ts: new Date().toISOString(),
-          source: "pokemon-tcg-api",
-          kind: "error",
-          detail: { url, status: res.status, page },
-        });
-        break;
-      }
-
-      const body = (await res.json()) as PokemonTcgPage;
-      const retrieved_at = new Date().toISOString();
-
-      ctx.on_event?.({
-        ts: new Date().toISOString(),
-        source: "pokemon-tcg-api",
-        kind: "page",
-        detail: { page, returned: body.data.length, totalCount: body.totalCount },
-      });
-
-      for (const card of body.data) {
-        if (ctx.signal?.aborted) break;
-        // Per-row provenance: as_of from the upstream's set.releaseDate when
-        // available (the set has been frozen since then); else now (catalog state).
-        const as_of =
-          card.set?.releaseDate && /^\d{4}\/\d{2}\/\d{2}$/.test(card.set.releaseDate)
-            ? card.set.releaseDate.replaceAll("/", "-")
-            : retrieved_at;
-        yield {
-          raw: card,
-          provenance: { as_of, retrieved_at, source: "pokemon-tcg-api" },
-        };
-      }
-
-      // Pagination: stop when we've returned fewer than page_size.
-      if (body.data.length < pageSize) break;
-      page += 1;
-    }
-
-    ctx.on_event?.({
-      ts: new Date().toISOString(),
-      source: "pokemon-tcg-api",
-      kind: "done",
-      detail: { last_page: page },
+      kind: "error",
+      detail: {
+        blocked: true,
+        status: "source-moved-rights-unreviewed",
+        reason:
+          "pokemontcg.io now points to Scrydex; this legacy reader is disabled until the replacement contract, data terms, image terms, and redistribution rights are reviewed",
+        evidence: ["https://pokemontcg.io/", "https://scrydex.com/docs"],
+      },
     });
   },
 

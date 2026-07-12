@@ -44,7 +44,13 @@
 
 export * from "./types";
 export * from "./canonical";
-export { createFetcher, type Fetcher } from "./http";
+export {
+  createFetcher,
+  assertSourceFetchApproved,
+  assertSourceUseApproved,
+  sourceApprovalCovers,
+  type Fetcher,
+} from "./http";
 export {
   SOURCES,
   getSource,

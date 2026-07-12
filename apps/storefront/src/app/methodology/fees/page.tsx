@@ -104,7 +104,9 @@ export default function FeesMethodology() {
         Buying a card now means buying from another collector at the price they listed; the
         seller pays the commission below. The reference-price formula the shop once used is
         still documented at <a href="/methodology/pricing">/methodology/pricing</a>, because
-        the open-data reference price derives from the same engine.
+        the reference-price calculation derives from the same engine. The Cambridge-authored
+        method is CC0; any published price observations carry their own rights and default to
+        NOASSERTION, so public access alone is not permission to reuse them.
       </blockquote>
 
       <h3>1. Marketplace &amp; trade commission (when you sell <em>to another user</em> through us)</h3>

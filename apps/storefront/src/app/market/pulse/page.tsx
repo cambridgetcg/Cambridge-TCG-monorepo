@@ -11,6 +11,7 @@ interface PulseData {
   hot: Array<{ sku: string; cardName: string | null; imageUrl: string | null; volume24h: number; tradeCount24h: number }>;
   movers: Array<{ sku: string; cardName: string | null; imageUrl: string | null; lastPrice: number | null; change24hPct: number | null }>;
   mostWatched: Array<{ sku: string; cardName: string | null; imageUrl: string | null; watchCount: number; bestAsk: number | null }>;
+  watchDerivedSignals?: { status: "withheld"; reason: string };
   tightSpreads: Array<{ sku: string; cardName: string | null; imageUrl: string | null; bestBid: number | null; bestAsk: number | null }>;
   recentTrades: Array<{ sku: string; cardName: string | null; imageUrl: string | null; price: number | null; tradedAt: string | null }>;
 }
@@ -109,11 +110,11 @@ export default function MarketPulsePage() {
 
           {/* Most watched */}
           <PulseCard
-            title="Most watched"
+            title="Watch activity is private"
             icon="eye"
             empty={data.mostWatched.length === 0}
-            emptyTitle={v("market.empty.watched.title")}
-            emptyDesc={v("market.empty.watched.description")}
+            emptyTitle="Private choices stay private."
+            emptyDesc={data.watchDerivedSignals?.reason || "Watchlists are not published as market trends."}
           >
             {data.mostWatched.map((row, i) => (
               <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>

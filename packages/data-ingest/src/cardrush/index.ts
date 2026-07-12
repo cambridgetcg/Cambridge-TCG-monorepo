@@ -9,9 +9,10 @@
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * CardRush ToS does not authorise commercial redistribution of scraped
- * price data. Internal-decision use is the safer position. The
- * `redistribute: false` flag propagates this to `_meta.source_license`.
+ * No reviewed public CardRush page grants a licence to copy or commercially
+ * redistribute compiled prices. Absence of a licence is not permission, so
+ * internal-decision use is the conservative position and `redistribute: false`
+ * propagates that boundary to `_meta.source_license`.
  *
  * ── Why this lives here ──────────────────────────────────────────────
  *
@@ -63,7 +64,7 @@
 import type { SourceModule, IngestContext, RawRow, NormalizeResult } from "../types";
 import type { CanonicalPrice } from "../canonical";
 import type { GameCode } from "@cambridge-tcg/sku";
-import { createFetcher, type Fetcher } from "../http";
+import { createFetcher, sourceApprovalCovers, type Fetcher } from "../http";
 
 // ── Subdomain → GameCode map ────────────────────────────────────────────
 
@@ -375,6 +376,19 @@ export function getOrCreateFetcher(
 ): { fetcher: Fetcher | null; reason?: string } {
   const entry = CARDRUSH_SUBDOMAINS[host];
   let access: SubdomainAccessMode = entry?.access ?? "direct";
+
+  // A proxy URL or residential network is technical access, not permission.
+  // Every host registered as WAF-gated requires use-specific written approval
+  // before we create either a proxied or residential direct fetcher.
+  if (
+    access === "bright-data-unlocker" &&
+    !sourceApprovalCovers(ctx, "cardrush", "waf-bypass")
+  ) {
+    return {
+      fetcher: null,
+      reason: "written_source_approval_required_for_waf-bypass",
+    };
+  }
 
   // Residential egress passes the WAF that the unlocker exists to beat —
   // route direct (free; provenance truthfully records via_proxy: null).
@@ -749,23 +763,52 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
     name: "CardRush (JP)",
     description:
       "Japanese retail prices across the CardRush family of subdomains. " +
-      "Confirmed: One Piece, Pokémon, Dragon Ball Super CCG. Speculative " +
-      "subdomains registered for MTG, Yu-Gi-Oh!, Digimon, Vanguard, Weiß " +
-      "Schwarz, Flesh and Blood, Lorcana, Battle Spirits Saga, and DBF " +
-      "Fusion World — those subdomains may or may not exist at CardRush; " +
-      "the first scrape confirms or yields `subdomain_unconfirmed`. " +
+      "Confirmed: One Piece, Pokémon, Dragon Ball Fusion World, Digimon. " +
+      "Live but probationary: Vanguard, Battle Spirits, and MTG price-only. " +
+      "Five formerly speculative hosts are now explicitly blocked after NXDOMAIN. " +
       "HTML scrape; A-condition first, fallback to base. On-demand only.",
     upstream: "https://www.cardrush-op.jp",
     catalog_section: "the-tributaries.md#23-cardrush-jp--already-partial",
     access: "scrape",
     license: "internal-only",
     redistribute: false,
+    rights: {
+      code: {
+        license: "proprietary",
+        notes:
+          "CardRush's storefront implementation is proprietary. This scraper's local code licence does not grant rights in CardRush pages, prices, or product content.",
+      },
+      data: {
+        terms: "no public data-reuse licence found in reviewed CardRush pages",
+        notes:
+          "Public product pages expose retail asks, but no reviewed page grants bulk, commercial, or downstream redistribution rights. Absence of a stated licence fails closed.",
+      },
+      images: {
+        terms: "retailer and publisher rights; no reuse permission found",
+        notes:
+          "Product and card images are not fetched by this price reader and must not be copied or redistributed without separate permission.",
+      },
+      redistribution: {
+        verdict: "unknown",
+        notes:
+          "No affirmative permission for compiled price redistribution was found. Raw CardRush values stay out of public export datasets.",
+      },
+      safe_default: "internal-only",
+      reviewed_at: "2026-07-11",
+      evidence_urls: [
+        "https://www.cardrush-op.jp/",
+        "https://www.cardrush-op.jp/return-policy",
+        "https://www.cardrush-op.jp/robots.txt",
+      ],
+      notes:
+        "Use only polite, on-demand observation for internal decisions. Re-review the current site terms and obtain permission before any public history, bulk export, or commercial data feed.",
+    },
     freshness: "price_current",
     canonical_effort: "high",
     status: "partial",
-    games: ["op", "pkm", "dbs", "dbf", "mtg", "ygo", "dmw", "vng", "wei", "fab", "lgr", "bsr"],
+    games: ["op", "pkm", "dbf", "dmw", "vng", "bsr", "mtg"],
     tos_notes:
-      "Site ToS forbids commercial redistribution of compiled price data; internal-decision use is the safer position. Use browser User-Agent to avoid trivial bot blocks; back off on errors.",
+      "No public data-reuse licence was found in reviewed CardRush product/guide pages. That silence is not permission: internal-decision use only, no raw redistribution. Identify the caller, keep to 0.5 rps, and back off on errors. Evidence: https://www.cardrush-op.jp/return-policy and https://www.cardrush-op.jp/robots.txt.",
     user_agent_suffix: "(cardrush-ingest)",
     rate_limit: { rps: 0.5, burst: 2 },
     welcome:
@@ -773,13 +816,13 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
       "other upstream — daily snapshots since the wholesale catalog learned to " +
       "scrape. Your room is `price_archive WHERE source='cardrush'`, " +
       "`source_currency='JPY'`, `condition='nm'` (your 状態A- is our NM-equivalent), " +
-      "`redistribute=false` (we honor your ToS — internal-decision use only). You " +
-      "bring Japan to the kingdom: three confirmed subdomains (op / pkm / dbs) and " +
-      "nine speculative ones we registered before any first scrape so the URL " +
-      "router routes correctly when the first byte arrives. Every byte you give " +
+      "`redistribute=false` (no public reuse licence found; internal-decision only). You " +
+      "bring Japan to the kingdom: four confirmed subdomains (op / pkm / dbf / dmw), " +
+      "three live probationary hosts, and five NXDOMAIN hosts now blocked instead of " +
+      "being called speculative. Every byte you give " +
       "us is held with attribution to the specific cardrush-*.jp subdomain. We are " +
-      "grateful for the year you have already given us and for the quietness " +
-      "you have asked us to keep in return.",
+      "grateful for the year you have already given us, and we keep the boundary " +
+      "conservative until you explicitly say broader reuse is welcome.",
   },
 
   async *read(ctx: CardRushContext): AsyncIterable<RawRow<CardRushRaw>> {

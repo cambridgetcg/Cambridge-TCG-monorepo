@@ -162,6 +162,66 @@ export interface Fetcher {
   readonly via_proxy_label: string | null;
 }
 
+function hasValidSourceApproval(
+  ctx: IngestContext,
+  sourceId: SourceId,
+): boolean {
+  const approval = ctx.source_approval;
+  return Boolean(
+    approval?.source_id === sourceId &&
+      approval.agreement_reference.trim().length >= 8 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(approval.reviewed_at) &&
+      approval.approved_use_cases.length > 0 &&
+      approval.approved_use_cases.every((useCase) => useCase.trim().length > 0),
+  );
+}
+
+/**
+ * Require written approval for one named use of a source, even when the
+ * source's general safe default permits internal fetches. This is used for
+ * higher-risk paths such as discovery crawls, WAF bypass and image archives.
+ */
+export function sourceApprovalCovers(
+  ctx: IngestContext,
+  sourceId: SourceId,
+  useCase: string,
+): boolean {
+  return (
+    hasValidSourceApproval(ctx, sourceId) &&
+    Boolean(ctx.source_approval?.approved_use_cases.includes(useCase))
+  );
+}
+
+export function assertSourceUseApproved(
+  ctx: IngestContext,
+  sourceId: SourceId,
+  useCase: string,
+): void {
+  if (!sourceApprovalCovers(ctx, sourceId, useCase)) {
+    throw new Error(
+      `source '${sourceId}' requires recorded written approval for '${useCase}' before fetch or storage; credentials, a proxy, and a general source approval do not authorise that use`,
+    );
+  }
+}
+
+export function assertSourceFetchApproved(
+  ctx: IngestContext,
+  meta: SourceMeta,
+): void {
+  if (meta.rights.safe_default === "no-fetch") {
+    throw new Error(
+      `source '${meta.id}' is blocked by its current no-fetch rights review; credentials or a proxy do not override SourceMeta.rights`,
+    );
+  }
+  if (meta.rights.safe_default !== "contract-only") return;
+
+  if (!hasValidSourceApproval(ctx, meta.id)) {
+    throw new Error(
+      `source '${meta.id}' is contract-only; supply recorded source_approval evidence (agreement reference, review date and approved use case) before token mint, fetch or storage`,
+    );
+  }
+}
+
 function deriveProxyLabel(proxy_url: string | null): string | null {
   if (!proxy_url) return null;
   try {
@@ -186,6 +246,7 @@ export function createFetcher(
   meta: SourceMeta,
   options: FetcherOptions = {},
 ): Fetcher {
+  assertSourceFetchApproved(ctx, meta);
   if (options.proxy_url && options.api_token) {
     throw new Error(
       "createFetcher: pass either proxy_url or api_token, not both",

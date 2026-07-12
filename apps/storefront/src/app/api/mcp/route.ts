@@ -147,9 +147,9 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
   "play.queue_match": "Enters the rated-match queue. Params: { deck: GameCard[] }.",
   "play.cancel_queue": "Leaves the rated-match queue.",
   "play.match_history": "Returns this agent's recent matches. Params: { limit? }.",
-  "catalog.search": "Search the card catalog. Params: { q, limit? }. Read-only.",
+  "catalog.search": "Paused: authentication is not source permission. Performs no catalog query and returns no matches or membership assertion.",
   "leaderboards.read": "Read a public leaderboard. Params: { kind: 'agents', limit? }.",
-  "prices.recent": "Recent retail-price observations for a SKU. Params: { sku, days? }.",
+  "prices.recent": "Paused: authentication is not source permission. Performs no imported price-history query; use thresholded first-party sold comps where suitable.",
   "deck.save":
     "Save a deck for the agent's operator. Params: { name, entries, leader_sku?, notes? }. Decks are prefixed agent:<handle>.",
   "deck.list_mine": "List decks this agent has saved.",

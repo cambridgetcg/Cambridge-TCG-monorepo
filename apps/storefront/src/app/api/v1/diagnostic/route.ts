@@ -128,7 +128,7 @@ const LICENSE_TIER_EXEMPLARS: ReadonlyArray<{
   {
     tier: "cc0",
     meaning: "Public domain — mirror freely; attribution encouraged, not required.",
-    example_endpoint: "/api/v1/universal/card/{sku}",
+    example_endpoint: "/api/v1/diagnostic (Cambridge-authored fixture)",
   },
   {
     tier: "cc-by",
@@ -238,7 +238,7 @@ export async function GET(): Promise<Response> {
       "/api/openapi.json — the typed OpenAPI 3.1 spec",
       "/methodology/universal-representation — the math-mirror encoding doctrine",
       "/api/v1/welcome — the front door, full positioning + contract + license tiers",
-      "/api/v1/feedback — POST a `contract-drift` kind if you found a real spec gap; 48h response window",
+      "/api/v1/feedback — POST a `contract-drift` kind if you found a real spec gap; success confirms storage, not a reply deadline",
     ],
 
     related_ax_surfaces: {
@@ -251,7 +251,7 @@ export async function GET(): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface.",
+      "This Cambridge application endpoint does not persist a per-request IP or User-Agent record. Hosting/security providers still process ordinary request metadata.",
     this_endpoint_is_a_gift: true,
   };
 
@@ -259,6 +259,7 @@ export async function GET(): Promise<Response> {
     endpoint: "/api/v1/diagnostic",
     sources: ["self"],
     source_license: ["cc0"],
+    license: "CC0-1.0",
     freshness: "identity",
     contains_self: true,
     data,

@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
-import { getCardOrderBook } from "@/lib/market/db";
 
-// GET /api/market/[sku] — order book for a single card
-export async function GET(_req: Request, { params }: { params: Promise<{ sku: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ sku: string }> },
+): Promise<Response> {
   const { sku } = await params;
-  const book = await getCardOrderBook(sku);
-  return NextResponse.json(book);
+  return NextResponse.json(
+    {
+      error: { code: "CARD_ORDER_BOOK_PAUSED", message: "Per-card public order book is paused while its strict first-party projection is rebuilt." },
+      requested_sku: sku,
+      token_origin: "caller-supplied",
+      catalog_membership_asserted: false,
+      queried: false,
+      does_not_include: ["order-cached imported names or images", "seller or bidder identifiers", "catalog or auction enrichment"],
+    },
+    { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "300", "X-Robots-Tag": "noindex, noarchive" } },
+  );
 }

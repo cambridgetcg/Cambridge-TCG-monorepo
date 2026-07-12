@@ -1,95 +1,22 @@
-/**
- * GET /api/v1/prices/games/[game]/sets/[set]/cards/[number] —
- * JSON sibling of /prices/[game]/[set]/[number].
- *
- * The third reading position for the per-card surface. The HTML page
- * renders the data; this endpoint emits it. The math-mirror sibling at
- * /api/v1/universal/card/[sku] gives the third reading (cryptographic
- * hashes + ratios + content_hash) — three readings, one substrate.
- *
- * Cross-source signals (CardRush / TCGplayer) ride in the response with
- * arrival state + license tier; auth-gated history paths are surfaced
- * so a signed-in agent can follow through.
- */
+import { NextResponse } from "next/server";
 
-import { NextRequest, NextResponse } from "next/server";
-import { jsonResponse, errorResponse } from "@/lib/data-pantry";
-import { loadCardState } from "@/lib/prices/state";
-
-interface RouteContext {
-  params: Promise<{ game: string; set: string; number: string }>;
-}
-
-export async function GET(_req: NextRequest, { params }: RouteContext): Promise<Response> {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ game: string; set: string; number: string }> },
+): Promise<Response> {
   const { game, set, number } = await params;
-
-  const state = await loadCardState(game, set, number);
-  if (state === "unavailable") {
-    return errorResponse({
-      code: "SOURCE_UNAVAILABLE",
-      message: `The pricing substrate is temporarily unreachable — this is an outage, not a claim that card '${number}' is absent. Retry shortly.`,
-    });
-  }
-  if (!state) {
-    return errorResponse({
-      code: "NOT_FOUND",
-      message: `Card '${number}' not found in set '${set}' for game '${game}'. See /api/v1/prices/games/${game}/sets/${set} for the live card list.`,
-    });
-  }
-
-  return jsonResponse({
-    data: {
-      game: {
-        slug: state.config.slug,
-        game_code: state.config.game_code,
-        display_name: state.config.display_name,
-      },
-      set: {
-        code: state.set.code,
-        name: state.set.name,
-        release_date: state.set.release_date,
-      },
-      card: {
-        sku: state.card.sku,
-        name: state.card.name,
-        card_number: state.card.card_number,
-        rarity: state.card.rarity,
-        image_url: state.card.image_url,
-        price_gbp: state.card.price_gbp,
-        stock: state.card.stock,
-        updated_at: state.card.updated_at,
-      },
-      cross_source_signals: state.cross_source_signals,
-      _links: {
-        self: `/api/v1/prices/games/${state.config.slug}/sets/${state.set.code.toLowerCase()}/cards/${state.card.card_number.toLowerCase()}`,
-        html: `/prices/${state.config.slug}/${state.set.code.toLowerCase()}/${state.card.card_number.toLowerCase()}`,
-        math_mirror: `/api/v1/universal/card/${state.card.sku}`,
-        product: `/product/${state.card.sku}`,
-        market: `/market/${state.card.sku}`,
-        market_mirror: `/cards/${state.card.sku}/market`,
-        parent_set: `/api/v1/prices/games/${state.config.slug}/sets/${state.set.code.toLowerCase()}`,
-        parent_set_html: `/prices/${state.config.slug}/${state.set.code.toLowerCase()}`,
-        parent_game: `/api/v1/prices/games/${state.config.slug}`,
-        methodology_cross_source: "/methodology/cross-source-pricing",
-        methodology_upstream_sources: "/methodology/upstream-sources",
-      },
+  return NextResponse.json(
+    {
+      error: { code: "PRICE_CARD_PAUSED", message: "Public card membership and price state are paused pending affirmative lineage." },
+      query: { game, set, number, origin: "caller-supplied" },
+      catalog_membership_asserted: false,
+      resolved: false,
+      does_not_include: ["SKU or card existence", "names, rarity, images, prices, stock, source signals, dates, or history"],
     },
-    endpoint: "/api/v1/prices/games/[game]/sets/[set]/cards/[number]",
-    sources: state._provenance.sources,
-    source_license: state._provenance.source_license,
-    freshness: state._provenance.freshness,
-    as_of: state._provenance.as_of ?? undefined,
-    license: "CC0-1.0",
-  });
+    { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "300", "X-Content-License": "NOASSERTION" } },
+  );
 }
 
 export async function OPTIONS(): Promise<Response> {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
+  return new Response(null, { status: 204, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Max-Age": "86400" } });
 }

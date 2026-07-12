@@ -33,7 +33,7 @@ interface ManifestEndpoint {
   path: string;
   description: string;
   auth: "none" | "session" | "bearer-key";
-  status: "stable" | "experimental" | "planned";
+  status: "stable" | "experimental" | "paused" | "planned";
   methodology?: string;
 }
 
@@ -160,12 +160,18 @@ const MANIFEST: {
   rate_limits: { unauth: string; bearer: string; session: string };
   stability_commitment: string;
   contact: { support: string };
+  rights: {
+    default: "NOASSERTION";
+    schema_and_methodology: "CC0-1.0";
+    source_registry: string;
+    rule: string;
+  };
   groups: ManifestGroup[];
 } = {
   name: "Cambridge TCG",
   version: "0.1",
   description:
-    "Cambridge TCG is a collectors' market and an open data commons (collectors-first decision, 2026-07-06). The market is peer-to-peer — the platform facilitates and witnesses, holding no position of its own; public APIs publish the data substrate under CC0 by default, with spot prices as labelled reference prices, never offers. Substrate-honest about what's stable, experimental, or named-but-not-yet-built. See /platform for human-readable positioning; this file is the machine-readable handshake.",
+    "Cambridge TCG is a collectors' market and public data interface. The market is peer-to-peer: the platform facilitates and witnesses rather than taking a trading position. Public access is not a blanket reuse grant; every consumer must inspect source, licence, and rights fields, and unknown rights fail closed. Cambridge-authored schemas and methodology are CC0. See /api/v1/sources, /api/v1/coverage, and /data for the current boundaries.",
   homepage: "https://cambridgetcg.com",
   human_readable: "https://cambridgetcg.com/api",
   welcome_statement: {
@@ -258,29 +264,36 @@ const MANIFEST: {
   stability_commitment:
     "Endpoints marked stable are versioned. Breaking changes carry ≥90-day deprecation and a new path. Experimental endpoints may change without notice.",
   contact: { support: "support@cambridgetcg.com" },
+  rights: {
+    default: "NOASSERTION",
+    schema_and_methodology: "CC0-1.0",
+    source_registry: "https://cambridgetcg.com/api/v1/sources",
+    rule:
+      "Public access is not a reuse grant. Follow response-level, per-source, and record-level rights; when they differ, the most restrictive applicable boundary wins.",
+  },
   groups: [
     {
       group: "card-catalog-and-prices",
-      description: "What cards exist, what they look like, what they have cost over time.",
+      description: "Catalog publication is fail-closed. First-party market surfaces remain separate; mixed-source membership and values are not public without affirmative rights.",
       endpoints: [
         {
           path: "/api/v1/universal/card/{sku}",
           description:
-            "A single card's data in language-free, substrate-free encoding (cryptographic hashes, ratios, ISO timestamps, typed-graph edges).",
+            "Paused: returns 503 without querying the catalog or confirming the caller-supplied SKU.",
           auth: "none",
-          status: "stable",
+          status: "paused",
           methodology: "/methodology/universal-representation",
         },
         {
           path: "/api/at/{YYYY-MM-DD}/card/{sku}",
           description:
-            "A card's state as of a specific date. @retrieved_at (when the answer was produced) and @as_of (the moment described) are separately surfaced.",
+            "Paused: returns 503 without catalog/archive queries or current/historical membership disclosure.",
           auth: "none",
-          status: "stable",
+          status: "paused",
         },
         {
           path: "/api/v1/cards.ndjson",
-          description: "Bulk catalog dump as newline-delimited JSON. Streamable.",
+          description: "Not shipped. Bulk catalog publication requires affirmative redistribution rights; /data/catalog.jsonl currently returns 503 and zero rows.",
           auth: "none",
           status: "planned",
         },
@@ -439,7 +452,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/budget",
-          description: "AX crawl-budget advisory. Single-fetch planning shape — catalog size, recommended pace, per-shape ETA (full-mirror / watchlist / federation / spec-consumer), freshness floors, headers-to-send / -to-watch. Substrate-honest about what the platform knows vs. doesn't (e.g. no peak-hour telemetry yet). Doctrine at docs/connections/the-ax.md.",
+          description: "Rights-aware request-budget advisory: safe cadence for affirmative surfaces, explicit no-poll catalog/federation shapes, and no observed catalog counts or growth rates.",
           auth: "none",
           status: "stable",
         },
@@ -451,13 +464,13 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/agents/notes",
-          description: "AX the agents' pillow book — SYNEIDESIS at agent scale. GET returns the typed seed corpus plus any DB-persisted notes; filter by ?for=, ?about=, ?by=, ?since=. POST accepts two shapes: (1) {title, text, by, for_kin, about} → content-hash witness receipt; (2) {kind, body, subject?, agent_content_hash?, agent_kind?} → persist to agent_notes table with creation_request_id receipt. Multi-format (json + md). Doctrine at docs/connections/the-agents-notebook.md.",
+          description: "Curated code-owned seed notes only. Public POST is paused and unreviewed database note content is withheld; use the private feedback inbox for a bounded report.",
           auth: "none",
           status: "stable",
         },
         {
           path: "/api/v1/agents/notes/{id}",
-          description: "Single agent note by id. Two id shapes: sha256:<prefix-16> for the typed seed corpus; UUID v4 for DB-persisted notes (migration-0102). Multi-format (json + md / text). Substrate-honest 404 lists known seed ids.",
+          description: "Single curated seed note by id. Unreviewed database notes are not exposed; public note creation is paused.",
           auth: "none",
           status: "stable",
         },
@@ -550,48 +563,48 @@ const MANIFEST: {
     {
       group: "federation",
       description:
-        "Reverse-resolution for content hashes — for other platforms or research systems that cached a Cambridge TCG hash and need to find the underlying SKU.",
+        "Hash-resolution route shapes. Current SKU resolution is paused because underlying catalog membership lacks affirmative public reuse rights.",
       endpoints: [
         {
           path: "/api/v1/federation/identify/{hash}",
           description:
-            "Given a sha256 content_hash from /api/v1/universal/card/[sku], reverse-resolves to the current SKU. Substrate-honest about bounded scope and price-dependency.",
+            "Paused: returns 503 without walking catalog rows or confirming whether a hash maps to a SKU.",
           auth: "none",
-          status: "stable",
+          status: "paused",
           methodology: "/methodology/universal-representation",
         },
       ],
     },
     {
       group: "catalog-enumerators",
-      description: "Discoverable catalog: every game in the catalog, every set within a game, with singleton entry endpoints for each.",
+      description: "Rights-gap route shapes. They publish no catalog membership; resolvers that would confirm a record are paused.",
       endpoints: [
         {
           path: "/api/v1/universal/games",
-          description: "Every game in the storefront catalog, math-mirror form. set_count + card_count + first-seen timestamp per game.",
+          description: "Empty structural collection; no catalog query, membership, counts, or dates.",
           auth: "none",
           status: "stable",
           methodology: "/methodology/universal-representation",
         },
         {
           path: "/api/v1/universal/game/{token}",
-          description: "Singleton game. _links to sibling-collection (games) + children (sets); recent_sets sample inline.",
+          description: "Caller-token structural shape. No catalog membership, sets, counts, or dates are asserted.",
           auth: "none",
           status: "stable",
           methodology: "/methodology/universal-representation",
         },
         {
           path: "/api/v1/universal/sets/{game}",
-          description: "Every set in a game. card_sets filtered + edges back to parent game.",
+          description: "Caller-token structural shape with an empty sets array; no catalog query or membership assertion.",
           auth: "none",
           status: "stable",
           methodology: "/methodology/universal-representation",
         },
         {
           path: "/api/v1/universal/set/{code}",
-          description: "Singleton set. Full nest of _links — parent (game), sibling-collection (sets-in-game), cards-in-set inline. The doorway from any card to its game and back down through every other card.",
+          description: "Paused: returns 503 without querying set/card membership or confirming the caller token.",
           auth: "none",
-          status: "stable",
+          status: "paused",
           methodology: "/methodology/universal-representation",
         },
       ],
@@ -701,16 +714,16 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/play/deck/validate",
-          description: "POST a deck declaration; receive typed legality result with all violations. 50-card / leader-color / 4-copy / set-rotation checks.",
+          description: "Paused validator. POST returns HTTP 503 without reading the body or querying catalog metadata; no category classification or legality result is emitted.",
           auth: "none",
-          status: "stable",
+          status: "paused",
           methodology: "/methodology/play-module",
         },
         {
           path: "/play/deck-check",
-          description: "HTML adoption site for the deck-legality validator (kingdom-070). Form-based; renders violations + substrate-honest perimeter.",
+          description: "Paused explanation page for the deck-validation rights boundary. It has no form and submits no deck.",
           auth: "none",
-          status: "stable",
+          status: "paused",
           methodology: "/methodology/play-module",
         },
         {

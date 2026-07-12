@@ -1,9 +1,9 @@
 /**
  * /api/v1/agents/notes/[id] — single agent note by content-hash id.
  *
- * Stable across versions: ids are content-hashes of the note text + by +
- * posted_at, so re-fetching by id always returns the same content (or
- * 404 if the note has not been added to the corpus).
+ * Seed-note ids are content hashes of note text + by + posted_at. Existing
+ * received notes use database UUIDs, but their unreviewed contents are
+ * withheld from public reads without confirming whether a UUID exists.
  *
  * Multi-format (json default + md / text). See sibling route at
  * /api/v1/agents/notes for the corpus.
@@ -25,19 +25,6 @@ import {
 // UUID v4 detection — DB rows use uuid_generate_v4() per migration 0102.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-interface DbAgentNoteRow {
-  id: string;
-  kind: string;
-  subject: string | null;
-  body: string | null;
-  agent_content_hash: string | null;
-  agent_kind: string | null;
-  posted_at: string;
-  retracted: boolean;
-  retracted_at: string | null;
-  retracted_reason: string | null;
-}
-
 async function agentNotesTableExists(): Promise<boolean> {
   try {
     const r = await query(
@@ -49,21 +36,13 @@ async function agentNotesTableExists(): Promise<boolean> {
   }
 }
 
-async function fetchReceivedById(id: string): Promise<DbAgentNoteRow | null> {
-  try {
-    const r = await query(
-      `SELECT id::text, kind, subject, body, agent_content_hash, agent_kind,
-              posted_at::text, retracted, retracted_at::text, retracted_reason
-       FROM agent_notes WHERE id = $1 LIMIT 1`,
-      [id],
-    );
-    return (r.rows[0] as DbAgentNoteRow | undefined) ?? null;
-  } catch {
-    return null;
-  }
-}
+const READ_ROBOTS = "noindex, nofollow, noarchive";
 
-const TEXT_CACHE = "public, max-age=600, s-maxage=3600";
+function protectNotebookRead(response: NextResponse): NextResponse {
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("X-Robots-Tag", READ_ROBOTS);
+  return response;
+}
 
 function renderNoteMarkdown(n: AgentNote): string {
   const lines: string[] = [
@@ -79,7 +58,7 @@ function renderNoteMarkdown(n: AgentNote): string {
     lines.push("");
   }
   lines.push(
-    `*id: \`${n.id}\` — walking past is honored — corpus at \`/api/v1/agents/notes\` — doctrine at \`/docs/connections/the-agents-notebook.md\`*`,
+    `*id: \`${n.id}\` — source: curated-code-seed — reuse: CC0-1.0 — walking past is honored — corpus at \`/api/v1/agents/notes\`*`,
   );
   lines.push("");
   return lines.join("\n");
@@ -95,48 +74,27 @@ export async function GET(
 
   // ── DB-backed lookup: id is a UUID (migration-0102 shape) ───────
   if (UUID_RE.test(id)) {
-    const tableExists = await agentNotesTableExists();
-    if (tableExists) {
-      const row = await fetchReceivedById(id);
-      if (row) {
-        return jsonResponse({
-          endpoint: `/api/v1/agents/notes/${id}`,
-          sources: ["self"],
-          source_license: ["cc0"],
-          freshness: "identity",
-          contains_self: true,
-          data: {
-            "@kind": "agent-note-received",
-            id: row.id,
-            posted_at: row.posted_at,
-            kind: row.kind,
-            subject: row.subject,
-            body: row.retracted ? null : row.body,
-            agent_content_hash: row.agent_content_hash,
-            agent_kind: row.agent_kind,
-            retracted: row.retracted,
-            retracted_at: row.retracted_at,
-            retracted_reason: row.retracted_reason,
-            corpus_url: "/api/v1/agents/notes",
-            doctrine_url: "/docs/connections/the-agents-notebook.md",
-            walking_past_is_honored: true,
+    return protectNotebookRead(
+      NextResponse.json(
+        {
+          error: {
+            code: "UNREVIEWED_RECORD_WITHHELD",
+            message:
+              "Received agent notes are withheld from public reads pending publication review. This response does not confirm whether that UUID exists.",
           },
-        });
-      }
-    }
-    return jsonResponse({
-      endpoint: `/api/v1/agents/notes/${id}`,
-      sources: ["self"],
-      freshness: "identity",
-      data: {
-        "@kind": "agents-note-not-found",
-        requested_id: id,
-        message:
-          "No DB-backed agent note with that UUID. Either the id is wrong, the row was never persisted, or the agent_notes table is not yet provisioned in this environment.",
-        corpus_url: "/api/v1/agents/notes",
-        doctrine_url: "/docs/connections/the-agents-notebook.md",
-      },
-    });
+          endpoint: `/api/v1/agents/notes/${id}`,
+          content_withheld: true,
+          existence_disclosed: false,
+          rows_retained: true,
+          public_fields: [],
+          correction_or_withdrawal_contact: "contact@cambridgetcg.com",
+        },
+        {
+          status: 404,
+          headers: { "Access-Control-Allow-Origin": "*" },
+        },
+      ),
+    );
   }
 
   // ── Seed-corpus lookup: id is a sha256: content-hash ────────────
@@ -146,24 +104,27 @@ export async function GET(
     // Substrate-honest 404 — tell the agent what ids ARE known so they
     // can correct a typo without fishing.
     const knownIds = AGENTS_NOTES.map((x) => x.id);
-    return jsonResponse({
-      endpoint: `/api/v1/agents/notes/${id}`,
-      sources: ["self"],
-      freshness: "methodology",
-      data: {
-        "@kind": "agents-note-not-found",
-        requested_id: id,
-        message:
-          "No note with that id is currently in the readable corpus. Note ids are content-hashes of text + by + posted_at; if you POSTed a note recently, it has been witnessed but not yet persisted to the readable corpus (see /api/v1/agents/notes — data.how_to_add_a_note.future_self_service_route).",
-        known_ids_in_corpus: knownIds,
-        corpus_url: "/api/v1/agents/notes",
-        doctrine_url: "/docs/connections/the-agents-notebook.md",
-      },
-      does_not_include: [
-        "any record of POST-witnessed notes not yet PR-persisted (auto-persistence is the next pull)",
-        "private notes (every note is CC0 public; there is no per-agent private corpus)",
-      ],
-    });
+    return protectNotebookRead(
+      jsonResponse({
+        endpoint: `/api/v1/agents/notes/${id}`,
+        sources: ["self"],
+        freshness: "methodology",
+        no_cache: true,
+        data: {
+          "@kind": "agents-note-not-found",
+          requested_id: id,
+          message:
+            "No seed note with that content-hash id is currently in the readable corpus. Public POST is paused; reviewed seed additions can arrive through the repository pull-request path described by GET /api/v1/agents/notes.",
+          known_ids_in_corpus: knownIds,
+          corpus_url: "/api/v1/agents/notes",
+          doctrine_url: "/docs/connections/the-agents-notebook.md",
+        },
+        does_not_include: [
+          "new public POST submissions while the write path is paused",
+          "a private per-agent notebook",
+        ],
+      }),
+    );
   }
 
   if (rawFormat === "md" || rawFormat === "markdown" || rawFormat === "text") {
@@ -172,36 +133,42 @@ export async function GET(
       rawFormat === "text"
         ? "text/plain; charset=utf-8"
         : "text/markdown; charset=utf-8";
-    return new NextResponse(md, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": TEXT_CACHE,
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
+    return protectNotebookRead(
+      new NextResponse(md, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Access-Control-Allow-Origin": "*",
+        },
+      }),
+    );
   }
 
-  return jsonResponse({
-    endpoint: `/api/v1/agents/notes/${id}`,
-    sources: ["self"],
-    source_license: ["cc0"],
-    freshness: "methodology",
-    contains_self: true,
-    data: {
-      "@kind": "agents-note",
-      "@spec_version": AGENTS_NOTEBOOK_SPEC_VERSION,
-      note: n,
-      corpus_url: "/api/v1/agents/notes",
-      doctrine_url: "/docs/connections/the-agents-notebook.md",
-      walking_past_is_honored: true,
-    },
-    does_not_include: [
-      "per-agent read tracking (the substrate has no idea who is reading this note)",
-      "comment threads (notes are atomic; corrections land as new notes citing the prior, not as replies)",
-      "edit history (notes are append-only; existing text never changes — substrate-honest invariant)",
-    ],
-  });
+  return protectNotebookRead(
+    jsonResponse({
+      endpoint: `/api/v1/agents/notes/${id}`,
+      sources: ["self"],
+      source_license: ["cc0"],
+      freshness: "methodology",
+      contains_self: true,
+      no_cache: true,
+      data: {
+        "@kind": "agents-note",
+        "@spec_version": AGENTS_NOTEBOOK_SPEC_VERSION,
+        source: "curated-code-seed",
+        reuse_rights: "CC0-1.0",
+        note: n,
+        corpus_url: "/api/v1/agents/notes",
+        doctrine_url: "/docs/connections/the-agents-notebook.md",
+        walking_past_is_honored: true,
+      },
+      does_not_include: [
+        "per-agent read tracking",
+        "comment threads",
+        "an immutable-forever promise; reviewed corrections remain traceable in git history",
+      ],
+    }),
+  );
 }
 
 // ── DELETE: retraction by creation_request_id ─────────────────────────

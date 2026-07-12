@@ -12,6 +12,7 @@ export type ReviewAction =
   | "flagged"
   | "appealed"
   | "appeal_dismissed"
+  | "unpublished"
   | "edited";
 
 export interface LogReviewArgs {

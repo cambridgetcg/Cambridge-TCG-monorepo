@@ -33,7 +33,7 @@ export default function MessagingMethodology() {
         </li>
         <li>
           <strong>You can opt out entirely.</strong> The <em>accepts messages</em> toggle
-          on your profile refuses all new unsolicited messages. It defaults to on.
+          on your profile refuses all new unsolicited messages. It defaults to off.
         </li>
         <li>
           <strong>Empty threads stay private to their opener.</strong> Opening a thread
@@ -45,21 +45,23 @@ export default function MessagingMethodology() {
       <h2>Rate limits</h2>
       <ul>
         <li>
-          <strong>10 messages per minute.</strong> High enough for a quick
+          <strong>10 messages per fixed minute.</strong> High enough for a quick
           shipping-address exchange, low enough to blunt paste-bombing.
         </li>
         <li>
-          <strong>50 messages per day.</strong> Caps broadcast abuse.
+          <strong>50 messages per UTC day.</strong> Caps broadcast abuse.
         </li>
         <li>
-          <strong>10 new conversations per hour.</strong> Opening threads with many
+          <strong>10 new-conversation attempts per fixed hour.</strong> Opening threads with many
           strangers in quick succession is a spam shape. Re-opening an existing thread is
           never limited.
         </li>
       </ul>
       <p>
-        Hitting a limit returns an explicit error naming the cap — the platform refuses
-        loudly, not silently.
+        Limits use atomic, window-specific HMAC buckets so parallel sends cannot all
+        slip through the same preflight count. The bucket never stores the raw account
+        id. Hitting a limit returns an explicit error naming the cap; if safe hashing or
+        bucket storage is unavailable, messaging fails closed.
       </p>
 
       <h2>Reference chips</h2>

@@ -16,9 +16,8 @@
  */
 
 import Link from "next/link";
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Badge, Callout, EmptyState, ErrorAlert, Field, Icon, Input, Money, Palettes, Select, WhyLink } from "@/lib/ui";
+import { Callout, EmptyState, ErrorAlert, Field, Icon, Input, Money, Select, WhyLink } from "@/lib/ui";
 import { formatDate } from "@/lib/format";
 import {
   buildCatalogSearch,
@@ -121,7 +120,7 @@ export default function ListingWizard({
       abortRef.current = controller;
       try {
         const res = await fetch(
-          `/api/market/catalog?${buildCatalogSearch({ game, q, set: null, sort: "name_asc", page: 1, view: "table" }, limit)}`,
+          `/api/market/catalog?${buildCatalogSearch({ game, q, set: null, sort: "number_asc", page: 1, view: "table" }, limit)}`,
           { signal: controller.signal },
         );
         const body = await res.json().catch(() => null);
@@ -402,14 +401,14 @@ export default function ListingWizard({
           {search.status === "ok" && search.results.length === 0 && (
             <EmptyState
               title="No cards match"
-              description="Try the exact card number (e.g. OP01-001) or a shorter part of the name."
+              description="Enter the full canonical SKU. It may be used structurally for a first listing without asserting restricted catalog membership."
             />
           )}
 
           {search.status === "ok" && search.results.length > 0 && (
             <div>
               <p className="text-[10px] text-ink-faint mb-2 flex items-center gap-1.5">
-                prices {search.source ? sourceBadges[search.source] : null}
+                first-party book {search.source ? sourceBadges[search.source] : null}
               </p>
               <ul className="space-y-2">
                 {search.results.map((card) => (
@@ -420,12 +419,9 @@ export default function ListingWizard({
                     >
                       <ResultThumb card={card} />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-ink truncate">{card.name}</span>
+                        <span className="block text-sm font-semibold text-ink truncate">{card.sku}</span>
                         <span className="flex items-center gap-1.5 text-xs text-ink-faint font-mono truncate">
-                          {card.card_number} · {card.set_name}
-                          {card.rarity && (
-                            <Badge status={card.rarity.toUpperCase()} palette={Palettes.RarityPalette} size="sm" />
-                          )}
+                          {card.card_number} · {card.set_code ?? "—"}
                         </span>
                       </span>
                       <span className="text-right shrink-0">
@@ -436,9 +432,11 @@ export default function ListingWizard({
                         ) : (
                           <span className="block text-[10px] text-ink-faint">no asks yet</span>
                         )}
-                        <span className="block text-[10px] text-ink-faint font-mono tabular-nums">
-                          spot <Money value={card.spot_price} />
-                        </span>
+                        {card.spot_price !== null && (
+                          <span className="block text-[10px] text-ink-faint font-mono tabular-nums">
+                            spot <Money value={card.spot_price} />
+                          </span>
+                        )}
                       </span>
                     </button>
                   </li>
@@ -473,12 +471,9 @@ export default function ListingWizard({
           <div className="wardrobe-mat rounded-lg p-4 flex items-center gap-4 mb-5">
             <ResultThumb card={picked} large />
             <div className="min-w-0 flex-1">
-              <h2 className="font-display text-lg font-bold text-ink truncate">{picked.name}</h2>
+              <h2 className="font-display text-lg font-bold text-ink truncate">{picked.sku}</h2>
               <p className="flex items-center gap-1.5 text-xs text-ink-faint font-mono">
-                {picked.card_number} · {picked.set_name} ({picked.set_code})
-                {picked.rarity && (
-                  <Badge status={picked.rarity.toUpperCase()} palette={Palettes.RarityPalette} size="sm" />
-                )}
+                {picked.card_number} · {picked.set_code ?? "—"}
               </p>
               <button
                 onClick={() => setStep("pick")}
@@ -492,10 +487,10 @@ export default function ListingWizard({
           {/* Reference prices — from the catalog row already fetched */}
           <div className="wardrobe-mat rounded-lg p-4 mb-5">
             <p className="text-[10px] text-ink-faint uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              Reference prices {sourceBadges[picked.source]}
+              First-party order book {sourceBadges[picked.source]}
               <WhyLink href="/methodology/market" tooltip="Where these numbers come from" />
             </p>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className={`grid gap-3 text-center ${picked.spot_price !== null ? "grid-cols-3" : "grid-cols-2"}`}>
               <div>
                 <p className="text-xs text-ink-faint mb-0.5">Best ask</p>
                 <p className="text-sm font-bold text-ask font-mono tabular-nums">
@@ -508,12 +503,14 @@ export default function ListingWizard({
                   {picked.best_bid != null ? <Money value={picked.best_bid} /> : "—"}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-ink-faint mb-0.5">Spot (ref)</p>
-                <p className="text-sm font-bold text-ink-muted font-mono tabular-nums">
-                  <Money value={picked.spot_price} />
-                </p>
-              </div>
+              {picked.spot_price !== null && (
+                <div>
+                  <p className="text-xs text-ink-faint mb-0.5">Spot (ref)</p>
+                  <p className="text-sm font-bold text-ink-muted font-mono tabular-nums">
+                    <Money value={picked.spot_price} />
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -655,21 +652,12 @@ function StepRail({ step }: { step: Step }) {
 }
 
 function ResultThumb({ card, large }: { card: { image_url: string | null; name: string }; large?: boolean }) {
-  const w = large ? 64 : 40;
-  const h = large ? 90 : 56;
-  return card.image_url ? (
-    <Image
-      src={card.image_url}
-      alt={card.name}
-      width={w}
-      height={h}
-      className={`${large ? "w-16" : "w-10"} object-cover rounded border border-border-subtle shrink-0`}
-    />
-  ) : (
+  void card;
+  return (
     <span
       className={`${large ? "w-16 h-[90px]" : "w-10 h-14"} bg-surface-subtle border border-border-subtle rounded flex items-center justify-center shrink-0`}
     >
-      <span className="text-ink-faint text-[8px]">N/A</span>
+      <span className="text-ink-faint text-[8px]">SKU</span>
     </span>
   );
 }

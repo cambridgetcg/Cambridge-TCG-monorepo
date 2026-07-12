@@ -12,12 +12,12 @@
  * See `docs/methodology/source-protocol.md` for the protocol and
  * `docs/connections/the-tributaries.md` for the catalog.
  *
- * ── Ten checks ───────────────────────────────────────────────────────
+ * ── Eleven checks ────────────────────────────────────────────────────
  *
  *   1. Module exists — every `SOURCES[id]` (excluding undefined planned
  *      slots) has a directory at `packages/data-ingest/src/<id>/`.
  *   2. SourceModule shape — exports an object with `meta`, `read`, `normalize`.
- *   3. Required meta — all 14 required SourceMeta fields are present + non-empty.
+ *   3. Required meta — every required SourceMeta field is present + non-empty.
  *   4. Id parity — `meta.id` matches the directory name + registry key.
  *   5. Catalog row — `meta.catalog_section` points to a real anchor in
  *      `docs/connections/the-tributaries.md`.
@@ -35,6 +35,9 @@
  *      response shape must also declare `@source_license` or `source_license`
  *      somewhere in the file. Heuristic static check — false positives are
  *      a drift signal, not a CI gate.
+ *  11. Layered rights — code licence, data terms, image terms,
+ *      redistribution verdict, safe default, review date, evidence URLs, and
+ *      notes are present and fail closed coherently.
  *
  * Exit non-zero on any check failure. Pass `--strict` to fail on any
  * planned-with-row mismatch as well.
@@ -94,6 +97,14 @@ function warn(check: number, id: string, message: string): void {
   findings.push({ check, severity: "warn", id, message });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasText(value: unknown, min = 1): value is string {
+  return typeof value === "string" && value.trim().length >= min;
+}
+
 // ── Load the registry source ───────────────────────────────────────────
 
 const REQUIRED_META_FIELDS = [
@@ -105,6 +116,7 @@ const REQUIRED_META_FIELDS = [
   "access",
   "license",
   "redistribute",
+  "rights",
   "freshness",
   "canonical_effort",
   "status",
@@ -140,6 +152,22 @@ const VALID_STATUSES = new Set(["shipped", "partial", "planned", "blocked"]);
 
 const VALID_EFFORTS = new Set(["low", "medium", "high", "very-high"]);
 
+const VALID_REDISTRIBUTION_VERDICTS = new Set([
+  "permitted",
+  "conditional",
+  "contract-required",
+  "prohibited",
+  "unknown",
+]);
+
+const VALID_RIGHTS_SAFE_DEFAULTS = new Set([
+  "redistribute",
+  "display-with-terms",
+  "contract-only",
+  "internal-only",
+  "no-fetch",
+]);
+
 // ── Load SOURCES + SourceModule definitions dynamically ─────────────────
 //
 // The audit imports the registry at runtime to get every source's meta
@@ -155,6 +183,16 @@ interface SourceMetaShape {
   license: string;
   license_spdx?: string;
   redistribute: boolean;
+  rights: {
+    code: { license: string; notes: string };
+    data: { terms: string; notes: string };
+    images: { terms: string; notes: string };
+    redistribution: { verdict: string; notes: string };
+    safe_default: string;
+    reviewed_at: string;
+    evidence_urls: string[];
+    notes: string;
+  };
   freshness: string;
   canonical_effort: string;
   status: string;
@@ -240,7 +278,7 @@ async function main(): Promise<void> {
   const catalog_anchors = loadCatalogAnchors();
   const dirs = new Set(listSourceDirs());
 
-  let shipped = 0;
+  let registered = 0;
   let planned = 0;
 
   for (const [id, mod] of Object.entries(sources)) {
@@ -254,7 +292,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    shipped += 1;
+    registered += 1;
 
     // Check 1: module exists at expected path
     if (!dirs.has(id)) {
@@ -338,6 +376,104 @@ async function main(): Promise<void> {
     // Check 7: license coherence
     if (meta.redistribute === true && !REDISTRIBUTABLE_LICENSES.has(meta.license)) {
       fail(7, id, `redistribute: true but license '${meta.license}' is not in {cc0,cc-by,cc-by-sa,mit}`);
+    }
+
+    // Check 11: layered source-rights contract. A code licence is not a data
+    // licence, and neither licences images by implication. Every layer must be
+    // explicit, dated, evidenced, and coherent with the fail-closed legacy flag.
+    const rightsUnknown = (meta as unknown as Record<string, unknown>).rights;
+    if (!isRecord(rightsUnknown)) {
+      fail(11, id, `meta.rights must be an object`);
+    } else {
+      const code = rightsUnknown.code;
+      const data = rightsUnknown.data;
+      const images = rightsUnknown.images;
+      const redistribution = rightsUnknown.redistribution;
+      const safeDefault = rightsUnknown.safe_default;
+      const reviewedAt = rightsUnknown.reviewed_at;
+      const evidenceUrls = rightsUnknown.evidence_urls;
+      const rightsNotes = rightsUnknown.notes;
+
+      if (!isRecord(code) || !hasText(code.license) || !hasText(code.notes, 20)) {
+        fail(11, id, `rights.code requires non-empty license + explanatory notes`);
+      }
+      if (!isRecord(data) || !hasText(data.terms) || !hasText(data.notes, 20)) {
+        fail(11, id, `rights.data requires non-empty terms + explanatory notes`);
+      }
+      if (!isRecord(images) || !hasText(images.terms) || !hasText(images.notes, 20)) {
+        fail(11, id, `rights.images requires non-empty terms + explanatory notes`);
+      }
+
+      const verdict = isRecord(redistribution) ? redistribution.verdict : undefined;
+      if (
+        !isRecord(redistribution) ||
+        !hasText(verdict) ||
+        !VALID_REDISTRIBUTION_VERDICTS.has(verdict) ||
+        !hasText(redistribution.notes, 20)
+      ) {
+        fail(
+          11,
+          id,
+          `rights.redistribution requires a valid verdict + explanatory notes`,
+        );
+      }
+
+      if (!hasText(safeDefault) || !VALID_RIGHTS_SAFE_DEFAULTS.has(safeDefault)) {
+        fail(11, id, `rights.safe_default '${String(safeDefault)}' is invalid`);
+      }
+      if (!hasText(rightsNotes, 20)) {
+        fail(11, id, `rights.notes must explain cross-layer caveats / review triggers`);
+      }
+
+      if (!hasText(reviewedAt) || !/^\d{4}-\d{2}-\d{2}$/.test(reviewedAt)) {
+        fail(11, id, `rights.reviewed_at must be an ISO calendar date (YYYY-MM-DD)`);
+      } else {
+        const reviewedTime = Date.parse(`${reviewedAt}T00:00:00Z`);
+        if (
+          !Number.isFinite(reviewedTime) ||
+          new Date(reviewedTime).toISOString().slice(0, 10) !== reviewedAt
+        ) {
+          fail(11, id, `rights.reviewed_at '${reviewedAt}' is not a real calendar date`);
+        } else if (reviewedTime > Date.now() + 24 * 60 * 60 * 1000) {
+          fail(11, id, `rights.reviewed_at '${reviewedAt}' is in the future`);
+        }
+      }
+
+      if (!Array.isArray(evidenceUrls) || evidenceUrls.length === 0) {
+        fail(11, id, `rights.evidence_urls must contain at least one official URL`);
+      } else {
+        for (const evidenceUrl of evidenceUrls) {
+          if (!hasText(evidenceUrl) || !evidenceUrl.startsWith("https://")) {
+            fail(11, id, `rights.evidence_urls contains a non-HTTPS URL: '${String(evidenceUrl)}'`);
+            continue;
+          }
+          try {
+            new URL(evidenceUrl);
+          } catch {
+            fail(11, id, `rights.evidence_urls contains an invalid URL: '${evidenceUrl}'`);
+          }
+        }
+      }
+
+      if (meta.redistribute === true && verdict !== "permitted") {
+        fail(
+          11,
+          id,
+          `legacy redistribute:true requires rights.redistribution.verdict='permitted'`,
+        );
+      }
+      if (safeDefault === "redistribute" && verdict !== "permitted") {
+        fail(11, id, `safe_default='redistribute' requires verdict='permitted'`);
+      }
+      if (safeDefault === "contract-only" && verdict !== "contract-required") {
+        fail(11, id, `safe_default='contract-only' requires verdict='contract-required'`);
+      }
+      if (safeDefault === "no-fetch" && (meta.access !== "blocked" || meta.status !== "blocked")) {
+        fail(11, id, `safe_default='no-fetch' requires both access and status to be 'blocked'`);
+      }
+      if ((meta.access === "blocked" || meta.status === "blocked") && safeDefault !== "no-fetch") {
+        fail(11, id, `blocked access/status requires rights.safe_default='no-fetch'`);
+      }
     }
 
     // Check 8: game validity
@@ -500,8 +636,8 @@ async function main(): Promise<void> {
   if (STRICT && existsSync(CATALOG_PATH)) {
     const catalog = readFileSync(CATALOG_PATH, "utf8");
     const shipped_rows = (catalog.match(/\*\*shipped\*\*/gi) ?? []).length;
-    if (shipped_rows > 0 && shipped === 0) {
-      warn(0, "(catalog)", `catalog has ${shipped_rows} shipped rows but registry has 0 shipped modules`);
+    if (shipped_rows > 0 && registered === 0) {
+      warn(0, "(catalog)", `catalog has ${shipped_rows} shipped rows but registry has 0 implemented modules`);
     }
   }
 
@@ -512,7 +648,7 @@ async function main(): Promise<void> {
   console.log("");
   console.log(`◆ tributaries audit — data-ingest source protocol conformance`);
   console.log("");
-  console.log(`  modules registered: ${shipped} shipped + ${planned} planned slot${planned === 1 ? "" : "s"}`);
+  console.log(`  modules registered: ${registered} implemented + ${planned} planned slot${planned === 1 ? "" : "s"}`);
   console.log(`  catalog anchors:    ${catalog_anchors.size}`);
   console.log(`  source directories: ${dirs.size}`);
   console.log(`  game codes:         ${game_codes.size}`);

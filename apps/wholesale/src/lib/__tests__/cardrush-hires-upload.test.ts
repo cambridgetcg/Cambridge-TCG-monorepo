@@ -38,6 +38,36 @@ vi.mock("@cambridge-tcg/aws/s3", () => {
   };
 });
 
+const APPROVAL_KEYS = [
+  "CARDRUSH_APPROVAL_REFERENCE",
+  "CARDRUSH_APPROVAL_REVIEWED_AT",
+  "CARDRUSH_APPROVED_USE_CASES",
+] as const;
+
+beforeEach(() => {
+  process.env.CARDRUSH_APPROVAL_REFERENCE = "written-approval-2026-07";
+  process.env.CARDRUSH_APPROVAL_REVIEWED_AT = "2026-07-11";
+  process.env.CARDRUSH_APPROVED_USE_CASES = "image-archive-and-publication";
+});
+
+afterEach(() => {
+  for (const key of APPROVAL_KEYS) delete process.env[key];
+});
+
+describe("source approval gate", () => {
+  it("does no database work when written archive approval is absent", async () => {
+    for (const key of APPROVAL_KEYS) delete process.env[key];
+    const dbModule = await import("../db");
+    const insert = dbModule.db.insert as ReturnType<typeof vi.fn>;
+    insert.mockClear();
+
+    await expect(runHiresUpload({ game: "pkm", maxBatch: 1 })).rejects.toThrow(
+      /Credentials alone do not authorise this use/,
+    );
+    expect(insert).not.toHaveBeenCalled();
+  });
+});
+
 describe("BUCKET_BY_GAME", () => {
   it("maps pkm to jp-pk-photos", () => {
     expect(BUCKET_BY_GAME.pkm).toBe("jp-pk-photos");

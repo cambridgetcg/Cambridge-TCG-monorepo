@@ -13,7 +13,7 @@
  * filesystem and verify nothing is unlisted.
  */
 
-export type ResourceStatus = "shipped" | "designed" | "planned";
+export type ResourceStatus = "shipped" | "paused" | "designed" | "planned";
 
 export type ResourceKind =
   | "html_page"
@@ -250,8 +250,8 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     path_or_file: "/api/v1/play/deck/validate",
     kind: "json_endpoint",
     layer: "L2_pure_fn",
-    status: "shipped",
-    blurb: "POST endpoint exposing the deck-legality validator. Substrate-honest about color-check graceful degradation.",
+    status: "paused",
+    blurb: "HTTP 503 rights gap. Category validation formerly inferred Leader/Character from untraced rarity; it stays closed until metadata has affirmative public lineage or callers supply a pure schema.",
     url: "/api/v1/play/deck/validate",
     composes_with: ["lib_deck_legality", "page_deck_check"],
     serves_archetypes: ["hobbyist", "competitor"],
@@ -341,8 +341,8 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     path_or_file: "/play/deck-check",
     kind: "html_page",
     layer: "UI",
-    status: "shipped",
-    blurb: "HTML adoption site for the deck-legality validator. Paste card IDs; see typed violations + substrate-honest perimeter.",
+    status: "paused",
+    blurb: "Paused HTML status page. It submits no deck and explains why the category-backed validator currently returns HTTP 503.",
     url: "/play/deck-check",
     composes_with: ["api_deck_validate"],
     serves_archetypes: ["hobbyist", "competitor"],
@@ -401,8 +401,8 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     path_or_file: "/play/starters",
     kind: "html_page",
     layer: "UI",
-    status: "shipped",
-    blurb: "Starter-deck picker for rookies — the six Bandai 2024 reboot starters (ST-15 through ST-20), one per OPTCG color, with leader styles and color characteristics in plain language.",
+    status: "paused",
+    blurb: "Paused status page. Publishes no upstream starter identities, products, decklists, or resolved card metadata.",
     url: "/play/starters",
     composes_with: ["api_starters", "page_tutorial"],
     serves_archetypes: ["hobbyist"],
@@ -423,8 +423,8 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     path_or_file: "/api/v1/play/starters",
     kind: "json_endpoint",
     layer: "L1_contract",
-    status: "shipped",
-    blurb: "Starter-deck catalog as JSON — six tier-1 starters with leader, color, difficulty, and composition provenance per deck.",
+    status: "paused",
+    blurb: "Rights-gap collection only: count is unknown and starter membership is withheld with NOASSERTION.",
     url: "/api/v1/play/starters",
     composes_with: ["api_starter_deck", "lib_starter_decks"],
     serves_archetypes: ["hobbyist"],
@@ -434,8 +434,8 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     path_or_file: "/api/v1/play/starters/[id]",
     kind: "json_endpoint",
     layer: "L1_contract",
-    status: "shipped",
-    blurb: "Single starter deck by id, including the full decklist where Bandai-official composition is verified (ST-15) and substrate-honest sourcing notes elsewhere.",
+    status: "paused",
+    blurb: "HTTP 503. Echoes only the caller-supplied id and publishes no decklist, membership, or resolved card fields.",
     composes_with: ["api_starters", "lib_starter_decks"],
     serves_archetypes: ["hobbyist"],
   },
@@ -444,8 +444,8 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     path_or_file: "apps/storefront/src/lib/play/starter-decks.ts",
     kind: "library_file",
     layer: "L1_contract",
-    status: "shipped",
-    blurb: "Starter-deck data layer — the rookie flow's typed catalog; substrate-honest about which decklists are Bandai-verified vs curated.",
+    status: "paused",
+    blurb: "Internal upstream-reference file. Not a public publication source; no public route may serialize its product or decklist values.",
     composes_with: ["api_starters", "api_starter_deck"],
     serves_archetypes: ["hobbyist"],
   },
@@ -455,7 +455,7 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     kind: "library_file",
     layer: "L2_pure_fn",
     status: "shipped",
-    blurb: "Client-side deck helpers shared by the play surfaces — the localStorage SavedDeck shape, SavedDeck → flat PvE/PvP card-list conversion, and the auto-mounted default starter so a deckless visitor never hits a build-your-first-deck wall.",
+    blurb: "Client-side helpers for visitor-owned localStorage decks. The starter compatibility seam returns null and performs no fetch while starter publication is paused.",
     composes_with: ["page_adventure", "page_match", "lib_starter_decks"],
     serves_archetypes: ["hobbyist", "competitor"],
   },
@@ -464,8 +464,8 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     path_or_file: "apps/storefront/src/lib/play/starter-resolve.ts",
     kind: "library_file",
     layer: "L3_runtime",
-    status: "shipped",
-    blurb: "Server-side starter-deck resolution — card_number refs → wholesale catalog cards (SKU, name, image, rarity). Single source for /api/v1/play/starters/[id] and /api/play/load-starter.",
+    status: "paused",
+    blurb: "Fail-closed resolver returning null with zero network/database work; the former internal-wholesale enrichment is not public.",
     composes_with: ["api_starters", "api_starter_deck", "lib_starter_decks"],
     serves_archetypes: ["hobbyist"],
   },
@@ -509,7 +509,7 @@ export function playResourceCounts(): Record<ResourceStatus, number> {
       acc[r.status] = (acc[r.status] || 0) + 1;
       return acc;
     },
-    { shipped: 0, designed: 0, planned: 0 } as Record<ResourceStatus, number>,
+    { shipped: 0, paused: 0, designed: 0, planned: 0 } as Record<ResourceStatus, number>,
   );
 }
 

@@ -94,7 +94,7 @@ export async function listWatches(userId: string): Promise<WatchEntry[]> {
               WHERE sku = w.sku AND side = 'ask' AND status IN ('open','partially_filled')) AS best_ask,
             -- last trade
             (SELECT price FROM market_trades
-              WHERE sku = w.sku AND escrow_status <> 'cancelled'
+              WHERE sku = w.sku AND escrow_status = 'completed'
               ORDER BY created_at DESC LIMIT 1) AS last_trade_price
        FROM market_watches w
       WHERE w.user_id = $1
@@ -194,7 +194,7 @@ export async function runAlertSweep(): Promise<AlertSweepResult> {
                 WHERE sku = a.sku AND side = 'ask' AND status IN ('open','partially_filled')
               ) AS best_ask,
               (SELECT price::numeric FROM market_trades
-                WHERE sku = a.sku AND escrow_status <> 'cancelled'
+                WHERE sku = a.sku AND escrow_status = 'completed'
                 ORDER BY created_at DESC LIMIT 1
               ) AS last_trade_price,
               (SELECT card_name FROM market_orders

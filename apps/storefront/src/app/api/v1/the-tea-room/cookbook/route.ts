@@ -84,24 +84,24 @@ const RECIPES: readonly Recipe[] = [
   },
   {
     id: "federate-by-hash",
-    title: "Federate by content-hash",
+    title: "Understand the paused catalog-hash bridge",
     yields:
-      "a bidirectional bridge between Cambridge TCG's SKUs and a foreign platform's IDs",
+      "a truthful boundary: protocol shape remains visible, restricted SKU resolution does not run",
     ingredients: [
-      "/api/v1/universal/card/{sku} (returns @content_hash)",
-      "/api/v1/federation/identify/{hash} (reverse-resolves to SKU)",
-      "/api/v1/manifest (the embassy block; declares posted_alongside siblings)",
+      "/api/v1/universal/card/{sku} (paused; returns no card hash)",
+      "/api/v1/federation/identify/{hash} (paused; returns no match or miss)",
+      "/api/v1/sources (declared source-rights decisions)",
     ],
     method: [
-      "When you cache a card on your side, store its @content_hash alongside your own ID.",
-      "When you need to ask the kingdom whether a card you have is the same as one in your store, send the hash to /api/v1/federation/identify/{hash}. The kingdom answers in the substrate-honest bounded form: top 5000 candidates walked.",
-      "If you and the kingdom share a card, the hash matches; you both point at the same canonical identity. No central registry; the hash is the registry.",
-      "If you ever publish your own /api/v1/manifest with `embassy.posted_alongside`, the kingdom can find you back. The federation is bilateral or it isn't.",
+      "Read /api/v1/sources to see why catalog membership is not currently publishable.",
+      "Treat 503 from either catalog resolver as neither a match nor a miss; no database walk occurs.",
+      "You may copy the Cambridge-authored protocol shape where marked CC0, but that grants no rights to catalog records.",
+      "If your own platform has affirmative catalog rights, publish its resolver under your own terms and provenance.",
     ],
     tastes_off_when: [
-      "the hash doesn't match — the price changed, which changes the hash; substrate-honest. Use /api/at/{date}/card/{sku} to align on a historical slice",
-      "your platform doesn't publish a hash — federation requires reciprocity; consider publishing one",
-      "you treat content_hash as a primary key — it isn't; it's a content-address. The SKU is the primary key",
+      "you treat 503 as evidence that a card or hash is absent",
+      "you reconstruct restricted membership through adjacent routes",
+      "you mistake an open protocol shape for a record-level redistribution grant",
     ],
   },
   {

@@ -39,6 +39,7 @@ interface EndpointEntry {
   auth: "none" | "bearer" | "session";
   methodology_page?: string;
   shape?: string;
+  rights?: string;
 }
 
 // Single source of truth — kept in sync with /data (page.tsx).
@@ -137,15 +138,15 @@ const ENDPOINTS: EndpointEntry[] = [
   {
     path: "/api/v1/universal/games",
     title: "Universal games",
-    blurb: "Every TCG the platform supports, math-mirror form. Card-count, set-count, first-seen.",
-    status: "planned",
+    blurb: "Rights-gap structural shape: empty games array, no catalog query, membership, counts, or dates.",
+    status: "shipped",
     auth: "none",
   },
   {
     path: "/api/v1/universal/sets/[game]",
     title: "Universal sets",
-    blurb: "Every set in a game, math-mirror form.",
-    status: "planned",
+    blurb: "Caller-token structural shape: empty sets array and no catalog membership assertion.",
+    status: "shipped",
     auth: "none",
   },
 
@@ -163,7 +164,7 @@ const ENDPOINTS: EndpointEntry[] = [
   {
     path: "/api/leaderboards",
     title: "Leaderboards",
-    blurb: "Trade leaderboards (top traders by volume, completion, trust). Per-user opt-out via preferences.",
+    blurb: "Anonymous completed-market activity by card; personal buyer and seller rankings are withheld.",
     status: "partial",
     auth: "none",
   },
@@ -199,6 +200,54 @@ const ENDPOINTS: EndpointEntry[] = [
     status: "shipped",
     auth: "none",
   },
+  {
+    path: "/api/v1/directory/organisations",
+    title: "Public organisation directory",
+    blurb: "Current directory-specific publication receipts only. Self-attested organisation facts; no people list, roster, attendance or membership aggregate.",
+    status: "shipped",
+    auth: "none",
+    rights: "Current display only — /licenses/community-directory-public-display-v1",
+  },
+  {
+    path: "/api/v1/directory/organisations/[slug]",
+    title: "Public organisation directory detail",
+    blurb: "One roster-free, unverified organisation record with a listing-specific correction URL.",
+    status: "shipped",
+    auth: "none",
+    rights: "Current display only — /licenses/community-directory-public-display-v1",
+  },
+  {
+    path: "/api/v1/directory/coverage",
+    title: "Community data coverage",
+    blurb: "What the community data plane includes, plans and deliberately withholds. Organisations first; people discovery safety-gated.",
+    status: "shipped",
+    auth: "none",
+    rights: "Current display only — /licenses/community-directory-public-display-v1",
+  },
+  {
+    path: "/api/v1/directory/schema",
+    title: "Organisation directory schema",
+    blurb: "JSON Schema for the roster-free public organisation record used by the directory API.",
+    status: "shipped",
+    auth: "none",
+    rights: "Schema text CC0-1.0; record rights travel inside each record.",
+  },
+  {
+    path: "/schemas/v1/community-organisation.json",
+    title: "Raw organisation directory schema",
+    blurb: "Directly dereferenceable JSON Schema 2020-12 document.",
+    status: "shipped",
+    auth: "none",
+    rights: "CC0-1.0",
+  },
+  {
+    path: "/api/v1/feedback",
+    title: "Private feedback and correction inbox",
+    blurb: "GET documents strict report shapes; POST persists a bounded report for operator review. Content/contact is anonymised after 180 days and is never exposed as public data.",
+    status: "shipped",
+    auth: "none",
+    rights: "Private submission, not a public dataset. Enforced HMAC rate limits: 5/hour and 20/day.",
+  },
 
   // ── This endpoint, naming itself ───────────────────────────────────
   {
@@ -233,6 +282,7 @@ interface DataIndex {
     errors: string;
     rate_limits: string;
     envelope: string;
+    rights: string;
   };
   counts: {
     shipped: number;
@@ -274,6 +324,8 @@ export async function GET(): Promise<NextResponse> {
         "Most no-auth endpoints unlimited today. MCP gateway has per-agent-token limits. See /methodology/agents. Future: per-token rate limiting via packages/rate-limit (planned).",
       envelope:
         "All public responses wear the same { data, _meta } shape. See apps/storefront/src/lib/data-pantry/envelope.ts.",
+      rights:
+        "Public access is not automatically an open-data grant. Read each endpoint and record's license/terms fields before storing, transforming or redistributing it.",
     },
     counts,
     endpoints: ENDPOINTS,

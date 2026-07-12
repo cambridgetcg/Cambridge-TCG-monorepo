@@ -30,13 +30,26 @@ export async function listAuctions(filters: {
   await transitionLiveToEnded();
   await sweepUnpaidEndedAuctions();
 
-  const conditions: string[] = [];
+  // This function backs the unauthenticated auction directory. Its baseline
+  // is always public, even when a caller omits or invents a status filter.
+  // Customer listings must have passed review, and a suspended seller's
+  // listings disappear without publishing the seller or their trust record.
+  const conditions: string[] = [
+    `a.status IN ('scheduled', 'live', 'ended', 'paid')`,
+    `(a.seller_user_id IS NULL OR a.approval_status = 'approved')`,
+    `NOT EXISTS (
+       SELECT 1
+         FROM trust_profiles seller_trust
+        WHERE seller_trust.user_id = a.seller_user_id
+          AND COALESCE(seller_trust.is_suspended, FALSE) = TRUE
+     )`,
+  ];
   const params: unknown[] = [];
   let idx = 1;
 
   if (filters.status === "live") {
     conditions.push(`a.status = 'live'`);
-  } else if (filters.status === "upcoming") {
+  } else if (filters.status === "upcoming" || filters.status === "scheduled") {
     conditions.push(`a.status = 'scheduled'`);
   } else if (filters.status === "ended") {
     conditions.push(`a.status IN ('ended', 'paid')`);
@@ -47,9 +60,11 @@ export async function listAuctions(filters: {
     params.push(filters.type);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const limit = filters.limit || 20;
-  const offset = filters.offset || 0;
+  const where = `WHERE ${conditions.join(" AND ")}`;
+  const requestedLimit = Number.isFinite(filters.limit) ? Math.trunc(filters.limit!) : 20;
+  const requestedOffset = Number.isFinite(filters.offset) ? Math.trunc(filters.offset!) : 0;
+  const limit = Math.min(100, Math.max(1, requestedLimit));
+  const offset = Math.min(10_000, Math.max(0, requestedOffset));
 
   const countResult = await query(
     `SELECT COUNT(*) FROM auctions a ${where}`,
@@ -108,33 +123,6 @@ export async function getAuction(id: string): Promise<AuctionDetail | null> {
     bids: bids.rows as Bid[],
     server_time: new Date().toISOString(),
   };
-}
-
-// Participant-only redaction for the public detail surfaces. getAuction()
-// is SELECT * because the settlement paths (pay, webhook, state composer)
-// need the full row — but Stripe ids, payout financials, ops notes and
-// fulfilment tracking must only reach the seller, the winner, or an admin.
-// Public GET /api/auctions/[id] and the public auction page apply this
-// before serialising for anyone else.
-export function redactAuctionForPublic(auction: AuctionDetail): AuctionDetail {
-  const redacted: AuctionDetail = {
-    ...auction,
-    stripe_session_id: null,
-    stripe_payment_intent: null,
-    payment_expires_at: null,
-    approval_notes: null,
-    seller_payout: null,
-    seller_paid_at: null,
-    tracking_to_ctcg: null,
-    tracking_to_buyer: null,
-    shipping_address: null,
-  };
-  // SELECT * also carries payout columns the Auction type doesn't declare;
-  // strip them so they can't ride along untyped.
-  for (const k of ["payout_method", "payout_reference", "stripe_transfer_id"]) {
-    delete (redacted as unknown as Record<string, unknown>)[k];
-  }
-  return redacted;
 }
 
 // ── Create auction (admin) ──

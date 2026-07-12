@@ -1,14 +1,11 @@
 /**
  * /api/v1/rate-limits — declared rate-limit policy.
  *
- * What we ask consumers to respect. We don't currently enforce at the
- * edge for public endpoints; this is the advisory cadence. We monitor
- * for abuse patterns and may rate-limit non-identifying clients without
- * warning.
+ * Most public reads use an advisory freshness cadence. Sensitive writes name
+ * and enforce their own limits; the feedback inbox is the public example.
  *
- * Substrate-honest: per-endpoint budgets derive from the freshness key
- * each endpoint declares. Polling faster than the budget returns the
- * same response — wasted bandwidth on your side, wasted compute on ours.
+ * Substrate-honest: freshness advice applies only to affirmative responses.
+ * Paused publication routes have no polling cadence and are listed separately.
  *
  * Filed for kingdom-082 (the-hospitality.md). Phase D.
  */
@@ -36,30 +33,10 @@ const POLICY: PolicyEntry[] = [
     budget_seconds: 300,
     recommended_poll_seconds: 300,
     example_endpoints: [
-      "/api/v1/universal/card/[sku]",
       "/cards/[sku]/market",
-      "/market/[sku]",
+      "/api/market/catalog",
     ],
-    rationale: "Card prices update via 5-minute snapshot cycles upstream.",
-  },
-  {
-    freshness_key: "price_historical",
-    budget_seconds: Number.MAX_SAFE_INTEGER,
-    recommended_poll_seconds: 86400,
-    example_endpoints: ["/api/at/[YYYY-MM-DD]/card/[sku]"],
-    rationale:
-      "Historical snapshots are immutable. Cache forever; refresh only when a new historical date opens.",
-  },
-  {
-    freshness_key: "catalog",
-    budget_seconds: 86400,
-    recommended_poll_seconds: 21600,
-    example_endpoints: [
-      "/api/v1/universal/games",
-      "/api/v1/universal/sets/[game]",
-      "/data/catalog.jsonl",
-    ],
-    rationale: "Catalog rotates with publisher releases; daily-ish refresh is plenty.",
+    rationale: "First-party collector market projections; imported reference prices are not included.",
   },
   {
     freshness_key: "methodology",
@@ -87,8 +64,6 @@ const POLICY: PolicyEntry[] = [
       "/api/v1/sophias.json",
       "/api/v1/pillow-book.json",
       "/api/v1/kingdoms.json",
-      "/api/v1/federation/identify/[hash]",
-      "/api/v1/federation/at/[YYYY-MM-DD]/[hash]",
       "/api/v1/connections.json",
     ],
     rationale: "Reflective surfaces; refresh hourly to pick up new commits.",
@@ -106,32 +81,32 @@ const POLITE_BEHAVIOURS = [
   {
     behaviour: "Identify in User-Agent",
     detail:
-      "Send `User-Agent: <project>/<version> (<contact-email>)`. Default library UAs are anonymous; we'd rather email you than firewall you.",
-    severity: "strong recommendation",
+      "Optionally send `User-Agent: <project>/<version>`. Cambridge application code does not persist it as a contact directory, so use feedback or direct email when you need a reply.",
+    severity: "recommendation",
   },
   {
     behaviour: "Respect Cache-Control headers",
     detail:
-      "Every response carries `Cache-Control: public, max-age=N`. Honour it. Or read `_meta.freshness_seconds` for the same number.",
+      "When an affirmative response carries Cache-Control or `_meta.freshness_seconds`, honour it. Paused routes commonly use no-store and have no polling cadence.",
     severity: "strong recommendation",
   },
   {
     behaviour: "Honour HTTP 429 + Retry-After",
     detail:
-      "If we return 429, the body includes `error.retry_after` seconds. Exponential back-off on repeated 429s.",
+      "If we return 429, follow the Retry-After header and response details. Exponential back-off on repeated 429s.",
     severity: "required",
   },
   {
-    behaviour: "Bulk endpoints get bulk treatment",
+    behaviour: "Do not retry paused catalog exports",
     detail:
-      "Don't pull /data/catalog.jsonl more than once every 6 hours. The catalog doesn't change that fast.",
-    severity: "strong recommendation",
+      "/data/catalog.jsonl returns 503 without querying or streaming rows. It has no polling cadence while redistribution rights remain unproven.",
+    severity: "required",
   },
   {
-    behaviour: "Don't scrape HTML when JSON exists",
+    behaviour: "Use only advertised, unpaused machine routes",
     detail:
-      "/market/[sku] is for humans. /api/v1/universal/card/[sku] is for you. The JSON contract is versioned; the HTML layout can change without notice.",
-    severity: "strong recommendation",
+      "/market/[sku] and /api/v1/universal/card/[sku] are both paused. Use /api/market/catalog only for its bounded first-party projection and preserve its rights metadata.",
+    severity: "required",
   },
 ];
 
@@ -139,12 +114,12 @@ const ANTI_PATTERNS = [
   {
     pattern: "Rotating User-Agents to avoid rate-limiting",
     consequence:
-      "We'll firewall the IP range and you'll get no email. Identified bots get a courtesy email first.",
+      "It does not change the feedback endpoint's HMAC request bucket and may trigger hosting-layer abuse controls. No courtesy-email promise is made.",
   },
   {
     pattern: "Polling /api/v1/* faster than the freshness budget",
     consequence:
-      "Wasted bandwidth on your side. Faster polling does not return fresher data; the upstream snapshot is the bottleneck.",
+      "Wasted bandwidth and compute. Follow an affirmative response's cache headers; do not poll paused routes at all.",
   },
   {
     pattern: "Header-stuffing to bypass auth gates",
@@ -154,7 +129,7 @@ const ANTI_PATTERNS = [
   {
     pattern: "Bulk re-exporting CardRush JPY values",
     consequence:
-      "License violation. The /api/v1/cards/[sku]/cardrush-history endpoint declares `_meta.source_license: ['internal-only']` — non-bulk, non-redistributable. We honour CardRush's ToS; if you don't, we'll close access.",
+      "No public CardRush values are supplied. The rights-gap endpoint returns no observations, prices, dates, counts, URLs, or aggregates; do not reconstruct them through adjacent routes.",
   },
 ];
 
@@ -162,28 +137,76 @@ export async function GET(): Promise<Response> {
   const data = {
     "@kind": "rate_limit_policy",
     summary:
-      "Advisory rate-limit policy. We don't currently enforce per-endpoint " +
-      "limits at the edge for public endpoints. We monitor for abuse and " +
-      "may firewall non-identifying clients without warning. Identified " +
-      "clients always get a courtesy email first.",
+      "Most public reads use advisory freshness-based polling limits. Sensitive " +
+      "writes and authenticated tools enforce explicit action budgets. Enforced " +
+      "routes return 429 with Retry-After; storage or safe-hashing failure can fail closed.",
     policy: POLICY,
+    paused_no_poll: [
+      "/api/v1/universal/card/[sku]",
+      "/api/v1/universal/set/[code]",
+      "/api/at/[YYYY-MM-DD]/card/[sku]",
+      "/api/v1/federation/identify/[hash]",
+      "/api/v1/federation/at/[YYYY-MM-DD]/[hash]",
+      "/api/v1/search/cards",
+      "/api/v1/cards/[sku]/everything",
+      "/api/v1/prices/games/[game]",
+      "/api/v1/prices/games/[game]/sets/[set]",
+      "/data/catalog.jsonl",
+      "/market/[sku]",
+      "/api/market/[sku]",
+    ],
+    enforced_exceptions: [
+      {
+        endpoint: "/api/v1/feedback",
+        limits: ["5 attempts/hour/request IP", "20 attempts/day/request IP"],
+        subject_storage: "window-specific HMAC only; no raw or reusable IP hash",
+        bucket_retention: "two complete windows",
+      },
+      {
+        endpoint: "account collective creation",
+        limits: ["3/day/account", "10 stewarded organisations total"],
+        subject_storage: "window-specific HMAC of internal account id",
+      },
+      {
+        endpoint: "account directory publication",
+        limits: ["5 listing actions/day/account", "withdrawal is never rate-limited"],
+        subject_storage: "window-specific HMAC of internal account id",
+      },
+      {
+        endpoint: "direct-message send",
+        limits: ["10/fixed minute/account", "50/UTC day/account"],
+        subject_storage: "window-specific HMAC of internal account id",
+        bucket_retention: "two complete windows",
+      },
+      {
+        endpoint: "new direct-message conversation",
+        limits: ["10 attempts/fixed hour/account"],
+        subject_storage: "window-specific HMAC of internal account id",
+        bucket_retention: "two complete windows",
+      },
+      {
+        endpoint: "/api/mcp",
+        limits: ["per agent-key tier"],
+        subject_storage: "authenticated agent key id",
+      },
+    ],
     polite_behaviours: POLITE_BEHAVIOURS,
     anti_patterns: ANTI_PATTERNS,
     headers_emitted: {
-      "RateLimit-Limit": "Quota per window for this endpoint (advisory).",
-      "RateLimit-Remaining": "Remaining requests in current window.",
+      "RateLimit-Limit": "Advisory freshness quota on reads; enforced quota on counted writes.",
+      "RateLimit-Remaining": "Present only when the endpoint actually counts a request bucket.",
       "RateLimit-Reset": "Seconds until window resets.",
       "RateLimit-Policy": "Quota and window in IETF draft format.",
     },
     headers_expected_from_clients: {
       "User-Agent":
-        "Project name + version + contact email. Format: `<project>/<version> (<email>)`.",
-      "Accept": "application/json (or application/x-ndjson for /data/catalog.jsonl).",
+        "Optional project name + version. Use /api/v1/feedback or direct email for a reply path.",
+      "Accept": "application/json. /data/catalog.jsonl is paused and does not stream NDJSON rows.",
       "Accept-Encoding": "gzip (we serve gzipped responses; saves bandwidth).",
     },
     contact_on_block: "contact@cambridgetcg.com",
     appeal_process:
-      "If you've been firewalled, email contact@cambridgetcg.com with your bot's name + contact email + intended use. We'll respond within 48 hours.",
+      "If you've been firewalled, email contact@cambridgetcg.com with your bot's name, contact email and intended use. No response time is guaranteed.",
     feedback_endpoint: "/api/v1/feedback",
   };
 

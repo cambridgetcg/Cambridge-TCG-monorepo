@@ -73,8 +73,12 @@ export default async function CollectivePage({ params }: PageProps) {
   const viewerIsSteward = viewerId
     ? await isSteward(collective.id, viewerId)
     : false;
-  const members = await getActiveMembers(collective.id, viewerIsSteward);
-  const stewardMember = members.find((m) => m.user_id === collective.steward_user_id);
+  // The organisation profile is reachable from the bulk directory. Keep it
+  // roster-free for every visitor; only the steward sees membership records
+  // here. Member publication needs its own future purpose/receipt.
+  const members = viewerIsSteward
+    ? await getActiveMembers(collective.id, true)
+    : [];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 text-ink">
@@ -88,6 +92,9 @@ export default async function CollectivePage({ params }: PageProps) {
               private
             </span>
           )}
+          <span className="text-[10px] uppercase tracking-wider text-warning">
+            self-attested · not independently verified
+          </span>
         </div>
         <h1 className="text-3xl font-display font-semibold mb-2">{collective.display_name}</h1>
         <div className="flex items-baseline gap-3 flex-wrap text-sm text-ink-muted">
@@ -95,11 +102,24 @@ export default async function CollectivePage({ params }: PageProps) {
           {collective.languages.length > 0 && (
             <span>{collective.languages.join(" · ")}</span>
           )}
-          <span>
-            {collective.active_member_count} member
-            {collective.active_member_count === 1 ? "" : "s"}
-          </span>
+          {viewerIsSteward && (
+            <span>
+              {collective.active_member_count} member{collective.active_member_count === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
+        {collective.games.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {collective.games.map((game) => (
+              <span
+                key={game}
+                className="rounded-lg border border-border-subtle bg-surface px-2 py-1 text-xs font-mono text-ink-muted"
+              >
+                {game}
+              </span>
+            ))}
+          </div>
+        )}
         {viewerIsSteward && (
           <div className="mt-3">
             <Link
@@ -123,6 +143,40 @@ export default async function CollectivePage({ params }: PageProps) {
         </section>
       )}
 
+      {(collective.website_url || collective.public_contact_url) && (
+        <section className="mb-6 flex flex-wrap gap-3 text-sm">
+          {collective.website_url && (
+            <a
+              href={collective.website_url}
+              rel="ugc nofollow noopener noreferrer"
+              className="rounded-lg border border-border-subtle px-3 py-2 text-ink hover:border-border-strong"
+            >
+              Submitted website ↗
+            </a>
+          )}
+          {collective.public_contact_url && (
+            <a
+              href={collective.public_contact_url}
+              rel="ugc nofollow noopener noreferrer"
+              className="rounded-lg border border-border-subtle px-3 py-2 text-ink hover:border-border-strong"
+            >
+              Submitted public contact page ↗
+            </a>
+          )}
+        </section>
+      )}
+
+      {collective.accessibility_notes && (
+        <section className="mb-6 rounded-lg border border-border-subtle bg-surface p-4">
+          <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
+            Accessibility
+          </h2>
+          <p className="text-sm leading-relaxed text-ink-muted whitespace-pre-wrap">
+            {collective.accessibility_notes}
+          </p>
+        </section>
+      )}
+
       {collective.house_rules && (
         <section className="mb-6 rounded-lg border border-border-subtle bg-surface-subtle p-4">
           <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-2">
@@ -134,12 +188,13 @@ export default async function CollectivePage({ params }: PageProps) {
         </section>
       )}
 
-      <section className="mb-6">
-        <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
-          Members ({members.length})
-        </h2>
-        <ul className="space-y-2 list-none p-0">
-          {members.map((m) => (
+      {viewerIsSteward && (
+        <section className="mb-6">
+          <h2 className="text-[11px] uppercase tracking-wider text-ink-faint mb-3">
+            Members ({members.length}) · steward-only view
+          </h2>
+          <ul className="space-y-2 list-none p-0">
+            {members.map((m) => (
             <li
               key={m.user_id}
               className="flex items-center gap-3 rounded-lg bg-surface border border-border-subtle p-3"
@@ -183,15 +238,10 @@ export default async function CollectivePage({ params }: PageProps) {
                 </div>
               </div>
             </li>
-          ))}
-        </ul>
-        {stewardMember == null && (
-          <p className="mt-2 text-xs text-ink-faint italic">
-            The steward has chosen private visibility; their identity is preserved
-            in the substrate but not surfaced on this page.
-          </p>
-        )}
-      </section>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <footer className="mt-10 pt-6 border-t border-border-subtle">
         <p className="text-xs text-ink-faint leading-relaxed">
@@ -202,6 +252,16 @@ export default async function CollectivePage({ params }: PageProps) {
           .{" "}
           <Link href="/methodology/collectives" className="text-accent hover:text-accent-strong underline">
             How collectives work
+          </Link>
+          .
+        </p>
+        <p className="mt-2 text-xs text-ink-faint">
+          Something inaccurate or unsafe?{" "}
+          <Link
+            href={`/contact?topic=directory&listing=${encodeURIComponent(collective.slug)}`}
+            className="text-accent underline"
+          >
+            Report or correct this profile
           </Link>
           .
         </p>

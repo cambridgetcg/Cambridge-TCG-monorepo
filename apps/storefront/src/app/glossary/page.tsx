@@ -242,13 +242,13 @@ const GROUPS: TermGroup[] = [
       {
         term: "Bridge",
         definition:
-          "The typed mathematical connection between any two public beings on the platform. Given two being-specs (u:&lt;username&gt; for users; c:&lt;slug&gt; for collectives), the bridge endpoint computes card overlap (Jaccard + intersection counts + asymmetric trade potential), language overlap, region match, cadence ratio, and a composite bridge_score. Pure compute over existing substrate. The mathematical handshake between asymmetric beings — when natural language fragments, structure is what survives translation. See /methodology/bridges + /api/v1/bridge + /bridge.",
+          "A proposed mathematical connection between two parties. The 2026-05 implementation inferred affinity from portfolios, wishlists and collective-member data. It was paused on 2026-07-11 because a public profile did not grant field-level inference consent. /api/v1/bridge now reports capability status and performs no people or collection query. See /methodology/bridges.",
         see: "/methodology/bridges",
       },
       {
         term: "Affinity",
         definition:
-          "Informal name for the bridge_score — the weighted composite over portfolio_jaccard, wishlist_jaccard, language_jaccard, region_match, and cadence_ratio. Range 0..1 over the metrics that produced numbers; NULL when no signal was computable. Weighting documented at /methodology/bridges#bridge-score; the platform is substrate-honest about the weighting being opinionated. If you disagree with the composite, read the per-metric numbers and compose your own.",
+          "A relationship inference. Cambridge TCG does not currently publish affinity scores: the earlier bridge_score combined private-adjacent inputs without separate inference consent. The pure formulas remain historical; the live resolver is removed. See /methodology/bridges.",
         see: "/methodology/bridges",
       },
       {

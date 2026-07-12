@@ -1,116 +1,46 @@
 /**
- * /api/v1/cards/[sku]/cardrush-history — auth-gated CardRush JPY history.
+ * /api/v1/cards/[sku]/cardrush-history — rights-gapped CardRush history.
  *
- * Returns up to 90 days of raw cardrush JPY observations for one card.
- * Gated by next-auth session: only signed-in users may consume.
- *
- * ── License interpretation ───────────────────────────────────────────────
- *
- * CardRush ToS forbids commercial *bulk* redistribution of compiled price
- * data. The reading honoured by this endpoint:
- *
- *   "personal decision support for a signed-in user, scoped to one card,
- *    capped at 90 observations, non-bulk, not re-export-friendly, with
- *    upstream attribution and license tier surfaced on the wire."
- *
- * The endpoint enforces this by construction:
- *
- *   - Session required (anonymous callers get 401)
- *   - Scoped to a single SKU per request (no bulk-walk)
- *   - 90-row hard cap (one season of daily observations)
- *   - Response declares `_meta.source_license: ["internal-only"]`
- *   - Response wraps the raw observations in a copy of the license boundary
- *     so the consumer SDK can render the disclaimer
- *
- * Authorization for this interpretation: Yu, 2026-05-13 ("Go ahead for all
- * remaining phases"). The kingdom-081 plan filed this as Phase 5.4 with an
- * explicit operator-gate note; the green-light moves it from gated to shipped.
- *
- * If CardRush's ToS interpretation tightens in the future (legal review
- * finds the personal-decision reading too aggressive), this endpoint
- * downgrades to admin-only or shuts down. The connection-doc records the
- * interpretation; reversal is one route file deletion + a manifest update.
- *
- * Designed in `docs/connections/the-license-propagation.md` (kingdom-081
- * Phase 5.4).
+ * CardRush's current registry record is `internal-only`: no affirmative
+ * permission for public exact prices, URLs, compiled history or derived
+ * aggregates has been found. A normal user session is not a source licence.
+ * This route therefore returns a useful, machine-readable gap and never calls
+ * the wholesale history reader.
  */
 
-import { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
-import { fetchCardrushHistory } from "@/lib/wholesale/client";
-import { errorResponse, jsonResponse } from "@/lib/data-pantry";
+import { jsonResponse } from "@/lib/data-pantry";
+import { publicSourceGap } from "@/lib/source-rights/publication";
 
 const ENDPOINT = "/api/v1/cards/[sku]/cardrush-history";
 
 export async function GET(
-  req: NextRequest,
+  _req: Request,
   { params }: { params: Promise<{ sku: string }> },
 ): Promise<Response> {
-  // ── Session gate (the license-aware tier-2 boundary) ────────────────
-  const session = await auth();
-  if (!session?.user?.email) {
-    return errorResponse({
-      code: "UNAUTHORIZED",
-      message:
-        "Sign in to view cardrush JPY observation history. The values are " +
-        "under CardRush's internal-only license tier; signed-in personal-decision " +
-        "use is the platform's reading. Anonymous access is not authorised.",
-      endpoint: ENDPOINT,
-    });
-  }
-
   const { sku } = await params;
-  const url = new URL(req.url);
-  const limitParam = parseInt(url.searchParams.get("limit") ?? "", 10);
-  const limit = Number.isFinite(limitParam) && limitParam > 0
-    ? Math.min(limitParam, 90)
-    : 90;
-
-  const upstream = await fetchCardrushHistory({ sku, limit });
-  if (upstream === null) {
-    return errorResponse({
-      code: "NOT_FOUND",
-      message:
-        "No CardRush observations for this SKU. Either the card has no " +
-        "CardRush URL in the wholesale catalog, or the snapshot pipeline " +
-        "hasn't yet recorded any successful scrapes for it.",
-      endpoint: ENDPOINT,
-    });
-  }
+  const gap = publicSourceGap("cardrush");
 
   return jsonResponse({
     data: {
-      sku: upstream.sku,
-      cardrush_url: upstream.cardrush_url,
-      source: upstream.source,
-      count: upstream.count,
-      observations: upstream.observations,
-      // License boundary echoed inside the data block so a consumer SDK
-      // can render the user-facing disclaimer without parsing _meta.
-      license_notice: {
-        tier: "internal-only",
-        upstream: "cardrush",
-        rendered_for: session.user.email,
-        do_not: [
-          "bulk re-export",
-          "redistribute as a paid product",
-          "publish to a public archive without permission",
-        ],
-        may: [
-          "view for your own buy/sell decisions",
-          "save to your own notes",
-          "compare against your portfolio holdings",
-        ],
-        attribution_required: "CardRush JP (cardrush-op.jp / cardrush-pokemon.jp / cardrush-db.jp)",
-      },
+      sku,
+      source: gap.source,
+      status: gap.status,
+      exact_values_included: gap.exact_values_included,
+      aggregates_included: gap.aggregates_included,
+      source_rights: gap,
+      note:
+        "No CardRush observations, prices, base values, source URLs, counts, ranges or summary statistics are returned. Obtain and record affirmative reuse permission before reopening this data path.",
     },
     endpoint: ENDPOINT,
-    sources: ["wholesale-rds.price_archive", "cardrush"],
-    source_license: ["internal-only", "internal-only"],
-    freshness: "price_current",
-    license: "internal-only",
-    // Don't cache at the CDN — this is per-session.
+    sources: [gap.source],
+    source_license: [gap.source_license_tier],
+    freshness: "methodology",
     no_cache: true,
+    does_not_include: [
+      "CardRush exact price observations",
+      "CardRush source and product URLs",
+      "counts, dates, ranges, medians or other aggregates derived from CardRush history",
+    ],
   });
 }
 

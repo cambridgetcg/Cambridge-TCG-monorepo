@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isValidSlug, suggestSlug, COLLECTIVE_KINDS } from "@/lib/collectives/types";
 import { createCollectiveAction } from "../_actions";
+import { DIRECTORY_NOTICE_VERSION } from "@/lib/collectives/types";
 
 const KIND_LABEL: Record<string, string> = {
   shop: "Shop",
@@ -135,9 +136,12 @@ export default function NewCollectivePage() {
           <input
             name="region"
             maxLength={120}
-            placeholder="Shibuya, Tokyo, JP"
+            placeholder="Cambridge, UK (coarse area only)"
             className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm placeholder:text-ink-faint focus:outline-none focus:border-accent"
           />
+          <p className="mt-1 text-xs text-ink-faint">
+            Use a coarse public area, not a home address or private meetup location.
+          </p>
         </div>
 
         <div>
@@ -149,6 +153,63 @@ export default function NewCollectivePage() {
             placeholder="ja, en"
             className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm placeholder:text-ink-faint focus:outline-none focus:border-accent"
           />
+        </div>
+
+        <div>
+          <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+            Games (comma-separated codes)
+          </label>
+          <input
+            name="games"
+            placeholder="pkm, op, mtg"
+            className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm placeholder:text-ink-faint focus:outline-none focus:border-accent"
+          />
+          <p className="mt-1 text-xs text-ink-faint">
+            Use the short codes shown in the price guide. You can change these later.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+              Official website
+            </label>
+            <input
+              name="website_url"
+              type="url"
+              inputMode="url"
+              placeholder="https://example.org"
+              className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm placeholder:text-ink-faint focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+              Public contact page
+            </label>
+            <input
+              name="public_contact_url"
+              type="url"
+              inputMode="url"
+              placeholder="https://example.org/contact"
+              className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm placeholder:text-ink-faint focus:outline-none focus:border-accent"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+            Accessibility notes
+          </label>
+          <textarea
+            name="accessibility_notes"
+            rows={3}
+            maxLength={2000}
+            placeholder="Step-free access, quiet-play options, accessible toilet, sensory notes…"
+            className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm placeholder:text-ink-faint focus:outline-none focus:border-accent"
+          />
+          <p className="mt-1 text-xs text-ink-faint">
+            Do not put personal emails, phone numbers or private addresses in free text. Use the public contact-page link.
+          </p>
         </div>
 
         <div>
@@ -177,13 +238,53 @@ export default function NewCollectivePage() {
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-ink-muted">
+        <label className="flex items-start gap-2 text-sm text-ink-muted">
           <input
             type="checkbox"
             name="is_public"
-            className="accent-amber-500"
+            className="mt-0.5 accent-amber-500"
           />
-          Make public immediately (you can change this later)
+          <span>
+            <span className="block">Publish the web profile now</span>
+            <span className="mt-1 block text-xs text-ink-faint">
+              Visible at /c/{effectiveSlug || "your-slug"}; not automatically listed in the directory.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-surface p-4 text-sm text-ink-muted">
+          <input
+            type="hidden"
+            name="directory_notice_version"
+            value={DIRECTORY_NOTICE_VERSION}
+          />
+          <input
+            type="checkbox"
+            name="directory_listed"
+            className="mt-0.5 accent-amber-500"
+          />
+          <span>
+            <span className="block font-medium text-ink">List in the public directory and API</span>
+            <span className="mt-1 block text-xs leading-relaxed text-ink-faint">
+              I confirm I am authorised to represent this organisation and
+              consent to distribution of the submitted organisation fields.
+              The web-profile box above must also be checked. The listing is
+              self-attested and unverified until Cambridge TCG confirms it.
+              {" "}<Link
+                href="/licenses/community-directory-public-display-v1"
+                target="_blank"
+                className="text-accent underline"
+              >
+                Read the versioned display terms
+              </Link>.
+              <span className="mt-1 block">
+                We privately record your account ID, this notice version, the
+                action and its time as a publication receipt. The account ID is
+                removed after 180 days. The pseudonymised receipt is treated as
+                personal data and deleted after two years.
+              </span>
+            </span>
+          </span>
         </label>
 
         {error && (
@@ -207,6 +308,11 @@ export default function NewCollectivePage() {
             Cancel
           </Link>
         </div>
+        <p className="text-xs leading-relaxed text-ink-faint">
+          Abuse control: each account may create 3 organisations per day and
+          steward 10 in total. Contact us if you manage a larger legitimate
+          network.
+        </p>
       </form>
     </div>
   );

@@ -115,7 +115,7 @@ const TOPICS: Topic[] = [
   {
     slug: "bridges",
     title: "Bridges",
-    blurb: "Math as the universal language. Given any two public beings (users or collectives), compute the typed bridge between them — card overlap, language overlap, region match, cadence ratio, trade potential, composite bridge_score. Pure compute over existing substrate; every formula carries an anchor link. The mathematical handshake between asymmetric beings.",
+    blurb: "Privacy correction for the affinity bridge. The former scorer combined portfolios, wishlists and member data without field-level inference consent. The resolver is removed; the endpoint reports its paused state and the controls required before restart.",
     status: "published",
   },
   {

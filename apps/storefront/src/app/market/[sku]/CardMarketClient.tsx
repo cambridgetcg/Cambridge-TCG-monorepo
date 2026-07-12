@@ -522,10 +522,6 @@ export default function CardMarketClient({
   // Watchlist
   const [watching, setWatching] = useState<boolean | null>(null);
   const [watchToggling, setWatchToggling] = useState(false);
-  const [related, setRelated] = useState<Array<{
-    sku: string; cardName: string | null; imageUrl: string | null;
-    bestAsk: number | null; coWatchCount: number;
-  }>>([]);
   const [fairValue, setFairValue] = useState<{
     vwap: number | null; median: number | null;
     tradeCount: number; totalVolume: number;
@@ -620,14 +616,6 @@ export default function CardMarketClient({
     fetch(`/api/market/${sku}/candles?interval=1d&limit=30`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d) setAnalytics({ sparkline: d.sparkline, lastPrice: d.lastPrice, change24hPct: d.change24hPct }); })
-      .catch(() => {});
-  }, [sku]);
-
-  // Co-watch recommendations — also fetched once.
-  useEffect(() => {
-    fetch(`/api/market/${sku}/related?limit=8`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setRelated(d.related || []); })
       .catch(() => {});
   }, [sku]);
 
@@ -1370,36 +1358,18 @@ export default function CardMarketClient({
                   <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
                     <th className="text-left py-2 font-medium">Price</th>
                     <th className="text-left py-2 font-medium">Quantity</th>
-                    <th className="text-left py-2 font-medium">Seller</th>
                     <th className="text-right py-2 font-medium">Time</th>
                   </tr>
                 </thead>
                 <tbody>
                   {book.recent_trades.map((trade) => (
-                    <tr key={trade.id} className="border-b border-border-subtle/50">
+                    <tr key={trade.public_ref} className="border-b border-border-subtle/50">
                       <td className="py-2 text-ink font-mono tabular-nums">
                         <Money value={Number(trade.price)} />
                       </td>
                       <td className="py-2 text-ink-muted font-mono tabular-nums">{trade.quantity}</td>
-                      <td className="py-2 text-ink-muted text-xs">
-                        {trade.seller_username ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Link
-                              href={`/u/${trade.seller_username}`}
-                              className="text-accent hover:underline"
-                            >
-                              {trade.seller_name || trade.seller_username}
-                            </Link>
-                            {trade.seller_tier && (
-                              <TrustTier name={trade.seller_tier} score={null} showScore={false} />
-                            )}
-                          </span>
-                        ) : (
-                          <span className="text-ink-faint">—</span>
-                        )}
-                      </td>
                       <td className="py-2 text-ink-faint text-right text-xs font-mono tabular-nums">
-                        {formatTime(trade.created_at)}
+                        {formatTime(trade.traded_at)}
                       </td>
                     </tr>
                   ))}
@@ -1409,41 +1379,6 @@ export default function CardMarketClient({
           )}
         </div>
 
-        {related.length > 0 && (
-          <div className="mt-8 wardrobe-mat rounded-lg p-4">
-            <h2 className="text-sm font-bold font-display tracking-tight text-ink mb-4">
-              Also watched by buyers of this card
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-              {related.map((r) => (
-                <Link
-                  key={r.sku}
-                  href={`/market/${r.sku}`}
-                  className="group block"
-                >
-                  <div className="aspect-[2.5/3.5] bg-surface-subtle border border-border-subtle rounded-lg overflow-hidden mb-2">
-                    {r.imageUrl ? (
-                      <img src={r.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-ink-faint text-xs">
-                        No image
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-ink truncate group-hover:text-accent transition">
-                    {r.cardName || r.sku}
-                  </p>
-                  <div className="flex items-center justify-between text-[10px] text-ink-faint mt-0.5">
-                    <span><span className="font-mono tabular-nums">{r.coWatchCount}</span> watchers</span>
-                    {r.bestAsk !== null && (
-                      <span className="text-ask font-mono tabular-nums"><Money value={r.bestAsk} /></span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -35,11 +35,11 @@ export interface DraftCard {
   sku: string;
   name: string;
   card_number: string;
-  set_code: string;
-  set_name: string;
+  set_code: string | null;
+  set_name: string | null;
   rarity: string | null;
   image_url: string | null;
-  spot_price: number;
+  spot_price: number | null;
   best_ask: number | null;
   best_bid: number | null;
   /** Which substrate priced this row when it was picked. */
@@ -111,16 +111,14 @@ export function parseListingDraft(raw: string | null | undefined): ListingDraft 
       sku: card.sku,
       name: card.name,
       card_number: typeof card.card_number === "string" ? card.card_number : "",
-      set_code: typeof card.set_code === "string" ? card.set_code : "",
-      set_name: typeof card.set_name === "string" ? card.set_name : "",
+      set_code: typeof card.set_code === "string" ? card.set_code : null,
+      set_name: typeof card.set_name === "string" ? card.set_name : null,
       rarity: typeof card.rarity === "string" ? card.rarity : null,
       image_url: typeof card.image_url === "string" ? card.image_url : null,
-      spot_price: typeof card.spot_price === "number" ? card.spot_price : 0,
+      spot_price: typeof card.spot_price === "number" ? card.spot_price : null,
       best_ask: typeof card.best_ask === "number" ? card.best_ask : null,
       best_bid: typeof card.best_bid === "number" ? card.best_bid : null,
-      source: card.source === "wholesale-api" || card.source === "wholesale-db"
-        ? card.source
-        : "unavailable",
+      source: card.source === "market-orders" ? card.source : "unavailable",
     },
     condition: d.condition,
     price: d.price,
@@ -198,7 +196,7 @@ export function priceGuidance(
   } else {
     hints.push({ kind: "first_ask" });
   }
-  if (card.spot_price > 0 && price > card.spot_price) {
+  if (card.spot_price !== null && card.spot_price > 0 && price > card.spot_price) {
     hints.push({ kind: "above_spot", spot: card.spot_price });
   }
   return hints;

@@ -119,6 +119,7 @@ export default function CommunityPage() {
   const [tab, setTab] = useState<Tab>("trending");
   const [feed, setFeed] = useState<ActivityEvent[]>([]);
   const [matches, setMatches] = useState<TradeMatch[]>([]);
+  const [matchingNotice, setMatchingNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
 
@@ -134,6 +135,7 @@ export default function CommunityPage() {
     }
 
     if (tab === "matches") {
+      setMatchingNotice(null);
       fetch("/api/social/matches")
         .then((r) => {
           if (r.status === 401) {
@@ -142,7 +144,10 @@ export default function CommunityPage() {
           }
           return r.json();
         })
-        .then((data) => setMatches(data.matches ?? []))
+        .then((data) => {
+          setMatches(data.matches ?? []);
+          setMatchingNotice(data.matching_available === false ? data.reason ?? "Matching is paused." : null);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     } else {
@@ -197,6 +202,20 @@ export default function CommunityPage() {
             Who&apos;s welcome here →
           </Link>
         </p>
+        <div className="mb-6 flex flex-wrap gap-3 text-sm">
+          <Link
+            href="/community/directory"
+            className="rounded-lg bg-ink px-4 py-2 text-page hover:opacity-90"
+          >
+            Find shops and clubs
+          </Link>
+          <Link
+            href="/api/v1/directory/coverage"
+            className="rounded-lg border border-border-subtle bg-surface px-4 py-2 text-ink-muted hover:border-border-strong hover:text-ink"
+          >
+            Community data coverage
+          </Link>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -290,7 +309,12 @@ export default function CommunityPage() {
           </section>
         ) : tab === "matches" ? (
           matches.length === 0 ? (
-            <p className="text-ink-faint text-center py-16">No trade matches found yet. Add cards to your wishlist and portfolio to discover matches.</p>
+            <div className="rounded-lg border border-border-subtle bg-surface p-5 text-center">
+              <p className="font-display text-lg text-ink">Trade matching is paused.</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-ink-muted">
+                {matchingNotice ?? "Matching will return with explicit card-level trade intents."}
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {matches.map((m) => (
@@ -325,7 +349,7 @@ export default function CommunityPage() {
         ) : (
           <div className="space-y-3">
             {feed.map((ev) => (
-              <EventCard key={ev.id} ev={ev} />
+              <EventCard key={`${ev.user_username}:${ev.event_type}:${ev.created_at}`} ev={ev} />
             ))}
           </div>
         )}

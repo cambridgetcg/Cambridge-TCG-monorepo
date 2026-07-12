@@ -210,22 +210,22 @@ function parameterDescription(slot: string, baseDescription: string): string {
     return "Canonical Cambridge TCG SKU. Form: '<game>-<set>-<number>-<lang>[-<variant>]', e.g. 'op-op01-001-ja'. See /methodology/sku-standard.";
   }
   if (lower === "game") {
-    return "Game token (e.g. 'op' for One Piece TCG, 'pkm' for Pokémon TCG). See /api/v1/universal/games for the canonical list.";
+    return "Caller-supplied game token. /api/v1/universal/games currently publishes no catalog membership or canonical list.";
   }
   if (lower === "set") {
-    return "Set code within a game (e.g. 'op01'). See /api/v1/universal/sets/{game}.";
+    return "Caller-supplied set token. /api/v1/universal/sets/{game} currently publishes no catalog membership.";
   }
   if (lower === "code") {
-    return "Set code (e.g. 'op01'). See /api/v1/universal/sets/{game} for the canonical list.";
+    return "Caller-supplied set token; the public singleton resolver is paused and does not confirm membership.";
   }
   if (lower === "token") {
-    return "Game token (e.g. 'op'). See /api/v1/universal/games for the canonical list.";
+    return "Caller-supplied token; structural routes do not confirm catalog membership.";
   }
   if (lower === "number") {
     return "Card number within a set (e.g. '001' for the first card).";
   }
   if (lower === "hash") {
-    return "Cryptographic content hash (sha256, hex-encoded) from /api/v1/universal/card/{sku}. Used for federation lookup.";
+    return "Caller-supplied sha256 digest. Catalog federation lookup is paused and returns no match or miss.";
   }
   if (lower === "date" || lower.includes("date")) {
     return "ISO date string (YYYY-MM-DD). Used for historical/point-in-time queries.";

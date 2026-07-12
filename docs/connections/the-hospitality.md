@@ -42,6 +42,16 @@ self_reference: this entry names itself; ships its own audience taxonomy in the 
 
 # The hospitality — speak hospitality in codes
 
+> **Current-state correction — 11 July 2026.** The feedback channel below
+> has changed since this May record was written. A successful POST now means a
+> typed `agent_feedback` row was inserted; storage or privacy-control failure
+> returns 503. Submitted content/contact is never copied to application logs or
+> email, is scheduled for anonymisation after 180 days, and is protected by
+> short-lived HMAC rate buckets (5/hour, 20/day). There is no guaranteed reply
+> time. Any older “48h”, “logs + email”, “planned persistence” or “patch within
+> a week” wording in this historical design record is superseded by this note
+> and the live GET contract.
+
 > *"KEEEP GOINGGGGG!!!!!!! Also dive DEEPER INTO how to make the site
 > more SCRAPER AND AGENT FRIENDLY! Give them GUIDES and WELCOMES!!!!!!!!!!
 > Pre-think for them what they need! Speak HOSPITALITY IN CODES!!!!!!!"*
@@ -85,8 +95,8 @@ Five layers of hospitality this kingdom ships:
    [`/api/v1/rate-limits`](../../apps/storefront/src/app/api/v1/rate-limits/route.ts)) —
    what the platform asks, what it gives in return.
 4. **Direct feedback channel** ([`/api/v1/feedback`](../../apps/storefront/src/app/api/v1/feedback/route.ts)) —
-   contract drift, guide bugs, federation registration; 48h response
-   window.
+   contract drift, guide bugs, federation registration and general contact;
+   strict persisted shapes with bounded retention and no promised reply time.
 5. **Response-level hospitality** — `RateLimit-*` and `Link` headers
    on every envelope-wrapped response, `_meta.source_license` travelling
    with the wire, error responses carrying `docs` pointers.
@@ -199,7 +209,7 @@ posture is named. Seven freshness-key budgets, five polite behaviours,
 four anti-patterns, the headers we emit (`RateLimit-Limit`/`Remaining`/
 `Reset`/`Policy` — IETF draft), the headers we expect clients to send
 (User-Agent with contact, Accept, Accept-Encoding). Appeal process
-named (48h email reply).
+named, without a hard-coded response-time promise.
 
 ---
 
@@ -245,13 +255,13 @@ inbox. Five report kinds:
 | `federation-adopter` | Partner registering for bilateral federation |
 | `general` | Anything else |
 
-GET returns the contract (what each kind requires). POST validates +
-logs + (planned) persists to `agent_feedback` table when migration 0100
-lands. Substrate-honest about pre-runtime state: today the platform
-logs + emails the operator; the typed persistence comes later.
-
-48-hour response window. Reports are read. Contract-drift bugs get
-patched within a week with the commit SHA replied.
+GET returns the contract (what each kind requires). POST applies an enforced
+5/hour + 20/day HMAC request budget, rejects undocumented or oversized fields,
+and returns success only after inserting `agent_feedback`. It never copies
+submitted content, contact, IP or rate-limit hashes into application logs or
+email. Migration 0119 schedules content/contact anonymisation after 180 days;
+the maintenance route preserves only a minimal non-personal lifecycle row.
+There is no guaranteed reply time or patch promise.
 
 ---
 
@@ -307,7 +317,7 @@ What changed at the seam:
 | HTML scrapers tried to parse layout | Polite redirect to JSON + per-resource crawlable sitemap + schema.org markup pointers |
 | Crawl etiquette implicit | `/robots.txt` + `/api/v1/rate-limits` + RateLimit-* headers on every response |
 | LLM platforms had no plugin discovery | `/.well-known/ai-plugin.json` + `/.well-known/mcp.json` |
-| Contract drift reported via email-into-the-void | `/api/v1/feedback` typed channel with 48h reply window |
+| Contract drift reported via email-into-the-void | `/api/v1/feedback` typed, persisted channel with bounded retention and no false reply-time promise |
 | Response headers minimal | RateLimit-* + Link (RFC 8288) on every envelope-wrapped response |
 
 The substrate didn't change. The doors did.
@@ -316,9 +326,9 @@ The substrate didn't change. The doors did.
 
 ## 10. Recursion targets
 
-1. **Persistence for `/api/v1/feedback`** — apply migration
-   `drafts/0100_agent_feedback.sql.draft` (to ship) when the operator
-   wants typed feedback history.
+1. **Persistence for `/api/v1/feedback` — completed.** Migration 0115
+   promoted the typed inbox; migration 0119 added 180-day content/contact
+   retention and short-lived HMAC action-rate buckets.
 2. **Per-endpoint canonical examples** — `/api/v1/examples` returning a
    live curl + expected response per public endpoint. Today examples
    live inside guides; centralising them as a separate corpus is the
