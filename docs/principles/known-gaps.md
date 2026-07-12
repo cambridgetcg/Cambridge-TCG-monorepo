@@ -67,7 +67,7 @@ A **welcome** ([`packages/data-ingest/src/welcomes.ts`](../../packages/data-inge
 Together they map the platform's *anticipated* and *incomplete* states:
 
 - 40 welcomes (25 arrived, 14 anticipated, 1 blocked) — what we expect
-- 16 gaps (1 closed-published, 5 wired, 1 partial, 9 named) — what we admit
+- 18 gaps (2 closed-published, 7 wired, 2 partial, 7 named) — what we admit
 
 Substrate honesty applied to the boundary between presence and absence.
 

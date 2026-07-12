@@ -77,6 +77,10 @@ export function normalizeScryfall(raw: ScryfallCard): NormalizeResult<CanonicalC
     name: raw.printed_name ?? raw.name,
     type: raw.type_line,
     rarity: raw.rarity,
+    // Illustrator credit — Scryfall ships it on nearly every card. Attribution:
+    // source is scryfall; displayable-with-credit, never republished raw on a
+    // CC0 surface (Scryfall permits value-added display, not bulk repackaging).
+    artist: raw.artist ?? undefined,
     oracle_text: raw.oracle_text,
     image_url: pickImage(raw),
     upstream_id: raw.id,
@@ -86,6 +90,9 @@ export function normalizeScryfall(raw: ScryfallCard): NormalizeResult<CanonicalC
       scryfall_set: raw.set,
       scryfall_number: raw.collector_number,
       scryfall_lang: raw.lang,
+      // Same artwork across printings shares one illustration_id → "same art"
+      // clustering (the alt-art treasure-hunt axis) without any new upstream call.
+      illustration_id: raw.illustration_id ?? null,
     },
   };
   if (variant) record.variant = variant;

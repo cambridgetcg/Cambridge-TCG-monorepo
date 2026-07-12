@@ -82,6 +82,7 @@ The distinction between the last three is the `consent path?` column in tributar
 - `SOURCE_UNAVAILABLE` + `null` over a substituted proxy — a gap is answered honestly, never papered over.
 - Quarantine failed rows; never drop silently.
 - A **consented first-party** source additionally requires, in its intake record: a DPIA-lite note (what personal data, whose, lawful basis, minimisation) and the explicit third-party-field drop-list from Gate A.2.
+- **Credit-tier attributes** (e.g. the illustrator's name — `CanonicalCard.artist`): a creator's credit is factual attribution, and crediting them *multiplies* their reach rather than extracting from it — the opposite of a redistribution grab. It may be captured into the canonical model and **displayed with attribution** to its producing source even when that source is `redistribute: false`. But it inherits that source's tier for *bulk* purposes: it is **never republished raw on a CC0/bulk surface** (the redistribution audit still governs it). Display-with-credit ≠ bulk-redistribute.
 
 ---
 

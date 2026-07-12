@@ -40,6 +40,10 @@ export function normalizePokemonTcg(raw: PokemonTcgCard): NormalizeResult<Canoni
     name: raw.name,
     type: raw.supertype,
     rarity: raw.rarity,
+    // Promote the illustrator to a first-class credit (was only in extra).
+    // Attribution: source is pokemon-tcg-api; displayable-with-credit, never
+    // republished raw on a CC0 surface. extra.artist kept as a breadcrumb.
+    artist: raw.artist ?? undefined,
     image_url: pickImage(raw),
     upstream_id: raw.id,
     extra: {

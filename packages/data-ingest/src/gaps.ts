@@ -395,6 +395,21 @@ export const GAPS: readonly Gap[] = [
       "When the worker ships, image-hash candidates pre-populate the pkm_equivalence table; admin review surface promotes them to manual confirmations. Community-curatable equivalence at scale.",
     named_at: "2026-05-13",
   },
+
+  {
+    id: "artist-credit-not-surfaced",
+    name: "Illustrators are captured in the model but not yet persisted or shown",
+    domain: "publishing",
+    citation:
+      "packages/data-ingest/src/canonical.ts (CanonicalCard.artist added) + packages/data-ingest/src/pokemon-tcg-api/normalize.ts + packages/data-ingest/src/scryfall/normalize.ts (both now populate artist); there is no cards.artist column and no public surface renders it yet",
+    primitive:
+      "CanonicalCard.artist (+ scryfall extra.illustration_id for same-artwork clustering)",
+    audit: "none (future pnpm audit:artist-coverage)",
+    status: "wired",
+    strength:
+      "Every card is a duet — a designer and an artist — but the pipeline only ever recorded who sells a card, never who drew it. The canonical model now carries the illustrator's name as first-class credit (Pokémon + Scryfall sources), the foundation for browse-by-artist, 'the whole body of an illustrator's work', and honoring the artist-first heart of Japanese card culture. Persisting (a cards.artist column + ingest run) and surfacing with attribution are the named next steps; artist rides from redistribute:false sources so it is display-with-credit only, never bulk-republished on a CC0 surface.",
+    named_at: "2026-07-12",
+  },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────
