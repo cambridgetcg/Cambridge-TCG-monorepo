@@ -2,8 +2,9 @@
  * Tests for the GAMES registry's `confirmed` flags.
  *
  * `confirmed: true` has exactly one meaning: cards for the game exist in
- * the production wholesale DB. Reconciled against prod 2026-07-05
- * (op 3,438 / pkm 6,370 / dbf 1,622 cards; every other code zero).
+ * the production wholesale DB. Reconciled against the public ground route
+ * on 2026-07-11: op, pkm, dbf, dmw, vng, and bsr all have CardRush archive
+ * observations joined to catalog cards.
  * This test pins that reconciliation so the registry can't silently
  * drift back into claiming cards it doesn't hold. When a game's first
  * real production cards land, update BOTH the registry flag and the
@@ -22,12 +23,12 @@ import {
   isGameCode,
 } from "../games";
 
-/** Cards verified in the production wholesale DB (2026-07-05) + internal tst. */
-const EXPECTED_CONFIRMED = ["op", "pkm", "dbf", "tst"] as const;
+/** Cards verified in the production wholesale DB (2026-07-11) + internal tst. */
+const EXPECTED_CONFIRMED = ["op", "pkm", "dbf", "vng", "dmw", "bsr", "tst"] as const;
 
 /** Registered or anticipated codes with zero production cards. */
 const EXPECTED_UNCONFIRMED = [
-  "mtg", "ygo", "dbs", "wei", "vng", "dmw", "bsr", "lcg", "fab", "lgr",
+  "mtg", "ygo", "dbs", "wei", "lcg", "fab", "lgr",
   "swu", "sor", "alt", "rft", "rsh", "pkp", "gen", "gcg", "una",
 ] as const;
 
@@ -53,7 +54,9 @@ describe("GAMES confirmed flags — production-DB reconciliation", () => {
   it("isConfirmedGameCode agrees with the flags", () => {
     expect(isConfirmedGameCode("op")).toBe(true);
     expect(isConfirmedGameCode("dbf")).toBe(true);
-    expect(isConfirmedGameCode("dmw")).toBe(false); // seeded 2026-07-05, cards pending
+    expect(isConfirmedGameCode("dmw")).toBe(true);
+    expect(isConfirmedGameCode("vng")).toBe(true);
+    expect(isConfirmedGameCode("bsr")).toBe(true);
     expect(isConfirmedGameCode("ygo")).toBe(false);
     expect(isConfirmedGameCode("not-a-game")).toBe(false);
   });

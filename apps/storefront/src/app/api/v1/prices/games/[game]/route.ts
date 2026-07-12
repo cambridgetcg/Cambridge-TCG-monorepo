@@ -1,9 +1,9 @@
 /**
  * GET /api/v1/prices/games/[game] — JSON sibling of /prices/[game].
  *
- * Same composer (`loadGameState`), different reading position. Public
- * CC0. Composes through the data-pantry envelope so partners learn one
- * shape across every public response.
+ * Same composer (`loadGameState`), different reading position. The response
+ * mixes Cambridge structure with upstream-derived card fields, so aggregate
+ * rights are NOASSERTION.
  *
  * Kingdom-080 follow-up: the fan-out pattern (S37 trust, S39 auction)
  * applied to the price-guide tree.
@@ -79,7 +79,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
     source_license: state._provenance.source_license,
     freshness: state._provenance.freshness,
     as_of: state._provenance.as_of ?? undefined,
-    license: "CC0-1.0",
+    license: "NOASSERTION",
   });
 }
 

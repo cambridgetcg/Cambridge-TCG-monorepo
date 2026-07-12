@@ -48,6 +48,8 @@ self_reference: ships its own file inventory and its own pre-flight checklist; t
 
 # The license propagation — substrate-honesty extended one ring outward
 
+> **Current-status correction, 2026-07-11:** A source tier must describe evidenced upstream-data rights, not API-code licensing or a hypothetical agreement. The bulk catalog is now `NOASSERTION` until field-level lineage exists; only Cambridge-authored structure and explicit first-party datasets may claim CC0.
+
 > *"Go ahead with Phases 1-3."* — Yu, 2026-05-13.
 
 The previous three entries in the data-aggregation arc named the

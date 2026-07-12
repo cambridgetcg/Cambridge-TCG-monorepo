@@ -6,8 +6,8 @@
  * for calculation."* Six currencies cover the platform's real audiences:
  *
  *   GBP — the platform's canonical currency (Cambridge TCG operates in £)
- *   USD — TCGplayer source, US visitors
- *   EUR — Cardmarket source (planned), continental EU visitors
+ *   USD — US visitor display (does not imply TCGplayer ingestion)
+ *   EUR — continental EU visitor display (does not imply Cardmarket ingestion)
  *   JPY — CardRush source, Japanese visitors
  *   HKD — South-East Asia visitors (no direct upstream yet)
  *   CHF — Swiss visitors (no direct upstream yet)
@@ -19,7 +19,8 @@
  *
  * The platform's *wholesale* prices live in GBP (column `price_gbp` on
  * cards). The wholesale ingest pipeline already converts JPY/USD source-
- * currencies to GBP at write time using `apps/wholesale/src/lib/fx.ts`.
+ * currencies to GBP at write time when a reviewed source is active, using
+ * `apps/wholesale/src/lib/fx.ts`.
  * This storefront-side module is for **display only** — converting the
  * canonical GBP retail prices to whatever currency the visitor chose.
  *

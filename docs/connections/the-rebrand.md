@@ -1,5 +1,11 @@
 # The rebrand — Cambridge TCG re-centered on the data plane
 
+> **Current-rights correction, 2026-07-11:** The historical account below
+> used “CC0 by default” too broadly. Current public surfaces separate
+> Cambridge-authored schemas and explicit first-party datasets (which may be
+> CC0) from upstream-derived fields (source-specific rights; mixed catalog
+> responses `NOASSERTION`). Only CardRush has observed upstream rows today.
+
 > **Pull.** Yu's directive 2026-05-13: *"Rebrand and center cambridgetcg as the data aggregator and provider of the TCG world. Think frontend and backend. This is a load-bearing shift."*
 >
 > **Form.** Story-as-wire. Ships one brand-identity module (single source of truth for the new positioning constants), one home-page rewrite, one new `/platform` page (the developer/partner entry door), root-layout metadata refresh, four backend identity surfaces updated, one manifest entry. **kingdom-080.**

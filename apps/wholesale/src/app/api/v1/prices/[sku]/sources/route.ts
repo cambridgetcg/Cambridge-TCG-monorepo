@@ -2,9 +2,9 @@
  * GET /api/v1/prices/[sku]/sources
  *
  * Multi-source view of one card on its latest snapshot day. Today, the
- * only shipped source is cardrush — so the response carries one row.
- * When TCGplayer / Cardmarket modules ship, the response branches
- * naturally (one row per source for that card+date), with `source`,
+ * only reviewed source is CardRush — so the response carries one row.
+ * Another source may branch the response only after its publication use is
+ * reviewed, with `source`,
  * `source_redistribute`, and `source_url` letting the caller compare.
  *
  * Auth: Bearer-gated. The response carries raw upstream values
@@ -25,8 +25,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, priceArchive } from "@/lib/db/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { authenticateApiKey } from "../../../auth";
+import {
+  INTERNAL_ONLY_CACHE_CONTROL,
+  PUBLISHABLE_PRICE_SOURCES,
+  priceSourcePublicationPolicy,
+} from "@/lib/source-publication-policy";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -79,7 +84,10 @@ export async function GET(
     if (dateParam && !ISO_DATE.test(dateParam)) {
       return NextResponse.json(
         { error: "invalid date — must be YYYY-MM-DD" },
-        { status: 400 },
+        {
+          status: 400,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
       );
     }
 
@@ -91,7 +99,13 @@ export async function GET(
       .limit(1);
 
     if (cardRow.length === 0) {
-      return NextResponse.json({ error: "card not found", sku }, { status: 404 });
+      return NextResponse.json(
+        { error: "card not found", sku },
+        {
+          status: 404,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
+      );
     }
     const cardId = cardRow[0]!.id;
 
@@ -103,13 +117,21 @@ export async function GET(
       const latest = await db
         .select({ d: priceArchive.snapshotDate })
         .from(priceArchive)
-        .where(eq(priceArchive.cardId, cardId))
+        .where(
+          and(
+            eq(priceArchive.cardId, cardId),
+            inArray(priceArchive.source, [...PUBLISHABLE_PRICE_SOURCES]),
+          ),
+        )
         .orderBy(desc(priceArchive.snapshotDate))
         .limit(1);
       if (latest.length === 0) {
         return NextResponse.json(
           { error: "no snapshots for this card", sku },
-          { status: 404 },
+          {
+            status: 404,
+            headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+          },
         );
       }
       targetDate = String(latest[0]!.d);
@@ -121,7 +143,6 @@ export async function GET(
         source: priceArchive.source,
         sourceUrl: priceArchive.sourceUrl,
         sourceCurrency: priceArchive.sourceCurrency,
-        sourceRedistribute: priceArchive.sourceRedistribute,
         ingestRunId: priceArchive.ingestRunId,
         snapshotDate: priceArchive.snapshotDate,
         price: priceArchive.price,
@@ -135,6 +156,7 @@ export async function GET(
         and(
           eq(priceArchive.cardId, cardId),
           eq(priceArchive.snapshotDate, targetDate),
+          inArray(priceArchive.source, [...PUBLISHABLE_PRICE_SOURCES]),
         ),
       )
       .orderBy(priceArchive.source);
@@ -142,24 +164,31 @@ export async function GET(
     if (rows.length === 0) {
       return NextResponse.json(
         { error: "no source rows for this card on this date", sku, date: targetDate },
-        { status: 404 },
+        {
+          status: 404,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
       );
     }
 
-    const prices: SourcePriceRow[] = rows.map((r) => ({
-      source: r.source,
-      source_url: r.sourceUrl,
-      source_currency: r.sourceCurrency,
-      source_redistribute: r.sourceRedistribute,
-      source_license_tier: r.sourceRedistribute ? "redistributable" : "internal-only",
-      ingest_run_id: r.ingestRunId,
-      snapshot_date: String(r.snapshotDate),
-      price_gbp: Number(r.price),
-      base_gbp: Number(r.baseGbp),
-      cardrush_jpy: r.cardrushJpy,
-      gbp_jpy_rate: r.gbpJpyRate,
-      error_reason: r.errorReason,
-    }));
+    const prices: SourcePriceRow[] = rows.flatMap((r) => {
+      const policy = priceSourcePublicationPolicy(r.source);
+      if (!policy.publish) return [];
+      return [{
+        source: r.source,
+        source_url: r.sourceUrl,
+        source_currency: r.sourceCurrency,
+        source_redistribute: policy.redistribute,
+        source_license_tier: policy.license,
+        ingest_run_id: r.ingestRunId,
+        snapshot_date: String(r.snapshotDate),
+        price_gbp: Number(r.price),
+        base_gbp: Number(r.baseGbp),
+        cardrush_jpy: r.cardrushJpy,
+        gbp_jpy_rate: r.gbpJpyRate,
+        error_reason: r.errorReason,
+      }];
+    });
 
     const validPrices = prices.filter((p) => Number.isFinite(p.price_gbp));
     const minGbp = validPrices.length > 0 ? Math.min(...validPrices.map((p) => p.price_gbp)) : null;
@@ -193,14 +222,14 @@ export async function GET(
       },
       note:
         prices.length === 1
-          ? `Single source today. When TCGplayer / Cardmarket modules ship, this card+date will branch into multiple rows; the schema is already widened (unique key is card_id+snapshot_date+source). Substrate-honest about the present.`
+          ? "Single reviewed source today. The schema can hold more, but a stored row is withheld until its publication rights are reviewed."
           : `${prices.length} sources at this card+date. Substrate-honest about disagreement: the response preserves per-source rows rather than aggregating.`,
       retrieved_at: new Date().toISOString(),
     };
 
     return NextResponse.json(body, {
       headers: {
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL,
         "Content-Type": "application/json; charset=utf-8",
       },
     });
@@ -209,7 +238,10 @@ export async function GET(
     console.error("[/api/v1/prices/[sku]/sources] Error:", message);
     return NextResponse.json(
       { error: "Internal error", detail: message },
-      { status: 500 },
+      {
+        status: 500,
+        headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+      },
     );
   }
 }

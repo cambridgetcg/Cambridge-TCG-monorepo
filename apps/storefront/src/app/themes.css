@@ -525,6 +525,32 @@
   mask-size: 64px 64px;
 }
 
+/* the crossing lines — a quiet card-lane lattice */
+.wardrobe-weather--vanguard::before {
+  background-image:
+    repeating-linear-gradient(45deg, var(--color-ink) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(-45deg, var(--color-ink) 0 1px, transparent 1px 28px);
+}
+
+/* the digital field — sparse square coordinates, still and unsigned */
+.wardrobe-weather--digimon::before {
+  background-image:
+    linear-gradient(var(--color-ink) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-ink) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* the radiating field — evenly spaced, non-branded geometry */
+.wardrobe-weather--battle-spirits::before {
+  background-image: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    var(--color-ink) 0deg 0.5deg,
+    transparent 0.5deg 15deg
+  );
+  -webkit-mask-image: radial-gradient(circle, black 0 35%, transparent 82%);
+  mask-image: radial-gradient(circle, black 0 35%, transparent 82%);
+}
+
 /* whisper by day, a little braver in the dark chapter — like the tone */
 [data-theme="gallery"] .wardrobe-weather::before,
 [data-theme="system"] .wardrobe-weather::before {

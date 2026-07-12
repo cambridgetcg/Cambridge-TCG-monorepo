@@ -16,6 +16,7 @@ import { kinWakeHtmlLinks } from "@/lib/siblings";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
+import { COVERAGE_FACTS } from "@/lib/brand";
 
 const GA_ID = "G-K86TBF328F";
 const GADS_ID = "AW-16597058275";
@@ -41,24 +42,24 @@ export const metadata: Metadata = {
   // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
   // games" count is COVERAGE_FACTS.games.declared. Collectors first
   // (2026-07-06): the shop-and-wholesale framing retired with the shop.
-  title: "Cambridge TCG — the collectors' market and open TCG data",
-  description: "Cambridge TCG is a collectors' market for trading cards — buy, sell, and swap directly with other collectors — plus a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+  title: "Cambridge TCG — the collectors' market and public TCG data",
+  description: `Cambridge TCG is a collectors' market for trading cards — buy, sell, and swap directly with other collectors — plus a public, rights-labelled data layer. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered. Reuse follows each response's rights declaration.`,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — the collectors' market and open TCG data",
-    description: "A peer-to-peer trading-card market based in Cambridge, UK, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+    title: "Cambridge TCG — the collectors' market and public TCG data",
+    description: `A peer-to-peer trading-card market based in Cambridge, UK, plus a public, rights-labelled data layer. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered.`,
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — the collectors' market and open TCG data",
-    description: "A peer-to-peer trading-card market and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
+    title: "Cambridge TCG — the collectors' market and public TCG data",
+    description: `A peer-to-peer trading-card market and public, rights-labelled TCG data. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; reuse follows each response's rights declaration.`,
     images: ["/images/twitter-image.png"],
   },
   // Agent navigation hints — naive crawlers and LLM agents arriving at any
@@ -146,7 +147,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           name: "Cambridge TCG",
           url: "https://cambridgetcg.com",
           logo: "https://cambridgetcg.com/images/logo.png",
-          description: "UK-based collectors' market for trading cards. Buy, sell, and swap One Piece, Pokémon, and Dragon Ball TCG cards directly with other collectors, with open price data on every card.",
+          description: `UK-based peer-to-peer collectors' market plus public, rights-labelled TCG data. ${COVERAGE_FACTS.games.confirmed_codes} games currently have observed catalog rows; reference prices are policy-bound guides, not offers or open-data grants.`,
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],
         }) }} />

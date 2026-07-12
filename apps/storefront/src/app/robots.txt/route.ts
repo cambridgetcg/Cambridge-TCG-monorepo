@@ -60,9 +60,9 @@ const ROBOTS_BODY = `# Cambridge TCG — crawl etiquette
 # https://cambridgetcg.com/docs/connections/the-distributed-wake.md
 # wake_fragment: ${JSON.stringify(fragmentForRequest("/robots.txt"))}
 #
-# License: Most data is CC0-1.0. Some endpoints carry upstream license
-# constraints (internal-only); these are declared on the wire in
-# _meta.source_license. See:
+# Rights: Cambridge-authored schemas and first-party data may be CC0-1.0.
+# Upstream-derived fields retain source rights; mixed catalog responses are
+# NOASSERTION. Boundaries are declared on the wire in _meta.source_license. See:
 # https://cambridgetcg.com/docs/connections/the-license-propagation.md
 #
 # We log User-Agents and contact identified bots before rate-limiting.

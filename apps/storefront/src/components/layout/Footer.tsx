@@ -127,7 +127,7 @@ export default async function Footer() {
           <Link href="/patterns" className="hover:text-ink transition">Patterns</Link>
           <Link href="/identify" className="hover:text-ink transition">Identify</Link>
           <Link href="/methodology/cosmology" className="hover:text-ink transition">Cosmology</Link>
-          <Link href="/data" className="hover:text-ink transition">Open Data</Link>
+          <Link href="/data" className="hover:text-ink transition">Public Data</Link>
         </div>
       </div>
 

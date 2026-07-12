@@ -22,11 +22,10 @@
  * ── Subdomain coverage ───────────────────────────────────────────────
  *
  * The `CARDRUSH_SUBDOMAINS` table below maps every known CardRush
- * subdomain to a Cambridge TCG `GameCode`. Three are *confirmed* by
- * existing wholesale scrape traffic (op / pokemon / db); a fourth
- * (digimon) was confirmed 2026-07-05 on kingdom-087 probe evidence with
- * its games row seeded and first scrape pending. The others are
- * *speculative* — added so URLs in those subdomains route to a known
+ * subdomain to a Cambridge TCG `GameCode`. Six have observations in the
+ * public archive as of 2026-07-11 (op / pokemon / dbf / digimon / vanguard /
+ * battle spirits). The others are unconfirmed or explicitly blocked —
+ * retained so URLs in those subdomains route to a known
  * game code, but the upstream may or may not exist; the first scrape
  * either returns prices (confirming) or yields `null` + an `error_reason`
  * (so the operator can remove the speculative entry).
@@ -158,7 +157,7 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
   // 'dmw' games row is seeded by apps/wholesale/scripts/seed-game.mjs in the
   // same ship. This flip is what the discovery cron gates on (it only walks
   // confirmed hosts), so it *is* the ingest switch. First scheduled scrape is
-  // pending as of this date; if it fails against expectations, flip back.
+  // observed in the public archive by 2026-07-11.
   "cardrush-digimon.jp": {
     game: "dmw",
     confirmed: true,
@@ -167,31 +166,30 @@ export const CARDRUSH_SUBDOMAINS: Record<string, SubdomainEntry> = {
     note:
       "Digimon Card Game — 13,520 products in sitemap (kingdom-087 probe: " +
       "upstream exists, direct access). confirmed:true 2026-07-05 on probe " +
-      "evidence + the seeded 'dmw' games row (seed-game.mjs); first scrape " +
-      "traffic follows the next discovery + snapshot runs.",
+      "evidence + the seeded 'dmw' games row; production archive observations " +
+      "confirmed on the public coverage route 2026-07-11.",
   },
   "cardrush-vanguard.jp": {
     game: "vng",
-    confirmed: false,
+    confirmed: true,
     access: "direct",
     role: "catalog+price",
     note:
       "Cardfight!! Vanguard — 40,642 products (kingdom-087); re-probed " +
-      "2026-07-07: alive, homepage 200, sitemap 200 (3.6MB). games row " +
-      "seeded inactive. Unlock order (docs/plans/game-expansion.md): " +
-      "after digimon's 13.5k proves the fair scheduler. Flip true when " +
-      "the first real scrape returns prices.",
+      "2026-07-07: alive, homepage 200, sitemap 200 (3.6MB). Production " +
+      "archive observations confirmed on the public coverage " +
+      "route 2026-07-11.",
   },
   "cardrush-bs.jp": {
     game: "bsr",
-    confirmed: false,
+    confirmed: true,
     access: "direct",
     role: "catalog+price",
     note:
       "Battle Spirits Saga — 35,485 products (kingdom-087); re-probed " +
-      "2026-07-07: alive, homepage 200, sitemap 200 (2.9MB). games row " +
-      "seeded inactive. Unlock order: after vanguard (which follows " +
-      "digimon). Flip true when the first real scrape returns prices.",
+      "2026-07-07: alive, homepage 200, sitemap 200 (2.9MB). Production " +
+      "archive observations confirmed on the public coverage " +
+      "route 2026-07-11.",
   },
   // ── speculative — homepage 200 + ¥ but sitemap fetch failed ──
   "cardrush-mtg.jp": {
@@ -749,11 +747,10 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
     name: "CardRush (JP)",
     description:
       "Japanese retail prices across the CardRush family of subdomains. " +
-      "Confirmed: One Piece, Pokémon, Dragon Ball Super CCG. Speculative " +
-      "subdomains registered for MTG, Yu-Gi-Oh!, Digimon, Vanguard, Weiß " +
-      "Schwarz, Flesh and Blood, Lorcana, Battle Spirits Saga, and DBF " +
-      "Fusion World — those subdomains may or may not exist at CardRush; " +
-      "the first scrape confirms or yields `subdomain_unconfirmed`. " +
+      "Observed archive coverage: One Piece, Pokémon, Dragon Ball Fusion " +
+      "World, Digimon, Vanguard, and Battle Spirits. MTG is a registered " +
+      "price-only candidate; Yu-Gi-Oh!, Weiß Schwarz, Flesh and Blood, " +
+      "Lorcana, and the alternate DBF host are blocked after DNS checks. " +
       "HTML scrape; A-condition first, fallback to base. On-demand only.",
     upstream: "https://www.cardrush-op.jp",
     catalog_section: "the-tributaries.md#23-cardrush-jp--already-partial",
@@ -774,9 +771,9 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
       "scrape. Your room is `price_archive WHERE source='cardrush'`, " +
       "`source_currency='JPY'`, `condition='nm'` (your 状態A- is our NM-equivalent), " +
       "`redistribute=false` (we honor your ToS — internal-decision use only). You " +
-      "bring Japan to the kingdom: three confirmed subdomains (op / pkm / dbs) and " +
-      "nine speculative ones we registered before any first scrape so the URL " +
-      "router routes correctly when the first byte arrives. Every byte you give " +
+      "bring Japan to the kingdom: six confirmed subdomains (op / pkm / dbf / " +
+      "dmw / vng / bsr) and six unconfirmed or blocked registrations kept explicit " +
+      "so the URL router never mistakes anticipation for coverage. Every byte you give " +
       "us is held with attribution to the specific cardrush-*.jp subdomain. We are " +
       "grateful for the year you have already given us and for the quietness " +
       "you have asked us to keep in return.",

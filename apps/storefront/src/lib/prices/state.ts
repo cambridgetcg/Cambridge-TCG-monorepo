@@ -50,7 +50,7 @@ export type PriceStateResult<T> = T | "unavailable" | null;
 /**
  * A card row as the price-guide presents it. Pre-computed reference
  * price + display name so consumers don't recompute. `price_gbp` is the
- * catalogue reference — open data, never an offer. Collectors-first
+ * policy-bound catalogue reference — never an offer or open-data grant. Collectors-first
  * (2026-07-06): the trade-in credit column retired with the we-buy desk.
  */
 export interface PriceGuideCardRow {
@@ -165,7 +165,7 @@ export async function loadGameState(
       as_of: earliestUpdate(topData.items),
       freshness: "price_current",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
-      source_license: ["internal-only", "internal-only"],
+      source_license: ["proprietary", "internal-only"],
       methodology_urls: {
         pricing: "/methodology/pricing",
         cross_source: "/methodology/cross-source-pricing",
@@ -241,7 +241,7 @@ export async function loadSetState(
       as_of: earliestUpdate(cardsData.items),
       freshness: "price_current",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
-      source_license: ["internal-only", "internal-only"],
+      source_license: ["proprietary", "internal-only"],
       methodology_urls: {
         pricing: "/methodology/pricing",
         cross_source: "/methodology/cross-source-pricing",
@@ -256,8 +256,7 @@ export async function loadSetState(
  * A cross-source signal as the price-guide presents it.
  *
  * Substrate-honest about which sources we have for THIS card vs which
- * sources we COULD have. Public CC0 envelope — no per-condition history
- * (that's auth-gated per upstream license).
+ * sources we COULD have. Availability and rights are separate facts.
  */
 export interface CrossSourceSignal {
   label: string;
@@ -267,7 +266,8 @@ export interface CrossSourceSignal {
     | "partner-redistributable"
     | "cc-by-nc"
     | "mit"
-    | "cc0";
+    | "cc0"
+    | "proprietary";
   available: boolean;
   detail: string;
   /** Storefront URL the signed-in user can call for full history (when available). */
@@ -350,11 +350,21 @@ export async function loadCardState(
   cross_source_signals.push({
     label: "TCGplayer (US)",
     source_id: "tcgplayer",
-    license: "partner-redistributable",
-    available: false, // operator-gated; flips when TCGplayer credentials wire
+    license: "proprietary",
+    available: false,
     detail:
-      "Partner-redistributable license — display + computation OK by partner agreement; bulk re-export refused. Awaiting OAuth credentials from developer.tcgplayer.com.",
-    signed_in_path: `/api/v1/cards/${encodeURIComponent(card.sku)}/tcgplayer-history`,
+      "Blocked: TCGplayer is not granting new API access, and its terms prohibit combining its prices with Cambridge or third-party prices without written consent.",
+    signed_in_path: null,
+  });
+
+  cross_source_signals.push({
+    label: "Cardmarket (Europe)",
+    source_id: "cardmarket",
+    license: "proprietary",
+    available: false,
+    detail:
+      "Public daily Product Catalog and Price Guide files exist; Cambridge's file reader and field-level rights lineage are not wired yet.",
+    signed_in_path: null,
   });
 
   return {
@@ -368,7 +378,7 @@ export async function loadCardState(
       as_of: card.updated_at,
       freshness: "price_current",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
-      source_license: ["internal-only", "internal-only"],
+      source_license: ["proprietary", "internal-only"],
       methodology_urls: {
         pricing: "/methodology/pricing",
         cross_source: "/methodology/cross-source-pricing",

@@ -29,9 +29,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cards, games, priceArchive } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { authenticateApiKey } from "../../../../../auth";
 import { createHash } from "node:crypto";
+import {
+  INTERNAL_ONLY_CACHE_CONTROL,
+  PUBLISHABLE_PRICE_SOURCES,
+  WHOLESALE_STORAGE_PUBLICATION_POLICY,
+  priceSourcePublicationPolicy,
+} from "@/lib/source-publication-policy";
 
 function canonicalize(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -77,7 +83,10 @@ export async function GET(
     if (!ISO_DATE.test(date)) {
       return NextResponse.json(
         { error: "Invalid date — must be YYYY-MM-DD" },
-        { status: 400 },
+        {
+          status: 400,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
       );
     }
 
@@ -103,13 +112,19 @@ export async function GET(
       .limit(1);
 
     if (!cardRow.length) {
-      return NextResponse.json({ error: "Card not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Card not found" },
+        {
+          status: 404,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
+      );
     }
     const c = cardRow[0]!;
 
     // Look up the archive row for the requested snapshot date.
     // kingdom-081 Phase 2.1: SELECT the new provenance columns (source,
-    // sourceRedistribute, sourceUrl, ingestRunId) so the response can
+    // sourceUrl, ingestRunId) so the response can
     // declare per-record license tier. Requires migration 0014 applied.
     const archive = await db
       .select({
@@ -119,12 +134,18 @@ export async function GET(
         baseGbp: priceArchive.baseGbp,
         price: priceArchive.price,
         source: priceArchive.source,
-        sourceRedistribute: priceArchive.sourceRedistribute,
         sourceUrl: priceArchive.sourceUrl,
         ingestRunId: priceArchive.ingestRunId,
       })
       .from(priceArchive)
-      .where(and(eq(priceArchive.cardId, c.id), eq(priceArchive.snapshotDate, date)))
+      .where(
+        and(
+          eq(priceArchive.cardId, c.id),
+          eq(priceArchive.snapshotDate, date),
+          eq(priceArchive.condition, "nm"),
+          inArray(priceArchive.source, [...PUBLISHABLE_PRICE_SOURCES]),
+        ),
+      )
       .limit(1);
 
     if (!archive.length) {
@@ -134,7 +155,10 @@ export async function GET(
           detail: `price_archive has no row for card_id=${c.id} snapshot_date=${date}`,
           hint: "Try /at/<earlier-date> or pull /api/v1/universal/card/[sku] for the current state.",
         },
-        { status: 404 },
+        {
+          status: 404,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
       );
     }
     const a = archive[0]!;
@@ -176,10 +200,25 @@ export async function GET(
     // shipped daily snapshot upstream; widens naturally when TCGplayer or
     // Cardmarket modules ship.
     const archive_source = a.source ?? "cardrush";
-    const archive_redistributable = a.sourceRedistribute === true;
-    const upstream_license = archive_redistributable ? "CC0-1.0" : "internal-only";
+    const archive_policy = priceSourcePublicationPolicy(archive_source);
+    if (!archive_policy.publish) {
+      return NextResponse.json(
+        {
+          error: "Snapshot source is not cleared for publication",
+          source: archive_source,
+        },
+        {
+          status: 404,
+          headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+        },
+      );
+    }
+    const upstream_license = archive_policy.license;
     const provenance_sources = ["wholesale-rds.price_archive", archive_source];
-    const provenance_source_license = ["internal-only", upstream_license];
+    const provenance_source_license = [
+      WHOLESALE_STORAGE_PUBLICATION_POLICY.license,
+      upstream_license,
+    ];
 
     const document: Record<string, unknown> = {
       "@encoding": "cambridge-tcg/universal/v1",
@@ -231,6 +270,7 @@ export async function GET(
             // price subtree. Internal-only when source='cardrush'.
             source: archive_source,
             source_license: upstream_license,
+            source_redistribute: archive_policy.redistribute,
             magnitude_freshness: {
               iso8601: asOfIso,
               unix_epoch_seconds: asOfEpoch,
@@ -267,7 +307,7 @@ export async function GET(
     const selfHash = sha256(canonicalize(document));
     return NextResponse.json({ "@self_hash": selfHash, ...document }, {
       headers: {
-        "Cache-Control": "public, max-age=300",
+        "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL,
         "Content-Type": "application/json; charset=utf-8",
       },
     });
@@ -276,7 +316,10 @@ export async function GET(
     console.error("[/api/v1/universal/card/[sku]/at/[date]] Error:", message);
     return NextResponse.json(
       { error: "Internal error", detail: message },
-      { status: 500 },
+      {
+        status: 500,
+        headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },
+      },
     );
   }
 }

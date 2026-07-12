@@ -466,7 +466,7 @@ const SPEC = {
       get: {
         tags: ["prices", "catalog"],
         summary: "Curated price guide for one game",
-        description: "JSON sibling of /prices/[game]. Same composer (loadGameState) as the HTML page — game meta, live set list, top movers. Pantry envelope; CC0.",
+        description: "JSON sibling of /prices/[game]. Same composer (loadGameState) as the HTML page — game meta, live set list, top movers. This mixed catalog response declares aggregate rights NOASSERTION; the Cambridge-authored envelope and schema remain CC0 separately.",
         operationId: "getPriceGuideGame",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug (e.g. 'optcg')." },
@@ -481,7 +481,7 @@ const SPEC = {
       get: {
         tags: ["prices", "catalog"],
         summary: "Curated price guide for one set",
-        description: "JSON sibling of /prices/[game]/[set]. Reuses loadSetState — the same composer the HTML page uses. Pantry envelope; CC0.",
+        description: "JSON sibling of /prices/[game]/[set]. Reuses loadSetState — the same composer the HTML page uses. This mixed catalog response declares aggregate rights NOASSERTION; the Cambridge-authored envelope and schema remain CC0 separately.",
         operationId: "getPriceGuideSet",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -497,7 +497,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Curated price guide for one card",
-        description: "JSON sibling of /prices/[game]/[set]/[number]. Cross-source signals (CardRush / TCGplayer) ride with arrival state + license tier; the auth-gated history paths are surfaced so a signed-in agent can follow through. The math-mirror sibling is /api/v1/universal/card/[sku].",
+        description: "JSON sibling of /prices/[game]/[set]/[number]. Current observed upstream pricing is CardRush only. TCGplayer is reported as blocked and Cardmarket as planned; neither is presented as collected coverage. The math-mirror sibling is /api/v1/universal/card/[sku].",
         operationId: "getPriceGuideCard",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -579,19 +579,14 @@ const SPEC = {
     "/api/v1/cards/{sku}/tcgplayer-history": {
       get: {
         tags: ["prices"],
-        summary: "TCGplayer USD history for one card (session-gated)",
-        description: "Up to 365 days of per-condition USD observations. **Requires a signed-in session** — anonymous callers get 401. License boundary: single SKU per request, 365-row hard cap, _meta.source_license declares 'partner-redistributable'.",
+        summary: "Blocked TCGplayer history status door",
+        description: "TCGplayer is blocked. This endpoint returns SOURCE_UNAVAILABLE and exposes no observations because Cambridge has no recorded written approval for its multi-source use.",
         operationId: "getTcgplayerHistory",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
-          { name: "limit", in: "query", required: false, schema: { type: "integer", maximum: 365 }, description: "Observation cap (hard max 365)." },
-          { name: "condition", in: "query", required: false, schema: { type: "string" }, description: "Filter to one TCGplayer condition." },
         ],
         responses: {
-          "200": { description: "Observations + license boundary, with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "400": { description: "Invalid condition/limit.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "401": { description: "No session — sign in first.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Source blocked; no TCGplayer observations are exposed.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -1026,7 +1021,7 @@ const SPEC = {
           retrieved_at: { type: "string", format: "date-time", description: "When this response was rendered." },
           as_of: { type: "string", format: "date-time", description: "When the underlying data was last known to be true. For aggregates, the *earliest* across contributing records." },
           sources: { type: "array", items: { type: "string" }, description: "Named sources of truth that contributed." },
-          source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; redistribution license tier per source (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Absence is substrate-honest about un-declared rights. kingdom-066 + kingdom-081." },
+          source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; known source-rights tier (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Aggregate mixed rights use _meta.license=NOASSERTION; absence here means undeclared. kingdom-066 + kingdom-081." },
           freshness_seconds: { type: "integer", description: "Platform's intended freshness budget for this kind of data." },
           license: { type: "string", description: "SPDX license code for the response payload. CC0-1.0 by default." },
           request_id: { type: "string", description: "Quotable in support tickets." },

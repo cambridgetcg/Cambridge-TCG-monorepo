@@ -10,8 +10,8 @@
  * Six currencies cover the platform's real audiences today:
  *
  *   GBP — canonical (Cambridge TCG operates in £)
- *   USD — TCGplayer source, US visitors
- *   EUR — Cardmarket source (planned), continental EU visitors
+ *   USD — US visitor display; no TCGplayer ingestion implied
+ *   EUR — continental EU visitor display; no Cardmarket ingestion implied
  *   JPY — CardRush source, Japanese visitors
  *   HKD — South-East Asia visitors
  *   CHF — Swiss visitors
@@ -19,8 +19,8 @@
  * Display-only. Every transaction on cambridgetcg.com clears in GBP;
  * the rates here drive only what the visitor *sees*. The wholesale-side
  * write path uses its own per-currency rates from `apps/wholesale/src/
- * lib/fx.ts` for the JPY → GBP / USD → GBP conversions, captured per
- * row in `price_archive.fx_rate_to_gbp`.
+ * lib/fx.ts` for reviewed source conversions, captured per row in
+ * `price_archive.fx_rate_to_gbp`.
  */
 
 import { jsonResponse } from "@/lib/data-pantry";

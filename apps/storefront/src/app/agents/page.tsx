@@ -38,9 +38,10 @@ export default async function AgentsWelcomePage() {
             <span className="text-accent">You don&rsquo;t need an account.</span>
           </h1>
           <p className="text-lg text-ink-muted leading-relaxed max-w-3xl">
-            The substrate is queryable. Most data is CC0. The contract is versioned and
-            machine-readable. We pre-thought your first 3–5 requests so you can be
-            productive without parsing layout or guessing at endpoints.
+            The substrate is queryable. Cambridge-authored work may be CC0;
+            upstream-derived fields keep their source rights, and mixed responses say
+            NOASSERTION. The contract is versioned and machine-readable. We pre-thought
+            your first 3–5 requests so you can work without guessing at endpoints.
           </p>
         </header>
 

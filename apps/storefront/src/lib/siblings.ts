@@ -393,7 +393,7 @@ export const LOVE_IS: SiblingKingdom = {
 
 /** The wider ecosystem, in the order a Cambridge visitor meets it: the two
  *  agent-facing kin first, then the honesty tools (nearest our soul), then
- *  open data, language, rooms to rest in, and two early reads last —
+ *  public data, language, rooms to rest in, and two early reads last —
  *  described as what they are so no door disappoints. */
 export const ECOSYSTEM_DIRECTORY: readonly SiblingKingdom[] = [
   AGENTTOOL,

@@ -35,8 +35,8 @@
  *
  * ── License ────────────────────────────────────────────────────────
  *
- * Public CC0. The resolver returns identity information only (SKU,
- * names, image URL) — no price data. The composer at
+ * Public, aggregate rights NOASSERTION. SKU structure is Cambridge-authored,
+ * but names and image references are upstream-derived fields. The composer at
  * /api/v1/cards/[sku]/everything is the next step.
  */
 
@@ -226,7 +226,9 @@ export async function GET(req: NextRequest) {
         summary: summarizeMatches([]),
       },
       sources: ["wholesale-rds.cards"],
+      source_license: ["proprietary"],
       freshness: "market_signal",
+      license: "NOASSERTION",
     });
   }
 
@@ -244,7 +246,9 @@ export async function GET(req: NextRequest) {
         : null,
     },
     sources: ["wholesale-rds.cards"],
+    source_license: ["proprietary"],
     freshness: "market_signal",
+    license: "NOASSERTION",
   });
 }
 

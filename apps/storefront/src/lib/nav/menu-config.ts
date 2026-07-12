@@ -31,7 +31,14 @@ export const PRIMARY_NAV_ITEMS = [
   {
     label: "Prices",
     href: "/prices",
-    activePrefixes: ["/prices", "/find", "/catalog", "/cards", "/product", "/glossary"],
+    activePrefixes: [
+      "/prices",
+      "/find",
+      "/catalog",
+      "/cards",
+      "/product",
+      "/glossary",
+    ],
   },
   {
     label: "Play",
@@ -80,9 +87,9 @@ export const MORE_NAV_GROUPS = [
     heading: "Open & trusted",
     items: [
       {
-        label: "Open data",
+        label: "Data access",
         href: "/data",
-        description: "Free card data and API",
+        description: "Catalog and API with explicit field-rights boundaries",
         activePrefixes: ["/data", "/api", "/agents", "/standards", "/scrapers"],
       },
       {

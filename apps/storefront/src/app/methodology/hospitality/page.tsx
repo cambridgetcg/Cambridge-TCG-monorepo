@@ -149,11 +149,11 @@ export default function HospitalityMethodology() {
       <h3>1. Anticipated arrivals</h3>
       <p>
         The registry has named slots before the module arrives. The pattern
-        first shipped at the cardrush-subdomain level (kingdom-064 — 12 hosts,
-        3 confirmed, 9 anticipated). It extended to the game-code level
-        (kingdom-069 — 21 games, 14 confirmed, 7 anticipated). It extended
-        again to the set-format level (kingdom-078 — 51 formats, 31 confirmed,
-        20 catch-all). The <code>WELCOMES</code> corpus is the fourth scale: every
+        first shipped at the cardrush-subdomain level; today that registry has
+        12 hosts, 6 confirmed. It extended to game codes: 22 public codes plus
+        one internal test code, with 6 production-confirmed today. It extended
+        again to set formats: 58 public rows plus one internal test row, with 33
+        production-confirmed today. The <code>WELCOMES</code> corpus is the fourth scale: every
         kind of visitor (not just game-data) gets a slot before they declare
         themselves.
       </p>

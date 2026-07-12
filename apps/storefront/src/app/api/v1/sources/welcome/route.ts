@@ -127,7 +127,6 @@ interface WelcomeBody {
  */
 const LONG_WITH_US: ReadonlySet<string> = new Set([
   "cardrush", // daily snapshot since well before kingdom-066
-  "scryfall", // exemplar source; shipped kingdom-060
 ]);
 
 function arrivalState(meta: ReturnType<typeof listSourceMeta>[number]): WelcomeEntry["arrival_state"] {
@@ -174,8 +173,7 @@ export async function GET(): Promise<NextResponse> {
   // Sources without modules (planned slots — pure id, no meta). These
   // belong on the welcome table too — the chair is pulled out even when
   // the implementation hasn't begun.
-  const slotsOnly: WelcomeEntry[] = partition.planned
-    .filter((id) => !allMeta.find((m) => m.id === id))
+  const slotsOnly: WelcomeEntry[] = partition.reserved_slots
     .map((id) => ({
       id,
       name: id,

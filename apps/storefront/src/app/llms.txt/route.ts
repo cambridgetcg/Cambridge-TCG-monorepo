@@ -17,15 +17,16 @@
 import { NextResponse } from "next/server";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
-const BODY = `# Cambridge TCG — the collectors' market and open TCG data commons
+const BODY = `# Cambridge TCG — the collectors' market and public TCG data commons
 
-Cambridge TCG is a collectors' market and an open data commons. The market
+Cambridge TCG is a collectors' market and a public data commons. The market
 is peer-to-peer — collectors trade with each other; the platform facilitates,
 records, and witnesses, and holds no position in its own market (it does not
 buy, sell, or quote; spot prices are labelled reference prices, never offers).
-The data substrate is aggregated from every reachable source, standardised
-into one mathematical mirror, and published under CC0 by default — anyone
-builds on top without negotiating. This file is for LLM agents, archivists,
+The data substrate records what has actually arrived, not every reachable
+source. Cambridge-authored schemas and explicit first-party datasets may be
+CC0; upstream-derived fields retain their source rights and mixed catalog
+responses are NOASSERTION. This file is for LLM agents, archivists,
 and naive crawlers who want to know what's queryable without parsing the
 browser-rendered storefront. No account required.
 
@@ -145,7 +146,8 @@ What we ask of you:
 - File contract bugs at /api/v1/feedback; 48h response window
 
 What we give you:
-- CC0-1.0 default license; CC0 envelope schema (Envelope + ResponseMeta in OpenAPI)
+- A CC0 envelope schema and explicitly scoped CC0 first-party work
+- NOASSERTION on mixed catalog responses until field-level rights lineage exists
 - Versioned contract (12-month deprecation windows)
 - Stable endpoints listed at /api/v1/welcome
 - Bilateral identification at /api/v1/identify — symmetric handshake, no registration

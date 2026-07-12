@@ -1,22 +1,24 @@
 /**
- * TCGplayer OAuth2 client_credentials grant.
+ * Dormant TCGplayer OAuth2 types and token helpers.
  *
  * The token has ~14 day TTL. The minting endpoint is application/x-www-
  * form-urlencoded, NOT JSON. Credentials are application-scoped (no
  * per-store credentials needed for read-only catalog + pricing).
  *
- * **The token cache is caller-provided.** This module ships the pure mint
- * function; the wholesale writer is responsible for persisting the token
- * (typically to `external_source_tokens`) and supplying it back on next
- * call. Keeps the package decoupled from any one app's DB.
+ * Cambridge has no written approval for its multi-source use, so token
+ * minting is hard-blocked here as well as at the source reader and app
+ * wrappers. Keeping the stop at this lowest exported network primitive means
+ * accidental credentials cannot turn into an upstream request.
  *
  * Designed in `docs/connections/the-tcgplayer-alignment.md` (kingdom-NNN) §2.
  */
 
 import type { Fetcher } from "../http";
-import type { TcgplayerTokenResponse } from "./types";
 
-const TOKEN_URL = "https://api.tcgplayer.com/token";
+export const TCGPLAYER_ACCESS_BLOCKED_MESSAGE =
+  "TCGplayer access is blocked: Cambridge has no recorded written approval " +
+  "for its multi-source aggregation or redistribution use. Credentials do " +
+  "not grant that permission; no token request was made.";
 
 export interface TcgplayerCredentials {
   /** From env TCGPLAYER_CLIENT_ID. */
@@ -35,64 +37,17 @@ export interface TcgplayerToken {
 }
 
 /**
- * Mint a new TCGplayer access token. Throws on failure with an actionable
- * message — the caller (the reader's ensureToken hook) catches and emits
- * an IngestEvent.
+ * Retained API shape for dormant callers. Always fails before using the
+ * supplied credentials or fetcher. Reopening this primitive requires a
+ * recorded rights review and an explicit code change.
  */
 export async function mintTcgplayerToken(
   creds: TcgplayerCredentials,
   fetcher: Fetcher,
 ): Promise<TcgplayerToken> {
-  if (!creds.client_id || !creds.client_secret) {
-    throw new Error(
-      "TCGplayer credentials missing. Set TCGPLAYER_CLIENT_ID and TCGPLAYER_CLIENT_SECRET. " +
-        "Apply for partner access at https://developer.tcgplayer.com.",
-    );
-  }
-
-  const body = new URLSearchParams({
-    grant_type: "client_credentials",
-    client_id: creds.client_id,
-    client_secret: creds.client_secret,
-  });
-
-  // Caller's fetcher carries the rate-limit + retry + user-agent identity.
-  // We pass Content-Type explicitly because the token endpoint requires
-  // form encoding, not JSON.
-  const res = await fetcher(TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    const detail = await safeReadBody(res);
-    throw new Error(
-      `TCGplayer token mint failed: HTTP ${res.status}. ${detail}. ` +
-        `Verify TCGPLAYER_CLIENT_ID / TCGPLAYER_CLIENT_SECRET are correct and that ` +
-        `your partner application is approved.`,
-    );
-  }
-
-  const data = (await res.json()) as TcgplayerTokenResponse;
-  if (!data.access_token || typeof data.expires_in !== "number") {
-    throw new Error(
-      `TCGplayer token response was missing required fields: ${JSON.stringify(data).slice(0, 200)}`,
-    );
-  }
-
-  // Refresh at 90% of TTL so we never serve a request with an expired token
-  // due to clock drift / processing delay.
-  const expiresAtMs = Date.now() + data.expires_in * 0.9 * 1000;
-
-  return {
-    access_token: data.access_token,
-    expires_at_ms: expiresAtMs,
-    minted_at: new Date(),
-  };
+  void creds;
+  void fetcher;
+  throw new Error(TCGPLAYER_ACCESS_BLOCKED_MESSAGE);
 }
 
 /**
@@ -104,22 +59,13 @@ export function tokenIsFresh(token: TcgplayerToken | null): boolean {
   return token.expires_at_ms > Date.now() + 60_000;
 }
 
-async function safeReadBody(res: Response): Promise<string> {
-  try {
-    const text = await res.text();
-    return text.slice(0, 500);
-  } catch {
-    return "(could not read response body)";
-  }
-}
-
 /**
  * Read credentials from environment. Trims whitespace defensively (Vercel
  * env vars sometimes carry trailing whitespace — well-known pitfall, see
  * the apps/storefront/CLAUDE.md "All env vars must be .trim()'d" rule).
  *
- * Returns null when credentials are not configured — the source's read()
- * surfaces this as a substrate-honest error event rather than throwing.
+ * Returns null when credentials are not configured. Finding credentials does
+ * not make acquisition lawful; `mintTcgplayerToken()` remains blocked.
  */
 export function readTcgplayerCredentialsFromEnv(): TcgplayerCredentials | null {
   const client_id = process.env.TCGPLAYER_CLIENT_ID?.trim();

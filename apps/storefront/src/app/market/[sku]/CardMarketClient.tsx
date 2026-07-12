@@ -288,17 +288,18 @@ function PriceHistoryTile({ analytics }: {
 /** Reference price + market price info panel.
  *  Collectors-first (2026-07-06): the two-sided CTCG spread block and the
  *  trade-in rows died with the we-buy desk. The catalogue price survives
- *  strictly as a labelled reference — open data, nobody's offer. */
+ *  strictly as a labelled, policy-bound reference — nobody's offer and
+ *  not an open-data grant. */
 function ReferencePricePanel({ view }: { view: UnifiedMarketView }) {
   const { reference_price, market_price, p2p_discount } = view;
 
   return (
     <div className="wardrobe-mat rounded-lg p-3 mb-4 space-y-2">
-      {/* Reference price (open data, not an offer) */}
+      {/* Policy-bound reference price (not an offer or reuse grant) */}
       <div className="flex items-center justify-between">
         <span
           className="text-xs text-ink-muted"
-          title="The catalogue reference price — open data, not anyone's offer. Nothing sells at it; the collector book below is the market."
+          title="The policy-bound catalogue reference price — not anyone's offer or an open-data grant. Nothing sells at it; the collector book below is the market."
         >
           Reference price <span className="text-ink-faint">(ref)</span>
         </span>
@@ -316,7 +317,7 @@ function ReferencePricePanel({ view }: { view: UnifiedMarketView }) {
         )}
       </div>
       <p className="font-mono text-[10px] text-ink-faint mt-0.5">
-        reference · open data, not anyone&rsquo;s offer
+        reference · policy-bound, not anyone&rsquo;s offer
       </p>
 
       {/* Market Price */}
@@ -986,7 +987,7 @@ export default function CardMarketClient({
                   </div>
                   <p
                     className="text-[10px] uppercase tracking-wider text-ink-faint"
-                    title="The catalogue reference price, shown as a reference only. It is open data — a different source than what peers paid each other, and not an offer from anyone."
+                    title="The policy-bound catalogue reference price, shown as a reference only. It is a different source than what peers paid each other, not an offer or an open-data grant."
                   >
                     reference · catalogue, not p2p tape
                   </p>
@@ -1091,7 +1092,7 @@ export default function CardMarketClient({
                   : (book.best_bid ? formatPrice(Number(book.best_bid)) : "—")}
               </span>
               {tab === "buy" && book.reference_price != null && (
-                <span className="ml-2 text-ink-faint" title="Catalogue reference price — open data, not an offer.">
+                <span className="ml-2 text-ink-faint" title="Policy-bound catalogue reference price — not an offer or an open-data grant.">
                   (ref: <Money value={book.reference_price} className="font-mono tabular-nums" />)
                 </span>
               )}

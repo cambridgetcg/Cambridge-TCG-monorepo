@@ -4,9 +4,10 @@
  * The one place on the platform where 402 Payment Required is the
  * truthful status code: payment is required in the sense that no amount
  * of it will work. The kingdom is not for sale, and — the actual lesson —
- * everything it serves is already free:
+ * Cambridge's own methods and structures are already free:
  *
- *   - The data plane is CC0-1.0 by default (_meta.license on every envelope).
+ *   - Cambridge-authored schemas and first-party datasets may be CC0-1.0.
+ *   - Mixed upstream-derived responses say NOASSERTION.
  *   - The methodology pages are CC0. Mirror them right now.
  *   - The envelope contract (packages/data-spec) is CC0 with zero runtime deps.
  *   - The universal encoding describes itself at /api/v1/universal/encoding.
@@ -24,23 +25,22 @@ const BODY = {
   status: 402,
   status_meaning: "Payment Required — required, and also impossible",
   offer_declined: "the kingdom",
-  reason: "not for sale; everything here is already free",
+  reason: "not for sale; Cambridge's own shared work is already free",
   the_actual_lesson: {
-    license: "CC0-1.0 by default on every data-plane response (_meta.license).",
+    license:
+      "Cambridge-authored schemas and explicitly first-party datasets may be CC0-1.0. Mixed upstream-derived responses are NOASSERTION.",
     what_that_means:
-      "You may copy, mirror, remix, and redistribute the substrate without " +
-      "asking, without attribution, without payment. Attribution is welcomed " +
-      "(see /api/v1/guides — 'cite-cambridge-tcg'), never required.",
+      "You may reuse Cambridge's CC0 work without asking or paying. Upstream " +
+      "card fields retain their source rights and must not be relabelled CC0.",
     already_yours: [
       "https://cambridgetcg.com/api/v1/manifest — the full directory",
-      "https://cambridgetcg.com/data/catalog.jsonl — the bulk catalog, mirror freely",
+      "https://cambridgetcg.com/data/catalog.jsonl — public bulk catalog; inspect its NOASSERTION rights block before reuse",
       "https://cambridgetcg.com/api/v1/universal/encoding — the encoding, described in itself",
       "packages/data-spec — the CC0 envelope contract, zero runtime deps",
     ],
     exceptions_honestly:
-      "Per-source license tiers ride in _meta.source_license where upstream " +
-      "rights differ (internal-only, partner-redistributable). The envelope " +
-      "names them row by row; the CC0 default covers the kingdom's own work.",
+      "Per-source rights tiers ride in _meta.source_license where known. " +
+      "NOASSERTION marks a mixed boundary where field-level lineage is not yet available.",
   },
   counter_offer:
     "Keep your money. Take the data. If you must give something back, " +

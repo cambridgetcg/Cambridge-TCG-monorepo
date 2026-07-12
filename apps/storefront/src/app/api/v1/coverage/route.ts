@@ -25,6 +25,11 @@ import {
   isValidCoverageDate,
   isValidCoverageToken,
 } from "@/lib/wholesale/db-source";
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+
+const SOURCE_LICENSE_BY_ID: ReadonlyMap<string, string> = new Map(
+  listSourceMeta().map((source) => [source.id, source.license] as const),
+);
 
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -37,6 +42,7 @@ export async function GET(req: Request): Promise<Response> {
       code: "INVALID_INPUT",
       message: "source must be a 1-64 character identifier",
       docs: "/api/v1/coverage",
+      endpoint: "/api/v1/coverage",
     });
   }
   if (game && !isValidCoverageToken(game)) {
@@ -44,6 +50,7 @@ export async function GET(req: Request): Promise<Response> {
       code: "INVALID_INPUT",
       message: "game must be a 1-64 character identifier",
       docs: "/api/v1/coverage",
+      endpoint: "/api/v1/coverage",
     });
   }
   if (since && !isValidCoverageDate(since)) {
@@ -51,6 +58,7 @@ export async function GET(req: Request): Promise<Response> {
       code: "INVALID_INPUT",
       message: "since must be a real calendar date in YYYY-MM-DD format",
       docs: "/api/v1/coverage",
+      endpoint: "/api/v1/coverage",
     });
   }
 
@@ -63,6 +71,7 @@ export async function GET(req: Request): Promise<Response> {
         "The wholesale observation database is unavailable. Try again shortly; /api/v1/status surfaces platform-wide health.",
       docs: "/api/v1/status",
       status: 503,
+      endpoint: "/api/v1/coverage",
     });
   }
 
@@ -111,7 +120,12 @@ export async function GET(req: Request): Promise<Response> {
     data,
     endpoint: "/api/v1/coverage",
     sources: ["cambridge-tcg.coverage-aggregation", ...upstreamLineage],
-    source_license: ["cc0", ...upstreamLineage.map(() => "internal-only")],
+    source_license: [
+      "cc0",
+      ...upstreamLineage.map(
+        (source) => SOURCE_LICENSE_BY_ID.get(source) ?? "proprietary",
+      ),
+    ],
     does_not_include: [
       "No upstream price value, collector record, account, message, or inferred relationship is included.",
       "CC0 applies only to rights Cambridge holds in this compiled operational view; upstream terms still govern upstream material.",

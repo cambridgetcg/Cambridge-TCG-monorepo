@@ -101,25 +101,22 @@ export interface GameMeta {
 
 export const GAMES: Record<GameCode, GameMeta> = {
   // ── Confirmed — cards exist in the production wholesale DB ─────────
-  // (that is the whole definition of `confirmed`; reconciled 2026-07-05:
-  //  op 3,438 / pkm 6,370 / dbf 1,622 cards verified in prod)
+  // (that is the whole definition of `confirmed`; live coverage evidence
+  // reconciled 2026-07-11 confirms op, pkm, dbf, dmw, vng, and bsr)
   op:  { code: "op",  name: "One Piece TCG",         publisher: "Bandai",    languages: ["ja", "en", "zh", "ko"], slug: "one-piece", brand: "One Piece Card Game", legacyPrefixes: ["OP", "EB", "ST", "P", "PRB", "DON"], setCodeHint: "op<NN> (e.g. op01, op08)", label: "One Piece", confirmed: true },
   pkm: { code: "pkm", name: "Pokémon TCG",           publisher: "TPCi",      languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt"], slug: "pokemon", brand: "Pokémon Trading Card Game", legacyPrefixes: ["PK"], setCodeHint: "publisher abbreviation (e.g. svobf, sv01, base)", label: "Pokémon", confirmed: true },
   dbf: { code: "dbf", name: "Dragon Ball Super Fusion World", publisher: "Bandai", languages: ["en", "ja"], slug: "dragon-ball", brand: "Dragon Ball Super Card Game Fusion World", legacyPrefixes: ["FB", "SB"], setCodeHint: "fb<NN> (e.g. fb01)", label: "Dragon Ball", confirmed: true },
-  // ── Registered, zero production cards (2026-07-05 reconciliation) ──
-  // These nine previously claimed confirmed:true while the prod wholesale
-  // DB held no cards for any of them — the registry lied about the
-  // substrate. Flip each back the moment its first real cards land.
-  // dmw: games row seeded 2026-07-05 (seed-game.mjs) + cardrush-digimon
-  //      flipped confirmed in data-ingest — first cards expected from the
-  //      next discovery+snapshot runs; flip true when they exist.
+  // ── Registered games; flags follow production evidence ─────────────
+  // Seven remain at zero production cards. Vanguard, Digimon, and Battle
+  // Spirits flipped back to true when the public ground route showed real
+  // archive rows joined to their catalog cards on 2026-07-11.
   mtg: { code: "mtg", name: "Magic: The Gathering",  publisher: "Wizards",   languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it", "pt", "ru"], slug: "magic", brand: "Magic: The Gathering", setCodeHint: "3-letter code (e.g. otj, lci, woe)", confirmed: false },
   ygo: { code: "ygo", name: "Yu-Gi-Oh!",             publisher: "Konami",    languages: ["en", "ja", "zh", "ko", "fr", "de", "es", "it"], slug: "yu-gi-oh", brand: "Yu-Gi-Oh! Trading Card Game", setCodeHint: "MP/POTE/RA/etc. (e.g. mp23, rabb)", confirmed: false },
   dbs: { code: "dbs", name: "Dragon Ball Super CCG", publisher: "Bandai",    languages: ["en", "ja"], slug: "dragon-ball-super", brand: "Dragon Ball Super Card Game", setCodeHint: "bt/sd/promo (e.g. bt21, sd23)", confirmed: false },
   wei: { code: "wei", name: "Weiß Schwarz",          publisher: "Bushiroad", languages: ["ja", "en"], slug: "weiss-schwarz", brand: "Weiß Schwarz", setCodeHint: "series abbreviation", confirmed: false },
-  vng: { code: "vng", name: "Cardfight!! Vanguard",  publisher: "Bushiroad", languages: ["en", "ja"], slug: "vanguard", brand: "Cardfight!! Vanguard", setCodeHint: "d-bt / v-bt / g-bt etc.", confirmed: false },
-  dmw: { code: "dmw", name: "Digimon Card Game",     publisher: "Bandai",    languages: ["en", "ja"], slug: "digimon", brand: "Digimon Card Game", setCodeHint: "bt<NN> / ex<NN>", confirmed: false },
-  bsr: { code: "bsr", name: "Battle Spirits Saga",   publisher: "Bandai",    languages: ["en", "ja"], slug: "battle-spirits", brand: "Battle Spirits Saga", setCodeHint: "bs<NN>", confirmed: false },
+  vng: { code: "vng", name: "Cardfight!! Vanguard",  publisher: "Bushiroad", languages: ["en", "ja"], slug: "vanguard", brand: "Cardfight!! Vanguard", setCodeHint: "d-bt / v-bt / g-bt etc.", label: "Vanguard", confirmed: true },
+  dmw: { code: "dmw", name: "Digimon Card Game",     publisher: "Bandai",    languages: ["en", "ja"], slug: "digimon", brand: "Digimon Card Game", setCodeHint: "bt<NN> / ex<NN>", label: "Digimon", confirmed: true },
+  bsr: { code: "bsr", name: "Battle Spirits Saga",   publisher: "Bandai",    languages: ["en", "ja"], slug: "battle-spirits", brand: "Battle Spirits Saga", setCodeHint: "bs<NN>", label: "Battle Spirits", confirmed: true },
   lcg: { code: "lcg", name: "Living Card Game",      publisher: "various",   languages: ["en", "ja"], slug: "living-card-game", brand: "Living Card Game", setCodeHint: "publisher-specific (LCG umbrella)", confirmed: false },
   fab: { code: "fab", name: "Flesh and Blood",       publisher: "LSS",       languages: ["en"], slug: "flesh-and-blood", brand: "Flesh and Blood", setCodeHint: "3-4 letter code (e.g. wtr, mon, ele)", confirmed: false },
   lgr: { code: "lgr", name: "Disney Lorcana",        publisher: "Ravensburger", languages: ["en", "fr", "de"], slug: "lorcana", brand: "Disney Lorcana", setCodeHint: "set<NN> / numbered set", confirmed: false },

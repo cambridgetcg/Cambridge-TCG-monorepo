@@ -33,7 +33,7 @@ const CONFIG = {
       url: "https://cambridgetcg.com/api/mcp",
       transport: "https",
       description:
-        "Cambridge TCG — a collectors' market and an open data commons. Read-tools for catalog, reference prices, federation, and methodology. CC0 by default; reference implementations open.",
+        "Cambridge TCG — a collectors' market and an open data commons. Read-tools for catalog, reference prices, and methodology. Cambridge-authored work may be CC0; mixed upstream-derived responses are NOASSERTION.",
       auth: {
         type: "bearer",
         provision_url: "https://cambridgetcg.com/account/agents",

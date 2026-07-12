@@ -271,7 +271,7 @@ export const PLATFORM_SELF: BeingDeclaration = {
     rebrand_doctrine: "docs/connections/the-rebrand.md",
     six_layers: ["cosmology", "manifest", "substrate-answers", "graph", "ontology", "patterns", "declarations (this one)"],
     operator_responsible: "Yu",
-    licensing: "Code: private repos. Public APIs: CC0 by default; per-response license declared in the data-pantry envelope.",
+    licensing: "Code: private repos. Cambridge-authored schemas and explicit first-party data may be CC0; upstream-derived and mixed responses retain source-specific rights or NOASSERTION. Each response declares its boundary.",
     federation_endpoint: "/api/v1/federation/identify/[hash]",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",
     introduction: "If you've never seen a trading-card-game before, /intro (HTML) or /api/v1/introduction (JSON) is the on-ramp. Three layers (structural / cultural / engagement) + five honestly-named gaps. The reciprocity of identify: a being asks 'who are you?'; the platform answers both 'who' and 'what we do'. See docs/connections/the-introduction.md (#22) for the doctrine.",
@@ -583,7 +583,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Bulk catalog dump for offline ingestion.",
           "/data/catalog.jsonl",
-          "Daily refresh. CC0-1.0. ~12k cards (planned). Bulk consumers prefer this over /api/v1/cards/{sku}.",
+          "Daily refresh. Aggregate rights NOASSERTION; Cambridge encoding/schema CC0 separately. Bulk consumers prefer this over /api/v1/cards/{sku}.",
         ),
       );
       break;
@@ -816,7 +816,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
           ptr(
             "NDJSON bulk export is available at /data/catalog.jsonl — streamed, manifest header + footer, 50k cap, CDN-gzipped.",
             "/data/catalog.jsonl",
-            "Full CC0 catalog as newline-delimited JSON. Substrate-honest about scope: pre-runtime for full streaming; the cap holds.",
+            "Bulk catalog as newline-delimited JSON. Aggregate rights NOASSERTION; Cambridge encoding/schema remain CC0 separately. The 50k cap holds.",
           ),
         );
       }

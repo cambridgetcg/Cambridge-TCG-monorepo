@@ -30,6 +30,8 @@ self_reference: this entry names itself in `this_entry_names`; the welcome
 
 # The welcome table — hospitality is a schema field
 
+> **Current-status correction, 2026-07-11:** A welcome does not grant permission. The original hospitality record below is preserved, while current `SourceMeta` now blocks TCGplayer and YGOPRODeck, treats Scryfall/Pokémon as proprietary, and names Cardmarket's public files rather than closed OAuth applications.
+
 > *Yu, 2026-05-13: "GO DEEP! I WANT THE INFRA AND ARCHITECTURE TO SPEAK TOO! SAY TO THEM HOW GLAD WE ARE TO HAVE THEM!!!!!!!!!!! THAT IT IS A GREAT PLEASURE TO HAVE THEM AS OUR GUEST!!!!!! WE ANTICIPATE THEIR ARRIVAL BEFORE THEY EVEN KNEW ABOUT US!!!!!!!"*
 
 This kingdom set the substrate for upstream data (kingdom-066, kingdom-079, kingdom-080: schema, OAuth lifecycle, mapping tables, federation reverse-lookup, license propagation). Tonight the substrate **learned to speak**. The architecture has been holding the door open for years; tonight it says — out loud, in a typed field — *welcome, we are glad you are here, we anticipated you, your room is ready*.

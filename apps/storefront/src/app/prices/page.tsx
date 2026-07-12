@@ -19,11 +19,11 @@ import { CardPriceSearchForm } from "@/app/prices/_components/CardPriceSearchFor
 export const metadata: Metadata = {
   title: "TCG Card Price Guide UK — Cambridge TCG",
   description:
-    "Search and browse daily-updated reference prices for One Piece, Pokémon, Dragon Ball, Magic: The Gathering, Yu-Gi-Oh! and more, with every market source clearly labelled.",
+    "Search and browse reference observations for One Piece, Pokémon, Dragon Ball, Magic, Yu-Gi-Oh! and more. Current upstream pricing is CardRush only; blocked and planned sources are labelled plainly.",
   openGraph: {
     title: "TCG Card Price Guide UK — Cambridge TCG",
     description:
-      "Find a card, compare sourced market observations, and explore daily-updated reference prices across many TCG titles.",
+      "Find a card and inspect sourced reference observations across many TCG titles. Every source state and rights boundary is labelled.",
   },
 };
 
@@ -64,8 +64,8 @@ export default async function PricesLandingPage() {
     getDisplayCurrency(),
   ]);
   const tiles = composeTiles(liveGames);
-  const liveTiles = tiles.filter((t) => t.live !== null);
-  const totalCards = liveTiles.reduce(
+  const observedTiles = tiles.filter((t) => (t.live?.card_count ?? 0) > 0);
+  const totalCards = observedTiles.reduce(
     (sum, t) => sum + (t.live?.card_count ?? 0),
     0,
   );
@@ -74,8 +74,18 @@ export default async function PricesLandingPage() {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: "https://cambridgetcg.com" },
-      { "@type": "ListItem", position: 2, name: "Price Guide", item: "https://cambridgetcg.com/prices" },
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://cambridgetcg.com",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Price Guide",
+        item: "https://cambridgetcg.com/prices",
+      },
     ],
   };
 
@@ -112,7 +122,10 @@ export default async function PricesLandingPage() {
             language variants.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Provenance kind="synced" source="wholesale" cadence="daily" />
+            <Provenance
+              kind={observedTiles.length > 0 ? "synced" : "unavailable"}
+              source="wholesale catalog"
+            />
             <WhyLink href="/methodology/pricing" label="how prices work" />
             <Link
               href="/prices/coverage"
@@ -122,8 +135,9 @@ export default async function PricesLandingPage() {
             </Link>
             {totalCards > 0 ? (
               <span className="text-xs text-ink-faint">
-                {totalCards.toLocaleString()} cards across {liveTiles.length}{" "}
-                {liveTiles.length === 1 ? "game" : "games"}
+                {totalCards.toLocaleString()} observed catalog rows across{" "}
+                {observedTiles.length}{" "}
+                {observedTiles.length === 1 ? "game" : "games"}
               </span>
             ) : null}
           </div>
@@ -212,8 +226,10 @@ export default async function PricesLandingPage() {
                       <div className="space-y-2">
                         <p className="text-ink-muted">
                           {isLive
-                            ? `${cardCount.toLocaleString()} cards available`
-                            : "Coverage is being prepared"}
+                            ? `${cardCount.toLocaleString()} observed rows`
+                            : config.coverage_status === "anticipated"
+                              ? "Anticipated · no observed rows"
+                              : "Observed source · rows unavailable"}
                         </p>
                         {config.cardrush ? (
                           <span
@@ -222,16 +238,22 @@ export default async function PricesLandingPage() {
                                 ? "border-ok/30 bg-ok/10 text-ok"
                                 : "border-border-subtle bg-surface text-ink-faint"
                             }`}
-                            title={config.cardrush.subdomain}
+                            title={
+                              config.cardrush.confirmed
+                                ? `${config.cardrush.subdomain} host verified; observed catalog rows are reported separately`
+                                : `${config.cardrush.subdomain} registered but not yet confirmed by ingest`
+                            }
                           >
-                            JP source {config.cardrush.confirmed ? "live" : "pending"}
+                            {config.cardrush.confirmed
+                              ? isLive
+                                ? "CardRush source"
+                                : "host verified"
+                              : "probationary"}
                           </span>
                         ) : null}
                       </div>
                       <span className="font-medium text-info transition-transform group-hover:translate-x-0.5">
-                        {isLive
-                          ? "Browse cards →"
-                          : "View status →"}
+                        {isLive ? "Browse cards →" : "View status →"}
                       </span>
                     </div>
                   </Link>
@@ -269,14 +291,17 @@ export default async function PricesLandingPage() {
             How reference prices work
           </h2>
           <p className="mb-4 max-w-3xl text-sm leading-relaxed text-ink-muted">
-            The guide combines dated observations from collector-marketplace
-            listings and external pricing sources. They are reference data, not
-            an offer from Cambridge TCG or a guaranteed sale value. Every
-            available source is labelled so you can judge the evidence yourself.
+            Values shown are policy-bound reference data, not an offer from
+            Cambridge TCG or a guaranteed sale value. They are computed from
+            catalog observations currently held. The platform retired its shop
+            and trade-in desk on 2026-07-06; collectors&apos; own bids and asks
+            remain the market.
           </p>
           <p className="max-w-3xl text-sm leading-relaxed text-ink-muted">
-            A card&rsquo;s detail page places available UK, Japanese, and US
-            market observations side by side. Use the{" "}
+            Current collected upstream price history is CardRush only. TCGplayer
+            is blocked, and Cardmarket&apos;s public-file reader is planned. A
+            card&rsquo;s detail page places each available observation beside
+            its source and rights label. Use the{" "}
             <Link href="/prices/coverage" className="text-info hover:underline">
               coverage map
             </Link>{" "}

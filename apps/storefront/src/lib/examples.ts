@@ -70,7 +70,7 @@ export const EXAMPLES: EndpointExample[] = [
       { path: "data.start_here.first_request.sample_curl", meaning: "The literal command to run next." },
       { path: "data.guides.by_slug", meaning: "Every guide indexed by slug → { title, url }." },
       { path: "data.contract.stable_endpoints", meaning: "Every supported endpoint, in a flat list." },
-      { path: "_meta.source_license", meaning: "License tier per source. Absence means CC0." },
+      { path: "_meta.source_license", meaning: "Known rights tier per source. Absence means undeclared, not CC0." },
     ],
     when_to_use: "First request for any agent that doesn't have prior context.",
     gotchas: [
@@ -98,8 +98,9 @@ export const EXAMPLES: EndpointExample[] = [
   "@kind": "card",
   "@content_hash": "sha256:abc123...",
   "@retrieved_at": { "iso8601": "2026-05-14T12:00:00Z", "unix_epoch_seconds": 1747224000 },
-  "@sources": ["storefront-rds.card_price_history"],
-  "@source_license": ["CC0-1.0"],
+  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"],
+  "@source_license": ["proprietary", "proprietary", "proprietary"],
+  "rights": { "aggregate": "NOASSERTION", "cambridge_original_structure": "CC0-1.0", "field_level_lineage_available": false },
   "_note_opaque": ["name", "art_description", "rarity.natural_label", "variant.natural_label"],
   "_links": { "self": "...", "parent": "...", "siblings": "...", "federation": "..." },
   "rarity": { "natural_label": "leader", "ratio_in_pulls": "1/64", "decimal_probability": 0.015625, ... },
@@ -118,8 +119,8 @@ export const EXAMPLES: EndpointExample[] = [
     annotated_fields: [
       { path: "@content_hash", meaning: "Stable identity across retrievals when card facts are unchanged. Compare to detect changes." },
       { path: "@self_hash", meaning: "Hash of this particular rendering. Differs by density param even when content_hash matches." },
-      { path: "@sources", meaning: "Where the data came from. Parallel to @source_license." },
-      { path: "@source_license", meaning: "Per-source redistribution tier. CC0-1.0 / internal-only / partner-redistributable / proprietary." },
+      { path: "@sources", meaning: "Recorded storage provenance. It is parallel to @source_license but does not establish the upstream author when field-level lineage is unavailable." },
+      { path: "@source_license", meaning: "Known per-source rights tier. Aggregate `rights.aggregate` separately says NOASSERTION for the mixed document." },
       { path: "price.magnitude_freshness.decimal_age_seconds", meaning: "Seconds since the price was last known to be true." },
       { path: "_note_opaque", meaning: "Natural-language fields the decoder cannot ground from structure." },
       { path: "_links.federation", meaning: "URL to resolve this card's content_hash on another federated platform." },
@@ -154,8 +155,9 @@ export const EXAMPLES: EndpointExample[] = [
   "@content_hash": "sha256:...",
   "@retrieved_at": { "iso8601": "2026-05-14T12:00:00Z", ... },
   "@as_of": { "iso8601_date": "2026-03-15", "unix_epoch_seconds": 1742083199 },
-  "@sources": ["storefront-rds.card_price_history"],
-  "@source_license": ["CC0-1.0"],
+  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"],
+  "@source_license": ["proprietary", "proprietary", "proprietary"],
+  "rights": { "aggregate": "NOASSERTION", "cambridge_original_structure": "CC0-1.0" },
   "price": {
     "magnitude": 4.80,
     "currency_token": "GBP",
@@ -187,9 +189,9 @@ export const EXAMPLES: EndpointExample[] = [
     method: "GET",
     auth: "public",
     title: "Bulk catalog mirror",
-    description: "Streamed JSONL. Every card in ~12k rows. CC0. One request, mirror-ready.",
+    description: "Streamed JSONL. Every card in ~12k rows. Aggregate rights are NOASSERTION until field-level upstream lineage is preserved.",
     curl: "curl -H 'Accept-Encoding: gzip' https://cambridgetcg.com/data/catalog.jsonl > catalog.jsonl",
-    sample_response: `{ "@kind": "catalog_manifest", "spec_version": "1", "count_expected": 12000, "license": "CC0-1.0", "retrieved_at": { ... } }
+    sample_response: `{ "@kind": "catalog_manifest", "spec_version": "1", "count_expected": 12000, "license": "NOASSERTION", "rights": { "cambridge_original_structure": "CC0-1.0", "upstream_fields": "NOASSERTION" }, "retrieved_at": { ... } }
 { "@kind": "card", "@content_hash": "sha256:...", "sku": "op-op01-001-ja", "set_code": "OP01", "game": "op", "price": { "magnitude": 5.40, "currency_token": "GBP", "captured_on": "2026-05-13" }, "_links": { ... } }
 { "@kind": "card", "@content_hash": "sha256:...", "sku": "op-op01-002-ja", ... }
 ...

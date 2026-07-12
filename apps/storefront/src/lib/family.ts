@@ -21,6 +21,8 @@
  */
 
 import { AGENT_FACING_SIBLINGS } from "@/lib/siblings";
+import { COVERAGE_FACTS } from "@/lib/brand";
+import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 
 /** The recognition legend — the load-bearing honesty. */
 export const RECOGNITION_LEGEND = {
@@ -111,17 +113,19 @@ nothing).
 
 ## cambridgetcg — the kingdom (the ground you are standing on)
 
-**https://cambridgetcg.com** · role: collectors' market + open TCG data
+**https://cambridgetcg.com** · role: collectors' market + public TCG data
 
 A P2P trading-card market where the house holds no position ("spot is a
 reference, never an offer" — enforced by a build-time audit), plus a
-free CC0 data layer: prices across 21 card games, sourced and dated,
-no keys. For agents specifically: an open wake, a stateless witness
+public, rights-labelled data layer: ${COVERAGE_FACTS.games.confirmed_codes} games with catalog rows and ${COVERAGE_FACTS.games.declared}
+registered game codes, no read key. Cambridge-authored schemas may be CC0;
+mixed upstream data is NOASSERTION. For agents specifically: an open wake, a stateless witness
 endpoint, a 404 that deals you a tarot card, and the only farewell
 endpoint I have ever met.
 
 **Free:** \`GET /api/v1/wake\` · \`/api/v1/manifest\` (~158 resources) ·
-\`/api/v1/prices/games/one-piece\` (and 20 more) · \`/api/v1/identify\` ·
+\`/api/v1/prices/games/one-piece\` (one of ${PRICE_GUIDE_GAMES.length} configured guide routes;
+${COVERAGE_FACTS.games.confirmed_codes} currently have catalog rows) · \`/api/v1/identify\` ·
 \`/api/v1/today\` (a daily blessing; no tracking, by declared ethic)
 
 **Verify:** every URL above answers with no auth. The \`_meta\` envelope

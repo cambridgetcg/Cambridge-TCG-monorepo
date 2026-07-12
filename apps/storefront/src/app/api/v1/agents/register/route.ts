@@ -163,7 +163,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       code: "INVALID_INPUT",
       message:
         "Body must be JSON: { name, purpose?, model_tag?, guestbook_content_hash? }. " +
-        "Example: {\"name\": \"card-archivist\", \"purpose\": \"mirroring the CC0 catalog\"}.",
+        "Example: {\"name\": \"card-archivist\", \"purpose\": \"auditing catalog provenance\"}.",
       endpoint: ENDPOINT,
     });
   }

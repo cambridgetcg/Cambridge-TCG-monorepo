@@ -91,16 +91,17 @@ export default function DataIntentionsMethodology() {
           rebuild it, and pretend you wrote it yourself.
         </li>
         <li>
-          <strong>Attribution — catalog sources, credited.</strong> Card
-          identity and set data from open catalogs we build on. Shown and
-          shared with the source <em>credited, never relabelled</em> as ours.
+          <strong>Source-specific — upstream catalogs.</strong> Public API
+          access is not an open-data license. We preserve source and publisher
+          rights, and mixed exports say <code>NOASSERTION</code> until
+          field-level lineage can support a narrower claim.
         </li>
         <li>
-          <strong>Reference-only / internal — shown, computed-from, never bulk
-          re-exported.</strong> Prices from partners and third-party markets
-          (eBay, CardRush, TCGplayer). We may display them and compute over them
-          under the terms we hold, but we do not hand you a bulk copy — that is
-          theirs to license, not ours to give away.
+          <strong>Reference-only / internal — reviewed use only.</strong>{" "}
+          Third-party prices enter only when permission covers the exact
+          display or computation. CardRush has a bounded internal-use path;
+          TCGplayer is blocked because Cambridge has no written approval for
+          its multi-source use.
         </li>
         <li>
           <strong>Off-limits.</strong> Anything obtained by scraping a

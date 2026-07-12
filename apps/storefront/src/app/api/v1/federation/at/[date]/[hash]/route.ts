@@ -16,9 +16,9 @@
  *   - the response says when the bound was reached without resolving
  *   - the response distinguishes "no snapshot at this date" from "no match"
  *
- * Public, CC0. The response carries only identity resolution (SKU + content_hash),
- * not price values. The license boundary is irrelevant here — we're resolving
- * identifiers, not redistributing observations.
+ * Public, with aggregate rights NOASSERTION. Identity resolution still reads
+ * mirrored card and price fields; a database lookup does not erase upstream
+ * rights.
  *
  * Designed in `docs/connections/the-license-propagation.md` (kingdom-081
  * Phase 5.3).
@@ -140,8 +140,16 @@ export async function GET(
             "@as_of": {
               iso8601_date: date,
             },
-            "@sources": ["storefront-rds.card_price_history"],
-            "@source_license": ["CC0-1.0"],
+            "@sources": [
+              "storefront-rds.card_set_cards",
+              "storefront-rds.card_sets",
+              "storefront-rds.card_price_history",
+            ],
+            "@source_license": ["proprietary", "proprietary", "proprietary"],
+            rights: {
+              aggregate: "NOASSERTION",
+              cambridge_original_structure: "CC0-1.0",
+            },
             query: { hash: normalizedHash, date },
             matched: true,
             sku: row.sku,
@@ -156,6 +164,7 @@ export async function GET(
               "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
               "Access-Control-Allow-Origin": "*",
               "Access-Control-Allow-Methods": "GET, OPTIONS",
+              "X-Content-License": "NOASSERTION",
             },
           },
         );
@@ -171,8 +180,16 @@ export async function GET(
           unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
         },
         "@as_of": { iso8601_date: date },
-        "@sources": ["storefront-rds.card_price_history"],
-        "@source_license": ["CC0-1.0"],
+        "@sources": [
+          "storefront-rds.card_set_cards",
+          "storefront-rds.card_sets",
+          "storefront-rds.card_price_history",
+        ],
+        "@source_license": ["proprietary", "proprietary", "proprietary"],
+        rights: {
+          aggregate: "NOASSERTION",
+          cambridge_original_structure: "CC0-1.0",
+        },
         query: { hash: normalizedHash, date },
         matched: false,
         scope: {
@@ -195,6 +212,7 @@ export async function GET(
           "Cache-Control": "public, max-age=600",
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "X-Content-License": "NOASSERTION",
         },
       },
     );
