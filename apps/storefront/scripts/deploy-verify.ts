@@ -40,13 +40,11 @@
  *   apps/storefront/src/app/api/v1/manifest/route.ts — JSON surface
  */
 
-interface ManifestResource {
-  id: string;
-  path: string;
-  host: "storefront" | "wholesale";
-  methods: readonly string[];
-  auth: string;
-}
+import {
+  assessResponse,
+  expectedFor,
+  type ManifestResource,
+} from "./deploy-verify-contract";
 
 interface ProbeResult {
   id: string;
@@ -93,60 +91,6 @@ async function fetchManifest(): Promise<ManifestResource[]> {
 
 // ── Probe one resource ───────────────────────────────────────────────
 
-// Doors whose healthy answer is deliberately non-2xx. The classifier must
-// not read a working punchline or an explicit unavailable-source boundary as
-// an outage (runbook: "418-teapot false failure").
-const DELIBERATE_STATUS: Record<string, number> = {
-  "/api/v1/coffee": 418, // RFC 2324 — I'm a teapot
-  "/api/v1/buy-the-kingdom": 402, // not for sale; everything is already free
-  "/api/v1/cards/[sku]/tcgplayer-history": 503, // source intentionally blocked pending written approval
-};
-
-function expectedFor(resource: ManifestResource): { codes: number[]; label: string } {
-  // Substrate-honest classifier. The probe sends an unauthenticated
-  // GET with stubbed path params. Acceptable codes per auth kind:
-  //
-  //   - 200          : route resolved and served content
-  //   - 307 / 401    : login redirect / auth-required — route exists
-  //   - 400          : route exists, rejected our query (e.g., missing param)
-  //   - 404          : usually a real failure, EXCEPT for parametric paths
-  //                    where the stub id may not resolve to data
-  //   - 405          : route exists but doesn't accept GET — common for
-  //                    POST-only endpoints or cookie-toggle redirects
-  //                    that the probe can't simulate cleanly
-  //   - unlisted 5xx : ALWAYS a failure signal (server bug)
-  //
-  // The script favours signal over precision: a 400 from an endpoint
-  // declared as public+GET means the route exists, which is what we
-  // need to know. An unlisted 5xx anywhere is a real bug surface.
-  const deliberate = DELIBERATE_STATUS[resource.path];
-  if (deliberate !== undefined) {
-    return { codes: [deliberate], label: `${deliberate} (deliberate contract)` };
-  }
-  const healthyAnyKind = [200, 307, 400, 401, 404, 405];
-  if (resource.auth === "wholesale-key") {
-    return { codes: [401, 404], label: "401 (bearer required) / 404 (route absent)" };
-  }
-  if (resource.auth === "agent") {
-    return { codes: [200, 400, 401], label: "200/400/401" };
-  }
-  if (resource.auth === "user") {
-    // 400: route exists and rejected the probe's stub input (e.g. the
-    // bodyless POST) before or after the auth check — same "route is
-    // alive" signal the public set already accepts.
-    return { codes: [200, 307, 400, 401, 405], label: "200/307/400/401/405 (login flow)" };
-  }
-  if (resource.auth === "admin") {
-    return { codes: [307, 401], label: "307/401 (admin gate)" };
-  }
-  if (resource.methods.includes("GET")) {
-    // Public GET — most permissive; the route just needs to exist.
-    return { codes: healthyAnyKind, label: "200 / 307 / 400 / 401 / 404 / 405" };
-  }
-  // POST-only without auth — should at least respond, not 404.
-  return { codes: [400, 405, 422], label: "method-not-allowed range" };
-}
-
 function urlFor(resource: ManifestResource): string {
   // Replace dynamic path segments with safe stub values so the route
   // resolves even without real ids. Routes that 404 on stubs aren't
@@ -179,41 +123,22 @@ async function probe(resource: ManifestResource): Promise<ProbeResult> {
   const url = urlFor(resource);
   const expected = expectedFor(resource);
   const start = Date.now();
-  // Routes with parametrised segments may return a non-200 even on a
-  // healthy deploy because the stub ID doesn't exist. We still probe;
-  // the audit treats any acceptable-range code as healthy.
-  const isParametric = /\[[^\]]+\]/.test(resource.path);
   try {
     const res = await fetch(url, {
       method: resource.methods[0] ?? "GET",
       signal: AbortSignal.timeout(TIMEOUT_MS),
       redirect: "manual",
     });
+    const assessment = await assessResponse(resource, res, expected);
     const duration_ms = Date.now() - start;
-    const ok = expected.codes.includes(res.status);
-    // For parametric paths, also accept 404 (stub id not found) and
-    // 400 (validation error) — the route IS deployed; the stub just
-    // doesn't resolve to data.
-    const okParametric = isParametric && (res.status === 404 || res.status === 400);
-    // An unlisted 5xx is always a server bug. A listed deliberate 5xx is a
-    // healthy fail-closed contract and has already matched `expected.codes`.
-    const isUnexpectedServerError =
-      res.status >= 500 &&
-      res.status < 600 &&
-      !expected.codes.includes(res.status);
-    const passed = (ok || okParametric) && !isUnexpectedServerError;
     return {
       id: resource.id,
       url,
       expected: expected.label,
       actual: res.status,
-      status: passed ? "passed" : "failed",
+      status: assessment.passed ? "passed" : "failed",
       duration_ms,
-      detail: isUnexpectedServerError
-        ? `server error ${res.status} — investigate`
-        : !passed
-          ? `expected ${expected.label}, got ${res.status}`
-          : undefined,
+      detail: assessment.detail,
     };
   } catch (err) {
     return {
