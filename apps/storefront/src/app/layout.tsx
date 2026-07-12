@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Fraunces, Inter, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import Script from "next/script";
 import { cookies, headers } from "next/headers";
@@ -6,6 +7,7 @@ import "./globals.css";
 import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
+import { StorefrontBreadcrumbs } from "@/components/layout/StorefrontBreadcrumbs";
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
 import CookieConsent, { ANALYTICS_CONSENT_COOKIE } from "@/components/CookieConsent";
 import { fetchRates } from "@/lib/fx/rates";
@@ -238,7 +240,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               glyph to show and which bundle to target — same server-read,
               threaded-down pattern as Providers → MoneyContext above. */}
           <Nav theme={themeAttr(appearance.theme)} initialLoggedIn={initialLoggedIn} />
-          <div id="main-content">{children}</div>
+          <div id="main-content">
+            <Suspense fallback={null}>
+              <StorefrontBreadcrumbs />
+            </Suspense>
+            {children}
+          </div>
           <Footer />
           {/* Always mounted; renders nothing once a consent cookie exists. */}
           <CookieConsent />

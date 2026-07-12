@@ -31,7 +31,9 @@ import {
   ErrorAlert,
 } from "@/lib/ui";
 import { headers } from "next/headers";
-import { fetchGames, type GameItem } from "@/lib/wholesale/client";
+import { fetchGames } from "@/lib/wholesale/client";
+import { CardPriceSearchForm } from "@/app/prices/_components/CardPriceSearchForm";
+import CardSearchResultAnalytics from "@/components/analytics/CardSearchResultAnalytics";
 
 /**
  * Local one-status pill used by this page. The shared <Badge> primitive
@@ -237,93 +239,6 @@ function freshnessLabel(retrievedAtIso: string): string {
   const hrs = Math.round(ageMin / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return fmtDate(retrievedAtIso);
-}
-
-// ── The form (no client JS; URL-driven) ─────────────────────────────
-
-function SearchForm({
-  game,
-  q,
-  lang,
-  games,
-}: {
-  game: string;
-  q: string;
-  lang: string;
-  games: GameItem[];
-}) {
-  const sorted = [...games].sort((a, b) => b.card_count - a.card_count);
-  return (
-    <div className="space-y-2">
-      <form
-        action="/prices/search"
-        method="get"
-        className="grid grid-cols-1 md:grid-cols-[180px_1fr_120px_auto] gap-3 items-end"
-      >
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">
-            Game
-          </label>
-          <select
-            name="game"
-            defaultValue={game || sorted[0]?.code || ""}
-            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            {sorted.map((g) => (
-              <option key={g.code} value={g.code}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">
-            Card number
-          </label>
-          <input
-            type="text"
-            name="q"
-            required
-            autoFocus
-            defaultValue={q}
-            placeholder="e.g. OP01-001"
-            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">
-            Language
-          </label>
-          <select
-            name="lang"
-            defaultValue={lang}
-            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="">Any language</option>
-            <option value="en">English</option>
-            <option value="ja">Japanese</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="rounded-lg bg-ink px-5 py-2 text-sm font-semibold text-page hover:opacity-90 transition"
-        >
-          Search →
-        </button>
-      </form>
-      <p className="text-xs text-ink-faint">
-        The card number is the small code printed on the card — usually
-        bottom-left, like <span className="text-ink-muted">OP01-001</span>.
-        Don&rsquo;t have it?{" "}
-        <Link
-          href="/prices"
-          className="text-accent hover:text-accent-strong underline"
-        >
-          Browse by game instead →
-        </Link>
-      </p>
-    </div>
-  );
 }
 
 // ── Section components ──────────────────────────────────────────────
@@ -886,8 +801,30 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       />
 
       <Card>
-        <SearchForm game={game} q={q} lang={lang} games={games} />
+        <CardPriceSearchForm
+          games={games}
+          game={game}
+          query={q}
+          language={lang}
+          autoFocus
+          browseHref="/prices#browse-by-game"
+        />
       </Card>
+
+      {game && q && (
+        <CardSearchResultAnalytics
+          surface="price_search"
+          game={game}
+          resultCount={result?.data.summary.count ?? 0}
+          resultState={
+            !result
+              ? "error"
+              : result.data.summary.count > 0
+                ? "matches"
+                : "no_matches"
+          }
+        />
+      )}
 
       {/* Plain-language decoder — additive clarity for newcomers. Native
           <details>, no JS, closed by default so it never clutters. The

@@ -1,4 +1,9 @@
+"use client";
+
+import Link from "next/link";
+import type { FormEvent } from "react";
 import type { GameItem } from "@/lib/wholesale/client";
+import { trackAnalyticsEvent } from "@/lib/analytics/client";
 
 /**
  * CardFinderHero — the front door for "find what you need".
@@ -22,6 +27,19 @@ import type { GameItem } from "@/lib/wholesale/client";
  */
 export default function CardFinderHero({ games }: { games: GameItem[] }) {
   const sorted = [...games].sort((a, b) => b.card_count - a.card_count);
+
+  const trackSearch = (event: FormEvent<HTMLFormElement>) => {
+    const formData = new FormData(event.currentTarget);
+    const game = String(formData.get("game") ?? "");
+    const query = String(formData.get("q") ?? "").trim();
+    trackAnalyticsEvent("card_search_submit", {
+      search_surface: "card_finder",
+      game,
+      query_length: query.length,
+      language_filter: "any",
+    });
+  };
+
   return (
     <section aria-label="Find any card" className="max-w-7xl mx-auto px-4 py-6">
       <div className="wardrobe-mat rounded-xl p-5 sm:p-7">
@@ -35,6 +53,7 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
         <form
           method="get"
           action="/prices/search"
+          onSubmit={trackSearch}
           className="mt-4 flex flex-col sm:flex-row gap-3"
         >
           <label className="sr-only" htmlFor="finder-game">
@@ -73,12 +92,12 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
           The card number is the small code on the card — usually bottom-left,
           like <span className="font-mono text-ink-muted">OP01-001</span>. Don&rsquo;t
           have it?{" "}
-          <a
+          <Link
             href="/prices"
             className="text-accent hover:text-accent-strong underline"
           >
             browse by game →
-          </a>
+          </Link>
         </p>
       </div>
     </section>

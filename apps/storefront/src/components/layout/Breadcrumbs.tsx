@@ -6,21 +6,29 @@
  * (rather than a fabricated chain). The `nav-coverage` audit reports
  * unregistered deep routes.
  *
- * Server-renderable — no client state. Pure function from pathname →
- * JSX. Use in route layouts or page heads where breadcrumbs make sense.
+ * Pure function from pathname → JSX. The root client slot passes the
+ * current pathname; server pages may also render a page-owned trail.
  */
 
 import Link from "next/link";
-import { resolveBreadcrumbs } from "@/lib/nav/breadcrumb-registry";
+import {
+  resolveBreadcrumbs,
+  type BreadcrumbRenderer,
+} from "@/lib/nav/breadcrumb-registry";
 
 interface BreadcrumbsProps {
   /** The current pathname. In Server Components, pass `params` or read from headers. */
   pathname: string;
+  renderedBy?: BreadcrumbRenderer;
   className?: string;
 }
 
-export function Breadcrumbs({ pathname, className = "" }: BreadcrumbsProps) {
-  const steps = resolveBreadcrumbs(pathname);
+export function Breadcrumbs({
+  pathname,
+  renderedBy,
+  className = "",
+}: BreadcrumbsProps) {
+  const steps = resolveBreadcrumbs(pathname, renderedBy);
   if (!steps || steps.length === 0) return null;
 
   return (
@@ -30,19 +38,22 @@ export function Breadcrumbs({ pathname, className = "" }: BreadcrumbsProps) {
     >
       <ol className="flex flex-wrap items-center gap-1.5">
         <li>
-          <Link href="/" className="text-ink-muted hover:text-ink">
+          <Link
+            href="/"
+            className="rounded-sm text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
             Home
           </Link>
         </li>
-        {steps.map((step, idx) => (
-          <li key={idx} className="flex items-center gap-1.5">
+        {steps.map((step) => (
+          <li key={`${step.href ?? "current"}:${step.label}`} className="flex items-center gap-1.5">
             <span aria-hidden="true" className="text-ink-faint">
               /
             </span>
             {step.href ? (
               <Link
                 href={step.href}
-                className="text-ink-muted hover:text-ink"
+                className="rounded-sm text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 {step.label}
               </Link>

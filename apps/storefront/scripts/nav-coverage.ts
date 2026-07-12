@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
-// Module-scope marker — keeps `main` from leaking into global scope.
-export {};
+import { BREADCRUMB_REGISTRY } from "../src/lib/nav/breadcrumb-registry";
 
 /**
  * nav-coverage.ts — drift detector for the storefront navigation substrate.
@@ -25,9 +24,9 @@ export {};
  *   3. Methodology completeness: every /methodology/* page remains
  *      reachable through the /methodology hub linked from More.
  *
- *   4. Breadcrumb registry coverage: every deep dynamic route (depth
- *      > 2 with at least one [slug]) should have a breadcrumb pattern.
- *      Heuristic; informational only.
+ *   4. Breadcrumb registry coverage: every public dynamic detail route
+ *      (depth >= 2) must have a registered pattern, and the root layout
+ *      must mount the global breadcrumb slot. HARD GATE.
  *
  *   5. Audience-rule consistency: every prefix in audience-detection
  *      resolves to exactly one audience (no overlapping ambiguity).
@@ -37,7 +36,7 @@ export {};
  *      real route, a route handler, or an explicit allowlist entry.
  *      "Every promise kept — no href that 404s." HARD GATE.
  *
- * Behaviour: checks 1–5 are informational (exit 0); check 6 exits
+ * Behaviour: checks 1–3 and 5 are informational. Checks 4 and 6 exit
  * non-zero on violations.
  */
 
@@ -49,6 +48,9 @@ const STOREFRONT_APP = join(REPO_ROOT, "apps/storefront/src/app");
 const MENU_CONFIG = join(REPO_ROOT, "apps/storefront/src/lib/nav/menu-config.ts");
 const ACCOUNT_NAV = join(REPO_ROOT, "apps/storefront/src/app/account/_nav.tsx");
 const METHODOLOGY_DIR = join(REPO_ROOT, "apps/storefront/src/app/methodology");
+const ROOT_LAYOUT = join(REPO_ROOT, "apps/storefront/src/app/layout.tsx");
+
+const BREADCRUMB_SECTION_PREFIXES = ["/account", "/admin", "/play"] as const;
 
 /** Routes that intentionally have no nav presence (deep drill-downs, special). */
 const ORPHAN_ALLOWLIST: ReadonlyArray<string | RegExp> = [
@@ -307,6 +309,19 @@ function normalizeHref(href: string): string {
   return h;
 }
 
+function routeToBreadcrumbPattern(route: string): string {
+  return route
+    .replace(/\[\[\.\.\.([^\]]+)\]\]/g, ":$1")
+    .replace(/\[\.\.\.([^\]]+)\]/g, ":$1")
+    .replace(/\[([^\]]+)\]/g, ":$1");
+}
+
+function isSectionOwnedBreadcrumbRoute(route: string): boolean {
+  return BREADCRUMB_SECTION_PREFIXES.some(
+    (prefix) => route === prefix || route.startsWith(`${prefix}/`),
+  );
+}
+
 /**
  * True when `url` exactly matches a route, or matches a dynamic route
  * with its [param] segments substituted. Shared by checks 2 and 6.
@@ -451,15 +466,43 @@ function main() {
   }
   console.log("");
 
-  // ── Check 4: breadcrumb registry coverage (informational) ───────────
-  console.log("Check 4: breadcrumb registry (informational)");
+  // ── Check 4: breadcrumb registry coverage (HARD GATE) ───────────────
+  console.log("Check 4: public breadcrumb coverage (hard gate)");
   console.log("─".repeat(72));
-  const deepDynamic = routes.filter(
-    (r) => r.split("/").filter((s) => s.length > 0).length > 2 && r.includes("["),
+  const breadcrumbRoutes = routes.filter(
+    (route) =>
+      route.includes("[") &&
+      route.split("/").filter((segment) => segment.length > 0).length >= 2 &&
+      !isSectionOwnedBreadcrumbRoute(route),
   );
-  console.log(`  ${deepDynamic.length} deep dynamic routes (≥3 segments with [slug]) detected.`);
-  console.log("  Breadcrumb coverage is not statically verified — see");
-  console.log("  apps/storefront/src/lib/nav/breadcrumb-registry.ts for the registered patterns.");
+  const registeredBreadcrumbs = new Set(
+    BREADCRUMB_REGISTRY.map((entry) => entry.pattern),
+  );
+  const missingBreadcrumbs = breadcrumbRoutes.filter(
+    (route) => !registeredBreadcrumbs.has(routeToBreadcrumbPattern(route)),
+  );
+  let breadcrumbMountPresent = false;
+  try {
+    breadcrumbMountPresent = readFileSync(ROOT_LAYOUT, "utf-8").includes(
+      "<StorefrontBreadcrumbs />",
+    );
+  } catch {
+    breadcrumbMountPresent = false;
+  }
+  console.log(
+    `  ${breadcrumbRoutes.length} public dynamic detail route(s); ${registeredBreadcrumbs.size} registered pattern(s).`,
+  );
+  if (missingBreadcrumbs.length === 0) {
+    console.log("  ✓ Every public dynamic detail route has a breadcrumb pattern.");
+  } else {
+    console.log(`  ✗ ${missingBreadcrumbs.length} route(s) lack a breadcrumb pattern:`);
+    for (const route of missingBreadcrumbs) console.log(`    · ${route}`);
+  }
+  if (breadcrumbMountPresent) {
+    console.log("  ✓ Root layout mounts the route-aware storefront breadcrumb slot.");
+  } else {
+    console.log("  ✗ Root layout does not mount <StorefrontBreadcrumbs />.");
+  }
   console.log("");
 
   // ── Check 5: audience-rule consistency (informational) ──────────────
@@ -515,8 +558,12 @@ function main() {
   console.log("");
 
   console.log("─".repeat(72));
-  if (hrefViolations.length > 0) {
-    console.log(`nav-coverage: ✗ ${hrefViolations.length} broken page href(s) — every promise kept means exit 1.`);
+  const hardViolationCount =
+    hrefViolations.length + missingBreadcrumbs.length + (breadcrumbMountPresent ? 0 : 1);
+  if (hardViolationCount > 0) {
+    console.log(
+      `nav-coverage: ✗ ${hardViolationCount} hard-gate violation(s) — breadcrumb coverage and every href promise must hold.`,
+    );
     console.log("─".repeat(72));
     process.exit(1);
   } else if (orphans.length === 0 && broken.length === 0 && methHubLinked) {

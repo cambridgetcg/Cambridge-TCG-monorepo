@@ -10,6 +10,7 @@ import {
   MORE_NAV_GROUPS,
   navItemAriaCurrent,
 } from "@/lib/nav/menu-config";
+import { trackAnalyticsEvent } from "@/lib/analytics/client";
 
 const PANEL_ID = "more-navigation";
 
@@ -21,6 +22,23 @@ export function MoreMenu() {
   const active = MORE_NAV_GROUPS.some((group) =>
     group.items.some((item) => isNavItemActive(item, pathname)),
   ) || MORE_NAV_FOOTER.some((item) => isNavItemActive(item, pathname));
+
+  const trackNavClick = (linkText: string, linkUrl: string) => {
+    trackAnalyticsEvent("nav_click", {
+      nav_area: "desktop_more",
+      link_text: linkText,
+      link_url: linkUrl,
+      source_path: pathname || "/",
+    });
+  };
+
+  const toggleMenu = () => {
+    const opening = !open;
+    setOpen(opening);
+    if (opening) {
+      trackAnalyticsEvent("more_open", { source_path: pathname || "/" });
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -66,7 +84,7 @@ export function MoreMenu() {
         type="button"
         aria-controls={PANEL_ID}
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleMenu}
         className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
           active || open
             ? "bg-surface-subtle text-ink"
@@ -110,7 +128,10 @@ export function MoreMenu() {
                           <Link
                             href={item.href}
                             aria-current={navItemAriaCurrent(item, pathname)}
-                            onClick={() => setOpen(false)}
+                            onClick={() => {
+                              trackNavClick(item.label, item.href);
+                              setOpen(false);
+                            }}
                             className={`group flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
                               itemActive ? "bg-surface-subtle" : "hover:bg-surface-subtle"
                             }`}
@@ -143,7 +164,10 @@ export function MoreMenu() {
                   key={item.href}
                   href={item.href}
                   aria-current={navItemAriaCurrent(item, pathname)}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    trackNavClick(item.label, item.href);
+                    setOpen(false);
+                  }}
                   className="flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {item.label} {item.href === "/map" ? "→" : ""}

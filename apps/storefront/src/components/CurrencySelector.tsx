@@ -82,7 +82,7 @@ export function CurrencySelector({
   return (
     <section
       aria-label={label}
-      className="rounded-lg border border-border-subtle bg-surface p-4"
+      className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"
     >
       <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
         <div>
@@ -207,7 +207,7 @@ export function RateTablePanel({
 
   return (
     <section
-      className="rounded-lg border border-border-subtle bg-page p-5"
+      className="min-w-0 rounded-lg border border-border-subtle bg-page p-5"
       aria-label="Today's Rates"
     >
       <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
