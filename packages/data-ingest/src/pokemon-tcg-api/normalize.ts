@@ -40,6 +40,9 @@ export function normalizePokemonTcg(raw: PokemonTcgCard): NormalizeResult<Canoni
     name: raw.name,
     type: raw.supertype,
     rarity: raw.rarity,
+    // Preserve the upstream illustrator as internal provenance. Public display
+    // still requires a field- and purpose-specific source permission.
+    artist: raw.artist ?? undefined,
     image_url: pickImage(raw),
     upstream_id: raw.id,
     extra: {

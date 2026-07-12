@@ -16,6 +16,7 @@ import { tcgplayer } from "./tcgplayer/index";
 import { tcgcollector } from "./tcgcollector/index";
 import { cardmarket } from "./cardmarket/index";
 import { ebay } from "./ebay/index";
+import { bandaiEn } from "./bandai-en/index";
 import { vinted } from "./vinted/index";
 
 /**
@@ -28,7 +29,7 @@ import { vinted } from "./vinted/index";
  *   partial — read implemented but caller-side writer wiring incomplete
  *   planned — meta declared; read is a substrate-honest stub that emits an
  *             actionable error and yields nothing
- *   blocked — known unobtainable; module exists for documentation only
+ *   blocked — no permitted runtime path; documentation or fixture parsers may remain
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
@@ -40,6 +41,7 @@ export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
   tcgcollector,              // blocked — partner approval not recorded
   cardmarket,                // planned — public daily file reader not wired; OAuth applications closed
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
+  "bandai-en": bandaiEn,     // blocked live reader; fixture parser preserved; permission undocumented
   vinted,                    // blocked (ToS + UK GDPR; consented first-party normalizer ready) — the honest block
   // ── unregistered (no module yet — slot reserved) ──
   cardtrader: undefined,

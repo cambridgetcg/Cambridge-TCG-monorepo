@@ -189,8 +189,8 @@ function auditCc0Surfaces(
         continue;
       }
 
-      const module = sources[origin];
-      if (!module) {
+      const sourceModule = sources[origin];
+      if (!sourceModule) {
         fail(
           1,
           `${surface} <- ${origin}`,
@@ -199,7 +199,7 @@ function auditCc0Surfaces(
         continue;
       }
 
-      const { license, redistribute } = module.meta;
+      const { license, redistribute } = sourceModule.meta;
       if (!redistribute || !REDISTRIBUTABLE_LICENSES.has(license)) {
         fail(
           1,

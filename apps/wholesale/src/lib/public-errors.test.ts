@@ -6,12 +6,14 @@ afterEach(() => vi.restoreAllMocks());
 describe("public errors", () => {
   it("logs the exception server-side without returning its detail", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    const secretDetail = new Error("postgres://user:secret@internal/db");
+    const secretDetail = new Error("PRIVATE_DATABASE_ERROR_DETAIL");
 
     expect(redactInternalError("test", secretDetail)).toBe(
       PUBLIC_INTERNAL_ERROR,
     );
     expect(log).toHaveBeenCalledWith("[test]", secretDetail);
-    expect(redactInternalError("test", secretDetail)).not.toContain("secret");
+    expect(redactInternalError("test", secretDetail)).not.toContain(
+      "PRIVATE_DATABASE_ERROR_DETAIL",
+    );
   });
 });

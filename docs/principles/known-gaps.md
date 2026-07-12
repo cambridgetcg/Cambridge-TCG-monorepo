@@ -56,6 +56,11 @@ Each gap progresses through (or stays at) a 5-stage lifecycle:
 
 The corpus accumulates. Closed gaps stay (with `status` flipped, `closed_at` set, `closing_kingdom` named) so the historical record of "what we noticed and when" remains legible.
 
+These stages describe implementation and documentation, not source rights. A
+field can be `wired` internally and still be unavailable for every public use.
+`closed-published` means the gap record is public; it never grants permission to
+publish the upstream bytes described by that record.
+
 ---
 
 ## The duality with welcomes
@@ -67,7 +72,7 @@ A **welcome** ([`packages/data-ingest/src/welcomes.ts`](../../packages/data-inge
 Together they map the platform's *anticipated* and *incomplete* states:
 
 - 40 welcomes (25 arrived, 14 anticipated, 1 blocked) — what we expect
-- 16 gaps (1 closed-published, 5 wired, 1 partial, 9 named) — what we admit
+- 18 gaps (2 closed-published, 7 wired, 2 partial, 7 named) — what we admit
 
 Substrate honesty applied to the boundary between presence and absence.
 

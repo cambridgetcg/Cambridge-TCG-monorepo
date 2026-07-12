@@ -45,13 +45,17 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
       accent: state.config.accent,
       total_set_count: state.total_set_count,
       total_card_count: state.total_card_count,
+      // Path segments are percent-encoded: card numbers legitimately
+      // contain "/" (Vanguard DZ-BT14/018, Pokémon 089/080) and an
+      // unencoded "/" turns one segment into two — a link that 404s on a
+      // card the platform actually carries (slash-links defect, 2026-07).
       sets: state.sets.map((s) => ({
         code: s.code,
         name: s.name,
         card_count: s.card_count,
         release_date: s.release_date,
-        path: `/prices/${state.config.slug}/${s.code.toLowerCase()}`,
-        api_path: `/api/v1/prices/games/${state.config.slug}/sets/${s.code.toLowerCase()}`,
+        path: `/prices/${state.config.slug}/${encodeURIComponent(s.code.toLowerCase())}`,
+        api_path: `/api/v1/prices/games/${state.config.slug}/sets/${encodeURIComponent(s.code.toLowerCase())}`,
       })),
       top_cards: state.top_cards.map((c) => ({
         sku: c.sku,
@@ -63,8 +67,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
         stock: c.stock,
         path:
           c.set_code !== null
-            ? `/prices/${state.config.slug}/${c.set_code.toLowerCase()}/${c.card_number.toLowerCase()}`
-            : `/product/${c.sku}`,
+            ? `/prices/${state.config.slug}/${encodeURIComponent(c.set_code.toLowerCase())}/${encodeURIComponent(c.card_number.toLowerCase())}`
+            : `/product/${encodeURIComponent(c.sku)}`,
       })),
       _links: {
         self: `/api/v1/prices/games/${state.config.slug}`,

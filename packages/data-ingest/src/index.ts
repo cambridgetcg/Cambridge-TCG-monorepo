@@ -244,6 +244,25 @@ export {
   type SitemapFetchResult as TcgCollectorSitemapFetchResult,
   type MatchResult as TcgCollectorMatchResult,
 } from "./tcgcollector/index";
+// bandai-en: fixture-tested internal parser for proprietary English cardlist
+// fields. Production ingest and public publication are paused pending recorded
+// permission; publisher source URLs must never become hotlink fallbacks.
+// Policy: docs/EN-CARD-DATA.md.
+export {
+  bandaiEn,
+  BANDAI_EN_USER_AGENT,
+  type BandaiEnContext,
+  type BandaiEnReadOptions,
+} from "./bandai-en/index";
+export { BANDAI_EN_GAMES, bandaiEnConfig } from "./bandai-en/config";
+export { parseCardlistPage, parseSeriesOptions } from "./bandai-en/parse";
+export { normalizeBandaiEn } from "./bandai-en/normalize";
+export {
+  type BandaiEnCard,
+  type BandaiEnGameKey,
+  type BandaiEnGameConfig,
+  type BandaiEnSeriesOption,
+} from "./bandai-en/types";
 export {
   ebay,
   normalizeEbay,

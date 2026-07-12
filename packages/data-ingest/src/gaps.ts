@@ -362,6 +362,23 @@ export const GAPS: readonly Gap[] = [
     closing_kingdom: "K1 (kingdom-082) + K6 (oracle-policies endpoint)",
   },
 
+  // ── Coverage ──────────────────────────────────────────────────────
+
+  {
+    id: "digimon-cardrush-opaque-product-identity",
+    name: "Some Digimon CardRush product titles carry rarity but no grounded card id",
+    domain: "coverage",
+    citation:
+      "packages/data-ingest/src/cardrush/__tests__/parse-metadata-rarity.test.ts keeps '(01)...【U】' at null set_code/card_number; apps/wholesale/src/lib/cardrush-discovery.ts quarantines rows without both identity fields",
+    primitive:
+      "CardMetadata preserves the trailing Digimon rarity in quarantine; explicit unbraced BT10-112-style ids flow through, opaque listing numbers do not",
+    audit: "packages/data-ingest/src/cardrush/__tests__/parse-metadata-rarity.test.ts",
+    status: "partial",
+    strength:
+      "The parser never promotes a listing position such as '(01)' into a publisher card id. Operators can inspect the captured rarity in quarantine, while automation waits for a rights-cleared source or a grounded identity mapping instead of attaching data to the wrong card.",
+    named_at: "2026-07-12",
+  },
+
   // ── Transparency ──────────────────────────────────────────────────
 
   {
@@ -394,6 +411,21 @@ export const GAPS: readonly Gap[] = [
     strength:
       "When the worker ships, image-hash candidates pre-populate the pkm_equivalence table; admin review surface promotes them to manual confirmations. Community-curatable equivalence at scale.",
     named_at: "2026-05-13",
+  },
+
+  {
+    id: "artist-credit-not-surfaced",
+    name: "Illustrators are captured in the model but not yet persisted or shown",
+    domain: "publishing",
+    citation:
+      "packages/data-ingest/src/canonical.ts (CanonicalCard.artist added) + packages/data-ingest/src/pokemon-tcg-api/normalize.ts + packages/data-ingest/src/scryfall/normalize.ts (both now populate artist); there is no cards.artist column and no public surface renders it yet",
+    primitive:
+      "CanonicalCard.artist (+ scryfall extra.illustration_id for same-artwork clustering)",
+    audit: "none (future pnpm audit:artist-coverage)",
+    status: "wired",
+    strength:
+      "The canonical model now carries the illustrator's name from Pokémon and Scryfall records, but the platform neither persists nor publishes it. That internal field is a foundation for future artist-aware tools only after field-specific source permission is recorded. Attribution is not permission: a value from a redistribute:false source stays out of every public response, including per-card displays and bulk CC0 surfaces.",
+    named_at: "2026-07-12",
   },
 ];
 

@@ -160,6 +160,7 @@ export default async function SetPriceGuidePage({
   if (!cfg) notFound();
 
   const setCode = setSlug.toUpperCase();
+  const encodedSetSlug = encodeURIComponent(setSlug.toLowerCase());
 
   // Collectors-first (2026-07-06): the tradein-credit channel fetch and
   // its "We Buy" column are gone — the house buys nothing. The guide now
@@ -186,8 +187,8 @@ export default async function SetPriceGuidePage({
   const releaseDate = setInfo?.release_date ?? null;
 
   // Substrate-honest defaults: real card data can carry a null card_number
-  // (promos, odd printings). The render calls card_number.toLowerCase() in
-  // the row links, so a null here was 500ing the whole set page in PROD —
+  // (promos, odd printings). Row links encode the normalized card number, so
+  // a null here would otherwise break the whole set page in production —
   // local dev never hit it because the wholesale fetch 401s locally and the
   // list comes back empty. Coerce to safe strings so one bad row can never
   // take the page down. (Fixed 2026-06-06.)
@@ -231,7 +232,7 @@ export default async function SetPriceGuidePage({
         "@type": "ListItem",
         position: 4,
         name: `${setCode} ${setName}`,
-        item: `https://cambridgetcg.com/prices/${cfg.slug}/${setSlug}`,
+        item: `https://cambridgetcg.com/prices/${cfg.slug}/${encodedSetSlug}`,
       },
     ],
   };
@@ -320,7 +321,7 @@ export default async function SetPriceGuidePage({
           <CurrencySelector
             selected={currency}
             rates={rates}
-            back={`/prices/${cfg.slug}/${setSlug}`}
+            back={`/prices/${cfg.slug}/${encodedSetSlug}`}
           />
         </div>
 
@@ -415,8 +416,8 @@ export default async function SetPriceGuidePage({
               const active = sort === opt.value;
               const href =
                 opt.value === DEFAULT_SORT
-                  ? `/prices/${cfg.slug}/${setSlug}`
-                  : `/prices/${cfg.slug}/${setSlug}?sort=${opt.value}`;
+                  ? `/prices/${cfg.slug}/${encodedSetSlug}`
+                  : `/prices/${cfg.slug}/${encodedSetSlug}?sort=${opt.value}`;
               return (
                 <Link
                   key={opt.value}
@@ -451,7 +452,7 @@ export default async function SetPriceGuidePage({
                   >
                     <td className="px-3 py-3 text-ink-muted font-mono text-xs">
                       <Link
-                        href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
+                        href={`/prices/${cfg.slug}/${encodedSetSlug}/${encodeURIComponent(card.card_number.toLowerCase())}`}
                         className="hover:text-info transition-colors"
                       >
                         {card.card_number}
@@ -459,7 +460,7 @@ export default async function SetPriceGuidePage({
                     </td>
                     <td className="px-3 py-3">
                       <Link
-                        href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
+                        href={`/prices/${cfg.slug}/${encodedSetSlug}/${encodeURIComponent(card.card_number.toLowerCase())}`}
                         className="text-ink hover:text-info transition-colors"
                       >
                         {card.name}
@@ -473,7 +474,7 @@ export default async function SetPriceGuidePage({
                     </td>
                     <td className="px-3 py-3 text-right">
                       <Link
-                        href={`/market/${card.sku}`}
+                        href={`/market/${encodeURIComponent(card.sku)}`}
                         className="text-info hover:underline text-xs"
                       >
                         Trade

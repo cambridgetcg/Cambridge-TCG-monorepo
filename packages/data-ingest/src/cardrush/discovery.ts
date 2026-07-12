@@ -196,7 +196,7 @@ export interface CardMetadata {
   url: string;
   /** CardRush product id (digits from the URL path). */
   product_id: number;
-  /** e.g. "OP01", "EB04", "ST07" — uppercase. Null if title doesn't carry a {SET-NUM} token. */
+  /** e.g. "OP01", "EB04", "BT10" — uppercase. Null without an explicit set/card token. */
   set_code: string | null;
   /** e.g. "001", "061" — zero-padded as it appears in the title. Null if no match. */
   card_number: string | null;
@@ -211,12 +211,30 @@ export interface CardMetadata {
 }
 
 const SET_NUMBER_RE = /\{([A-Z0-9]+)-(\d+)\}/;
+// Some Digimon titles omit CardRush's usual braces but still print an explicit
+// publisher card id, e.g. "BT10-112 ...". Accept only that grounded token on
+// the Digimon host. A listing marker such as "(01)" is not a card identity.
+const DIGIMON_BARE_SET_NUMBER_RE =
+  /(?:^|[\s(\[【])([A-Z]{2,4}\d{2})-(\d{3,4})(?=$|[\s)\]】])/i;
 // Known CardRush rarity tokens (One Piece taxonomy; works for DBS/Pokémon too).
 // Ordered so longer tokens match first (e.g., SEC before SE, SCR before SR).
 const RARITY_TOKENS = [
   "SECR", "SEC", "SCR", "SP", "SR", "SSR", "RR", "L", "P", "C",
   "UC", "R",
 ];
+// Digimon rarity codes as they appear in the trailing 【X】 bracket of
+// cardrush-digimon titles (packages/sku/src/rarities.ts, Digimon block).
+// Note "U" (not "UC") is Digimon's Uncommon.
+const DIGIMON_BRACKET_RARITIES = ["C", "U", "R", "SR", "SEC", "P"];
+
+function isDigimonProductUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "cardrush-digimon.jp" || host === "www.cardrush-digimon.jp";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Parse metadata from a CardRush product page HTML body.
@@ -230,17 +248,26 @@ export function parseCardMetadata(
   const idMatch = url.match(/\/product\/(\d+)/);
   if (!idMatch) return null;
   const product_id = parseInt(idMatch[1], 10);
+  const isDigimonProduct = isDigimonProductUrl(url);
 
   const titleMatch = html.match(/<title>([^<]+)<\/title>/);
   const title = titleMatch ? titleMatch[1].trim() : null;
 
   let set_code: string | null = null;
   let card_number: string | null = null;
+  let bareIdentityToken: string | null = null;
   if (title) {
     const m = title.match(SET_NUMBER_RE);
     if (m) {
       set_code = m[1].toUpperCase();
       card_number = m[2];
+    } else if (isDigimonProduct) {
+      const bare = title.match(DIGIMON_BARE_SET_NUMBER_RE);
+      if (bare) {
+        set_code = bare[1].toUpperCase();
+        card_number = bare[2];
+        bareIdentityToken = `${bare[1]}-${bare[2]}`;
+      }
     }
   }
 
@@ -259,11 +286,32 @@ export function parseCardMetadata(
     }
   }
 
+  // Digimon alone carries rarity in a trailing full-width bracket. Require the
+  // exact host and the end of the title: other CardRush games use similar
+  // brackets for conditions/promos, and an earlier bracket is not the trailing
+  // rarity witness. Titles such as "(01)...【U】" still have no identity; the
+  // listing marker is deliberately not promoted to set/card fields.
+  let digimonTrailingRarity: string | null = null;
+  if (!rarity && title && isDigimonProduct) {
+    const bracket = title.match(/【([^】]+)】\s*$/);
+    const code = bracket?.[1]?.trim().toUpperCase();
+    if (code && DIGIMON_BRACKET_RARITIES.includes(code)) {
+      rarity = code;
+      digimonTrailingRarity = code;
+    }
+  }
+
   let name: string | null = null;
   if (title) {
     // Name is everything before the rarity/set token. Strip the rarity if matched.
     const braceIdx = title.indexOf("{");
     let prefix = braceIdx > 0 ? title.slice(0, braceIdx).trim() : title;
+    if (digimonTrailingRarity) {
+      prefix = prefix.replace(/\s*【[^】]+】\s*$/, "");
+    }
+    if (bareIdentityToken) {
+      prefix = prefix.replace(bareIdentityToken, "").trim();
+    }
     if (rarity) {
       // Strip trailing rarity token
       const ts = prefix.split(/\s+/);

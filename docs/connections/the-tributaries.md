@@ -285,7 +285,7 @@ before collection or publication.
 | License | publisher-owned content; redistribution requires permission |
 | Freshness | quarterly on new sets |
 | Canonical-form effort | **medium** — Bandai uses `OP01-001` style codes consistently |
-| Status | **planned (catalog only)** — scraping publisher sites for catalog backfill is generally tolerated; commercial price redistribution would need a partnership |
+| Status | **blocked** — Cambridge has no recorded permission to collect or publish these proprietary fields. The fixture parser remains useful internally; tolerance and robots behavior are not rights grants. |
 
 ### 3.5 Limitless TCG (Pokémon + Pokémon Pocket + One Piece tournaments)
 
@@ -334,9 +334,9 @@ before collection or publication.
 |-------|-------|
 | Coverage | One Piece TCG — official set lists in EN |
 | URL | `en.onepiece-cardgame.com/cardlist/` |
-| Access | scrape; structured HTML |
+| Access | blocked live reader; structured HTML is represented by local parser fixtures |
 | License | publisher-owned |
-| Status | **planned** — useful for catalog completeness in EN |
+| Status | **blocked** — written collection and field-level publication permission are undocumented; parser capability is not permission |
 
 ### 3.10 Bulbagarden / PkmnCards / MTG Wiki
 
@@ -442,7 +442,7 @@ Cards have a visual identity; the pantry's `image_url` field should always cite 
 | Scryfall images | MTG all | Scryfall API/image policy + WotC rights; no CC claim | planned, value-added free surface only |
 | Pokémon TCG API images | Pokémon all | publisher-derived | planned |
 | YGOPRODeck images | Yu-Gi-Oh all | publisher-derived | planned |
-| Bandai TCG+ official images | One Piece, Digimon, DBF | publisher-owned | scrape with attribution |
+| Bandai TCG+ official images | One Piece, Digimon, DBF | publisher-owned | blocked; no hotlink, mirror, or display without written permission |
 | eBay listing photos | per-listing | listing-owned | already accessible via eBay APIs |
 | PSA scans | graded cards | PSA-licensed | planned via PSA Registry API |
 | Customer-uploaded photos | per-listing | listing-owned | already in `apps/storefront/.../auctions/[id]/photos/` |

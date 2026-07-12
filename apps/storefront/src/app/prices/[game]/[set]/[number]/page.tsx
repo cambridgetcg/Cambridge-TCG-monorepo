@@ -91,6 +91,9 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
   const setCode = setMeta.code.toUpperCase();
   const setSlug = setMeta.code.toLowerCase();
   const numberSlug = card.card_number.toLowerCase();
+  const encodedSetSlug = encodeURIComponent(setSlug);
+  const encodedNumberSlug = encodeURIComponent(numberSlug);
+  const encodedSku = encodeURIComponent(card.sku);
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -108,13 +111,13 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         "@type": "ListItem",
         position: 4,
         name: `${setCode} ${setMeta.name}`,
-        item: `https://cambridgetcg.com/prices/${config.slug}/${setSlug}`,
+        item: `https://cambridgetcg.com/prices/${config.slug}/${encodedSetSlug}`,
       },
       {
         "@type": "ListItem",
         position: 5,
         name: `${card.name} (${card.card_number})`,
-        item: `https://cambridgetcg.com/prices/${config.slug}/${setSlug}/${numberSlug}`,
+        item: `https://cambridgetcg.com/prices/${config.slug}/${encodedSetSlug}/${encodedNumberSlug}`,
       },
     ],
   };
@@ -129,7 +132,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         sku: card.sku,
         offers: {
           "@type": "Offer",
-          url: `https://cambridgetcg.com/product/${card.sku}`,
+          url: `https://cambridgetcg.com/product/${encodedSku}`,
           priceCurrency: "GBP",
           price: card.price_gbp.toFixed(2),
           availability:
@@ -186,7 +189,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             <li className="text-ink-faint">/</li>
             <li>
               <Link
-                href={`/prices/${config.slug}/${setSlug}`}
+                href={`/prices/${config.slug}/${encodedSetSlug}`}
                 className="hover:text-ink"
               >
                 {setCode}
@@ -240,7 +243,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               />
               <CurrencyWhyLink />
               <Link
-                href={`/api/v1/prices/games/${config.slug}/sets/${setSlug}/cards/${numberSlug}`}
+                href={`/api/v1/prices/games/${config.slug}/sets/${encodedSetSlug}/cards/${encodedNumberSlug}`}
                 className="text-xs text-info hover:underline"
                 title="JSON sibling — same data through the data-pantry envelope"
               >
@@ -253,7 +256,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               <CurrencySelector
                 selected={currency}
                 rates={rates}
-                back={`/prices/${config.slug}/${setSlug}/${numberSlug}`}
+                back={`/prices/${config.slug}/${encodedSetSlug}/${encodedNumberSlug}`}
               />
             </div>
 
@@ -285,19 +288,19 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
 
             <div className="flex flex-wrap gap-3">
               <Link
-                href={`/product/${card.sku}`}
+                href={`/product/${encodedSku}`}
                 className="inline-block rounded-lg bg-ink hover:opacity-90 text-page font-semibold text-sm px-4 py-2 transition-colors"
               >
                 View card page →
               </Link>
               <Link
-                href={`/market/${card.sku}`}
+                href={`/market/${encodedSku}`}
                 className="inline-block rounded-lg border border-border-subtle hover:border-border-strong text-ink text-sm px-4 py-2 transition-colors"
               >
                 Open market depth
               </Link>
               <Link
-                href={`/cards/${card.sku}/market`}
+                href={`/cards/${encodedSku}/market`}
                 className="inline-block rounded-lg border border-border-subtle hover:border-border-strong text-ink text-sm px-4 py-2 transition-colors"
               >
                 Read-only mirror
@@ -349,7 +352,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               </dt>
               <dd>
                 <Link
-                  href={`/prices/${config.slug}/${setSlug}`}
+                  href={`/prices/${config.slug}/${encodedSetSlug}`}
                   className="text-info hover:underline"
                 >
                   {setCode} {setMeta.name}
@@ -375,7 +378,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             The canonical SKU is the federation-stable identifier — a partner
             with this SKU can resolve through{" "}
             <Link
-              href={`/api/v1/universal/card/${card.sku}`}
+              href={`/api/v1/universal/card/${encodedSku}`}
               className="text-info hover:underline"
             >
               /api/v1/universal/card/{card.sku}

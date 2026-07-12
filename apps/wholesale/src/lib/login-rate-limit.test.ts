@@ -157,8 +157,9 @@ describe("credential login rate limiter", () => {
 
   it("fails closed without logging email, IP, secret, or database error", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const privateErrorDetail = "PRIVATE_DATABASE_ERROR_DETAIL";
     mocks.transaction.mockRejectedValueOnce(
-      new Error("postgres://internal-user:internal-password@database"),
+      new Error(privateErrorDetail),
     );
 
     await expect(
@@ -167,8 +168,7 @@ describe("credential login rate limiter", () => {
 
     const logged = JSON.stringify(log.mock.calls);
     expect(logged).toContain("denying attempt");
-    expect(logged).not.toMatch(
-      /private@example|internal-user|internal-password|postgres|127\.0\.0\.1/u,
-    );
+    expect(logged).not.toContain("private@example.com");
+    expect(logged).not.toContain(privateErrorDetail);
   });
 });

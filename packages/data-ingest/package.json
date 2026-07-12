@@ -14,6 +14,7 @@
     "./cardrush": { "types": "./src/cardrush/index.ts", "default": "./src/cardrush/index.ts" },
     "./pokemon-tcg-api": { "types": "./src/pokemon-tcg-api/index.ts", "default": "./src/pokemon-tcg-api/index.ts" },
     "./ygoprodeck": { "types": "./src/ygoprodeck/index.ts", "default": "./src/ygoprodeck/index.ts" },
+    "./bandai-en": { "types": "./src/bandai-en/index.ts", "default": "./src/bandai-en/index.ts" },
     "./tcgplayer": { "types": "./src/tcgplayer/index.ts", "default": "./src/tcgplayer/index.ts" },
     "./cardmarket": { "types": "./src/cardmarket/index.ts", "default": "./src/cardmarket/index.ts" }
   },

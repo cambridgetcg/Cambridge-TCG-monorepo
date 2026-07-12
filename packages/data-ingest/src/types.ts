@@ -37,6 +37,7 @@ export type SourceId =
   | "limitless-tcg"
   | "edhrec"
   | "bandai-tcg"
+  | "bandai-en"
   | "psa-registry"
   | "beckett-registry"
   | "shopify"

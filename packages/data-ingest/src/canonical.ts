@@ -33,6 +33,14 @@ export interface CanonicalCard {
   type?: string;
   /** Rarity. Publisher-specific (common / uncommon / rare / SR / SEC / ...). */
   rarity?: string;
+  /**
+   * Upstream illustrator credit. This internal canonical field may be
+   * captured for provenance, but it is not publicly displayable until the
+   * producing source grants field- and purpose-specific permission.
+   * Attribution can be a condition of permission; it is not the permission.
+   * Absent means undefined, never an invented empty string.
+   */
+  artist?: string;
   /** Oracle / rules text. Natural-language; opaque. */
   oracle_text?: string;
   /** Image URL (canonical/high-res preferred). */

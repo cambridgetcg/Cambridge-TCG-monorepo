@@ -31,6 +31,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
     });
   }
 
+  const encodedSet = encodeURIComponent(state.set.code.toLowerCase());
+
   return jsonResponse({
     data: {
       game: {
@@ -52,12 +54,12 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
         rarity: c.rarity,
         price_gbp: c.price_gbp,
         stock: c.stock,
-        path: `/prices/${state.config.slug}/${state.set.code.toLowerCase()}/${c.card_number.toLowerCase()}`,
-        api_path: `/api/v1/prices/games/${state.config.slug}/sets/${state.set.code.toLowerCase()}/cards/${c.card_number.toLowerCase()}`,
+        path: `/prices/${state.config.slug}/${encodedSet}/${encodeURIComponent(c.card_number.toLowerCase())}`,
+        api_path: `/api/v1/prices/games/${state.config.slug}/sets/${encodedSet}/cards/${encodeURIComponent(c.card_number.toLowerCase())}`,
       })),
       _links: {
-        self: `/api/v1/prices/games/${state.config.slug}/sets/${state.set.code.toLowerCase()}`,
-        html: `/prices/${state.config.slug}/${state.set.code.toLowerCase()}`,
+        self: `/api/v1/prices/games/${state.config.slug}/sets/${encodedSet}`,
+        html: `/prices/${state.config.slug}/${encodedSet}`,
         parent_game: `/api/v1/prices/games/${state.config.slug}`,
         parent_game_html: `/prices/${state.config.slug}`,
         methodology: "/methodology/cross-source-pricing",
