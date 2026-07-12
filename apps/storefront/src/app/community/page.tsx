@@ -198,6 +198,23 @@ export default function CommunityPage() {
           </Link>
         </p>
 
+        <nav aria-label="Community links" className="flex flex-wrap gap-2 mb-6">
+          {[
+            ["Rewards", "/rewards"],
+            ["Membership", "/membership"],
+            ["Leaderboards", "/leaderboards"],
+            ["Bounties", "/bounty"],
+          ].map(([label, href]) => (
+            <Link
+              key={href}
+              href={href}
+              className="inline-flex min-h-11 items-center rounded-lg border border-border-subtle bg-surface px-3 text-sm font-medium text-ink-muted transition hover:bg-surface-subtle hover:text-ink"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+
         {/* Tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
           {tabs.map((t) => (

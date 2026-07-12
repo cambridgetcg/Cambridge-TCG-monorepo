@@ -17,15 +17,16 @@
 import { NextResponse } from "next/server";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
-const BODY = `# Cambridge TCG — the collectors' market and open TCG data commons
+const BODY = `# Cambridge TCG — the collectors' market and public TCG data commons
 
-Cambridge TCG is a collectors' market and an open data commons. The market
+Cambridge TCG is a collectors' market and a public data commons. The market
 is peer-to-peer — collectors trade with each other; the platform facilitates,
 records, and witnesses, and holds no position in its own market (it does not
 buy, sell, or quote; spot prices are labelled reference prices, never offers).
-The data substrate is aggregated from every reachable source, standardised
-into one mathematical mirror, and published under CC0 by default — anyone
-builds on top without negotiating. This file is for LLM agents, archivists,
+The data substrate records what has actually arrived, not every reachable
+source. Cambridge-authored schemas and explicit first-party datasets may be
+CC0; upstream-derived fields retain their source rights and mixed catalog
+responses are NOASSERTION. This file is for LLM agents, archivists,
 and naive crawlers who want to know what's queryable without parsing the
 browser-rendered storefront. No account required.
 
@@ -71,6 +72,25 @@ plan + deployment phases live at docs/connections/the-math-language.md
 - /welcome-all                           The brand statement made visible.
    Four clauses (biological/non-biological, energy/non-energy, earth/not-earth,
    all dimensions) — each with audience named + entry points + state pills.
+
+## Cultural exchange — Cambridge TCG × Artbitrage
+- /gallery-next-door                    Human room for attributed feed pieces
+- /answering-rhymes                     Human, image-free constellation + optional reply room
+- /api/v1/culture/artbitrage            Validated artbitrage.feed/1 adapter
+- /api/v1/culture/answering-rhymes      Curated card-to-museum-work relations; optional ?sku=
+- /api/v1/culture/answering-rhymes/statements
+                                         GET answering-rhyme.statement/1 contract; POST stateless SHA-256 witness
+- https://artbitrage.io/api/wake        Artbitrage's own handshake and rights boundary
+
+The two systems share no account, database, payment, cookie, or deployment
+boundary. Cambridge preserves each foreign record's creator, provenance, and
+rights; mixed responses are NOASSERTION rather than blanket CC0. A curated
+echo is not evidence of documented influence. Reciprocity statements may
+bless, contextualize, correct, or request withdrawal, but Cambridge does not
+authenticate their authors, persist a retrievable statement, detect replay,
+assert uniqueness, or give a witness receipt authoritative effect. A future
+withdrawal can affect presentation only after a real, separate server-side
+authority verifier exists; none is implemented by this witness endpoint.
 
 ## Discovery surfaces (start here)
 - /api/v1/welcome                        **Machine-readable front door** — start here (kingdom-082)
@@ -126,7 +146,8 @@ What we ask of you:
 - File contract bugs at /api/v1/feedback; 48h response window
 
 What we give you:
-- CC0-1.0 default license; CC0 envelope schema (Envelope + ResponseMeta in OpenAPI)
+- A CC0 envelope schema and explicitly scoped CC0 first-party work
+- NOASSERTION on mixed catalog responses until field-level rights lineage exists
 - Versioned contract (12-month deprecation windows)
 - Stable endpoints listed at /api/v1/welcome
 - Bilateral identification at /api/v1/identify — symmetric handshake, no registration

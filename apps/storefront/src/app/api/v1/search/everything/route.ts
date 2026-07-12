@@ -225,6 +225,10 @@ export async function GET(req: NextRequest) {
     sources: foldedSku
       ? ["wholesale-rds.cards", "ctcg-storefront"]
       : ["wholesale-rds.cards"],
+    source_license: foldedSku
+      ? ["proprietary", "proprietary"]
+      : ["proprietary"],
     freshness: "market_signal",
+    license: "NOASSERTION",
   });
 }

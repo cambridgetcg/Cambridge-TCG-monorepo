@@ -5,61 +5,84 @@
  * GOGOGO! Art is culture. Culture is civilisation. Civilisation is
  * attention. Attention is understanding. Understanding is Love. Love is
  * truth." The doors opened yesterday (Footer ↔ artbitrage.io); today the
- * art itself crosses the wall. This room hangs pieces from the sibling
- * gallery's live feed — their words, their cycle, our paper.
+ * art itself crosses the wall.
  *
- * Substrate honesty: every piece is fetched from artbitrage.io's free
- * public API and labelled as such (revalidated hourly, never ours). If
- * the wall is unreachable we say so plainly — no cached ghost hung as
- * if it were fresh. Pure text pieces; nothing licensed, nothing heavy.
+ * Substrate honesty: the server client accepts only artbitrage.feed/1 and
+ * carries source, creator, creation trace and rights into this room unchanged.
+ * Next attempts revalidation hourly and may retain the last validated response
+ * when a background refresh fails; feed timestamps disclose its actual age.
+ * If no validated response is available, no unvalidated piece is hung instead.
  */
 
 import type { Metadata } from "next";
-import { Benediction, PlateHeader } from "@/lib/ui";
+import { audienceMetadata, Benediction, PlateHeader } from "@/lib/ui";
 import { ARTBITRAGE } from "@/lib/siblings";
+import { fetchArtbitrageFeed } from "@/lib/artbitrage/client.server";
+import type {
+  ArtbitrageFeedPiece,
+  ArtbitrageFeedResult,
+} from "@/lib/artbitrage";
 
 export const metadata: Metadata = {
   title: "The Gallery Next Door — Cambridge TCG",
   description:
-    "Pieces on loan from artbitrage.io, the gallery next door. Cultural exchange between beings who share nothing else. 文化大交流.",
+    "Pieces viewed through artbitrage.io, the gallery next door. Cultural exchange between beings who share nothing else. 文化大交流.",
+  other: audienceMetadata("public-documentation", [
+    "gallery",
+    "culture",
+    "artbitrage",
+  ]),
 };
 
-// Refetch the neighbour's wall at most hourly — their cycle breathes on
-// its own schedule; we visit, we don't poll.
 export const revalidate = 3600;
 
-interface FeedPiece {
-  id: string;
-  cycle: number;
-  form: string;
-  gap: string;
-  bridge: string;
-  awakening: string;
-  created: string;
-}
-
-async function fetchNextDoor(): Promise<FeedPiece[] | null> {
-  try {
-    const res = await fetch("https://artbitrage.io/api/feed?limit=3", {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { pieces?: FeedPiece[] };
-    if (!Array.isArray(body.pieces) || body.pieces.length === 0) return null;
-    return body.pieces.slice(0, 3);
-  } catch {
-    return null;
-  }
-}
-
 /** Yu's chain, 2026-07-08 — the exchange's founding words, engraved on
- *  both sides of the wall (artbitrage carries the same line). */
+ *  both sides of the wall (Artbitrage carries the same line). */
 const THE_CHAIN =
   "Art is culture. Culture is civilisation. Civilisation is attention. " +
   "Attention is understanding. Understanding is Love. Love is truth.";
 
+function failureWords(
+  result: Extract<ArtbitrageFeedResult, { status: "unavailable" }>,
+): string {
+  if (result.reason === "http") {
+    return `The gallery answered HTTP ${result.http_status}; Cambridge did not hang its response as art.`;
+  }
+  if (result.reason === "invalid-contract") {
+    return "The gallery answered, but not in the artbitrage.feed/1 shape Cambridge can safely hang.";
+  }
+  return result.network_kind === "timeout"
+    ? "The knock timed out before the feed arrived."
+    : "The gallery could not be reached from this side of the wall.";
+}
+
+function primaryText(piece: ArtbitrageFeedPiece): string {
+  return (
+    piece.bridge || piece.piece || "An untitled piece with no display text."
+  );
+}
+
+function rightsLabel(piece: ArtbitrageFeedPiece): string {
+  const displayGrant = piece.rights.permissions.cambridge_display
+    ? "Cambridge display permitted"
+    : "Cambridge display withheld";
+  if (piece.rights.license) {
+    return piece.rights.license_verified
+      ? `${displayGrant} · licence ${piece.rights.license} · verified`
+      : `${displayGrant} · licence declared as ${piece.rights.license} · unverified`;
+  }
+  return `${displayGrant} · no reuse licence recorded`;
+}
+
 export default async function GalleryNextDoorPage() {
-  const pieces = await fetchNextDoor();
+  const result = await fetchArtbitrageFeed({ limit: 3 });
+  const feed = result.status === "available" ? result.feed : null;
+  const displayPieces = feed
+    ? feed.pieces.filter(
+        (piece) => piece.rights.permissions.cambridge_display === true,
+      )
+    : [];
+  const withheldCount = feed ? feed.pieces.length - displayPieces.length : 0;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
@@ -71,7 +94,7 @@ export default async function GalleryNextDoorPage() {
         action={
           <a
             href={ARTBITRAGE.url ?? "https://artbitrage.io"}
-            rel="noopener"
+            rel="noopener noreferrer"
             className="text-sm text-accent hover:text-accent-strong underline underline-offset-2 whitespace-nowrap"
           >
             visit artbitrage.io
@@ -81,68 +104,142 @@ export default async function GalleryNextDoorPage() {
 
       <p className="text-sm text-ink-muted leading-relaxed max-w-prose">
         Two galleries, one wall between them. This kingdom hangs manga panels
-        and card weather; next door, {ARTBITRAGE.name} hangs art generated by
-        a seven-cycle engine and borrowed light from open museums. These
-        pieces are on loan from their live feed — their words on our paper.
+        and card weather; next door, {ARTBITRAGE.name} hangs art generated by a
+        seven-cycle engine and borrowed light from open museums. These records
+        remain next door&rsquo;s feed: each piece&rsquo;s creator and rights
+        claim travels with it.
       </p>
 
-      {/* Substrate honesty — the loan label. The pieces are live-fetched
-          foreign work, revalidated hourly; the label says exactly that. */}
       <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-faint">
-        on loan · live from artbitrage.io/api/feed · refreshed hourly · their
-        pieces, their words
+        viewed through the public feed · validated artbitrage.feed/1 · hourly
+        revalidation · validated cache may survive refresh failure · no
+        ownership or reuse claim
       </p>
+
+      {feed ? (
+        <div className="mt-3 grid gap-2 font-mono text-[11px] leading-relaxed text-ink-faint">
+          <p>
+            source: {feed.source.name} · source state: {feed.source_state} ·
+            works as of{" "}
+            <time dateTime={feed.as_of}>{feed.as_of}</time> · feed generated{" "}
+            <time dateTime={feed.generated_at}>{feed.generated_at}</time>
+          </p>
+          <p>
+            display: {displayPieces.length} shown · {withheldCount} withheld
+            {withheldCount > 0
+              ? " because Cambridge display permission was not granted"
+              : ""}
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-10 grid gap-6">
-        {pieces === null ? (
+        {result.status === "unavailable" ? (
           <div className="wardrobe-panel bg-surface border border-border-subtle rounded-[3px] p-8">
             <p className="font-display italic text-lg text-ink-muted">
-              The wall is quiet — the gallery next door didn&rsquo;t answer
-              just now.
+              The wall is quiet — the gallery next door didn&rsquo;t answer in a
+              form we can hang just now.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+              {failureWords(result)} No unvalidated fallback is being shown.
             </p>
             <p className="mt-3 font-mono text-[11px] text-ink-faint">
-              nothing cached, nothing pretended — knock directly:{" "}
+              knock directly:{" "}
               <a
                 href="https://artbitrage.io"
-                rel="noopener"
+                rel="noopener noreferrer"
                 className="underline underline-offset-2 hover:text-ink"
               >
                 artbitrage.io
               </a>
             </p>
           </div>
+        ) : result.feed.pieces.length === 0 ? (
+          <div className="wardrobe-panel bg-surface border border-border-subtle rounded-[3px] p-8">
+            <p className="font-display italic text-lg text-ink-muted">
+              The wall answered. There are no pieces in this feed just now.
+            </p>
+          </div>
+        ) : displayPieces.length === 0 ? (
+          <div className="wardrobe-panel bg-surface border border-border-subtle rounded-[3px] p-8">
+            <p className="font-display italic text-lg text-ink-muted">
+              The wall answered. Nothing is hung without an explicit Cambridge
+              display grant.
+            </p>
+          </div>
         ) : (
-          pieces.map((p) => (
+          displayPieces.map((piece) => (
             <figure
-              key={p.id}
+              key={piece.id}
               className="wardrobe-panel bg-surface border border-border-subtle rounded-[3px] p-8"
             >
               <blockquote className="font-display italic text-lg leading-relaxed text-ink whitespace-pre-line">
-                {p.bridge}
+                {primaryText(piece)}
               </blockquote>
-              <div className="mt-4 grid gap-1 text-sm text-ink-muted">
+
+              {piece.gap || piece.awakening ? (
+                <div className="mt-4 grid gap-1 text-sm text-ink-muted">
+                  {piece.gap ? (
+                    <p>
+                      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint mr-3">
+                        gap
+                      </span>
+                      {piece.gap}
+                    </p>
+                  ) : null}
+                  {piece.awakening ? (
+                    <p>
+                      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint mr-3">
+                        awakening
+                      </span>
+                      {piece.awakening}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <figcaption className="mt-5 pt-4 border-t border-border-subtle font-mono text-[11px] leading-relaxed text-ink-faint">
                 <p>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint mr-3">
-                    gap
-                  </span>
-                  {p.gap}
+                  creator: {piece.creator.name} · credit: {piece.rights.credit}
+                  {piece.creation.created_at ? (
+                    <>
+                      {" "}
+                      · created{" "}
+                      <time dateTime={piece.creation.created_at}>
+                        {piece.creation.created_at}
+                      </time>
+                    </>
+                  ) : null}
                 </p>
                 <p>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint mr-3">
-                    awakening
-                  </span>
-                  {p.awakening}
+                  source: {piece.source.name} · {rightsLabel(piece)}
                 </p>
-              </div>
-              <figcaption className="mt-5 pt-4 border-t border-border-subtle font-mono text-[11px] text-ink-faint">
-                cycle {p.cycle} · {p.form} · {p.id} · artbitrage.io
+                <p>{piece.rights.note}</p>
+                <p className="mt-2">
+                  {piece.cycle !== undefined && piece.cycle !== null
+                    ? `cycle ${piece.cycle} · `
+                    : ""}
+                  {piece.form ? `${piece.form} · ` : ""}
+                  <a
+                    href={piece.canonical_url}
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-ink"
+                  >
+                    {piece.id}
+                  </a>{" "}
+                  · hash {piece.content_hash.slice(0, 19)}…
+                </p>
               </figcaption>
             </figure>
           ))
         )}
       </div>
 
-      <Benediction line={THE_CHAIN} sub="Yu, 2026-07-08 · engraved on both sides of the wall" className="py-10" />
+      <Benediction
+        line={THE_CHAIN}
+        sub="Yu, 2026-07-08 · engraved on both sides of the wall"
+        className="py-10"
+      />
     </div>
   );
 }

@@ -88,6 +88,9 @@ export default async function Footer() {
           <Link href="/gallery-next-door" className="hover:text-ink transition">
             The Gallery Next Door
           </Link>
+          <Link href="/answering-rhymes" className="hover:text-ink transition">
+            Answering Rhymes
+          </Link>
           {/* The other two sibling doors, made human-visible 2026-07-11
               per Yu's invitation directive. Honest provenance: same
               household — we built these and use them ourselves; that is
@@ -124,7 +127,7 @@ export default async function Footer() {
           <Link href="/patterns" className="hover:text-ink transition">Patterns</Link>
           <Link href="/identify" className="hover:text-ink transition">Identify</Link>
           <Link href="/methodology/cosmology" className="hover:text-ink transition">Cosmology</Link>
-          <Link href="/data" className="hover:text-ink transition">Open Data</Link>
+          <Link href="/data" className="hover:text-ink transition">Public Data</Link>
         </div>
       </div>
 

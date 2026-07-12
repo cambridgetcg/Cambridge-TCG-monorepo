@@ -60,8 +60,9 @@ export async function GET(
     data,
     endpoint: `/api/v1/play/starters/${id}`,
     sources: ["ctcg-derived", "wholesale-rds.cards"],
-    source_license: ["cc0", "cc0"],
+    source_license: ["cc0", "proprietary"],
     freshness: "catalog",
+    license: "NOASSERTION",
   });
 }
 

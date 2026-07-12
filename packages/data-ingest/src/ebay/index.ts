@@ -30,13 +30,31 @@
  * `_meta.source_license` on the data-pantry envelope. Downstream
  * consumers learn from the envelope what they can re-export.
  *
- * ── API surface (v0) ─────────────────────────────────────────────────
+ * ── API surface — the honest tri-surface verdict ─────────────────────
  *
- * v0 ingests Browse API only. Marketplace Insights API (sold-comp 90d
- * history) is gated on partner-application approval — when approved,
- * the same SourceModule extends to a `marketplace-insights` branch
- * (the types + normalizer already accept it). No code outside this
- * module's `read()` will need to change.
+ * eBay exposes three doors to price data; this SourceModule is honest
+ * about what each one is (source-intake.md, run against eBay):
+ *
+ *   1. Browse API — CURRENT ASKS ONLY (what this module's `read()`
+ *      ingests in v0). `partner-redistributable`, `redistribute:false`.
+ *   2. Marketplace Insights API — true 90-day SOLD comps, but Limited
+ *      Release (partner-application + category whitelist) and its licence
+ *      is display / reference-only — *never CC0-redistributable*. This
+ *      module is forward-ready for it (a `marketplace-insights` branch the
+ *      types + normalizer already accept), but it stays gated and
+ *      reference-only. No code outside this module's `read()` changes when
+ *      it lands.
+ *   3. Sell / Fulfillment API `getOrders`, CONSENTED — the lawful
+ *      first-party SOLD door: a Cambridge TCG seller authorising us (via
+ *      standard OAuth) to read THEIR OWN order history. UK GDPR-clean,
+ *      buyer PII structurally excluded. The normalizer is written and
+ *      forward-ready in `./consented.ts` (`EbayConsentedSale` →
+ *      `EbayConsentedCanonicalObservation`), INERT until the operator
+ *      registers an OAuth app + a solicitor reviews the design. This is
+ *      the same shape as the Vinted consented stub — build-once, reuse.
+ *
+ * Off-limits, explicitly: scraping eBay HTML, reverse-engineering the app
+ * API, and third-party sold-comp resellers (130point et al.).
  *
  * ── Catalog row ──────────────────────────────────────────────────────
  *
@@ -395,6 +413,12 @@ export const ebay: SourceModule<EbayRaw, EbayCanonicalObservation> = {
 
 // Re-exports for callers that want the raw helpers
 export { normalizeEbay, type EbayCanonicalObservation } from "./normalize";
+// The lawful first-party sold door — forward-ready + INERT. See ./consented.ts.
+export {
+  normalizeEbayConsentedSale,
+  type EbayConsentedSale,
+  type EbayConsentedCanonicalObservation,
+} from "./consented";
 export { parseEbayTitle } from "./title-parser";
 export { detectGrade, isGraded } from "./grade-detector";
 export { detectLanguage } from "./language-detector";

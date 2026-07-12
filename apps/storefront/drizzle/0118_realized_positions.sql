@@ -43,8 +43,11 @@ CREATE TABLE IF NOT EXISTS realized_positions (
 CREATE INDEX IF NOT EXISTS idx_realized_positions_user
   ON realized_positions(user_id, sold_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_realized_positions_user_year
-  ON realized_positions(user_id, (date_trunc('year', sold_at)));
+-- (A per-year expression index was dropped from the original draft: it used
+--  date_trunc('year', sold_at) on a timestamptz, which is not IMMUTABLE and
+--  aborts the migration. The (user_id, sold_at DESC) index above already
+--  serves the tax-export's `user_id = $1 AND sold_at >= $2 AND sold_at < $3`
+--  range scan, so nothing is lost. This was why 0085 was held.)
 
 CREATE INDEX IF NOT EXISTS idx_realized_positions_sku
   ON realized_positions(sku, sold_at DESC);

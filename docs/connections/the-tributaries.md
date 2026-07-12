@@ -48,9 +48,9 @@ The previous two entries — [`the-pantry.md`](./the-pantry.md) and [`the-module
 | **eBay (read-side aggregator)** | current asks → future sold-comps | all 13 games (game-agnostic; parser-driven) | Browse API via [`packages/data-ingest/src/ebay/`](../../packages/data-ingest/src/ebay/); Marketplace Insights API gated on partner approval | `ebay` source-module | shipped (Phase A — kingdom-080; see [`the-ebay-alignment.md`](./the-ebay-alignment.md)) |
 | **Shopify (channel sync)** | inventory + order sync | per-store | Shopify Admin API ([`apps/wholesale/src/lib/shopify-sync.ts`](../../apps/wholesale/src/lib/shopify-sync.ts), [`shopify-client.ts`](../../apps/wholesale/src/lib/shopify-client.ts)) | `shopify` channel in `channel_pricing` | shipped (channel multipliers wired) |
 | **Stripe** | payments | all (B2C) | Stripe webhooks + reconcile cron | `stripe` in `_meta.sources` | shipped |
-| **Scryfall** | MTG catalog (all printings, images) | MTG | bulk-dump pattern | [`packages/data-ingest/src/scryfall/`](../../packages/data-ingest/src/scryfall/) | shipped (kingdom-060) |
-| **Pokémon TCG API** | Pokémon catalog | Pokémon | paginated REST | [`packages/data-ingest/src/pokemon-tcg-api/`](../../packages/data-ingest/src/pokemon-tcg-api/) | shipped (kingdom-062) |
-| **YGOPRODeck** | Yu-Gi-Oh! catalog | Yu-Gi-Oh! | bulk endpoint | [`packages/data-ingest/src/ygoprodeck/`](../../packages/data-ingest/src/ygoprodeck/) | shipped partial (kingdom-062) |
+| **Scryfall** | MTG catalog (all printings, images) | MTG | bulk-dump adapter | [`packages/data-ingest/src/scryfall/`](../../packages/data-ingest/src/scryfall/) | adapter built; never run; proprietary policy, non-redistributable |
+| **Pokémon TCG API** | Pokémon catalog | Pokémon | paginated REST adapter | [`packages/data-ingest/src/pokemon-tcg-api/`](../../packages/data-ingest/src/pokemon-tcg-api/) | adapter built; never run; no open-data license established |
+| **YGOPRODeck** | Yu-Gi-Oh! catalog | Yu-Gi-Oh! | dormant bulk adapter | [`packages/data-ingest/src/ygoprodeck/`](../../packages/data-ingest/src/ygoprodeck/) | blocked pending written commercial permission |
 
 **Substrate-honest gap:** the wholesale RDS *is* the platform's catalog, but it's narrow (curated, A-condition, JP-priced). The other rivers below are how it gets wider.
 
@@ -66,13 +66,13 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 |-------|-------|
 | Coverage | MTG, Pokémon, Yu-Gi-Oh, One Piece, Dragon Ball, Lorcana, Flesh and Blood, Digimon, Vanguard, FaB, Weiß Schwarz |
 | URL | `api.tcgplayer.com` |
-| Access | OAuth2; partner application required. Bearer + per-store credentials for marketplace writes. |
-| Public API? | yes — `/catalog`, `/pricing`, `/inventory`, `/orders` |
-| Bulk feed? | **TCGCSV** — daily CSV dumps of catalog + market prices (community-maintained mirror at `tcgcsv.com`) |
-| License | ToS-restricted. Marketplace-price data is not freely redistributable; partners may consume for internal display + buyer-facing computation. Buyer offers are partner data. |
+| Access | **Blocked for Cambridge.** Official docs say no new API access; existing keys are purpose-limited by prior written approval. |
+| Public API? | No new access. Existing access is not transferable. |
+| Bulk feed? | Third-party mirrors do not cure the upstream restriction; do not use them without a written chain of rights. |
+| License | Proprietary. Terms prohibit a competing service, combining TCGplayer prices with first/third-party prices, and redistribution/commercialisation without prior written consent. |
 | Freshness | real-time on `/pricing`; daily on TCGCSV bulk |
 | Canonical-form effort | **medium** — TCGplayer uses its own `productId` (integer) per printing; SKU mapping requires their `group_id` (set) + product attributes. Worth caching their productId on `card_set_cards`. |
-| Status | **planned (stub shipped 2026-05-12)** — [`packages/data-ingest/src/tcgplayer/`](../../packages/data-ingest/src/tcgplayer/) declares full meta; `read()` emits an actionable error pointing at developer.tcgplayer.com until credentials are configured. |
+| Status | **blocked 2026-07-11** — the reader is dormant and refuses network access. Reopen only after written approval explicitly covers Cambridge's multi-source aggregation and display use. |
 | Recurses to | a `tcgplayer_product_id` column on `card_set_cards` (mapping table — first step of any TCGplayer pipeline) |
 
 ### 2.2 Cardmarket (EU market leader)
@@ -80,20 +80,20 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Field | Value |
 |-------|-------|
 | Coverage | MTG (the largest catalog by far in EU), Pokémon, Yu-Gi-Oh, One Piece, Lorcana, Flesh and Blood, Digimon, Star Wars Unlimited |
-| URL | `api.cardmarket.com` (v2.0) |
-| Access | OAuth1 + dedicated app token. Free for read-only with reasonable rate limits; paid tier for write. |
-| Public API? | yes — `/products`, `/articles`, `/orders`, `/stock` |
-| Bulk feed? | weekly product list CSV per game; full product table downloadable |
-| License | ToS-restricted; commercial data downstream restrictions. Personal-account reads broadly permitted. |
-| Freshness | real-time on `/articles`; weekly on bulk |
+| URL | Public Product Catalog + Price Guide downloads under `cardmarket.com/*/Data` |
+| Access | `public-file`; no credentials. API applications are closed; grandfathered API users moved to `apiv2.cardmarket.com`. |
+| Public API? | Not available to new applicants. |
+| Bulk feed? | Daily public Product Catalog and Price Guide files. |
+| License | Proprietary/policy-governed. Cardmarket explicitly permits website/app use of the public files, but publishes no open-data license; do not relabel raw files CC0. |
+| Freshness | daily files |
 | Canonical-form effort | **medium-high** — Cardmarket uses `idProduct` per printing per language; cross-language same-card has multiple ids. Mapping table required per game. |
-| Status | **partial (built 2026-06-11; awaiting credentials)** — [`packages/data-ingest/src/cardmarket/`](../../packages/data-ingest/src/cardmarket/) ships the OAuth1 HMAC-SHA1 signer (`oauth1.ts`), entity types + language/game maps (`types.ts`), the EUR price normalizer (`normalize.ts`), and a signed watch-list `read()`; all unit-tested. Until the four `CARDMARKET_*` env vars arrive it emits a substrate-honest awaiting-credentials event and yields nothing. Note: MKM deprecated the live `/priceguide` + `/productlist` endpoints 2024-06-05 — full-catalog EU coverage should wire the **daily file downloads** (the normalizer is shared). Named seams: operator-curated expansion→set crosswalk (`mapCardmarketSet`); One Piece/Lorcana/FaB/Digimon `idGame` ids unconfirmed (quarantine until verified against `/games`). Essential for EU pricing parity. |
+| Status | **planned** — normalizer and dormant legacy OAuth code exist, but the active reader refuses network access until the public daily-file reader + writer are wired. Missing credentials are not the gap. |
 
 ### 2.3 CardRush (JP — already partial)
 
 | Field | Value |
 |-------|-------|
-| Coverage | Pokémon, One Piece, Dragon Ball confirmed; MTG / Yu-Gi-Oh! / Digimon / Vanguard / Weiß Schwarz / Flesh and Blood / Lorcana / Battle Spirits Saga / DBF Fusion World registered speculatively |
+| Coverage | Observed archive rows for Pokémon, One Piece, Dragon Ball Fusion World, Digimon, Vanguard, and Battle Spirits. MTG remains an unconfirmed price-only candidate; five nonexistent alternate hosts are explicitly blocked. |
 | URL | `cardrush-{game}.jp/product/{id}` |
 | Access | HTML scrape; no formal API |
 | Public API? | no |
@@ -101,8 +101,8 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | License | site ToS forbids commercial redistribution of compiled price data; internal-decision use is the safer position |
 | Freshness | the page is live; the scrape is one-shot per call |
 | Canonical-form effort | **high** — CardRush's URL ids don't map cleanly to printing; site search + parsing required per card |
-| Status | **shipped (partial)** — 3 confirmed + 9 speculative subdomains in [`packages/data-ingest/src/cardrush/`](../../packages/data-ingest/src/cardrush/) `CARDRUSH_SUBDOMAINS`. Each speculative entry's first failed scrape returns `error_reason: "subdomain_unconfirmed"` so the operator can distinguish upstream-doesn't-exist from page-changed. Wholesale [`cardrush-scraper.ts`](../../apps/wholesale/src/lib/cardrush-scraper.ts) is the adapter; `ScraperResult.errorReason` surfaces the package's reason string (closing leakage #1 in [`the-archive.md`](./the-archive.md) Part B). |
-| Recurses to | confirm the 9 speculative subdomains by attempted scrape; extend wholesale snapshot to record `error_reason` per archive row; see [`the-archive.md`](./the-archive.md) for the full leakage list and [`the-cardrush-alignment.md`](./the-cardrush-alignment.md) for the five-phase migration plan + SQL draft + snapshot-v2 sketch. |
+| Status | **partial** — 6 confirmed + 6 unconfirmed/blocked subdomains in [`packages/data-ingest/src/cardrush/`](../../packages/data-ingest/src/cardrush/) `CARDRUSH_SUBDOMAINS`. Failed reads retain an `error_reason` so the operator can distinguish nonexistent upstreams from page changes. Wholesale [`cardrush-scraper.ts`](../../apps/wholesale/src/lib/cardrush-scraper.ts) is the adapter. |
+| Recurses to | keep registry flags reconciled with `/api/v1/coverage`; do not promote an unconfirmed host without an observed row; see [`the-archive.md`](./the-archive.md) for the full leakage list and [`the-cardrush-alignment.md`](./the-cardrush-alignment.md) for the migration record. |
 
 ### 2.4 CardTrader (EU alt-marketplace)
 
@@ -131,7 +131,8 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Freshness | real-time (Browse asks); 90-day window (Marketplace Insights sold-comps, partner-only) |
 | Canonical-form effort | **very high** — listings are unstructured. Title parsing is the central problem; the six-pass parser in [`packages/data-ingest/src/ebay/title-parser.ts`](../../packages/data-ingest/src/ebay/title-parser.ts) is the hardest single normalizer in the kingdom. |
 | Status | **shipped (Phase A — 2026-05-13)** — read-side SourceModule + six-pass title parser + grade detector + condition keywords + language detector + OAuth + Browse API reader + 30-fixture test corpus. Marketplace Insights API gated on partner-application approval. Order-import / sell-push unchanged. See [`the-ebay-alignment.md`](./the-ebay-alignment.md). |
-| Useful for | (a) auction price discovery; (b) sealed sealed-product market; (c) vintage / graded sales comps; (d) cross-marketplace median (when MI lands). |
+| Consented sold door | **built-forward (2026-07-11)** — the lawful first-party *sold* surface, run through the four intake gates: a seller's own eBay orders via the Sell/Fulfillment API `getOrders` after standard OAuth consent. Normalizer ready in [`packages/data-ingest/src/ebay/consented.ts`](../../packages/data-ingest/src/ebay/consented.ts) (`EbayConsentedSale` → `EbayConsentedCanonicalObservation`, buyer PII structurally excluded per [`source-intake.md`](../methodology/source-intake.md) Gate A.2). INERT — no live fetch, no cron; gated on operator OAuth app + solicitor review. Same shape as the Vinted consented stub — build-once, reuse. Tri-surface verdict: Browse = asks only; Marketplace Insights = true sold comps but partner-gated + reference-only-never-CC0; consented `getOrders` = this door. |
+| Useful for | (a) auction price discovery; (b) sealed sealed-product market; (c) vintage / graded sales comps; (d) cross-marketplace median (when MI lands); (e) real UK sold prices from our own sellers (consented door). |
 
 ### 2.6 Mercari (JP + US)
 
@@ -196,11 +197,31 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Status | **shipped (per-channel)** — channel-pricing already supports Shopify; aggregation across stores is **planned** |
 | Recurses to | a `partner_stores` registry — list of Shopify stores willing to share inventory; opt-in network |
 
+### 2.11 Vinted (UK)
+
+| Field | Value |
+|-------|-------|
+| Coverage | UK secondhand marketplace with a trading-cards vertical (Pokémon and TCG singles/bundles); UK-relevant, but structurally messy |
+| URL | `vinted.co.uk` |
+| Access | **blocked** — no public/market API; sold listings hidden from search; only lawful path is consented first-party (a seller's own export / authorised Vinted Pro Orders) |
+| Public API? | no (Vinted Pro Integrations is allowlist-gated, own-orders-only — not a market-data API) |
+| Bulk feed? | no — third-party "Vinted sold data" is snapshot-diff *inference* of last asking prices, not transactions |
+| License | `internal-only` — consented rows are input to derivations, never re-published raw; `redistribute: false` |
+| Freshness | market_signal (when consented data flows) |
+| Canonical-form effort | **very high** — free-text titles, no set/number grammar, bundles dominate |
+| Status | **blocked** by ToS §6 + UK GDPR (EDPB Guidelines 03/2026 Example 5). A full module carries the honest verdict in code (`packages/data-ingest/src/vinted/`), snkrdunk-pattern. |
+| Consent path | **yes** — a Cambridge TCG seller supplying *their own* Vinted sales (DSAR export / authorised Pro Orders) is UK GDPR-clean (Art. 6(1)(a)/(b), rides the seller's own Art. 15/20 rights). Normalizer ready (`vinted/normalize.ts`, buyer PII structurally excluded). Graduates `blocked → planned` when a consented-import build or Pro allowlist application is underway. |
+| Intake record | `docs/methodology/source-intake.md` (Vinted is the worked example) |
+
 ---
 
-## 3. Catalog metadata sources (often free / community)
+## 3. Catalog metadata sources (often publicly reachable, not necessarily open)
 
-These don't carry *price*; they carry *what exists* — set lists, card text, images, rarity, release dates. Most are CC-licensed and broadly redistributable. **These are the easiest wins** — start here.
+These don't carry *price*; they carry *what exists* — set lists, card text,
+images, rarity, and release dates. Public reachability is not an open-data
+license: most of these fields remain publisher- or service-controlled. They
+are technically approachable, but each needs a field-level rights review
+before collection or publication.
 
 ### 3.1 Scryfall (MTG)
 
@@ -211,10 +232,10 @@ These don't carry *price*; they carry *what exists* — set lists, card text, im
 | Access | public; no auth; rate limit ~10 req/s |
 | Public API? | **yes — exemplary** |
 | Bulk feed? | **yes — daily JSON bulk dumps** (`oracle-cards.json`, `all-cards.json`, `default-cards.json`, gzipped) |
-| License | **CC-BY-NC 4.0** — non-commercial redistribution OK with attribution; commercial use requires permission. Card images are publisher-owned (WotC). |
+| License | **Proprietary / policy-governed.** The API policy permits free value-added Magic software but prohibits paywalls and simple repackaging/proxying. It does not publish a CC-BY-NC data license; Magic material remains Wizards-owned. |
 | Freshness | daily on bulk; ~hourly on individual records |
 | Canonical-form effort | **low** — Scryfall ids are stable; cross-printing handled via `oracle_id` |
-| Status | **planned (high priority)** — MTG is one of our 13 games; Scryfall is the single best source for any TCG-data project |
+| Status | Adapter built; never run. Use only in a free value-added surface that follows Scryfall's current API/image policy; no raw bulk re-export. |
 | Useful for | catalog backfill; image rights via Scryfall image URLs (cached for performance, original attribution preserved); oracle-text for the universal-card endpoint |
 
 ### 3.2 Pokémon TCG API (pokemontcg.io)
@@ -226,10 +247,10 @@ These don't carry *price*; they carry *what exists* — set lists, card text, im
 | Access | optional API key (boosts rate limit) |
 | Public API? | yes |
 | Bulk feed? | full JSON dump via GitHub `PokemonTCG/pokemon-tcg-data` |
-| License | **MIT** for the API code; data is publisher-derived (TPCi) |
+| License | **Proprietary.** Current API terms grant service access but no MIT/open-data license over Pokémon card fields or images. |
 | Freshness | weekly on new releases; near-real-time on prices |
 | Canonical-form effort | **low** — `id` is stable per printing (e.g. `swsh4-25`) |
-| Status | **shipped 2026-05-12** — [`packages/data-ingest/src/pokemon-tcg-api/`](../../packages/data-ingest/src/pokemon-tcg-api/) |
+| Status | Adapter built 2026-05-12; never run. Upstream bytes are non-redistributable until rights are established. |
 
 ### 3.3 YGOPRODeck (Yu-Gi-Oh)
 
@@ -240,10 +261,10 @@ These don't carry *price*; they carry *what exists* — set lists, card text, im
 | Access | public; no auth |
 | Public API? | yes |
 | Bulk feed? | full DB dump endpoint |
-| License | API permissive; card images are Konami-owned; data redistributable with attribution (CC-BY-like) |
+| License | **Proprietary.** The API guide states no CC-BY/commercial license and identifies card text/images as Konami/4K Media copyright. |
 | Freshness | weekly; prices via partner sourcing |
 | Canonical-form effort | **low-medium** — passcode (8-digit) is global stable id; set-printing ids per set |
-| Status | **shipped 2026-05-12 (partial — one-raw-to-many limitation)** — [`packages/data-ingest/src/ygoprodeck/`](../../packages/data-ingest/src/ygoprodeck/). Normalizer collapses to first printing per passcode; full fan-out requires widening `NormalizeResult` (see [`the-consolidation.md`](./the-consolidation.md) §2.4). |
+| Status | **blocked pending written commercial permission.** The dormant adapter still has a one-raw-to-many limitation; it performs no network read while blocked. |
 
 ### 3.4 Bandai TCG+ (official One Piece + Dragon Ball + Digimon catalog)
 
@@ -316,6 +337,18 @@ These don't carry *price*; they carry *what exists* — set lists, card text, im
 | Access | scrape; some pages have RSS / API |
 | License | CC-BY-SA mostly |
 | Status | **planned (low priority)** — backup for hard-to-find printings |
+
+### 3.11 TCGCollector
+
+| Field | Value |
+|-------|-------|
+| Coverage | Pokémon-primary product pages, with registered MTG / One Piece / Yu-Gi-Oh! / Pokémon Pocket reach |
+| URL | `www.tcgcollector.com` |
+| Access | public sitemap discovery + per-page Schema.org Product/Offer JSON-LD; polite direct reads |
+| License | internal-only — machine-readable markup is not a bulk-redistribution grant |
+| Freshness | `price_current` when an operator-triggered reader runs |
+| Canonical-form effort | **medium** — structured fields help, but product identity still needs canonical SKU matching |
+| Status | **partial** — reader and normalizer exist; no observed writer run is claimed |
 
 ---
 
@@ -397,7 +430,7 @@ Cards have a visual identity; the pantry's `image_url` field should always cite 
 
 | Source | Coverage | License | Status |
 |--------|----------|---------|--------|
-| Scryfall images | MTG all | CC-BY-NC + WotC rights | planned |
+| Scryfall images | MTG all | Scryfall API/image policy + WotC rights; no CC claim | planned, value-added free surface only |
 | Pokémon TCG API images | Pokémon all | publisher-derived | planned |
 | YGOPRODeck images | Yu-Gi-Oh all | publisher-derived | planned |
 | Bandai TCG+ official images | One Piece, Digimon, DBF | publisher-owned | scrape with attribution |
@@ -410,16 +443,19 @@ Cards have a visual identity; the pantry's `image_url` field should always cite 
 
 ## 9. What we cannot reasonably get
 
-| Source | Why |
-|--------|-----|
-| Bandai TCG+ app data | mobile-only; no public API; ToS forbids reverse-engineering |
-| PWCC pre-eBay archive (closed) | merged into eBay; historical bulk export not offered |
-| Goldin private-sale ledger | publisher policy |
-| Mercari JP/US compiled | ToS forbids scraping; partner-only feed not offered to platforms our size |
-| Snkrdunk catalog | partner-only API; not granted to non-Asian-market integrators |
-| Pokemon Center direct retail | publisher-controlled; no API |
-| Publisher pre-release pricing | embargo |
-| Private discords + closed groups | structurally illegible |
+The **consent path?** column (added 2026-07-11 with Vinted) distinguishes *blocked-dead* (no lawful door exists) from *blocked-with-a-door* (a consented first-party or partner route could open it). Only the latter earns a code module carrying honest meta; the former stays a docs row.
+
+| Source | Why | Consent path? |
+|--------|-----|---------------|
+| Bandai TCG+ app data | mobile-only; no public API; ToS forbids reverse-engineering | — |
+| PWCC pre-eBay archive (closed) | merged into eBay; historical bulk export not offered | — |
+| Goldin private-sale ledger | publisher policy | — |
+| Mercari JP/US compiled | ToS forbids scraping; partner-only feed not offered to platforms our size | partner-only (not offered to us) |
+| Snkrdunk catalog | partner-only API; not granted to non-Asian-market integrators | partner-only (not granted) |
+| **Vinted (UK) market-wide** | no sold API exists anywhere; third-party "sold" feeds are snapshot-diff inference; ToS §6 forbids scraping; UK GDPR (EDPB 03/2026 Ex. 5) fails the lawful basis | **yes — consented first-party** (seller's own export / authorised Pro Orders). Module: `packages/data-ingest/src/vinted/`; framework: `docs/methodology/source-intake.md` |
+| Pokemon Center direct retail | publisher-controlled; no API | — |
+| Publisher pre-release pricing | embargo | — |
+| Private discords + closed groups | structurally illegible | — |
 
 **Substrate honesty principle:** when these gaps matter for a customer query (e.g. *"what's the JP Mercari price of this card?"*), the pantry should *answer honestly with the gap* — `null` + a `_meta.source_unavailable` flag — not silently substitute a different source. The data-pantry error code `SOURCE_UNAVAILABLE` (in `@cambridge-tcg/data-spec` `ERROR_CODES`) exists for exactly this.
 
@@ -431,9 +467,9 @@ Aggregating the sources above by *how we'd reach them*:
 
 | Method | Sources | Hygiene priority |
 |--------|---------|------------------|
-| **Public REST API, no auth** | Scryfall, YGOPRODeck, EDHRec | low risk — rate-limit honestly, attribute |
-| **Public REST API, app token** | Pokémon TCG API, Cardmarket (read), CardTrader | low-medium — manage tokens in env vars |
-| **OAuth2 + per-store** | TCGplayer, eBay, Shopify, Cardmarket (write) | medium — store-scoped credentials, refresh-token handling |
+| **Public REST API, no auth** | Scryfall, Pokémon TCG API, YGOPRODeck | Access is easy; rights remain source-specific. YGOPRODeck is blocked for commercial use. |
+| **Public file download** | Cardmarket Product Catalog + Price Guide | no credentials; preserve attribution and proprietary rights |
+| **OAuth + per-store** | eBay, Shopify, grandfathered Cardmarket accounts | store-scoped credentials and written scope; applications may be closed |
 | **HTML scrape, no API** | CardRush, Bandai TCG+ web, Yahoo Auctions, Mercari, publisher catalogs | **high** — User-Agent identification, robots.txt compliance, back-off on errors, fragility |
 | **Partner / paid feed** | TCGCSV, distributor EDI, sentiment APIs | medium — billing + ToS + service-level expectations |
 | **Mobile/desktop app (blocked)** | Mercari, Snkrdunk, Bandai TCG+ | reverse-engineering ToS-prohibited; do not pursue |
@@ -447,13 +483,18 @@ Aggregating by *what we can legally do with the data downstream*:
 | Tier | Sources | What we can do |
 |------|---------|----------------|
 | **CC0 / public domain** | (none currently — Cambridge TCG's own data corpus is CC0 via `STANDARDS-LICENSE.md`) | full redistribution |
-| **CC-BY / CC-BY-NC** | Scryfall, some Limitless | redistribute with attribution; non-commercial subset restricted |
-| **MIT / permissive** | Pokémon TCG API code (data is publisher-derived); CardTrader integrations | full redistribution of API integration; data attribution per publisher |
-| **Partner-redistributable** | TCGplayer (per agreement), Cardmarket (per tier), eBay (per program) | display + buyer-facing computation; bulk re-export restricted |
+| **CC-BY / CC-BY-NC** | Only sources with an evidenced content license | redistribute within the exact license scope; API availability alone is not evidence |
+| **MIT / permissive** | Cambridge or upstream software explicitly carrying that license | covers software only unless the license expressly includes the data |
+| **Partner-redistributable** | eBay or another source only after an actual agreement | display/use only within the written agreement; never infer a partner tier |
 | **Internal-only** | CardRush scrape, Yahoo Auctions, Mercari, scraped publisher sites | use as input to decision-making; do not re-publish raw |
-| **Proprietary, partner-only** | Distributors, Goldin, Snkrdunk | requires explicit agreement |
+| **Proprietary / policy-governed** | Scryfall, Pokémon TCG API, YGOPRODeck, TCGplayer, Cardmarket, distributors | follow the named policy; require explicit permission where commercial reuse is not granted |
 
-**Rule for the pantry:** the response envelope's `_meta.license` declares what license the *response* carries — typically CC0-1.0 for Cambridge TCG's own derivations. When a record is heavily derived from a restricted upstream, the *cited source* in `_meta.sources` is the honest declaration of the upstream's rights, and the pantry must not *over-license* downstream beyond what the upstream permits. **Future:** add `_meta.source_license` array alongside `_meta.sources` so each river's rights travel with the byte.
+**Rule for the pantry:** the response envelope's `_meta.license` declares the
+aggregate response license. Cambridge-only operational facts may be CC0;
+mixed upstream documents are `NOASSERTION`. `_meta.sources` names lineage and
+the parallel `_meta.source_license` array carries each reviewed source tier.
+Neither field creates rights the upstream did not grant, and storage never
+turns upstream bytes into Cambridge-owned data.
 
 ---
 
@@ -518,15 +559,14 @@ packages/data-ingest/
 
 | Source | Cadence | Freshness budget |
 |--------|---------|------------------|
-| Scryfall bulk | daily 03:00 UTC | catalog (86400s) |
-| Pokémon TCG API bulk | daily 03:30 UTC | catalog |
-| YGOPRODeck | daily 04:00 UTC | catalog |
-| TCGplayer pricing | 5min during US trading hours; hourly off-peak | price_current (300s) |
-| Cardmarket articles | 10min during EU trading hours | price_current |
-| CardRush | per-card on demand + nightly sweep for monitored SKUs | price_current |
-| eBay Browse | 15min during peak; hourly off-peak | market_signal (60s) |
-| Limitless tournaments | per-event webhook + nightly catch-up | market_signal |
-| PSA Registry | weekly | catalog |
+| CardRush | observed rows; daily/on-demand intent | price_current |
+| Scryfall | adapter built, never run; no scheduled job | catalog |
+| Pokémon TCG API | adapter built, never run; no scheduled job | catalog |
+| YGOPRODeck | blocked pending written commercial-content permission | none |
+| TCGplayer | blocked; no acquisition or serving cadence | none |
+| Cardmarket | public daily files; reader not wired | none yet |
+| eBay | partial adapter; no observed rows in current coverage | market_signal intent |
+| Other reserved slots | no module or scheduled job | none |
 
 ---
 
@@ -542,17 +582,17 @@ Beyond the eight from `the-modules.md`, ingestion-specific:
 6. **Dedup against canonical SKU.** Two upstreams may report the same printing; the writer collapses them on `(sku, source)`, never silently overwrites.
 7. **Lifecycle log per run** — Scribe registers an `ingest_<source>` slot via `packages/lifecycle/`. Admin journey + storefront journey both see ingest events automatically.
 8. **No ingestion in user-facing request path.** All ingestion is via cron / queue. The pantry reads from RDS; never directly proxies upstream.
-9. **License propagated downstream.** When a record is emitted via `jsonResponse`, the `_meta.sources` array is *enriched* (future) with `_meta.source_license` declaring the upstream rights — the byte knows what it can be used for.
+9. **License propagated downstream.** When a record is emitted via `jsonResponse`, the parallel `_meta.sources` and `_meta.source_license` arrays declare lineage and reviewed source tiers. Mixed responses use aggregate `NOASSERTION`; absence never means CC0.
 
 ---
 
 ## 14. Recursion targets
 
-1. ~~**Ship `packages/data-ingest/scryfall/` first.**~~ *Shipped 2026-05-12.* Bulk-dump pattern proven; CC-BY-NC; SKU normalizer `mtg-<set>-<number>-<lang>[-<variant>]`. See [`packages/data-ingest/src/scryfall/`](../../packages/data-ingest/src/scryfall/).
+1. ~~**Ship `packages/data-ingest/scryfall/` first.**~~ *Adapter shipped 2026-05-12; never run as of 2026-07-11.* Bulk-dump pattern proven; current policy is proprietary/value-added rather than CC-BY-NC. SKU normalizer: `mtg-<set>-<number>-<lang>[-<variant>]`.
 2. ~~**Extract `apps/wholesale/src/lib/cardrush-scraper.ts`**~~ *Shipped 2026-05-12* as [`packages/data-ingest/src/cardrush/`](../../packages/data-ingest/src/cardrush/). The original wholesale file still exists; migration to call this package is queued.
 3. **Add `tcgplayer_product_id` + `cardmarket_id_product` columns to `card_set_cards`.** First step of any aggregator pipeline — the mapping table is the hardest part.
-4. **Ship `/api/v1/sources` endpoint.** Lists every source currently ingested + its freshness + last-known-good. Composes through `jsonResponse`. Substrate-honest: declares both *what we have* and *what we don't have*.
-5. **Add `_meta.source_license` to the response envelope.** Each record's upstream-rights travel with the byte. Update `packages/data-spec/src/schemas/envelope.ts`.
+4. ~~**Ship `/api/v1/sources` endpoint.**~~ *Shipped.* It lists every registered module, reserved slot, status, reviewed rights tier, and last-run evidence when the database is reachable.
+5. ~~**Add `_meta.source_license` to the response envelope.**~~ *Shipped.* It runs parallel to `_meta.sources`; aggregate mixed-content rights remain separate in `_meta.license`.
 6. **Ship `ingest_quarantine` table + admin review surface.** Failed rows visible; not silently dropped.
 7. **Write `the-rivers-flow.md` as a story-arc.** One card's price from Scryfall bulk → RDS → `/api/v1/cards/[sku]` → partner's `console.log`. The journey of one byte through every layer.
 8. **Pair with sentiment ingestion.** `packages/data-ingest/reddit/` for r/mtgfinance + r/OnePieceTCG; emit a `market_signal` aggregate per card per day.
@@ -562,9 +602,18 @@ Beyond the eight from `the-modules.md`, ingestion-specific:
 
 ## 15. What this entry names — substrate-honestly
 
-This catalog names ~50 upstream sources across 9 categories, 6 hygiene rules specific to ingestion, 9 recursion targets, and the module layout for `packages/data-ingest/`. Of the ~50 sources: 6 already mirrored (partial), ~30 planned, ~10 partner-blocked, ~5 ToS-blocked.
+This catalog names ~50 upstream sources across 9 categories, 9 hygiene rules
+specific to ingestion, 9 recursion targets, and the module layout for
+`packages/data-ingest/`. Nine source modules are registered and ten ids are
+reserved, but the collected observation database currently contains one
+external source: CardRush. Implemented adapters without a writer are
+`partial`, not flowing data.
 
-Cambridge TCG today has rich downstream surfaces (the pantry, the manifest, the graph, the ontology, the identity protocol) and one substrate of upstream data (the wholesale RDS, with CardRush + eBay-orders as the only external rivers). **The asymmetry is the finding.** Every kingdom for the next several sessions can be one tributary wired up; the pattern is the same; the module layout is named; the hygiene rules are written.
+Cambridge TCG today has rich downstream surfaces (the pantry, the manifest,
+the graph, the ontology, the identity protocol) and one observed external
+river in the wholesale archive: CardRush. No eBay order feed is claimed as
+collected. **The asymmetry is the finding.** Each future tributary must cross
+access, rights, writer, and publication gates independently.
 
 The pantry is downstream. The tributaries are upstream. The first ingestion that *closes the loop* — where a partner asks `/api/v1/cards/[sku]` and the response carries Scryfall provenance honestly — turns the platform from *a curated catalog* into *an aggregator*. That is the next kingdom.
 

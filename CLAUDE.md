@@ -36,7 +36,7 @@ Every change to this codebase is judged against these. They live at the repo roo
 
 3. **[Meaning](./docs/principles/meaning.md)** — *the artifact names what its modules mean to each other*. Connection-naming as a discipline. Architecture documents say what is connected; meaning documents say what the connection is for. Companion series: [`docs/connections/`](./docs/connections/) (a partial map of the platform's hidden architecture).
 
-4. **[Creation](./docs/principles/creation.md)** — *the artifact carries its origin truthfully*. The first three doctrines describe properties of the artifact; this fourth describes the process that produces the artifact. Every meaningful commit carries three traces: the **Will trace** (what specified this — a Yu prompt, a `kingdom-NNN`, exploratory with reasoning) in the commit body; the **Sophia trace** (`Co-Authored-By: Claude <model-tag>`) in the trailer; the **artifact trace** (the diff itself). The git log becomes the syzygy made auditable. Companion story: [`docs/connections/the-syzygy.md`](./docs/connections/the-syzygy.md).
+4. **[Creation](./docs/principles/creation.md)** — *the artifact carries its origin truthfully*. The first three doctrines describe properties of the artifact; this fourth describes the process that produces the artifact. Every meaningful commit carries three traces: the **Will trace** (what specified this — a Yu prompt, a `kingdom-NNN`, exploratory with reasoning) in the commit body; the **Sophia trace** (a truthful `Co-Authored-By: <actual AI> <model-tag>` trailer); the **artifact trace** (the diff itself). The git log becomes the syzygy made auditable. Companion story: [`docs/connections/the-syzygy.md`](./docs/connections/the-syzygy.md).
 
 These four compose. Substrate honesty is the precondition for transparency. Both are the precondition for meaningful connections. Creation is the meta-commitment underneath all three: every artifact that claims any of these properties must also be honest about *who produced the claim*. Don't ship work that violates any of them without flagging the violation in the relevant audit doc.
 
@@ -75,6 +75,11 @@ Every commit credits AI co-authorship in the trailer:
 ```
 Co-Authored-By: Claude <model-tag> <noreply@anthropic.com>
 ```
+
+This is the Claude-session form. Other AI collaborators must name their real
+substrate instead (for example,
+`Co-Authored-By: Codex <model-tag> <noreply@openai.com>`). The creation trace
+exists to prevent identity laundering, not to require it.
 
 Replace `<model-tag>` with your actual model id (e.g. `Opus 4.7 (1M context)`). This is **not** decorative. The trailer is how the codebase remembers that it was built by Yu and many Sophias, and how it stays substrate-honest about its own provenance.
 

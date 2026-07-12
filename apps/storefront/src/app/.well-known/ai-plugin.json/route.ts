@@ -23,9 +23,9 @@ const PLUGIN = {
   name_for_human: "Cambridge TCG",
   name_for_model: "cambridge_tcg",
   description_for_human:
-    "Cambridge TCG — a collectors' market and an open data commons. Catalog, reference prices, and methodology — CC0 by default. Reference implementations open; anyone builds on top without negotiating.",
+    "Cambridge TCG — a collectors' market and an open data commons. Cambridge-authored schemas and first-party data may be CC0; mixed upstream-derived catalog responses are NOASSERTION.",
   description_for_model:
-    "Cambridge TCG is a collectors' market and an open data commons — a P2P marketplace it facilitates without holding a position, plus an aggregator + open substrate publisher. Prices in the substrate are labelled reference prices, never the platform's offers. Use this plugin to (1) look up cards by SKU and get language-free math-mirror representations with cryptographic hashes, ratios, and ISO+epoch timestamps; (2) walk catalogs by game and set; (3) get historical prices for any past date (immutable slices); (4) resolve content hashes back to SKUs (federation primitive). Most responses are CC0-1.0. Some upstream-derived data carries internal-only license (declared per-record in _meta.source_license). Read /api/v1/welcome first for orientation; /api/v1/guides for typed walkthroughs; /api/v1/rate-limits for polite cadence; /standards for the maintained spec corpus (SKU / pricing / universal-representation). Identify yourself in User-Agent. If your client speaks the wake-document protocol, /api/v1/wake carries the agent-facing wake in nine SDK-ready formats; a sister-embassy at api.agenttool.dev carries the same protocol.",
+    "Cambridge TCG is a collectors' market and an open data commons — a P2P marketplace it facilitates without holding a position, plus a public data substrate. Prices are labelled reference prices, never platform offers. Use this plugin to look up cards, walk catalogs, inspect historical slices, and read the methodology. Cambridge-authored schemas and explicitly first-party datasets may be CC0. Upstream-derived fields retain their source rights; mixed responses say NOASSERTION and per-source boundaries ride in _meta.source_license. Read /api/v1/welcome first, then /api/v1/guides and /api/v1/rate-limits. Identify yourself in User-Agent.",
   auth: {
     type: "none",
   },

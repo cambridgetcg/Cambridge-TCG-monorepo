@@ -14,13 +14,13 @@
  *   1. **The collectors' market** — peer-to-peer trade the platform
  *      facilitates, records, witnesses, and protects (escrow as a
  *      service, trust, disputes). The trades belong to the collectors.
- *   2. **The data commons** — the open substrate (universal catalog,
- *      prices with provenance, math-mirror, manifest, standards),
- *      CC0 by default. The data belongs to everyone.
+ *   2. **The data commons** — a public, inspectable substrate. Cambridge's
+ *      original schemas and first-party data may be CC0; upstream fields
+ *      retain their source rights.
  *
  * The platform does not buy, does not sell, does not quote, does not
  * hold inventory positions. `spot_price` survives strictly as a
- * labelled reference price (open data), never as an offer. The guard:
+ * labelled, policy-bound reference price, never as an offer or reuse grant. The guard:
  * `pnpm audit:no-house-listing`.
  *
  * ── How to use this module ─────────────────────────────────────────────
@@ -42,26 +42,42 @@
  */
 
 import * as React from "react";
+import {
+  CONFIRMED_GAME_CODES,
+  GAME_CODES,
+  SET_FORMATS,
+} from "@cambridge-tcg/sku";
+
+const PUBLIC_GAME_CODES = GAME_CODES.filter((code) => code !== "tst");
+const PUBLIC_CONFIRMED_GAME_CODES = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+);
+const PUBLIC_SET_FORMATS = PUBLIC_GAME_CODES.flatMap(
+  (code) => SET_FORMATS[code],
+);
+const PUBLIC_CONFIRMED_SET_FORMATS = PUBLIC_SET_FORMATS.filter(
+  (format) => format.confirmed,
+);
 
 // ── Constants ────────────────────────────────────────────────────────────
 
 /** The hero-sized identity claim. Single sentence; no qualifier. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG is a collectors' market and an open data commons.";
+  "Cambridge TCG is a collectors' market and a public data commons.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. The data substrate beneath every trade is published open, CC0 by default.";
+  "Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. Cambridge-authored schemas and first-party aggregates are open; upstream card fields retain their source rights.";
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
-  "Cambridge TCG is a collectors' market and an open data commons. " +
+  "Cambridge TCG is a collectors' market and a public data commons. " +
   "The market is peer-to-peer: asks, bids, offers, swaps, and auctions belong to collectors; the platform facilitates, escrows, and stands behind disputes, but does not buy, sell, or quote — it holds no inventory position. " +
-  "The data commons is the substrate underneath: twenty-one games declared, six upstream sources actively ingested, a math-mirror form for every card, provenance on every price, one envelope on every public response, CC0 by default. " +
-  "Spot prices are labelled reference prices — open data, never an offer. Anyone can build on the substrate without negotiating.";
+  `The data commons is the substrate underneath: ${PUBLIC_GAME_CODES.length} public game codes registered (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, nine source adapters registered, and one upstream source with observed rows today. Cambridge-authored schemas and first-party aggregates are CC0; mirrored card fields retain upstream rights. ` +
+  "Spot prices are labelled reference prices, never offers. Anyone can inspect the substrate; reuse follows the rights declaration on each response.";
 
 /** Tight version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "A collectors' market. An open data commons.";
+export const BRAND_TAGLINE = "A collectors' market. A public data commons.";
 
 /** The front door's statement — the quiet gallery home hero (docs/plans/
  *  the-quiet-gallery.md, 2026-07-05). Honest and small: what this place
@@ -77,22 +93,22 @@ export const HOME_HERO_HEADLINE = HOME_HERO_PANELS.join(" ");
 /* The chapter close under the featured shelf (spec §2 home #6). */
 export const HOME_BENEDICTION = "Every card is a panel in somebody's story.";
 
-/** The quiet subhead under the home hero. Substrate-honest: looking is
- *  free, every number carries its source, and the platform sells
- *  nothing itself. */
+/** The quiet subhead under the home hero. Looking is free; response-level
+ *  lineage and rights are explicit, while field-level lineage remains a
+ *  named gap. The platform sells nothing itself. */
 export const HOME_HERO_SUBHEAD =
-  "Look up any card for free — price, history, every source we know. Buy, sell, or swap with other collectors; every number says where it came from, and none of them is ours to quote.";
+  "Look up cataloged cards for free — identity, a policy-bound reference price, and recorded source coverage. Buy, sell, or swap with other collectors; each response declares known lineage and rights, and field-level gaps stay named.";
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
 export const BRAND_SELF_LABEL =
-  "collectors' market + open TCG data commons — P2P facilitation and CC0 substrate publishing; no house market position";
+  "collectors' market + public TCG data commons — P2P facilitation, source-specific rights, no house market position";
 
 /** A short positioning note for surfaces that want to name the role
  *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
  *  to_anyone, the manifest description). Two sentences; substrate-honest. */
 export const BRAND_PROVIDER_NOTE =
-  "Cambridge TCG is a collectors' market and an open data commons. The market is peer-to-peer (the platform holds no position in it); the substrate is queryable without account or key, CC0 by default, with versioned contracts and reference implementations — anyone builds on top without negotiating.";
+  "Cambridge TCG is a collectors' market and a public data commons. The market is peer-to-peer (the platform holds no position in it); the substrate is queryable without account or key. Cambridge-authored schemas and explicitly first-party datasets may be CC0; upstream-derived fields retain their source rights and mixed responses are NOASSERTION.";
 
 // ── The two operations ───────────────────────────────────────────────────
 
@@ -146,7 +162,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
     ],
     status: "live",
     notes:
-      "CC0 by default. No auth required for reads. Provenance + freshness on every response. Spot prices are labelled reference prices — open data, never an offer.",
+      "Public reads carry provenance, freshness, and a rights declaration. Cambridge-authored work may be CC0; mixed upstream-derived responses are NOASSERTION. Reference prices are never offers.",
   },
 ] as const;
 
@@ -159,31 +175,37 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
  * future kingdoms re-running coverage audits should bump it.
  */
 export const COVERAGE_FACTS = {
-  as_of: "2026-07-05",
+  as_of: "2026-07-11",
   games: {
-    declared: 21,
-    confirmed_codes: 4, // op/pkm/dbf/tst — "confirmed" = cards exist in the production wholesale DB (2026-07-05 reconciliation)
-    catch_all_codes: 7,
+    declared: PUBLIC_GAME_CODES.length,
+    confirmed_codes: PUBLIC_CONFIRMED_GAME_CODES.length,
+    anticipated_codes:
+      PUBLIC_GAME_CODES.length - PUBLIC_CONFIRMED_GAME_CODES.length,
     note:
-      "Anticipate-then-confirm pattern (kingdom-069). 14 games with confirmed three-letter codes; 7 anticipated but awaiting first real card.",
+      `${PUBLIC_CONFIRMED_GAME_CODES.length} production games currently expose catalog rows: One Piece, Pokémon, Dragon Ball Fusion World, Digimon, Vanguard, and Battle Spirits. ${PUBLIC_GAME_CODES.length - PUBLIC_CONFIRMED_GAME_CODES.length} other public codes are anticipated; the internal tst code is excluded from these counts.`,
   },
   set_formats: {
-    total: 51,
-    confirmed: 31,
-    catch_all: 20,
+    total: PUBLIC_SET_FORMATS.length,
+    confirmed: PUBLIC_CONFIRMED_SET_FORMATS.length,
+    unconfirmed:
+      PUBLIC_SET_FORMATS.length - PUBLIC_CONFIRMED_SET_FORMATS.length,
     note:
-      "Across 21 games (kingdom-078). Each format = a tuple of (game, pattern, examples, confirmed-flag).",
+      `Across ${PUBLIC_GAME_CODES.length} public game codes. One internal test format is excluded. Each format = a tuple of (game, pattern, examples, confirmed-flag).`,
   },
   sources: {
-    shipped: 6,
-    planned: 11,
-    shipped_list: [
-      { id: "cardrush", status: "shipped (daily scrape)", license: "scraped-public" },
-      { id: "scryfall", status: "shipped (bulk-dump)", license: "cc-by" },
-      { id: "pokemon-tcg-api", status: "shipped (paginated REST)", license: "mit" },
-      { id: "ygoprodeck", status: "shipped partial (one-raw-to-many limitation)", license: "cc-by" },
-      { id: "tcgplayer", status: "stub (OAuth2 pending)", license: "tos-restricted" },
-      { id: "cardmarket", status: "stub (OAuth1 signing pending)", license: "tos-restricted" },
+    registered: 9,
+    with_observed_rows: 1,
+    planned_slots: 10,
+    registered_list: [
+      { id: "cardrush", status: "live observations", license: "internal-only" },
+      { id: "scryfall", status: "adapter built · never run", license: "proprietary policy" },
+      { id: "pokemon-tcg-api", status: "adapter built · never run", license: "proprietary" },
+      { id: "ygoprodeck", status: "blocked pending rights", license: "proprietary" },
+      { id: "tcgplayer", status: "blocked by access + terms", license: "proprietary" },
+      { id: "tcgcollector", status: "partial · never run", license: "internal-only" },
+      { id: "cardmarket", status: "public-file reader planned", license: "proprietary" },
+      { id: "ebay", status: "partial · never run", license: "partner-restricted" },
+      { id: "vinted", status: "blocked · consented export only", license: "internal-only" },
     ],
   },
   math_mirror_kinds: {

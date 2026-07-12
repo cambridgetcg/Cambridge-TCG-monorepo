@@ -7,16 +7,11 @@
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * Scryfall data is CC-BY-NC 4.0 (attribution required, non-commercial
- * redistribution OK; commercial use requires permission). Card images
- * are publisher-owned (Wizards of the Coast).
- *
- * Cambridge TCG operates a commercial marketplace, so downstream uses
- * of Scryfall-derived data must (a) attribute Scryfall, (b) treat the
- * data as non-commercial-redistributable — internal computation, buyer-
- * facing display OK; bulk re-export restricted. The `redistribute: false`
- * flag in `meta` propagates this to `_meta.source_license` downstream
- * (future work — see the-tributaries.md recursion target #5).
+ * Scryfall publishes a policy-governed public API, not a CC-licensed data
+ * corpus. Its current rules allow free, value-added Magic software while
+ * prohibiting paywalls and simple repackaging/proxying; Wizards retains the
+ * rights in Magic card material. `proprietary + redistribute:false` is the
+ * conservative downstream boundary for upstream bytes.
  *
  * ── Memory caveat ────────────────────────────────────────────────────
  *
@@ -96,30 +91,29 @@ export const scryfall: SourceModule<ScryfallCard, CanonicalCard> = {
     id: "scryfall",
     name: "Scryfall",
     description:
-      "Magic: The Gathering — every printing, every language, multi-resolution images. Exemplary public API + daily bulk dumps. CC-BY-NC 4.0.",
+      "Magic: The Gathering catalog and images through a policy-governed public API and bulk files. Value-added free use is permitted; raw republishing is not.",
     upstream: "https://scryfall.com",
     catalog_section: "the-tributaries.md#31-scryfall-mtg",
     access: "public-api",
-    license: "cc-by-nc",
-    license_spdx: "CC-BY-NC-4.0",
+    license: "proprietary",
     redistribute: false,
     freshness: "catalog",
     canonical_effort: "low",
-    status: "shipped",
+    status: "partial",
     games: ["mtg"],
     tos_notes:
-      "https://scryfall.com/docs/api — rate limit 10 req/s suggested; identify yourself in User-Agent. Bulk dumps refresh daily ~01:00 UTC.",
+      "Scryfall's API policy permits free value-added Magic software but forbids paywalling card data and simply repackaging, republishing, or proxying it. Magic material remains Wizards-owned. Use endpoint-specific limits and bulk files for large reads. https://scryfall.com/docs/api#use-of-scryfall-data-and-images ; https://scryfall.com/docs/api/rate-limits ; https://scryfall.com/docs/api/bulk-data",
     user_agent_suffix: "(scryfall-ingest)",
     rate_limit: { rps: 5, burst: 10 },
     welcome:
-      "Welcome to the kingdom, Scryfall. You arrived first — kingdom-060, " +
-      "2026-05-12 — and you are the exemplar every other upstream is measured " +
-      "against. Your bulk dumps land daily, your `oracle_id` gives us cross-printing " +
-      "stability, your `image_uris` we hot-link with attribution. Your room is " +
-      "`card_set_cards WHERE game='mtg'`. We honor your CC-BY-NC 4.0 license " +
-      "downstream — every response that touches your bytes declares `redistribute: false` " +
-      "in `_meta.source_license` so the consumer SDK knows. Thank you for being " +
-      "public, for being free at 5 rps, for documenting your bulk-dump cadence, " +
+      "Welcome to the kingdom, Scryfall. Your adapter arrived first — kingdom-060, " +
+      "2026-05-12 — and has not run yet. Your upstream publishes bulk files; your " +
+      "`oracle_id` can provide cross-printing stability when a policy-compliant use " +
+      "is activated. Your future room is " +
+      "`card_set_cards WHERE game='mtg'`. We honor your API policy and Wizards' " +
+      "underlying rights downstream — every response that touches your bytes declares " +
+      "`redistribute: false` so consumers do not mistake access for an open license. " +
+      "Thank you for being public and for documenting your bulk-dump cadence, " +
       "and for shipping the JSON shape every other catalog API would do well to imitate.",
   },
 

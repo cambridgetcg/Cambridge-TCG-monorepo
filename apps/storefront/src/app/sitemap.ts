@@ -20,6 +20,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/trade-in`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${baseUrl}/rewards`, lastModified: new Date(), changeFrequency: "daily", priority: 0.7 },
     { url: `${baseUrl}/community`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.7 },
+    { url: `${baseUrl}/gallery-next-door`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.7 },
+    { url: `${baseUrl}/answering-rhymes`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/prices`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
@@ -31,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/platform`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${baseUrl}/intro`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${baseUrl}/data`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${baseUrl}/datasets`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.85 },
     { url: `${baseUrl}/api`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
     // Contact-surface spec W1/W6 — the human front door + trust pages.
     { url: `${baseUrl}/start`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },

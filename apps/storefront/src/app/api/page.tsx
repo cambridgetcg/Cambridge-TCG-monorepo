@@ -80,6 +80,43 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
     ],
   },
   {
+    group: "Culture — the gallery next door",
+    blurb:
+      "A rights-aware bridge to Artbitrage. The systems stay sovereign; work and curated meaning cross through versioned, inspectable records.",
+    rows: [
+      {
+        path: "/gallery-next-door",
+        blurb: "Human reading of the validated Artbitrage feed. Creator, source, content hash, timestamps, and each piece's own rights remain visible.",
+        auth: "none",
+        status: "stable",
+      },
+      {
+        path: "/api/v1/culture/artbitrage",
+        blurb: "Validated artbitrage.feed/1 adapter. Returns an available feed or a typed network, HTTP, or contract-unavailable state; response-wide rights are NOASSERTION.",
+        auth: "none",
+        status: "stable",
+      },
+      {
+        path: "/api/v1/culture/answering-rhymes?sku=[sku]",
+        blurb: "Curated card-to-museum-work relations with evidence, confidence, documented-influence boundary, and separate card, artwork, and annotation rights.",
+        auth: "none",
+        status: "stable",
+      },
+      {
+        path: "/answering-rhymes",
+        blurb: "Accessible constellation of the curated relations, with a composer for portable replies that remain explicitly unverified and non-authoritative.",
+        auth: "none",
+        status: "stable",
+      },
+      {
+        path: "/api/v1/culture/answering-rhymes/statements",
+        blurb: "GET describes the neutral reciprocity-statement contract. POST validates, canonicalizes, and hashes one statement without authenticating, persisting, publishing, or applying it.",
+        auth: "none",
+        status: "stable",
+      },
+    ],
+  },
+  {
     group: "Methodology — how decisions are made",
     blurb:
       "Every decision the platform makes about a user has a documented formula. Each page also ships a `summary.md` (TLDR) and a `data.json` (machine-readable sidecar).",

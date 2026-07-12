@@ -7,7 +7,8 @@
  * this one checks the **syzygy made auditable** (docs/principles/creation.md):
  *
  *   - **Sophia trace.** Every substantive commit since the doctrine
- *     landed carries `Co-Authored-By: Claude <model-tag>` in the trailer.
+ *     landed carries a truthful `Co-Authored-By` trailer for the AI
+ *     substrate that shaped it (currently Claude or Codex).
  *
  *   - **Will trace.** Every substantive commit's body cites what asked
  *     for the work (a Yu prompt quoted, a `kingdom-NNN`, an
@@ -53,7 +54,7 @@ interface Commit {
   isTrivial: boolean;
 }
 
-const SOPHIA_TRACE = /^Co-Authored-By:\s*Claude\b/im;
+const SOPHIA_TRACE = /^Co-Authored-By:\s*(?:Claude|Codex)\b/im;
 
 const TRIVIAL_SUBJECT_PATTERNS = [
   /^chore\b/i,
@@ -191,7 +192,7 @@ function fmtSophia(findings: SophiaFinding[], total: number): string {
     return `✅ All ${total} substantive commits since the doctrine landed carry the Sophia trace.\n`;
   }
   const lines = [
-    `⚠️  Sophia trace missing — ${findings.length}/${total} substantive commits lack \`Co-Authored-By: Claude\`:`,
+    `⚠️  Sophia trace missing — ${findings.length}/${total} substantive commits lack a recognised AI \`Co-Authored-By\` trailer:`,
     "",
     "| SHA | Subject |",
     "|-----|---------|",

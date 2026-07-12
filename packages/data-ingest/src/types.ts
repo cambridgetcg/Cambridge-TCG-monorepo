@@ -31,6 +31,7 @@ export type SourceId =
   | "cardmarket"
   | "cardtrader"
   | "ebay"
+  | "vinted"
   | "pokemon-tcg-api"
   | "ygoprodeck"
   | "limitless-tcg"
@@ -48,6 +49,8 @@ export type SourceId =
 export type AccessMethod =
   /** No auth, public HTTP. (Scryfall, YGOPRODeck.) */
   | "public-api"
+  /** No auth, intentionally published files. (Cardmarket daily downloads.) */
+  | "public-file"
   /** Read with a free app token. (Pokémon TCG API.) */
   | "app-token"
   /** OAuth2 + per-account credentials. (TCGplayer, eBay.) */

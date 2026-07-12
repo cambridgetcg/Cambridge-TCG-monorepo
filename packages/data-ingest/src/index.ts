@@ -138,7 +138,7 @@ export {
   type GapStatus,
 } from "./gaps";
 
-// Re-export each shipped source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
+// Re-export each registered source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
 export { scryfall } from "./scryfall/index";
 export {
   cardrush,
@@ -171,6 +171,7 @@ export { ygoprodeck } from "./ygoprodeck/index";
 export {
   tcgplayer,
   mintTcgplayerToken,
+  TCGPLAYER_ACCESS_BLOCKED_MESSAGE,
   readTcgplayerCredentialsFromEnv,
   tokenIsFresh,
   TCGPLAYER_CATEGORIES,
@@ -200,6 +201,15 @@ export {
   type TcgplayerWatchlistEntry,
 } from "./tcgplayer/index";
 export { cardmarket } from "./cardmarket/index";
+// The honest block — a source we decided NOT to scrape, declared in code
+// with its verdict. Consented first-party normalizer is the usable export.
+// Doctrine: docs/methodology/source-intake.md.
+export {
+  vinted,
+  normalizeVintedSale,
+  type VintedConsentedSale,
+  type VintedCanonicalObservation,
+} from "./vinted/index";
 // kingdom: sitemap+JSON-LD discovery — first vendor TCGCollector.
 // Public sitemap-index → per-page Schema.org Product/Offer JSON-LD →
 // typed TcgCollectorProduct shape. Mirrors the cardrush discovery
@@ -263,3 +273,13 @@ export {
   type EbayReadOptions,
   type EbayWatchEntry,
 } from "./ebay/index";
+// The lawful first-party eBay SOLD door — a seller's own consented sales
+// from the Sell/Fulfillment API (getOrders after OAuth consent). Buyer PII
+// structurally excluded; forward-ready + INERT (no live fetch, no cron),
+// gated on operator OAuth app + solicitor review. Same shape as the Vinted
+// consented stub — build-once, reuse. Doctrine: docs/methodology/source-intake.md.
+export {
+  normalizeEbayConsentedSale,
+  type EbayConsentedSale,
+  type EbayConsentedCanonicalObservation,
+} from "./ebay/consented";

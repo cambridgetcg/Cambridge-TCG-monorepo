@@ -142,13 +142,14 @@ None of this requires partnership with Cambridge TCG. The pattern is the standar
 
 Ordered by leverage × tractability:
 
-1. **Cardmarket Phase A** — closes 2 gaps (`cardmarket-oauth1-not-configured`, `name-translations-data-starved`).
-2. **K2 schema migration applied** — closes/advances 5 gaps (`cross-language-anchor-schema-not-applied`, `ygo-passcode-writer-not-shipped` precondition, `default-name-language-opaque`, `no-transliteration-layer` precondition, `image-hash-bridge-not-wired` precondition).
-3. **K4 FX provenance migration** — closes `fx-provenance-implicit`.
-4. **YGOPRODeck writer** — closes `ygo-passcode-writer-not-shipped`.
-5. **Pokémon-card-jp source** — closes `no-jp-pokemon-ingester`.
-6. **`/api/v1/ingest-quarantine/summary` endpoint** — closes `ingest-quarantine-private`.
-7. **De-collapse `zhs` / `zht`** — closes `zhs-zht-collapsed`.
+1. **Cardmarket public-file reader** — advances `cardmarket-public-files-not-wired` and can populate translation fields; it does not establish open redistribution rights.
+2. **Catalog field-level rights lineage** — advances `catalog-field-rights-lineage-missing` from aggregate `NOASSERTION` to evidenced per-field source boundaries.
+3. **K2 schema migration applied** — closes/advances 5 gaps (`cross-language-anchor-schema-not-applied`, `ygo-passcode-writer-not-shipped` precondition, `default-name-language-opaque`, `no-transliteration-layer` precondition, `image-hash-bridge-not-wired` precondition).
+4. **K4 FX provenance migration** — closes `fx-provenance-implicit`.
+5. **YGOPRODeck rights review before any writer** — keep blocked unless written commercial-content permission exists; then close `ygo-passcode-writer-not-shipped`.
+6. **Pokémon-card-jp source** — closes `no-jp-pokemon-ingester` after its own rights intake.
+7. **`/api/v1/ingest-quarantine/summary` endpoint** — closes `ingest-quarantine-private`.
+8. **De-collapse `zhs` / `zht`** — closes `zhs-zht-collapsed`.
 
 Each closure is a kingdom (or a phase of one). Each closure flips status + sets `closed_at` + names `closing_kingdom`. The ledger's status distribution becomes the platform's progress signal.
 

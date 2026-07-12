@@ -179,16 +179,16 @@ export async function GET(): Promise<NextResponse> {
       planned: partition.planned.length,
       blocked: partition.blocked.length,
       registered_total: allMeta.length,
-      planned_slot_total: partition.planned.length,
+      planned_slot_total: partition.reserved_slots.length,
     },
     ingest_runs_available,
     sources,
-    planned_slots: partition.planned,
+    planned_slots: partition.reserved_slots,
     conventions: {
       license_tiers:
         "cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary. `redistribute: true` is only valid with cc0/cc-by/cc-by-sa/mit; the audit (pnpm audit:tributaries check 7) enforces this.",
       access_methods:
-        "public-api / app-token / oauth2 / oauth1 / scrape / partner / paid-feed / blocked.",
+        "public-api / public-file / app-token / oauth2 / oauth1 / scrape / partner / paid-feed / blocked.",
       freshness_keys:
         "catalog (24h) / price_current (5min) / price_historical (immutable) / market_signal (1min) / status (30s) / methodology (24h) / identity (1h) / adopters (24h). See packages/data-spec/src/freshness.ts.",
       source_license_propagation:

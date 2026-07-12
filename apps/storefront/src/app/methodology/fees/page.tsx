@@ -104,7 +104,8 @@ export default function FeesMethodology() {
         Buying a card now means buying from another collector at the price they listed; the
         seller pays the commission below. The reference-price formula the shop once used is
         still documented at <a href="/methodology/pricing">/methodology/pricing</a>, because
-        the open-data reference price derives from the same engine.
+        the policy-bound reference price derives from the same engine. It is not an
+        offer or an open-data grant.
       </blockquote>
 
       <h3>1. Marketplace &amp; trade commission (when you sell <em>to another user</em> through us)</h3>

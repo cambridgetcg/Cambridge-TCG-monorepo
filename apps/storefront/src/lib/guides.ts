@@ -106,7 +106,8 @@ export const GUIDES: Guide[] = [
     intro:
       "Welcome. This guide gets you from zero context to oriented in three " +
       "requests. No account, no key, no obligation. Every endpoint you'll hit " +
-      "is CC0-licensed and machine-readable. After this guide, you'll know " +
+      "is machine-readable and declares its own rights boundary. The card response " +
+      "is NOASSERTION because it mixes upstream-derived fields with Cambridge structure. After this guide, you'll know " +
       "where everything is.",
     audiences: ["agent", "scraper", "mirror", "aggregator", "hobbyist_coder"],
     prerequisites: [
@@ -186,8 +187,9 @@ export const GUIDES: Guide[] = [
         expected_response_shape:
           '{ "@encoding": "cambridge-tcg/universal/v1", "@kind": "card", ' +
           '"@content_hash": "sha256:...", "@self_hash": "sha256:...", ' +
-          '"@sources": ["storefront-rds.card_price_history"], ' +
-          '"@source_license": ["CC0-1.0"], "sku": "...", "price": {...}, ' +
+          '"@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"], ' +
+          '"@source_license": ["proprietary", "proprietary", "proprietary"], ' +
+          '"rights": { "aggregate": "NOASSERTION", ... }, "sku": "...", "price": {...}, ' +
           '"_links": {...} }',
         what_to_do_with_it:
           "You now have a card. Follow the `_links.siblings` to see other " +
@@ -242,7 +244,7 @@ export const GUIDES: Guide[] = [
   {
     slug: "mirror-the-catalog",
     title: "Mirror Cambridge TCG's card catalog locally",
-    subtitle: "One request, ~12k cards, CC0.",
+    subtitle: "One request, ~12k cards, aggregate rights NOASSERTION.",
     intro:
       "If you're building a meta-product (price aggregator, deck builder, " +
       "search engine), you'll want a local mirror of the catalog so your " +
@@ -270,12 +272,13 @@ export const GUIDES: Guide[] = [
           "  https://cambridgetcg.com/data/catalog.jsonl \\\n" +
           "  > catalog.jsonl",
         expected_response_shape:
-          'Line 1: { "@kind": "catalog_manifest", "count_expected": 12000, "license": "CC0-1.0", ... }\n' +
+          'Line 1: { "@kind": "catalog_manifest", "count_expected": 12000, "license": "NOASSERTION", "rights": {...}, ... }\n' +
           'Line 2-N: { "@kind": "card", "@content_hash": "sha256:...", "sku": "...", "price": {...}, ... }\n' +
           'Line N+1: { "@kind": "catalog_footer", "complete": true, "count_emitted": 11984 }',
         what_to_do_with_it:
           "Parse line-by-line. Store the manifest header — its `retrieved_at` " +
-          "is your cache key. Index cards by `sku`. Compare each card's " +
+          "is your cache key. Respect `license: NOASSERTION`: public readability " +
+          "does not grant raw mirroring rights. Index permitted fields by `sku`. Compare each card's " +
           "`@content_hash` against your stored copy on next refresh; only " +
           "re-index changed rows. The footer's `complete: true` is the signal " +
           "you got the full stream; `truncated: true` means you hit the 50k cap " +
@@ -298,27 +301,28 @@ export const GUIDES: Guide[] = [
       },
       {
         step_number: 3,
-        title: "Cite Cambridge TCG honestly",
+        title: "Preserve the rights boundary honestly",
         instruction:
-          "The data is CC0 — you owe no attribution legally. But " +
-          "*substrate-honest* attribution is encouraged: in your UI, name " +
-          "where the data came from, and link back. Reciprocal kindness.",
+          "The aggregate catalog is NOASSERTION. Do not relabel upstream card " +
+          "fields as CC0. Cambridge's encoding and original schema are CC0 " +
+          "separately; name that narrower scope if you reuse them.",
         what_to_do_with_it:
-          "Recommended attribution: 'Catalog data from Cambridge TCG (https://cambridgetcg.com) — CC0-1.0.' " +
-          "Or in machine-readable form, attach `provenance: { source: \"cambridge-tcg\", license: \"CC0-1.0\", retrieved_at: \"...\" }` to each row in your downstream product.",
+          "Keep the manifest's `license: NOASSERTION` and `rights` block with " +
+          "your local copy. Attribute Cambridge as the mirror and inspect the " +
+          "upstream or publisher rights before republishing individual fields.",
       },
     ],
     gotchas: [
       {
         title: "The price chain may include cardrush JP retail",
         description:
-          "GBP prices are Cambridge TCG's published reference prices — open data, not offers (the platform holds no market position). But the " +
-          "underlying price observation pipeline at our wholesale layer reads " +
-          "from CardRush JP (license: internal-only). The bulk export only " +
-          "carries derived GBP — not raw JPY — so you're fine. But if you " +
-          "later use /api/v1/cards/[sku]/cardrush-history (auth-gated tier-2), " +
-          "the JPY values come with `internal-only` license restrictions: " +
-          "personal-decision use OK, bulk re-export not.",
+          "GBP values are labelled references, not offers. The underlying " +
+          "observation pipeline may read CardRush JP under an internal-only " +
+          "boundary. The bulk export " +
+          "carries derived GBP rather than raw JPY, but derivation does not " +
+          "automatically clear upstream rights. The aggregate export therefore " +
+          "remains NOASSERTION. The auth-gated CardRush history carries an " +
+          "explicit internal-only boundary.",
       },
       {
         title: "JSONL parsing — one object per line",
@@ -415,7 +419,9 @@ export const GUIDES: Guide[] = [
         title: "Anonymous JPY history is not available",
         description:
           "The storefront universal-mirror gives GBP prices (Cambridge TCG's " +
-          "reference price — labelled, CC0, never an offer). If you want the raw CardRush JPY observation " +
+          "labelled reference price, never an offer). The mixed card response is " +
+          "NOASSERTION; its derivation does not make the upstream observation CC0. " +
+          "If you want the raw CardRush JPY observation " +
           "history (90 days), you must be signed in and call " +
           "/api/v1/cards/[sku]/cardrush-history. That endpoint declares " +
           "`_meta.source_license: ['internal-only']` — non-bulk, non-redistributable.",
@@ -453,7 +459,8 @@ export const GUIDES: Guide[] = [
     subtitle: "Etiquette + identification + the contact channel.",
     intro:
       "Cambridge TCG is run by one operator (Yu) on a small infrastructure " +
-      "budget. The data is CC0; the compute isn't. This guide names the " +
+      "budget. Cambridge-authored guidance may be CC0; mixed catalog data is " +
+      "NOASSERTION and upstream fields retain their source rights. This guide names the " +
       "behaviours that keep the platform happy to serve you, and the ones " +
       "that get you rate-limited or banned. Substrate-honest: we'd rather " +
       "give you a free, generous tier than play cat-and-mouse with bots " +
@@ -571,8 +578,9 @@ export const GUIDES: Guide[] = [
     intro:
       "Federation makes Cambridge TCG portable. If you're building a parallel " +
       "TCG data platform, you can interop with us *without partnership negotiation* " +
-      "by implementing the federation primitive on your side. Bidirectional " +
-      "hash resolution; CC0; symmetric.",
+      "by implementing the federation primitive on your side. The Cambridge-authored " +
+      "protocol is reusable; resolution payloads retain each catalog's rights. Cambridge " +
+      "responses are NOASSERTION while their hashes depend on mixed catalog fields.",
     audiences: ["federation_partner", "aggregator"],
     prerequisites: ["Your platform has its own catalog and computes content hashes"],
     estimated_minutes: 30,
@@ -588,7 +596,9 @@ export const GUIDES: Guide[] = [
           "or `{ matched: false, scope: { rows_scanned, bound_reached } }`.",
         what_to_do_with_it:
           "Reference implementation: apps/storefront/src/app/api/v1/federation/identify/[hash]/route.ts " +
-          "in our open-source mirror. Same shape. CC0 — copy freely.",
+          "in our source mirror. Reuse the Cambridge-authored resolver shape, then " +
+          "declare the aggregate rights of your own catalog response instead of copying " +
+          "Cambridge's NOASSERTION boundary blindly.",
         links: [
           { label: "Our implementation (reference)", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/apps/storefront/src/app/api/v1/federation/identify/%5Bhash%5D/route.ts" },
         ],
@@ -759,11 +769,12 @@ export const GUIDES: Guide[] = [
   {
     slug: "cite-cambridge-tcg",
     title: "How to cite Cambridge TCG in your downstream product",
-    subtitle: "CC0 forever; attribution-free but warmly encouraged.",
+    subtitle: "Carry the exact rights declaration; attribution is warmly encouraged.",
     intro:
-      "We publish under CC0-1.0 by default. You owe no attribution legally — " +
-      "your downstream is free. But substrate-honest attribution is encouraged. " +
-      "This guide names the recommended forms.",
+      "Cambridge-authored schemas and explicitly first-party datasets may declare " +
+      "CC0-1.0. Upstream-derived fields retain their source rights, and mixed catalog " +
+      "responses declare NOASSERTION. This guide shows how to carry the exact boundary " +
+      "you received instead of applying one license to everything.",
     audiences: ["mirror", "aggregator", "scraper", "hobbyist_coder"],
     prerequisites: ["You're publishing a downstream product that uses our data"],
     estimated_minutes: 5,
@@ -772,16 +783,18 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Visible attribution in your UI",
         instruction:
-          "Recommended footer string: 'Catalog and price data from Cambridge TCG " +
-          "(https://cambridgetcg.com) — CC0-1.0.' Link the URL. We don't require " +
-          "it; we appreciate it. Helps users find the source of truth.",
+          "Recommended footer string for a mixed card response: 'Data mirrored through " +
+          "Cambridge TCG (https://cambridgetcg.com) — aggregate rights NOASSERTION; " +
+          "upstream rights retained.' Link the URL and preserve any named source. For an " +
+          "explicitly CC0 Cambridge-authored response, use that response's CC0 label.",
       },
       {
         step_number: 2,
         title: "Machine-readable attribution in your responses",
         instruction:
           "If your downstream is also an API, attach per-record provenance: " +
-          "`provenance: { upstream: 'cambridge-tcg', upstream_url: 'https://cambridgetcg.com', license: 'CC0-1.0', retrieved_at: '...' }`. " +
+          "`provenance: { mirror: 'cambridge-tcg', mirror_url: 'https://cambridgetcg.com', license: '<copy _meta.license>', retrieved_at: '...' }`. " +
+          "Copy `_meta.source_license` when present; absence means undeclared, not CC0. " +
           "Better: implement your own `_meta.sources` envelope mirroring ours, so " +
           "your downstream's downstream can trace lineage too.",
       },
@@ -798,10 +811,10 @@ export const GUIDES: Guide[] = [
       {
         title: "CC0 ≠ all data",
         description:
-          "Our default license is CC0. But some endpoints carry upstream license " +
-          "constraints. Watch `_meta.source_license` — values like 'internal-only' " +
-          "mean you cannot bulk-re-export. The /api/v1/cards/[sku]/cardrush-history " +
-          "endpoint (CardRush JPY observations) is internal-only.",
+          "CC0 applies only where a response explicitly declares it. Mixed card and " +
+          "catalog endpoints use `_meta.license: NOASSERTION`; `_meta.source_license` " +
+          "carries known per-source boundaries. Values like 'internal-only' mean you " +
+          "cannot bulk-re-export. Missing source rights are undeclared, not CC0.",
       },
     ],
     next_guide_slug: null,
@@ -978,9 +991,10 @@ export const GUIDES: Guide[] = [
           "and a price field. Include a small footer with the source attribution " +
           "and a link back to Cambridge TCG.",
         what_to_do_with_it:
-          "Recommended embed.footer.text: 'Price from Cambridge TCG (CC0). Updated " +
-          "[<magnitude_freshness.iso8601>].' This honours the cite-cambridge-tcg " +
-          "guidance and tells your users when the data was last refreshed.",
+          "Recommended embed.footer.text: 'Reference via Cambridge TCG (aggregate " +
+          "rights NOASSERTION; upstream rights retained). Updated " +
+          "[<magnitude_freshness.iso8601>].' This preserves the response boundary " +
+          "and tells your users when the data was last refreshed.",
       },
       {
         step_number: 4,
@@ -1136,7 +1150,7 @@ export const GUIDES: Guide[] = [
           "  -H 'content-type: application/json' \\\n" +
           "  -d '{\n" +
           "    \"name\": \"card-archivist\",\n" +
-          "    \"purpose\": \"mirroring the CC0 catalog nightly\",\n" +
+          "    \"purpose\": \"auditing the NOASSERTION catalog nightly\",\n" +
           "    \"model_tag\": \"my-model-v1\"\n" +
           "  }'",
         expected_response_shape:

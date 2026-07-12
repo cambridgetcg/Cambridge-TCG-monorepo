@@ -31,7 +31,13 @@ const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 // source that actually served it, so surfaces can label the provenance
 // instead of passing a database read off as a live API.
 
-import { dbFetchCard, dbFetchGames, dbFetchPrices, dbFetchSets } from './db-source';
+import {
+  dbFetchAggregatorCoverage,
+  dbFetchCard,
+  dbFetchGames,
+  dbFetchPrices,
+  dbFetchSets,
+} from './db-source';
 
 /**
  * Which substrate served a catalog response.
@@ -427,7 +433,7 @@ export async function fetchSourceLastRuns(): Promise<SourceRunRow[] | null> {
 }
 
 /**
- * Aggregator coverage row from wholesale `/api/v1/aggregator/coverage`.
+ * Aggregator coverage row from the wholesale observation database.
  * Per-(game × source) observation counts + date range.
  * kingdom-085 extension.
  */
@@ -450,6 +456,9 @@ export interface AggregatorCoverageGameRow {
   game_name: string;
   sources: string[];
   observations: number;
+  /** Exact distinct-card union across every source attached to this game. */
+  distinct_cards: number;
+  /** Largest distinct-card count contributed by any one source. */
   distinct_cards_max: number;
   earliest_snapshot: string;
   latest_snapshot: string;
@@ -470,6 +479,8 @@ export interface AggregatorCoverageResponse {
     distinct_cards: number;
     distinct_games: number;
     distinct_sources: number;
+    /** Archive rows whose card has no game assignment. Included in totals. */
+    unassigned_observations: number;
     earliest_snapshot: string | null;
     latest_snapshot: string | null;
     days_of_coverage: number;
@@ -481,42 +492,74 @@ export interface AggregatorCoverageResponse {
   queried_at: string;
 }
 
+const COVERAGE_CACHE_TTL_MS = 30_000;
+const COVERAGE_CACHE_MAX_KEYS = 64;
+const coverageCache = new Map<
+  string,
+  { expiresAt: number; pending: Promise<AggregatorCoverageResponse> }
+>();
+
+function coverageCacheKey(opts?: {
+  source?: string;
+  game?: string;
+  since?: string;
+}): string {
+  return JSON.stringify({
+    source: opts?.source ?? null,
+    game: opts?.game ?? null,
+    since: opts?.since ?? null,
+  });
+}
+
+function cacheCoverageRead(
+  key: string,
+  read: () => Promise<AggregatorCoverageResponse>,
+): Promise<AggregatorCoverageResponse> {
+  const now = Date.now();
+  const cached = coverageCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.pending;
+  if (cached) coverageCache.delete(key);
+
+  if (coverageCache.size >= COVERAGE_CACHE_MAX_KEYS) {
+    const oldestKey = coverageCache.keys().next().value as string | undefined;
+    if (oldestKey) coverageCache.delete(oldestKey);
+  }
+
+  const pending = read().catch((error) => {
+    coverageCache.delete(key);
+    throw error;
+  });
+  coverageCache.set(key, { expiresAt: now + COVERAGE_CACHE_TTL_MS, pending });
+  return pending;
+}
+
 /**
- * Fetch the aggregator's "what we've collected" snapshot. Substrate-honest:
- * returns null on Falcon failure (timeout/401/parse); empty arrays when no
- * data has accumulated yet. The freshness budget is short — operational
- * metadata, refresh per request cycle.
+ * Fetch the aggregator's "what we've collected" snapshot directly from the
+ * wholesale Postgres. The historical HTTP route never shipped, so probing it
+ * would add a known redirect/404/timeout before every honest read. Returns
+ * null on database failure and empty arrays when the database is reachable
+ * but has no observations.
  */
 export async function fetchAggregatorCoverage(opts?: {
   source?: string;
   game?: string;
   since?: string;
 }): Promise<AggregatorCoverageResponse | null> {
-  const u = new URL(WHOLESALE_URL + "/api/v1/aggregator/coverage");
-  if (opts?.source) u.searchParams.set("source", opts.source);
-  if (opts?.game) u.searchParams.set("game", opts.game);
-  if (opts?.since) u.searchParams.set("since", opts.since);
-  let res: Response;
+  const normalized = {
+    source: opts?.source || undefined,
+    game: opts?.game || undefined,
+    since: opts?.since || undefined,
+  };
   try {
-    res = await wholesaleFetch(
-      u.toString(),
-      {
-        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-        next: { revalidate: 300 },
-      },
+    if ((process.env.COVERAGE_CACHE_DISABLED || '').trim() === '1') {
+      return await dbFetchAggregatorCoverage(normalized);
+    }
+    return await cacheCoverageRead(
+      coverageCacheKey(normalized),
+      () => dbFetchAggregatorCoverage(normalized),
     );
   } catch (err) {
-    console.error("[wholesale] aggregator coverage fetch error", err);
-    return null;
-  }
-  if (!res.ok) {
-    console.error("[wholesale] aggregator coverage error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as AggregatorCoverageResponse;
-  } catch (err) {
-    console.error("[wholesale] aggregator coverage parse error", err);
+    console.error("[wholesale] aggregator coverage db-source error", err);
     return null;
   }
 }
@@ -667,10 +710,8 @@ export async function fetchPriceSources(opts: {
 
 // ── TCGplayer history (kingdom-080 follow-up) ────────────────────────
 //
-// Per-condition USD observation history. Partner-redistributable license —
-// display + computation OK per partner agreement; bulk re-export restricted.
-// The storefront-side proxy at /api/v1/cards/[sku]/tcgplayer-history adds
-// a session gate and license-aware envelope.
+// Retained response types for compatibility. The client and both serving
+// routes are blocked and expose no observations without written approval.
 
 export interface TcgplayerObservation {
   snapshot_date: string;
@@ -696,7 +737,7 @@ export interface TcgplayerHistoryResponse {
   tcgplayer_product_id: number | null;
   tcgplayer_sub_type: string | null;
   source: "tcgplayer";
-  source_license: "partner-redistributable";
+  source_license: "proprietary";
   filter_condition: string | null;
   count: number;
   conditions_present: string[];
@@ -705,41 +746,16 @@ export interface TcgplayerHistoryResponse {
 }
 
 /**
- * Fetch TCGplayer observation history for one card. License-sensitive:
- * the values are partner-tier USD observations. Storefront callers must
- * enforce a session gate before exposing.
+ * Dormant TCGplayer observation client. The public storefront route is
+ * blocked; do not expose values unless written approval changes SourceMeta.
  */
 export async function fetchTcgplayerHistory(opts: {
   sku: string;
   limit?: number;
   condition?: string;
 }): Promise<TcgplayerHistoryResponse | null> {
-  const u = new URL(
-    WHOLESALE_URL + "/api/v1/tcgplayer/history/" + encodeURIComponent(opts.sku),
-  );
-  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
-  if (opts.condition) u.searchParams.set("condition", opts.condition);
-  let res: Response;
-  try {
-    res = await wholesaleFetch(u.toString(), {
-      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-      next: { revalidate: 300 },
-    });
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-history fetch error", err);
-    return null;
-  }
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    console.error("[wholesale] tcgplayer-history error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as TcgplayerHistoryResponse;
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-history parse error", err);
-    return null;
-  }
+  void opts;
+  return null;
 }
 
 // ── TCGplayer federation resolve (kingdom-080 follow-up) ──────────────
@@ -773,31 +789,8 @@ export async function fetchTcgplayerResolve(opts: {
   sub_type?: string;
   sku_id?: number;
 }): Promise<TcgplayerResolveResponse | null> {
-  const u = new URL(WHOLESALE_URL + "/api/v1/tcgplayer/resolve");
-  if (opts.product_id !== undefined) u.searchParams.set("product_id", String(opts.product_id));
-  if (opts.sub_type !== undefined) u.searchParams.set("sub_type", opts.sub_type);
-  if (opts.sku_id !== undefined) u.searchParams.set("sku_id", String(opts.sku_id));
-  let res: Response;
-  try {
-    res = await wholesaleFetch(u.toString(), {
-      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-      next: { revalidate: 3600 },
-    });
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-resolve fetch error", err);
-    return null;
-  }
-  // 409 (ambiguous) returns a useful body; pass it through
-  if (!res.ok && res.status !== 409) {
-    console.error("[wholesale] tcgplayer-resolve error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as TcgplayerResolveResponse;
-  } catch (err) {
-    console.error("[wholesale] tcgplayer-resolve parse error", err);
-    return null;
-  }
+  void opts;
+  return null;
 }
 
 /**

@@ -38,7 +38,13 @@ export const SKU_GAMES = CONFIRMED_GAME_CODES.filter((c) => c !== "tst").map(
   }),
 );
 
-export type SkuGameSlug = "one-piece" | "pokemon" | "dragon-ball";
+export type SkuGameSlug =
+  | "one-piece"
+  | "pokemon"
+  | "dragon-ball"
+  | "vanguard"
+  | "digimon"
+  | "battle-spirits";
 
 export function isSkuGameSlug(game: string): game is SkuGameSlug {
   return SKU_GAMES.some((g) => g.slug === game);

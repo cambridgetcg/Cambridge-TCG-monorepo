@@ -80,6 +80,7 @@ export async function authenticateApiKey(
       {
         status: 429,
         headers: {
+          "Cache-Control": "private, no-store",
           "Retry-After": "60",
           "X-RateLimit-Limit": String(limit),
           "X-RateLimit-Remaining": "0",
@@ -122,9 +123,15 @@ export function unauthorized() {
         "Most of this catalog is served WITHOUT any key on the consumer host: " +
         "start at https://cambridgetcg.com/api/v1/manifest (the full directory), " +
         "https://cambridgetcg.com/api/v1/search/cards (card resolution), or " +
-        "https://cambridgetcg.com/data/catalog.jsonl (CC0 bulk export).",
+        "https://cambridgetcg.com/data/catalog.jsonl (public bulk export; aggregate rights NOASSERTION).",
       request_id: requestId,
     },
-    { status: 401, headers: { "X-Request-Id": requestId } },
+    {
+      status: 401,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "X-Request-Id": requestId,
+      },
+    },
   );
 }

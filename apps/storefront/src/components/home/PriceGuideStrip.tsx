@@ -37,6 +37,9 @@ export default function PriceGuideStrip() {
   const sorted = [...PRICE_GUIDE_GAMES].sort(
     (a, b) => a.display_priority - b.display_priority,
   );
+  const observedCount = sorted.filter(
+    (game) => game.coverage_status === "observed",
+  ).length;
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-12">
@@ -54,9 +57,9 @@ export default function PriceGuideStrip() {
         }
       />
       <p className="-mt-3 mb-6 text-sm text-ink-muted">
-        Free, daily-updated reference prices across {sorted.length} TCGs.
-        Each page lists every set, every card — and the source behind
-        every number.
+        {observedCount} game guides currently have observed catalog rows;
+        {" "}{sorted.length - observedCount} more routes are explicitly anticipated.
+        Each page shows only rows held, with source state and rights beside them.
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {sorted.map((g) => {

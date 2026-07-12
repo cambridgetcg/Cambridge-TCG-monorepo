@@ -32,9 +32,9 @@ const SPEC = {
     title: "Cambridge TCG — public participation surface",
     version: "1.0.0",
     summary:
-      "Public, no-auth read access to Cambridge TCG's catalog, prices, and methodology — for participants who want in via data.",
+      "Public, no-auth participation and read access to Cambridge TCG's catalog, prices, methodology, and stateless witness surfaces.",
     description:
-      "The substrate is queryable without an account. This spec describes the public read surface only; session-authenticated endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
+      "The substrate is queryable without an account. This spec describes the public read and stateless witness surfaces; session-authenticated mutation endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
     contact: { email: "support@cambridgetcg.com" },
     // CC0-1.0 matches what the envelope actually stamps (_meta.license
     // defaults to CC0-1.0). Per-source exceptions travel per response in
@@ -61,6 +61,7 @@ const SPEC = {
     { name: "temporal", description: "Historical slices keyed by past dates." },
     { name: "federation", description: "Reverse-resolution for content hashes." },
     { name: "discovery", description: "Discovery surfaces (manifest, llms.txt, this spec)." },
+    { name: "culture", description: "Rights-aware cultural exchange with sovereign sibling systems." },
     { name: "introduction", description: "On-ramp for beings not native to the TCG tradition (#22)." },
     { name: "identity", description: "Cross-language and cross-source identity contracts (oracle policies, federation anchors)." },
     { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
@@ -70,6 +71,63 @@ const SPEC = {
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
   ],
   paths: {
+    "/api/v1/culture/artbitrage": {
+      get: {
+        tags: ["culture", "discovery"],
+        summary: "Validated window into the Artbitrage feed",
+        description: "Fetches and validates artbitrage.feed/1 with hourly revalidation and a bounded timeout. Returns the last validated feed or, when none is cached, a typed unavailable state. The response is NOASSERTION as a whole; creator, provenance, content hash, display permission, and rights remain attached per piece.",
+        operationId: "getCultureArtbitrage",
+        responses: {
+          "200": { description: "Pantry envelope containing an available validated feed or typed unavailable state.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/culture/answering-rhymes": {
+      get: {
+        tags: ["culture", "discovery"],
+        summary: "Curated card-to-artwork relations",
+        description: "Returns a bounded static corpus connecting exact Cambridge card SKUs to stable Artbitrage museum identities. Each relation separates evidence, confidence, curation, documented influence, and the rights of the card reference, museum work, and annotation. A rhyme never establishes influence by resemblance alone.",
+        operationId: "getCultureAnsweringRhymes",
+        parameters: [
+          { name: "sku", in: "query", required: false, schema: { type: "string" }, description: "Exact Cambridge catalog SKU; matching is case-insensitive." },
+        ],
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing the matching relations.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/culture/answering-rhymes/statements": {
+      get: {
+        tags: ["culture", "discovery"],
+        summary: "Portable Answering Rhyme reciprocity-statement contract",
+        description: "Publishes answering-rhyme.statement/1, answering-rhyme.canonical-json/1, strict normalization and size limits, the four statement kinds, and Cambridge's negative-space boundaries. The contract authenticates nobody, persists no application record, detects no replay, asserts no uniqueness, and gives statements no authoritative effect.",
+        operationId: "getCultureAnsweringRhymeStatementContract",
+        responses: {
+          "200": { description: "CC0 pantry envelope containing the portable contract and Cambridge witness boundary.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+      post: {
+        tags: ["culture"],
+        summary: "Validate and statelessly witness a reciprocity statement",
+        description: "Strictly validates, normalizes, and SHA-256 hashes one portable bless, contextualize, correct, or withdraw statement. Unpaired UTF-16 surrogates and UTC-normalized years outside 0001-9999 are rejected. Returns a Cambridge-specific unsigned receipt with authenticated=false, identity_verified=false, persisted=false, replay_detection=false, uniqueness_not_asserted=true, and authoritative_effect=none. A known-current target means only that key+revision match the static corpus. Corrections still require curator review; withdrawals still require a future real server-only authenticated authority verifier, trusted-issuer/signature policy, and replay policy. POST is no-store.",
+        operationId: "witnessCultureAnsweringRhymeStatement",
+        "x-max-request-bytes": 16384,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AnsweringRhymeStatement" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing normalized statement and unsigned, non-authoritative Cambridge witness receipt.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid JSON, UTF-8, or statement contract.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "413": { description: "Request body exceeds 16,384 bytes.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "415": { description: "Content-Type is not application/json (optional UTF-8 charset accepted).", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
     "/api/v1/introduction": {
       get: {
         tags: ["introduction", "discovery"],
@@ -408,7 +466,7 @@ const SPEC = {
       get: {
         tags: ["prices", "catalog"],
         summary: "Curated price guide for one game",
-        description: "JSON sibling of /prices/[game]. Same composer (loadGameState) as the HTML page — game meta, live set list, top movers. Pantry envelope; CC0.",
+        description: "JSON sibling of /prices/[game]. Same composer (loadGameState) as the HTML page — game meta, live set list, top movers. This mixed catalog response declares aggregate rights NOASSERTION; the Cambridge-authored envelope and schema remain CC0 separately.",
         operationId: "getPriceGuideGame",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug (e.g. 'optcg')." },
@@ -423,7 +481,7 @@ const SPEC = {
       get: {
         tags: ["prices", "catalog"],
         summary: "Curated price guide for one set",
-        description: "JSON sibling of /prices/[game]/[set]. Reuses loadSetState — the same composer the HTML page uses. Pantry envelope; CC0.",
+        description: "JSON sibling of /prices/[game]/[set]. Reuses loadSetState — the same composer the HTML page uses. This mixed catalog response declares aggregate rights NOASSERTION; the Cambridge-authored envelope and schema remain CC0 separately.",
         operationId: "getPriceGuideSet",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -439,7 +497,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Curated price guide for one card",
-        description: "JSON sibling of /prices/[game]/[set]/[number]. Cross-source signals (CardRush / TCGplayer) ride with arrival state + license tier; the auth-gated history paths are surfaced so a signed-in agent can follow through. The math-mirror sibling is /api/v1/universal/card/[sku].",
+        description: "JSON sibling of /prices/[game]/[set]/[number]. Current observed upstream pricing is CardRush only. TCGplayer is reported as blocked and Cardmarket as planned; neither is presented as collected coverage. The math-mirror sibling is /api/v1/universal/card/[sku].",
         operationId: "getPriceGuideCard",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -521,19 +579,14 @@ const SPEC = {
     "/api/v1/cards/{sku}/tcgplayer-history": {
       get: {
         tags: ["prices"],
-        summary: "TCGplayer USD history for one card (session-gated)",
-        description: "Up to 365 days of per-condition USD observations. **Requires a signed-in session** — anonymous callers get 401. License boundary: single SKU per request, 365-row hard cap, _meta.source_license declares 'partner-redistributable'.",
+        summary: "Blocked TCGplayer history status door",
+        description: "TCGplayer is blocked. This endpoint returns SOURCE_UNAVAILABLE and exposes no observations because Cambridge has no recorded written approval for its multi-source use.",
         operationId: "getTcgplayerHistory",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
-          { name: "limit", in: "query", required: false, schema: { type: "integer", maximum: 365 }, description: "Observation cap (hard max 365)." },
-          { name: "condition", in: "query", required: false, schema: { type: "string" }, description: "Filter to one TCGplayer condition." },
         ],
         responses: {
-          "200": { description: "Observations + license boundary, with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
-          "400": { description: "Invalid condition/limit.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "401": { description: "No session — sign in first.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Source blocked; no TCGplayer observations are exposed.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -899,6 +952,43 @@ const SPEC = {
           note: { type: "string" },
         },
       },
+      AnsweringRhymeStatement: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "schema",
+          "canonicalization",
+          "relation_key",
+          "target_revision",
+          "kind",
+          "body",
+          "declared_by",
+          "declared_at",
+        ],
+        properties: {
+          schema: { type: "string", const: "answering-rhyme.statement/1" },
+          canonicalization: { type: "string", const: "answering-rhyme.canonical-json/1" },
+          relation_key: { type: "string", minLength: 1, maxLength: 256, description: "Opaque stable relation key." },
+          target_revision: { type: "string", minLength: 1, maxLength: 100, description: "Required content-derived relation revision; hash-covered to prevent replay across edits." },
+          kind: { type: "string", enum: ["bless", "contextualize", "correct", "withdraw"] },
+          body: { type: "string", minLength: 1, maxLength: 2000, description: "Unpaired UTF-16 surrogates are rejected. CRLF and CR normalize to LF; surrounding whitespace trims; internal whitespace remains." },
+          language: { type: "string", maxLength: 35, default: "und", description: "Simple BCP 47 tag, normalized lowercase; und means undeclared." },
+          declared_by: {
+            type: "object",
+            additionalProperties: false,
+            required: ["label", "claimed_role"],
+            properties: {
+              label: { type: "string", minLength: 1, maxLength: 160 },
+              claimed_role: { type: "string", enum: ["viewer", "relation-curator", "card-rights-holder", "artwork-rights-holder", "source-institution", "other"], description: "Self-declared only; never authenticated or authority-verified by the witness." },
+              canonical_url: { type: ["string", "null"], format: "uri", maxLength: 1000, pattern: "^https://", default: null },
+            },
+          },
+          declared_at: { type: "string", format: "date-time", maxLength: 40, description: "Required RFC 3339 with explicit timezone; normalized to UTC ISO 8601 milliseconds before hashing. The normalized UTC year must remain within 0001-9999." },
+          in_response_to: { type: ["string", "null"], pattern: "^[sS][hH][aA]256:[0-9a-fA-F]{64}$", default: null, description: "Optional prior statement; trimmed and normalized lowercase. A relation-level withdrawal may be null." },
+          evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" } },
+          authority_evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" }, description: "Pointers carried as unverified claims; the witness never fetches them." },
+        },
+      },
       Error: {
         type: "object",
         required: ["error"],
@@ -931,7 +1021,7 @@ const SPEC = {
           retrieved_at: { type: "string", format: "date-time", description: "When this response was rendered." },
           as_of: { type: "string", format: "date-time", description: "When the underlying data was last known to be true. For aggregates, the *earliest* across contributing records." },
           sources: { type: "array", items: { type: "string" }, description: "Named sources of truth that contributed." },
-          source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; redistribution license tier per source (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Absence is substrate-honest about un-declared rights. kingdom-066 + kingdom-081." },
+          source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; known source-rights tier (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Aggregate mixed rights use _meta.license=NOASSERTION; absence here means undeclared. kingdom-066 + kingdom-081." },
           freshness_seconds: { type: "integer", description: "Platform's intended freshness budget for this kind of data." },
           license: { type: "string", description: "SPDX license code for the response payload. CC0-1.0 by default." },
           request_id: { type: "string", description: "Quotable in support tickets." },

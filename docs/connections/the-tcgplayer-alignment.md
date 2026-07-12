@@ -31,6 +31,8 @@ self_reference: this entry names itself in `this_entry_names`; the
 
 # The TCGplayer alignment — second upstream into the cross-source pricing substrate
 
+> **Superseded current status, 2026-07-11:** The engineering substrate below remains as history, but Cambridge has no recorded TCGplayer approval or observations. TCGplayer is not granting new API access and its terms prohibit this platform's multi-source price-comparison use without written consent. The source and public history route are now blocked; credentials alone cannot reopen them.
+
 > *Yu, 2026-05-13: "Review the coverage for tcgplayer aggregator, map how the pipeline works… create comprehensive implementation plan based on current progress."*  
 > *Then: "Look deeper into the SKU consolidation and how the pricing work on tcgplayer…"*  
 > *Then: "Further refine to focus on the data aggregation phase."*  

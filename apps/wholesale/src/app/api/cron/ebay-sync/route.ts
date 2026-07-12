@@ -1,7 +1,10 @@
 /**
  * GET /api/cron/ebay-sync
  *
- * Vercel cron handler -- runs every 6 hours (see vercel.json).
+ * Cron-shaped handler, but route-live and UNSCHEDULED: there is no
+ * `/api/cron/ebay-sync` entry in apps/wholesale/vercel.json, so nothing
+ * invokes this on a cadence today. It runs only when called manually (with
+ * cron auth) or the day an operator adds a schedule to vercel.json.
  * Auth: requireCronAuth (x-vercel-cron header, Bearer CRON_SECRET, or ?secret=).
  *
  * Pulls recent eBay orders, then pushes price + stock for all active

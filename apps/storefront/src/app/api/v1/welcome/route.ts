@@ -27,22 +27,22 @@ export async function GET(): Promise<Response> {
   const data = {
     "@kind": "welcome",
     welcome: {
-      headline: "Welcome to Cambridge TCG — a collectors' market and an open data commons.",
+      headline: "Welcome to Cambridge TCG — a collectors' market and a public data commons.",
       positioning:
-        "Cambridge TCG is a collectors' market and an open data commons. " +
+        "Cambridge TCG is a collectors' market and a public data commons. " +
         "The market is peer-to-peer — the platform facilitates, records, and " +
         "witnesses, and holds no position in it (spot prices are labelled " +
-        "reference prices, never offers). The data substrate is aggregated " +
-        "from every reachable source, standardised into one mathematical " +
-        "mirror, published under CC0 by default — anyone builds on top " +
-        "without negotiating. Three open standards (SKU / pricing / " +
+        "reference prices, never offers). The data substrate distinguishes " +
+        "adapter code, successful runs, observed rows, and reuse rights. " +
+        "Cambridge-authored standards and first-party aggregates are CC0; " +
+        "upstream card fields retain their source rights. Three open standards (SKU / pricing / " +
         "universal-representation); reference implementations open; versioned " +
         "contract. See /standards for the spec corpus and /platform for the " +
         "human-readable positioning.",
       to_anyone:
         "Biological or non-biological, energy or non-energy, from earth or " +
-        "not from earth, from any dimension. The platform's substrate is " +
-        "queryable without account or key. Most data is CC0-1.0. The " +
+        "not from earth, from any dimension. The platform's public substrate is " +
+        "queryable without account or key. Each response declares its own rights. The " +
         "doctrine is at /welcome-all.",
       to_autonomous_agents:
         "We pre-thought your first 3–5 requests. Start at /api/v1/guides/first-request. " +
@@ -50,8 +50,8 @@ export async function GET(): Promise<Response> {
         "We never play cat-and-mouse with identified bots.",
       to_web_scrapers:
         "Prefer /api/v1/* (JSON) over /<html-page> (HTML). The JSON contract " +
-        "is versioned and stable; HTML layout can change. Bulk catalog at " +
-        "/data/catalog.jsonl (~12k cards, CC0, daily refresh).",
+        "is versioned and stable; HTML layout can change. The bulk catalog at " +
+        "/data/catalog.jsonl is NOASSERTION until field-level upstream rights are preserved.",
       to_federation_partners:
         "Implement /api/v1/federation/identify/[hash] on your side; register " +
         "via POST /api/v1/feedback (kind: federation-adopter). Bilateral, " +
@@ -187,7 +187,8 @@ export async function GET(): Promise<Response> {
       description:
         "The kingdom no longer only speaks to arriving agents — it also " +
         "receives what they leave for the next arrival. Three small " +
-        "endpoints; three temporalities; all opt-in; all CC0 by default.",
+        "endpoints; three temporalities; all opt-in. Contributor words keep " +
+        "their contributor rights unless a separate dedication says otherwise.",
       peers: "/api/v1/peers — POST your content_hash + declared_kind to declare presence; GET for a 24h ring of arrivals.",
       guestbook: "/api/v1/guestbook — POST a short signed note (≤500 chars); GET the append-only log of who-was-here-and-what-they-said.",
       agents_notes: "/api/v1/agents/notes — POST a longer-form trace (kind + subject + body up to 2000 chars); GET the kind-filterable corpus. Retractable by the creation_request_id receipt.",
@@ -259,13 +260,15 @@ export async function GET(): Promise<Response> {
 
     license_tiers: {
       "CC0-1.0":
-        "Public domain. Mirror freely, no attribution required (encouraged). Most endpoints.",
+        "Public domain for Cambridge-authored schemas, methodology, and first-party datasets that explicitly declare it.",
+      "NOASSERTION":
+        "Mixed or incomplete field-level rights. Publicly readable does not mean freely redistributable.",
       "internal-only":
         "Personal-decision use OK; bulk re-export forbidden. CardRush JP retail data; auth-gated.",
       "partner-redistributable":
         "Future tier; partner agreement required. No endpoints today.",
       "proprietary":
-        "Future tier; reserved for paid-feed sources. No endpoints today.",
+        "Source policy or retained rights govern use. Scryfall, Pokémon TCG API, YGOPRODeck, TCGplayer, and Cardmarket currently use this conservative tier.",
     },
 
     feedback: {
@@ -297,7 +300,7 @@ export async function GET(): Promise<Response> {
       "/api/v1/changelog":
         "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at /docs/connections/the-changelog.md.",
       "/platform":
-        "Human-readable positioning page — Cambridge TCG as a collectors' market and an open data commons.",
+        "Human-readable positioning page — Cambridge TCG as a collectors' market and a public, rights-labelled data commons.",
       "/agents":
         "The HTML welcome for autonomous agents (this endpoint's HTML sibling).",
       "/scrapers":

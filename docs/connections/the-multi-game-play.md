@@ -138,7 +138,7 @@ Five phases, each ships standalone value. No phase requires the next.
   - `cards` (existing, financial/identity layer)
   - `card_rules` (new — gameplay attributes: cost, type-line, abilities, attack data, oracle text, format legality). Per-game shape via JSONB `rules_payload`, typed in the per-game engine.
 - Tributary candidates per game (cited in §5 below). Each becomes a `SourceModule`:
-  - `mtg-scryfall` (bulk dumps, CC0-ish, ~30k cards)
+  - `mtg-scryfall` (policy-governed API; no open-data license or bulk-republication right established)
   - `pokemon-tcg-api` (already partially in registry per kingdom-062 consolidation)
   - `ygo-ygoprodeck` (already partially in registry)
   - `lorcana-lorcast` (free, full set coverage)
@@ -146,7 +146,7 @@ Five phases, each ships standalone value. No phase requires the next.
   - `fab-the-fab-cube` (JSON/CSV repo)
   - `digimon-digimoncard-io` (CORS-friendly, 15 req/10s)
   - `optcg-cardrush` (already in registry — but for play we'd need rules, not just price)
-- The `card_rules` writes are CC0 where the upstream allows; the response envelope's `_meta.source_license` already carries this per kingdom-088 (the-license-propagation).
+- The `card_rules` response may be open only where intake evidence covers those exact fields. Storage in Cambridge tables never creates ownership; otherwise the aggregate boundary is `NOASSERTION` or the source remains blocked.
 
 **Doctrine ride-alongs:**
 - The 8-step source protocol applies (`docs/methodology/source-protocol.md`).
@@ -219,10 +219,10 @@ Two parallel catalogs: **engines** (rules + AI), and **card-data APIs** (the sub
 
 | Game | Source | URL | License-tier *(provisional)* | Notes |
 |------|--------|-----|------------------------------|-------|
-| **Magic** | Scryfall | [scryfall.com/docs/api](https://scryfall.com/docs/api) + [bulk-data](https://scryfall.com/docs/api/bulk-data) | CC0-ish (free, no paywall allowed, must credit) | Daily bulk dumps; ~30k cards + reprints; hi-res images; oracle text; legality across all formats; the gold standard |
-| **Pokémon** | Pokémon TCG API | [pokemontcg.io](https://pokemontcg.io/) + [docs](https://docs.pokemontcg.io/) | Free w/ API key for higher limits; now part of Scrydex | Card data + sets + images + attack data + retreat cost + weakness/resistance |
+| **Magic** | Scryfall | [scryfall.com/docs/api](https://scryfall.com/docs/api) + [bulk-data](https://scryfall.com/docs/api/bulk-data) | Proprietary / API-policy-governed; no bulk redistribution | Rich card and rules fields; adapter remains never-run until exact use is reviewed |
+| **Pokémon** | Pokémon TCG API | [pokemontcg.io](https://pokemontcg.io/) + [docs](https://docs.pokemontcg.io/) | Proprietary; service access is not an open-data license | Card data + sets + images + rules fields; key is optional and only changes limits |
 | **Pokémon** | TCGdex | [tcgdex.dev](https://tcgdex.dev/) | (per site) | Multilingual alternative |
-| **Yu-Gi-Oh** | YGOPRODeck | [ygoprodeck.com/api-guide](https://ygoprodeck.com/api-guide/) | Free, always free per docs | 20 req/sec; cards + sets + images + price + rulings; the gold standard for Yu-Gi-Oh |
+| **Yu-Gi-Oh** | YGOPRODeck | [ygoprodeck.com/api-guide](https://ygoprodeck.com/api-guide/) | Proprietary; blocked pending written commercial-content permission | Public API guide exists, but current site terms and publisher rights do not support Cambridge's commercial content use |
 | **Lorcana** | Lorcana-API.com | [lorcana-api.com](https://lorcana-api.com/) | Free, no account, open-source | Smallest barrier |
 | **Lorcana** | LorcanaJSON | [LorcanaJSON/LorcanaJSON](https://github.com/LorcanaJSON/LorcanaJSON) | Open-source community project | JSON/CSV exports |
 | **Lorcana** | Lorcast | [lorcast.com/docs/api](https://lorcast.com/docs/api) | (per site) | REST-like, bulk endpoints |

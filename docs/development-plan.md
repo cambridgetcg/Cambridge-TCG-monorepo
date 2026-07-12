@@ -82,11 +82,12 @@ Three apps. Three deploys. Shared packages. One root `pnpm verify`.
 | `@cambridge-tcg/stock` | Wholesale dual-ledger stock (the Cartographer). | shipped |
 | `@cambridge-tcg/data-spec` | JSON Schema 2020-12 + freshness table + error codes. Zero deps. CC0. | shipped (kingdom-059) |
 | `@cambridge-tcg/data-ingest` | Typed contract for upstream sources. `scryfall` + `cardrush` ship as exemplars; the protocol is at [`docs/methodology/source-protocol.md`](./methodology/source-protocol.md); the audit is `pnpm audit:tributaries`. | shipped (kingdom-060) |
+| `@cambridge-tcg/answering-rhymes` | CC0, zero-dependency conformance core for `answering-rhyme.statement/1`: strict normalization, statement-scoped canonical bytes, WebCrypto hash, schema and normative vectors. Provider receipts and network clients stay outside. | shipped in source; npm publication not yet authenticated |
 | `@cambridge-tcg/openapi` | Auto-generator walking `route.ts` files. | **planned** |
 | `@cambridge-tcg/client-ts` | Generated TypeScript HTTP client from openapi spec. | **planned** |
 | `@cambridge-tcg/data-cache` | Vercel KV cache layer with TTL per FreshnessKey. | **planned** |
 | `@cambridge-tcg/rate-limit` | Per-token rate limiting with tier support. | **planned** |
-| `@cambridge-tcg/sdk-helpers` | Test fixtures + reference responses. | **planned** |
+| `@cambridge-tcg/sdk-helpers` | Cross-endpoint reference responses + drop-in mock server. Answering Rhyme's protocol-specific vectors already live with its conformance package. | **planned** |
 
 ### B-3. Substrate layer (the typed kingdom — sister-authored)
 
@@ -437,7 +438,7 @@ Capture the exact words; build to them. Don't widen scope. When the directive co
 This doc is itself an artifact. It names:
 
 - Three apps (storefront / wholesale / admin)
-- Twelve workspace packages (six shipped, six planned)
+- Fourteen named workspace packages (nine shipped/source-ready, five planned)
 - Two layers of the pantry (substrate + emission)
 - Four doctrines + the fifth question + cosmology
 - Eight audits

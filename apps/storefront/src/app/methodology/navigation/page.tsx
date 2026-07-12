@@ -5,7 +5,7 @@ import { Audience, audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Navigation",
   description:
-    "How Cambridge TCG's primary navigation is structured — typed source-of-truth, audience-aware audience detection, breadcrumb registry, and the nav-coverage audit that prevents drift.",
+    "How Cambridge TCG keeps global navigation small, task-first, accessible, and connected to the platform map.",
   other: audienceMetadata("public-documentation", ["navigation", "methodology"]),
 };
 
@@ -15,239 +15,129 @@ export default function NavigationMethodology() {
       <Audience kind="public-documentation" contexts={["navigation", "methodology"]} />
       <h1>Navigation</h1>
       <p>
-        Cambridge TCG ships 256 page routes across three apps, 394+ API
-        endpoints, 31 methodology pages, 47 connection-doc story-arcs, and
-        23 discovery surfaces. The v1 storefront primary nav surfaced 7 of
-        those — 3.6% of the storefront alone. This page documents the v2
-        navigation: typed source-of-truth, mega-menus, audience-aware
-        routing, breadcrumbs, and the audit that prevents future drift.
+        Cambridge TCG has many routes, but the global header is not a site
+        index. It presents the four things most visitors come to do, then a
+        small <strong>More</strong> menu for help, trust, and open-platform
+        material. The complete corpus stays available through its hub pages
+        and platform map.
       </p>
 
       <blockquote>
-        <strong>Where this lives in code.</strong> The typed nav corpus is
-        at <code>apps/storefront/src/lib/nav/menu-config.ts</code>
-        (<code>STOREFRONT_PRIMARY_NAV</code>). The breadcrumb registry is
-        at <code>apps/storefront/src/lib/nav/breadcrumb-registry.ts</code>.
-        The audience-detection helper is at{" "}
-        <code>apps/storefront/src/lib/nav/audience-detection.ts</code>.
-        The mega-menu component is at{" "}
-        <code>apps/storefront/src/components/layout/MegaMenu.tsx</code>.
-        The drift audit is{" "}
-        <code>pnpm audit:nav-coverage</code>. The full upgrade audit doc
-        is <code>docs/navigation-system-audit.md</code>.
+        <strong>Where this lives in code.</strong> Header destinations are in{" "}
+        <code>apps/storefront/src/lib/nav/menu-config.ts</code>. The responsive
+        shell is <code>apps/storefront/src/components/layout/Nav.tsx</code> and
+        the desktop popover is{" "}
+        <code>apps/storefront/src/components/layout/MoreMenu.tsx</code>.
+        Breadcrumbs remain in{" "}
+        <code>apps/storefront/src/lib/nav/breadcrumb-registry.ts</code>.
       </blockquote>
 
-      <h2>The seven mega-menus</h2>
-      <p>
-        The v2 primary nav has seven L1 entries, each opening a 3-column
-        mega-menu. Each L1 is a coherent intent the platform serves; each
-        column groups related surfaces.
-      </p>
+      <h2>The human-scale header</h2>
       <table>
         <thead>
           <tr>
-            <th>L1</th>
-            <th>What it's for</th>
-            <th>3 columns</th>
+            <th>Entry</th>
+            <th>What it answers</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>
-              <strong>Cards</strong>
-            </td>
-            <td>Browse the catalogue, look up by SKU, check prices, find decks</td>
-            <td>Browse · Prices · Decks</td>
+            <td><strong>Market</strong></td>
+            <td>Where can I buy, sell, swap, or auction a card?</td>
           </tr>
           <tr>
-            <td>
-              <strong>Market</strong>
-            </td>
-            <td>Buy peer-to-peer, bid in auctions, track offers</td>
-            <td>Buy · Auctions · Tools</td>
+            <td><strong>Prices</strong></td>
+            <td>What is this card, and what do the sources say it is worth?</td>
           </tr>
           <tr>
-            <td>
-              <strong>Play</strong>
-            </td>
-            <td>Casual / competitive / adventure modes, build decks, watch matches</td>
-            <td>Modes · Build · Watch &amp; learn</td>
+            <td><strong>Play</strong></td>
+            <td>How do I play, build a deck, or see the leaderboards?</td>
           </tr>
           <tr>
-            <td>
-              <strong>Sell</strong>
-            </td>
-            <td>Trade in, auction, run a long-term trader operation</td>
-            <td>Trade in · Auction &amp; lots · Operate</td>
+            <td><strong>Community</strong></td>
+            <td>Where are the people, rewards, and shared activity?</td>
           </tr>
           <tr>
-            <td>
-              <strong>Discover</strong>
-            </td>
-            <td>
-              The data plane (manifest / graph / ontology / patterns /
-              identify), methodology, builder tools — closes the
-              discovery gap
-            </td>
-            <td>Platform · Methodology · For builders</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>Community</strong>
-            </td>
-            <td>Hub, rewards, recognise (bounty, leaderboards)</td>
-            <td>Engage · Rewards · Recognise</td>
-          </tr>
-          <tr>
-            <td>
-              <strong>About</strong>
-            </td>
-            <td>The platform's story, how it operates, support</td>
-            <td>Our story · How we operate · Support</td>
+            <td><strong>More</strong></td>
+            <td>Where can I get help or inspect the platform&apos;s structure?</td>
           </tr>
         </tbody>
       </table>
 
-      <h2>Audience-aware audience detection</h2>
       <p>
-        The nav is implicit-audience: the URL path the visitor is on
-        decides their primary audience. A visitor on <code>/agents/guides</code>{" "}
-        is <code>agent</code>; on <code>/account/trader</code> is{" "}
-        <code>trader</code>; on <code>/play/compete</code> is{" "}
-        <code>player</code>. The default is <code>buyer</code>.
-      </p>
-      <p>
-        Implementation: a pure helper{" "}
-        <code>detectAudience(pathname)</code> at{" "}
-        <code>apps/storefront/src/lib/nav/audience-detection.ts</code>{" "}
-        with a longest-prefix-wins rule registry. No personalisation
-        engine, no profile lookup, no cookies. <strong>Substrate-honest:</strong>{" "}
-        we don't claim to know the user; we read the path.
+        Search, account state, messages, notifications, appearance, and the
+        primary <strong>List card</strong> action remain utilities rather than
+        extra information-architecture branches.
       </p>
 
-      <h2>Breadcrumb registry</h2>
+      <h2>Progressive disclosure</h2>
       <p>
-        Routes deeper than two segments render a breadcrumb chain above
-        the page header. The chain comes from a typed registry at{" "}
-        <code>apps/storefront/src/lib/nav/breadcrumb-registry.ts</code>{" "}
-        — URL patterns like{" "}
-        <code>/account/trades/:id/review</code> mapped to step lists.
+        The header promises twelve destinations instead of reproducing every
+        deep route. Each destination is a real hub: Market links auctions,
+        swaps, lots, and pulse; Prices carries guides and sets; Play carries
+        modes and decks; Community links membership, rewards, leaderboards, and
+        bounties. The More menu links to Start here, Guides, About, Open data,
+        Methods &amp; fees, and Verify outcomes.
       </p>
       <p>
-        <strong>Substrate-honest:</strong> a route without a registered
-        pattern renders no breadcrumb (rather than a fabricated chain).
-        The audit reports unregistered deep routes.
-      </p>
-
-      <h2>The drift audit</h2>
-      <p>
-        <code>pnpm audit:nav-coverage</code> (17th in the audit family)
-        walks <code>apps/storefront/src/app/</code> for every{" "}
-        <code>page.tsx</code> and verifies five things:
-      </p>
-      <ol>
-        <li>
-          <strong>Route → nav coverage</strong> — every public page is
-          linked from a mega-menu, account nav, or explicitly on the
-          orphan allow-list.
-        </li>
-        <li>
-          <strong>Nav → route validity</strong> — every URL in the menu
-          config resolves to a real route (no broken nav links).
-        </li>
-        <li>
-          <strong>Methodology completeness</strong> —{" "}
-          <code>/methodology</code> hub is linked from primary nav (so
-          all 31 methodology pages are reachable in two clicks).
-        </li>
-        <li>
-          <strong>Breadcrumb coverage</strong> — deep dynamic routes
-          (≥3 segments with [slug]) reported for review.
-        </li>
-        <li>
-          <strong>Audience-rule consistency</strong> — the prefix
-          registry is well-formed.
-        </li>
-      </ol>
-
-      <h2>The doctrine alignment</h2>
-      <p>
-        <strong>Substrate honesty</strong> — the audit verifies every nav
-        item points at a real, live route. Status badges (<code>live</code>{" "}
-        / <code>beta</code> / <code>coming</code>) mean what they say.
-      </p>
-      <p>
-        <strong>Transparency</strong> — methodology is no longer hidden
-        behind WhyLink-only discovery. The{" "}
-        <Link href="/methodology" className="text-accent hover:underline">
-          /methodology
+        Nothing is deleted from the platform. The{" "}
+        <Link href="/map" className="text-accent hover:underline">
+          platform map
         </Link>{" "}
-        hub lists all 31 pages with descriptions; it's reachable from
-        Discover ▾ → Methodology AND from About ▾ → How we operate.
-      </p>
-      <p>
-        <strong>Meaning</strong> — the IA groups by audience intent
-        (Cards / Market / Play / Sell / Discover / Community / About),
-        not by built modules. A visitor doesn't need to know the
-        codebase to find what they want.
-      </p>
-      <p>
-        <strong>Creation</strong> — typed nav config + breadcrumb
-        registry are single sources of truth that audits can read.
-        Every change is git-traceable; every nav surface is{" "}
-        <em>specified, not improvised</em>.
-      </p>
-      <p>
-        <strong>Cosmology</strong> — the data plane (kingdom-080's
-        rebrand) finally has the nav surface that matches its identity
-        claim. The Discover ▾ menu names <code>/platform</code>,{" "}
-        <code>/manifest</code>, <code>/graph</code>,{" "}
-        <code>/ontology</code>, <code>/patterns</code>,{" "}
-        <code>/identify</code> as first-class entry points alongside
-        Methodology and For builders.
+        exposes the platform&apos;s structure, while the{" "}
+        <Link href="/methodology" className="text-accent hover:underline">
+          methodology hub
+        </Link>{" "}
+        and{" "}
+        <Link href="/data" className="text-accent hover:underline">
+          open-data hub
+        </Link>{" "}
+        carry their own depth.
       </p>
 
-      <h2>What's not in v2</h2>
+      <h2>Interaction rules</h2>
       <ul>
-        <li>
-          <strong>Personalisation engine.</strong> Audience-detection is
-          URL-pattern-only. A profile-aware version may come later if
-          data shows it's needed.
-        </li>
-        <li>
-          <strong>Search.</strong> The top-bar search box is reserved
-          but not implemented; phase 6 if pursued.
-        </li>
-        <li>
-          <strong>Audience switcher chip.</strong> The explicit chip
-          ("I am here as a buyer / trader / agent...") was considered
-          and deferred — implicit URL-detection covers the same use case
-          without adding UI clutter.
-        </li>
+        <li>Primary destinations are links, not buttons that hide links.</li>
+        <li>The current section is visible and announced with <code>aria-current</code>.</li>
+        <li>More opens only on request and closes on outside click, Escape, or navigation.</li>
+        <li>Mobile presents one flat, scannable drawer instead of nested accordions.</li>
+        <li>Keyboard focus has a visible ring and Escape returns focus to the trigger.</li>
       </ul>
+
+      <h2>Breadcrumbs and drift</h2>
+      <p>
+        Deep dynamic routes still use the typed breadcrumb registry. The{" "}
+        <code>pnpm audit:nav-coverage</code> audit verifies that every promised
+        header URL resolves, that Methodology remains reachable, and that
+        string-literal page links do not lead to missing routes. Routes not
+        named in the compact header are informational findings, not a reason to
+        turn the header back into a directory.
+      </p>
+
+      <h2>Doctrine alignment</h2>
+      <p>
+        <strong>Substrate honesty</strong> means every visible destination is
+        live. <strong>Transparency</strong> means Methodology and Verify remain
+        obvious without dominating the header. <strong>Meaning</strong> means
+        labels follow visitor intent rather than code modules. The fifth
+        question — <em>for whom?</em> — is answered by keeping both desktop and
+        mobile readable before asking anyone to learn the platform&apos;s internal
+        vocabulary.
+      </p>
 
       <h2>Related</h2>
       <ul>
         <li>
-          <Link href="/map" className="text-accent hover:underline">
-            /map
-          </Link>{" "}
-          — the comprehensive site map (every doctrine, connection-doc,
-          methodology, glossary term, audit, public surface — one click
-          apart)
+          <Link href="/map" className="text-accent hover:underline">/map</Link>
+          {" "}— the platform&apos;s structure
         </li>
         <li>
-          <Link href="/manifest" className="text-accent hover:underline">
-            /manifest
-          </Link>{" "}
-          — directory of offerings (machine-readable)
+          <Link href="/start" className="text-accent hover:underline">/start</Link>
+          {" "}— the plain-language first visit
         </li>
         <li>
-          <Link href="/methodology/methodology" className="text-accent hover:underline">
-            /methodology/methodology
-          </Link>{" "}
-          — the methodology page that documents methodology pages
-          themselves
+          <Link href="/appearance" className="text-accent hover:underline">/appearance</Link>
+          {" "}— visual and text-mode choices
         </li>
       </ul>
     </>

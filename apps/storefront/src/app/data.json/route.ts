@@ -175,6 +175,16 @@ const ENDPOINTS: EndpointEntry[] = [
     auth: "none",
   },
 
+  // ── Cultural reciprocity ──────────────────────────────────────────
+  {
+    path: "/api/v1/culture/answering-rhymes/statements",
+    title: "Answering Rhyme statement witness",
+    blurb: "GET publishes the portable answering-rhyme.statement/1 contract. POST normalizes and hashes a proposal without authenticating identity, creating an application record, detecting replay, or applying any authoritative effect. Bodies are capped at 16 KiB; no application rate limiter is claimed.",
+    status: "shipped",
+    auth: "none",
+    shape: "GET contract; POST pantry envelope with normalized statement, content hash, witness boundary, target status, and unsigned issuer-attestation boundary.",
+  },
+
   // ── Methodology corpus ─────────────────────────────────────────────
   {
     path: "/methodology",
@@ -203,15 +213,32 @@ const ENDPOINTS: EndpointEntry[] = [
   // ── This endpoint, naming itself ───────────────────────────────────
   {
     path: "/data.json",
-    title: "Open data index (machine-readable)",
-    blurb: "This endpoint. The substrate-of-openness as itself an open endpoint. Self-referential closure: the index of open endpoints includes itself.",
+    title: "Public data index (machine-readable)",
+    blurb: "This endpoint. Publicly reachable, with response-specific reuse rights. Self-referential closure: the index of public endpoints includes itself.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/data",
-    title: "Open data index (human-readable)",
+    title: "Public data index (human-readable)",
     blurb: "Public, no-auth, comprehensive HTML index. The sign on the door.",
+    status: "shipped",
+    auth: "none",
+  },
+
+  // ── The commons as datasets ─────────────────────────────────────────
+  {
+    path: "/api/v1/datasets",
+    title: "Dataset catalog (machine-readable)",
+    blurb:
+      "The datasets we publish, each with its TRUE licence (first-party CC0; card catalogue NOASSERTION), coverage, fields, and distributions. Add ?format=jsonld for a schema.org/DataCatalog graph for dataset-search indexers.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/datasets",
+    title: "Dataset catalog (human-readable)",
+    blurb: "The commons as datasets, not endpoints. Inline schema.org/DataCatalog for crawlers. See docs/connections/the-finding.md.",
     status: "shipped",
     auth: "none",
   },

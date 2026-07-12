@@ -528,7 +528,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                   Cards observed
                 </div>
                 <div className="text-xl font-bold text-ink font-mono">
-                  {gameCoverage.distinct_cards_max.toLocaleString()}
+                  {gameCoverage.distinct_cards.toLocaleString()}
                 </div>
               </div>
               <div>
@@ -613,8 +613,8 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               anticipated. They get a quiet strip of their own instead of
               vanishing into the pill: upcoming sets show their JP release
               date; just-released sets (≤60 days) say they await their
-              first scrape. The tile flips to the live grid automatically
-              the day cards carry prices. Registered by
+              first observed catalog rows. The tile flips to the live grid
+              automatically the day cards carry prices. Registered by
               apps/wholesale/tools/register-sets.ts; story at
               docs/connections/the-horizon.md. */}
           {(() => {
@@ -654,8 +654,8 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                 {populated.length === 0 ? (
                   <p className="text-ink-faint text-sm py-6 text-center bg-surface border border-border-subtle rounded-lg">
                     {sets.length === 0
-                      ? "No sets in the catalog for this game yet. Coverage rolls out as we mirror upstream sources; "
-                      : "No sets with observed cards yet — every set registered for this game is awaiting its first scrape. "}
+                      ? "No sets in the catalog for this game yet. Coverage begins only when an approved source writes observed rows; "
+                      : "No sets with observed cards yet — every registered set is awaiting its first observed catalog row. "}
                     <Link href="/api/v1/sources" className="text-info hover:underline">
                       see /api/v1/sources
                     </Link>{" "}
@@ -693,7 +693,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                       </h3>
                       <span className="font-display italic text-xs text-ink-faint">
                         no prices yet — each set goes live the day its
-                        first scrape lands
+                        first observed row lands
                       </span>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -716,7 +716,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                             <span className="text-ink-faint text-[11px] whitespace-nowrap font-mono">
                               {upcoming
                                 ? `JP ${set.release_date}`
-                                : "awaiting first scrape"}
+                                : "awaiting observed rows"}
                             </span>
                           </Link>
                         );
@@ -822,7 +822,8 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
             The <strong className="text-ink-muted">Buy Price</strong> is our
-            catalogue reference price — open data, not an offer. Cambridge TCG
+            catalogue reference price — a policy-bound derived value, not an offer
+            or an open-data grant. Cambridge TCG
             no longer sells from stock or buys cards itself; trading happens
             between collectors on the market.
           </p>

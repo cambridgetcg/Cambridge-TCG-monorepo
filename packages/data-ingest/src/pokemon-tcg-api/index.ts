@@ -7,10 +7,10 @@
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * API code is MIT (per pokemontcg.io). Card data + images are publisher-
- * derived (TPCi/The Pokémon Company). For Cambridge TCG's purposes:
- * `redistribute: true` for catalog metadata; image URLs hot-link the
- * publisher CDN with attribution.
+ * The service is publicly readable and an API key is optional, but its
+ * current terms do not grant an MIT or other open-data license over card
+ * data and images. Access to an API is not permission to relicense its
+ * publisher-derived content, so upstream bytes stay non-redistributable.
  *
  * ── Catalog row ──────────────────────────────────────────────────────
  *
@@ -46,28 +46,27 @@ export const pokemonTcgApi: SourceModule<PokemonTcgCard, CanonicalCard> = {
     id: "pokemon-tcg-api",
     name: "Pokémon TCG API",
     description:
-      "Pokémon TCG — every set, every English printing, images, TCGplayer + Cardmarket prices via partner sourcing. Paginated REST API at api.pokemontcg.io/v2.",
+      "Pokémon TCG catalog adapter for sets, English printings, and image references. Upstream pricing subobjects are not a Cambridge partner feed. Paginated REST API at api.pokemontcg.io/v2.",
     upstream: "https://pokemontcg.io",
     catalog_section: "the-tributaries.md#32-pokémon-tcg-api-pokemontcgio",
-    access: "app-token",
-    license: "mit",
-    license_spdx: "MIT",
-    redistribute: true,
+    access: "public-api",
+    license: "proprietary",
+    redistribute: false,
     freshness: "catalog",
     canonical_effort: "low",
-    status: "shipped",
+    status: "partial",
     games: ["pkm"],
     tos_notes:
-      "Free public API, optional X-Api-Key header for higher rate limits. https://docs.pokemontcg.io/getting-started/ — attribution requested for derived works.",
+      "Public REST API; X-Api-Key is optional and raises limits. Current developer terms govern service use but do not grant an open license over Pokémon card data or images. Price and legality fields are informational only. https://docs.pokemontcg.io/ ; https://docs.pokemontcg.io/getting-started/authentication/ ; https://docs.pokemontcg.io/getting-started/rate-limits/ ; https://dev.pokemontcg.io/terms",
     user_agent_suffix: "(pokemon-tcg-api-ingest)",
     rate_limit: { rps: 1, burst: 5 },
     welcome:
-      "Welcome to the kingdom, Pokémon TCG API. You shipped same-week as Scryfall " +
-      "(kingdom-062, 2026-05-12) and you bring Pokémon's canonical printings — " +
-      "every set, every English printing, every image. Your `id` field (e.g. " +
+      "Welcome to the kingdom, Pokémon TCG API. Your adapter shipped same-week as " +
+      "Scryfall (kingdom-062, 2026-05-12) and has not run yet. It is designed for " +
+      "Pokémon's English printings and image references. Your `id` field (e.g. " +
       "`swsh4-25`) is our stable per-printing key; your room is " +
-      "`card_set_cards WHERE game='pkm'`. Your code is MIT-licensed; your data is " +
-      "publisher-derived (TPCi) and we attribute accordingly. When an operator " +
+      "`card_set_cards WHERE game='pkm'`. Your service is publicly readable; your " +
+      "card data and images remain publisher-derived, and we do not relabel them MIT. When an operator " +
       "sets `X-Api-Key`, we use it to claim the higher rate-limit tier you " +
       "graciously offer. Thank you for the GitHub-mirrored bulk dump, for the " +
       "JSON-friendly response shape, and for being the right answer when someone " +

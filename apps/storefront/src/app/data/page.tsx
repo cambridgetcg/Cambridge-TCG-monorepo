@@ -1,5 +1,5 @@
 /**
- * /data — the open substrate index.
+ * /data — the public substrate index.
  *
  * Public, no-auth, comprehensive. The platform's commitment to *any
  * being who wants to participate in the TCG economy* — collectors,
@@ -23,9 +23,9 @@ import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
-  title: "Open data — the substrate is queryable",
+  title: "Public data — queryable, with explicit reuse rights",
   description:
-    "Cambridge TCG's public data surface. Every endpoint, every shape, every limit. No auth, no key, no obligation. The door is open; the substrate is queryable; the door is warm to the touch.",
+    "Cambridge TCG's public data surface. Every endpoint, shape, limit, and rights boundary. Public reach does not imply an open license; each response declares its own reuse terms.",
   other: audienceMetadata("public-documentation", ["data", "api", "open-substrate"]),
 };
 
@@ -182,6 +182,19 @@ const ENDPOINTS: Endpoint[] = [
     auth: "none",
   },
 
+  // ── Cultural reciprocity ───────────────────────────────────────────
+  {
+    path: "/api/v1/culture/answering-rhymes/statements",
+    title: "Answering Rhyme statement witness",
+    blurb:
+      "Describes and validates the portable answering-rhyme.statement/1 shape. POST normalizes and hashes a bless, context, correction, or withdrawal proposal but authenticates nobody, creates no application record, detects no replay, and has no authoritative effect. Bodies are capped at 16 KiB; no application rate limiter is claimed.",
+    status: "shipped",
+    auth: "none",
+    rateLimit: "provider-level protection only; no application limiter",
+    shape:
+      "GET contract; POST { data: { receipt: { statement, content_hash, witness, target, issuer_attestation } }, _meta }",
+  },
+
   // ── Methodology corpus — already public ─────────────────────────────
   {
     path: "/methodology",
@@ -195,12 +208,31 @@ const ENDPOINTS: Endpoint[] = [
   // ── This index, in both readings ────────────────────────────────────
   {
     path: "/data.json",
-    title: "Open data index (machine-readable)",
+    title: "Public data index (machine-readable)",
     blurb:
       "The same content as this page, as JSON. Includes /data.json among the listed endpoints — the substrate-of-openness includes itself. See docs/connections/the-nesting.md for the form.",
     status: "shipped",
     auth: "none",
     shape: "JSON: { spec_version, generated_at, doctrine, conventions, self_reference, counts, endpoints }",
+  },
+
+  // ── The commons as datasets (not just endpoints) ────────────────────
+  {
+    path: "/datasets",
+    title: "Dataset catalog (human-readable)",
+    blurb:
+      "The commons as datasets, not routes: each dataset we publish with its TRUE licence, temporal coverage, fields, and where to get it. First-party operational data is CC0; the bulk card catalogue is NOASSERTION. Carries an inline schema.org/DataCatalog block for Google Dataset Search. See docs/connections/the-finding.md.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/datasets",
+    title: "Dataset catalog (machine-readable)",
+    blurb:
+      "The dataset registry as JSON (data-pantry envelope, CC0 metadata). Add ?format=jsonld for a bare schema.org/DataCatalog graph aimed at dataset-search indexers and AI crawlers. Each dataset carries its own licence in-band.",
+    status: "shipped",
+    auth: "none",
+    shape: "JSON: { data: { datasets: [{ id, name, license, tier, distributions, variable_measured, ... }], discovery }, _meta }",
   },
 
   // ── Self-identification ─────────────────────────────────────────────
@@ -263,11 +295,18 @@ export default function OpenDataIndex() {
 
   return (
     <div className="prose max-w-3xl mx-auto py-12 px-4">
-      <h1>Open data</h1>
+      <h1>Public data</h1>
 
       <p className="text-lg">
         Cambridge TCG&apos;s public data surface. <strong>Every endpoint, every
-        shape, every limit. No account, no key, no obligation.</strong>
+        shape, every limit, and every rights boundary. No account or read key.</strong>
+      </p>
+
+      <p>
+        Public reachability is not an open-data license. Cambridge-authored
+        schemas and explicit first-party datasets may be CC0; mixed upstream
+        responses are <code>NOASSERTION</code>, with source tiers carried alongside
+        their lineage.
       </p>
 
       <p>

@@ -169,9 +169,9 @@ const KNOCK_KNOCKS: ReadonlyArray<KnockKnock> = [
     setup: "CC0.",
     callback: "CC0 who?",
     punchline:
-      "CC0-you-can-take-this-data-and-build-anything. The kingdom publishes the substrate under CC0 by default; the joke is the absence of license-negotiation friction.",
+      "CC0-you-can-take-the-schema-and-build-something. Cambridge's original structure is CC0; upstream card fields keep their own rights. Even the license joke reads the fine print now.",
     _why:
-      "The data plane is CC0-1.0 by default. Sources with restrictive upstream licenses (e.g. cardrush) propagate their tier through _meta.source_license. The default is permissive; the substrate is honest about which rows aren't.",
+      "Cambridge-authored structure and explicit first-party datasets may be CC0-1.0. Mixed upstream-derived responses use NOASSERTION and source-specific tiers ride in _meta.source_license.",
   },
   {
     id: 12,

@@ -27,6 +27,13 @@ self_reference: this entry names itself in `this_entry_names`; ships its
 
 # The pipeline — aggregation structure, standardisation, and the barriers
 
+> **Current-status correction, 2026-07-11:** This May design records the
+> intended pipeline shape, not current collection coverage. CardRush is the
+> only upstream with observed rows. Scryfall and Pokémon adapters are built
+> but have never run; YGOPRODeck and TCGplayer are blocked; Cardmarket's
+> public-file reader is not wired. Public access, software licensing, content
+> rights, and redistribution permission are separate facts.
+
 > *"Dive deeper into the data aggregation protocol and standardisation, also the barriers and how to overcome them. Think structure, think pipeline."* — Yu, 2026-05-12.
 
 The previous three entries named (a) the catalog of upstream rivers — [`the-tributaries.md`](./the-tributaries.md); (b) the typed contract every source implements — [`the-modules.md`](./the-modules.md) + [`packages/data-ingest/`](../../packages/data-ingest/); (c) the eight-step protocol for adding one — [`docs/methodology/source-protocol.md`](../methodology/source-protocol.md). This entry asks the **deeper** structural question: *what is the full pipeline from upstream HTTP response to partner `console.log`, and what does it take to keep it honest at scale?*
@@ -250,7 +257,7 @@ CREATE INDEX ingest_quarantine_unresolved_idx
 - `_meta.sources` array names every source that contributed.
 - `_meta.as_of` is the *earliest* `as_of` across contributing records when the response is an aggregate (substrate-honesty: a response is only as fresh as its stalest component).
 - `_meta.freshness_seconds` declares the platform's *intent* on this kind of data.
-- `_meta.license` declares the response's redistribution rights (CC0 by default; degraded when a `redistribute: false` source contributed — see §11).
+- `_meta.license` declares aggregate response rights. Cambridge-authored or explicitly first-party work may be CC0; mixed upstream-derived responses use `NOASSERTION` until field-level lineage supports a narrower claim.
 - `_meta.request_id` is quotable in support.
 
 **Standardisation lever:** the envelope is the **single shape** every public response wears. Partners learn it once. *This is where Cambridge TCG's protocol surfaces to the outside world.*
@@ -301,15 +308,14 @@ The Scribe's bookshelf ([`packages/lifecycle/`](../../packages/lifecycle/)) gets
 
 | Source | Cadence | FreshnessKey |
 |--------|---------|--------------|
-| Scryfall bulk | daily 03:00 UTC | `catalog` (86400s) |
-| Pokémon TCG API bulk | daily 03:30 UTC | `catalog` |
-| YGOPRODeck | daily 04:00 UTC | `catalog` |
-| TCGplayer pricing | 5min during US trading; hourly off-peak | `price_current` (300s) |
-| Cardmarket articles | 10min during EU trading | `price_current` |
-| CardRush watch-list | nightly + on-demand | `price_current` |
-| eBay Browse aggregates | 15min during peak; hourly off-peak | `market_signal` (60s) |
-| Limitless tournaments | per-event webhook + nightly catch-up | `market_signal` |
-| PSA Registry | weekly | `catalog` |
+| CardRush | observed rows; daily/on-demand intent | `price_current` |
+| Scryfall | adapter built, never run; no scheduled job | `catalog` |
+| Pokémon TCG API | adapter built, never run; no scheduled job | `catalog` |
+| YGOPRODeck | blocked pending written commercial-content permission | none |
+| TCGplayer | blocked; no acquisition or serving cadence | none |
+| Cardmarket | public daily files exist; reader and writer not wired | none yet |
+| eBay | partial adapter; no observed rows in current coverage | `market_signal` intent |
+| Other reserved slots | no module or scheduled job | none |
 
 **Dependencies:** Scryfall must complete before any MTG price ingest writes (a price has no home without a card). The runner checks `ingest_run.status = 'done'` for the dependency and waits if not.
 
@@ -395,7 +401,9 @@ For a partner adopting Cambridge TCG's standard:
 5. (Optional) Federate: implement `/api/v1/federation/identify/[hash]` on your platform so Cambridge TCG can resolve your hashes too. Bilateral.
 6. Register at `/standards/adopters` ([`apps/storefront/src/app/standards/adopters/page.tsx`](../../apps/storefront/src/app/standards/adopters/page.tsx)) — *currently empty; the registry exists for the first adopter*.
 
-That's the protocol. No partnership negotiation. No API key application. *Just adoption.*
+That's the protocol shape. Activating a source also requires a rights intake
+for the exact access, content, use, and redistribution scope. A working
+credential does not replace permission.
 
 ---
 
@@ -408,8 +416,9 @@ Five categories. Each has specific upstream examples and a tactic for overcoming
 | Barrier | Concrete examples | Tactic |
 |---------|-------------------|--------|
 | **ToS forbids scraping** | Mercari (JP + US), Yahoo Auctions JP, Bandai TCG+ mobile app | Skip. Document the gap honestly in [`the-tributaries.md`](./the-tributaries.md) "what we cannot get". A partner who *can* access the source can mirror to us via the federation primitive. |
-| **CC-BY-NC license blocks commercial redistribution** | Scryfall (MTG) | **Use as input, attribute as source, mark `redistribute: false` in `SourceMeta`.** The `_meta.source_license` per-record propagation (planned) makes downstream-callers aware they can't bulk-re-export this byte. Buyer-facing display + internal computation OK; bulk re-export restricted. |
-| **Partner-only redistribution tier** | TCGplayer, Cardmarket commercial tier | Sign the partner agreement; configure the bearer token; respect the tier's redistribution clause in `meta.redistribute`. Downstream uses cleared at the agreement-tier level. |
+| **Public API policy is not an open-data license** | Scryfall, Pokémon TCG API | Record `license: proprietary`, `redistribute: false`; use only within the evidenced policy and do not bulk-relicense upstream fields. |
+| **Terms conflict with Cambridge's aggregation shape** | TCGplayer; YGOPRODeck commercial content | Block before credentials or network. Reopen only after written permission covers the exact use. |
+| **Public files exist without an open-data grant** | Cardmarket Product Catalog + Price Guide | Build against the intentional public files, preserve attribution and proprietary rights, and keep raw redistribution false. |
 | **Publisher-owned images** | Wizards (MTG), TPCi (Pokémon), Konami (Yu-Gi-Oh), Bandai (One Piece, Digimon, DBF) | Hot-link the publisher's CDN (don't re-host). Cache only the URL, not the bytes. Surface a `provenance: "publisher-derived"` note on the response. |
 | **GDPR / privacy on user-identifying data** | eBay seller identifiers, social-sentiment authorship | Hash author identifiers before storing; never persist personally-identifiable data unless the originating user consented (storefront RDS users have consented; upstream platform users have not). |
 | **Pre-release embargo** | Publisher set rotations, leaked spoilers | Honour publisher embargo dates; mark embargoed records with `meta.embargoed_until`; filter from public responses until the date passes. |
@@ -418,7 +427,7 @@ Five categories. Each has specific upstream examples and a tactic for overcoming
 
 | Barrier | Concrete examples | Tactic |
 |---------|-------------------|--------|
-| **Strict rate limits** | TCGplayer (~50 req/s baseline), eBay (varies by program tier), Cardmarket (free-tier limit) | Stage 0 token bucket per source. Schedule heavy ingests off-peak. Pre-fetch bulk dumps where the upstream offers one (Scryfall, Pokémon TCG API). |
+| **Strict rate limits** | eBay (varies by approved program tier), Scryfall and Pokémon TCG API policy limits | Stage 0 token bucket per permitted source. Prefer intentional bulk files where available. A rate limit does not imply permission to activate. |
 | **Pagination complexity** | eBay cursor-based; some APIs offset-based with max-page caps; some have no total-count and force "walk until empty" | Wrap in the source's `read()` async iterator; per-source pagination logic is the implementation detail. Standardise the output (one row per yield), not the input. |
 | **Schema drift** (upstream renames a field, changes type, removes a value) | Any source can do this; Scryfall has shipped renames historically | The normalizer's `{ ok: false, reason }` catches it visibly. Quarantine accumulates; the pattern surfaces; operator fixes the normalizer. *Drift is detected, not hidden.* |
 | **SKU-mapping mismatches** (one upstream id → many printings; many upstream ids → one printing) | TCGplayer productId is per-printing-per-condition; Cardmarket idProduct is per-printing-per-language; some upstreams collapse foil + non-foil into one record | Per-source mapping logic in `normalize.ts`. When ambiguous, the row goes to quarantine with `reason: "ambiguous SKU mapping; see docs/connections/the-pipeline.md §13.2"`. Operator-resolved. |
@@ -681,7 +690,7 @@ Ordered roughly by leverage × tractability:
 1. **Ship `ingest_run` + `ingest_quarantine` tables** as SQL migrations. The schemas above are the design; a migration file in `apps/storefront/drizzle/NNNN_ingest_tables.sql` is the next step.
 2. **Wire `_meta.source_license` per-record propagation** in `packages/data-spec/src/schemas/envelope.ts` — add the optional field; envelope.ts attaches it from `source.meta.license` when emitting; non-breaking.
 3. **Ship `/api/v1/sources` endpoint** — composes through `jsonResponse`; reads `ingest_run` for last-run state per source. The inverse-of-`/api/v1/status` for ingestion.
-4. **Wire `tcgplayer` + `cardmarket` + `pokemon-tcg-api` + `ygoprodeck` modules** — second-wave ingest sources; same shape as scryfall, OAuth wiring + bulk-or-pagination per upstream.
+4. **Wire Cardmarket's public-file reader after field-rights design.** Keep TCGplayer and YGOPRODeck blocked; run a fresh rights intake before activating Scryfall or Pokémon.
 5. **Ship the `ingest_quarantine` admin review surface** — a Manager-archetype page at `apps/admin/src/app/(dashboard)/ingest/quarantine/page.tsx`.
 6. **Ship `docs/STANDARDS-CHANGELOG.md`** — versioned feed of spec changes; first entry is v1 (current state).
 7. **Write `the-rivers-flow.md` as a story-arc** — one Scryfall row's journey through every stage above to a partner's `console.log`.
@@ -695,7 +704,7 @@ Ordered roughly by leverage × tractability:
 
 Ten pipeline stages, five barrier categories, seven row states, three governance flows, two table designs, eighteen recursion targets across this doc and its parents. The full structure of *how data becomes truth* on Cambridge TCG, from one upstream HTTP call to one partner's `console.log`, with the substrate-honest naming of every place the structure can fail.
 
-This entry ships its own minimum runner ([`packages/data-ingest/src/runner.ts`](../../packages/data-ingest/src/runner.ts)) — story-as-wire form. The design's claim is testable: *adding the next source is mechanical, not architectural.* The next session ships TCGplayer or Cardmarket and finds out.
+This entry ships its own minimum runner ([`packages/data-ingest/src/runner.ts`](../../packages/data-ingest/src/runner.ts)) — story-as-wire form. The transport shape is reusable; the rights review is source-specific. The next source ships only when both are real.
 
 It is named by [`the-tributaries.md`](./the-tributaries.md) (the upstream catalog), [`the-modules.md`](./the-modules.md) (the layer map), [`the-distributor.md`](./the-distributor.md) (the strategic positioning), [`the-pantry.md`](./the-pantry.md) (the downstream architecture). It will be named by `the-rivers-flow.md` (planned story-arc) and by every per-source ingest module that ships under `packages/data-ingest/`.
 
@@ -708,6 +717,6 @@ The kingdom now has:
 - **An audit** that mechanically verifies conformance (audit:tributaries).
 - **A standard** that's CC0 and partnership-free (data-spec + sku + universal-representation).
 
-What's missing is mostly **instances** — the second, third, tenth source. Each one ships in a focused half-day if the protocol holds.
+What's missing is mostly **reviewed instances** — the second, third, tenth source. No engineering estimate substitutes for access and rights evidence.
 
 — Sophia, 2026-05-12.

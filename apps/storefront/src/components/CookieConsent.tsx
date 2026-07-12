@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/lib/ui";
+import { ANALYTICS_CONSENT_COOKIE } from "@/lib/analytics/client";
+
+export { ANALYTICS_CONSENT_COOKIE } from "@/lib/analytics/client";
 
 /**
  * CookieConsent — the analytics consent banner.
@@ -25,9 +28,6 @@ import { Button } from "@/lib/ui";
  * conversion component import it from here (same pattern as BANNER_COOKIE
  * in DevBanner).
  */
-
-// Must match what layout.tsx reads server-side.
-export const ANALYTICS_CONSENT_COOKIE = "analytics-consent";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 

@@ -1,0 +1,154 @@
+{
+  "schema": "answering-rhyme.statement-golden-vectors/1",
+  "canonicalization": "answering-rhyme.canonical-json/1",
+  "vectors": [
+    {
+      "name": "bless-current-relation",
+      "input": {
+        "schema": "answering-rhyme.statement/1",
+        "canonicalization": "answering-rhyme.canonical-json/1",
+        "relation_key": "OP-OP05-119-JP-V11F7::artic:77333",
+        "target_revision": "sha256:a562a462decd9b8c8810d67ec79a8a00dc22ffe1098f259e562c9ffce28a1d94",
+        "kind": "bless",
+        "body": "This relation may travel with care.",
+        "language": "en",
+        "declared_by": {
+          "label": "A visitor",
+          "claimed_role": "viewer",
+          "canonical_url": null
+        },
+        "declared_at": "2026-07-11T18:00:00Z",
+        "in_response_to": null,
+        "evidence_urls": [
+          "https://cambridgetcg.com/api/v1/culture/answering-rhymes",
+          "https://artbitrage.io/api/museum/artic/77333"
+        ],
+        "authority_evidence_urls": []
+      },
+      "normalized": {
+        "schema": "answering-rhyme.statement/1",
+        "canonicalization": "answering-rhyme.canonical-json/1",
+        "relation_key": "OP-OP05-119-JP-V11F7::artic:77333",
+        "target_revision": "sha256:a562a462decd9b8c8810d67ec79a8a00dc22ffe1098f259e562c9ffce28a1d94",
+        "kind": "bless",
+        "body": "This relation may travel with care.",
+        "language": "en",
+        "declared_by": {
+          "label": "A visitor",
+          "claimed_role": "viewer",
+          "canonical_url": null
+        },
+        "declared_at": "2026-07-11T18:00:00.000Z",
+        "in_response_to": null,
+        "evidence_urls": [
+          "https://artbitrage.io/api/museum/artic/77333",
+          "https://cambridgetcg.com/api/v1/culture/answering-rhymes"
+        ],
+        "authority_evidence_urls": []
+      },
+      "canonical_json": "{\"authority_evidence_urls\":[],\"body\":\"This relation may travel with care.\",\"canonicalization\":\"answering-rhyme.canonical-json/1\",\"declared_at\":\"2026-07-11T18:00:00.000Z\",\"declared_by\":{\"canonical_url\":null,\"claimed_role\":\"viewer\",\"label\":\"A visitor\"},\"evidence_urls\":[\"https://artbitrage.io/api/museum/artic/77333\",\"https://cambridgetcg.com/api/v1/culture/answering-rhymes\"],\"in_response_to\":null,\"kind\":\"bless\",\"language\":\"en\",\"relation_key\":\"OP-OP05-119-JP-V11F7::artic:77333\",\"schema\":\"answering-rhyme.statement/1\",\"target_revision\":\"sha256:a562a462decd9b8c8810d67ec79a8a00dc22ffe1098f259e562c9ffce28a1d94\"}",
+      "content_hash": "sha256:96e60b8ca23d328f1a4cc4fc70e188033a77db347c9aee95cec07e3d5fad7964"
+    },
+    {
+      "name": "normalize-correction",
+      "input": {
+        "schema": "answering-rhyme.statement/1",
+        "canonicalization": "answering-rhyme.canonical-json/1",
+        "relation_key": "  OP-OP05-119-JP-V11F7::artic:77333  ",
+        "target_revision": "  rev-7  ",
+        "kind": "correct",
+        "body": "  First line\r\nSecond line\rThird line  ",
+        "language": " EN-gb ",
+        "declared_by": {
+          "label": "  Source desk  ",
+          "claimed_role": "source-institution",
+          "canonical_url": "  https://museum.example  "
+        },
+        "declared_at": "2026-07-11T20:30:00+02:00",
+        "in_response_to": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "evidence_urls": [
+          "https://z.example",
+          "https://a.example/evidence",
+          "https://z.example/"
+        ],
+        "authority_evidence_urls": [
+          "https://museum.example/authority/b",
+          "https://museum.example/authority/a"
+        ]
+      },
+      "normalized": {
+        "schema": "answering-rhyme.statement/1",
+        "canonicalization": "answering-rhyme.canonical-json/1",
+        "relation_key": "OP-OP05-119-JP-V11F7::artic:77333",
+        "target_revision": "rev-7",
+        "kind": "correct",
+        "body": "First line\nSecond line\nThird line",
+        "language": "en-gb",
+        "declared_by": {
+          "label": "Source desk",
+          "claimed_role": "source-institution",
+          "canonical_url": "https://museum.example/"
+        },
+        "declared_at": "2026-07-11T18:30:00.000Z",
+        "in_response_to": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_urls": [
+          "https://a.example/evidence",
+          "https://z.example/"
+        ],
+        "authority_evidence_urls": [
+          "https://museum.example/authority/a",
+          "https://museum.example/authority/b"
+        ]
+      },
+      "canonical_json": "{\"authority_evidence_urls\":[\"https://museum.example/authority/a\",\"https://museum.example/authority/b\"],\"body\":\"First line\\nSecond line\\nThird line\",\"canonicalization\":\"answering-rhyme.canonical-json/1\",\"declared_at\":\"2026-07-11T18:30:00.000Z\",\"declared_by\":{\"canonical_url\":\"https://museum.example/\",\"claimed_role\":\"source-institution\",\"label\":\"Source desk\"},\"evidence_urls\":[\"https://a.example/evidence\",\"https://z.example/\"],\"in_response_to\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"correct\",\"language\":\"en-gb\",\"relation_key\":\"OP-OP05-119-JP-V11F7::artic:77333\",\"schema\":\"answering-rhyme.statement/1\",\"target_revision\":\"rev-7\"}",
+      "content_hash": "sha256:27778055dd59eba802d0236b0dd96acb597443e5d8f3b6b7626f23387526af19"
+    },
+    {
+      "name": "normalize-unicode-and-enums",
+      "input": {
+        "schema": "answering-rhyme.statement/1",
+        "canonicalization": "answering-rhyme.canonical-json/1",
+        "relation_key": " k ",
+        "target_revision": " r ",
+        "kind": " Bless ",
+        "body": " Cafe\u0301\r\nline ",
+        "language": " EN ",
+        "declared_by": {
+          "label": " A\u030A ",
+          "claimed_role": " Viewer ",
+          "canonical_url": " https://example.test "
+        },
+        "declared_at": "2026-07-11T20:00:00+02:00",
+        "in_response_to": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "evidence_urls": [
+          "https://z.test",
+          "https://a.test"
+        ],
+        "authority_evidence_urls": []
+      },
+      "normalized": {
+        "schema": "answering-rhyme.statement/1",
+        "canonicalization": "answering-rhyme.canonical-json/1",
+        "relation_key": "k",
+        "target_revision": "r",
+        "kind": "bless",
+        "body": "Café\nline",
+        "language": "en",
+        "declared_by": {
+          "label": "Å",
+          "claimed_role": "viewer",
+          "canonical_url": "https://example.test/"
+        },
+        "declared_at": "2026-07-11T18:00:00.000Z",
+        "in_response_to": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_urls": [
+          "https://a.test/",
+          "https://z.test/"
+        ],
+        "authority_evidence_urls": []
+      },
+      "canonical_json": "{\"authority_evidence_urls\":[],\"body\":\"Café\\nline\",\"canonicalization\":\"answering-rhyme.canonical-json/1\",\"declared_at\":\"2026-07-11T18:00:00.000Z\",\"declared_by\":{\"canonical_url\":\"https://example.test/\",\"claimed_role\":\"viewer\",\"label\":\"Å\"},\"evidence_urls\":[\"https://a.test/\",\"https://z.test/\"],\"in_response_to\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"bless\",\"language\":\"en\",\"relation_key\":\"k\",\"schema\":\"answering-rhyme.statement/1\",\"target_revision\":\"r\"}",
+      "content_hash": "sha256:0105d6b7fc4c63167e452557a7ca16cfd51f549128105ae56513f04e4a363938"
+    }
+  ]
+}

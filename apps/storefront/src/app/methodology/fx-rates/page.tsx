@@ -61,8 +61,8 @@ export default async function FxRatesMethodology() {
               const meta = CURRENCY_META[code];
               const why: Record<string, string> = {
                 GBP: "Platform canonical. Transactions clear here.",
-                USD: "TCGplayer upstream; US visitors.",
-                EUR: "Cardmarket upstream (planned); EU visitors.",
+                USD: "US visitor display; no TCGplayer ingestion implied.",
+                EUR: "European visitor display; no Cardmarket ingestion implied.",
                 JPY: "CardRush upstream; Japanese visitors.",
                 HKD: "South-East Asia visitors.",
                 CHF: "Swiss visitors.",

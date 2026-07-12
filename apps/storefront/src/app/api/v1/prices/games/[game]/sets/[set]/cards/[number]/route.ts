@@ -7,9 +7,8 @@
  * /api/v1/universal/card/[sku] gives the third reading (cryptographic
  * hashes + ratios + content_hash) — three readings, one substrate.
  *
- * Cross-source signals (CardRush / TCGplayer) ride in the response with
- * arrival state + license tier; auth-gated history paths are surfaced
- * so a signed-in agent can follow through.
+ * Current source states ride in the response: CardRush observed, TCGplayer
+ * blocked, and Cardmarket planned. Mixed catalog rights are NOASSERTION.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -95,7 +94,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
     source_license: state._provenance.source_license,
     freshness: state._provenance.freshness,
     as_of: state._provenance.as_of ?? undefined,
-    license: "CC0-1.0",
+    license: "NOASSERTION",
   });
 }
 

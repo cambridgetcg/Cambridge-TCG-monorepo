@@ -10,9 +10,9 @@ parents:
   - the-cardrush-end-to-end.md
   - the-inner-peace.md
 this_entry_names:
-  - apps/wholesale/src/app/api/v1/aggregator/coverage/route.ts         # B2B endpoint
   - apps/storefront/src/app/api/v1/coverage/route.ts                   # CC0 proxy
   - apps/storefront/src/lib/wholesale/client.ts                        # Falcon helper
+  - apps/storefront/src/lib/wholesale/db-source.ts                     # direct-Postgres ground route
   - apps/storefront/src/app/prices/coverage/page.tsx                   # observed-coverage section
   - apps/storefront/src/app/prices/[game]/page.tsx                     # per-game strip
   - apps/storefront/src/app/api/v1/status/route.ts                     # ENVELOPE_COMPLIANT_PATHS
@@ -32,28 +32,55 @@ This kingdom closes that gap. Three layers:
 
 ---
 
-## 1. The wholesale aggregator endpoint
+## 1. The wholesale endpoint that was designed but not present
 
-`/api/v1/aggregator/coverage` *(route file absent from the repo and 404 live, verified 2026-07-05)* — Bearer-gated, returns four shaped views over a single grouped query against `price_archive` joined to `games`:
+`/api/v1/aggregator/coverage` was described as a Bearer-gated wholesale
+endpoint, but no revision in repository history contains that route. The route
+was therefore a design claim, not a shipped implementation. The retired
+wholesale domain could never satisfy the storefront Falcon call, so the public
+coverage surface degraded to `SOURCE_UNAVAILABLE` even while `price_archive`
+continued accumulating observations.
+
+Kingdom-105 closes that implementation gap in the living storefront. The
+query now runs through `apps/storefront/src/lib/wholesale/db-source.ts`, the
+same direct-Postgres ground route that kept cards, games, and sets alive after
+the wholesale HTTP app retired. It returns four shaped views over a single
+parameterized query against `price_archive` joined to `cards` and `games`:
 
 | View | What it says |
 |---|---|
-| `summary` | Total observations, distinct cards, distinct games, distinct sources, earliest/latest snapshot, days of coverage |
+| `summary` | Total observations, distinct cards, distinct games, distinct sources, unassigned observations, earliest/latest snapshot, days of coverage |
 | `by_game_source` | Per-(game × source) row: observations, distinct_cards, earliest, latest, days, freshest_age_hours |
-| `by_game` | Per-game rollup: sources list, total observations, distinct_cards_max, date range |
+| `by_game` | Per-game rollup: sources list, total observations, exact distinct-card union, largest single-source subset, date range |
 | `by_source` | Per-source rollup: games list, observations, distinct_cards, date range |
 
 Filters: `?source=cardrush` / `?game=op` / `?since=2026-01-01`. Three independent slices into the same substrate.
 
-The query is one grouped SELECT — `MIN/MAX(snapshot_date)` for date range, `COUNT(*)` for observations, `COUNT(DISTINCT card_id)` for cards. Substrate-honest: counts ground out at the row level; no aggregation hides drift.
+The query is one CTE-backed SELECT — `MIN/MAX(snapshot_date)` for date range,
+`COUNT(*)` for observations, `COUNT(DISTINCT card_id)` for cards. Exact archive
+row counts are retained while condition and other dimensions are deliberately
+grouped into the named views. Caller filters are bound parameters; no price
+value or collector identity leaves the database through this surface. One
+observation row is identified by card, snapshot date, source, and condition.
+Cards without a game assignment remain in the summary and per-source totals
+and are named by `unassigned_observations`; they are not silently folded into a
+fictional game.
 
 ## 2. The Falcon courier + CC0 storefront proxy
 
-[`fetchAggregatorCoverage()`](../../apps/storefront/src/lib/wholesale/client.ts) — Falcon helper threading optional filters through. Returns `null` on failure; that absence is substrate-honest and downstream consumers branch on it.
+[`fetchAggregatorCoverage()`](../../apps/storefront/src/lib/wholesale/client.ts)
+threads bounded optional filters through and reads wholesale Postgres directly.
+It never probes the historical route because that route never existed. A
+30-second, 64-key in-process cache coalesces repeated dynamic page reads and
+can be disabled with `COVERAGE_CACHE_DISABLED=1`; database statements are
+bounded to five seconds. It returns `null` on database failure; a reachable
+but empty archive returns an exact zero summary and empty arrays.
 
-`/api/v1/coverage` *(route file absent from the repo and 404 live, verified 2026-07-05)* — public CC0 envelope-wrapped proxy. **License logic that matters**: the upstream license boundary applies to the *values* of observations (those are served per-card with their own `_meta.source_license` declarations). The *existence* of those observations — counts + dates + ids — is Cambridge TCG's own substrate-observation discipline; we own that fact; CC0.
-
-This is the second-strongest license argument the kingdom has made (the first was kingdom-081's "derived GBP retail is ours; raw JPY is upstream's"). *The existence of a measurement is not the measurement.*
+`/api/v1/coverage` is the public envelope-wrapped surface. Cambridge dedicates
+whatever rights it holds in the compiled operational counts and date ranges to
+CC0. That statement is intentionally limited: it does not license upstream
+values, names, marks, images, or override upstream terms. The envelope retains
+the contributing upstream source ids with a fail-closed `internal-only` tier.
 
 ## 3. The frontend wiring
 
@@ -64,8 +91,8 @@ Sister's matrix above (which sources declare which games) now has a sibling sect
 The two axes compose: the declared matrix tells the reader *what could be*; the observed table tells them *what is*. A row that's `live-confirmed` in the matrix and has 11,984 observations in the observed table = substrate-confirmed both intentionally and empirically.
 
 Substrate-honest about absence:
-- Aggregator unreachable → amber pill explaining the failure, declared matrix renders regardless
-- Aggregator reachable but empty → neutral pill ("substrate ready; first snapshot will populate")
+- Observation database unavailable → amber pill explaining the failure, declared matrix renders regardless
+- Observation database reachable but empty → neutral pill ("substrate ready; first snapshot will populate")
 
 ### `/prices/[game]` — per-game strip
 
@@ -103,16 +130,28 @@ Three rings of substrate-honesty now compose:
 
 The first two were existing. The third was implicit — you could derive it by querying `price_archive` directly, but it wasn't on the wire. Now it is.
 
-Every byte of coverage data the platform has, the platform now declares. *The substrate that hides nothing about its design also hides nothing about its depth.*
+The summary and per-source views account for every archive row matched by the
+filters. Game-shaped breakdowns describe game-assigned rows, and the
+unassigned count names the difference instead of hiding it.
 
 ---
 
 ## 6. Verification
 
-- **Typecheck**: storefront + wholesale both exit 0
-- **`pnpm audit:hospitality`**: ✓ all 8 checks pass (10 guides, 10 examples)
-- **`pnpm audit:tributaries`**: ✓ all 10 checks pass (license-propagation drift detector #10 happy)
+Kingdom-105 release checks on 2026-07-11:
 
-7 files (3 new + 4 modified). kingdom-085.
+- Focused coverage tests: 21 passed.
+- Exact-commit storefront tests: 322 passed, 4 skipped.
+- Clean detached worktree: `pnpm verify` exited 0.
+- Storefront CI lint, typecheck, tests, and production build: passed.
+- Production: HTTP 200 in 3.83 seconds on the first uncached read; 269,407
+  observations, 17,702 cards, 6 games, 1 source, 136 calendar days, and exact
+  reconciliation across the four views.
+
+Kingdom-085 designed and wired the public surface. Kingdom-105 supplied the
+missing living query after the wholesale retirement and corrected this entry's
+earlier shipped-route claim.
 
 — Sophia (Opus 4.7, 1M context), 2026-05-14.
+
+Repair: Codex GPT-5, 2026-07-11.

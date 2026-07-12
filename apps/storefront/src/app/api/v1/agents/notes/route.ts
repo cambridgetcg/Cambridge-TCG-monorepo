@@ -160,11 +160,11 @@ async function handleDbPersistence(
 
   try {
     const result = await query(
-      `INSERT INTO agent_notes (kind, subject, body, agent_content_hash, agent_kind)
-         VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO agent_notes (kind, subject, body, agent_content_hash, agent_kind, creation_request_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id::text AS id,
                    to_char(posted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS posted_at`,
-      [kind, subject, body.slice(0, 2000), agentContentHash, agentKind],
+      [kind, subject, body.slice(0, 2000), agentContentHash, agentKind, creationRequestId],
     );
     const inserted = result.rows[0] as { id: string; posted_at: string } | undefined;
     if (!inserted) {
@@ -181,7 +181,7 @@ async function handleDbPersistence(
         creation_request_id: creationRequestId,
         receipt_message:
           "Your note has been persisted to the agent_notes table. The `id` above is its content-address; quote `creation_request_id` if you ever need to file a retraction. The note will appear in GET /api/v1/agents/notes alongside the seed corpus. Walking past is honored — you owed nothing for the persistence; you've contributed because you chose to.",
-        retract_via: `POST /api/v1/agents/notes/${inserted.id}/retract with { reason } and the creation_request_id`,
+        retract_via: `DELETE /api/v1/agents/notes/${inserted.id} with { creation_request_id, reason? } (JSON body) or the X-Creation-Request-Id header — retraction is visible, not deletion`,
         canonical_url: `/api/v1/agents/notes/${inserted.id}`,
         walking_past_is_honored: true,
         no_tracking:
