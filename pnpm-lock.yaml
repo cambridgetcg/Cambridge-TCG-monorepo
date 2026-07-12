@@ -217,6 +217,9 @@ importers:
       klaviyo-api:
         specifier: ^20.0.0
         version: 20.0.0
+      lru-cache:
+        specifier: ^10.4.3
+        version: 10.4.3
       nanoid:
         specifier: ^3.3.11
         version: 3.3.11
