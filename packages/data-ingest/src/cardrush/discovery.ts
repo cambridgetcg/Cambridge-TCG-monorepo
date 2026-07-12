@@ -206,6 +206,10 @@ const RARITY_TOKENS = [
   "SECR", "SEC", "SCR", "SP", "SR", "SSR", "RR", "L", "P", "C",
   "UC", "R",
 ];
+// Digimon rarity codes as they appear in the trailing 【X】 bracket of
+// cardrush-digimon titles (packages/sku/src/rarities.ts, Digimon block).
+// Note "U" (not "UC") is Digimon's Uncommon.
+const DIGIMON_BRACKET_RARITIES = ["C", "U", "R", "SR", "SEC", "P"];
 
 /**
  * Parse metadata from a CardRush product page HTML body.
@@ -245,6 +249,22 @@ export function parseCardMetadata(
         rarity = r;
         break;
       }
+    }
+  }
+
+  // Fallback for catalogs that carry the rarity in a trailing full-width
+  // bracket 【X】 with no {SET-NUM} brace — cardrush-digimon titles look like
+  // "(01)デクスドルガモン【U】". The primary method above never sees these
+  // (no brace, and digimon's "U" isn't in the One Piece RARITY_TOKENS), which
+  // is why every digimon card landed with a null rarity. Accept the bracket
+  // only when it's a known Digimon rarity code, so promo/condition brackets
+  // like 【状態A-】 are ignored. (2026-07-12: the 1,532 digimon cards already in
+  // prod were backfilled from this same bracket.)
+  if (!rarity && title) {
+    const bracket = title.match(/【([^】]+)】/);
+    const code = bracket?.[1]?.toUpperCase();
+    if (code && DIGIMON_BRACKET_RARITIES.includes(code)) {
+      rarity = code;
     }
   }
 
