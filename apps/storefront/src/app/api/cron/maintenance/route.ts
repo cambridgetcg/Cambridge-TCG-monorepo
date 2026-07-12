@@ -26,6 +26,7 @@ import { runDisputeSlaSweep } from "@/lib/trust/dispute-sla-sweep";
 import { runTradeCompletionSweep } from "@/lib/market/completion";
 import { runSwapExpirySweep } from "@/lib/swaps/db";
 import { runFeedbackRetentionSweep } from "@/lib/feedback/retention";
+import { runCollectorMediaVaultCleanup } from "@/lib/media-vault/cleanup";
 import { runFraudSweep } from "@/lib/fraud/sweep";
 import { runReviewPatternSweep } from "@/lib/reviews/sweep";
 import { runExternalRepDecaySweep } from "@/lib/external-rep/sweep";
@@ -194,9 +195,12 @@ export async function GET(request: Request) {
     // actor ids after their deadline, and delete expired HMAC action-rate
     // buckets. Bounded and idempotent; runs every minute.
     runFeedbackRetentionSweep(),
+    // Private media: delete S3 first, then expired pending reservations.
+    // Default-off deployments skip without touching shared/public storage.
+    runCollectorMediaVaultCleanup(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, feedbackRetentionSweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, feedbackRetentionSweep, collectorMediaCleanup] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -382,6 +386,10 @@ export async function GET(request: Request) {
     feedbackRetentionSweep:
       feedbackRetentionSweep.status === "fulfilled"
         ? { status: "fulfilled", ...feedbackRetentionSweep.value }
+        : { status: "rejected" },
+    collectorMediaCleanup:
+      collectorMediaCleanup.status === "fulfilled"
+        ? { status: collectorMediaCleanup.value.skipped ? "skipped" : "fulfilled", ...collectorMediaCleanup.value }
         : { status: "rejected" },
     durationMs: Date.now() - start,
   };
@@ -585,8 +593,11 @@ export async function GET(request: Request) {
   } else if (
     feedbackRetentionSweep.value.redacted > 0 ||
     feedbackRetentionSweep.value.directoryActorsRedacted > 0 ||
+    feedbackRetentionSweep.value.passportActorsRedacted > 0 ||
+    feedbackRetentionSweep.value.sourceReviewActorsRedacted > 0 ||
     feedbackRetentionSweep.value.feedbackLifecycleRowsDeleted > 0 ||
     feedbackRetentionSweep.value.directoryReceiptsDeleted > 0 ||
+    feedbackRetentionSweep.value.passportReceiptsDeleted > 0 ||
     feedbackRetentionSweep.value.rateBucketsDeleted > 0 ||
     feedbackRetentionSweep.value.legacyAgentIpBucketsDeleted > 0 ||
     feedbackRetentionSweep.value.legacyUnsubscribeMetadataCleared > 0
@@ -594,11 +605,29 @@ export async function GET(request: Request) {
     console.log(
       `[cron] privacy retention: ${feedbackRetentionSweep.value.redacted} report(s) redacted, ` +
       `${feedbackRetentionSweep.value.directoryActorsRedacted} directory actor(s) detached, ` +
+      `${feedbackRetentionSweep.value.passportActorsRedacted} Passport actor(s) detached, ` +
+      `${feedbackRetentionSweep.value.sourceReviewActorsRedacted} source-review actor(s) detached, ` +
       `${feedbackRetentionSweep.value.feedbackLifecycleRowsDeleted} feedback lifecycle row(s) deleted, ` +
       `${feedbackRetentionSweep.value.directoryReceiptsDeleted} directory receipt(s) deleted, ` +
+      `${feedbackRetentionSweep.value.passportReceiptsDeleted} Passport receipt(s) deleted, ` +
       `${feedbackRetentionSweep.value.rateBucketsDeleted} expired rate bucket(s) deleted, ` +
       `${feedbackRetentionSweep.value.legacyAgentIpBucketsDeleted} legacy agent IP bucket(s) deleted, ` +
       `${feedbackRetentionSweep.value.legacyUnsubscribeMetadataCleared} unsubscribe metadata row(s) cleared`,
+    );
+  }
+  if (collectorMediaCleanup.status === "rejected") {
+    console.error("[cron] collector media cleanup failed", {
+      error_name:
+        collectorMediaCleanup.reason instanceof Error
+          ? collectorMediaCleanup.reason.name
+          : "UnknownError",
+    });
+  } else if (!collectorMediaCleanup.value.skipped && (
+    collectorMediaCleanup.value.deleted > 0 || collectorMediaCleanup.value.failed > 0
+  )) {
+    console.log(
+      `[cron] collector media cleanup: ${collectorMediaCleanup.value.deleted} pending object(s) deleted, ` +
+      `${collectorMediaCleanup.value.failed} failed for retry`,
     );
   }
   // Touch unused destructure to satisfy noUnusedLocals if enabled.

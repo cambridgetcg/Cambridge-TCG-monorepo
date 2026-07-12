@@ -133,6 +133,32 @@ export default function PrivacyPage() {
                 Actor ids are never exposed through the public directory.
               </li>
               <li>
+                <strong className="text-ink">Collector Passport drafts and receipts</strong>:
+                a Passport draft links one of your private showcase selections
+                to a separate label and optional story that you write for public
+                display. We do not publish the linked SKU, catalog facts, image,
+                holding, condition, quantity, acquisition details, notes or
+                value. When you publish or withdraw an item we privately record
+                the random public item id, notice version, action and time.
+                Authenticated publication and withdrawal paths also record the
+                acting account id; a database-only cascade leaves it unknown
+                rather than guessing. The receipt contains no label, story or card
+                data. Actor ids are removed after 180 days or account deletion;
+                the pseudonymised receipt is deleted after two years.
+              </li>
+              <li>
+                <strong className="text-ink">Private collector media vault</strong>:
+                the new vault is owner-only and starts disabled. When Cambridge
+                TCG explicitly enables a reviewed private bucket, it accepts
+                only bounded collection photos, removes embedded metadata,
+                normalises them to a safe image derivative, encrypts them in a
+                dedicated private object store, and serves short owner-only
+                access links. It is not used for identity documents, disputes,
+                avatars, auctions or trade evidence, and it does not create a
+                public Passport image in this release. You can delete vault
+                media even when new uploads are switched off.
+              </li>
+              <li>
                 <strong className="text-ink">Privacy-reset rollback ledger</strong>:
                 the July 2026 privacy migration temporarily records affected
                 internal row identifiers and their prior publication setting
@@ -219,8 +245,8 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-2">
               <li>
                 <strong className="text-ink">Contract</strong> for account,
-                order, delivery, trade-in, direct-message and transaction data
-                needed to provide something you asked us for.
+                order, delivery, trade-in, direct-message, private media-vault
+                and transaction data needed to provide something you asked us for.
               </li>
               <li>
                 <strong className="text-ink">Legal obligation</strong> for the
@@ -229,7 +255,7 @@ export default function PrivacyPage() {
               <li>
                 <strong className="text-ink">Consent</strong> for optional
                 analytics and optional publication of your person-facing
-                profile, activity or review. These start off. Profile publication
+                profile, Collector Passport item, activity or review. These start off. Profile publication
                 can be switched off in profile settings, a given review can be
                 unpublished from{" "}
                 <Link href="/account/reviews" className="text-accent underline">
@@ -243,7 +269,7 @@ export default function PrivacyPage() {
                 <strong className="text-ink">Legitimate interests</strong> for
                 receiving and correcting feedback, short-lived abuse and
                 security controls, trust and fraud assessment, private
-                directory-publication receipts, historic verification-case
+                directory and Collector Passport publication receipts, historic verification-case
                 handling, and the time-limited privacy-migration rollback ledger.
                 The interests are keeping the service and transactions safe,
                 responding accurately, proving publication or withdrawal, and

@@ -37,6 +37,13 @@ export interface ShowcaseCard {
   portfolio_card_id: string;
   display_order: number;
   caption: string | null;
+  /** Owner-only publication draft fields. Public APIs use a separate DTO. */
+  public_id: string;
+  public_label: string | null;
+  public_story: string | null;
+  passport_public: boolean;
+  passport_published_at: string | null;
+  passport_notice_version: string | null;
   // From portfolio_cards join
   sku: string;
   card_name: string | null;

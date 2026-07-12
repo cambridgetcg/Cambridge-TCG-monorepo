@@ -97,6 +97,7 @@ Disallow: /u/
 Disallow: /api/social/profile
 Disallow: /api/v1/users/
 Disallow: /api/v1/universal/users/
+Disallow: /api/v1/collectors/
 
 # Directory records are current-display-only and withdrawable. Do not crawl
 # the human listing or the API records. The methodology, terms, coverage map,
@@ -133,6 +134,7 @@ Disallow: /u/
 Disallow: /api/social/profile
 Disallow: /api/v1/users/
 Disallow: /api/v1/universal/users/
+Disallow: /api/v1/collectors/
 Disallow: /community/directory
 Disallow: /api/v1/directory/organisations
 

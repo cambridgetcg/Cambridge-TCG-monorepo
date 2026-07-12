@@ -5,9 +5,12 @@ import Link from "next/link";
 import { Audience, EmptyState } from "@/lib/ui";
 import type {
   PublicProfile,
-  ShowcaseCard,
   WishlistItem,
 } from "@/lib/social/types";
+import {
+  COLLECTOR_PASSPORT_NOTICE_VERSION,
+  type OwnerPassportItem,
+} from "@/lib/collector-passport/types";
 
 interface PortfolioCard {
   id: string;
@@ -30,10 +33,14 @@ export default function EditProfilePage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
 
   // Showcase
-  const [showcase, setShowcase] = useState<ShowcaseCard[]>([]);
+  const [showcase, setShowcase] = useState<OwnerPassportItem[]>([]);
   const [portfolioCards, setPortfolioCards] = useState<PortfolioCard[]>([]);
   const [showcaseAddId, setShowcaseAddId] = useState("");
   const [showcaseCaption, setShowcaseCaption] = useState("");
+  const [passportNoticeAccepted, setPassportNoticeAccepted] = useState(false);
+  const [passportSavingId, setPassportSavingId] = useState<string | null>(null);
+  const [passportError, setPassportError] = useState<string | null>(null);
+  const [passportLoadUnavailable, setPassportLoadUnavailable] = useState(false);
 
   // Wishlist
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
@@ -75,7 +82,6 @@ export default function EditProfilePage() {
         const profRes = await fetch("/api/social/profile?user=me");
         let data: {
           profile?: PublicProfile | null;
-          showcase?: ShowcaseCard[];
           wishlist?: WishlistItem[];
         } = {};
         if (profRes.ok) {
@@ -92,7 +98,7 @@ export default function EditProfilePage() {
           data = { profile: null };
         }
 
-        const [portfolio, prefs] = await Promise.all([
+        const [portfolio, prefs, passportData] = await Promise.all([
           // GET /api/portfolio returns { cards, summary }; the showcase
           // picker only needs the card rows.
           fetch("/api/portfolio")
@@ -101,6 +107,9 @@ export default function EditProfilePage() {
           fetch("/api/account/preferences")
             .then((r) => r.json())
             .catch(() => ({ pronouns: null, preferred_address: null })),
+          fetch("/api/account/collector-passport")
+            .then(async (r) => r.ok ? r.json() : { passport: null, unavailable: true })
+            .catch(() => ({ passport: null, unavailable: true })),
         ]);
 
         const p = data.profile ?? null;
@@ -109,7 +118,11 @@ export default function EditProfilePage() {
         setBio(p?.bio ?? "");
         setIsPublic(p?.is_public ?? false);
         setAcceptsMessages(p?.accepts_messages ?? false);
-        setShowcase(data.showcase ?? []);
+        setShowcase(passportData.passport?.items ?? []);
+        if (passportData.unavailable) {
+          setPassportLoadUnavailable(true);
+          setPassportError("Collector Passport is temporarily unavailable. No draft or publication state is being shown.");
+        }
         setWishlist(data.wishlist ?? []);
         setPortfolioCards(portfolio.cards ?? []);
         setPronouns(prefs?.pronouns ?? "");
@@ -162,6 +175,13 @@ export default function EditProfilePage() {
     }
   }
 
+  async function refreshPassport() {
+    const res = await fetch("/api/account/collector-passport");
+    if (!res.ok) return;
+    const data = await res.json();
+    setShowcase(data.passport?.items ?? []);
+  }
+
   async function handleSave() {
     if (usernameError || !username) return;
     setSaving(true);
@@ -178,6 +198,16 @@ export default function EditProfilePage() {
         }),
       });
       if (res.ok) {
+        if (!isPublic) {
+          setShowcase((items) => items.map((item) => ({
+            ...item,
+            passport_public: false,
+            passport_current: false,
+            passport_published_at: null,
+            passport_notice_version: null,
+          })));
+          setPassportNoticeAccepted(false);
+        }
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       }
@@ -197,8 +227,7 @@ export default function EditProfilePage() {
         }),
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.card) setShowcase((prev) => [...prev, data.card]);
+        await refreshPassport();
         setShowcaseAddId("");
         setShowcaseCaption("");
       }
@@ -206,6 +235,7 @@ export default function EditProfilePage() {
   }
 
   async function removeShowcaseCard(portfolioCardId: string) {
+    setPassportError(null);
     try {
       const res = await fetch("/api/social/showcase", {
         method: "DELETE",
@@ -216,8 +246,83 @@ export default function EditProfilePage() {
         setShowcase((prev) =>
           prev.filter((c) => c.portfolio_card_id !== portfolioCardId)
         );
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setPassportError(data.error ?? "Passport draft could not be removed.");
       }
-    } catch {}
+    } catch {
+      setPassportError("Passport draft could not be removed.");
+    }
+  }
+
+  function updatePassportDraft(
+    portfolioCardId: string,
+    field: "public_label" | "public_story",
+    value: string,
+  ) {
+    setShowcase((items) => items.map((item) =>
+      item.portfolio_card_id === portfolioCardId
+        ? { ...item, [field]: value }
+        : item
+    ));
+  }
+
+  async function publishPassportItem(item: OwnerPassportItem) {
+    setPassportError(null);
+    setPassportSavingId(item.portfolio_card_id);
+    try {
+      const res = await fetch("/api/account/collector-passport", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "publish",
+          portfolioCardId: item.portfolio_card_id,
+          publicLabel: item.public_label ?? "",
+          publicStory: item.public_story ?? null,
+          acceptPublication: passportNoticeAccepted,
+          noticeVersion: COLLECTOR_PASSPORT_NOTICE_VERSION,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPassportError(data.error ?? "Passport item could not be published.");
+      } else if (data.item) {
+        setShowcase((items) => items.map((current) =>
+          current.portfolio_card_id === item.portfolio_card_id ? data.item : current
+        ));
+      }
+    } catch {
+      setPassportError("Passport item could not be published.");
+    } finally {
+      setPassportSavingId(null);
+    }
+  }
+
+  async function withdrawPublishedItem(item: OwnerPassportItem) {
+    setPassportError(null);
+    setPassportSavingId(item.portfolio_card_id);
+    try {
+      const res = await fetch("/api/account/collector-passport", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "withdraw",
+          portfolioCardId: item.portfolio_card_id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPassportError(data.error ?? "Passport item could not be withdrawn.");
+      } else if (data.item) {
+        setShowcase((items) => items.map((current) =>
+          current.portfolio_card_id === item.portfolio_card_id ? data.item : current
+        ));
+      }
+    } catch {
+      setPassportError("Passport item could not be withdrawn.");
+    } finally {
+      setPassportSavingId(null);
+    }
   }
 
   async function addWishlistItem() {
@@ -258,12 +363,30 @@ export default function EditProfilePage() {
   }
 
   const moveShowcase = useCallback(
-    (idx: number, dir: -1 | 1) => {
+    async (idx: number, dir: -1 | 1) => {
       const next = idx + dir;
       if (next < 0 || next >= showcase.length) return;
       const copy = [...showcase];
       [copy[idx], copy[next]] = [copy[next], copy[idx]];
       setShowcase(copy);
+      try {
+        const res = await fetch("/api/account/collector-passport", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "reorder",
+            portfolioCardIds: copy.map((item) => item.portfolio_card_id),
+          }),
+        });
+        if (!res.ok) {
+          setShowcase(showcase);
+          const data = await res.json().catch(() => ({}));
+          setPassportError(data.error ?? "Passport order could not be saved.");
+        }
+      } catch {
+        setShowcase(showcase);
+        setPassportError("Passport order could not be saved.");
+      }
     },
     [showcase]
   );
@@ -298,6 +421,9 @@ export default function EditProfilePage() {
   const availableCards = portfolioCards.filter(
     (pc) => !showcase.some((sc) => sc.portfolio_card_id === pc.id)
   );
+  const publishedPassportCount = showcase.filter(
+    (item) => item.passport_current,
+  ).length;
 
   return (
     <div>
@@ -371,8 +497,8 @@ export default function EditProfilePage() {
           </span>
         </label>
         <p className="text-xs text-ink-faint mt-2 max-w-xl">
-          Public means your profile, selected showcase cards, explicitly-public
-          activity, and narrow trust evidence (score, tier, completed-trade
+          Public means your profile, separately published Collector Passport
+          words, explicitly-public activity, and narrow trust evidence (score, tier, completed-trade
           count and public-review aggregates) can be viewed by anyone. Public
           access does not grant a downstream reuse licence. Your collection
           costs, wishlist ceilings, private notes, messages and account identity
@@ -594,102 +720,222 @@ export default function EditProfilePage() {
         </div>
       </section>
 
-      {/* Showcase Management */}
-      <section className="mb-8">
-        <h2 className="text-lg font-bold text-ink mb-3">Showcase</h2>
-        {showcase.length > 0 && (
-          <div className="space-y-2 mb-4">
-            {showcase.map((card, i) => (
-              <div
-                key={card.id}
-                className="flex items-center gap-3 bg-surface rounded-lg p-2 border border-border-subtle"
-              >
-                {card.image_url ? (
-                  <img
-                    src={card.image_url}
-                    alt=""
-                    className="w-8 h-11 object-cover rounded"
-                  />
-                ) : (
-                  <div className="w-8 h-11 bg-surface-subtle rounded" />
-                )}
-                <span className="flex-1 text-ink text-sm truncate">
-                  {card.card_name}
-                  {card.caption && (
-                    <span className="text-ink-faint ml-2 italic">
-                      &mdash; {card.caption}
+      {/* Collector Passport management. Portfolio/card context below is
+          owner-only; only the two explicitly-authored text fields publish. */}
+      <section id="collector-passport" className="mb-8 scroll-mt-24 rounded-lg border border-border-subtle bg-surface p-4">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-ink">Collector Passport</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-faint">
+              Choose private portfolio rows as drafts, then write the public label and story yourself.
+              No separate structured or automatically copied card, catalog, image, holding, cost,
+              date, note or value fields enter the public Passport. Your own words may mention a card.
+            </p>
+          </div>
+          <span className="rounded-full bg-surface-subtle px-2.5 py-1 text-xs text-ink-muted">
+            {publishedPassportCount}/12 published
+          </span>
+        </div>
+
+        {!isPublic && (
+          <p className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-ink-muted">
+            Save your profile as public before publishing a Passport item. Making the profile private
+            withdraws every item; turning it public later will not republish them.
+          </p>
+        )}
+
+        {!passportLoadUnavailable && <label className="mb-4 flex items-start gap-2 rounded-lg border border-border-subtle bg-page p-3 text-xs text-ink-muted">
+          <input
+            type="checkbox"
+            checked={passportNoticeAccepted}
+            onChange={(event) => setPassportNoticeAccepted(event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            I choose to publish my handle with only the label and story I wrote below. I understand
+            these words are public, self-attested and unverified; I can withdraw them immediately.
+            This choice does not publish my portfolio row or grant rights in third-party card data.{" "}
+            <Link href="/licenses/collector-passport-public-display-v1" target="_blank" className="text-accent underline">
+              Read the current-display notice
+            </Link>{" "}
+            and <Link href="/methodology/collector-passport" target="_blank" className="text-accent underline">methodology</Link>.
+          </span>
+        </label>}
+
+        {passportError && (
+          <p className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
+            {passportError}
+          </p>
+        )}
+
+        {!passportLoadUnavailable && showcase.length > 0 && (
+          <div className="mb-4 space-y-3">
+            {showcase.map((card, i) => {
+              const busy = passportSavingId === card.portfolio_card_id;
+              const atLimit = publishedPassportCount >= 12 && !card.passport_current;
+              return (
+                <div key={card.showcase_id} className="rounded-lg border border-border-subtle bg-page p-3">
+                  <div className="mb-3 flex items-center gap-3">
+                    {card.private_card.image_url ? (
+                      <img
+                        src={card.private_card.image_url}
+                        alt=""
+                        className="h-12 w-9 rounded object-cover"
+                      />
+                    ) : (
+                      <div className="h-12 w-9 rounded bg-surface-subtle" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">
+                        {card.private_card.card_name ?? "Private portfolio item"}
+                      </p>
+                      <p className="truncate text-[11px] text-ink-faint">
+                        Owner-only context{card.private_card.set_name ? ` · ${card.private_card.set_name}` : ""}
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                      card.passport_current
+                        ? "bg-ok/10 text-ok"
+                        : "bg-surface-subtle text-ink-faint"
+                    }`}>
+                      {card.passport_current ? "Published" : card.passport_public ? "Needs renewed consent" : "Private draft"}
                     </span>
-                  )}
-                </span>
-                <button
-                  onClick={() => moveShowcase(i, -1)}
-                  disabled={i === 0}
-                  className="text-ink-faint hover:text-ink disabled:opacity-20 text-xs"
-                >
-                  Up
-                </button>
-                <button
-                  onClick={() => moveShowcase(i, 1)}
-                  disabled={i === showcase.length - 1}
-                  className="text-ink-faint hover:text-ink disabled:opacity-20 text-xs"
-                >
-                  Dn
-                </button>
-                <button
-                  onClick={() => removeShowcaseCard(card.portfolio_card_id)}
-                  className="text-danger hover:text-danger text-xs font-bold"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="text-xs text-ink-muted">
+                      Public label
+                      <input
+                        value={card.public_label ?? ""}
+                        onChange={(event) => updatePassportDraft(
+                          card.portfolio_card_id,
+                          "public_label",
+                          event.target.value.slice(0, 120),
+                        )}
+                        maxLength={120}
+                        placeholder="Your own words for this highlight"
+                        className="mt-1 w-full rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                      />
+                    </label>
+                    <label className="text-xs text-ink-muted">
+                      Public story <span className="text-ink-faint">(optional)</span>
+                      <textarea
+                        value={card.public_story ?? ""}
+                        onChange={(event) => updatePassportDraft(
+                          card.portfolio_card_id,
+                          "public_story",
+                          event.target.value.slice(0, 500),
+                        )}
+                        maxLength={500}
+                        rows={2}
+                        placeholder="Why it matters to you"
+                        className="mt-1 w-full resize-none rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => publishPassportItem(card)}
+                      disabled={
+                        busy || !isPublic || !passportNoticeAccepted ||
+                        !(card.public_label ?? "").trim() || atLimit
+                      }
+                      className="rounded bg-ink px-3 py-1.5 text-xs font-semibold text-page transition hover:opacity-90 disabled:opacity-40"
+                    >
+                      {busy ? "Saving…" : card.passport_current ? "Update public words" : card.passport_public ? "Renew publication" : "Publish"}
+                    </button>
+                    {card.passport_public && (
+                      <button
+                        onClick={() => withdrawPublishedItem(card)}
+                        disabled={busy}
+                        className="rounded border border-border-subtle px-3 py-1.5 text-xs font-semibold text-ink-muted hover:text-ink disabled:opacity-40"
+                      >
+                        Withdraw
+                      </button>
+                    )}
+                    <button
+                      onClick={() => moveShowcase(i, -1)}
+                      disabled={i === 0}
+                      className="text-xs text-ink-faint hover:text-ink disabled:opacity-20"
+                    >
+                      Up
+                    </button>
+                    <button
+                      onClick={() => moveShowcase(i, 1)}
+                      disabled={i === showcase.length - 1}
+                      className="text-xs text-ink-faint hover:text-ink disabled:opacity-20"
+                    >
+                      Down
+                    </button>
+                    <button
+                      onClick={() => removeShowcaseCard(card.portfolio_card_id)}
+                      disabled={busy}
+                      className="ml-auto text-xs font-bold text-danger disabled:opacity-40"
+                    >
+                      {card.passport_public ? "Withdraw and remove draft" : "Remove draft"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
-        {availableCards.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-2">
+
+        {!passportLoadUnavailable && availableCards.length > 0 && (
+          <div className="flex flex-col gap-2 sm:flex-row">
             <select
               value={showcaseAddId}
               onChange={(e) => setShowcaseAddId(e.target.value)}
-              className="flex-1 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
+              className="flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
             >
-              <option value="">Select a card...</option>
-              {availableCards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.card_name} {c.set_name ? `(${c.set_name})` : ""}
+              <option value="">Select a private portfolio row…</option>
+              {availableCards.map((card) => (
+                <option key={card.id} value={card.id}>
+                  {card.card_name} {card.set_name ? `(${card.set_name})` : ""}
                 </option>
               ))}
             </select>
             <input
               type="text"
               value={showcaseCaption}
-              onChange={(e) => setShowcaseCaption(e.target.value)}
-              placeholder="Caption (optional)"
-              className="sm:w-48 px-3 py-2 bg-surface border border-border-subtle rounded-lg text-ink text-sm focus:outline-none focus:border-accent"
+              onChange={(e) => setShowcaseCaption(e.target.value.slice(0, 500))}
+              maxLength={500}
+              placeholder="Private draft note (optional)"
+              className="px-3 py-2 text-sm bg-surface border border-border-subtle rounded-lg text-ink focus:outline-none focus:border-accent sm:w-56"
             />
             <button
               onClick={addShowcaseCard}
               disabled={!showcaseAddId}
-              className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-40 transition"
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:opacity-40"
             >
-              Add
+              Add private draft
             </button>
           </div>
         )}
-        {/* Nothing showcased and nothing to pick from: say so plainly
-            instead of rendering a heading over empty space. */}
-        {showcase.length === 0 && portfolioCards.length === 0 && (
+
+        {!passportLoadUnavailable && showcase.length === 0 && portfolioCards.length === 0 && (
           <EmptyState
-            title="Connect your portfolio to feature cards here"
-            description="Cards you add to your portfolio become available to showcase on your public profile."
+            title="Connect your portfolio to draft a Passport"
+            description="Portfolio rows stay private. You decide later whether to publish your own label and story."
             action={
               <Link
                 href="/account/portfolio"
-                className="inline-block px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
+                className="inline-block rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition hover:opacity-90"
               >
                 Open portfolio
               </Link>
             }
           />
+        )}
+
+        {publishedPassportCount > 0 && username && isPublic && (
+          <p className="mt-4 text-xs text-ink-faint">
+            Wire-accurate public view: {" "}
+            <Link href={`/u/${username}`} className="text-accent underline">
+              /u/{username}
+            </Link>
+          </p>
         )}
       </section>
 

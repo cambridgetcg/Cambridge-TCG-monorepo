@@ -6,12 +6,12 @@ import Link from "next/link";
 import { MessageButton, TrustTier, UserMention, WhyLink } from "@/lib/ui";
 import type {
   PublicProfile,
-  ShowcaseCard,
   WishlistItem,
   ActivityEvent,
   Achievement,
 } from "@/lib/social/types";
 import type { TradeReview } from "@/lib/escrow/types";
+import type { PublicCollectorPassport } from "@/lib/collector-passport/types";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -30,7 +30,8 @@ export default function UserProfilePage() {
   const username = params.username as string;
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [showcase, setShowcase] = useState<ShowcaseCard[]>([]);
+  const [passport, setPassport] = useState<PublicCollectorPassport | null>(null);
+  const [passportUnavailable, setPassportUnavailable] = useState(false);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -74,6 +75,18 @@ export default function UserProfilePage() {
       .then((d) => { if (d?.stats) setActivityStats(d.stats); })
       .catch(() => {});
 
+    // Collector Passport is a separate consent purpose and a deliberately
+    // narrower wire shape than the owner-only showcase rows. Its failure does
+    // not make the profile fail; an outage is still shown honestly.
+    fetch(`/api/v1/collectors/${encodeURIComponent(username)}/passport`)
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        if (r.status !== 404) setPassportUnavailable(true);
+        return null;
+      })
+      .then((d) => setPassport(d?.passport ?? null))
+      .catch(() => setPassportUnavailable(true));
+
     fetch(`/api/social/profile?user=${encodeURIComponent(username)}`)
       .then((r) => {
         // A's API returns a real 404 for unknown handles. Honour it with a
@@ -88,7 +101,6 @@ export default function UserProfilePage() {
       .then((data) => {
         if (!data) return;
         setProfile(data.profile);
-        setShowcase(data.showcase ?? []);
         setWishlist(data.wishlist ?? []);
         setActivity(data.activity ?? []);
         setAchievements(data.achievements ?? []);
@@ -300,45 +312,44 @@ export default function UserProfilePage() {
           </section>
         )}
 
-        {/* Showcase */}
-        {showcase.length > 0 && (
+        {/* Collector Passport: only collector-authored, explicitly-published
+            text from the narrow public DTO. No portfolio/catalog rendering. */}
+        {passport && passport.items.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-lg font-display font-semibold text-ink mb-4">Showcase</h2>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
-              {showcase.map((card) => (
+            <div className="flex items-baseline justify-between gap-3 mb-4">
+              <h2 className="text-lg font-display font-semibold text-ink">Collector Passport</h2>
+              <span className="text-[10px] uppercase tracking-wider text-ink-faint">
+                Collector-authored · unverified
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {passport.items.map((item) => (
                 <div
-                  key={card.id ?? `${card.sku}:${card.display_order}`}
-                  className="shrink-0 w-44 bg-surface rounded-lg overflow-hidden border border-border-subtle"
+                  key={item.public_id}
+                  className="rounded-lg border border-border-subtle bg-surface p-4"
                 >
-                  <div className="aspect-[3/4] bg-surface-subtle relative">
-                    {card.image_url ? (
-                      <img
-                        src={card.image_url}
-                        alt={card.card_name ?? "Card"}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-ink-faint text-sm">
-                        No Image
-                      </div>
-                    )}
+                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-accent-wash text-accent" aria-hidden="true">
+                    ✦
                   </div>
-                  <div className="p-2.5">
-                    <p className="text-ink text-sm font-semibold truncate">
-                      {card.card_name}
+                  <p className="text-sm font-semibold text-ink">{item.label}</p>
+                  {item.story && (
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink-muted">
+                      {item.story}
                     </p>
-                    {card.set_name && (
-                      <p className="text-ink-faint text-xs truncate">{card.set_name}</p>
-                    )}
-                    {card.caption && (
-                      <p className="text-ink-muted text-xs mt-1 italic line-clamp-2">
-                        {card.caption}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
+            <p className="mt-3 text-xs text-ink-faint">
+              These are the collector&apos;s own words, not proof of ownership,
+              authenticity, catalog identity, or value.
+            </p>
+          </section>
+        )}
+
+        {passportUnavailable && (
+          <section className="mb-8 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-ink-muted">
+            Collector Passport is temporarily unavailable. This does not mean the collector has no published items.
           </section>
         )}
 

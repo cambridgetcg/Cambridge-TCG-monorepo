@@ -19,6 +19,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/community`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.7 },
     { url: `${baseUrl}/methodology/community-directory`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/licenses/community-directory-public-display-v1`, lastModified: new Date("2026-07-11"), changeFrequency: "yearly", priority: 0.3 },
+    { url: `${baseUrl}/methodology/collector-passport`, lastModified: new Date("2026-07-12"), changeFrequency: "monthly", priority: 0.5 },
+    { url: `${baseUrl}/licenses/collector-passport-public-display-v1`, lastModified: new Date("2026-07-12"), changeFrequency: "yearly", priority: 0.3 },
     { url: `${baseUrl}/gallery-next-door`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.7 },
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },

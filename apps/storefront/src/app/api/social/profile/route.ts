@@ -7,7 +7,10 @@ import { isFollowing } from "@/lib/social/db";
 import { getUserReviews } from "@/lib/escrow/trust-engine";
 import { publicUploadIntakePausedResponse } from "@/lib/uploads/public-intake";
 
-const PERSON_HEADERS = { "Cache-Control": "private, no-store" };
+const PERSON_HEADERS = {
+  "Cache-Control": "private, no-store",
+  "X-Robots-Tag": "noindex, nofollow, noarchive",
+};
 
 // GET — public profile by username/id, or own profile
 export async function GET(request: Request) {
@@ -55,7 +58,7 @@ export async function GET(request: Request) {
   }
 
   const [showcase, wishlist, activity, achievements, reviews] = await Promise.all([
-    getShowcase(profile.user_id),
+    isOwn ? getShowcase(profile.user_id) : Promise.resolve([]),
     isOwn ? getWishlist(profile.user_id) : Promise.resolve([]),
     getUserActivity(profile.user_id, 10, isOwn),
     isOwn ? getUserAchievements(profile.user_id) : Promise.resolve([]),
@@ -93,18 +96,10 @@ export async function GET(request: Request) {
     total_reviews: profile.total_reviews,
     member_since: profile.member_since,
   };
-  const visibleShowcase = isOwn
-    ? showcase
-    : showcase.map((card) => ({
-        display_order: card.display_order,
-        caption: card.caption,
-        sku: card.sku,
-        card_name: card.card_name,
-        card_number: card.card_number,
-        set_name: card.set_name,
-        image_url: card.image_url,
-        rarity: card.rarity,
-      }));
+  // Showcase rows contain mixed-lineage catalog metadata and private holding
+  // joins. They are owner-only drafts. Public Collector Passport lives behind
+  // its own current per-item receipt and strict text-only projection.
+  const visibleShowcase = isOwn ? showcase : [];
   const visibleActivity = isOwn
     ? activity
     : activity.map((event) => ({
@@ -152,6 +147,7 @@ export async function GET(request: Request) {
       private: false,
       publication: {
         wishlist: isOwn ? "owner" : "withheld_pending_item_level_consent",
+        showcase: isOwn ? "owner_drafts" : "withheld_use_collector_passport_projection",
         internal_ids: isOwn ? "owner" : "withheld",
       },
     },

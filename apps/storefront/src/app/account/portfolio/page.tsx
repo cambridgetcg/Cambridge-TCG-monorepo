@@ -29,23 +29,42 @@ export default function PortfolioPage() {
   const [trends, setTrends] = useState<Record<string, { d7: number | null; d30: number | null }>>({});
   const [showCsv, setShowCsv] = useState(false);
   const [showcaseIds, setShowcaseIds] = useState<Set<string>>(new Set());
+  const [publishedPassportIds, setPublishedPassportIds] = useState<Set<string>>(new Set());
+  const [publishedPassportCount, setPublishedPassportCount] = useState(0);
+  const [passportUnavailable, setPassportUnavailable] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("Remove this card from your portfolio?");
   const [profile, setProfile] = useState<{ username: string | null; is_public: boolean } | null>(null);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
 
   async function refreshShowcase() {
     try {
-      const res = await fetch("/api/social/showcase");
+      const res = await fetch("/api/account/collector-passport");
       if (res.ok) {
         const d = await res.json();
+        const items = d.passport?.items ?? [];
         const ids = new Set<string>(
-          (d.showcase ?? []).map((c: { portfolio_card_id: string }) => c.portfolio_card_id),
+          items.map((c: { portfolio_card_id: string }) => c.portfolio_card_id),
         );
+        const published = new Set<string>(items
+          .filter((c: { passport_current?: boolean }) => c.passport_current)
+          .map((c: { portfolio_card_id: string }) => c.portfolio_card_id));
         setShowcaseIds(ids);
+        setPublishedPassportIds(published);
+        setPublishedPassportCount(d.passport?.published_count ?? 0);
+        setPassportUnavailable(false);
+      } else {
+        setPassportUnavailable(true);
       }
-    } catch { /* ignore */ }
+    } catch { setPassportUnavailable(true); }
   }
 
   async function toggleShowcase(portfolioCardId: string, currentlyInShowcase: boolean) {
+    if (passportUnavailable) return;
+    if (
+      currentlyInShowcase &&
+      publishedPassportIds.has(portfolioCardId) &&
+      !window.confirm("Withdraw this public Passport item and remove its private draft?")
+    ) return;
     // Optimistic
     setShowcaseIds((prev) => {
       const next = new Set(prev);
@@ -67,6 +86,8 @@ export default function PortfolioPage() {
           else next.delete(portfolioCardId);
           return next;
         });
+      } else {
+        await refreshShowcase();
       }
     } catch {
       // Rollback on error too
@@ -79,17 +100,22 @@ export default function PortfolioPage() {
       fetch("/api/portfolio").then((r) => r.json()),
       fetch("/api/portfolio/history?days=30").then((r) => r.json()),
       fetch("/api/portfolio/trends").then((r) => r.json()).catch(() => ({ trends: {} })),
-      fetch("/api/social/showcase").then((r) => (r.ok ? r.json() : { showcase: [] })).catch(() => ({ showcase: [] })),
+      fetch("/api/account/collector-passport").then(async (r) => r.ok ? r.json() : { passport: null, unavailable: true }).catch(() => ({ passport: null, unavailable: true })),
       fetch("/api/social/profile").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]).then(([portfolio, history, trendsData, showcaseData, profileData]) => {
       setCards(portfolio.cards || []);
       setSummary(portfolio.summary || null);
       setSnapshots(history.snapshots || []);
       setTrends(trendsData.trends || {});
-      const ids = new Set<string>(
-        (showcaseData.showcase ?? []).map((c: { portfolio_card_id: string }) => c.portfolio_card_id),
-      );
+      const passportItems = showcaseData.passport?.items ?? [];
+      const ids = new Set<string>(passportItems.map((c: { portfolio_card_id: string }) => c.portfolio_card_id));
+      const publishedIds = new Set<string>(passportItems
+        .filter((c: { passport_current?: boolean }) => c.passport_current)
+        .map((c: { portfolio_card_id: string }) => c.portfolio_card_id));
       setShowcaseIds(ids);
+      setPublishedPassportIds(publishedIds);
+      setPublishedPassportCount(showcaseData.passport?.published_count ?? 0);
+      setPassportUnavailable(Boolean(showcaseData.unavailable));
       if (profileData?.profile) {
         setProfile({
           username: profileData.profile.username ?? null,
@@ -146,6 +172,11 @@ export default function PortfolioPage() {
   }
 
   function removeCard(id: string) {
+    setConfirmMessage(
+      publishedPassportIds.has(id)
+        ? "Remove this card from your portfolio? Its public Passport item will be withdrawn and the withdrawal recorded."
+        : "Remove this card from your portfolio?",
+    );
     setPendingAction(() => async () => {
       await fetch(`/api/portfolio/${id}`, { method: "DELETE" });
       load();
@@ -173,6 +204,12 @@ export default function PortfolioPage() {
           >
             Import CSV
           </button>
+          <a
+            href="/api/account/collector-passport/export"
+            className="px-4 py-2 bg-surface-subtle hover:bg-surface-subtle border border-border-subtle text-ink font-medium rounded-lg transition text-sm"
+          >
+            Export private archive
+          </a>
           <Link
             href="/account/portfolio/add"
             className="px-4 py-2 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition text-sm"
@@ -235,16 +272,22 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Public showcase banner */}
+      {/* Collector Passport drafts banner */}
       {profile && cards.length > 0 && (
         <div className="mb-6 bg-surface border border-border-subtle rounded-lg px-5 py-3 flex items-center justify-between flex-wrap gap-3">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wider text-accent font-bold">
-              Your showcase · {showcaseIds.size} featured
+              {passportUnavailable
+                ? "Collector Passport · temporarily unavailable"
+                : `Collector Passport · ${Math.max(0, showcaseIds.size - publishedPassportIds.size)} private drafts · ${publishedPassportCount} published`}
             </p>
-            {profile.username && profile.is_public ? (
+            {passportUnavailable ? (
+              <p className="mt-0.5 text-xs text-warning">
+                Publication and draft state could not be loaded, so Passport controls are disabled.
+              </p>
+            ) : profile.username && profile.is_public && publishedPassportCount > 0 ? (
               <p className="text-sm text-ink-muted mt-0.5 truncate">
-                Public at{" "}
+                Published words at{" "}
                 <Link href={`/u/${profile.username}`} className="text-accent underline hover:text-accent-strong">
                   /u/{profile.username}
                 </Link>
@@ -252,23 +295,23 @@ export default function PortfolioPage() {
             ) : !profile.username ? (
               <p className="text-xs text-ink-faint mt-0.5">
                 Pick a username in{" "}
-                <Link href="/account/profile" className="text-accent hover:text-accent-strong underline">
+                <Link href="/account/profile#collector-passport" className="text-accent hover:text-accent-strong underline">
                   your profile
                 </Link>{" "}
                 to get a shareable URL.
               </p>
             ) : (
               <p className="text-xs text-ink-faint mt-0.5">
-                Profile is private.{" "}
-                <Link href="/account/profile" className="text-accent hover:text-accent-strong underline">
-                  Make it public
+                Drafts stay private until you make the profile public and explicitly publish your own words.{" "}
+                <Link href="/account/profile#collector-passport" className="text-accent hover:text-accent-strong underline">
+                  Manage Passport
                 </Link>{" "}
-                to share /u/{profile.username}.
+                at /account/profile#collector-passport.
               </p>
             )}
           </div>
           <div className="flex gap-2">
-            {profile.username && profile.is_public && (
+            {profile.username && profile.is_public && publishedPassportCount > 0 && (
               <button
                 onClick={() => {
                   const url = `${window.location.origin}/u/${profile.username}`;
@@ -283,10 +326,10 @@ export default function PortfolioPage() {
               </button>
             )}
             <Link
-              href={profile.username ? `/u/${profile.username}` : "/account/profile"}
+              href="/account/profile#collector-passport"
               className="text-xs bg-surface-subtle hover:bg-surface-subtle border border-border-subtle rounded px-3 py-1.5 transition-colors whitespace-nowrap"
             >
-              Preview
+              Manage Passport
             </Link>
           </div>
         </div>
@@ -349,19 +392,21 @@ export default function PortfolioPage() {
                     No Image
                   </div>
                 )}
-                {/* Showcase toggle — amber star when featured */}
+                {/* Passport draft toggle — selection alone never publishes. */}
                 {(() => {
                   const inShowcase = showcaseIds.has(card.id);
+                  const isPublished = publishedPassportIds.has(card.id);
                   return (
                     <button
                       onClick={() => toggleShowcase(card.id, inShowcase)}
+                      disabled={passportUnavailable}
                       className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                         inShowcase
                           ? "bg-ink text-page hover:opacity-90"
                           : "bg-ink/50 backdrop-blur text-page/70 hover:text-page hover:bg-ink/70"
                       }`}
-                      title={inShowcase ? "Remove from public showcase" : "Feature in public showcase"}
-                      aria-label={inShowcase ? "Remove from showcase" : "Add to showcase"}
+                      title={passportUnavailable ? "Passport state unavailable" : isPublished ? "Withdraw public item and remove Passport draft" : inShowcase ? "Remove Passport draft" : "Add private Passport draft"}
+                      aria-label={passportUnavailable ? "Passport state unavailable" : isPublished ? "Withdraw public item and remove Passport draft" : inShowcase ? "Remove Passport draft" : "Add private Passport draft"}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill={inShowcase ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l2.4 5.7 6.1.5-4.6 4 1.4 6-5.3-3.2-5.3 3.2 1.4-6-4.6-4 6.1-.5z" />
@@ -569,7 +614,7 @@ export default function PortfolioPage() {
       <ConfirmModal
         open={confirmOpen}
         title="Remove Card"
-        message="Remove this card from your portfolio?"
+        message={confirmMessage}
         confirmLabel="Remove"
         variant="danger"
         onConfirm={() => { pendingAction?.(); setConfirmOpen(false); setPendingAction(null); }}

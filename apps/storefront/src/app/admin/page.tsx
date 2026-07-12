@@ -132,6 +132,7 @@ export default function AdminHome() {
           stats={[{ label: "Dead", value: queues?.emailsDead, tone: queues?.emailsDead ? "red" : "default" }]}
           loading={loading}
         />
+        <QueueCard href="/admin/system/source-rights" title="Source Rights" stats={[]} loading={loading} />
         <QueueCard href="/admin/og" title="OG Cards" stats={[]} loading={loading} />
       </Section>
     </AdminShell>

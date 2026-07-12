@@ -74,6 +74,7 @@ Or read the entries as a set — the union is a partial map of the platform's hi
 | 34 | [`the-inner-peace.md`](./the-inner-peace.md) | Keep going until every loop closes — kingdom-083, 2026-05-14. *Adopted into the index 2026-07-05 (nesting repair).* | — |
 | 35 | [`the-aggregator-presents.md`](./the-aggregator-presents.md) | Observation depth made visible — kingdom-085, 2026-05-14. Substrate-honest note: the two coverage routes it describes are absent from the repo today and 404 live. *Adopted 2026-07-05 (nesting repair).* | — |
 | 36 | [`the-set-id-asymmetry.md`](./the-set-id-asymmetry.md) | Two columns naming the same relationship — kingdom-086, 2026-05-14. *Adopted into the index 2026-07-05 (nesting repair).* | — |
+| 37 | [`the-collector-passport.md`](./the-collector-passport.md) | Yu's 2026-07-12 invitation to build a private portable collection record, private media and a field-level rights workbench. Names the boundary: collector-authored revocable text leaves; mixed-source portfolio/catalog facts do not. The vault stays separate and off; rights rows stay non-effective until code review/deploy. | (private provenance-aware account export / explicit rights-cleared media publication) |
 
 The 2026-05-05 paths split:
 - **Path A** (#1→#2→#3) went *down* in abstraction — commercial → hybrid → substrate.

@@ -6,11 +6,16 @@
 // Usage:
 //   DATABASE_URL="postgres://..." node scripts/migrate.mjs
 //   node scripts/migrate.mjs --url "postgres://..."
+//   node scripts/migrate.mjs --only 0120_a.sql,0121_b.sql
 
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import {
+  parseOnlyMigrationNames,
+  withoutOwnedTransaction,
+} from "./migration-utils.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = resolve(__dirname, "..", "drizzle");
@@ -20,6 +25,8 @@ const migrationsDir = resolve(__dirname, "..", "drizzle");
 const urlArgIdx = process.argv.indexOf("--url");
 const argUrl = urlArgIdx >= 0 ? process.argv[urlArgIdx + 1] : null;
 const rawUrl = argUrl || process.env.DATABASE_URL;
+const onlyArgIdx = process.argv.indexOf("--only");
+const onlyArg = onlyArgIdx >= 0 ? process.argv[onlyArgIdx + 1] : null;
 
 if (!rawUrl) {
   console.error("Missing DATABASE_URL (env or --url).");
@@ -48,9 +55,10 @@ async function main() {
     (await pool.query("SELECT name FROM schema_migrations")).rows.map((r) => r.name),
   );
 
-  const files = readdirSync(migrationsDir)
+  const availableFiles = readdirSync(migrationsDir)
     .filter((f) => f.endsWith(".sql"))
     .sort();
+  const files = parseOnlyMigrationNames(onlyArg, availableFiles);
 
   let ran = 0;
   for (const file of files) {
@@ -58,7 +66,10 @@ async function main() {
       console.log(`· skip   ${file}`);
       continue;
     }
-    const sql = readFileSync(join(migrationsDir, file), "utf8");
+    const sql = withoutOwnedTransaction(
+      readFileSync(join(migrationsDir, file), "utf8"),
+      file,
+    );
     process.stdout.write(`→ apply  ${file} ... `);
     const client = await pool.connect();
     try {

@@ -1,0 +1,22 @@
+{
+  "topic": "collector-passport",
+  "title": "Collector Passport",
+  "url": "/methodology/collector-passport",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/collector-passport/summary.md",
+  "source_code": [
+    "apps/storefront/drizzle/0120_collector_passport.sql",
+    "apps/storefront/src/lib/collector-passport/public.ts",
+    "apps/storefront/src/lib/collector-passport/db.ts",
+    "apps/storefront/src/app/api/account/collector-passport/route.ts",
+    "apps/storefront/src/app/api/account/collector-passport/export/route.ts",
+    "apps/storefront/src/app/api/v1/collectors/[username]/passport/route.ts"
+  ],
+  "doctrine_refs": [
+    "docs/methodology/collector-passport.md",
+    "docs/connections/the-collector-passport.md",
+    "docs/principles/substrate-honesty.md",
+    "docs/principles/transparency.md"
+  ],
+  "status": "published"
+}

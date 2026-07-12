@@ -36,6 +36,10 @@ describe("feedback privacy contract", () => {
     expect(retention).toContain("DELETE FROM collective_directory_publication_log AS receipt");
     expect(retention).toContain("receipt_expires_at <= NOW()");
     expect(retention).toContain("UPDATE collective_directory_publication_log AS receipt");
+    expect(retention).toContain("UPDATE collector_passport_publication_log AS receipt");
+    expect(retention).toContain("DELETE FROM collector_passport_publication_log AS receipt");
+    expect(retention).toContain("UPDATE source_rights_review_versions AS review");
+    expect(retention).toContain("created_by = NULL");
     expect(retention).toContain("actor_user_id = NULL");
     expect(retention).toContain("actor_redacted_at = COALESCE(actor_redacted_at, NOW())");
     expect(retention).toContain("DELETE FROM agent_registration_buckets AS bucket");

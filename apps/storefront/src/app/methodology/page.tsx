@@ -107,6 +107,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "collector-passport",
+    title: "Collector Passport",
+    blurb: "How private portfolio rows become revocable, text-only collection highlights without publishing catalog fields, images, holdings, costs or values. Per-item notice receipts, immediate withdrawal, no directory, self-attested and unverified.",
+    status: "published",
+  },
+  {
     slug: "collectives",
     title: "Collectives",
     blurb: "Multi-member identities sharing one decision and one collection — a Tokyo card lounge, a Bristol card club, a research lab, a tournament guild. Door 3 of eleven in the commons. Two tables, two visibility surfaces, consent-as-first-class. The platform's first cultural unit that is not a single human.",

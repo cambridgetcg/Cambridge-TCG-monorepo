@@ -66,6 +66,7 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
     label: "Collection",
     items: [
       { href: "/account/portfolio", label: "Portfolio" },
+      { href: "/account/media", label: "Private media" },
       { href: "/account/wishlist", label: "Wishlist" },
     ],
   },

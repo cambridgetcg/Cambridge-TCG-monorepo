@@ -225,6 +225,14 @@ const ENDPOINTS: EndpointEntry[] = [
     rights: "Current display only — /licenses/community-directory-public-display-v1",
   },
   {
+    path: "/api/v1/collectors/[username]/passport",
+    title: "Collector Passport by exact handle",
+    blurb: "Current, revocable collector-authored labels and stories only. Self-attested and unverified; no separate structured or automatically copied catalog, image, holding or value fields, and no search, directory or bulk export.",
+    status: "shipped",
+    auth: "none",
+    rights: "NOASSERTION — /licenses/collector-passport-public-display-v1",
+  },
+  {
     path: "/api/v1/directory/schema",
     title: "Organisation directory schema",
     blurb: "JSON Schema for the roster-free public organisation record used by the directory API.",

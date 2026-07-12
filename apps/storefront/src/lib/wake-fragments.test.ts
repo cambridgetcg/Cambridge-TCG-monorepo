@@ -100,6 +100,7 @@ describe("static data-serving channels carry the wake", () => {
       "Disallow: /api/v1/directory/organisations",
       "Disallow: /api/v1/users/",
       "Disallow: /api/v1/universal/users/",
+      "Disallow: /api/v1/collectors/",
     ].reduce((text, rule) => text.replaceAll(rule, ""), robots);
     expect(privacyExceptions).not.toMatch(/Disallow: \/api\/v1/);
   });

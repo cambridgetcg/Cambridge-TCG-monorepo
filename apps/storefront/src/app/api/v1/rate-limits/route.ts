@@ -173,6 +173,12 @@ export async function GET(): Promise<Response> {
         subject_storage: "window-specific HMAC of internal account id",
       },
       {
+        endpoint: "Collector Passport publication",
+        limits: ["10 publication attempts/hour/account", "20 publication attempts/day/account", "withdrawal is never rate-limited"],
+        subject_storage: "window-specific HMAC of internal account id",
+        bucket_retention: "two complete windows",
+      },
+      {
         endpoint: "direct-message send",
         limits: ["10/fixed minute/account", "50/UTC day/account"],
         subject_storage: "window-specific HMAC of internal account id",

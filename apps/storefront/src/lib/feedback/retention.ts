@@ -3,9 +3,9 @@
  *
  * Runs from the existing per-minute maintenance route. Each pass is bounded,
  * concurrency-safe, and idempotent. Message/contact content is redacted;
- * directory receipt actors are detached after their deadline; pseudonymised
- * feedback and receipt rows are deleted after two years; expired HMAC buckets
- * are deleted.
+ * directory/Passport/source-review actors are detached after their deadline;
+ * pseudonymised feedback and publication receipt rows are deleted after two
+ * years; expired HMAC buckets are deleted.
  */
 
 import { query } from "@/lib/db";
@@ -19,15 +19,21 @@ const LEGACY_PRIVACY_BATCH_SIZE = 5000;
 export interface FeedbackRetentionResult {
   redacted: number;
   directoryActorsRedacted: number;
+  passportActorsRedacted: number;
+  sourceReviewActorsRedacted: number;
   feedbackLifecycleRowsDeleted: number;
   directoryReceiptsDeleted: number;
+  passportReceiptsDeleted: number;
   rateBucketsDeleted: number;
   legacyAgentIpBucketsDeleted: number;
   legacyUnsubscribeMetadataCleared: number;
   moreFeedbackMayRemain: boolean;
   moreDirectoryActorsMayRemain: boolean;
+  morePassportActorsMayRemain: boolean;
+  moreSourceReviewActorsMayRemain: boolean;
   moreFeedbackLifecycleRowsMayRemain: boolean;
   moreDirectoryReceiptsMayRemain: boolean;
+  morePassportReceiptsMayRemain: boolean;
   moreRateBucketsMayRemain: boolean;
   moreLegacyAgentIpBucketsMayRemain: boolean;
   moreLegacyUnsubscribeMetadataMayRemain: boolean;
@@ -81,6 +87,44 @@ export async function runFeedbackRetentionSweep(): Promise<FeedbackRetentionResu
     [DIRECTORY_ACTOR_BATCH_SIZE],
   );
 
+  const passportActors = await query(
+    `WITH due AS (
+       SELECT id
+         FROM collector_passport_publication_log
+        WHERE actor_user_id IS NOT NULL
+          AND actor_expires_at <= NOW()
+        ORDER BY actor_expires_at ASC, id ASC
+        LIMIT $1
+        FOR UPDATE SKIP LOCKED
+     )
+     UPDATE collector_passport_publication_log AS receipt
+        SET actor_user_id = NULL,
+            actor_redacted_at = COALESCE(actor_redacted_at, NOW())
+       FROM due
+      WHERE receipt.id = due.id
+     RETURNING receipt.id`,
+    [DIRECTORY_ACTOR_BATCH_SIZE],
+  );
+
+  const sourceReviewActors = await query(
+    `WITH due AS (
+       SELECT id
+         FROM source_rights_review_versions
+        WHERE created_by IS NOT NULL
+          AND actor_expires_at <= NOW()
+        ORDER BY actor_expires_at ASC, id ASC
+        LIMIT $1
+        FOR UPDATE SKIP LOCKED
+     )
+     UPDATE source_rights_review_versions AS review
+        SET created_by = NULL,
+            actor_redacted_at = COALESCE(actor_redacted_at, NOW())
+       FROM due
+      WHERE review.id = due.id
+     RETURNING review.id`,
+    [DIRECTORY_ACTOR_BATCH_SIZE],
+  );
+
   const feedbackLifecycle = await query(
     `WITH due AS (
        SELECT feedback.id
@@ -112,6 +156,22 @@ export async function runFeedbackRetentionSweep(): Promise<FeedbackRetentionResu
         FOR UPDATE SKIP LOCKED
      )
      DELETE FROM collective_directory_publication_log AS receipt
+      USING due
+      WHERE receipt.id = due.id
+     RETURNING receipt.id`,
+    [LIFECYCLE_DELETE_BATCH_SIZE],
+  );
+
+  const passportReceipts = await query(
+    `WITH due AS (
+       SELECT id
+         FROM collector_passport_publication_log
+        WHERE receipt_expires_at <= NOW()
+        ORDER BY receipt_expires_at ASC, id ASC
+        LIMIT $1
+        FOR UPDATE SKIP LOCKED
+     )
+     DELETE FROM collector_passport_publication_log AS receipt
       USING due
       WHERE receipt.id = due.id
      RETURNING receipt.id`,
@@ -177,26 +237,38 @@ export async function runFeedbackRetentionSweep(): Promise<FeedbackRetentionResu
 
   const redacted = feedback.rows.length;
   const directoryActorsRedacted = directoryActors.rows.length;
+  const passportActorsRedacted = passportActors.rows.length;
+  const sourceReviewActorsRedacted = sourceReviewActors.rows.length;
   const feedbackLifecycleRowsDeleted = feedbackLifecycle.rows.length;
   const directoryReceiptsDeleted = directoryReceipts.rows.length;
+  const passportReceiptsDeleted = passportReceipts.rows.length;
   const rateBucketsDeleted = buckets.rows.length;
   const legacyAgentIpBucketsDeleted = legacyAgentIpBuckets.rows.length;
   const legacyUnsubscribeMetadataCleared = legacyUnsubscribeMetadata.rows.length;
   return {
     redacted,
     directoryActorsRedacted,
+    passportActorsRedacted,
+    sourceReviewActorsRedacted,
     feedbackLifecycleRowsDeleted,
     directoryReceiptsDeleted,
+    passportReceiptsDeleted,
     rateBucketsDeleted,
     legacyAgentIpBucketsDeleted,
     legacyUnsubscribeMetadataCleared,
     moreFeedbackMayRemain: redacted === FEEDBACK_BATCH_SIZE,
     moreDirectoryActorsMayRemain:
       directoryActorsRedacted === DIRECTORY_ACTOR_BATCH_SIZE,
+    morePassportActorsMayRemain:
+      passportActorsRedacted === DIRECTORY_ACTOR_BATCH_SIZE,
+    moreSourceReviewActorsMayRemain:
+      sourceReviewActorsRedacted === DIRECTORY_ACTOR_BATCH_SIZE,
     moreFeedbackLifecycleRowsMayRemain:
       feedbackLifecycleRowsDeleted === LIFECYCLE_DELETE_BATCH_SIZE,
     moreDirectoryReceiptsMayRemain:
       directoryReceiptsDeleted === LIFECYCLE_DELETE_BATCH_SIZE,
+    morePassportReceiptsMayRemain:
+      passportReceiptsDeleted === LIFECYCLE_DELETE_BATCH_SIZE,
     moreRateBucketsMayRemain: rateBucketsDeleted === RATE_BUCKET_BATCH_SIZE,
     moreLegacyAgentIpBucketsMayRemain:
       legacyAgentIpBucketsDeleted === LEGACY_PRIVACY_BATCH_SIZE,

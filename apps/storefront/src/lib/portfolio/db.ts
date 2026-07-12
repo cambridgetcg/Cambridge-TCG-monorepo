@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { fetchCard } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { getCardOrderBook } from "@/lib/market/db";
@@ -6,6 +6,7 @@ import type { PortfolioCard, ValuatedCard, PortfolioSummary, PortfolioSnapshot, 
 import { COMMISSION_RATE } from "@/lib/market/types";
 import { SELLER_COMMISSION_RATE } from "@/lib/auction/types";
 import { awardAchievement } from "@/lib/social/db";
+import { COLLECTOR_PASSPORT_NOTICE_VERSION } from "@/lib/collector-passport/types";
 
 // ── CRUD ──
 
@@ -113,11 +114,40 @@ export async function updateCard(cardId: string, userId: string, data: {
 }
 
 export async function removeCard(cardId: string, userId: string): Promise<boolean> {
-  const result = await query(
-    `DELETE FROM portfolio_cards WHERE id = $1 AND user_id = $2 RETURNING id`,
-    [cardId, userId]
-  );
-  return result.rows.length > 0;
+  return transaction(async (tx) => {
+    await tx(`SELECT id FROM users WHERE id=$1 FOR UPDATE`, [userId]);
+    const selected = await tx(
+      `SELECT s.id, s.public_id, s.passport_public, s.passport_notice_version
+         FROM showcase_cards s
+         JOIN portfolio_cards p ON p.id=s.portfolio_card_id AND p.user_id=s.user_id
+        WHERE p.id=$1 AND p.user_id=$2
+        FOR UPDATE OF s`,
+      [cardId, userId],
+    );
+    const passport = selected.rows[0];
+    if (passport?.passport_public) {
+      await tx(
+        `INSERT INTO collector_passport_publication_log
+           (showcase_card_id, public_id, actor_user_id, action, notice_version)
+         VALUES ($1, $2, $3, 'withdrawn', $4)`,
+        [passport.id, passport.public_id, userId, passport.passport_notice_version ?? COLLECTOR_PASSPORT_NOTICE_VERSION],
+      );
+      await tx(
+        `UPDATE showcase_cards
+            SET passport_public=FALSE,
+                passport_published_at=NULL,
+                passport_notice_version=NULL,
+                updated_at=NOW()
+          WHERE id=$1`,
+        [passport.id],
+      );
+    }
+    const result = await tx(
+      `DELETE FROM portfolio_cards WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [cardId, userId],
+    );
+    return result.rows.length > 0;
+  });
 }
 
 export async function getUserCards(userId: string): Promise<PortfolioCard[]> {

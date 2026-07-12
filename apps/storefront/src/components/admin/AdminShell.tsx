@@ -36,6 +36,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
 
   { href: "/admin/emails",                label: "Emails",       group: "system" },
   { href: "/admin/feedback",              label: "Feedback",     group: "system" },
+  { href: "/admin/system/source-rights",   label: "Source Rights", group: "system" },
   { href: "/admin/og",                    label: "OG Cards",     group: "system" },
 ];
 

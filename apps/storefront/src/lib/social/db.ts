@@ -1,5 +1,6 @@
 import { query, transaction } from "@/lib/db";
 import type { PublicProfile, ShowcaseCard, WishlistItem, ActivityEvent, Achievement, TradeMatch } from "./types";
+import { COLLECTOR_PASSPORT_NOTICE_VERSION } from "@/lib/collector-passport/types";
 
 // ══════════════════════════════════════════════════════════════
 // PROFILES
@@ -63,7 +64,34 @@ export async function updateProfile(userId: string, data: {
   fields.push("updated_at=NOW()");
   values.push(userId);
 
-  await query(`UPDATE users SET ${fields.join(", ")} WHERE id=$${idx}`, values);
+  await transaction(async (tx) => {
+    await tx(`SELECT id FROM users WHERE id=$1 FOR UPDATE`, [userId]);
+    await tx(`UPDATE users SET ${fields.join(", ")} WHERE id=$${idx}`, values);
+
+    // Making the profile private is a withdrawal, not a temporary read gate.
+    // Clear every current Passport receipt in the same transaction so turning
+    // the profile public again cannot silently resurrect old publication.
+    if (data.isPublic === false) {
+      await tx(
+        `INSERT INTO collector_passport_publication_log
+           (showcase_card_id, public_id, actor_user_id, action, notice_version)
+         SELECT id, public_id, $1, 'withdrawn',
+                COALESCE(passport_notice_version, $2)
+           FROM showcase_cards
+          WHERE user_id = $1 AND passport_public = TRUE`,
+        [userId, COLLECTOR_PASSPORT_NOTICE_VERSION],
+      );
+      await tx(
+        `UPDATE showcase_cards
+            SET passport_public = FALSE,
+                passport_published_at = NULL,
+                passport_notice_version = NULL,
+                updated_at = NOW()
+          WHERE user_id = $1 AND passport_public = TRUE`,
+        [userId],
+      );
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -83,19 +111,64 @@ export async function getShowcase(userId: string): Promise<ShowcaseCard[]> {
 // Returns false when the portfolio card doesn't exist or isn't owned by the
 // caller — the FK alone only proves existence, not ownership.
 export async function addToShowcase(userId: string, portfolioCardId: string, caption?: string): Promise<boolean> {
-  const count = await query(`SELECT COUNT(*) FROM showcase_cards WHERE user_id=$1`, [userId]);
-  const order = parseInt(count.rows[0].count, 10);
-  const result = await query(
-    `INSERT INTO showcase_cards (user_id, portfolio_card_id, display_order, caption)
-     SELECT $1, id, $3, $4 FROM portfolio_cards WHERE id=$2 AND user_id=$1
-     ON CONFLICT (user_id, portfolio_card_id) DO UPDATE SET caption=$4`,
-    [userId, portfolioCardId, order, caption || null]
-  );
-  return (result.rowCount ?? 0) > 0;
+  return transaction(async (tx) => {
+    await tx(`SELECT id FROM users WHERE id=$1 FOR UPDATE`, [userId]);
+    const nextOrder = await tx(
+      `SELECT COALESCE(MAX(display_order), -1)::int + 1 AS n
+         FROM showcase_cards WHERE user_id=$1`,
+      [userId],
+    );
+    const result = await tx(
+      `INSERT INTO showcase_cards (user_id, portfolio_card_id, display_order, caption)
+       SELECT $1, id, $3, $4 FROM portfolio_cards WHERE id=$2 AND user_id=$1
+       ON CONFLICT (user_id, portfolio_card_id)
+       DO UPDATE SET caption=$4, updated_at=NOW()
+       RETURNING id`,
+      [userId, portfolioCardId, Number(nextOrder.rows[0]?.n ?? 0), caption || null],
+    );
+    return (result.rowCount ?? 0) > 0;
+  });
 }
 
-export async function removeFromShowcase(userId: string, portfolioCardId: string): Promise<void> {
-  await query(`DELETE FROM showcase_cards WHERE user_id=$1 AND portfolio_card_id=$2`, [userId, portfolioCardId]);
+export async function removeFromShowcase(userId: string, portfolioCardId: string): Promise<boolean> {
+  return transaction(async (tx) => {
+    await tx(`SELECT id FROM users WHERE id=$1 FOR UPDATE`, [userId]);
+    const selected = await tx(
+      `SELECT id, public_id, passport_public, passport_notice_version
+         FROM showcase_cards
+        WHERE user_id=$1 AND portfolio_card_id=$2
+        FOR UPDATE`,
+      [userId, portfolioCardId],
+    );
+    const item = selected.rows[0];
+    if (!item) return false;
+    if (item.passport_public) {
+      await tx(
+        `INSERT INTO collector_passport_publication_log
+           (showcase_card_id, public_id, actor_user_id, action, notice_version)
+         VALUES ($1, $2, $3, 'withdrawn', $4)`,
+        [item.id, item.public_id, userId, item.passport_notice_version ?? COLLECTOR_PASSPORT_NOTICE_VERSION],
+      );
+      // Clear selection before DELETE so the fallback trigger cannot append a
+      // second receipt. The authenticated application path owns this actor.
+      await tx(
+        `UPDATE showcase_cards
+            SET passport_public=FALSE,
+                passport_published_at=NULL,
+                passport_notice_version=NULL,
+                updated_at=NOW()
+          WHERE id=$1`,
+        [item.id],
+      );
+    }
+    const removed = await tx(
+      `DELETE FROM showcase_cards
+        WHERE user_id=$1 AND portfolio_card_id=$2
+        RETURNING id`,
+      [userId, portfolioCardId],
+    );
+    return (removed.rowCount ?? 0) > 0;
+  });
 }
 
 // ══════════════════════════════════════════════════════════════

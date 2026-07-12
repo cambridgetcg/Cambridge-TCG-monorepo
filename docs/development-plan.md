@@ -321,6 +321,24 @@ From `apps/storefront/CLAUDE.md` "Current Priorities":
 4. **SEO improvements.**
 5. **Mobile responsiveness polish.**
 
+Collector-data slice built on `codex/collector-passport` (2026-07-12; not yet
+deployed):
+
+- **Collector Passport** — private showcase drafts become revocable,
+  collector-authored text highlights only. Exact-handle API; no catalog fields,
+  image, holding, value, directory or bulk people surface. Owner-only portable
+  JSON archive excludes mixed-source display fields.
+- **Collector Media Vault** — isolated owner-only normalized-photo service,
+  dedicated private S3/KMS/credentials, default off. Existing public and
+  sensitive upload pauses remain unchanged.
+- **Source Rights Workbench** — append-only exact field/purpose review proposals
+  for operators. Proposals never override the deployed data-ingest registry;
+  there is no activation endpoint.
+
+Migrations 0120–0122 and every operational gate must be reviewed and applied in
+order before enabling these surfaces. The media panel mounts only when its
+dedicated mode is explicitly `read-only` or `on`.
+
 ### 5.2 Admin (migration punchlist)
 
 Full list in [`docs/admin-migration-punchlist.md`](./admin-migration-punchlist.md). Tier 1 = high-traffic queues; copy is mechanical from legacy pages.

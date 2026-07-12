@@ -78,6 +78,7 @@ const SPEC = {
     { name: "search", description: "Bounded SKU resolution. The amplified search-everything convenience route is paused." },
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
     { name: "community-directory", description: "Consent-receipted, roster-free organisation discovery. Records are self-attested and not independently verified." },
+    { name: "collector-passport", description: "Exact-handle, receipt-backed collector-authored highlights. Text-only, self-attested, unverified, no directory or catalog projection." },
   ],
   paths: {
     "/api/v1/culture/artbitrage": {
@@ -767,6 +768,69 @@ const SPEC = {
           "200": { description: "Pantry envelope containing one CommunityOrganisation.", content: { "application/json": { schema: { $ref: "#/components/schemas/CommunityOrganisationDetailResponse" } } } },
           "404": { description: "No currently directory-published organisation at that slug.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "503": { description: "Directory source unavailable.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/collectors/{username}/passport": {
+      get: {
+        tags: ["collector-passport"],
+        summary: "Get one current Collector Passport by exact handle",
+        description: "Returns only separately collector-authored labels and stories under current per-item publication receipts. Self-attested and unverified. No separate structured or automatically copied SKU, catalog, image, holding, acquisition, value or internal-id fields; collector text may mention a card. No people search, directory or bulk surface. Unknown, private, suspended, empty and withdrawn profiles share one 404 shape. Responses are no-store and NOASSERTION; see /licenses/collector-passport-public-display-v1.",
+        operationId: "getCollectorPassport",
+        "x-data-license": {
+          name: "NOASSERTION",
+          url: "https://cambridgetcg.com/licenses/collector-passport-public-display-v1",
+        },
+        parameters: [
+          { name: "username", in: "path", required: true, schema: { type: "string", pattern: "^[a-z0-9_]{1,30}$" }, description: "Exact public profile handle; there is no browse or search endpoint." },
+        ],
+        responses: {
+          "200": {
+            description: "Current collector-authored Passport projection.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["schema", "passport", "publication", "does_not_include"],
+                  properties: {
+                    schema: { const: "cambridge.collector-passport/1" },
+                    passport: {
+                      type: "object",
+                      additionalProperties: false,
+                      required: ["username", "status", "published_item_count", "items"],
+                      properties: {
+                        username: { type: "string" },
+                        status: { const: "self_attested_unverified" },
+                        published_item_count: { type: "integer", minimum: 1, maximum: 12 },
+                        items: {
+                          type: "array",
+                          maxItems: 12,
+                          items: {
+                            type: "object",
+                            additionalProperties: false,
+                            required: ["public_id", "label", "story", "display_order", "published_at", "updated_at"],
+                            properties: {
+                              public_id: { type: "string", format: "uuid" },
+                              label: { type: "string", minLength: 1, maxLength: 120 },
+                              story: { type: ["string", "null"], maxLength: 500 },
+                              display_order: { type: "integer", minimum: 0 },
+                              published_at: { type: "string", format: "date-time" },
+                              updated_at: { type: "string", format: "date-time" },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    publication: { type: "object", additionalProperties: true },
+                    does_not_include: { type: "array", items: { type: "string" } },
+                  },
+                },
+              },
+            },
+          },
+          "404": { description: "No currently published Passport at that exact handle.", content: { "application/json": { schema: { type: "object", required: ["error"], properties: { error: { type: "string" } } } } } },
+          "503": { description: "Passport source unavailable; no empty result is fabricated.", content: { "application/json": { schema: { type: "object", required: ["error"], properties: { error: { type: "string" } } } } } },
         },
       },
     },
