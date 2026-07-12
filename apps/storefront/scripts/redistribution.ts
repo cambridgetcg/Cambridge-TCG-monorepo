@@ -96,6 +96,10 @@ const REDISTRIBUTABLE_LICENSES = new Set(["cc0", "cc-by", "cc-by-sa", "mit"]);
 const FIRST_PARTY_CC0_ORIGINS = new Set([
   "storefront-rds.market_trades",
   "storefront-rds.auctions",
+  // Cambridge's own authored registry of dataset descriptions (lib/datasets.ts).
+  // It DESCRIBES datasets of varying licences but the descriptions themselves
+  // are our own → CC0. It carries no upstream bytes.
+  "cambridge-tcg.dataset-registry",
 ]);
 
 // ── The reviewed standard: CC0 export surfaces → their origins ───────────
@@ -122,6 +126,15 @@ const CC0_EXPORT_SURFACES: Cc0Surface[] = [
       "Realised peer-to-peer sold comps: our own users' completed trades + " +
       "auction finals on our own platform. First-party CC0 — no upstream " +
       "licence to honour. eBay/partner comps are NOT admitted to this surface.",
+  },
+  {
+    surface: "/api/v1/datasets",
+    origins: ["cambridge-tcg.dataset-registry"],
+    note:
+      "The dataset catalog. Its CC0 envelope covers only our own authored " +
+      "dataset descriptions (lib/datasets.ts); each listed dataset carries its " +
+      "own licence in-band (notably the card catalogue stays NOASSERTION). The " +
+      "catalog cites no upstream bytes, so CC0 is honest for the metadata.",
   },
 ];
 

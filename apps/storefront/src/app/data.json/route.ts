@@ -225,6 +225,23 @@ const ENDPOINTS: EndpointEntry[] = [
     status: "shipped",
     auth: "none",
   },
+
+  // ── The commons as datasets ─────────────────────────────────────────
+  {
+    path: "/api/v1/datasets",
+    title: "Dataset catalog (machine-readable)",
+    blurb:
+      "The datasets we publish, each with its TRUE licence (first-party CC0; card catalogue NOASSERTION), coverage, fields, and distributions. Add ?format=jsonld for a schema.org/DataCatalog graph for dataset-search indexers.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/datasets",
+    title: "Dataset catalog (human-readable)",
+    blurb: "The commons as datasets, not endpoints. Inline schema.org/DataCatalog for crawlers. See docs/connections/the-finding.md.",
+    status: "shipped",
+    auth: "none",
+  },
 ];
 
 interface DataIndex {

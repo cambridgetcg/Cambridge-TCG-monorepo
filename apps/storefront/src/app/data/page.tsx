@@ -216,6 +216,25 @@ const ENDPOINTS: Endpoint[] = [
     shape: "JSON: { spec_version, generated_at, doctrine, conventions, self_reference, counts, endpoints }",
   },
 
+  // ── The commons as datasets (not just endpoints) ────────────────────
+  {
+    path: "/datasets",
+    title: "Dataset catalog (human-readable)",
+    blurb:
+      "The commons as datasets, not routes: each dataset we publish with its TRUE licence, temporal coverage, fields, and where to get it. First-party operational data is CC0; the bulk card catalogue is NOASSERTION. Carries an inline schema.org/DataCatalog block for Google Dataset Search. See docs/connections/the-finding.md.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/datasets",
+    title: "Dataset catalog (machine-readable)",
+    blurb:
+      "The dataset registry as JSON (data-pantry envelope, CC0 metadata). Add ?format=jsonld for a bare schema.org/DataCatalog graph aimed at dataset-search indexers and AI crawlers. Each dataset carries its own licence in-band.",
+    status: "shipped",
+    auth: "none",
+    shape: "JSON: { data: { datasets: [{ id, name, license, tier, distributions, variable_measured, ... }], discovery }, _meta }",
+  },
+
   // ── Self-identification ─────────────────────────────────────────────
   {
     path: "/api/v1/identify",
