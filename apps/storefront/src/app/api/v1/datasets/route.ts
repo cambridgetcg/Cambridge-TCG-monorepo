@@ -18,8 +18,10 @@ import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { DATASETS, toDataCatalogJsonLd } from "@/lib/datasets";
 
-export const dynamic = "force-static";
-export const revalidate = 86400;
+// Dynamic (not force-static): the ?format=jsonld branch reads the query
+// string, so the route must render per-request. It's cheap and pure — both
+// branches set explicit Cache-Control, so the CDN still caches each variant.
+export const dynamic = "force-dynamic";
 
 export function GET(request: Request): NextResponse {
   const format = new URL(request.url).searchParams.get("format");
