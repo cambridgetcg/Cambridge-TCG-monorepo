@@ -272,3 +272,16 @@ describe("bandaiEn.read", () => {
     expect(bandaiEn.meta.games).toEqual(["op", "dbf", "dmw", "una", "bsr"]);
   });
 });
+
+describe("reprint suffix (_r1) — EB01 Memorial Collection, live 2026-07-12", () => {
+  it("parses EB01-009_r1 as card EB01-009 with variant r1", () => {
+    const html = `<dl class="modalCol" id="EB01-009_r1"><dt><div class="infoCol"><span>EB01-009</span> | <span>SR</span> | <span>CHARACTER</span></div><div class="cardName">Nami</div></dt><dd><div class="frontCol"><img data-src="../images/cardlist/card/EB01-009_r1.png?250301" src="dummy.gif"></div></dd></dl>`;
+    const cards = parseCardlistPage(html);
+    expect(cards).toHaveLength(1);
+    expect(cards[0].card_number).toBe("EB01-009");
+    expect(cards[0].parallel).toBe("r1");
+    // image_url resolution needs the page base URL — covered by the
+    // fixture-based tests above; this minimal block only guards the
+    // _r-suffix split.
+  });
+});

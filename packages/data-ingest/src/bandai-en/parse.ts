@@ -98,7 +98,11 @@ const NAME_RE = /<div class="cardName">([\s\S]*?)<\/div>/;
 const IMAGE_RE = /data-src="([^"]*\/card\/[^"]+)"/;
 const COST_RE = /<div class="cost">\s*<h3>(Cost|Life)<\/h3>([\s\S]*?)<\/div>/;
 const ATTRIBUTE_RE = /<div class="attribute">[\s\S]*?<i>([^<]*)<\/i>/;
-const CARD_ID_RE = /^(.+?)_(p\d+)$/;
+// _p1 = parallel art; _r1 = reprint marker (EB01 Memorial Collection
+// discovered live 2026-07-12 — 50 real cards quarantined without it).
+// Both keep the official suffix as the variant tail, matching the
+// publisher's own image naming.
+const CARD_ID_RE = /^(.+?)_([pr]\d+)$/;
 
 /**
  * Parse every card block on a series page. Pure — the caller stamps
